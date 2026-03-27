@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: help-tokens
-Version: 3.2.0
+Version: 4.0.0
 Summary: Django app for linking to help pages with short tokens
 Home-page: https://github.com/openedx/help-tokens
 Author: edX
@@ -208,6 +208,10 @@ Change Log
    This project adheres to Semantic Versioning (http://semver.org/).
 
 .. There should always be an "Unreleased" section for changes pending release.
+
+[4.0.0] - 2026-03-26
+====================
+* Dropped support for Python 3.11.
 
 [3.2.0] - 2025-04-21
 ====================

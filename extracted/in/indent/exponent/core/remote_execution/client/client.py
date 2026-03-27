@@ -28,6 +28,9 @@ from exponent.core.remote_execution.background_tracker import (
     BackgroundProcessTracker,
     TrackedProcess,
 )
+from exponent.core.remote_execution.blit_terminal_server import (
+    BlitTerminalServer,
+)
 from exponent.core.remote_execution.cli_rpc_types import (
     BackgroundProcessCompletedNotification,
     BashToolInput,
@@ -45,6 +48,8 @@ from exponent.core.remote_execution.cli_rpc_types import (
     HttpRequest,
     ListTerminalsRequest,
     ListTerminalsResponse,
+    StartBlitTerminalRequest,
+    StartBlitTerminalResponse,
     StartTerminalRequest,
     StartTerminalResponse,
     StopTerminalRequest,
@@ -125,6 +130,7 @@ class RemoteExecutionClient:
 
         self._background_tracker = BackgroundProcessTracker(on_complete=self._on_background_process_complete)
         self._terminal_controller: TerminalControllerServer | None = None
+        self._blit_terminal_server: BlitTerminalServer | None = None
 
         self._executed_idempotency_keys: set[str] = set()
 
@@ -341,6 +347,41 @@ class RemoteExecutionClient:
                 )
             )
             return SwitchCLIChat(new_chat_uuid=request.request.new_chat_uuid)
+        elif isinstance(request.request, StartBlitTerminalRequest):
+            response: StartBlitTerminalResponse
+            if self._blit_terminal_server is None:
+                response = StartBlitTerminalResponse(
+                    success=False,
+                    error_message="Blit terminal server is not available",
+                )
+            else:
+                try:
+                    pty_id = await self._blit_terminal_server.start_tagged_terminal(
+                        rows=request.request.rows,
+                        cols=request.request.cols,
+                        tag=request.request.tag,
+                        command=request.request.command,
+                    )
+                    response = StartBlitTerminalResponse(success=True, pty_id=pty_id)
+                except Exception as e:
+                    response = StartBlitTerminalResponse(
+                        success=False,
+                        error_message=str(e),
+                    )
+            await websocket.send(
+                json.dumps(
+                    {
+                        "type": "result",
+                        "data": msgspec.to_builtins(
+                            CliRpcResponse(
+                                request_id=request.request_id,
+                                response=response,
+                            )
+                        ),
+                    }
+                )
+            )
+            return None
         elif isinstance(request.request, StartTerminalRequest):
             session_id = await terminal_session_manager.start_session(
                 websocket=websocket,
@@ -686,6 +727,24 @@ class RemoteExecutionClient:
         except OSError:
             logger.debug("Failed to set TCP keepalive options", exc_info=True)
 
+    async def _start_optional_blit_terminal_server(
+        self,
+        terminal_controller_socket_path: str,
+    ) -> BlitTerminalServer | None:
+        blit_terminal_server = BlitTerminalServer.from_terminal_controller_socket(terminal_controller_socket_path)
+        try:
+            await blit_terminal_server.start()
+        except Exception:
+            logger.warning(
+                "Failed to start blit terminal server, falling back to legacy terminal controller",
+                extra={"terminal_controller_socket_path": terminal_controller_socket_path},
+                exc_info=True,
+            )
+            await blit_terminal_server.stop()
+            return None
+
+        return blit_terminal_server
+
     async def run_connection(
         self,
         chat_uuid: str,
@@ -706,6 +765,8 @@ class RemoteExecutionClient:
         terminal_session_manager = TerminalSessionManager(terminal_output_queue)
 
         terminal_controller: TerminalControllerServer | None = None
+        blit_terminal_server: BlitTerminalServer | None = None
+        self._blit_terminal_server = None
         if terminal_controller_socket_path:
 
             async def _on_input(session_id: str, data: str) -> None:
@@ -726,6 +787,8 @@ class RemoteExecutionClient:
                 on_start_terminal=_on_start_terminal,
             )
             await terminal_controller.start()
+            blit_terminal_server = await self._start_optional_blit_terminal_server(terminal_controller_socket_path)
+            self._blit_terminal_server = blit_terminal_server
         self._terminal_controller = terminal_controller
 
         executors = await self._setup_tasks(beats, requests, results)
@@ -762,6 +825,10 @@ class RemoteExecutionClient:
 
             return WSDisconnected(error_message="Could not establish websocket connection")
         finally:
+            self._blit_terminal_server = None
+            if blit_terminal_server is not None:
+                await blit_terminal_server.stop()
+
             if terminal_controller is not None:
                 await terminal_controller.stop()
 
@@ -887,7 +954,9 @@ class RemoteExecutionClient:
                         raw_result = bash_result
                 else:
                     raw_result = await execute_tool(request.request.tool_input, self.working_directory, self)
-                tool_result = truncate_result(raw_result)
+                tool_result = (
+                    raw_result if request.request.tool_input.skip_result_truncation() else truncate_result(raw_result)
+                )
                 response = CliRpcResponse(
                     request_id=request.request_id,
                     response=ToolExecutionResponse(
@@ -939,7 +1008,10 @@ class RemoteExecutionClient:
                             )
                         processed_results.append(truncate_result(result.result))
                     else:
-                        processed_results.append(truncate_result(result))
+                        tool_input = tool_inputs[i]
+                        processed_results.append(
+                            result if tool_input.skip_result_truncation() else truncate_result(result)
+                        )
 
                 response = CliRpcResponse(
                     request_id=request.request_id,

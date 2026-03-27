@@ -564,7 +564,26 @@ async def handle_mission_patch_plan(
     ]
 
     artifact_context = session.get("referenced_artifacts") or []
-    patch = await compile_patch(instruction, items_for_compiler, _ai_service, artifact_context=artifact_context)
+
+    # Enrich instruction with profile context if the session has one.
+    # Validate the profile name against the known registry to prevent
+    # prompt injection via crafted session metadata.
+    enriched_instruction = instruction
+    session_meta = session.get("metadata") or {}
+    profile_name = session_meta.get("execution_profile")
+    if profile_name and isinstance(profile_name, str):
+        from ..services.mission_profiles import _BUILTIN_PROFILES
+
+        if profile_name in _BUILTIN_PROFILES:
+            enriched_instruction = (
+                f"[Profile context: this mission uses the '{profile_name}' execution profile. "
+                f"When changing adapter bindings, prefer workflows matching this profile's style.]\n\n"
+                f"{instruction}"
+            )
+
+    patch = await compile_patch(
+        enriched_instruction, items_for_compiler, _ai_service, artifact_context=artifact_context
+    )
 
     if not patch.operations:
         return {"message": "No operations compiled from instruction", "operations": []}

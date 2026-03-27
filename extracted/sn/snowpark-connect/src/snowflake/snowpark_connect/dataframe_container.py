@@ -56,6 +56,7 @@ class DataFrameContainer:
         alias: str | None = None,
         cached_schema_getter: Callable[[], StructType] | None = None,
         partition_hint: int | None = None,
+        dataframe_hint: str | None = None,
         can_be_cached: bool = True,
         can_be_materialized: bool = True,
         aggregate_metadata: AggregateMetadata | None = None,
@@ -70,6 +71,7 @@ class DataFrameContainer:
             alias: Optional alias for the DataFrame
             cached_schema_getter: Optional function to get cached schema
             partition_hint: Optional partition count from repartition() operations
+            dataframe_hint: Optional hint name (e.g. "directed") from DataFrame.hint()
             aggregate_metadata: Optional metadata about aggregation for ORDER BY resolution
         """
         self._dataframe = dataframe
@@ -77,6 +79,7 @@ class DataFrameContainer:
         self._table_name = table_name
         self._alias = alias
         self._partition_hint = partition_hint
+        self._dataframe_hint = dataframe_hint
         self._can_be_cached = can_be_cached
         self._can_be_materialized = can_be_materialized
         self._aggregate_metadata = aggregate_metadata
@@ -235,6 +238,16 @@ class DataFrameContainer:
     def partition_hint(self, value: int | None) -> None:
         """Set the partition hint count."""
         self._partition_hint = value
+
+    @property
+    def dataframe_hint(self) -> str | None:
+        """Get the uppercased hint name (e.g. 'DIRECTED')."""
+        return self._dataframe_hint.upper() if self._dataframe_hint else None
+
+    @dataframe_hint.setter
+    def dataframe_hint(self, value: str | None) -> None:
+        """Set the hint name."""
+        self._dataframe_hint = value
 
     def _create_default_column_map(
         self, column_map: ColumnNameMap | None

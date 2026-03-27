@@ -1,6 +1,6 @@
 [project]
 name = "sybil"
-version = "10.0.0"
+version = "10.0.1"
 description = "Automated testing for the examples in your code and documentation."
 readme = "README.rst"
 authors = [{ name = "Chris Withers", email = "chris@withers.org" }]
@@ -21,6 +21,7 @@ Changelog = "https://sybil.readthedocs.io/en/latest/changes.html"
 
 [project.optional-dependencies]
 pytest = ["pytest>=8"]
+myst = ["pyyaml>=6.0.3"]
 
 [dependency-groups]
 dev = [

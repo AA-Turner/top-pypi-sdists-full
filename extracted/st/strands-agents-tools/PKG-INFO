@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents-tools
-Version: 0.2.23
+Version: 0.3.0
 Summary: A collection of specialized tools for Strands Agents
 Project-URL: Homepage, https://github.com/strands-agents/tools
 Project-URL: Bug Tracker, https://github.com/strands-agents/tools/issues
@@ -1233,6 +1233,12 @@ The Mem0 Memory Tool supports three different backend configurations:
 | Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | ENV_VARS_MASKED_DEFAULT | Default setting for masking sensitive values | true |
+
+#### HTTP Request Tool
+
+| Environment Variable | Description | Default |
+|----------------------|-------------|---------|
+| STRANDS_HTTP_ALLOW_INSECURE_SSL | Allow disabling SSL certificate verification via verify_ssl parameter | false |
 
 #### Dynamic MCP Client Tool
 

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.monitoring_v3.types import uptime
@@ -109,12 +109,12 @@ class ListUptimeCheckConfigsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    uptime_check_configs: MutableSequence[
-        uptime.UptimeCheckConfig
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=uptime.UptimeCheckConfig,
+    uptime_check_configs: MutableSequence[uptime.UptimeCheckConfig] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=uptime.UptimeCheckConfig,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

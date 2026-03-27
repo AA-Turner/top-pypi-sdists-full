@@ -478,21 +478,37 @@ def _process_combination(obj, country, scale, crop, growing_season):
 
     # Read boundary shapefile ONCE, filter to current country
     boundary_gdf = None
+    region_gdf = None
     try:
         import geopandas as gpd
+        country_norm = obj.country.replace("_", " ").lower()
+
         boundary_path = obj.dir_boundary_files / obj.parser.get(obj.country, "boundary_file")
         if boundary_path.exists():
             gdf = gpd.read_file(boundary_path, engine="pyogrio")
             adm0_col = next((c for c in ["ADM0_NAME", "ADMIN0", "name0"] if c in gdf.columns), None)
             if adm0_col:
-                country_norm = obj.country.replace("_", " ").lower()
                 mask = gdf[adm0_col].str.lower().str.replace("_", " ") == country_norm
                 boundary_gdf = gdf[mask].copy()
-                # Clip antimeridian wraparound (e.g., Russia's Chukotka past 180°E)
+                # Clip antimeridian wraparound (e.g., Russia/USA spanning dateline)
                 b = boundary_gdf.total_bounds
                 if b[2] - b[0] > 300:
                     from shapely.geometry import box
-                    boundary_gdf = gpd.clip(boundary_gdf, box(0, b[1], 180, b[3]))
+                    cx = boundary_gdf.geometry.centroid.x
+                    if (cx >= 0).sum() > (cx < 0).sum():
+                        clip_box = box(0, b[1], 180, b[3])
+                    else:
+                        clip_box = box(-180, b[1], 0, b[3])
+                    boundary_gdf = gpd.clip(boundary_gdf, clip_box)
+
+        # Read calendar-region shapefile for district highlighting
+        region_path = obj.dir_boundary_files / obj.parser.get(obj.country, "shp_region")
+        if region_path.exists():
+            rgdf = gpd.read_file(region_path, engine="pyogrio")
+            radm0 = next((c for c in ["ADM0_NAME", "ADMIN0", "name0"] if c in rgdf.columns), None)
+            if radm0:
+                rmask = rgdf[radm0].str.lower().str.replace("_", " ") == country_norm
+                region_gdf = rgdf[rmask].copy()
     except Exception:
         pass
 
@@ -611,6 +627,17 @@ def _process_combination(obj, country, scale, crop, growing_season):
                     district_pct = region_shares.sum()
 
             if not df_agg.empty:
+                # Extract calendar-region geometry for district highlighting
+                highlight_gdf = None
+                if region_gdf is not None:
+                    rname_col = next(
+                        (c for c in ["Name", "name", "NAME"] if c in region_gdf.columns), None
+                    )
+                    if rname_col:
+                        cal_norm = cal_region.replace("_", " ").lower()
+                        hmask = region_gdf[rname_col].str.lower().str.replace("_", " ") == cal_norm
+                        highlight_gdf = region_gdf[hmask]
+
                 plot.AgmetPlotter(
                     df_agg,
                     obj.eo_plot,
@@ -625,6 +652,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
                     country=obj.country,
                     region=cal_region,
                     boundary_gdf=boundary_gdf,
+                    highlight_gdf=highlight_gdf,
                 ).plot()
 
 

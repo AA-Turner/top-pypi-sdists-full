@@ -13,7 +13,6 @@ import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 from pyspark.errors.exceptions.base import AnalysisException
 
 from snowflake import snowpark
-from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
 from snowflake.snowpark.types import StructType
 from snowflake.snowpark_connect.config import global_config
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
@@ -36,6 +35,9 @@ from snowflake.snowpark_connect.relation.read.reader_config import (
     XmlReaderConfig,
 )
 from snowflake.snowpark_connect.relation.stage_locator import get_paths_from_stage
+from snowflake.snowpark_connect.relation.utils import (
+    assert_sf_connector_context_matches,
+)
 from snowflake.snowpark_connect.type_mapping import (
     _parse_ddl_with_spark_scala,
     map_json_schema_to_snowpark,
@@ -144,71 +146,19 @@ def map_read(
                         # See neo4j_utils.py for pros/cons of this approach
                         jdbc_options = transform_neo4j_to_jdbc_options(options, "read")
                         return map_read_jdbc(rel, session, jdbc_options)
-                    case "net.snowflake.spark.snowflake":
+                    case "net.snowflake.spark.snowflake" | "snowflake":
                         options = {k.lower(): v for k, v in options.items()}
                         QUERY_OPTION = "query"
                         DBTABLE_OPTION = "dbtable"
 
-                        def _identifiers_match(
-                            desired: str, current: str | None
-                        ) -> bool:
-                            if current is None:
-                                return False
-
-                            desired_unquoted = unquote_if_quoted(desired)
-                            current_unquoted = unquote_if_quoted(current)
-                            desired_was_quoted = desired != desired_unquoted
-
-                            # If both are quoted, exact match required. session.get* always returns quoted identifier
-                            # name.
-                            if desired_was_quoted:
-                                return desired == current
-
-                            return desired_unquoted.upper() == current_unquoted
-
-                        if "sfrole" in options:
-                            desired_role = options["sfrole"]
-                            current_role = session.get_current_role()
-                            if not _identifiers_match(desired_role, current_role):
-                                logger.warning(
-                                    f"Changing Role from {current_role} to {desired_role} via "
-                                    "options. This will change the role for the entire session."
-                                )
-                                session.use_role(desired_role)
-
-                        if "sfwarehouse" in options:
-                            desired_warehouse = options["sfwarehouse"]
-                            current_warehouse = session.get_current_warehouse()
-                            if not _identifiers_match(
-                                desired_warehouse, current_warehouse
-                            ):
-                                logger.warning(
-                                    f"Changing Warehouse from {current_warehouse} to {desired_warehouse} via "
-                                    "options. This will change the warehouse for the entire session."
-                                )
-                                session.use_warehouse(desired_warehouse)
-
-                        if "sfdatabase" in options:
-                            desired_database = options["sfdatabase"]
-                            current_database = session.get_current_database()
-                            if not _identifiers_match(
-                                desired_database, current_database
-                            ):
-                                logger.warning(
-                                    f"Changing Database from {current_database} to {desired_database} via "
-                                    "options. This will change the database for the entire session."
-                                )
-                                session.use_database(desired_database)
-
-                        if "sfschema" in options:
-                            desired_schema = options["sfschema"]
-                            current_schema = session.get_current_schema()
-                            if not _identifiers_match(desired_schema, current_schema):
-                                logger.warning(
-                                    f"Changing Schema from {current_schema} to {desired_schema} via "
-                                    "options. This will change the schema for the entire session."
-                                )
-                                session.use_schema(desired_schema)
+                        # Reads return a lazy DataFrame — the SQL is not sent to
+                        # Snowflake until the client triggers an action (collect,
+                        # show, …).  Mutating session context here would leave
+                        # the lazy plan evaluating against the wrong context.
+                        # Instead: sfUser/sfRole/sfWarehouse must match the session
+                        # (error otherwise); sfDatabase/sfSchema must also match
+                        # (error with FQN instruction otherwise).
+                        assert_sf_connector_context_matches(session, options)
                         if QUERY_OPTION in options.keys():
                             from .map_read_table import get_table_from_query
 

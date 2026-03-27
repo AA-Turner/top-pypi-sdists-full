@@ -142,6 +142,7 @@ from snowflake.snowpark_connect.utils.context import (
 )
 from snowflake.snowpark_connect.utils.jvm_udf_utils import to_json
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
     telemetry,
@@ -497,7 +498,8 @@ def map_unresolved_function(
 
     # Check if this is a UDTF call and set context before resolving arguments
     function_name = exp.unresolved_function.function_name.lower()
-    is_udtf_call = function_name in session._udtfs
+    cache = get_spark_session_cache()
+    is_udtf_call = cache.udtfs.has(function_name)
 
     # Inject default parameters for functions that need them (especially for Scala clients)
     inject_function_defaults(exp.unresolved_function)
@@ -724,9 +726,8 @@ def map_unresolved_function(
         ).otherwise(snowpark_fn.cast(xpath_udf_expression, cast_type))
 
     match function_name:
-        case func_name if func_name.lower() in session._udfs:
-            # In Spark, UDFs can override built-in functions
-            udf = session._udfs[func_name.lower()]
+        case func_name if cache.udfs.has(func_name.lower()):
+            udf = cache.udfs.get(func_name.lower())
             udf_args = [
                 scala_udf_arg_to_variant(arg, tc.typ)
                 if udf.is_scala
@@ -745,9 +746,9 @@ def map_unresolved_function(
             else:
                 result_type = udf.return_type
         case func_name if (
-            get_is_evaluating_sql() and func_name.lower() in session._udtfs
+            get_is_evaluating_sql() and cache.udtfs.has(func_name.lower())
         ):
-            udtf, spark_col_names = session._udtfs[func_name.lower()]
+            udtf, spark_col_names = cache.udtfs.get(func_name.lower())
             result_exp = snowpark_fn.call_table_function(
                 udtf.name,
                 *(snowpark_fn.cast(arg, VariantType()) for arg in snowpark_args),
@@ -1992,7 +1993,6 @@ def map_unresolved_function(
                     snowpark_fn.cast(result_exp, ArrayType(element_type)),
                     lambda: [ArrayType(element_type)],
                 )
-                result_type = ArrayType(element_type)
         case "array_append":
             result_exp = TypedColumn(
                 snowpark_fn.array_append(snowpark_args[0], snowpark_args[1]),
@@ -2704,7 +2704,7 @@ def map_unresolved_function(
                     exception = ArithmeticException(
                         '[ARITHMETIC_OVERFLOW] Overflow. If necessary set "spark.sql.ansi.enabled" to "false" to bypass this error.'
                     )
-                    attach_custom_error_code(exception, ErrorCodes.ARITHMETIC_ERROR)
+                    attach_custom_error_code(exception, ErrorCodes.ARITHMETIC_OVERFLOW)
                     raise exception
 
             match snowpark_typed_args[0].typ:
@@ -2869,15 +2869,21 @@ def map_unresolved_function(
                     # NUMBER(19,0)) to NUMBER(38,0) instead of the expected
                     # NUMBER(19,0).  The CAST normalises the Snowflake
                     # precision to match Snowpark's type model.
-                    coerced_args = [
-                        arg
-                        if (
-                            snowpark_typed_args[i].typ == result_type
-                            and not isinstance(result_type, _IntegralType)
-                        )
-                        else arg.cast(result_type)
-                        for i, arg in enumerate(snowpark_args)
-                    ]
+                    coerced_args = []
+                    for i, arg in enumerate(snowpark_args):
+                        arg_type = snowpark_typed_args[i].typ
+                        if arg_type == result_type and not isinstance(
+                            result_type, _IntegralType
+                        ):
+                            coerced_args.append(arg)
+                        elif isinstance(arg_type, NullType) or _is_null_typed_container(
+                            arg_type
+                        ):
+                            coerced_args.append(
+                                _coerce_null_typed_expr(arg, arg_type, result_type)
+                            )
+                        else:
+                            coerced_args.append(arg.cast(result_type))
                     result_exp = snowpark_fn.coalesce(*coerced_args)
         case "collect_list" | "array_agg":
             # TODO: SNOW-1967177 - Support structured types in array_agg
@@ -2968,120 +2974,17 @@ def map_unresolved_function(
 
             result_exp = TypedColumn(arg1.contains(arg2), lambda: [BooleanType()])
         case "conv":
-            # Limitation: overflow exceptions are currently only supported when literals are given to conv
-            if (
-                spark_sql_ansi_enabled
-                and exp.unresolved_function.arguments[0].WhichOneof("expr_type")
-                == "literal"
-                and exp.unresolved_function.arguments[1].WhichOneof("expr_type")
-                == "literal"
-            ):
-                if _does_number_overflow(
-                    Decimal(
-                        int(
-                            str(snowpark_args[0]._expression.value),
-                            int(snowpark_args[1]._expression.value),
-                        ),
-                    ),
-                    ULongLong(),
-                ):
-                    exception = ArithmeticException(
-                        '[ARITHMETIC_OVERFLOW] Overflow in function conv(). If necessary set "spark.sql.ansi.enabled" to "false" to bypass this error.'
-                    )
-                    attach_custom_error_code(exception, ErrorCodes.ARITHMETIC_ERROR)
-                    raise exception
+            val_col = snowpark_args[0]
+            from_base_val = int(snowpark_args[1]._expression.value)
+            to_base_val = int(snowpark_args[2]._expression.value)
 
-            # Check if from_base and to_base are literals for SQL optimization
-            from_base_is_literal = (
-                exp.unresolved_function.arguments[1].WhichOneof("expr_type")
-                == "literal"
+            result_exp = snowpark_fn.function("snowpark_conv")(
+                val_col,
+                from_base_val,
+                to_base_val,
+                spark_sql_ansi_enabled,
             )
-            to_base_is_literal = (
-                exp.unresolved_function.arguments[2].WhichOneof("expr_type")
-                == "literal"
-            )
-
-            use_sql_optimization = False
-            if from_base_is_literal and to_base_is_literal:
-                from_base_val = int(snowpark_args[1]._expression.value)
-                to_base_val = int(snowpark_args[2]._expression.value)
-
-                if from_base_val == 10 and to_base_val == 16:
-                    # Decimal to Hex: use native SQL TO_VARCHAR with hex format
-                    val_col = snowpark_args[0]
-                    result_exp = snowpark_fn.iff(
-                        snowpark_fn.is_null(val_col),
-                        None,
-                        snowpark_fn.coalesce(
-                            snowpark_fn.ltrim(
-                                snowpark_fn.to_varchar(
-                                    snowpark_fn.try_cast(snowpark_args[0], LongType()),
-                                    "XXXXXXXXXXXXXXXX",
-                                ),
-                                snowpark_fn.lit(" "),
-                            ),
-                            snowpark_fn.lit("0"),
-                        ),
-                    )
-                    result_exp = TypedColumn(result_exp, lambda: [StringType()])
-                    use_sql_optimization = True
-                elif from_base_val == 16 and to_base_val == 10:
-                    # Hex to Decimal: use native SQL TO_NUMBER with hex format
-                    val_col = snowpark_fn.cast(snowpark_args[0], StringType())
-                    result_exp = snowpark_fn.to_varchar(
-                        snowpark_fn.iff(
-                            snowpark_fn.is_null(val_col),
-                            None,
-                            snowpark_fn.coalesce(
-                                snowpark_fn.function("try_to_number")(
-                                    val_col,
-                                    snowpark_fn.repeat(
-                                        snowpark_fn.lit("X"),
-                                        snowpark_fn.length(val_col),
-                                    ),
-                                ),
-                                snowpark_fn.lit("0"),
-                            ),
-                        )
-                    )
-                    result_exp = TypedColumn(result_exp, lambda: [StringType()])
-                    use_sql_optimization = True
-
-            # Fallback to Python UDF for other bases or non-literal bases
-            if not use_sql_optimization:
-
-                @cached_udf(
-                    input_types=[
-                        StringType(),
-                        LongType(),
-                        LongType(),
-                    ],
-                    return_type=StringType(),
-                )
-                def _to_conv_udf(val, from_base, to_base):
-                    try:
-                        if val is None:
-                            return None
-                        num = int(val, base=from_base)
-                        if num == 0:
-                            return "0"
-                        is_negative = num < 0
-                        digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                        result = ""
-                        num = abs(num)
-                        while num > 0:
-                            result = digits[num % to_base] + result
-                            num //= to_base
-                        return "-" + result if is_negative else result
-                    except (ValueError, TypeError):
-                        return "0"
-
-                result_exp = _to_conv_udf(
-                    snowpark_fn.cast(snowpark_args[0], StringType()),
-                    snowpark_fn.cast(snowpark_args[1], LongType()),
-                    snowpark_fn.cast(snowpark_args[2], LongType()),
-                )
-                result_exp = TypedColumn(result_exp, lambda: [StringType()])
+            result_exp = TypedColumn(result_exp, lambda: [StringType()])
 
         case "convert_timezone":
             if len(snowpark_args) == 3:
@@ -6310,95 +6213,77 @@ def map_unresolved_function(
                 )
                 result_type = ArrayType(arg_type.value_type)
         case "mask":
-
             number_of_args = len(snowpark_args)
             result_exp = snowpark_args[0]  # First arg is always the input string
 
             # Initialize with default values
-            upper_char = snowpark_fn.lit("X")
-            lower_char = snowpark_fn.lit("x")
-            digit_char = snowpark_fn.lit("n")
-            other_char = snowpark_fn.lit(None)
+            upper_char = "X"
+            lower_char = "x"
+            digit_char = "n"
+            other_char = None
 
             upper_char_arg_name = "X"
             lower_char_arg_name = "x"
             digit_char_arg_name = "n"
             other_char_arg_name = "NULL"
 
+            col_arg_names = [None, "upperChar", "lowerChar", "digitChar", "otherChar"]
+            function_call = f"mask({', '.join(snowpark_arg_names)})"
+
             # Process remaining arguments
             literal_values = [None]
             for i in range(1, number_of_args):
                 arg_name = snowpark_arg_names[i]
                 arg_value = snowpark_args[i]
+                arg_type = snowpark_typed_args[i].typ
+
+                if not isinstance(arg_type, (StringType, NullType)):
+                    exception = AnalysisException(
+                        f"""[DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE] Cannot resolve "{function_call}" due to data type mismatch: Parameter {i + 1} requires the "STRING" type, however "{arg_name}" has the type "{arg_type.simpleString().upper()}".;"""
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+                    raise exception
 
                 # For named arguments and literals, we want to extract the actual literal value
                 if isinstance(arg_value, snowpark.Column):
-                    # Try to get literal value if it's a literal
-                    try:
-                        literal_value = arg_value._expression.value
-                        if literal_value is None:
-                            literal_value = "NULL"
-                        literal_values.append(literal_value)
-                    except AttributeError:
-                        literal_value = arg_name
-                        literal_values.append(None)
+                    literal_value = _resolve_foldable_string_expression(
+                        arg_col=arg_value,
+                        arg_name=arg_name,
+                        spark_function_name=function_call,
+                        session=session,
+                    )
+                else:
+                    literal_value = arg_value
+                literal_values.append(literal_value)
 
                 # Check if this is a named argument
-                if arg_name == "upperChar":
-                    upper_char = arg_value
-                    upper_char_arg_name = literal_value
-                elif arg_name == "lowerChar":
-                    lower_char = arg_value
-                    lower_char_arg_name = literal_value
-                elif arg_name == "digitChar":
-                    digit_char = arg_value
-                    digit_char_arg_name = literal_value
-                elif arg_name == "otherChar":
-                    other_char = arg_value
-                    other_char_arg_name = literal_value
-                # Handle positional arguments
-                elif i == 1:
-                    upper_char = arg_value
-                    upper_char_arg_name = literal_value
-                elif i == 2:
-                    lower_char = arg_value
-                    lower_char_arg_name = literal_value
-                elif i == 3:
-                    digit_char = arg_value
-                    digit_char_arg_name = literal_value
-                elif i == 4:
-                    other_char = arg_value
-                    other_char_arg_name = literal_value
+                is_not_named = arg_name not in col_arg_names
+                char_arg_name = arg_name if is_not_named else (literal_value or "NULL")
+                if arg_name == "upperChar" or (i == 1 and is_not_named):
+                    upper_char = literal_value
+                    upper_char_arg_name = char_arg_name
+                elif arg_name == "lowerChar" or (i == 2 and is_not_named):
+                    lower_char = literal_value
+                    lower_char_arg_name = char_arg_name
+                elif arg_name == "digitChar" or (i == 3 and is_not_named):
+                    digit_char = literal_value
+                    digit_char_arg_name = char_arg_name
+                elif arg_name == "otherChar" or (i == 4 and is_not_named):
+                    other_char = literal_value
+                    other_char_arg_name = char_arg_name
 
             spark_function_name = f"mask({snowpark_arg_names[0]}, {upper_char_arg_name}, {lower_char_arg_name}, {digit_char_arg_name}, {other_char_arg_name})"
 
             # Sanity check for arguments
-            col_arg_names = [None, "upperChar", "lowerChar", "digitChar", "otherChar"]
             for i in range(1, number_of_args):
                 arg_name = snowpark_arg_names[i]
                 arg_type = snowpark_typed_args[i].typ
-                if isinstance(snowpark_typed_args[i].typ, NullType) or (
-                    isinstance(literal_values[i], str) and len(literal_values[i]) == 1
+                literal_value = literal_values[i]
+                if isinstance(arg_type, NullType) or (
+                    isinstance(literal_value, str) and len(literal_value) == 1
                 ):
                     pass
-                elif not isinstance(arg_type, StringType):
-                    exception = AnalysisException(
-                        f"""[DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE] Cannot resolve "{spark_function_name}" due to data type mismatch: Parameter {i + 1} requires the "STRING" type, however "{arg_name}" has the type "{arg_type.simpleString().upper()}".;"""
-                    )
-                    attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
-                    raise exception
-                elif (
-                    exp.unresolved_function.arguments[i].WhichOneof("expr_type")
-                    != "literal"
-                ):
-                    exception = AnalysisException(
-                        f"""[DATATYPE_MISMATCH.NON_FOLDABLE_INPUT] Cannot resolve "{spark_function_name}" due to data type mismatch: the input {col_arg_names[i]} should be a foldable "STRING" expression; however, got "{arg_name}"."""
-                    )
-                    attach_custom_error_code(
-                        exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT
-                    )
-                    raise exception
-                elif len(arg_name) != 1:
+                elif literal_value is not None and len(literal_value) != 1:
                     exception = AnalysisException(
                         f"""[DATATYPE_MISMATCH.INPUT_SIZE_NOT_ONE] Cannot resolve "{spark_function_name}" due to data type mismatch: Length of {col_arg_names[i]} should be 1."""
                     )
@@ -6412,21 +6297,23 @@ def map_unresolved_function(
                 s + random_tag_suffix
                 for s in ["TAGUPPER", "TAGLOWER", "TAGDIGIT", "TAGOTHER"]
             ]
-            patterns = ["[A-Z]", "[a-z]", r"\d", "[^A-Z]"]
+            patterns = ["[A-Z]", "[a-z]", r"\d", "[^a-zA-Z0-9]"]
             replacements = [upper_char, lower_char, digit_char, other_char]
 
             # To avoid replacement character collisions we need to replace them with unique tags first.
             for tag, pattern, replacement_char in zip(tags, patterns, replacements):
-                result_exp = snowpark_fn.when(
-                    ~snowpark_fn.is_null(replacement_char),
-                    snowpark_fn.regexp_replace(result_exp, pattern, tag),
-                ).otherwise(result_exp)
+                result_exp = (
+                    result_exp
+                    if replacement_char is None
+                    else snowpark_fn.regexp_replace(result_exp, pattern, tag)
+                )
 
             for tag, replacement_char in zip(tags, replacements):
-                result_exp = snowpark_fn.when(
-                    ~snowpark_fn.is_null(replacement_char),
-                    snowpark_fn.regexp_replace(result_exp, tag, replacement_char),
-                ).otherwise(result_exp)
+                result_exp = (
+                    result_exp
+                    if replacement_char is None
+                    else snowpark_fn.regexp_replace(result_exp, tag, replacement_char)
+                )
             result_type = StringType()
         case "max":
             result_exp = _handle_structured_aggregate_result(
@@ -6719,7 +6606,15 @@ def map_unresolved_function(
             _validate_arity(2)
             result_type = _find_common_type([arg.typ for arg in snowpark_typed_args])
             result_exp = snowpark_fn.nvl(
-                *[col.cast(result_type) for col in snowpark_args]
+                *[
+                    _coerce_null_typed_expr(
+                        col, snowpark_typed_args[i].typ, result_type
+                    )
+                    if isinstance(snowpark_typed_args[i].typ, NullType)
+                    or _is_null_typed_container(snowpark_typed_args[i].typ)
+                    else col.cast(result_type)
+                    for i, col in enumerate(snowpark_args)
+                ]
             )
         case "nvl2":
             _validate_arity(3)
@@ -6729,7 +6624,15 @@ def map_unresolved_function(
             result_exp = snowpark_fn.call_function(
                 "nvl2",
                 snowpark_args[0],
-                *[col.cast(result_type) for col in snowpark_args[1:]],
+                *[
+                    _coerce_null_typed_expr(
+                        col, snowpark_typed_args[i + 1].typ, result_type
+                    )
+                    if isinstance(snowpark_typed_args[i + 1].typ, NullType)
+                    or _is_null_typed_container(snowpark_typed_args[i + 1].typ)
+                    else col.cast(result_type)
+                    for i, col in enumerate(snowpark_args[1:])
+                ],
             )
         case "octet_length":
             if isinstance(snowpark_typed_args[0].typ, (ArrayType, MapType)):
@@ -7734,7 +7637,7 @@ def map_unresolved_function(
                     exception = ArithmeticException(
                         '[ARITHMETIC_OVERFLOW] Overflow. If necessary set "spark.sql.ansi.enabled" to "false" to bypass this error.'
                     )
-                    attach_custom_error_code(exception, ErrorCodes.ARITHMETIC_ERROR)
+                    attach_custom_error_code(exception, ErrorCodes.ARITHMETIC_OVERFLOW)
                     raise exception
             if len(snowpark_args) == 1:
                 spark_function_name = f"{function_name}({snowpark_arg_names[0]}, 0)"
@@ -8798,9 +8701,9 @@ def map_unresolved_function(
                                 snowpark_fn.lit(0),
                             ),
                         ).otherwise(length_arg)
-                        clamped_pos = snowpark_fn.when(
-                            computed_pos < 1, snowpark_fn.lit(1)
-                        ).otherwise(computed_pos)
+                        clamped_pos = snowpark_fn.greatest(
+                            computed_pos, snowpark_fn.lit(1)
+                        )
 
                         result_exp = snowpark_fn.substring(
                             string_arg, clamped_pos, adjusted_length
@@ -9372,7 +9275,14 @@ def map_unresolved_function(
             precision, scale = resolve_to_number_precision_and_scale(exp)
             to_number = snowpark_fn.function("to_number")
             result_exp = resolve_to_number_expression(
-                to_number, snowpark_args[0], snowpark_args[1], precision, scale
+                to_number,
+                snowpark_args[0],
+                snowpark_args[1],
+                precision,
+                scale,
+                snowpark_arg_names[1],
+                function_name,
+                session,
             )
             result_type = DecimalType(precision, scale)
         case "to_timestamp":
@@ -10269,7 +10179,14 @@ def map_unresolved_function(
             try_to_number = snowpark_fn.function("try_to_number")
             precision, scale = resolve_to_number_precision_and_scale(exp)
             result_exp = resolve_to_number_expression(
-                try_to_number, snowpark_args[0], snowpark_args[1], precision, scale
+                try_to_number,
+                snowpark_args[0],
+                snowpark_args[1],
+                precision,
+                scale,
+                snowpark_arg_names[1],
+                function_name,
+                session,
             )
             result_type = DecimalType(precision, scale)
 
@@ -10578,24 +10495,11 @@ def map_unresolved_function(
                     attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                     raise exception
 
-            name_components = ["CASE"]
-            name_components.append("WHEN")
-            name_components.append(snowpark_arg_names[0])
-            name_components.append("THEN")
-            name_components.append(snowpark_arg_names[1])
-            result_exp = snowpark_fn.when(snowpark_args[0], snowpark_args[1])
             result_type_indexes = [1]
             for i in range(2, len(snowpark_args), 2):
                 if i + 1 >= len(snowpark_args):
-                    name_components.append("ELSE")
-                    name_components.append(snowpark_arg_names[i])
-                    result_exp = result_exp.otherwise(snowpark_args[i])
                     result_type_indexes.append(i)
                 else:
-                    name_components.append("WHEN")
-                    name_components.append(snowpark_arg_names[i])
-                    name_components.append("THEN")
-                    name_components.append(snowpark_arg_names[i + 1])
                     # Validate each WHEN condition
                     condition_type = snowpark_typed_args[i].typ
                     if not isinstance(condition_type, BooleanType):
@@ -10605,12 +10509,44 @@ def map_unresolved_function(
                         )
                         attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                         raise exception
-                    result_exp = result_exp.when(snowpark_args[i], snowpark_args[i + 1])
                     result_type_indexes.append(i + 1)
-            name_components.append("END")
+
             result_type = _find_common_type(
                 [snowpark_typed_args[i].typ for i in result_type_indexes]
             )
+
+            name_components = ["CASE"]
+            name_components.append("WHEN")
+            name_components.append(snowpark_arg_names[0])
+            name_components.append("THEN")
+            name_components.append(snowpark_arg_names[1])
+            first_value = _coerce_null_typed_expr(
+                snowpark_args[1], snowpark_typed_args[1].typ, result_type
+            )
+            result_exp = snowpark_fn.when(snowpark_args[0], first_value)
+            for i in range(2, len(snowpark_args), 2):
+                if i + 1 >= len(snowpark_args):
+                    name_components.append("ELSE")
+                    name_components.append(snowpark_arg_names[i])
+                    result_exp = result_exp.otherwise(
+                        _coerce_null_typed_expr(
+                            snowpark_args[i], snowpark_typed_args[i].typ, result_type
+                        )
+                    )
+                else:
+                    name_components.append("WHEN")
+                    name_components.append(snowpark_arg_names[i])
+                    name_components.append("THEN")
+                    name_components.append(snowpark_arg_names[i + 1])
+                    result_exp = result_exp.when(
+                        snowpark_args[i],
+                        _coerce_null_typed_expr(
+                            snowpark_args[i + 1],
+                            snowpark_typed_args[i + 1].typ,
+                            result_type,
+                        ),
+                    )
+            name_components.append("END")
             result_exp = snowpark_fn.cast(result_exp, result_type)
             spark_function_name = " ".join(name_components)
         case "width_bucket":
@@ -10789,8 +10725,8 @@ def map_unresolved_function(
                 )
             )
             result_type = BinaryType()
-        case udtf_name if udtf_name.lower() in session._udtfs:
-            udtf, spark_col_names = session._udtfs[udtf_name.lower()]
+        case udtf_name if cache.udtfs.has(udtf_name.lower()):
+            udtf, spark_col_names = cache.udtfs.get(udtf_name.lower())
             result_exp = snowpark_fn.call_table_function(
                 udtf.name,
                 *(snowpark_fn.cast(arg, VariantType()) for arg in snowpark_args),
@@ -10989,6 +10925,48 @@ def _resolve_decimal_and_numeric(type1: DecimalType, type2: _NumericType) -> Dat
     if isinstance(type2, _FractionalType):
         return type2
     return _resolve_decimal_and_numeric(type1, _equivalent_decimal(type2))
+
+
+def _is_null_typed_container(typ: DataType) -> bool:
+    """Check if a type is a container (array/map) that has NullType in a position that would
+    cause Snowflake to reject a CAST to a more specific container type.
+    e.g. ArrayType(NullType()), MapType(StringType(), NullType()),
+    MapType(NullType(), NullType()), ArrayType(ArrayType(NullType())).
+    These arise from array(lit(None)), create_map(k, lit(None)), or map() and can be
+    safely replaced with a typed NULL when casting to a different container type.
+    """
+    if isinstance(typ, ArrayType):
+        inner = typ.element_type
+        return isinstance(inner, NullType) or _is_null_typed_container(inner)
+    if isinstance(typ, MapType):
+        key_null = isinstance(typ.key_type, NullType) or _is_null_typed_container(
+            typ.key_type
+        )
+        val_null = isinstance(typ.value_type, NullType) or _is_null_typed_container(
+            typ.value_type
+        )
+        return key_null or val_null
+    return False
+
+
+def _coerce_null_typed_expr(arg, arg_type: DataType, target_type: DataType):
+    """Coerce an expression with NullType or a null-typed container to the target type.
+
+    For bare NullType: returns CAST(NULL AS <type>).
+    For null-typed containers (arrays/maps with NullType elements): uses TO_VARIANT
+    to strip the pre-cast structured type (e.g. ARRAY(STRING)), then re-casts to the
+    target structured type. This preserves the container's size and keys while allowing
+    Snowflake to cast untyped variant nulls to the target element type.
+
+    Returns the original arg unchanged if no coercion is needed.
+    """
+    if arg_type == target_type or target_type is None:
+        return arg
+    if isinstance(arg_type, NullType):
+        return snowpark_fn.lit(None).cast(target_type)
+    if _is_null_typed_container(arg_type):
+        return snowpark_fn.cast(snowpark_fn.to_variant(arg), target_type)
+    return arg
 
 
 def _find_common_type(
@@ -12294,10 +12272,12 @@ def _arithmetic_operation(
         )
         return tc.col.cast(typ)
 
-    op_for_overflow_check = op(arg1.col.cast(DoubleType()), arg2.col.cast(DoubleType()))
     direct_op = op(arg1.col, arg2.col)
 
     if overflow_possible:
+        op_for_overflow_check = op(
+            arg1.col.cast(DoubleType()), arg2.col.cast(DoubleType())
+        )
         if not isinstance(arg1.typ, DecimalType) or not isinstance(
             arg2.typ, DecimalType
         ):
@@ -12837,7 +12817,14 @@ def _bounded_long_floor_expr(expr):
 
 
 def resolve_to_number_expression(
-    function, parsed_value: Column, format: Column, precision: int, scale: int
+    function,
+    parsed_value: Column,
+    format: Column,
+    precision: int,
+    scale: int,
+    format_arg_name: str,
+    spark_function_name: str,
+    session: Session,
 ) -> Column:
     # The structure of the Spark format string must match: [MI|S] [$] [0|9|G|,]* [.|D] [0|9]* [$] [PR|MI|S]
     # Note the grammar above was retrieved from an error message from PySpark, but it is not entirely accurate.
@@ -12851,76 +12838,90 @@ def resolve_to_number_expression(
     plus_at_end = parsed_value.endswith("+")
     minus_at_end = parsed_value.endswith("-")
 
-    S_at_start = format.startswith("S")
-    S_at_end = format.endswith("S")
-    PR_at_end = format.endswith("PR")
-    format = snowpark_fn.replace(format, "PR", "")
+    spark_format_value = _resolve_foldable_string_expression(
+        arg_col=format,
+        arg_name=format_arg_name,
+        spark_function_name=spark_function_name,
+        session=session,
+    )
 
-    # Replace the decimal point with "D" to make regular expressions and replacements easier.
-    format = snowpark_fn.replace(format, ".", snowpark_fn.lit("D"))
+    if spark_format_value is None:
+        return snowpark_fn.lit(None)
 
-    decimal_used = format.contains(snowpark_fn.lit("D"))
-    # Handle this by splitting the format string at the decimal point.
-    split_by_decimal = snowpark_fn.split(format, snowpark_fn.lit("D"))
-    before_decimal = snowpark_fn.element_at(split_by_decimal, 0)
-    after_decimal = snowpark_fn.element_at(split_by_decimal, 1)
-    after_decimal_empty = after_decimal == ""
+    s_at_start = spark_format_value.startswith("S")
+    s_at_end = spark_format_value.endswith("S")
+    pr_at_end = spark_format_value.endswith("PR")
 
-    # When in decimal part zeros are present try_to_number works incorrectly
-    # Replacing 0 with 9 to ensure proper result
-    format = snowpark_fn.when(
-        decimal_used,
-        snowpark_fn.concat(
-            before_decimal,
-            snowpark_fn.when(after_decimal_empty, snowpark_fn.lit("")).otherwise(
-                snowpark_fn.lit("D")
-            ),
-            snowpark_fn.replace(after_decimal, "0", "9"),
-        ),
-    ).otherwise(format)
+    snowflake_format_value = spark_format_value.replace("PR", "").replace(".", "D")
+    if "D" in snowflake_format_value:
+        before_decimal, after_decimal = snowflake_format_value.split("D", 1)
+        decimal_separator = "" if after_decimal == "" else "D"
+        # In the fractional part, Snowflake's TRY_TO_NUMBER("0") behavior differs from Spark.
+        # Normalize zeros to nines to preserve Spark-compatible parsing semantics.
+        snowflake_format_value = (
+            f"{before_decimal}{decimal_separator}{after_decimal.replace('0', '9')}"
+        )
+    format = snowpark_fn.lit(snowflake_format_value)
 
     bracket_at_start = parsed_value.startswith("<")
     bracket_at_end = parsed_value.endswith(">")
+    has_missing_starting_sign = ~plus_at_start & ~minus_at_start
+    has_missing_ending_sign = ~plus_at_end & ~minus_at_end
+    has_sign_in_unsigned_format = plus_at_start | minus_at_start
+    is_pr_formatted = bracket_at_start & bracket_at_end
 
-    # When sign is provided in format, but input value does not have it Snowflake would return NULL
-    # to match Spark behaviour we need to add + if sign is missing
-    has_missing_starting_sign = S_at_start & ~plus_at_start & ~minus_at_start
     parsed_value_with_prefix_plus = snowpark_fn.concat(
         snowpark_fn.lit("+"), parsed_value
     )
 
-    has_missing_ending_sign = S_at_end & ~plus_at_end & ~minus_at_end
     parsed_value_with_suffix_plus = snowpark_fn.concat(
         parsed_value, snowpark_fn.lit("+")
     )
 
-    has_sign_in_unsigned_format = ~S_at_start & (plus_at_start | minus_at_start)
     empty_parsed_value = snowpark_fn.lit("")
 
-    is_pr_formatted = PR_at_end & bracket_at_start & bracket_at_end
     parsed_value_with_minus_sign = snowpark_fn.regexp_replace(
         snowpark_fn.regexp_replace(parsed_value, "^<", "-"), ">$"
     )
 
-    return (
-        snowpark_fn.when(
+    default_expr = function(parsed_value, format, precision, scale)
+    when_chain = None
+
+    def _add_branch(
+        chain: Optional[Column], condition: Column, value: Column
+    ) -> Column:
+        return (
+            snowpark_fn.when(condition, value)
+            if chain is None
+            else chain.when(condition, value)
+        )
+
+    if s_at_start:
+        when_chain = _add_branch(
+            when_chain,
             has_missing_starting_sign,
             function(parsed_value_with_prefix_plus, format, precision, scale),
         )
-        .when(
+    if s_at_end:
+        when_chain = _add_branch(
+            when_chain,
             has_missing_ending_sign,
             function(parsed_value_with_suffix_plus, format, precision, scale),
         )
-        .when(
+    if pr_at_end:
+        when_chain = _add_branch(
+            when_chain,
             is_pr_formatted,
             function(parsed_value_with_minus_sign, format, precision, scale),
         )
-        .when(
+    if not s_at_start:
+        when_chain = _add_branch(
+            when_chain,
             has_sign_in_unsigned_format,
             function(empty_parsed_value, format, precision, scale),
         )
-        .otherwise(function(parsed_value, format, precision, scale))
-    )
+
+    return default_expr if when_chain is None else when_chain.otherwise(default_expr)
 
 
 def resolve_to_number_precision_and_scale(

@@ -1,3 +1,4 @@
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.process import BaseProcess
@@ -106,6 +107,12 @@ class ConsumerController:
                         AbstraLogger.debug(
                             "[ConsumerController] Received ping message for worker warmup"
                         )
+                    elif control_msg.type == "restart":
+                        AbstraLogger.warning(
+                            "[ConsumerController] Received restart request, restarting worker"
+                        )
+                        self.control_consumer.threadsafe_ack(msg)
+                        os._exit(0)
 
                     self.control_consumer.threadsafe_ack(msg)
                 else:
@@ -165,11 +172,6 @@ class ConsumerController:
                     self.run_subprocess,
                     msg=msg,
                 )
-
-            self.main_controller.fail_worker_executions(
-                worker_id=self.worker_id,
-                reason="Worker shutting down",
-            )
         except Exception as e:
             AbstraLogger.error(f"[ConsumerController] Error in main loop: {e}")
             AbstraLogger.capture_exception(e)

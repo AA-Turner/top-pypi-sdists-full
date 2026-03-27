@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -1212,6 +1212,7 @@ class BatchTranslateMetadata(proto.Message):
                 records processed before the cancel command are
                 output as specified in the request.
         """
+
         STATE_UNSPECIFIED = 0
         RUNNING = 1
         SUCCEEDED = 2
@@ -1626,6 +1627,7 @@ class CreateGlossaryMetadata(proto.Message):
                 The glossary creation request was
                 successfully canceled.
         """
+
         STATE_UNSPECIFIED = 0
         RUNNING = 1
         SUCCEEDED = 2
@@ -1688,6 +1690,7 @@ class DeleteGlossaryMetadata(proto.Message):
                 The glossary deletion request was
                 successfully canceled.
         """
+
         STATE_UNSPECIFIED = 0
         RUNNING = 1
         SUCCEEDED = 2
@@ -2150,6 +2153,7 @@ class BatchTranslateDocumentMetadata(proto.Message):
                 records processed before the cancel command are
                 output as specified in the request.
         """
+
         STATE_UNSPECIFIED = 0
         RUNNING = 1
         SUCCEEDED = 2

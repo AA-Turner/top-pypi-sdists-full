@@ -7,12 +7,12 @@ import sys
 import types
 import typing as t
 
-from typeapi import ClassTypeHint, TypeHint
+from typeapi import ClassTypeHint, LiteralTypeHint, TypeHint
 
 from databind.core.utils import T
 
-if sys.version_info[:2] < (3, 10):
-    from pkg_resources import EntryPoint, iter_entry_points
+if sys.version_info[:2] < (3, 9):
+    from pkg_resources import EntryPoint, iter_entry_points  # type: ignore[import-not-found,unused-ignore]
 else:
     from importlib.metadata import EntryPoint, entry_points
 
@@ -46,6 +46,19 @@ class UnionMembers(abc.ABC):
         Raises:
           ValueError: If the *type_id* is not an ID among the union members.
         """
+
+    def get_type_id_for_value(self, value: t.Any) -> str:
+        """Given a Python value, return the ID of the type among the union members.
+
+        This method allows matching values against Literal type members, which cannot be
+        resolved by type alone. The default implementation falls back to `get_type_id(type(value))`.
+
+        Arguments:
+          value: The Python value to retrieve the type ID for.
+        Raises:
+          ValueError: If no member matches the *value*.
+        """
+        return self.get_type_id(type(value))
 
     @abc.abstractmethod
     def get_type_ids(self) -> t.List[str]:
@@ -101,6 +114,17 @@ class StaticUnionMembers(UnionMembers):
                 return type_id
         raise ValueError(f"type {type_} is not a member of {self}")
 
+    def get_type_id_for_value(self, value: t.Any) -> str:
+        # Check LiteralTypeHint members first (more specific — match value in reference_type.values).
+        # Members may be stored as raw typing annotations or as TypeHint instances, so wrap if needed.
+        for type_id in self.members:
+            reference_type = self.get_type_by_id(type_id)
+            hint = reference_type if isinstance(reference_type, TypeHint) else TypeHint(reference_type)
+            if isinstance(hint, LiteralTypeHint) and value in hint.values:
+                return type_id
+        # Then fall back to class/type members (existing type-based matching)
+        return self.get_type_id(type(value))
+
     def get_type_by_id(self, type_id: str) -> t.Any:
         try:
             return self._eval_cache[type_id]
@@ -148,7 +172,7 @@ class EntrypointUnionMembers(UnionMembers):
     def get_type_id(self, type_: t.Any) -> str:
         for ep in self._entrypoints.values():
             if ep.load() == type_:
-                return ep.name
+                return ep.name  # type: ignore[no-any-return,unused-ignore]
         raise ValueError(f"unable to resolve type {type_!r} to a type ID for {self}")
 
     def get_type_by_id(self, type_id: str) -> t.Any:
@@ -225,6 +249,15 @@ class ChainUnionMembers(UnionMembers):
             except ValueError as exc:
                 errors.append(exc)
         raise ValueError(f"{type_!r} is not a member of {self}\n" + "- \n".join(map(str, errors)))
+
+    def get_type_id_for_value(self, value: t.Any) -> str:
+        errors = []
+        for delegate in self.delegates:
+            try:
+                return delegate.get_type_id_for_value(value)
+            except ValueError as exc:
+                errors.append(exc)
+        raise ValueError(f"{value!r} is not a member of {self}\n" + "- \n".join(map(str, errors)))
 
     def get_type_by_id(self, type_id: str) -> t.Any:
         errors = []

@@ -8,7 +8,7 @@ GitHub : https://github.com/wannaphong/thai-g2p
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import torch
 import torch.nn.functional as F
@@ -131,7 +131,7 @@ class ThaiG2P:
         return "".join(target)
 
 
-class Encoder(nn.Module):
+class Encoder(nn.Module):  # type: ignore[misc]
     hidden_size: int
     character_embedding: nn.Embedding
     rnn: nn.LSTM
@@ -163,7 +163,7 @@ class Encoder(nn.Module):
     def forward(
         self,
         sequences: torch.Tensor,
-        sequences_lengths: Union[NDArray, list[int]],
+        sequences_lengths: Union[NDArray[Any], list[int]],
     ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
         # sequences: (batch_size, sequence_length=MAX_LENGTH)
         # sequences_lengths: (batch_size)
@@ -216,7 +216,7 @@ class Encoder(nn.Module):
         return (h_0, c_0)
 
 
-class Attn(nn.Module):
+class Attn(nn.Module):  # type: ignore[misc]
     method: str
     hidden_size: int
     attn: nn.Linear
@@ -267,6 +267,10 @@ class Attn(nn.Module):
                 attn_energies,
                 self.other.unsqueeze(0).expand(*hidden.size()).transpose(1, 2),
             ).squeeze(2)
+        else:
+            raise ValueError(
+                f"Unsupported attention method: {self.method!r}"
+            )
 
         attn_energies = attn_energies.masked_fill(mask == 0, -1e10)
 
@@ -274,7 +278,7 @@ class Attn(nn.Module):
         return F.softmax(attn_energies, 1)
 
 
-class AttentionDecoder(nn.Module):
+class AttentionDecoder(nn.Module):  # type: ignore[misc]
     vocabulary_size: int
     hidden_size: int
     character_embedding: nn.Embedding
@@ -342,7 +346,7 @@ class AttentionDecoder(nn.Module):
         return x, hidden[0], attn_weights
 
 
-class Seq2Seq(nn.Module):
+class Seq2Seq(nn.Module):  # type: ignore[misc]
     encoder: Encoder
     decoder: AttentionDecoder
     pad_idx: int
@@ -380,7 +384,7 @@ class Seq2Seq(nn.Module):
     def forward(
         self,
         source_seq: torch.Tensor,
-        source_seq_len: Union[NDArray, list[int]],
+        source_seq_len: Union[NDArray[Any], list[int]],
         target_seq: Optional[torch.Tensor],
         teacher_forcing_ratio: float = 0.5,
     ) -> torch.Tensor:

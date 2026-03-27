@@ -99,6 +99,7 @@ class AgmetPlotter:
         country=None,
         region=None,
         boundary_gdf=None,
+        highlight_gdf=None,
     ):
         self.df = df.copy()
         self.names_cols = names_cols
@@ -114,6 +115,7 @@ class AgmetPlotter:
         self.country = country
         self.region = region
         self.boundary_gdf = boundary_gdf
+        self.highlight_gdf = highlight_gdf
 
         self.use_forecast = False
         self.color_list = get_colors("tableau", only_colors=True)
@@ -486,17 +488,19 @@ class AgmetPlotter:
                 h = w / geo_aspect
 
             ax_map = fig.add_axes([x_left, 0.99 - h, w, h])
+            ax_map.set_axis_off()
 
             # Draw regions with thin edges, then country outline with thick edge
             gdf.plot(ax=ax_map, color="lightgray", edgecolor="gray", linewidth=0.3)
             gdf.dissolve().boundary.plot(ax=ax_map, color="black", linewidth=1.0)
 
-            if self.region:
+            # Highlight region: use highlight_gdf (district) or match by name (adm1)
+            if self.highlight_gdf is not None and not self.highlight_gdf.empty:
+                self.highlight_gdf.plot(ax=ax_map, color="black", edgecolor="black")
+            elif self.region:
                 region_clean = self.region.replace("_", " ").lower()
                 mask = gdf[name_col].str.lower().str.replace("_", " ") == region_clean
                 gdf[mask].plot(ax=ax_map, color="black", edgecolor="black")
-
-            ax_map.set_axis_off()
         except Exception:
             pass
 

@@ -2,7 +2,6 @@ from abc import abstractmethod
 import os
 from joblib import dump, load
 from kwave.kgrid import kWaveGrid
-from math import ceil
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -26,7 +25,7 @@ class Medium:
             self.params.acoustic['f_AQ'] = int(1/self.kgrid.dt)
         else:
             if self.params.general['Nt'] is None or self.params.general['Nt'] == "None":
-                Nt = ceil((self.params.general['Zrange'][1] - self.params.general['Zrange'][0])*float(self.params.acoustic['f_AQ']) / self.params.acoustic['medium']['c0'])
+                Nt = int(1.25*np.ceil((self.params.general['Zrange'][1] - self.params.general['Zrange'][0])*float(self.params.acoustic['f_AQ']) / self.params.acoustic['medium']['c0']))
                 self.params.general['Nt'] = Nt
             else:
                 Nt = self.params.general['Nt']
@@ -63,7 +62,7 @@ class Medium:
             print(f"Error in save_medium method: {e}")
             raise
     
-    def load_medium(self, folderPath, fileName = "medium"):
+    def load_medium(self, folderPath, fileName = "medium",isAbsorbingMedium = None):
         """
         Load the medium properties from a .joblib file.
 
@@ -71,7 +70,8 @@ class Medium:
         - folderPath (str): The directory where the .joblib file will be loaded from.
         - fileName (str): The name of the .joblib file (without extension).
         """
-        try:          
+        try:     
+
             if not os.path.splitext(fileName)[1]:
                 fileName += '.joblib'
             else:
@@ -89,6 +89,16 @@ class Medium:
             self.Nz_reshaped = loaded_obj.Nz_reshaped
             self.dx_reshaped = loaded_obj.dx_reshaped
             self.kgrid = loaded_obj.kgrid
+
+            if isAbsorbingMedium is not None:
+                self.params.acoustic['medium']['isAbsorbingMedium'] = isAbsorbingMedium
+            if self.params.acoustic['medium']['isAbsorbingMedium']:
+                print("Warning: The loaded medium is set to be absorbing")
+            else:
+                self.kmedium.alpha_coeff = np.zeros((self.Nx_reshaped, self.Nz_reshaped), dtype=np.float32)  # Pas d'atténuation
+                self.kmedium.alpha_mode = 'no_absorption'
+                print("Warning: The loaded medium is set to be non-absorbing")
+                
         except Exception as e:
             print(f"Error in load_medium method: {e}")
             raise   

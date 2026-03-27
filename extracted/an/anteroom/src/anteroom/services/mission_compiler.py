@@ -83,6 +83,7 @@ class CompiledItem:
     concurrency_group: str | None = None
     lane: str | None = None
     depends_on: list[str] = field(default_factory=list)
+    binding_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -97,6 +98,7 @@ class CompiledPlan:
     title: str = ""
     description: str = ""
     referenced_artifacts: list[dict[str, Any]] = field(default_factory=list)
+    execution_profile: str | None = None
 
 
 @dataclass(frozen=True)
@@ -123,6 +125,7 @@ def compile_from_spec(
     spec_fqn: str,
     *,
     adapter_defaults: AdapterDefaults | None = None,
+    execution_profile: Any | None = None,
 ) -> CompiledPlan:
     art = artifact_storage.get_artifact_by_fqn(db, spec_fqn)
     if art is None:
@@ -163,11 +166,19 @@ def compile_from_spec(
     version = art.get("version", 1)
     ref_artifacts = [{"fqn": spec_fqn, "version": version}]
 
-    return CompiledPlan(
+    plan = CompiledPlan(
         items=items,
         title=art.get("name", spec_fqn),
         referenced_artifacts=ref_artifacts,
     )
+
+    if execution_profile is not None:
+        from .mission_profiles import apply_execution_profile, discover_workflows
+
+        workflows = discover_workflows()
+        plan, _lane_limits = apply_execution_profile(plan, execution_profile, workflows)
+
+    return plan
 
 
 # ---------------------------------------------------------------------------
@@ -200,6 +211,7 @@ def apply_adapter_defaults(plan: CompiledPlan, defaults: AdapterDefaults) -> Com
         title=plan.title,
         description=plan.description,
         referenced_artifacts=list(plan.referenced_artifacts),
+        execution_profile=plan.execution_profile,
     )
 
 
@@ -239,6 +251,7 @@ async def compile_from_prompt(
     *,
     adapter_defaults: AdapterDefaults | None = None,
     artifact_context: list[dict[str, Any]] | None = None,
+    execution_profile: Any | None = None,
 ) -> CompiledPlan:
     system = _PLAN_SYSTEM_PROMPT
     if artifact_context:
@@ -263,6 +276,12 @@ async def compile_from_prompt(
 
     if adapter_defaults is not None:
         plan = apply_adapter_defaults(plan, adapter_defaults)
+
+    if execution_profile is not None:
+        from .mission_profiles import apply_execution_profile, discover_workflows
+
+        workflows = discover_workflows()
+        plan, _lane_limits = apply_execution_profile(plan, execution_profile, workflows)
 
     return plan
 
@@ -457,8 +476,13 @@ def apply_plan(
     source_type: str = "prompt",
     source_fqn: str | None = None,
     source_version: int | None = None,
+    lane_limits: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     _validate_dag({item.temp_id: list(item.depends_on) for item in plan.items})
+
+    metadata: dict[str, Any] | None = None
+    if plan.execution_profile:
+        metadata = {"execution_profile": plan.execution_profile}
 
     session = mission_storage.create_session(
         db,
@@ -468,10 +492,13 @@ def apply_plan(
         source_fqn=source_fqn,
         source_version=source_version,
         referenced_artifacts=plan.referenced_artifacts or None,
+        lane_limits=lane_limits,
+        metadata=metadata,
     )
 
     temp_to_real: dict[str, str] = {}
     for item in plan.items:
+        hold = bool((item.adapter_config or {}).get("_hold_on_create"))
         created = mission_storage.create_item(
             db,
             session_id=session["id"],
@@ -483,6 +510,7 @@ def apply_plan(
             adapter_config=item.adapter_config or None,
             concurrency_group=item.concurrency_group,
             lane=item.lane,
+            hold_requested=hold,
         )
         temp_to_real[item.temp_id] = created["id"]
 

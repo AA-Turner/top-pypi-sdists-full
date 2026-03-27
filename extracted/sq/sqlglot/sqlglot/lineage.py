@@ -12,6 +12,7 @@ from sqlglot.optimizer.scope import ScopeType
 
 if t.TYPE_CHECKING:
     from sqlglot.dialects.dialect import DialectType
+    from collections.abc import Iterator, Mapping, Sequence
 
 logger = logging.getLogger("sqlglot")
 
@@ -21,12 +22,12 @@ class Node:
     name: str
     expression: exp.Expr
     source: exp.Expr
-    downstream: t.List[Node] = field(default_factory=list)
+    downstream: list[Node] = field(default_factory=list)
     source_name: str = ""
     reference_node_name: str = ""
 
-    def walk(self) -> t.Iterator[Node]:
-        visited: t.Set[int] = set()
+    def walk(self) -> Iterator[Node]:
+        visited: set[int] = set()
         queue = [self]
         while queue:
             node = queue.pop()
@@ -37,7 +38,7 @@ class Node:
             yield node
             queue.extend(reversed(node.downstream))
 
-    def to_html(self, dialect: DialectType = None, **opts) -> GraphHTML:
+    def to_html(self, dialect: DialectType = None, **opts: t.Any) -> GraphHTML:
         nodes = {}
         edges = []
 
@@ -74,8 +75,8 @@ class Node:
 def lineage(
     column: str | exp.Column,
     sql: str | exp.Expr,
-    schema: t.Optional[t.Dict | Schema] = None,
-    sources: t.Optional[t.Mapping[str, str | exp.Query]] = None,
+    schema: t.Optional[dict | Schema] = None,
+    sources: t.Optional[Mapping[str, str | exp.Query]] = None,
     dialect: DialectType = None,
     scope: t.Optional[Scope] = None,
     trim_selects: bool = True,
@@ -275,7 +276,7 @@ def to_node(
     # If the source is a UDTF find columns used in the UDTF to generate the table
     if isinstance(source, exp.UDTF):
         source_columns |= set(source.find_all(exp.Column))
-        derived_tables: t.Sequence[exp.Expr] = [
+        derived_tables: Sequence[exp.Expr] = [
             src.expression.parent
             for src in scope.sources.values()
             if isinstance(src, Scope) and src.is_derived_table and src.expression.parent
@@ -395,7 +396,11 @@ class GraphHTML:
     """
 
     def __init__(
-        self, nodes: t.Dict, edges: t.List, imports: bool = True, options: t.Optional[t.Dict] = None
+        self,
+        nodes: dict,
+        edges: list,
+        imports: bool = True,
+        options: t.Optional[Mapping[str, object]] = None,
     ):
         self.imports = imports
 

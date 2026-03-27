@@ -38,7 +38,6 @@ def pytest_runtest_setup(item):
         mock.patch.object(symbol_database, "Default", return_value=sym_db),
     ]
     if descriptor_pool._USE_C_DESCRIPTORS:
-
         item._mocks.append(
             mock.patch(
                 (

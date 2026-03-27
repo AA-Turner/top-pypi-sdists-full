@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.24.9
+Version: 0.24.11
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -62,6 +62,9 @@ Requires-Dist: cel-python>=0.4
 Requires-Dist: questionary>=2.1.1
 Requires-Dist: pandas>=2.0.0
 Requires-Dist: sqlglot>=20.0
+Requires-Dist: matplotlib==3.10.0
+Requires-Dist: seaborn==0.13.2
+Requires-Dist: numexpr==2.10.2
 Provides-Extra: notify-all
 Requires-Dist: async-notify[all]>=1.4.2; extra == "notify-all"
 Provides-Extra: db
@@ -83,10 +86,6 @@ Requires-Dist: pydub==0.25.1; extra == "audio"
 Provides-Extra: finance
 Requires-Dist: ta-lib==0.6.8; extra == "finance"
 Requires-Dist: pandas-datareader>=0.10.0; extra == "finance"
-Provides-Extra: visualization
-Requires-Dist: matplotlib==3.10.0; extra == "visualization"
-Requires-Dist: seaborn==0.13.2; extra == "visualization"
-Requires-Dist: numexpr==2.10.2; extra == "visualization"
 Provides-Extra: flowtask
 Requires-Dist: flowtask>=5.10.2; extra == "flowtask"
 Provides-Extra: scheduler
@@ -296,7 +295,7 @@ Provides-Extra: matrix
 Requires-Dist: mautrix>=0.20; extra == "matrix"
 Requires-Dist: python-olm>=3.2.16; extra == "matrix"
 Provides-Extra: all
-Requires-Dist: ai-parrot[agents,arango,audio,bigquery,charts,db,docling,embeddings,finance,flowtask,images,integrations,llms,mcp,ocr,pdf,reddit,scheduler,visualization]; extra == "all"
+Requires-Dist: ai-parrot[agents,arango,audio,bigquery,charts,db,docling,embeddings,finance,flowtask,images,integrations,llms,mcp,ocr,pdf,reddit,scheduler]; extra == "all"
 Provides-Extra: all-fast
 Requires-Dist: ai-parrot[agents-lite,embeddings,integrations,llms]; extra == "all-fast"
 

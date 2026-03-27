@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tablestore"
-version = "6.4.1"
+version = "6.4.2"
 description = "Aliyun TableStore(OTS) SDK"
 readme = "README.md"
 license = "Apache License 2.0"
@@ -28,6 +28,15 @@ pytest = "^8.3.5"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+python_files = ["*_test.py", "*_unittest.py"]
+log_cli = true
+log_cli_level = "WARNING"
+
+[tool.coverage.run]
+omit = [
+    "tests/*",
+    "tablestore/protobuf/*",
+]
 
 [build-system]
 requires = ["poetry-core"]

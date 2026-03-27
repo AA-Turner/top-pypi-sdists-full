@@ -14,7 +14,7 @@ from collections import deque
 from copy import deepcopy
 from decimal import Decimal
 from functools import reduce
-
+from collections.abc import Iterator, Sequence, Collection
 from sqlglot._typing import E
 from sqlglot.errors import ParseError
 from sqlglot.helper import (
@@ -26,6 +26,7 @@ from sqlglot.helper import (
 )
 
 from sqlglot.tokenizer_core import Token
+from builtins import type as Type
 
 if t.TYPE_CHECKING:
     from sqlglot.dialects.dialect import DialectType
@@ -221,16 +222,16 @@ class Expr:
     def depth(self) -> int:
         raise NotImplementedError
 
-    def iter_expressions(self: E, reverse: bool = False) -> t.Iterator[E]:
+    def iter_expressions(self: E, reverse: bool = False) -> Iterator[E]:
         raise NotImplementedError
 
-    def find(self, *expression_types: t.Type[E], bfs: bool = True) -> t.Optional[E]:
+    def find(self, *expression_types: Type[E], bfs: bool = True) -> t.Optional[E]:
         raise NotImplementedError
 
-    def find_all(self, *expression_types: t.Type[E], bfs: bool = True) -> t.Iterator[E]:
+    def find_all(self, *expression_types: Type[E], bfs: bool = True) -> Iterator[E]:
         raise NotImplementedError
 
-    def find_ancestor(self, *expression_types: t.Type[E]) -> t.Optional[E]:
+    def find_ancestor(self, *expression_types: Type[E]) -> t.Optional[E]:
         raise NotImplementedError
 
     @property
@@ -246,13 +247,13 @@ class Expr:
 
     def walk(
         self, bfs: bool = True, prune: t.Optional[t.Callable[[Expr], bool]] = None
-    ) -> t.Iterator[Expr]:
+    ) -> Iterator[Expr]:
         raise NotImplementedError
 
-    def dfs(self, prune: t.Optional[t.Callable[[Expr], bool]] = None) -> t.Iterator[Expr]:
+    def dfs(self, prune: t.Optional[t.Callable[[Expr], bool]] = None) -> Iterator[Expr]:
         raise NotImplementedError
 
-    def bfs(self, prune: t.Optional[t.Callable[[Expr], bool]] = None) -> t.Iterator[Expr]:
+    def bfs(self, prune: t.Optional[t.Callable[[Expr], bool]] = None) -> Iterator[Expr]:
         raise NotImplementedError
 
     def unnest(self) -> Expr:
@@ -264,13 +265,13 @@ class Expr:
     def unnest_operands(self) -> t.Tuple[Expr, ...]:
         raise NotImplementedError
 
-    def flatten(self, unnest: bool = True) -> t.Iterator[Expr]:
+    def flatten(self, unnest: bool = True) -> Iterator[Expr]:
         raise NotImplementedError
 
     def to_s(self) -> str:
         raise NotImplementedError
 
-    def sql(self, dialect: DialectType = None, **opts: t.Any) -> str:
+    def sql(self, dialect: DialectType = None, **opts: object) -> str:
         raise NotImplementedError
 
     def transform(
@@ -284,10 +285,10 @@ class Expr:
     def pop(self: E) -> E:
         raise NotImplementedError
 
-    def assert_is(self, type_: t.Type[E]) -> E:
+    def assert_is(self, type_: Type[E]) -> E:
         raise NotImplementedError
 
-    def error_messages(self, args: t.Optional[t.Sequence] = None) -> t.List[str]:
+    def error_messages(self, args: t.Optional[Sequence[object]] = None) -> list[str]:
         raise NotImplementedError
 
     def dump(self) -> t.Any:
@@ -315,7 +316,7 @@ class Expr:
         dialect: DialectType = None,
         copy: bool = True,
         wrap: bool = True,
-        **opts: t.Any,
+        **opts: object,
     ) -> Condition:
         raise NotImplementedError
 
@@ -325,7 +326,7 @@ class Expr:
         dialect: DialectType = None,
         copy: bool = True,
         wrap: bool = True,
-        **opts: t.Any,
+        **opts: object,
     ) -> Condition:
         raise NotImplementedError
 
@@ -348,26 +349,26 @@ class Expr:
         quoted: t.Optional[bool] = None,
         dialect: DialectType = None,
         copy: bool = True,
-        **opts: t.Any,
+        **opts: object,
     ) -> Expr:
         raise NotImplementedError
 
-    def _binop(self, klass: t.Type[E], other: t.Any, reverse: bool = False) -> E:
+    def _binop(self, klass: Type[E], other: t.Any, reverse: bool = False) -> E:
         raise NotImplementedError
 
     def __getitem__(self, other: ExpOrStr | t.Tuple[ExpOrStr, ...]) -> Bracket:
         raise NotImplementedError
 
-    def __iter__(self) -> t.Iterator:
+    def __iter__(self) -> Iterator:
         raise NotImplementedError
 
     def isin(
         self,
         *expressions: t.Any,
         query: t.Optional[ExpOrStr] = None,
-        unnest: t.Optional[ExpOrStr] | t.Collection[ExpOrStr] = None,
+        unnest: t.Optional[ExpOrStr] | Collection[ExpOrStr] = None,
         copy: bool = True,
-        **opts,
+        **opts: object,
     ) -> In:
         raise NotImplementedError
 
@@ -377,7 +378,7 @@ class Expr:
         high: t.Any,
         copy: bool = True,
         symmetric: t.Optional[bool] = None,
-        **opts,
+        **opts: object,
     ) -> Between:
         raise NotImplementedError
 
@@ -832,7 +833,7 @@ class Expression(Expr):
             return self.parent.depth + 1
         return 0
 
-    def iter_expressions(self: E, reverse: bool = False) -> t.Iterator[E]:
+    def iter_expressions(self: E, reverse: bool = False) -> Iterator[E]:
         """Yields the key and expression for all arguments, exploding list args."""
         for vs in reversed(self.args.values()) if reverse else self.args.values():
             if isinstance(vs, list):
@@ -842,7 +843,7 @@ class Expression(Expr):
             elif isinstance(vs, Expr):
                 yield t.cast(E, vs)
 
-    def find(self, *expression_types: t.Type[E], bfs: bool = True) -> t.Optional[E]:
+    def find(self, *expression_types: Type[E], bfs: bool = True) -> t.Optional[E]:
         """
         Returns the first node in this tree which matches at least one of
         the specified types.
@@ -856,7 +857,7 @@ class Expression(Expr):
         """
         return next(self.find_all(*expression_types, bfs=bfs), None)
 
-    def find_all(self, *expression_types: t.Type[E], bfs: bool = True) -> t.Iterator[E]:
+    def find_all(self, *expression_types: Type[E], bfs: bool = True) -> Iterator[E]:
         """
         Returns a generator object which visits all nodes in this tree and only
         yields those that match at least one of the specified expression types.
@@ -872,7 +873,7 @@ class Expression(Expr):
             if isinstance(expression, expression_types):
                 yield expression
 
-    def find_ancestor(self, *expression_types: t.Type[E]) -> t.Optional[E]:
+    def find_ancestor(self, *expression_types: Type[E]) -> t.Optional[E]:
         """
         Returns a nearest parent matching expression_types.
 
@@ -912,7 +913,7 @@ class Expression(Expr):
 
     def walk(
         self, bfs: bool = True, prune: t.Optional[t.Callable[[Expr], bool]] = None
-    ) -> t.Iterator[Expr]:
+    ) -> Iterator[Expr]:
         """
         Returns a generator object which visits all nodes in this tree.
 
@@ -930,7 +931,7 @@ class Expression(Expr):
         else:
             yield from self.dfs(prune=prune)
 
-    def dfs(self, prune: t.Optional[t.Callable[[Expr], bool]] = None) -> t.Iterator[Expr]:
+    def dfs(self, prune: t.Optional[t.Callable[[Expr], bool]] = None) -> Iterator[Expr]:
         """
         Returns a generator object which visits all nodes in this tree in
         the DFS (Depth-first) order.
@@ -948,7 +949,7 @@ class Expression(Expr):
             for v in node.iter_expressions(reverse=True):
                 stack.append(v)
 
-    def bfs(self, prune: t.Optional[t.Callable[[Expr], bool]] = None) -> t.Iterator[Expr]:
+    def bfs(self, prune: t.Optional[t.Callable[[Expr], bool]] = None) -> Iterator[Expr]:
         """
         Returns a generator object which visits all nodes in this tree in
         the BFS (Breadth-first) order.
@@ -990,7 +991,7 @@ class Expression(Expr):
         """
         return tuple(arg.unnest() for arg in self.iter_expressions())
 
-    def flatten(self, unnest: bool = True) -> t.Iterator[Expr]:
+    def flatten(self, unnest: bool = True) -> Iterator[Expr]:
         """
         Returns a generator which yields child nodes whose parents are the same class.
 
@@ -1115,7 +1116,7 @@ class Expression(Expr):
         self.replace(None)
         return self
 
-    def assert_is(self, type_: t.Type[E]) -> E:
+    def assert_is(self, type_: Type[E]) -> E:
         """
         Assert that this `Expr` is an instance of `type_`.
 
@@ -1133,7 +1134,7 @@ class Expression(Expr):
             raise AssertionError(f"{self} is not {type_}.")
         return self
 
-    def error_messages(self, args: t.Optional[t.Sequence] = None) -> t.List[str]:
+    def error_messages(self, args: t.Optional[Sequence[object]] = None) -> list[str]:
         """
         Checks if this expression is valid (e.g. all mandatory args are set).
 
@@ -1149,7 +1150,7 @@ class Expression(Expr):
                 if k not in self.arg_types:
                     raise TypeError(f"Unexpected keyword: '{k}' for {self.__class__}")
 
-        errors: t.Optional[t.List[str]] = None
+        errors: t.Optional[list[str]] = None
 
         for k in self.required_args:
             v = self.args.get(k)
@@ -1179,7 +1180,7 @@ class Expression(Expr):
         dialect: DialectType = None,
         copy: bool = True,
         wrap: bool = True,
-        **opts: t.Any,
+        **opts: object,
     ) -> Condition:
         """
         AND this condition with one or multiple expressions.
@@ -1209,7 +1210,7 @@ class Expression(Expr):
         dialect: DialectType = None,
         copy: bool = True,
         wrap: bool = True,
-        **opts: t.Any,
+        **opts: object,
     ) -> Condition:
         """
         OR this condition with one or multiple expressions.
@@ -1301,7 +1302,7 @@ class Expression(Expr):
     ) -> Expr:
         return alias_(self, alias, quoted=quoted, dialect=dialect, copy=copy, **opts)
 
-    def _binop(self, klass: t.Type[E], other: t.Any, reverse: bool = False) -> E:
+    def _binop(self, klass: Type[E], other: t.Any, reverse: bool = False) -> E:
         this = self.copy()
         other = convert(other, copy=True)
         if not isinstance(this, klass) and not isinstance(other, klass):
@@ -1311,12 +1312,12 @@ class Expression(Expr):
             return klass(this=other, expression=this)
         return klass(this=this, expression=other)
 
-    def __getitem__(self, other: ExpOrStr | t.Tuple[ExpOrStr, ...]) -> Bracket:
+    def __getitem__(self, other: ExpOrStr | tuple[ExpOrStr, ...]) -> Bracket:
         return Bracket(
             this=self.copy(), expressions=[convert(e, copy=True) for e in ensure_list(other)]
         )
 
-    def __iter__(self) -> t.Iterator:
+    def __iter__(self) -> Iterator:
         if "expressions" in self.arg_types:
             return iter(self.args.get("expressions") or [])
         # We define this because __getitem__ converts Expr into an iterable, which is
@@ -1328,9 +1329,9 @@ class Expression(Expr):
         self,
         *expressions: t.Any,
         query: t.Optional[ExpOrStr] = None,
-        unnest: t.Optional[ExpOrStr] | t.Collection[ExpOrStr] = None,
+        unnest: t.Optional[ExpOrStr] | Collection[ExpOrStr] = None,
         copy: bool = True,
-        **opts,
+        **opts: t.Any,
     ) -> In:
         subquery = maybe_parse(query, copy=copy, **opts) if query else None
         if subquery and not subquery.is_subquery:
@@ -1358,7 +1359,7 @@ class Expression(Expr):
         high: t.Any,
         copy: bool = True,
         symmetric: t.Optional[bool] = None,
-        **opts,
+        **opts: object,
     ) -> Between:
         between = Between(
             this=maybe_copy(self, copy),
@@ -1473,10 +1474,7 @@ class Expression(Expr):
         return not_(self.copy())
 
 
-IntoType = t.Union[
-    t.Type[Expr],
-    t.Collection[t.Type[Expr]],
-]
+IntoType = t.Union[Type[Expr], Collection[Type[Expr]]]
 ExpOrStr = t.Union[int, str, Expr]
 
 
@@ -1776,7 +1774,7 @@ class Dot(Expression, Binary):
         return self.name
 
     @classmethod
-    def build(self, expressions: t.Sequence[Expr]) -> Dot:
+    def build(self, expressions: Sequence[Expr]) -> Dot:
         """Build a Dot object with a sequence of expressions."""
         if len(expressions) < 2:
             raise ValueError("Dot requires >= 2 expressions.")
@@ -1836,6 +1834,7 @@ class Bracket(Expression, Condition):
         "offset": False,
         "safe": False,
         "returns_list_for_maps": False,
+        "json_access": False,
     }
 
     @property
@@ -1932,7 +1931,7 @@ class TimeUnit(Expr):
         "Y": "YEAR",
     }
 
-    VAR_LIKE: t.ClassVar[t.Tuple[t.Type[Expr], ...]] = (Column, Literal, Var)
+    VAR_LIKE: t.ClassVar[t.Tuple[Type[Expr], ...]] = (Column, Literal, Var)
 
     def __init__(self, **args: object) -> None:
         super().__init__(**args)
@@ -2215,7 +2214,9 @@ class RegexpLike(Expression, Binary, Func):
     arg_types = {"this": True, "expression": True, "flag": False, "full_match": False}
 
 
-def not_(expression: ExpOrStr, dialect: DialectType = None, copy: bool = True, **opts) -> Not:
+def not_(
+    expression: ExpOrStr, dialect: DialectType = None, copy: bool = True, **opts: object
+) -> Not:
     """
     Wrap a condition with a NOT operator.
 
@@ -2375,11 +2376,11 @@ TIMESTAMP_PARTS = {
 def maybe_parse(
     sql_or_expression: ExpOrStr,
     *,
-    into: t.Type[E],
+    into: Type[E],
     dialect: DialectType = None,
     prefix: t.Optional[str] = None,
     copy: bool = False,
-    **opts,
+    **opts: object,
 ) -> E: ...
 
 
@@ -2391,7 +2392,7 @@ def maybe_parse(
     dialect: DialectType = None,
     prefix: t.Optional[str] = None,
     copy: bool = False,
-    **opts,
+    **opts: object,
 ) -> E: ...
 
 
@@ -2402,7 +2403,7 @@ def maybe_parse(
     dialect: DialectType = None,
     prefix: t.Optional[str] = None,
     copy: bool = False,
-    **opts: t.Any,
+    **opts: object,
 ) -> Expr:
     """Gracefully handle a possible string or expression.
 
@@ -2508,7 +2509,7 @@ def _apply_builder(
     into=None,
     dialect=None,
     into_arg="this",
-    **opts,
+    **opts: t.Any,
 ):
     if _is_wrong_expression(expression, into):
         expression = into(**{into_arg: expression})
@@ -2534,7 +2535,7 @@ def _apply_child_list_builder(
     into=None,
     dialect=None,
     properties=None,
-    **opts,
+    **opts: t.Any,
 ):
     instance = maybe_copy(instance, copy)
     parsed = []
@@ -2579,7 +2580,7 @@ def _apply_list_builder(
     prefix=None,
     into=None,
     dialect=None,
-    **opts,
+    **opts: t.Any,
 ):
     inst = maybe_copy(instance, copy)
 
@@ -2611,7 +2612,7 @@ def _apply_conjunction_builder(
     append=True,
     copy=True,
     dialect=None,
-    **opts,
+    **opts: t.Any,
 ):
     filtered = [exp for exp in expressions if exp is not None and exp != ""]
     if not filtered:
@@ -2630,12 +2631,12 @@ def _apply_conjunction_builder(
 
 
 def _combine(
-    expressions: t.Sequence[t.Optional[ExpOrStr]],
+    expressions: Sequence[t.Optional[ExpOrStr]],
     operator: t.Any,
     dialect: DialectType = None,
     copy: bool = True,
     wrap: bool = True,
-    **opts,
+    **opts: object,
 ) -> Expr:
     conditions = [
         condition(expression, dialect=dialect, copy=copy, **opts)
@@ -2653,24 +2654,24 @@ def _combine(
 
 
 @t.overload
-def _wrap(expression: None, kind: t.Type[Expr]) -> None: ...
+def _wrap(expression: None, kind: Type[Expr]) -> None: ...
 
 
 @t.overload
-def _wrap(expression: E, kind: t.Type[Expr]) -> E | Paren: ...
+def _wrap(expression: E, kind: Type[Expr]) -> E | Paren: ...
 
 
-def _wrap(expression: t.Optional[E], kind: t.Type[Expr]) -> t.Optional[E] | Paren:
+def _wrap(expression: t.Optional[E], kind: Type[Expr]) -> t.Optional[E] | Paren:
     return Paren(this=expression) if isinstance(expression, kind) else expression
 
 
 def _apply_set_operation(
     *expressions: ExpOrStr,
-    set_operation: t.Type,
+    set_operation: Type,
     distinct: bool = True,
     dialect: DialectType = None,
     copy: bool = True,
-    **opts,
+    **opts: t.Any,
 ) -> t.Any:
     return reduce(
         lambda x, y: set_operation(this=x, expression=y, distinct=distinct, **opts),
@@ -2718,7 +2719,9 @@ def to_identifier(name, quoted=None, copy=True):
     return identifier
 
 
-def condition(expression: ExpOrStr, dialect: DialectType = None, copy: bool = True, **opts) -> Expr:
+def condition(
+    expression: ExpOrStr, dialect: DialectType = None, copy: bool = True, **opts: t.Any
+) -> Expr:
     """
     Initialize a logical condition expression.
 
@@ -2758,7 +2761,7 @@ def and_(
     dialect: DialectType = None,
     copy: bool = True,
     wrap: bool = True,
-    **opts,
+    **opts: object,
 ) -> Condition:
     """
     Combine multiple conditions with an AND logical operator.
@@ -2788,7 +2791,7 @@ def or_(
     dialect: DialectType = None,
     copy: bool = True,
     wrap: bool = True,
-    **opts,
+    **opts: object,
 ) -> Condition:
     """
     Combine multiple conditions with an OR logical operator.
@@ -2818,7 +2821,7 @@ def xor(
     dialect: DialectType = None,
     copy: bool = True,
     wrap: bool = True,
-    **opts,
+    **opts: object,
 ) -> Condition:
     """
     Combine multiple conditions with an XOR logical operator.
@@ -2865,11 +2868,11 @@ def paren(expression: ExpOrStr, copy: bool = True) -> Paren:
 def alias_(
     expression: ExpOrStr,
     alias: t.Optional[str | Identifier],
-    table: bool | t.Sequence[str | Identifier] = False,
+    table: bool | Sequence[str | Identifier] = False,
     quoted: t.Optional[bool] = None,
     dialect: DialectType = None,
     copy: bool = True,
-    **opts,
+    **opts: t.Any,
 ) -> Expr:
     """Create an Alias expression.
 
@@ -2928,7 +2931,7 @@ def column(
     db: t.Optional[str | Identifier] = None,
     catalog: t.Optional[str | Identifier] = None,
     *,
-    fields: t.Collection[t.Union[str, Identifier]],
+    fields: Collection[t.Union[str, Identifier]],
     quoted: t.Optional[bool] = None,
     copy: bool = True,
 ) -> Dot:

@@ -131,8 +131,9 @@ def download_github_template(url: str) -> Optional[Path]:
 
 
 # TODO(eclbg): This should eventually end up in client.py, but we're not using it here yet.
-def api_fetch(url: str, headers: dict) -> dict:
-    r = requests.get(url, headers=headers)
+def api_fetch(url: str, headers: dict, request_from: Optional[str] = None) -> dict:
+    request_params = {"from": request_from} if request_from and "from=" not in url else None
+    r = requests.get(url, headers=headers, params=request_params)
     if r.status_code == 200:
         logging.debug(json.dumps(r.json(), indent=2))
         return r.json()
@@ -232,7 +233,7 @@ def deployment_ls(ctx: click.Context, include_deleted: bool) -> None:
     if include_deleted:
         url += "?include_deleted=true"
 
-    result = api_fetch(url, HEADERS)
+    result = api_fetch(url, HEADERS, request_from=getattr(client, "request_from", None))
     status_map = {
         "calculating": "Creating - Calculating steps",
         "creating_schema": "Creating - Creating schemas",
@@ -297,7 +298,7 @@ def deployment_promote(ctx: click.Context, wait: bool) -> None:
     TINYBIRD_API_KEY = client.token
     HEADERS = {"Authorization": f"Bearer {TINYBIRD_API_KEY}"}
 
-    promote_deployment(client.host, HEADERS, wait=wait)
+    promote_deployment(client.host, HEADERS, wait=wait, request_from=getattr(client, "request_from", None))
 
 
 @deployment_group.command(name="discard")
@@ -317,7 +318,7 @@ def deployment_discard(ctx: click.Context, wait: bool) -> None:
     TINYBIRD_API_KEY = client.token
     HEADERS = {"Authorization": f"Bearer {TINYBIRD_API_KEY}"}
 
-    discard_deployment(client.host, HEADERS, wait=wait)
+    discard_deployment(client.host, HEADERS, wait=wait, request_from=getattr(client, "request_from", None))
 
 
 @cli.command(name="deploy")

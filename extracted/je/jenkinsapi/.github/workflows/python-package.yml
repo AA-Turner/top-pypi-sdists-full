@@ -2,12 +2,7 @@ name: CI_TEST
 
 on:
   push:
-    branches: [ "master" ]
-    paths:
-      - '**.py'
-      - '**.yml'
   pull_request:
-    branches: [ "master" ]
   workflow_dispatch: # allow manual run
 
 permissions:
@@ -30,7 +25,7 @@ jobs:
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
     - name: Install uv
-      uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
+      uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -54,7 +49,7 @@ jobs:
 
     steps:
     - name: Harden Runner
-      uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+      uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
       with:
         egress-policy: audit
         allowed-endpoints: >
@@ -63,7 +58,6 @@ jobs:
           files.pythonhosted.org:443
           ftp-chi.osuosl.org:443
           ftp-nyc.osuosl.org:443
-          get.jenkins.io:443
           github.com:443
           api.github.com:443
           int.api.stepsecurity.io:443
@@ -72,27 +66,18 @@ jobs:
           packages.microsoft.com:443
           ppa.launchpadcontent.net:443
           pypi.org:443
-          updates.jenkins-ci.org:80
-          updates.jenkins.io:443
-          mirrors.updates.jenkins.io:443
-          updates.jenkins.io:80
+          objects.githubusercontent.com:443
 
     - name: Checkout
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
     - name: Install uv
-      uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b # v7.2.0
+      uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Install python
       run: uv python install
-
-    - name: setup java 25
-      uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
-      with:
-        java-version: '25'
-        distribution: 'temurin'
 
     - name: Install dependencies
       run: |
@@ -100,4 +85,15 @@ jobs:
 
     - name: Test with pytest
       run: |
-        uv run pytest -sv --cov=jenkinsapi --cov-report=term-missing --cov-report=xml jenkinsapi_tests
+        NUM_WORKERS=auto
+        HASH=$(sha256sum docker/Dockerfile docker/plugins.txt | sha256sum | cut -c1-8)
+        IMAGE="ghcr.io/${{ github.repository_owner }}/jenkinsapi:${HASH}"
+        if docker pull "$IMAGE" 2>/dev/null; then
+          echo "Cache hit: $IMAGE"
+          docker tag "$IMAGE" jenkinsapi-systest:latest
+        else
+          echo "Cache miss -- building locally"
+          docker build -t jenkinsapi-systest:latest docker/
+        fi
+        echo "Running full test suite with xdist mode '$NUM_WORKERS' ($(nproc) CPUs available)"
+        uv run pytest -sv -n $NUM_WORKERS --cov=jenkinsapi --cov-report=term-missing --cov-report=xml jenkinsapi_tests

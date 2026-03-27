@@ -579,6 +579,28 @@ struct OfflineFunASRNanoModelConfig {
   std::string hotwords;
 };
 
+/** @brief Offline Qwen3-ASR model configuration. */
+struct OfflineQwen3ASRModelConfig {
+  /** Conv-frontend ONNX model file. */
+  std::string conv_frontend;
+  /** Encoder ONNX model file. */
+  std::string encoder;
+  /** Decoder ONNX model file (KV cache). */
+  std::string decoder;
+  /** Tokenizer directory (e.g. containing `vocab.json`). */
+  std::string tokenizer;
+  /** Maximum total sequence length supported by the model. */
+  int32_t max_total_len = 512;
+  /** Maximum number of new tokens to generate. */
+  int32_t max_new_tokens = 128;
+  /** Sampling temperature. */
+  float temperature = 1e-6f;
+  /** Top-p (nucleus) sampling parameter. */
+  float top_p = 0.8f;
+  /** Random seed for reproducible sampling. */
+  int32_t seed = 42;
+};
+
 /**
  * @brief Acoustic model configuration for offline ASR.
  *
@@ -635,6 +657,8 @@ struct OfflineModelConfig {
   OfflineFunASRNanoModelConfig funasr_nano;
   /** FireRed CTC configuration. */
   OfflineFireRedAsrCtcModelConfig fire_red_asr_ctc;
+  /** Qwen3-ASR configuration. */
+  OfflineQwen3ASRModelConfig qwen3_asr;
 };
 
 /** @brief Optional language-model rescoring configuration for offline ASR. */
@@ -1604,6 +1628,97 @@ class SHERPA_ONNX_API AudioTagging
 
  private:
   explicit AudioTagging(const SherpaOnnxAudioTagging *p);
+};
+
+// ==============================
+// Source Separation
+// ==============================
+
+/** @brief Spleeter source-separation model configuration. */
+struct OfflineSourceSeparationSpleeterModelConfig {
+  /** Path to the vocals ONNX model. */
+  std::string vocals;
+  /** Path to the accompaniment ONNX model. */
+  std::string accompaniment;
+};
+
+/** @brief UVR (MDX-Net) source-separation model configuration. */
+struct OfflineSourceSeparationUvrModelConfig {
+  /** Path to the UVR ONNX model. */
+  std::string model;
+};
+
+/**
+ * @brief Source-separation model configuration.
+ *
+ * Configure exactly one model family (Spleeter or UVR).
+ */
+struct OfflineSourceSeparationModelConfig {
+  /** Spleeter configuration. */
+  OfflineSourceSeparationSpleeterModelConfig spleeter;
+  /** UVR configuration. */
+  OfflineSourceSeparationUvrModelConfig uvr;
+  /** Number of inference threads. */
+  int32_t num_threads = 1;
+  /** Enable verbose debug logging. */
+  bool debug = false;
+  /** Execution provider such as `"cpu"`. */
+  std::string provider = "cpu";
+};
+
+/** @brief Configuration for offline source separation. */
+struct OfflineSourceSeparationConfig {
+  /** Model configuration. */
+  OfflineSourceSeparationModelConfig model;
+};
+
+/** @brief A single stem (output track) with one or more channels. */
+struct SourceSeparationStem {
+  /** samples[c] contains the sample array for channel c. */
+  std::vector<std::vector<float>> samples;
+};
+
+/** @brief Output of a source-separation run. */
+struct SourceSeparationOutput {
+  /** Separated stems. */
+  std::vector<SourceSeparationStem> stems;
+  /** Sample rate in Hz. */
+  int32_t sample_rate = 0;
+};
+
+/** @brief RAII wrapper for offline source separation. */
+class SHERPA_ONNX_API OfflineSourceSeparation
+    : public MoveOnly<OfflineSourceSeparation,
+                      SherpaOnnxOfflineSourceSeparation> {
+ public:
+  /** @brief Create an offline source separation engine. */
+  static OfflineSourceSeparation Create(
+      const OfflineSourceSeparationConfig &config);
+
+  /** @brief Destroy the wrapped C handle. */
+  void Destroy(const SherpaOnnxOfflineSourceSeparation *p) const;
+
+  /**
+   * @brief Run source separation on multi-channel audio.
+   *
+   * @param samples      samples[c] is a float array for channel c.
+   * @param num_channels Number of input channels.
+   * @param num_samples  Number of samples per channel.
+   * @param sample_rate  Input sample rate in Hz.
+   * @return Separated stems, or an empty output on error.
+   */
+  SourceSeparationOutput Process(const float *const *samples,
+                                 int32_t num_channels, int32_t num_samples,
+                                 int32_t sample_rate) const;
+
+  /** @brief Return the output sample rate. */
+  int32_t GetOutputSampleRate() const;
+
+  /** @brief Return the number of stems produced. */
+  int32_t GetNumberOfStems() const;
+
+ private:
+  explicit OfflineSourceSeparation(const SherpaOnnxOfflineSourceSeparation *p);
 };
 
 }  // namespace sherpa_onnx::cxx

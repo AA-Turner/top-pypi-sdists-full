@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.cloudquotas_v1.types import resources
@@ -259,12 +259,12 @@ class CreateQuotaPreferenceRequest(proto.Message):
         number=3,
         message=resources.QuotaPreference,
     )
-    ignore_safety_checks: MutableSequence[
-        resources.QuotaSafetyCheck
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=4,
-        enum=resources.QuotaSafetyCheck,
+    ignore_safety_checks: MutableSequence[resources.QuotaSafetyCheck] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=4,
+            enum=resources.QuotaSafetyCheck,
+        )
     )
 
 
@@ -313,12 +313,12 @@ class UpdateQuotaPreferenceRequest(proto.Message):
         proto.BOOL,
         number=4,
     )
-    ignore_safety_checks: MutableSequence[
-        resources.QuotaSafetyCheck
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=5,
-        enum=resources.QuotaSafetyCheck,
+    ignore_safety_checks: MutableSequence[resources.QuotaSafetyCheck] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=5,
+            enum=resources.QuotaSafetyCheck,
+        )
     )
 
 

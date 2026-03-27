@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -46,6 +46,7 @@ class InventoryView(proto.Enum):
         FULL (2):
             Returns all fields.
     """
+
     INVENTORY_VIEW_UNSPECIFIED = 0
     BASIC = 1
     FULL = 2
@@ -187,6 +188,7 @@ class Inventory(proto.Message):
                     result of the agent reporting inventory via the
                     reporting API.
             """
+
             ORIGIN_TYPE_UNSPECIFIED = 0
             INVENTORY_REPORT = 1
 
@@ -203,6 +205,7 @@ class Inventory(proto.Message):
                     This represents an update that is available
                     for a package.
             """
+
             TYPE_UNSPECIFIED = 0
             INSTALLED_PACKAGE = 1
             AVAILABLE_PACKAGE = 2

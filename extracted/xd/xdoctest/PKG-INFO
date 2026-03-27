@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xdoctest
-Version: 1.3.1
+Version: 1.3.2
 Summary: A rewrite of the builtin doctest module
 Home-page: https://github.com/Erotemic/xdoctest
 Author: Jon Crall

@@ -61,7 +61,10 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
 from snowflake.snowpark_connect.relation.read.reader_config import CsvWriterConfig
 from snowflake.snowpark_connect.relation.stage_locator import get_paths_from_stage
 from snowflake.snowpark_connect.relation.utils import (
+    assert_sf_connector_auth_options_match,
+    assert_sf_connector_warehouse_matches,
     generate_spark_compatible_filename,
+    qualify_dbtable_with_sf_options,
     random_string,
 )
 from snowflake.snowpark_connect.type_mapping import (
@@ -338,6 +341,51 @@ def map_write(request: proto_base.ExecutePlanRequest):
         max_file_size = 1073741824
     match write_op.source:
         case "csv" | "parquet" | "json" | "text":
+            # Text format requires exactly one non-partition column of StringType
+            if write_op.source == "text":
+                partition_col_names = list(write_op.partitioning_columns)
+                snowpark_partition_cols = set(
+                    updated_result.column_map.get_snowpark_column_names_from_spark_column_names(
+                        partition_col_names
+                    )
+                )
+                snowpark_non_partition_cols = [
+                    col
+                    for col in updated_result.column_map.get_snowpark_columns()
+                    if col not in snowpark_partition_cols
+                ]
+                # Check for all columns used as partition first (matches Spark error)
+                if (
+                    len(snowpark_non_partition_cols) == 0
+                    and len(partition_col_names) > 0
+                ):
+                    exception = AnalysisException(
+                        "[ALL_PARTITION_COLUMNS_NOT_ALLOWED] Cannot use all columns for partition columns."
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+                    raise exception
+                if len(snowpark_non_partition_cols) != 1:
+                    exception = AnalysisException(
+                        f"[UNSUPPORTED_DATA_TYPE_FOR_DATASOURCE] Text data source supports "
+                        f"only a single column, and you have {len(snowpark_non_partition_cols)} columns."
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+                    raise exception
+                # Get the type of the non-partition column
+                text_col_name = unquote_if_quoted(snowpark_non_partition_cols[0])
+                col_type = [
+                    f
+                    for f in input_df.schema.fields
+                    if unquote_if_quoted(f.name) == text_col_name
+                ][0].datatype
+                if not isinstance(col_type, StringType):
+                    exception = AnalysisException(
+                        f"[UNSUPPORTED_DATA_TYPE_FOR_DATASOURCE] The Text datasource doesn't "
+                        f'support the column `{text_col_name}` of the type "{col_type.simpleString().upper()}".'
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+                    raise exception
+
             # TODO: Extend SaveMode.Ignore support to csv, json, and text formats.
             #  The path-existence check logic already implemented for parquet
             #  (see the "ignore" block below) is format-agnostic and can be
@@ -777,15 +825,26 @@ def map_write(request: proto_base.ExecutePlanRequest):
             save_method = write_op.table.save_method
 
             if (
-                write_op.source == "snowflake"
+                write_op.source in ("snowflake", "net.snowflake.spark.snowflake")
                 and write_op.table.save_method
                 == commands_proto.WriteOperation.SaveTable.TableSaveMethod.TABLE_SAVE_METHOD_UNSPECIFIED
             ):
                 save_method = (
                     commands_proto.WriteOperation.SaveTable.TableSaveMethod.TABLE_SAVE_METHOD_SAVE_AS_TABLE
                 )
+
+                # Normalize option keys to lowercase — the Snowflake Connector for Spark
+                # treats all option names as case-insensitive (sfDatabase, SFDATABASE, etc.)
+                sf_options = {k.lower(): v for k, v in write_op.options.items()}
+
+                # Raise if sfUser/sfRole/sfWarehouse differ from the current session;
+                # we never issue USE statements that would mutate the shared session.
+                assert_sf_connector_auth_options_match(session, sf_options)
+                assert_sf_connector_warehouse_matches(session, sf_options)
+
                 if len(write_op.table.table_name) == 0:
-                    dbtable_name = write_op.options.get("dbtable", "")
+                    # dbtable lookup must use the lowercased options dict
+                    dbtable_name = sf_options.get("dbtable", "")
                     if len(dbtable_name) == 0:
                         exception = SnowparkConnectNotImplementedError(
                             "Save command is not supported without a table name"
@@ -795,6 +854,12 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         )
                         raise exception
                     else:
+                        # Qualify with sfDatabase/sfSchema (falling back to the
+                        # session context) so that an unqualified dbtable name
+                        # resolves to the correct location without issuing USE.
+                        dbtable_name = qualify_dbtable_with_sf_options(
+                            dbtable_name, sf_options, session
+                        )
                         snowpark_table_name = _spark_to_snowflake(dbtable_name)
 
             if (

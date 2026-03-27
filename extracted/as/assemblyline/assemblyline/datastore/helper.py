@@ -9,7 +9,7 @@ from typing import Any, List, Optional, Tuple, Union
 import elasticapm
 
 from assemblyline.common import forge
-from assemblyline.common.classification import InvalidClassification
+from assemblyline.common.classification import Classification, InvalidClassification
 from assemblyline.common.dict_utils import flatten, recursive_update
 from assemblyline.common.isotime import now_as_iso
 from assemblyline.common.tagging import tag_dict_to_ai_list
@@ -280,7 +280,9 @@ class AssemblylineDatastore(object):
         return self.ds.with_retries(self.ds.client.bulk, operations=operations)
 
     @elasticapm.capture_span(span_type='datastore')
-    def delete_submission_tree_bulk(self, sid, cl_engine=forge.get_classification(), cleanup=True, transport=None):
+    def delete_submission_tree_bulk(
+            self, sid: str, cl_engine: Classification = forge.get_classification(),
+            cleanup: bool = True, transport: FileStore | None = None) -> None:
         submission = self.submission.get(sid, as_obj=False)
         params = SubmissionParams(submission['params'])
         if not submission:
@@ -309,28 +311,30 @@ class AssemblylineDatastore(object):
         results = submission["results"]
         files_to_delete = set()
         fix_classification_files = set()
-        supp_map = {}
+        supp_map: dict[str, set[str]] = {}
 
-        temp_files = [x['sha256'] for x in submission['files']]
-        temp_files.extend([x[:64] for x in errors])
-        temp_files.extend([x[:64] for x in results])
-        temp_files = set(temp_files)
+        temp_files = {x['sha256'] for x in submission['files']}
+        temp_files.update(x[:64] for x in errors)
+        temp_files.update(x[:64] for x in results)
 
-        # Gather all supplementary files
-        for result in self.result.search("response.supplementary.sha256:*",
-                                         fl="*", rows=len(results), as_obj=False, key_space=results)['items']:
+        # Gather all supplementary files and extracted files
+        for result in self.result.search("response.supplementary.sha256:* OR response.extracted.sha256:*",
+                                         fl="sha256,response.supplementary.sha256,response.extracted.sha256",
+                                         rows=len(results), as_obj=False, key_space=results)['items']:
             sha256 = result['sha256']
-            supp_map.setdefault(sha256, set())
-            for supp in result['response']['supplementary']:
+            if sha256 not in supp_map:
+                supp_map[sha256] = set()
+            for supp in result['response'].get('supplementary', []):
                 supp_map[sha256].add(supp['sha256'])
+            for extracted in result['response'].get('extracted', []):
+                temp_files.add(extracted['sha256'])
 
         # Inspect each files to see if they are reused
         for temp in temp_files:
             # Check if we delete the file or update the classification
             if self.submission.search(f"errors:{temp}* OR results:{temp}*", rows=0, as_obj=False)["total"] < 2:
                 files_to_delete.add(temp)
-                supp_list = supp_map.pop(temp, set())
-                files_to_delete = files_to_delete.union(supp_list)
+                files_to_delete |= supp_map.pop(temp, set())
             else:
                 fix_classification_files.add(temp)
 
@@ -402,8 +406,8 @@ class AssemblylineDatastore(object):
 
     @elasticapm.capture_span(span_type='datastore')
     def delete_submission_tree(
-            self, sid, cl_engine=forge.get_classification(),
-            cleanup=True, transport: FileStore = None):
+            self, sid: str, cl_engine: Classification = forge.get_classification(),
+            cleanup: bool = True, transport: FileStore | None = None) -> None:
         submission = self.submission.get(sid, as_obj=False)
         if not submission:
             return
@@ -413,27 +417,29 @@ class AssemblylineDatastore(object):
         results = submission["results"]
         files_to_delete = set()
         fix_classification_files = set()
-        supp_map = {}
+        supp_map: dict[str, set[str]] = {}
 
-        temp_files = [x[:64] for x in errors]
-        temp_files.extend([x[:64] for x in results])
-        temp_files = set(temp_files)
+        temp_files = {x[:64] for x in errors}
+        temp_files.update(x[:64] for x in results)
 
-        # Gather all supplementary files
-        for result in self.result.search("response.supplementary.sha256:*",
-                                         fl="*", rows=len(results), as_obj=False, key_space=results)['items']:
+        # Gather all supplementary files and extracted files
+        for result in self.result.search("response.supplementary.sha256:* OR response.extracted.sha256:*",
+                                         fl="sha256,response.supplementary.sha256,response.extracted.sha256",
+                                         rows=len(results), as_obj=False, key_space=results)['items']:
             sha256 = result['sha256']
-            supp_map.setdefault(sha256, set())
-            for supp in result['response']['supplementary']:
+            if sha256 not in supp_map:
+                supp_map[sha256] = set()
+            for supp in result['response'].get('supplementary', []):
                 supp_map[sha256].add(supp['sha256'])
+            for extracted in result['response'].get('extracted', []):
+                temp_files.add(extracted['sha256'])
 
         # Inspect each files to see if they are reused
         for temp in temp_files:
             # Check if we delete the file or update the classification
-            if self.submission.search(f"errors:{temp}* OR results:{temp}*", rows=0, as_obj=False)["total"] < 2:
+            if self.submission.search(f"NOT sid:{sid} AND (errors:{temp}* OR results:{temp}*)", rows=0, as_obj=False)["total"] == 0:
                 files_to_delete.add(temp)
-                supp_list = supp_map.pop(temp, set())
-                files_to_delete = files_to_delete.union(supp_list)
+                files_to_delete |= supp_map.pop(temp, set())
             else:
                 fix_classification_files.add(temp)
 
@@ -607,7 +613,7 @@ class AssemblylineDatastore(object):
             submission = submission.as_primitives()
 
         # Get number of files and score
-        num_files = len(list(set([x[:64] for x in submission['results']])))
+        num_files = len(list({x[:64] for x in submission['results']}))
         max_score = submission['max_score']
 
         # Load / Validate cache tree if exist
@@ -822,7 +828,7 @@ class AssemblylineDatastore(object):
             return out
 
         keys = [x for x in list(keys) if not x.endswith(".e")]
-        file_keys = list(set([x[:64] for x in keys]))
+        file_keys = list({x[:64] for x in keys})
         try:
             items = self.result.multiget(keys, as_obj=False)
         except MultiKeyError as e:
@@ -1436,9 +1442,9 @@ class AssemblylineDatastore(object):
         if min_score:
             query += f" AND result.score:>={min_score}"
 
-        item_list = [x for x in self.result.stream_search(query, fl="id,created,response.service_name,result.score",
+        item_list = list(self.result.stream_search(query, fl="id,created,response.service_name,result.score",
                                                           access_control=access_control, as_obj=False,
-                                                          index_type=index_type)]
+                                                          index_type=index_type))
 
         item_list.sort(key=lambda k: k["created"], reverse=True)
 
@@ -1563,7 +1569,7 @@ class MetadataValidator:
 
             # Determine if there's extra metadata being set that isn't validated/known to the system
             # Ignore metadata fields that have been set by the system
-            system_configured_metadata = set(['ingest_id', 'ts', 'type'])
+            system_configured_metadata = {'ingest_id', 'ts', 'type'}
             extra_metadata = list(set(metadata.keys()) - set(validation_scheme.keys()) - system_configured_metadata)
             if missing_metadata:
                 return (None, f"Required metadata is missing from submission: {missing_metadata}")

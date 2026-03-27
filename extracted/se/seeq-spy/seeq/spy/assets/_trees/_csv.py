@@ -30,7 +30,7 @@ def process_csv_data(data, status, workbook=_common.DEFAULT_WORKBOOK_PATH):
 
     csv_data = None
     try:
-        csv_data = pd.read_csv(data)
+        csv_data = pd.read_csv(data, dtype=str)
     except FileNotFoundError:
         message = (f"File {data} not found. Please ensure you have it in the correct working "
                    f"directory.")
@@ -92,7 +92,7 @@ def make_paths_from_levels(csv_data):
     """
 
     def make_path(row, levels):
-        path = " >> ".join([row[i] for i in levels if not is_nan_or_string_nan(row[i])])
+        path = " >> ".join([str(row[i]) for i in levels if not is_nan_or_string_nan(row[i])])
         return path
 
     level_cols = [i for i in list(csv_data.columns) if 'Level' in i]

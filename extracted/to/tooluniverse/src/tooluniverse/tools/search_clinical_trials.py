@@ -18,6 +18,7 @@ def search_clinical_trials(
     max_results: Optional[int] = None,
     limit: Optional[int] = None,
     status: Optional[str | list[str]] = None,
+    keyword: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -46,6 +47,8 @@ def search_clinical_trials(
         Alias for max_results: maximum number of studies to return (default 10, max 1...
     status : str | list[str]
         Alias for overall_status. Filter by trial status, e.g. "RECRUITING", "COMPLET...
+    keyword : str
+        Alias for query_term. Free-text keyword search across all trial fields (e.g.,...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -72,6 +75,7 @@ def search_clinical_trials(
             "max_results": max_results,
             "limit": limit,
             "status": status,
+            "keyword": keyword,
         }.items()
         if v is not None
     }

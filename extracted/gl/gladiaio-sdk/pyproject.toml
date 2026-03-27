@@ -2,7 +2,7 @@ dependency-groups = { }
 
 [project]
 name = "gladiaio-sdk"
-version = "0.4.0"
+version = "1.0.0"
 description = "Gladia SDK for Python"
 requires-python = ">=3.10,<4"
 readme = "README.md"
@@ -15,7 +15,7 @@ dependencies = [
   "httpcore==1.0.9",
   "httpx==0.28.1",
   "idna==3.10",
-  "marshmallow==3.26.1",
+  "marshmallow==3.26.2",
   "mypy-extensions==1.1.0",
   "packaging==25.0",
   "pyee==13.0.0",
@@ -39,7 +39,7 @@ indent-width = 2
 
   [tool.ruff.lint]
   select = [ "E", "F", "UP", "B", "SIM", "I" ]
-  ignore = [ ]
+  ignore = [ "E501" ]
   fixable = [ "ALL" ]
   unfixable = [ ]
 

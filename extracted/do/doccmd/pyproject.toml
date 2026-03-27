@@ -42,7 +42,7 @@ dependencies = [
     "cloup>=3.0.0",
     "dulwich>=0.22.1",
     "pygments>=2.18.0",
-    "sybil>=9.3.0,<10.0.0",
+    "sybil>=9.3.0,<11.0.0",
     # Pin this dependency as we expect:
     # * It might have breaking changes
     # * It is not a direct dependency of the user
@@ -52,7 +52,7 @@ optional-dependencies.dev = [
     "actionlint-py==1.7.11.24",
     "ansi==0.3.7",
     "check-manifest==0.51",
-    "deptry==0.24.0",
+    "deptry==0.25.1",
     "doc8==2.0.0",
     "furo==2025.12.19",
     # hadolint is not available on Windows.
@@ -60,21 +60,21 @@ optional-dependencies.dev = [
     "interrogate==1.7.0",
     "mypy[faster-cache]==1.19.1",
     "mypy-strict-kwargs==2026.1.12",
-    "prek==0.3.4",
+    "prek==0.3.8",
     "pydocstringformatter==0.7.5",
     "pydocstyle==6.3",
     "pygments==2.19.2",
     "pylint[spelling]==4.0.5",
     "pylint-per-file-ignores==3.2.0",
-    "pyproject-fmt==2.17.0",
-    "pyrefly==0.54.0",
+    "pyproject-fmt==2.20.0",
+    "pyrefly==0.58.0",
     "pyright==1.1.408",
     "pyroma==5.0.1",
     "pytest==9.0.2",
-    "pytest-cov==7.0.0",
+    "pytest-cov==7.1.0",
     "pytest-regressions==2.10.0",
     "pyyaml==6.0.3",
-    "ruff==0.15.4",
+    "ruff==0.15.7",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
@@ -88,11 +88,11 @@ optional-dependencies.dev = [
     "sphinx-pyproject==0.3.0",
     "sphinx-substitution-extensions==2026.1.12",
     "sphinxcontrib-spelling==8.0.2",
-    "ty==0.0.19",
+    "ty==0.0.25",
     "types-pygments==2.19.0.20251121",
-    "vulture==2.14",
+    "vulture==2.16",
     "yamlfix==1.19.1",
-    "zizmor==1.22.0",
+    "zizmor==1.23.1",
 ]
 optional-dependencies.release = [
     "check-wheel-contents==0.6.3",
@@ -170,11 +170,11 @@ lint.pydocstyle.convention = "google"
 [tool.pylint]
 # Allow the body of an if to be on the same line as the test if there is no
 # else.
-"FORMAT".single-line-if-stmt = false
+FORMAT.single-line-if-stmt = false
 # Pickle collected data for later comparisons.
-"MASTER".persistent = true
+MASTER.persistent = true
 # Use multiple processes to speed up Pylint.
-"MASTER".jobs = 0
+MASTER.jobs = 0
 # List of plugins (as comma separated values of python modules names) to load,
 # usually to register additional checkers.
 # See https://chezsoi.org/lucas/blog/pylint-strict-base-configuration.html.
@@ -183,7 +183,7 @@ lint.pydocstyle.convention = "google"
 # - pylint.extensions.magic_value
 # - pylint.extensions.while_used
 # as they seemed to get in the way.
-"MASTER".load-plugins = [
+MASTER.load-plugins = [
     "pylint.extensions.bad_builtin",
     "pylint.extensions.comparison_placement",
     "pylint.extensions.consider_refactoring_into_while_condition",
@@ -203,8 +203,8 @@ lint.pydocstyle.convention = "google"
 ]
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.
-"MASTER".unsafe-load-any-extension = false
-"MASTER".ignore = [
+MASTER.unsafe-load-any-extension = false
+MASTER.ignore = [
     "_setuptools_scm_version.py",
 ]
 # Enable the message, report, category or checker with the given id(s). You can
@@ -260,13 +260,13 @@ lint.pydocstyle.convention = "google"
 ]
 # Spelling dictionary name. Available dictionaries: none. To make it working
 # install python-enchant package.
-"SPELLING".spelling-dict = "en_US"
+SPELLING.spelling-dict = "en_US"
 # A path to a file that contains private dictionary; one word per line.
-"SPELLING".spelling-private-dict-file = "spelling_private_dict.txt"
+SPELLING.spelling-private-dict-file = "spelling_private_dict.txt"
 # Tells whether to store unknown words to indicated private dictionary in
 # --spelling-private-dict-file option instead of raising a message.
-"SPELLING".spelling-store-unknown-words = "no"
-"TYPECHECK".signature-mutators = [
+SPELLING.spelling-store-unknown-words = "no"
+TYPECHECK.signature-mutators = [
     "click.decorators.option",
     "click.decorators.argument",
 ]
@@ -323,23 +323,6 @@ indent = 4
 keep_full_version = true
 max_supported_python = "3.14"
 
-[tool.pytest]
-xfail_strict = true
-log_cli = true
-
-[tool.coverage]
-run.branch = true
-run.omit = [
-    "src/*/_setuptools_scm_version.py",
-    "src/doccmd/__main__.py",
-]
-report.exclude_also = [
-    "@overload",
-    "class .*\\bProtocol\\):",
-    "if TYPE_CHECKING:",
-]
-report.show_missing = true
-
 [tool.mypy]
 strict = true
 files = [ "." ]
@@ -362,6 +345,23 @@ typeCheckingMode = "strict"
 analysis.respect-type-ignore-comments = false
 # Error if ty emits any warning-level diagnostics.
 terminal.error-on-warning = true
+
+[tool.pytest]
+xfail_strict = true
+log_cli = true
+
+[tool.coverage]
+run.branch = true
+run.omit = [
+    "src/*/_setuptools_scm_version.py",
+    "src/doccmd/__main__.py",
+]
+report.exclude_also = [
+    "@overload",
+    "class .*\\bProtocol\\):",
+    "if TYPE_CHECKING:",
+]
+report.show_missing = true
 
 [tool.mypy_strict_kwargs]
 # `relative_to` and `is_relative_to` have `other` parameter that is

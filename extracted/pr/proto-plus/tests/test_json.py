@@ -16,7 +16,7 @@ import pytest
 import re
 
 import proto
-from google.protobuf.json_format import MessageToJson, Parse, ParseError
+from google.protobuf.json_format import ParseError
 
 
 def test_message_to_json():

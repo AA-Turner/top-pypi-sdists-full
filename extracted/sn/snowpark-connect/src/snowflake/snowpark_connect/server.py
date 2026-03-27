@@ -111,9 +111,6 @@ from snowflake.snowpark_connect.utils.context import (
     set_spark_version,
 )
 from snowflake.snowpark_connect.utils.env_utils import get_int_from_env
-from snowflake.snowpark_connect.utils.external_udxf_cache import (
-    clear_external_udxf_cache,
-)
 from snowflake.snowpark_connect.utils.interrupt import (
     interrupt_all_queries,
     interrupt_queries_with_tag,
@@ -144,6 +141,9 @@ from snowflake.snowpark_connect.utils.session import (
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import (
     log_waring_once_storage_level,
     logger,
+)
+from snowflake.snowpark_connect.utils.spark_session_cache import (
+    clear_spark_session_cache,
 )
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -647,6 +647,9 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
         _process_and_store_client_stack_trace(request, add_to_span=True)
 
         try:
+            clear_context_data()
+            set_spark_session_id(request.session_id)
+            set_spark_version(request.client_type)
             telemetry.initialize_request_summary(request)
             return route_config_proto(request, get_or_create_snowpark_session())
         except Exception as e:
@@ -950,7 +953,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
                 not name.startswith("cache")
                 for name in session._filenames[get_spark_session_id()].keys()
             ):
-                clear_external_udxf_cache(session)
+                clear_spark_session_cache(get_spark_session_id())
 
             # clear filenames for this session
             session._filenames[get_spark_session_id()] = {}

@@ -558,14 +558,14 @@ def _merge_variant_schemas(
         int(os.environ.get("SNOWPARK_CONNECT_SCHEMA_DISCOVERY_WORKERS", "8")),
     )
 
-    temp_view_name = f"_VARIANT_SCHEMA_DISCOVERY_{uuid.uuid4().hex}"
-    sampled_df.create_or_replace_temp_view(temp_view_name)
+    temp_table_name = f"_VARIANT_SCHEMA_DISCOVERY_{uuid.uuid4().hex}"
+    sampled_df.write.save_as_table(temp_table_name, table_type="temporary")
 
     def discover_for_column(item):
         idx, col_name, needs_parse = item
         expr = f"TRY_PARSE_JSON({col_name})" if needs_parse else None
         return idx, discover_variant_schema(
-            session, temp_view_name, col_name, input_expr=expr
+            session, temp_table_name, col_name, input_expr=expr
         )
 
     try:
@@ -578,7 +578,7 @@ def _merge_variant_schemas(
                 idx, schema = future.result()
                 discovered_schemas[idx] = schema
     finally:
-        session.sql(f"DROP VIEW IF EXISTS {temp_view_name}").collect()
+        session.sql(f"DROP TABLE IF EXISTS {temp_table_name}").collect()
 
     # Retry with full (un-sampled) data for columns that returned None
     variant_only = [
@@ -588,15 +588,15 @@ def _merge_variant_schemas(
         (idx, name) for idx, name in variant_only if discovered_schemas.get(idx) is None
     ]
     if missing_columns:
-        temp_view_name_full = f"_VARIANT_SCHEMA_DISCOVERY_{uuid.uuid4().hex}_full"
-        df.create_or_replace_temp_view(temp_view_name_full)
+        temp_table_name_full = f"_VARIANT_SCHEMA_DISCOVERY_{uuid.uuid4().hex}_full"
+        df.write.save_as_table(temp_table_name_full, table_type="temporary")
         try:
             for idx, col_name in missing_columns:
                 discovered_schemas[idx] = discover_variant_schema(
-                    session, temp_view_name_full, col_name
+                    session, temp_table_name_full, col_name
                 )
         finally:
-            session.sql(f"DROP VIEW IF EXISTS {temp_view_name_full}").collect()
+            session.sql(f"DROP TABLE IF EXISTS {temp_table_name_full}").collect()
 
     # Build result types, replacing VARIANT/STRING with discovered schemas
     result_types = []
@@ -618,6 +618,7 @@ def _create_nvs_sample(
     path: str,
     file_format_options: dict[str, Any],
     sample_size: int,
+    snowpark_options: dict[str, Any] | None = None,
 ) -> DataFrame | None:
     """Create a sampled DataFrame using the non-vectorized Parquet scanner.
 
@@ -632,9 +633,13 @@ def _create_nvs_sample(
     try:
         nvs_options = {**file_format_options, "USE_VECTORIZED_SCANNER": False}
         nvs_format = cached_file_format(session, "parquet", nvs_options)
-        nvs_df = session.read.options(
-            {"FORMAT_NAME": nvs_format, "ENFORCE_EXISTING_FILE_FORMAT": True}
-        ).parquet(path)
+        reader_options: dict[str, Any] = {
+            "FORMAT_NAME": nvs_format,
+            "ENFORCE_EXISTING_FILE_FORMAT": True,
+        }
+        if snowpark_options and "PATTERN" in snowpark_options:
+            reader_options["PATTERN"] = snowpark_options["PATTERN"]
+        nvs_df = session.read.options(reader_options).parquet(path)
         return nvs_df.sample(n=sample_size)
     except Exception:
         return None
@@ -787,7 +792,9 @@ def map_read_parquet(
     # Use the non-vectorized scanner so that Parquet MAP encoding is preserved
     # as key_value arrays, letting _reconstruct_schema distinguish maps from structs.
     nvs_sampled_df = (
-        _create_nvs_sample(session, paths[0], file_format_options, rows_to_infer)
+        _create_nvs_sample(
+            session, paths[0], file_format_options, rows_to_infer, snowpark_options
+        )
         if main_uses_vs
         else None
     )
@@ -1058,7 +1065,7 @@ def _validate_column_type(
     """
     if not datatypes_equal(source_type, target_type, ignore_nullable=True):
         exception = ValueError(
-            f"Parquet column cannot be converted. "
+            f"Parquet column cannot be converted due to incompatible types. "
             f"Column [{col_name}], Expected: {target_type}, Found: {source_type}"
         )
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
@@ -1147,15 +1154,20 @@ def _cast_ntz_to_ltz(df: DataFrame) -> DataFrame:
     convert_tz = builtin("CONVERT_TIMEZONE")
     session_tz = global_config.spark_sql_session_timeZone
     ltz_type = TimestampType(TimestampTimeZone.LTZ)
-    for field in df.schema.fields:
-        if (
-            isinstance(field.datatype, TimestampType)
-            and field.datatype.tz == TimestampTimeZone.NTZ
-        ):
-            df = df.with_column(
-                field.name,
-                convert_tz(lit("UTC"), lit(session_tz), col(field.name)).cast(ltz_type),
-            )
+    ntz_fields = [
+        field
+        for field in df.schema.fields
+        if isinstance(field.datatype, TimestampType)
+        and field.datatype.tz == TimestampTimeZone.NTZ
+    ]
+    if ntz_fields:
+        df = df.with_columns(
+            [f.name for f in ntz_fields],
+            [
+                convert_tz(lit("UTC"), lit(session_tz), col(f.name)).cast(ltz_type)
+                for f in ntz_fields
+            ],
+        )
     return df
 
 

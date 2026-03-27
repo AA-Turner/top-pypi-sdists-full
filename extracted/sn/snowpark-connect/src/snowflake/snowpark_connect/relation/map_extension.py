@@ -51,6 +51,7 @@ from snowflake.snowpark_connect.utils.expression_transformer import (
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
 )
+from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
@@ -85,11 +86,14 @@ def map_extension(
                 input_df = input_df.rename(input_df.columns[0], column_name)
                 input_type = snowpark_types.VariantType()
                 return_type = snowpark_types.VariantType()
+            from snowflake.snowpark_connect.utils.context import get_spark_session_id
+
+            rdd_udf_name = f"my_udf_{get_spark_session_id().replace('-','_')}"
             func = snowpark_fn.udf(
                 pkl.loads(rdd_map.func),
                 return_type=return_type,
                 input_types=[input_type],
-                name="my_udf",
+                name=rdd_udf_name,
                 replace=True,
             )
             result = input_df.select(func(column_name).as_(column_name))
@@ -205,11 +209,11 @@ def get_udtf_project(
             len(expressions) == 1
             and expressions[0].WhichOneof("expr_type") == "unresolved_function"
         ):
-            session = snowpark.Session.get_active_session()
             func = expressions[0].unresolved_function
             udtf_name_lower = func.function_name.lower()
-            if udtf_name_lower in session._udtfs:
-                return (session._udtfs[udtf_name_lower]), aliased_projection
+            cache = get_spark_session_cache()
+            if cache.udtfs.has(udtf_name_lower):
+                return cache.udtfs.get(udtf_name_lower), aliased_projection
 
     return None
 
@@ -223,11 +227,12 @@ def handle_udtf_with_table_arguments(
     """
     session = snowpark.Session.get_active_session()
     udtf_name_lower = udtf_info.function_name.lower()
-    if udtf_name_lower not in session._udtfs:
+    cache = get_spark_session_cache()
+    if not cache.udtfs.has(udtf_name_lower):
         exception = ValueError(f"UDTF '{udtf_info.function_name}' not found.")
         attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
         raise exception
-    _udtf_obj, udtf_spark_output_names = session._udtfs[udtf_name_lower]
+    _udtf_obj, udtf_spark_output_names = cache.udtfs.get(udtf_name_lower)
 
     table_containers = []
     for table_arg_info in udtf_info.table_arguments:

@@ -24,7 +24,7 @@ from dstack._internal.core.models.profiles import (
 from dstack._internal.core.models.runs import (
     ApplyRunPlanInput,
     Job,
-    JobSpec,
+    JobConnectionInfo,
     JobStatus,
     JobSubmission,
     JobTerminationReason,
@@ -41,6 +41,7 @@ from dstack._internal.core.services.diff import format_diff_fields_for_event
 from dstack._internal.server.db import get_db, is_db_postgres, is_db_sqlite
 from dstack._internal.server.models import (
     FleetModel,
+    InstanceModel,
     JobModel,
     ProbeModel,
     ProjectModel,
@@ -54,6 +55,8 @@ from dstack._internal.server.services.jobs import (
     check_can_attach_job_volumes,
     delay_job_instance_termination,
     get_job_configured_volumes,
+    get_job_connection_info,
+    get_job_spec,
     get_jobs_from_run_spec,
     job_model_to_job_submission,
     remove_job_spec_sensitive_info,
@@ -62,6 +65,7 @@ from dstack._internal.server.services.jobs import (
 )
 from dstack._internal.server.services.locking import get_locker, string_to_lock_id
 from dstack._internal.server.services.logging import fmt
+from dstack._internal.server.services.pipelines import PipelineHinterProtocol
 from dstack._internal.server.services.plugins import apply_plugin_policies
 from dstack._internal.server.services.probes import is_probe_ready
 from dstack._internal.server.services.projects import list_user_project_models
@@ -103,13 +107,51 @@ def switch_run_status(
         return
 
     run_model.status = new_status
+    emit_run_status_change_event(
+        session=session,
+        run_model=run_model,
+        old_status=old_status,
+        new_status=new_status,
+        actor=actor,
+    )
 
+
+def emit_run_status_change_event(
+    session: AsyncSession,
+    run_model: RunModel,
+    old_status: RunStatus,
+    new_status: RunStatus,
+    actor: events.AnyActor = events.SystemActor(),
+) -> None:
+    if old_status == new_status:
+        return
+    events.emit(
+        session,
+        get_run_status_change_message(
+            old_status=old_status,
+            new_status=new_status,
+            termination_reason=run_model.termination_reason,
+        ),
+        actor=actor,
+        targets=[events.Target.from_model(run_model)],
+    )
+
+
+def get_run_status_change_message(
+    old_status: RunStatus,
+    new_status: RunStatus,
+    termination_reason: Optional[RunTerminationReason],
+) -> str:
     msg = f"Run status changed {old_status.upper()} -> {new_status.upper()}"
     if new_status == RunStatus.TERMINATING:
-        if run_model.termination_reason is None:
+        if termination_reason is None:
             raise ValueError("termination_reason must be set when switching to TERMINATING status")
-        msg += f". Termination reason: {run_model.termination_reason.upper()}"
-    events.emit(session, msg, actor=actor, targets=[events.Target.from_model(run_model)])
+        msg += f". Termination reason: {termination_reason.upper()}"
+    return msg
+
+
+def get_run_spec(run_model: RunModel) -> RunSpec:
+    return RunSpec.__response__.parse_raw(run_model.run_spec)
 
 
 async def list_user_runs(
@@ -289,7 +331,7 @@ async def get_run_by_name(
     run_model = await get_run_model_by_name(session=session, project=project, run_name=run_name)
     if run_model is None:
         return None
-    return run_model_to_run(run_model, return_in_api=True)
+    return run_model_to_run(run_model, return_in_api=True, include_job_connection_info=True)
 
 
 async def get_run_by_id(
@@ -310,7 +352,7 @@ async def get_run_by_id(
     run_model = res.scalar()
     if run_model is None:
         return None
-    return run_model_to_run(run_model, return_in_api=True)
+    return run_model_to_run(run_model, return_in_api=True, include_job_connection_info=True)
 
 
 async def get_plan(
@@ -378,6 +420,7 @@ async def apply_plan(
     project: ProjectModel,
     plan: ApplyRunPlanInput,
     force: bool,
+    pipeline_hinter: Optional[PipelineHinterProtocol] = None,
     legacy_repo_dir: bool = False,
 ) -> Run:
     run_spec = plan.run_spec
@@ -397,6 +440,7 @@ async def apply_plan(
             user=user,
             project=project,
             run_spec=run_spec,
+            pipeline_hinter=pipeline_hinter,
         )
     current_resource_model = await get_run_model_by_name(
         session=session,
@@ -409,6 +453,7 @@ async def apply_plan(
             user=user,
             project=project,
             run_spec=run_spec,
+            pipeline_hinter=pipeline_hinter,
         )
     current_resource = run_model_to_run(current_resource_model, return_in_api=True)
 
@@ -467,6 +512,7 @@ async def submit_run(
     user: UserModel,
     project: ProjectModel,
     run_spec: RunSpec,
+    pipeline_hinter: Optional[PipelineHinterProtocol] = None,
 ) -> Run:
     validate_run_spec_and_set_defaults(user, run_spec)
     repo = await _get_run_repo_or_error(
@@ -602,6 +648,9 @@ async def submit_run(
                         ],
                     )
         await session.commit()
+        if pipeline_hinter is not None:
+            pipeline_hinter.hint_fetch(JobModel.__name__)
+            pipeline_hinter.hint_fetch(RunModel.__name__)
         await session.refresh(run_model)
 
         run = await get_run_by_id(session, project, run_model.id)
@@ -733,17 +782,20 @@ def run_model_to_run(
     job_submissions_limit: Optional[int] = None,
     return_in_api: bool = False,
     include_sensitive: bool = False,
+    include_job_connection_info: bool = False,
 ) -> Run:
+    run_spec = get_run_spec(run_model)
+
     jobs: List[Job] = []
     if include_jobs:
         jobs = _get_run_jobs_with_submissions(
             run_model=run_model,
+            run_spec=run_spec,
             job_submissions_limit=job_submissions_limit,
             return_in_api=return_in_api,
             include_sensitive=include_sensitive,
+            include_job_connection_info=include_job_connection_info,
         )
-
-    run_spec = RunSpec.__response__.parse_raw(run_model.run_spec)
 
     latest_job_submission = None
     if len(jobs) > 0 and len(jobs[0].job_submissions) > 0:
@@ -797,9 +849,11 @@ def _set_run_resources_defaults(run_spec: RunSpec) -> None:
 
 def _get_run_jobs_with_submissions(
     run_model: RunModel,
+    run_spec: RunSpec,
     job_submissions_limit: Optional[int],
     return_in_api: bool = False,
     include_sensitive: bool = False,
+    include_job_connection_info: bool = False,
 ) -> List[Job]:
     jobs: List[Job] = []
     run_jobs = sorted(run_model.jobs, key=lambda j: (j.replica_num, j.job_num, j.submission_num))
@@ -831,10 +885,19 @@ def _get_run_jobs_with_submissions(
                     submissions.append(job_submission)
             if job_model is not None:
                 # Use the spec from the latest submission. Submissions can have different specs
-                job_spec = JobSpec.__response__.parse_raw(job_model.job_spec_data)
+                job_spec = get_job_spec(job_model)
                 if not include_sensitive:
                     remove_job_spec_sensitive_info(job_spec)
-                jobs.append(Job(job_spec=job_spec, job_submissions=submissions))
+                job_connection_info: Optional[JobConnectionInfo] = None
+                if include_job_connection_info and job_model.status == JobStatus.RUNNING:
+                    job_connection_info = get_job_connection_info(job_model, run_spec)
+                jobs.append(
+                    Job(
+                        job_spec=job_spec,
+                        job_submissions=submissions,
+                        job_connection_info=job_connection_info,
+                    )
+                )
     return jobs
 
 
@@ -857,7 +920,7 @@ def _get_run_status_message(run_model: RunModel) -> str:
     if run_model.status in [RunStatus.SUBMITTED, RunStatus.PENDING]:
         # Show `retrying` if any job caused the run to retry
         for job_models in job_models_grouped_by_job:
-            last_job_spec = JobSpec.__response__.parse_raw(job_models[-1].job_spec_data)
+            last_job_spec = get_job_spec(job_models[-1])
             retry_on_events = last_job_spec.retry.on_events if last_job_spec.retry else []
             last_job_termination_reason = _get_last_job_termination_reason(job_models)
             if (
@@ -1009,7 +1072,10 @@ async def process_terminating_run(session: AsyncSession, run_model: RunModel):
             JobTerminationReason.DONE_BY_RUNNER,
         }:
             # Send a signal to stop the job gracefully
-            await stop_runner(session, job_model)
+            instance_model = await _load_job_instance_for_stop(
+                session=session, job_model=job_model
+            )
+            await stop_runner(job_model, common_utils.get_or_error(instance_model))
             delay_job_instance_termination(job_model)
         job_model.termination_reason = job_termination_reason
         switch_job_status(session, job_model, JobStatus.TERMINATING)
@@ -1052,3 +1118,17 @@ def _get_next_triggered_at(run_spec: RunSpec) -> Optional[datetime]:
             )
         )
     return min(fire_times)
+
+
+async def _load_job_instance_for_stop(
+    session: AsyncSession,
+    job_model: JobModel,
+) -> Optional[InstanceModel]:
+    if job_model.instance_id is None:
+        return None
+    res = await session.execute(
+        select(InstanceModel)
+        .where(InstanceModel.id == job_model.instance_id)
+        .options(joinedload(InstanceModel.project))
+    )
+    return res.scalar_one_or_none()

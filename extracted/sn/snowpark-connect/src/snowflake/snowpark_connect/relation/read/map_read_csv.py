@@ -19,13 +19,16 @@ from snowflake.snowpark._internal.utils import (
     TempObjectType,
     random_name_for_temp_object,
 )
+from snowflake.snowpark.column import METADATA_FILENAME
 from snowflake.snowpark.dataframe_reader import DataFrameReader
 from snowflake.snowpark.types import (
+    ArrayType,
     DataType,
     DecimalType,
     DoubleType,
     IntegerType,
     LongType,
+    MapType,
     StringType,
     StructField,
     StructType,
@@ -42,6 +45,7 @@ from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.read.map_read import CsvReaderConfig
 from snowflake.snowpark_connect.relation.read.map_read_partitioned_file import (
+    _add_partition_columns,
     _read_file_with_partitions,
     _read_partitioned_file_with_partitions,
 )
@@ -116,6 +120,10 @@ def map_read_csv(
         )
 
         raw_options = rel.read.data_source.options
+        relax_types_to_infer_schema = (
+            converted_snowpark_options.pop("relaxtypestoinferschema", False)
+            or _integral_types_conversion_enabled
+        )
 
         if schema is None or (
             parse_header
@@ -144,6 +152,7 @@ def map_read_csv(
                 file_format_options,
                 raw_options,
                 parse_header,
+                relax_types_to_infer_schema,
             )
             result_can_be_cached = (
                 result_can_be_cached and not read_using_external_table
@@ -159,6 +168,7 @@ def map_read_csv(
                     file_format_options,
                     raw_options,
                     parse_header,
+                    relax_types_to_infer_schema,
                 )
                 df = df.union_all(partition_df)
                 result_can_be_cached = (
@@ -179,6 +189,7 @@ def map_read_csv(
                     file_format_options,
                     raw_options,
                     parse_header,
+                    relax_types_to_infer_schema,
                 )
                 resolved_schema = StructType(
                     get_non_metadata_fields(stage_df.schema.fields)
@@ -219,6 +230,7 @@ def map_read_csv(
                     file_format_options,
                     raw_options,
                     parse_header,
+                    relax_types_to_infer_schema,
                 )
                 result_can_be_cached = (
                     result_can_be_cached and not read_using_external_table
@@ -247,6 +259,8 @@ def map_read_csv(
                         raw_options=raw_options,
                         parse_header=parse_header,
                     )
+                    if relax_types_to_infer_schema:
+                        copy_into_schema = relax_csv_types(copy_into_schema)
                     if len(stage_files) == 1:
                         stage_file_paths = []
                         copy_from_stage = stage_files[0]
@@ -281,7 +295,10 @@ def map_read_csv(
             spark_column_names=spark_column_names,
             snowpark_column_names=snowpark_column_names,
             snowpark_column_types=[
-                _emulate_integral_types_for_csv(f.datatype) for f in df.schema.fields
+                relax_csv_types(f.datatype)
+                if relax_types_to_infer_schema
+                else f.datatype
+                for f in df.schema.fields
             ],
             can_be_cached=result_can_be_cached,
         )
@@ -342,6 +359,7 @@ def _read_csv_with_partitions(
     file_format_options: dict[str, Any],
     raw_options: dict,
     parse_header: bool,
+    relax_types_to_infer_schema: bool = False,
 ) -> tuple[snowpark.DataFrame, bool]:
     """
     Reads CSV files and adds partition columns from subdirectories (Hive-style partitioning).
@@ -357,6 +375,8 @@ def _read_csv_with_partitions(
         file_format_options: Options for the file format.
         raw_options: Raw options from the read request.
         parse_header: Whether to parse the CSV header.
+        relax_types_to_infer_schema: Whether to widen inferred types and re-read
+            to prevent TRY_CAST data loss from narrow sampled types.
 
     Returns:
         A tuple of (DataFrame, bool) where the bool indicates if external table was used.
@@ -484,6 +504,57 @@ def _read_csv_with_partitions(
                 snowpark_options=snowpark_reader_options,
                 raw_options=raw_options,
             )
+
+            if relax_types_to_infer_schema:
+                # TODO: SNOW-3266242 Snowpark Python ignores TRY_CAST when a user schema is
+                # provided (schema_cast_seq always generates strict $N::TYPE).
+                # We work around this by reading as StringType and applying
+                # try_cast via df.select().  Once Snowpark supports TRY_CAST
+                # with user schemas, simplify to:
+                #   reader.option("TRY_CAST", True).schema(relaxed).csv(path)
+                widened_schema = relax_csv_types(df.schema)
+                partition_col_names = set(partition_columns)
+
+                data_fields = [
+                    f
+                    for f in widened_schema.fields
+                    if unquote_if_quoted(f.name) != "METADATA$FILENAME"
+                    and unquote_if_quoted(f.name) not in partition_col_names
+                ]
+
+                string_schema = StructType(
+                    [
+                        StructField(f.name, StringType(), nullable=True)
+                        for f in data_fields
+                    ]
+                )
+
+                metadata_reader = reader
+                if not getattr(reader, "_metadata_cols", None):
+                    metadata_reader = reader.with_metadata(METADATA_FILENAME)
+                df = metadata_reader.schema(string_schema).csv(path)
+
+                cast_cols = [
+                    snowpark_fn.try_cast(snowpark_fn.col(f.name), f.datatype).alias(
+                        f.name
+                    )
+                    for f in data_fields
+                ]
+                cast_cols.append(METADATA_FILENAME)
+                df = df.select(cast_cols)
+
+                if partition_columns:
+                    partition_types = {
+                        unquote_if_quoted(f.name): f.datatype
+                        for f in widened_schema.fields
+                        if unquote_if_quoted(f.name) in partition_col_names
+                    }
+                    df = _add_partition_columns(df, partition_columns, partition_types)
+                if not str_to_bool(
+                    raw_options.get("snowpark.populateFileMetadata", "false")
+                ):
+                    df = df.drop(METADATA_FILENAME)
+
             partition_columns = [
                 quote_name_without_upper_casing(col) for col in partition_columns
             ]
@@ -739,11 +810,13 @@ def get_header_names(
     return [f'"{name}"' for name in deduplicated_names], 0
 
 
-def _emulate_integral_types_for_csv(t: DataType) -> DataType:
-    """
-    CSV requires different type handling to match OSS Spark CSV schema inference.
+def relax_csv_types(t: DataType) -> DataType:
+    """Widen numeric types to match OSS Spark's CSV schema inference rules.
 
-    After applying emulate_integral_types, converts to Spark CSV types:
+    Snowpark's USE_RELAXED_TYPES (most_permissive_type) which incorrectly maps all numerics to DoubleType.
+    We now handle relaxation ourselves for all clients, replacing USE_RELAXED_TYPES with these Spark-compatible rules.
+
+    After applying relax_csv_types, converts to Spark CSV types:
     - IntegerType, ShortType, ByteType -> IntegerType
     - LongType -> LongType
     - DecimalType with scale > 0 -> DoubleType
@@ -752,7 +825,17 @@ def _emulate_integral_types_for_csv(t: DataType) -> DataType:
     - DecimalType with precision <= 9 -> IntegerType
     - FloatType, DoubleType -> DoubleType
     """
-    if not _integral_types_conversion_enabled:
+    if isinstance(t, StructType):
+        for sf in t.fields:
+            sf.datatype = relax_csv_types(sf.datatype)
+        return t
+    elif isinstance(t, ArrayType):
+        if t.element_type is not None:
+            t.element_type = relax_csv_types(t.element_type)
+        return t
+    elif isinstance(t, MapType):
+        t.key_type = relax_csv_types(t.key_type)
+        t.value_type = relax_csv_types(t.value_type)
         return t
 
     # First apply standard integral type conversion
@@ -760,11 +843,9 @@ def _emulate_integral_types_for_csv(t: DataType) -> DataType:
 
     if isinstance(t, LongType):
         return LongType()
-
     elif isinstance(t, _IntegralType):
         # ByteType, ShortType, IntegerType -> IntegerType
         return IntegerType()
-
     elif isinstance(t, DecimalType):
         # DecimalType with scale > 0 means it has decimal places -> DoubleType
         if t.scale > 0:
@@ -773,11 +854,9 @@ def _emulate_integral_types_for_csv(t: DataType) -> DataType:
         if t.precision > 18:
             # Too big for long, keep as DecimalType
             return DecimalType(t.precision, 0)
-        elif t.precision > 9:
+        if t.precision > 9:
             return LongType()
-        else:
-            return IntegerType()
-
+        return IntegerType()
     elif isinstance(t, _FractionalType):
         # FloatType, DoubleType -> DoubleType
         return DoubleType()

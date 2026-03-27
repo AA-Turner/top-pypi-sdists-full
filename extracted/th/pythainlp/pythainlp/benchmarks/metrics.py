@@ -12,7 +12,26 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from typing import Optional, Union, cast
+from typing import Optional, TypedDict, Union, cast
+
+
+class BleuScore(TypedDict):
+    """BLEU score components returned by :func:`bleu_score`."""
+
+    bleu: float  # BLEU score as a percentage (0.0 to 100.0)
+    precisions: list[float]
+    bp: float
+    length_ratio: float
+    hyp_length: int
+    ref_length: int
+
+
+class RougeScore(TypedDict):
+    """Precision, recall, and F-measure for a single ROUGE type."""
+
+    precision: float
+    recall: float
+    fmeasure: float
 
 
 def _get_ngrams(tokens: list[str], n: int) -> list[tuple[str, ...]]:
@@ -83,7 +102,7 @@ def bleu_score(
     lowercase: bool = False,
     max_ngram: int = 4,
     smooth: bool = True,
-) -> dict[str, Union[float, list[float]]]:
+) -> BleuScore:
     """
     Calculate BLEU score for Thai text with automatic tokenization.
 
@@ -104,11 +123,12 @@ def bleu_score(
     :param bool smooth: whether to use smoothing for zero counts
         (default: True)
 
-    :return: dictionary with ``'bleu'``, ``'precisions'``, ``'bp'``,
-        ``'length_ratio'``, ``'hyp_length'``, and ``'ref_length'``.
-        The ``'precisions'`` value is a ``list[float]``; all other values
-        are ``float``.
-    :rtype: dict[str, Union[float, list[float]]]
+    :return: a :class:`BleuScore` typed dict with ``'bleu'``,
+        ``'precisions'``, ``'bp'``, ``'length_ratio'``, ``'hyp_length'``,
+        and ``'ref_length'``. ``'precisions'`` is ``list[float]``;
+        ``'hyp_length'`` and ``'ref_length'`` are ``int``; all other
+        values are ``float``.
+    :rtype: BleuScore
 
     :Example:
     ::
@@ -220,16 +240,16 @@ def bleu_score(
     else:
         bleu = 0.0
 
-    return {
-        "bleu": bleu * 100,  # Return as percentage
-        "precisions": precisions,
-        "bp": bp,
-        "length_ratio": total_hyp_length / total_ref_length
+    return BleuScore(
+        bleu=bleu * 100,  # Return as percentage
+        precisions=precisions,
+        bp=bp,
+        length_ratio=total_hyp_length / total_ref_length
         if total_ref_length > 0
         else 0.0,
-        "hyp_length": total_hyp_length,
-        "ref_length": total_ref_length,
-    }
+        hyp_length=total_hyp_length,
+        ref_length=total_ref_length,
+    )
 
 
 def rouge_score(
@@ -237,7 +257,7 @@ def rouge_score(
     hypothesis: str,
     tokenize: str = "newmm",
     rouge_types: Optional[list[str]] = None,
-) -> dict[str, tuple[float, float, float]]:
+) -> dict[str, RougeScore]:
     """
     Calculate ROUGE scores for Thai text with automatic tokenization.
 
@@ -257,8 +277,9 @@ def rouge_score(
     :param Optional[list[str]] rouge_types: list of ROUGE types to calculate.
         Default is ["rouge1", "rouge2", "rougeL"]
 
-    :return: dictionary mapping ROUGE type to (precision, recall, fmeasure)
-    :rtype: dict[str, tuple[float, float, float]]
+    :return: dictionary mapping ROUGE type to a :class:`RougeScore` typed dict
+        with ``'precision'``, ``'recall'``, and ``'fmeasure'`` keys.
+    :rtype: dict[str, RougeScore]
 
     :Example:
     ::
@@ -268,9 +289,9 @@ def rouge_score(
         reference = "สวัสดีครับ วันนี้อากาศดีมาก"
         hypothesis = "สวัสดีค่ะ วันนี้อากาศดี"
         scores = rouge_score(reference, hypothesis)
-        print(f"ROUGE-1 F-measure: {scores['rouge1'][2]:.4f}")
-        print(f"ROUGE-2 F-measure: {scores['rouge2'][2]:.4f}")
-        print(f"ROUGE-L F-measure: {scores['rougeL'][2]:.4f}")
+        print(f"ROUGE-1 F-measure: {scores['rouge1']['fmeasure']:.4f}")
+        print(f"ROUGE-2 F-measure: {scores['rouge2']['fmeasure']:.4f}")
+        print(f"ROUGE-L F-measure: {scores['rougeL']['fmeasure']:.4f}")
     """
     from pythainlp.tokenize import word_tokenize
 
@@ -285,7 +306,7 @@ def rouge_score(
         hypothesis, engine=tokenize, keep_whitespace=False
     )
 
-    result: dict[str, tuple[float, float, float]] = {}
+    result: dict[str, RougeScore] = {}
 
     for rouge_type in rouge_types:
         if rouge_type == "rouge1":
@@ -297,8 +318,11 @@ def rouge_score(
             ref_count = len(ref_tokens)
             hyp_count = len(hyp_tokens)
 
-            result[rouge_type] = _calculate_precision_recall_fmeasure(
+            precision, recall, fmeasure = _calculate_precision_recall_fmeasure(
                 overlap, hyp_count, ref_count
+            )
+            result[rouge_type] = RougeScore(
+                precision=precision, recall=recall, fmeasure=fmeasure
             )
 
         elif rouge_type == "rouge2":
@@ -313,8 +337,11 @@ def rouge_score(
             ref_count = len(ref_bigrams)
             hyp_count = len(hyp_bigrams)
 
-            result[rouge_type] = _calculate_precision_recall_fmeasure(
+            precision, recall, fmeasure = _calculate_precision_recall_fmeasure(
                 overlap, hyp_count, ref_count
+            )
+            result[rouge_type] = RougeScore(
+                precision=precision, recall=recall, fmeasure=fmeasure
             )
 
         elif rouge_type == "rougeL":
@@ -323,8 +350,11 @@ def rouge_score(
             ref_count = len(ref_tokens)
             hyp_count = len(hyp_tokens)
 
-            result[rouge_type] = _calculate_precision_recall_fmeasure(
+            precision, recall, fmeasure = _calculate_precision_recall_fmeasure(
                 lcs_len, hyp_count, ref_count
+            )
+            result[rouge_type] = RougeScore(
+                precision=precision, recall=recall, fmeasure=fmeasure
             )
 
     return result

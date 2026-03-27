@@ -105,6 +105,7 @@ class ChatInput(BaseModel):
     include_sentry_tools: Optional[bool] = Field(
         alias="includeSentryTools", default=None
     )
+    include_aws_tools: Optional[bool] = Field(alias="includeAwsTools", default=None)
     enabled_skill_ids: Optional[list[str]] = Field(
         alias="enabledSkillIds", default=None
     )

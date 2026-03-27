@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import money_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.money_pb2 as money_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -118,6 +118,7 @@ class Recommendation(proto.Message):
                 Recommendation has P1 priority (highest
                 priority).
         """
+
         PRIORITY_UNSPECIFIED = 0
         P4 = 1
         P3 = 2
@@ -545,6 +546,7 @@ class Impact(proto.Message):
                 Indicates a potential increase or decrease in
                 sustainability.
         """
+
         CATEGORY_UNSPECIFIED = 0
         COST = 1
         SECURITY = 2
@@ -630,6 +632,7 @@ class RecommendationStateInfo(proto.Message):
                 DISMISSED recommendations can be marked as
                 ACTIVE.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         CLAIMED = 6

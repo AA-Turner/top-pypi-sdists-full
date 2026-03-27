@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read,
 from cognite_toolkit._cdf_tk.yaml_classes import ToolkitResource
 
 if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
 
 if sys.version_info >= (3, 11):
@@ -429,6 +430,35 @@ class ResourceCRUD(Loader, ABC, Generic[T_Identifier, T_RequestResource, T_Respo
     @classmethod
     def get_extra_files(cls, filepath: Path, identifier: T_Identifier, item: dict[str, Any]) -> Iterable[ReadExtra]:
         yield from ()
+
+    @classmethod
+    def substitute_variables_content(cls, content: str, variables: "list[BuildVariable]") -> str:
+        """Variable substitution in the content of a file. This is used in the build command.
+
+        This is overwritten in the TransformationCRUD to handle substitution in the query field.
+        """
+        # To avoid circular import
+        from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import BuildVariable
+
+        return BuildVariable.substitute(content, variables, ".yaml")
+
+    def load_resource_files(
+        self,
+        filepaths: list[Path],
+        environment_variables: dict[str, str | None] | None = None,
+        is_dry_run: bool = False,
+    ) -> list[T_RequestResource]:
+        """Loads the resources from the given filepaths.
+
+        This is a convenience method that combines .load_resource_file and load_resource to load all resources
+        from the given filepaths.
+        """
+        request_items: list[T_RequestResource] = []
+        for file in filepaths:
+            raw = self.load_resource_file(file, environment_variables)
+            for item in raw:
+                request_items.append(self.load_resource(item, is_dry_run))
+        return request_items
 
 
 class ResourceContainerCRUD(ResourceCRUD[T_Identifier, T_RequestResource, T_ResponseResource], ABC):

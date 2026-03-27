@@ -1,0 +1,5 @@
+name: greet
+description: A simple greeting skill to verify pack skills load at runtime
+prompt: |
+  Say hello to the user and confirm that the v111-smoke-test pack is loaded and working.
+  Mention that this skill was delivered via a pack artifact.

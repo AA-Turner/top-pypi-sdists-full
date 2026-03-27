@@ -21,11 +21,18 @@ from tinybird.tb.modules.project import Project
 
 
 # TODO(eclbg): This should eventually end up in client.py, but we're not using it here yet.
-def api_fetch(url: str, headers: dict, max_retries: int = 3, backoff_factor: float = 0.5) -> dict:
+def api_fetch(
+    url: str,
+    headers: dict,
+    max_retries: int = 3,
+    backoff_factor: float = 0.5,
+    request_from: Optional[str] = None,
+) -> dict:
+    request_params = {"from": request_from} if request_from and "from=" not in url else None
     retries = 0
     while retries <= max_retries:
         try:
-            r = requests.get(url, headers=headers)
+            r = requests.get(url, headers=headers, params=request_params)
             if r.status_code == 200:
                 logging.debug(json.dumps(r.json(), indent=2))
                 return r.json()
@@ -59,8 +66,13 @@ def api_post(
     headers: dict,
     files: Optional[list] = None,
     params: Optional[dict] = None,
+    request_from: Optional[str] = None,
 ) -> dict:
-    r = requests.post(url, headers=headers, files=files, params=params)
+    request_params = dict(params or {})
+    if request_from and "from=" not in url:
+        request_params.setdefault("from", request_from)
+
+    r = requests.post(url, headers=headers, files=files, params=request_params)
     try:
         if r.status_code < 300:
             logging.debug(json.dumps(r.json(), indent=2))
@@ -124,9 +136,15 @@ def _get_deployment_job(client: TinyB, deployment_id: Optional[Union[str, int]])
 
 # TODO(eclbg): This logic should be in the server, and there should be a dedicated endpoint for promoting a deployment
 # potato
-def promote_deployment(host: Optional[str], headers: dict, wait: bool, ingest_hint: Optional[bool] = True) -> None:
+def promote_deployment(
+    host: Optional[str],
+    headers: dict,
+    wait: bool,
+    ingest_hint: Optional[bool] = True,
+    request_from: Optional[str] = None,
+) -> None:
     TINYBIRD_API_DEPLOYMENTS_BASE_URL = f"{host}/v1/deployments"
-    result = api_fetch(TINYBIRD_API_DEPLOYMENTS_BASE_URL, headers)
+    result = api_fetch(TINYBIRD_API_DEPLOYMENTS_BASE_URL, headers, request_from=request_from)
 
     deployments = result.get("deployments")
     if not deployments:
@@ -156,12 +174,13 @@ def promote_deployment(host: Optional[str], headers: dict, wait: bool, ingest_hi
     else:
         tb_api_set_live_url = f"{TINYBIRD_API_DEPLOYMENTS_BASE_URL}/{candidate_deployment.get('id')}/set-live"
         click.echo(FeedbackManager.highlight(message="» Waiting for deployment to be promoted..."))
-        result = api_post(tb_api_set_live_url, headers=headers)
+        result = api_post(tb_api_set_live_url, headers=headers, request_from=request_from)
         click.echo(FeedbackManager.info(message="✓ Deployment promoted"))
 
     last_deployment_id = last_deployment.get("id")
     tb_api_last_deployment_url = f"{TINYBIRD_API_DEPLOYMENTS_BASE_URL}/{last_deployment_id}"
-    r = requests.delete(tb_api_last_deployment_url, headers=headers)
+    request_params = {"from": request_from} if request_from and "from=" not in tb_api_last_deployment_url else None
+    r = requests.delete(tb_api_last_deployment_url, headers=headers, params=request_params)
 
     result = r.json()
     logging.debug(json.dumps(result, indent=2))
@@ -181,7 +200,7 @@ def promote_deployment(host: Optional[str], headers: dict, wait: bool, ingest_hi
 
     if wait:
         while True:
-            result = api_fetch(tb_api_last_deployment_url, headers=headers)
+            result = api_fetch(tb_api_last_deployment_url, headers=headers, request_from=request_from)
 
             last_deployment = result.get("deployment")
             if not last_deployment:
@@ -204,9 +223,9 @@ def promote_deployment(host: Optional[str], headers: dict, wait: bool, ingest_hi
         )
 
 
-def discard_deployment(host: Optional[str], headers: dict, wait: bool) -> None:
+def discard_deployment(host: Optional[str], headers: dict, wait: bool, request_from: Optional[str] = None) -> None:
     TINYBIRD_API_URL = f"{host}/v1/deployments"
-    result = api_fetch(TINYBIRD_API_URL, headers=headers)
+    result = api_fetch(TINYBIRD_API_URL, headers=headers, request_from=request_from)
 
     deployments = result.get("deployments")
     if not deployments:
@@ -233,7 +252,8 @@ def discard_deployment(host: Optional[str], headers: dict, wait: bool) -> None:
     click.echo(FeedbackManager.success(message=f"{verb} deployment {deployment_to_discard['id']}"))
 
     TINYBIRD_API_URL = f"{host}/v1/deployments/{deployment_to_discard.get('id')}"
-    r = requests.delete(TINYBIRD_API_URL, headers=headers)
+    request_params = {"from": request_from} if request_from and "from=" not in TINYBIRD_API_URL else None
+    r = requests.delete(TINYBIRD_API_URL, headers=headers, params=request_params)
     result = r.json()
     logging.debug(json.dumps(result, indent=2))
     if result.get("error"):
@@ -246,7 +266,7 @@ def discard_deployment(host: Optional[str], headers: dict, wait: bool) -> None:
     if wait:
         while True:
             TINYBIRD_API_URL = f"{host}/v1/deployments/{deployment_to_discard.get('id')}"
-            result = api_fetch(TINYBIRD_API_URL, headers)
+            result = api_fetch(TINYBIRD_API_URL, headers, request_from=request_from)
 
             deployment_to_discard = result.get("deployment")
             if deployment_to_discard and deployment_to_discard.get("status") == "deleted":
@@ -311,8 +331,9 @@ def create_deployment(
     deployment_job: Optional[Dict[str, Any]] = None
     deployment_request_sent = False
     deployment = {}
+    HEADERS = {"Authorization": f"Bearer {TINYBIRD_API_KEY}"}
+    request_from = getattr(client, "request_from", None)
     try:
-        HEADERS = {"Authorization": f"Bearer {TINYBIRD_API_KEY}"}
         params = {}
         if check:
             click.echo(FeedbackManager.highlight(message="\n» Validating deployment...\n"))
@@ -323,7 +344,9 @@ def create_deployment(
             params["allow_destructive_operations"] = "true"
 
         deployment_request_sent = True
-        result = api_post(TINYBIRD_API_DEPLOY_ENDPOINT_URL, headers=HEADERS, files=files, params=params)
+        result = api_post(
+            TINYBIRD_API_DEPLOY_ENDPOINT_URL, headers=HEADERS, files=files, params=params, request_from=request_from
+        )
 
         print_changes(result, project, output)
 
@@ -440,7 +463,7 @@ def create_deployment(
     try:
         while True:
             url = f"{client.host}/v1/deployments/{deployment.get('id')}"
-            res = api_fetch(url, HEADERS)
+            res = api_fetch(url, HEADERS, request_from=request_from)
             deployment = res.get("deployment", {})
             if not deployment:
                 click.echo(FeedbackManager.error(message="Error parsing deployment from response"))

@@ -151,6 +151,7 @@ class JobTerminationReason(str, Enum):
     CREATING_CONTAINER_ERROR = "creating_container_error"
     EXECUTOR_ERROR = "executor_error"
     MAX_DURATION_EXCEEDED = "max_duration_exceeded"
+    LOG_QUOTA_EXCEEDED = "log_quota_exceeded"
 
     def to_status(self) -> JobStatus:
         mapping = {
@@ -173,6 +174,7 @@ class JobTerminationReason(str, Enum):
             self.CREATING_CONTAINER_ERROR: JobStatus.FAILED,
             self.EXECUTOR_ERROR: JobStatus.FAILED,
             self.MAX_DURATION_EXCEEDED: JobStatus.TERMINATED,
+            self.LOG_QUOTA_EXCEEDED: JobStatus.FAILED,
         }
         return mapping[self]
 
@@ -205,6 +207,7 @@ class JobTerminationReason(str, Enum):
             JobTerminationReason.CREATING_CONTAINER_ERROR: "runner error",
             JobTerminationReason.EXECUTOR_ERROR: "executor error",
             JobTerminationReason.MAX_DURATION_EXCEEDED: "max duration exceeded",
+            JobTerminationReason.LOG_QUOTA_EXCEEDED: "log quota exceeded",
         }
         return error_mapping.get(self)
 
@@ -428,9 +431,53 @@ class JobSubmission(CoreModel):
         return end_time - self.submitted_at
 
 
+class JobConnectionInfo(CoreModel):
+    ide_name: Annotated[
+        Optional[str], Field(description="Dev environment IDE name for UI, human-readable.")
+    ]
+    attached_ide_url: Annotated[
+        Optional[str],
+        Field(
+            description=(
+                "Dev environment IDE URL."
+                " Not set if the job has not started yet."
+                " Only works if the user is attached to the run via CLI or Python API."
+            )
+        ),
+    ]
+    proxied_ide_url: Annotated[
+        Optional[str],
+        Field(
+            description=(
+                "Dev environment IDE URL."
+                " Not set if the job has hot started yet or sshproxy is not configured."
+            )
+        ),
+    ]
+    attached_ssh_command: Annotated[
+        Optional[list[str]],
+        Field(
+            description=(
+                "SSH command to connect to the job, list of command line arguments."
+                " Only works if the user is attached to the run via CLI or Python API."
+            )
+        ),
+    ]
+    proxied_ssh_command: Annotated[
+        Optional[list[str]],
+        Field(
+            description=(
+                "SSH command to connect to the job, list of command line arguments."
+                " Not set if sshproxy is not configured."
+            )
+        ),
+    ]
+
+
 class Job(CoreModel):
     job_spec: JobSpec
     job_submissions: List[JobSubmission]
+    job_connection_info: Optional[JobConnectionInfo] = None
 
 
 class RunSpecConfig(CoreConfig):

@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import re
 import sys
-from typing import TYPE_CHECKING, Union
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, TypedDict, Union, overload
 
 if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
+    from numpy.typing import NDArray
 
 SEPARATOR: str = "|"
 
@@ -28,6 +30,37 @@ TAG_RX: re.Pattern[str] = re.compile(r"<\/?[A-Z]+>")
 TAILING_SEP_RX: re.Pattern[str] = re.compile(f"{re.escape(SEPARATOR)}$")
 
 
+class CharLevelStat(TypedDict):
+    """Character-level confusion matrix statistics for tokenization."""
+
+    tp: int
+    fp: int
+    tn: int
+    fn: int
+
+
+class WordLevelStat(TypedDict):
+    """Word-level tokenization statistics."""
+
+    correctly_tokenized_words: int
+    total_words_in_sample: int
+    total_words_in_ref_sample: int
+
+
+class GlobalStat(TypedDict):
+    """Global tokenization indicator as a binary indicator string."""
+
+    tokenization_indicators: str
+
+
+class TokenizationStat(TypedDict):
+    """Tokenization quality statistics at character, word, and global level."""
+
+    char_level: CharLevelStat
+    word_level: WordLevelStat
+    global_: GlobalStat
+
+
 def _f1(precision: float, recall: float) -> float:
     """Compute f1.
 
@@ -42,8 +75,21 @@ def _f1(precision: float, recall: float) -> float:
     return 2 * precision * recall / (precision + recall)
 
 
+@overload
 def _flatten_result(
-    my_dict: dict, sep: str = ":"
+    my_dict: TokenizationStat, sep: str = ...
+) -> dict[str, Union[int, str]]: ...
+
+
+@overload
+def _flatten_result(
+    my_dict: Mapping[str, Mapping[str, Union[int, str]]], sep: str = ...
+) -> dict[str, Union[int, str]]: ...
+
+
+def _flatten_result(
+    my_dict: Any,
+    sep: str = ":",
 ) -> dict[str, Union[int, str]]:
     """Flatten two-dimension dictionary.
 
@@ -54,7 +100,9 @@ def _flatten_result(
     { "a:b": 7 }
 
 
-    :param dict my_dict: dictionary containing stats
+    :param my_dict: dictionary containing stats
+    :type my_dict: TokenizationStat or
+        collections.abc.Mapping[str, collections.abc.Mapping[str, Union[int, str]]]
     :param str sep: separator between the two keys (default: ":")
 
     :return: a one-dimension dictionary with keys combined
@@ -91,7 +139,7 @@ def benchmark(ref_samples: list[str], samples: list[str]) -> "pd.DataFrame":
                 flat_stats["expected"] = r
                 flat_stats["actual"] = s
                 results.append(flat_stats)
-        except Exception:
+        except Exception as exc:
             reason = """
 [Error]
 Reason: %s
@@ -107,7 +155,7 @@ Pair (i=%d)
                 r,
                 s,
             )
-            raise SystemExit(reason)
+            raise SystemExit(reason) from exc
 
     return pd.DataFrame(results)
 
@@ -137,7 +185,7 @@ def preprocessing(txt: str, remove_space: bool = True) -> str:
 
 def compute_stats(
     ref_sample: str, raw_sample: str
-) -> dict[str, dict[str, Union[int, str]]]:
+) -> TokenizationStat:
     """Compute statistics for tokenization quality
 
     These statistics include:
@@ -154,7 +202,7 @@ def compute_stats(
     :param str samples: samples that we want to evaluate
 
     :return: metrics at character- and word-level and indicators of correctly tokenized words
-    :rtype: dict[str, dict[str, Union[int, str]]]
+    :rtype: TokenizationStat
     """
     import numpy as np
 
@@ -183,33 +231,35 @@ def compute_stats(
 
     # Find correctly tokenized words in the sample
     ss_boundaries = _find_word_boundaries(sample_arr)
-    tokenization_indicators = _find_words_correctly_tokenised(
+    tokenization_indicators = _find_words_correctly_tokenized(
         word_boundaries, ss_boundaries
     )
 
-    correctly_tokenised_words: int = int(np.sum(tokenization_indicators))
+    correctly_tokenized_words: int = int(np.sum(tokenization_indicators))
 
     tokenization_indicators_str = list(map(str, tokenization_indicators))
 
     return {
-        "char_level": {
-            "tp": c_tp,
-            "fp": c_fp,
-            "tn": c_tn,
-            "fn": c_fn,
-        },
-        "word_level": {
-            "correctly_tokenised_words": correctly_tokenised_words,
-            "total_words_in_sample": int(np.sum(sample_arr)),
-            "total_words_in_ref_sample": int(np.sum(ref_sample_arr)),
-        },
-        "global": {
-            "tokenisation_indicators": "".join(tokenization_indicators_str)
-        },
+        "char_level": CharLevelStat(
+            tp=c_tp,
+            fp=c_fp,
+            tn=c_tn,
+            fn=c_fn,
+        ),
+        "word_level": WordLevelStat(
+            correctly_tokenized_words=correctly_tokenized_words,
+            total_words_in_sample=int(np.sum(sample_arr)),
+            total_words_in_ref_sample=int(np.sum(ref_sample_arr)),
+        ),
+        "global_": GlobalStat(
+            tokenization_indicators="".join(tokenization_indicators_str),
+        ),
     }
 
 
-def _binary_representation(txt: str, verbose: bool = False) -> "np.ndarray":
+def _binary_representation(
+    txt: str, verbose: bool = False
+) -> "NDArray[np.int8]":
     """Transform text into {0, 1} sequence.
 
     where (1) indicates that the corresponding character is the beginning of
@@ -219,7 +269,7 @@ def _binary_representation(txt: str, verbose: bool = False) -> "np.ndarray":
     :param bool verbose: for debugging purposes
 
     :return: {0, 1} sequence
-    :rtype: np.ndarray
+    :rtype: numpy.typing.NDArray[numpy.int8]
     """
     import numpy as np
 
@@ -228,7 +278,7 @@ def _binary_representation(txt: str, verbose: bool = False) -> "np.ndarray":
     boundary = np.argwhere(chars == SEPARATOR).reshape(-1)
     boundary = boundary - np.array(range(boundary.shape[0]))
 
-    bin_rept: np.ndarray = np.zeros(len(txt) - boundary.shape[0])
+    bin_rept = np.zeros(len(txt) - boundary.shape[0], dtype=np.int8)
     bin_rept[list(boundary) + [0]] = 1
 
     sample_wo_seps = list(txt.replace(SEPARATOR, ""))
@@ -247,10 +297,13 @@ def _binary_representation(txt: str, verbose: bool = False) -> "np.ndarray":
     return bin_rept
 
 
-def _find_word_boundaries(bin_reps: "np.ndarray") -> list[tuple[int, int]]:
+def _find_word_boundaries(
+    bin_reps: "NDArray[np.int8]",
+) -> list[tuple[int, int]]:
     """Find the starting and ending location of each word.
 
-    :param numpy.ndarray bin_reps: binary representation of a text
+    :param numpy.typing.NDArray[numpy.int8] bin_reps: binary representation
+        of a text
 
     :return: list of tuples (start, end)
     :rtype: list[tuple[int, int]]
@@ -264,7 +317,7 @@ def _find_word_boundaries(bin_reps: "np.ndarray") -> list[tuple[int, int]]:
     return list(zip(start_idx, end_idx))
 
 
-def _find_words_correctly_tokenised(
+def _find_words_correctly_tokenized(
     ref_boundaries: list[tuple[int, int]],
     predicted_boundaries: list[tuple[int, int]],
 ) -> tuple[int, ...]:

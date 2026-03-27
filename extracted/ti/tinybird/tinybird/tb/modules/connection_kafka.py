@@ -190,6 +190,7 @@ def connection_create_kafka(
             token=token,
             host=host,
             staging=False,
+            request_from=getattr(obj.get("client"), "request_from", None),
         )
         if tb_secret_bootstrap_servers:
             prod_client.create_secret(name=tb_secret_bootstrap_servers, value=bootstrap_servers)

@@ -13,19 +13,24 @@ class GetWorkspaceDefaultAppResponse200:
     """
     Attributes:
         default_app_path (Union[Unset, str]):
+        default_app_raw (Union[Unset, bool]):
     """
 
     default_app_path: Union[Unset, str] = UNSET
+    default_app_raw: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         default_app_path = self.default_app_path
+        default_app_raw = self.default_app_raw
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
         if default_app_path is not UNSET:
             field_dict["default_app_path"] = default_app_path
+        if default_app_raw is not UNSET:
+            field_dict["default_app_raw"] = default_app_raw
 
         return field_dict
 
@@ -34,8 +39,11 @@ class GetWorkspaceDefaultAppResponse200:
         d = src_dict.copy()
         default_app_path = d.pop("default_app_path", UNSET)
 
+        default_app_raw = d.pop("default_app_raw", UNSET)
+
         get_workspace_default_app_response_200 = cls(
             default_app_path=default_app_path,
+            default_app_raw=default_app_raw,
         )
 
         get_workspace_default_app_response_200.additional_properties = d

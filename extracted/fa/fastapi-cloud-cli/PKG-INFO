@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fastapi-cloud-cli
-Version: 0.15.0
+Version: 0.15.1
 Summary: Deploy and manage FastAPI Cloud apps from the command line 🚀
 Author-Email: Patrick Arminio <patrick@fastapilabs.com>
 License: MIT

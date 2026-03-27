@@ -24,6 +24,7 @@ class ListUsersAsSuperAdminResponse200Item:
         verified (bool):
         first_time_user (bool):
         role_source (ListUsersAsSuperAdminResponse200ItemRoleSource):
+        disabled (bool):
         devops (Union[Unset, bool]):
         name (Union[Unset, str]):
         company (Union[Unset, str]):
@@ -37,6 +38,7 @@ class ListUsersAsSuperAdminResponse200Item:
     verified: bool
     first_time_user: bool
     role_source: ListUsersAsSuperAdminResponse200ItemRoleSource
+    disabled: bool
     devops: Union[Unset, bool] = UNSET
     name: Union[Unset, str] = UNSET
     company: Union[Unset, str] = UNSET
@@ -53,6 +55,7 @@ class ListUsersAsSuperAdminResponse200Item:
         first_time_user = self.first_time_user
         role_source = self.role_source.value
 
+        disabled = self.disabled
         devops = self.devops
         name = self.name
         company = self.company
@@ -69,6 +72,7 @@ class ListUsersAsSuperAdminResponse200Item:
                 "verified": verified,
                 "first_time_user": first_time_user,
                 "role_source": role_source,
+                "disabled": disabled,
             }
         )
         if devops is not UNSET:
@@ -99,6 +103,8 @@ class ListUsersAsSuperAdminResponse200Item:
 
         role_source = ListUsersAsSuperAdminResponse200ItemRoleSource(d.pop("role_source"))
 
+        disabled = d.pop("disabled")
+
         devops = d.pop("devops", UNSET)
 
         name = d.pop("name", UNSET)
@@ -116,6 +122,7 @@ class ListUsersAsSuperAdminResponse200Item:
             verified=verified,
             first_time_user=first_time_user,
             role_source=role_source,
+            disabled=disabled,
             devops=devops,
             name=name,
             company=company,

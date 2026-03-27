@@ -14,6 +14,7 @@ def FAERS_filter_serious_events(
     seriousness_type: Optional[str] = "all",
     drug: Optional[str] = None,
     event_type: Optional[str] = None,
+    adverse_event: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -34,6 +35,8 @@ def FAERS_filter_serious_events(
         Alias for drug_name. Generic drug name.
     event_type : str
         Alias for seriousness_type. Type of serious event (e.g., hospitalization, dea...
+    adverse_event : str
+        Specific adverse event MedDRA term to filter within serious events (e.g., MYO...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -56,6 +59,7 @@ def FAERS_filter_serious_events(
             "seriousness_type": seriousness_type,
             "drug": drug,
             "event_type": event_type,
+            "adverse_event": adverse_event,
         }.items()
         if v is not None
     }

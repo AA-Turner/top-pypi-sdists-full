@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djhtml
-Version: 3.0.10
+Version: 3.0.11
 Summary: Django/Jinja template indenter
 Home-page: https://github.com/rtts/djhtml
 Author: Jaap Joris Vens

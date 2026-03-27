@@ -2,7 +2,6 @@ import json
 import threading
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from multiprocessing import Pipe, Queue
 from multiprocessing.connection import Connection
 from typing import Optional
@@ -26,28 +25,15 @@ from abstra_internals.environment import (
     WORKER_LOG_TO_QUEUE,
 )
 from abstra_internals.logger import AbstraLogger
+from abstra_internals.repositories.models import (
+    ControlMessage,
+    PreExecution,
+    QueueMessage,
+)
 from abstra_internals.utils import serialize
 from abstra_internals.utils.rabbitmq_connection import RabbitMQConnection
-from abstra_internals.utils.serializable import Serializable
 
 CONSUMER_INACTIVITY_TIMEOUT = 600  # 10 minutes
-
-
-class PreExecution(Serializable):
-    stage_id: str
-    context: ClientContext
-    execution_id: str
-    user_jwt: Optional[str] = None
-    send_queue: Optional[str] = None
-    recv_queue: Optional[str] = None
-    queue_expire_ms: Optional[int] = None
-
-
-@dataclass
-class QueueMessage:
-    preexecution: PreExecution
-    delivery_tag: int
-    connection: Optional[Connection] = None  # For local execution only
 
 
 class ProducerRepository(ABC):
@@ -373,9 +359,27 @@ class WebEditorControlProducerRepository:
         raise last_exception or AMQPConnectionError("Failed to connect to RabbitMQ")
 
     def stop_execution(self, execution_id: str):
-        from abstra_internals.repositories.consumer import ControlMessage
-
         payload = ControlMessage(type="stop", payload={"execution_id": execution_id})
+
+        with self._connect_with_retry() as connection:
+            with connection.channel() as channel:
+                channel: BlockingChannel
+                channel.exchange_declare(
+                    exchange=self.exchange_name,
+                    exchange_type="fanout",
+                    durable=True,
+                )
+                channel.basic_publish(
+                    body=payload.dump_json(),
+                    routing_key="",
+                    exchange=self.exchange_name,
+                    properties=self.props,
+                )
+
+    def restart_workers(self):
+        """Broadcast restart message to all workers.
+        Used after updating abstra version to ensure workers reload with new code."""
+        payload = ControlMessage(type="restart", payload={})
 
         with self._connect_with_retry() as connection:
             with connection.channel() as channel:

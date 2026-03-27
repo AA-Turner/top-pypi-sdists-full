@@ -15,6 +15,7 @@ from openhands.agent_server.config import (
     get_default_config,
 )
 from openhands.agent_server.conversation_router import conversation_router
+from openhands.agent_server.conversation_router_acp import conversation_router_acp
 from openhands.agent_server.conversation_service import (
     get_default_conversation_service,
 )
@@ -199,6 +200,7 @@ def _add_api_routes(app: FastAPI, config: Config) -> None:
     api_router = APIRouter(prefix="/api", dependencies=dependencies)
     api_router.include_router(event_router)
     api_router.include_router(conversation_router)
+    api_router.include_router(conversation_router_acp)
     api_router.include_router(tool_router)
     api_router.include_router(bash_router)
     api_router.include_router(git_router)
@@ -226,7 +228,7 @@ def _setup_static_files(app: FastAPI, config: Config) -> None:
         and config.static_files_path.is_dir()
     ):
         # Map the root path to server info if there are no static files
-        app.get("/")(get_server_info)
+        app.get("/", tags=["Server Details"])(get_server_info)
         return
 
     # Mount static files directory

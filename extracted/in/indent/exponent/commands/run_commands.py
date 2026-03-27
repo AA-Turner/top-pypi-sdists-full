@@ -2,6 +2,7 @@ import asyncio
 import signal
 import sys
 import time
+from asyncio import timeout
 from typing import NoReturn
 
 import click
@@ -32,12 +33,6 @@ from exponent.core.remote_execution.client import (
 from exponent.core.remote_execution.types import ChatSource
 from exponent.core.remote_execution.utils import assert_unreachable
 from exponent.utils.version import check_exponent_version_and_upgrade
-
-try:
-    # this is an optional dependency for python <3.11
-    from async_timeout import timeout  # ty: ignore[unresolved-import]
-except ImportError:  # pragma: no cover
-    from asyncio import timeout
 
 
 @exponent_cli_group()

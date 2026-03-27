@@ -34,6 +34,7 @@ from plato._generated.api.v1.gitea import (
     get_simulator_repository,
 )
 from plato._generated.api.v1.sandbox import start_worker
+from plato._generated.api.v1.simulator import get_env_flows as simulator_get_env_flows
 from plato._generated.api.v1.simulator import get_plato_config as simulator_get_plato_config
 from plato._generated.api.v1.simulator import get_simulator_versions as simulator_get_simulator_versions
 from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
@@ -949,6 +950,89 @@ class SandboxClient:
         self.console.print(f"[bold green]Sandbox ready![/bold green] [dim](total: {total_elapsed:.1f}s)[/dim]")
 
         return sandbox_state
+
+    def pull_config(self, artifact_id: str, dataset: str) -> dict[str, bool]:
+        """Download plato-config.yml and flows.yml from the artifact API.
+
+        Fetches the config files stored in the artifact so they can be
+        edited locally and applied via start-worker / sandbox flow.
+
+        Returns:
+            Dict with ``plato_config_written`` and ``flows_written`` booleans.
+        """
+        result = {"plato_config_written": False, "flows_written": False}
+
+        # Pull plato-config.yml
+        try:
+            plato_config_resp = simulator_get_plato_config.sync(
+                client=self._http,
+                artifact_id=artifact_id,
+                x_api_key=self.api_key,
+            )
+            if plato_config_resp.plato_config:
+                config_path = self.working_dir / "plato-config.yml"
+                config_path.write_text(plato_config_resp.plato_config)
+                self.console.print("[green]Downloaded:[/green] plato-config.yml")
+                result["plato_config_written"] = True
+            else:
+                self.console.print("[dim]No plato-config found in artifact[/dim]")
+        except Exception as e:
+            self.console.print(f"[dim]Failed to download plato-config.yml: {e}[/dim]")
+
+        # Pull flows.yml
+        try:
+            flows_resp = simulator_get_env_flows.sync(
+                client=self._http,
+                artifact_id=artifact_id,
+                x_api_key=self.api_key,
+            )
+            if flows_resp:
+                # Read flows_path from plato-config to determine where to write
+                flows_path = "base/flows.yml"
+                config_path = self.working_dir / "plato-config.yml"
+                if config_path.exists():
+                    try:
+                        with open(config_path) as f:
+                            pc = yaml.safe_load(f)
+                        ds = pc.get("datasets", {}).get(dataset, {})
+                        meta = ds.get("metadata", {})
+                        if meta.get("flows_path"):
+                            flows_path = meta["flows_path"]
+                    except Exception:
+                        pass
+
+                # Sanitize flows_path to prevent writing outside working_dir
+                candidate = (self.working_dir / flows_path).resolve()
+                working_dir_resolved = self.working_dir.resolve()
+                if not (candidate == working_dir_resolved or working_dir_resolved in candidate.parents):
+                    self.console.print(
+                        f"[yellow]Warning:[/yellow] flows_path {flows_path!r} resolves outside working_dir, "
+                        "using default 'base/flows.yml'"
+                    )
+                    flows_path = "base/flows.yml"
+                    candidate = (self.working_dir / flows_path).resolve()
+
+                candidate.parent.mkdir(parents=True, exist_ok=True)
+
+                # Normalize API response to {"flows": [list of flow dicts]}
+                # API may return a list of flows or a dict with a "flows" key
+                if isinstance(flows_resp, list):
+                    flows_data = {"flows": flows_resp}
+                elif isinstance(flows_resp, dict) and "flows" in flows_resp:
+                    flows_data = flows_resp
+                else:
+                    flows_data = {"flows": [flows_resp] if isinstance(flows_resp, dict) else flows_resp}
+
+                flows_yaml = yaml.dump(flows_data, default_flow_style=False, sort_keys=False)
+                candidate.write_text(flows_yaml)
+                self.console.print(f"[green]Downloaded:[/green] {flows_path}")
+                result["flows_written"] = True
+            else:
+                self.console.print("[dim]No flows found in artifact[/dim]")
+        except Exception as e:
+            self.console.print(f"[dim]Failed to download flows: {e}[/dim]")
+
+        return result
 
     # CHECKED
     def stop(

@@ -114,7 +114,7 @@ class JobRunningPipelineItem(PipelineItem):
 class JobRunningPipeline(Pipeline[JobRunningPipelineItem]):
     def __init__(
         self,
-        workers_num: int = 10,
+        workers_num: int = 20,
         queue_lower_limit_factor: float = 0.5,
         queue_upper_limit_factor: float = 2.0,
         min_processing_interval: timedelta = timedelta(seconds=10),
@@ -197,6 +197,8 @@ class JobRunningFetcher(Fetcher[JobRunningPipelineItem]):
                         ),
                         RunModel.status.not_in([RunStatus.TERMINATING]),
                         JobModel.last_processed_at <= now - self._min_processing_interval,
+                        # Do not try to lock jobs if the run is waiting for the lock.
+                        RunModel.lock_owner.is_(None),
                         or_(
                             JobModel.lock_expires_at.is_(None),
                             JobModel.lock_expires_at < now,
@@ -462,6 +464,9 @@ async def _refetch_locked_job_model(
 
 
 async def _fetch_run_model(session: AsyncSession, run_id: uuid.UUID) -> RunModel:
+    # FIXME: Selecting all run's jobs on every processing iteration is highly inefficient:
+    # it's quadratic w.r.t. the number jobs within a run.
+    # Avoid selecting other jobs as much as possible.
     latest_submissions_sq = (
         select(
             JobModel.run_id.label("run_id"),

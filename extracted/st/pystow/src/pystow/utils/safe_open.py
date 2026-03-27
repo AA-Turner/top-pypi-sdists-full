@@ -7,10 +7,11 @@ import csv
 import gzip
 import io
 import typing
+import urllib.request
 import zipfile
 from collections.abc import Generator, Mapping
 from pathlib import Path
-from typing import Any, Literal, TextIO, cast
+from typing import Any, BinaryIO, Literal, TextIO, TypeGuard, cast, overload
 
 from .io_typing import (
     _MODE_TO_SIMPLE,
@@ -26,7 +27,9 @@ from .io_typing import (
 )
 
 __all__ = [
+    "is_url",
     "open_inner_zipfile",
+    "open_url",
     "safe_open",
     "safe_open_dict_reader",
 ]
@@ -84,7 +87,7 @@ def safe_open(
 
 
 @contextlib.contextmanager
-def safe_open(
+def safe_open(  # noqa:C901
     path: str | Path | typing.TextIO | typing.BinaryIO,
     *,
     operation: Operation = "read",
@@ -99,16 +102,26 @@ def safe_open(
         raise InvalidRepresentationError(representation)
 
     if isinstance(path, (str, Path)):
-        mode = MODE_MAP[operation, representation]
         encoding = ensure_sensible_default_encoding(encoding, representation=representation)
         newline = ensure_sensible_newline(newline, representation=representation)
-        path = Path(path).expanduser().resolve()
-        if path.suffix.endswith(".gz"):
-            with gzip.open(path, mode=mode, encoding=encoding, newline=newline) as file:
-                yield file  # type:ignore
+
+        if is_url(path):
+            if operation != "read":
+                raise ValueError('can only use operation="read" with URLs')
+            with open_url(
+                path, representation=representation, encoding=encoding, newline=newline
+            ) as file:
+                yield file
         else:
-            with open(path, mode=mode, encoding=encoding, newline=newline) as file:
-                yield file  # type:ignore
+            mode = MODE_MAP[operation, representation]
+            path = Path(path).expanduser().resolve()
+            if path.suffix.endswith(".gz"):
+                with gzip.open(path, mode=mode, encoding=encoding, newline=newline) as file:
+                    yield file  # type:ignore
+            else:
+                with open(path, mode=mode, encoding=encoding, newline=newline) as file:
+                    yield file  # type:ignore
+
     elif isinstance(path, typing.TextIO | io.TextIOWrapper | io.TextIOBase):
         if representation != "text":
             raise ValueError(
@@ -195,3 +208,51 @@ def safe_open_dict_reader(
     """
     with safe_open(f, operation="read", representation="text") as file:
         yield csv.DictReader(file, delimiter=delimiter, **kwargs)
+
+
+def is_url(s: str | Path | TextIO | Any) -> TypeGuard[str]:
+    """Check if the object is a URL."""
+    if isinstance(s, str) and (s.startswith("http://") or s.startswith("https://")):
+        return True
+    return False
+
+
+# docstr-coverage:excused `overload`
+@overload
+@contextlib.contextmanager
+def open_url(
+    url: str,
+    *,
+    representation: Literal["text"] = ...,
+    encoding: str | None = ...,
+    newline: str | None = ...,
+) -> Generator[TextIO, None, None]: ...
+
+
+# docstr-coverage:excused `overload`
+@overload
+@contextlib.contextmanager
+def open_url(
+    url: str,
+    *,
+    representation: Literal["binary"] = ...,
+    encoding: str | None = ...,
+    newline: str | None = ...,
+) -> Generator[BinaryIO, None, None]: ...
+
+
+@contextlib.contextmanager
+def open_url(
+    url: str,
+    *,
+    representation: Representation = "text",
+    encoding: str | None = None,
+    newline: str | None = None,
+) -> Generator[TextIO, None, None] | Generator[BinaryIO, None, None]:
+    """Get a file-like object from a URL."""
+    with urllib.request.urlopen(url) as response:  # noqa:S310
+        match representation:
+            case "text":
+                yield io.TextIOWrapper(response, encoding=encoding, newline=newline)
+            case "binary":
+                yield io.BufferedReader(response)

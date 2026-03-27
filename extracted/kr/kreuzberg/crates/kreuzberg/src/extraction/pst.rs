@@ -80,6 +80,7 @@ pub fn extract_pst_messages(pst_data: &[u8]) -> Result<(Vec<EmailExtractionResul
 /// occurs when the full PST is first read into a `Vec<u8>` and then written
 /// back out to a tempfile before parsing.
 #[cfg(feature = "email")]
+#[allow(dead_code)]
 pub(crate) fn extract_pst_from_path(
     path: &std::path::Path,
 ) -> Result<(Vec<EmailExtractionResult>, Vec<ProcessingWarning>)> {

@@ -36,5 +36,5 @@ if sqlalchemy.__version__ >= '2.0.0' and adbc_present:
     # Support for Flight SQL requires SQLAlchemy 2.0 or higher
     from . import flightsql
 
-__version__ = "2.0.4"
+__version__ = "2.0.5"
 __author__ = "Denodo Technologies"

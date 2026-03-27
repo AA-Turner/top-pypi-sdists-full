@@ -9,10 +9,12 @@ from montecarlodata.integrations.onboarding.fields import (
     LOOKER_BI_TYPE,
     LOOKER_GIT_CLONE_CONNECTION_TYPE,
     LOOKER_MD_CONNECTION_TYPE,
+    NON_PROMOTED_TRANSACTIONAL_DB_SUBTYPES,
     POWER_BI_BI_TYPE,
     POWER_BI_CONNECTION_TYPE,
     TABLEAU_BI_TYPE,
     TABLEAU_CONNECTION_TYPE,
+    TRANSACTIONAL_CONNECTION_TYPE,
 )
 from montecarlodata.queries.onboarding import (
     ADD_BI_CONNECTION_MUTATION,
@@ -77,6 +79,9 @@ class SelfHostedCredentialOnboardingService(BaseOnboardingService):
             complain_and_abort("Environment variable name must start with prefix 'MCD_'")
 
         connection_type = str(kwargs["connection_type"])
+        if connection_type in NON_PROMOTED_TRANSACTIONAL_DB_SUBTYPES:
+            kwargs["connection_type"] = TRANSACTIONAL_CONNECTION_TYPE
+
         if connection_type in CONNECTION_TO_WAREHOUSE_TYPE_MAP:
             kwargs["warehouse_type"] = CONNECTION_TO_WAREHOUSE_TYPE_MAP[connection_type]
         elif connection_type in self.BI_CONNECTION_TYPES:

@@ -23,6 +23,7 @@ class TypedColumn:
         self._regex_matched_columns: list = list()
         self._type_resolver = type_resolver
         self._catalog_database_info: dict[str, str] = {}
+        self._spark_struct_field_path: str | None = None
 
     def __iter__(self):
         return iter((self.col, self._type_resolver))

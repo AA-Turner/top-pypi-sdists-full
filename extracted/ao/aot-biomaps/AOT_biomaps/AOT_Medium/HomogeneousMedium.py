@@ -46,7 +46,7 @@ class HomogeneousMedium(Medium):
         c_map[x_start:x_end, :] = self.params.acoustic['medium']['c0']
         rho_map[x_start:x_end, :] = self.params.acoustic['medium']['density']
 
-        is_absorbing = self.params.acoustic['medium'].get('isAbsorbingMedium', True)
+        is_absorbing = self.params.acoustic['medium']['isAbsorbingMedium']
         
         if is_absorbing:
             # Remplir la carte d'atténuation avec la valeur spécifiée (0.3)

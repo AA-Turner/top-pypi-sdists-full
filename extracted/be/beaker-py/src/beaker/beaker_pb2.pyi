@@ -1407,6 +1407,44 @@ class WorkspaceGroup(_message.Message):
     managers: _containers.RepeatedCompositeFieldContainer[Reference]
     def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., modified: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., full_name: _Optional[str] = ..., organization: _Optional[_Union[Reference, _Mapping]] = ..., author: _Optional[_Union[Reference, _Mapping]] = ..., budget: _Optional[_Union[Reference, _Mapping]] = ..., managers: _Optional[_Iterable[_Union[Reference, _Mapping]]] = ...) -> None: ...
 
+class AllocationChangeset(_message.Message):
+    __slots__ = ("id", "cluster", "created", "author", "reason", "allocations")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_FIELD_NUMBER: _ClassVar[int]
+    CREATED_FIELD_NUMBER: _ClassVar[int]
+    AUTHOR_FIELD_NUMBER: _ClassVar[int]
+    REASON_FIELD_NUMBER: _ClassVar[int]
+    ALLOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    cluster: Reference
+    created: _timestamp_pb2.Timestamp
+    author: Reference
+    reason: str
+    allocations: _containers.RepeatedCompositeFieldContainer[Allocation]
+    def __init__(self, id: _Optional[str] = ..., cluster: _Optional[_Union[Reference, _Mapping]] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., author: _Optional[_Union[Reference, _Mapping]] = ..., reason: _Optional[str] = ..., allocations: _Optional[_Iterable[_Union[Allocation, _Mapping]]] = ...) -> None: ...
+
+class Allocation(_message.Message):
+    __slots__ = ("id", "cluster", "created", "deleted", "budget", "workspace_group", "workspace", "runtime_quota_percent", "slot_limit")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_FIELD_NUMBER: _ClassVar[int]
+    CREATED_FIELD_NUMBER: _ClassVar[int]
+    DELETED_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+    RUNTIME_QUOTA_PERCENT_FIELD_NUMBER: _ClassVar[int]
+    SLOT_LIMIT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    cluster: Reference
+    created: _timestamp_pb2.Timestamp
+    deleted: _timestamp_pb2.Timestamp
+    budget: Reference
+    workspace_group: Reference
+    workspace: Reference
+    runtime_quota_percent: float
+    slot_limit: int
+    def __init__(self, id: _Optional[str] = ..., cluster: _Optional[_Union[Reference, _Mapping]] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., deleted: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., budget: _Optional[_Union[Reference, _Mapping]] = ..., workspace_group: _Optional[_Union[Reference, _Mapping]] = ..., workspace: _Optional[_Union[Reference, _Mapping]] = ..., runtime_quota_percent: _Optional[float] = ..., slot_limit: _Optional[int] = ...) -> None: ...
+
 class Queue(_message.Message):
     __slots__ = ("id", "name", "created", "workspace_id", "author_id", "input_schema", "output_schema", "batch_size", "max_claimed_entries", "wait_timeout", "full_name")
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -3565,6 +3603,20 @@ class UpdateWorkspaceGroupManagersResponse(_message.Message):
     workspace_group: WorkspaceGroup
     def __init__(self, workspace_group: _Optional[_Union[WorkspaceGroup, _Mapping]] = ...) -> None: ...
 
+class UpdateWorkspaceGroupNameRequest(_message.Message):
+    __slots__ = ("workspace_group_id", "name")
+    WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    workspace_group_id: str
+    name: str
+    def __init__(self, workspace_group_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class UpdateWorkspaceGroupNameResponse(_message.Message):
+    __slots__ = ("workspace_group",)
+    WORKSPACE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    workspace_group: WorkspaceGroup
+    def __init__(self, workspace_group: _Optional[_Union[WorkspaceGroup, _Mapping]] = ...) -> None: ...
+
 class UpdateWorkspaceSetWorkspaceGroupRequest(_message.Message):
     __slots__ = ("workspace_id", "workspace_group_id")
     WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -3616,6 +3668,43 @@ class SetWorkspacePermissionRequest(_message.Message):
 class SetWorkspacePermissionResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class SetChildAllocationsRequest(_message.Message):
+    __slots__ = ("cluster_id", "org_id", "budget_id", "workspace_group_id", "current_changeset_id", "allocations", "reason")
+    class SetChildAllocation(_message.Message):
+        __slots__ = ("budget_id", "workspace_group_id", "workspace_id", "runtime_quota_percent", "slot_limit")
+        BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+        WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+        WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
+        RUNTIME_QUOTA_PERCENT_FIELD_NUMBER: _ClassVar[int]
+        SLOT_LIMIT_FIELD_NUMBER: _ClassVar[int]
+        budget_id: str
+        workspace_group_id: str
+        workspace_id: str
+        runtime_quota_percent: float
+        slot_limit: int
+        def __init__(self, budget_id: _Optional[str] = ..., workspace_group_id: _Optional[str] = ..., workspace_id: _Optional[str] = ..., runtime_quota_percent: _Optional[float] = ..., slot_limit: _Optional[int] = ...) -> None: ...
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    ORG_ID_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    CURRENT_CHANGESET_ID_FIELD_NUMBER: _ClassVar[int]
+    ALLOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    REASON_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    org_id: str
+    budget_id: str
+    workspace_group_id: str
+    current_changeset_id: str
+    allocations: _containers.RepeatedCompositeFieldContainer[SetChildAllocationsRequest.SetChildAllocation]
+    reason: str
+    def __init__(self, cluster_id: _Optional[str] = ..., org_id: _Optional[str] = ..., budget_id: _Optional[str] = ..., workspace_group_id: _Optional[str] = ..., current_changeset_id: _Optional[str] = ..., allocations: _Optional[_Iterable[_Union[SetChildAllocationsRequest.SetChildAllocation, _Mapping]]] = ..., reason: _Optional[str] = ...) -> None: ...
+
+class SetChildAllocationsResponse(_message.Message):
+    __slots__ = ("changeset",)
+    CHANGESET_FIELD_NUMBER: _ClassVar[int]
+    changeset: AllocationChangeset
+    def __init__(self, changeset: _Optional[_Union[AllocationChangeset, _Mapping]] = ...) -> None: ...
 
 class GetGPUUsageReportRequest(_message.Message):
     __slots__ = ("next_page_token", "options")

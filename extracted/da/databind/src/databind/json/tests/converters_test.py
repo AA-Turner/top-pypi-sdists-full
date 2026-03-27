@@ -30,6 +30,7 @@ from databind.json.converters import (
     DatetimeConverter,
     DecimalConverter,
     EnumConverter,
+    LiteralConverter,
     MappingConverter,
     OptionalConverter,
     PlainDatatypeConverter,
@@ -106,7 +107,7 @@ def test_enum_converter(direction: Direction) -> None:
     class Pet(enum.Enum):
         CAT = enum.auto()
         DOG = enum.auto()
-        LION: te.Annotated[int, Alias("KITTY")] = enum.auto()
+        LION: te.Annotated[int, Alias("KITTY")] = enum.auto()  # type: ignore[misc,assignment]
 
     if direction == Direction.SERIALIZE:
         assert mapper.convert(direction, Pet.CAT, Pet) == "CAT"
@@ -333,6 +334,17 @@ def test_union_converter_best_match(direction: Direction) -> None:
 
 
 @pytest.mark.parametrize("direction", (Direction.SERIALIZE, Direction.DESERIALIZE))
+def test_union_converter_best_match_literal(direction: Direction) -> None:
+    mapper = make_mapper([UnionConverter(), PlainDatatypeConverter(), LiteralConverter()])
+
+    LiteralUnionType = t.Union[int, t.Literal["hi"], t.Literal["bye"]]
+
+    assert mapper.convert(direction, 42, LiteralUnionType) == 42
+    assert mapper.convert(direction, "hi", LiteralUnionType) == "hi"
+    assert mapper.convert(direction, "bye", LiteralUnionType) == "bye"
+
+
+@pytest.mark.parametrize("direction", (Direction.SERIALIZE, Direction.DESERIALIZE))
 def test_union_converter_keyed(direction: Direction) -> None:
     mapper = make_mapper([UnionConverter(), PlainDatatypeConverter()])
 
@@ -341,6 +353,30 @@ def test_union_converter_keyed(direction: Direction) -> None:
         assert mapper.convert(direction, {"int": 42}, th) == 42
     else:
         assert mapper.convert(direction, 42, th) == {"int": 42}
+
+
+@pytest.mark.parametrize("direction", (Direction.SERIALIZE, Direction.DESERIALIZE))
+def test_union_converter_keyed_literal(direction: Direction) -> None:
+    mapper = make_mapper([UnionConverter(), PlainDatatypeConverter(), LiteralConverter()])
+
+    th = te.Annotated[
+        t.Union[int, t.Literal["hi"], t.Literal["bye"]],
+        Union({"int": int, "HiType": t.Literal["hi"], "ByeType": t.Literal["bye"]}, style=Union.KEYED),
+    ]
+    if direction == Direction.DESERIALIZE:
+        assert mapper.convert(direction, {"int": 42}, th) == 42
+        assert mapper.convert(direction, {"HiType": "hi"}, th) == "hi"
+        assert mapper.convert(direction, {"ByeType": "bye"}, th) == "bye"
+
+        with pytest.raises(ConversionError):
+            mapper.convert(direction, {"ByeType": "hi"}, th)
+    else:
+        assert mapper.convert(direction, 42, th) == {"int": 42}
+        assert mapper.convert(direction, "hi", th) == {"HiType": "hi"}
+        assert mapper.convert(direction, "bye", th) == {"ByeType": "bye"}
+
+        with pytest.raises(ConversionError):
+            mapper.convert(direction, {"ByeType": "hi"}, th)
 
 
 @pytest.mark.parametrize("direction", (Direction.SERIALIZE, Direction.DESERIALIZE))
@@ -717,3 +753,126 @@ def test__JsonConverter__using_classmethods_on_plain_class() -> None:
     mapper = make_mapper([JsonConverterSupport()])
     assert mapper.serialize(MyCls(), MyCls) == "MyCls"
     assert mapper.deserialize("MyCls", MyCls) == MyCls()
+
+
+UnboundTypeVar = t.TypeVar("UnboundTypeVar")
+
+
+@dataclasses.dataclass
+class GenericClass(t.Generic[UnboundTypeVar]):
+    a_field: int
+
+
+@dataclasses.dataclass
+class InheritGeneric(GenericClass):  # type: ignore[type-arg]
+    b_field: str
+
+
+@pytest.mark.parametrize("direction", (Direction.SERIALIZE, Direction.DESERIALIZE))
+def test_convert_generic_dataclass(direction: Direction) -> None:
+    """Regression test for #66: dataclasses inheriting from Generic with an uninstantiated TypeVar don't get their
+    parents' fields.
+    """
+    mapper = make_mapper([SchemaConverter(), PlainDatatypeConverter()])
+
+    if direction == Direction.SERIALIZE:
+        obj = InheritGeneric(2, "hi")
+        assert mapper.convert(direction, obj, InheritGeneric) == {"a_field": obj.a_field, "b_field": obj.b_field}
+    else:
+        obj = InheritGeneric(4, "something")
+        assert mapper.convert(direction, {"a_field": obj.a_field, "b_field": obj.b_field}, InheritGeneric) == obj
+
+
+def test_extra_keys_on_subclass_creates_own_settings() -> None:
+    """Regression test: ExtraKeys() applied to a subclass must create its own __databind_settings__,
+    not append to the parent's list via MRO traversal."""
+    from databind.core.settings import get_class_settings
+
+    @ExtraKeys()
+    @dataclasses.dataclass
+    class Parent:
+        a: int
+
+    @ExtraKeys()
+    @dataclasses.dataclass
+    class Child(Parent):
+        b: str = ""
+
+    # Each class must have its own independent __databind_settings__ list.
+    assert "__databind_settings__" in vars(Parent)
+    assert "__databind_settings__" in vars(Child)
+    assert vars(Parent)["__databind_settings__"] is not vars(Child)["__databind_settings__"]
+
+    # get_class_settings must find ExtraKeys on each class independently.
+    assert list(get_class_settings(Parent, ExtraKeys)) != []
+    assert list(get_class_settings(Child, ExtraKeys)) != []
+
+    # Parent's settings list must not be polluted with Child's decorator.
+    assert len(vars(Parent)["__databind_settings__"]) == 1
+
+
+def test_extra_keys_subclass_deserialization_allows_extra_keys() -> None:
+    """Regression test: ExtraKeys() on a subclass must allow extra keys during deserialization."""
+    mapper = make_mapper([SchemaConverter(), PlainDatatypeConverter()])
+
+    @ExtraKeys()
+    @dataclasses.dataclass
+    class Parent:
+        a: int
+
+    @ExtraKeys()
+    @dataclasses.dataclass
+    class Child(Parent):
+        b: str = ""
+
+    # Child should allow extra keys because it is decorated with ExtraKeys().
+    result = mapper.deserialize({"a": 1, "b": "hello", "extra": "ignored"}, Child)
+    assert result == Child(a=1, b="hello")
+
+
+def test_extra_keys_parent_decorated_child_inherits_and_can_override() -> None:
+    """When only the parent has ExtraKeys(), the child inherits that permission via MRO traversal.
+    The child can override it by decorating with @ExtraKeys(allow=False)."""
+    mapper = make_mapper([SchemaConverter(), PlainDatatypeConverter()])
+
+    @ExtraKeys()
+    @dataclasses.dataclass
+    class Parent:
+        a: int
+
+    @dataclasses.dataclass
+    class ChildInheriting(Parent):
+        b: str = ""
+
+    @ExtraKeys(allow=False)
+    @dataclasses.dataclass
+    class ChildOverriding(Parent):
+        b: str = ""
+
+    # Child inherits ExtraKeys() from parent, so extra keys are allowed.
+    result = mapper.deserialize({"a": 1, "b": "hello", "extra": "ignored"}, ChildInheriting)
+    assert result == ChildInheriting(a=1, b="hello")
+
+    # Child explicitly overrides with ExtraKeys(allow=False), so extra keys raise an error.
+    with pytest.raises(ConversionError) as excinfo:
+        mapper.deserialize({"a": 1, "b": "hello", "extra": "ignored"}, ChildOverriding)
+    assert "extra" in str(excinfo.value)
+
+
+def test_union_literal() -> None:
+    mapper = make_mapper([UnionConverter(), PlainDatatypeConverter(), LiteralConverter()])
+
+    IntType = t.Union[int, t.Literal["hi", "bye"]]
+    StrType = t.Union[str, t.Literal["hi", "bye"]]
+
+    assert mapper.serialize("hi", IntType) == "hi"
+    assert mapper.serialize(2, IntType) == 2
+
+    assert mapper.serialize("bye", StrType) == "bye"
+    assert mapper.serialize("other", StrType) == "other"
+
+    assert mapper.deserialize("hi", IntType) == "hi"
+    assert mapper.deserialize(2, IntType) == 2
+
+    assert mapper.deserialize("bye", StrType) == "bye"
+    assert mapper.deserialize("other", StrType) == "other"

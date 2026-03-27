@@ -272,6 +272,7 @@ def get_player_bp(controller: MainController):
         context = PageContext(
             request=extract_flask_request(flask.request),
             response=Response(headers={}, status=200, body=""),
+            page_path=path,
         )
 
         connection = controller.repositories.producer.enqueue(page.id, context)
@@ -325,6 +326,14 @@ def get_player_bp(controller: MainController):
             response=msg.body,
             headers=msg.headers,
         )
+
+    @bp.get("/_page-home/_static/<path:filename>")
+    def page_home_static(filename):
+        return flask.send_from_directory(get_public_dir(), filename)
+
+    @bp.get("/_page/<path:page_path>/_static/<path:filename>")
+    def page_static(page_path, filename):
+        return flask.send_from_directory(get_public_dir(), filename)
 
     @bp.route("/_page-home", methods=["GET", "POST"])
     @player_usage

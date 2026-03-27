@@ -337,13 +337,15 @@ class TypeAnnotator(metaclass=_TypeAnnotator):
                     isinstance(source, Scope)
                     and isinstance(source.expression, exp.Query)
                     and (
-                        source.expression.meta.get("query_type") or exp.DataType.build("UNKNOWN")
+                        source.expression.meta.get("query_type")
+                        or exp.DataType.build(exp.DType.UNKNOWN)
                     ).is_type(exp.DType.STRUCT)
                 ):
                     self._set_type(table_column, source.expression.meta["query_type"])
 
         # Iterate through all the expressions of the current scope in post-order, and annotate
         self._annotate_expression(scope.expression, scope)
+        self._fixup_order_by_aliases(scope)
 
         if self.dialect.QUERY_RESULTS_ARE_STRUCTS and isinstance(scope.expression, exp.Query):
             struct_type = exp.DataType(
@@ -432,6 +434,42 @@ class TypeAnnotator(metaclass=_TypeAnnotator):
                 self._set_type(expr, t.cast(exp.DType, returns))
             else:
                 self._set_type(expr, exp.DType.UNKNOWN)
+
+    def _fixup_order_by_aliases(self, scope: Scope) -> None:
+        query = scope.expression
+        if not isinstance(query, exp.Query):
+            return
+
+        order = query.args.get("order")
+        if not order:
+            return
+
+        # Build alias -> type map from fully-annotated projections (last match wins,
+        # consistent with how _expand_alias_refs handles duplicate aliases).
+        alias_types: t.Dict[str, exp.DataType | exp.DType] = {}
+        for sel in query.selects:
+            if (
+                isinstance(sel, exp.Alias)
+                and sel.this.type
+                and not sel.this.is_type(exp.DType.UNKNOWN)
+            ):
+                alias_types[sel.alias] = sel.this.type
+
+        if not alias_types:
+            return
+
+        for ordered in order.expressions:
+            alias_cols = [
+                c for c in ordered.find_all(exp.Column) if not c.table and c.name in alias_types
+            ]
+            for col in alias_cols:
+                self._set_type(col, alias_types[col.name])
+
+            if alias_cols:
+                for node in ordered.walk(prune=lambda n: isinstance(n, exp.Subquery)):
+                    if not isinstance(node, (exp.Column, exp.Literal)):
+                        self._visited.discard(id(node))
+                self._annotate_expression(ordered, scope)
 
     def _maybe_coerce(
         self,
@@ -820,7 +858,7 @@ class TypeAnnotator(metaclass=_TypeAnnotator):
             for coldef in arg.type.expressions:
                 kind = coldef.kind
                 if kind != exp.DType.UNKNOWN:
-                    map_type.set("expressions", [exp.DataType.build("varchar"), kind])
+                    map_type.set("expressions", [exp.DataType.build(exp.DType.VARCHAR), kind])
                     map_type.set("nested", True)
                     break
 

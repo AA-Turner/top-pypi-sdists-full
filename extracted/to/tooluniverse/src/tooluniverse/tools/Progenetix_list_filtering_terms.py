@@ -1,7 +1,7 @@
 """
 Progenetix_list_filtering_terms
 
-List available filtering terms (ontology codes) in the Progenetix cancer CNV database.
+List available filtering terms (ontology codes) in the Progenetix cancer CNV database. Returns NC...
 """
 
 from typing import Any, Optional, Callable
@@ -9,22 +9,22 @@ from ._shared_client import get_shared_client
 
 
 def Progenetix_list_filtering_terms(
-    prefixes: Optional[str] = None,
-    limit: Optional[int] = None,
+    prefixes: Optional[str] = "NCIT",
+    limit: Optional[int] = 25,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> Any:
+) -> dict[str, Any]:
     """
-    List available filtering terms in the Progenetix database.
+    List available filtering terms (ontology codes) in the Progenetix cancer CNV database. Returns NC...
 
     Parameters
     ----------
-    prefixes : str, optional
-        Ontology prefix: 'NCIT' (default), 'EDAM', 'HP'.
-    limit : int, optional
-        Maximum number of terms to return (default 25, max 200).
+    prefixes : str
+        Ontology prefix to filter terms by. Use 'NCIT' for NCI Thesaurus cancer types...
+    limit : int
+        Maximum number of terms to return (default: 25).
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -34,8 +34,11 @@ def Progenetix_list_filtering_terms(
 
     Returns
     -------
-    Any
+    dict[str, Any]
     """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v for k, v in {"prefixes": prefixes, "limit": limit}.items() if v is not None
     }

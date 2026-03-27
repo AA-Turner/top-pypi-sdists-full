@@ -9,8 +9,9 @@ from ._shared_client import get_shared_client
 
 
 def SAbDab_get_structure(
-    pdb_id: str,
     operation: Optional[str] = None,
+    pdb_id: Optional[str] = None,
+    pdb_code: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -24,7 +25,9 @@ def SAbDab_get_structure(
     operation : str
 
     pdb_id : str
-        4-character PDB ID (e.g., 1IGT, 6W41)
+        4-character PDB ID (e.g., 1IGT, 6W41). Alias: pdb_code.
+    pdb_code : str
+        Alias for pdb_id. 4-character PDB ID (e.g., 1IGT, 6W41).
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -41,7 +44,11 @@ def SAbDab_get_structure(
     # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
-        for k, v in {"operation": operation, "pdb_id": pdb_id}.items()
+        for k, v in {
+            "operation": operation,
+            "pdb_id": pdb_id,
+            "pdb_code": pdb_code,
+        }.items()
         if v is not None
     }
     return get_shared_client().run_one_function(

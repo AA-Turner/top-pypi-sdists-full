@@ -298,9 +298,14 @@ def datasource_append(
 
     if events:
         click.echo(FeedbackManager.highlight(message=f"\n» Sending events to {datasource_name}"))
+        events_params = {"name": datasource_name}
+        request_from = getattr(client, "request_from", None)
+        if request_from:
+            events_params["from"] = request_from
         response = requests.post(
-            f"{client.host}/v0/events?name={datasource_name}",
+            f"{client.host}/v0/events",
             headers={"Authorization": f"Bearer {client.token}"},
+            params=events_params,
             data=events,
         )
 

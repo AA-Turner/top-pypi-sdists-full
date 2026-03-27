@@ -16,7 +16,7 @@ Usage from the session-reviewer world::
 
 from __future__ import annotations
 
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import Field
 
@@ -139,6 +139,10 @@ class HumanReview(ReviewData):
 # ---------------------------------------------------------------------------
 
 
+AgreementSignal = Literal["pass", "fail"]
+MatchSource = Literal["human", "machine", "both"]
+
+
 @review_model(
     name="human_agreement_review",
     description="Agreement comparison between machine and human review",
@@ -146,17 +150,23 @@ class HumanReview(ReviewData):
 class HumanAgreementReview(ReviewData):
     """Measures agreement between a machine-generated review and a human review."""
 
-    machine_annotation_id: Annotated[str, RenderHint(widget="tag_list", label="Machine Annotation")] = ""
-    human_annotation_id: Annotated[str, RenderHint(widget="tag_list", label="Human Annotation")] = ""
+    # Scores and verdict — shown inline at top
     agrees: Annotated[bool, RenderHint(widget="pass_fail_badge", label="Agrees")] = False
     agreement_score: Annotated[float, RenderHint(widget="score_bar", label="Agreement Score")] = Field(
         ge=0.0, le=1.0, default=0.0
     )
-    machine_signal: Annotated[str, RenderHint(widget="pass_fail_badge", label="Machine Signal")] = ""
-    human_signal: Annotated[str, RenderHint(widget="pass_fail_badge", label="Human Signal")] = ""
+    match_source: Annotated[MatchSource, RenderHint(widget="severity_badge", label="Match Source")] = "both"
+    machine_signal: Annotated[AgreementSignal, RenderHint(widget="pass_fail_badge", label="Machine")] = "fail"
+    human_signal: Annotated[AgreementSignal, RenderHint(widget="pass_fail_badge", label="Human")] = "fail"
+
+    # Summaries and evidence — primary content
+    human_summary: Annotated[str, RenderHint(widget="markdown", label="Human Finding")] = ""
+    machine_summary: Annotated[str, RenderHint(widget="markdown", label="Machine Finding")] = ""
     evidence: Annotated[str, RenderHint(widget="markdown", label="Evidence")] = ""
-    machine_summary: Annotated[str, RenderHint(widget="markdown", label="Machine Review Summary")] = ""
-    human_summary: Annotated[str, RenderHint(widget="markdown", label="Human Review Summary")] = ""
+
+    # Annotation references — in details
+    machine_annotation_id: Annotated[str, RenderHint(widget="annotation_ref", label="Machine Annotation")] = ""
+    human_annotation_id: Annotated[str, RenderHint(widget="annotation_ref", label="Human Annotation")] = ""
 
     Feedback: ClassVar[type] = StandardFeedback
 

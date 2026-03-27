@@ -620,6 +620,7 @@ RegionName = Literal[
     "eu-central-1",
     "eu-north-1",
     "eu-west-1",
+    "eu-west-2",
     "eu-west-3",
     "me-central-1",
     "sa-east-1",

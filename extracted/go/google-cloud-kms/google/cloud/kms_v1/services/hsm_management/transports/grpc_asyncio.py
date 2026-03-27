@@ -17,24 +17,26 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async, operations_v1
 from google.api_core import retry_async as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
 from google.cloud.kms_v1.types import hsm_management
 
@@ -65,7 +67,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -100,7 +102,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -247,6 +249,10 @@ class HsmManagementGrpcAsyncIOTransport(HsmManagementTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -382,12 +388,12 @@ class HsmManagementGrpcAsyncIOTransport(HsmManagementTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_single_tenant_hsm_instances" not in self._stubs:
-            self._stubs[
-                "list_single_tenant_hsm_instances"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.v1.HsmManagement/ListSingleTenantHsmInstances",
-                request_serializer=hsm_management.ListSingleTenantHsmInstancesRequest.serialize,
-                response_deserializer=hsm_management.ListSingleTenantHsmInstancesResponse.deserialize,
+            self._stubs["list_single_tenant_hsm_instances"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.v1.HsmManagement/ListSingleTenantHsmInstances",
+                    request_serializer=hsm_management.ListSingleTenantHsmInstancesRequest.serialize,
+                    response_deserializer=hsm_management.ListSingleTenantHsmInstancesResponse.deserialize,
+                )
             )
         return self._stubs["list_single_tenant_hsm_instances"]
 
@@ -414,12 +420,12 @@ class HsmManagementGrpcAsyncIOTransport(HsmManagementTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_single_tenant_hsm_instance" not in self._stubs:
-            self._stubs[
-                "get_single_tenant_hsm_instance"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.v1.HsmManagement/GetSingleTenantHsmInstance",
-                request_serializer=hsm_management.GetSingleTenantHsmInstanceRequest.serialize,
-                response_deserializer=hsm_management.SingleTenantHsmInstance.deserialize,
+            self._stubs["get_single_tenant_hsm_instance"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.v1.HsmManagement/GetSingleTenantHsmInstance",
+                    request_serializer=hsm_management.GetSingleTenantHsmInstanceRequest.serialize,
+                    response_deserializer=hsm_management.SingleTenantHsmInstance.deserialize,
+                )
             )
         return self._stubs["get_single_tenant_hsm_instance"]
 
@@ -450,12 +456,12 @@ class HsmManagementGrpcAsyncIOTransport(HsmManagementTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_single_tenant_hsm_instance" not in self._stubs:
-            self._stubs[
-                "create_single_tenant_hsm_instance"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.v1.HsmManagement/CreateSingleTenantHsmInstance",
-                request_serializer=hsm_management.CreateSingleTenantHsmInstanceRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["create_single_tenant_hsm_instance"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.v1.HsmManagement/CreateSingleTenantHsmInstance",
+                    request_serializer=hsm_management.CreateSingleTenantHsmInstanceRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["create_single_tenant_hsm_instance"]
 
@@ -485,12 +491,12 @@ class HsmManagementGrpcAsyncIOTransport(HsmManagementTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_single_tenant_hsm_instance_proposal" not in self._stubs:
-            self._stubs[
-                "create_single_tenant_hsm_instance_proposal"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.v1.HsmManagement/CreateSingleTenantHsmInstanceProposal",
-                request_serializer=hsm_management.CreateSingleTenantHsmInstanceProposalRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["create_single_tenant_hsm_instance_proposal"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.v1.HsmManagement/CreateSingleTenantHsmInstanceProposal",
+                    request_serializer=hsm_management.CreateSingleTenantHsmInstanceProposalRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["create_single_tenant_hsm_instance_proposal"]
 
@@ -523,12 +529,12 @@ class HsmManagementGrpcAsyncIOTransport(HsmManagementTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "approve_single_tenant_hsm_instance_proposal" not in self._stubs:
-            self._stubs[
-                "approve_single_tenant_hsm_instance_proposal"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.v1.HsmManagement/ApproveSingleTenantHsmInstanceProposal",
-                request_serializer=hsm_management.ApproveSingleTenantHsmInstanceProposalRequest.serialize,
-                response_deserializer=hsm_management.ApproveSingleTenantHsmInstanceProposalResponse.deserialize,
+            self._stubs["approve_single_tenant_hsm_instance_proposal"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.v1.HsmManagement/ApproveSingleTenantHsmInstanceProposal",
+                    request_serializer=hsm_management.ApproveSingleTenantHsmInstanceProposalRequest.serialize,
+                    response_deserializer=hsm_management.ApproveSingleTenantHsmInstanceProposalResponse.deserialize,
+                )
             )
         return self._stubs["approve_single_tenant_hsm_instance_proposal"]
 
@@ -561,12 +567,12 @@ class HsmManagementGrpcAsyncIOTransport(HsmManagementTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "execute_single_tenant_hsm_instance_proposal" not in self._stubs:
-            self._stubs[
-                "execute_single_tenant_hsm_instance_proposal"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.v1.HsmManagement/ExecuteSingleTenantHsmInstanceProposal",
-                request_serializer=hsm_management.ExecuteSingleTenantHsmInstanceProposalRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["execute_single_tenant_hsm_instance_proposal"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.v1.HsmManagement/ExecuteSingleTenantHsmInstanceProposal",
+                    request_serializer=hsm_management.ExecuteSingleTenantHsmInstanceProposalRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["execute_single_tenant_hsm_instance_proposal"]
 
@@ -594,12 +600,12 @@ class HsmManagementGrpcAsyncIOTransport(HsmManagementTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_single_tenant_hsm_instance_proposal" not in self._stubs:
-            self._stubs[
-                "get_single_tenant_hsm_instance_proposal"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.v1.HsmManagement/GetSingleTenantHsmInstanceProposal",
-                request_serializer=hsm_management.GetSingleTenantHsmInstanceProposalRequest.serialize,
-                response_deserializer=hsm_management.SingleTenantHsmInstanceProposal.deserialize,
+            self._stubs["get_single_tenant_hsm_instance_proposal"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.v1.HsmManagement/GetSingleTenantHsmInstanceProposal",
+                    request_serializer=hsm_management.GetSingleTenantHsmInstanceProposalRequest.serialize,
+                    response_deserializer=hsm_management.SingleTenantHsmInstanceProposal.deserialize,
+                )
             )
         return self._stubs["get_single_tenant_hsm_instance_proposal"]
 
@@ -627,12 +633,12 @@ class HsmManagementGrpcAsyncIOTransport(HsmManagementTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_single_tenant_hsm_instance_proposals" not in self._stubs:
-            self._stubs[
-                "list_single_tenant_hsm_instance_proposals"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.v1.HsmManagement/ListSingleTenantHsmInstanceProposals",
-                request_serializer=hsm_management.ListSingleTenantHsmInstanceProposalsRequest.serialize,
-                response_deserializer=hsm_management.ListSingleTenantHsmInstanceProposalsResponse.deserialize,
+            self._stubs["list_single_tenant_hsm_instance_proposals"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.v1.HsmManagement/ListSingleTenantHsmInstanceProposals",
+                    request_serializer=hsm_management.ListSingleTenantHsmInstanceProposalsRequest.serialize,
+                    response_deserializer=hsm_management.ListSingleTenantHsmInstanceProposalsResponse.deserialize,
+                )
             )
         return self._stubs["list_single_tenant_hsm_instance_proposals"]
 
@@ -660,12 +666,12 @@ class HsmManagementGrpcAsyncIOTransport(HsmManagementTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_single_tenant_hsm_instance_proposal" not in self._stubs:
-            self._stubs[
-                "delete_single_tenant_hsm_instance_proposal"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.kms.v1.HsmManagement/DeleteSingleTenantHsmInstanceProposal",
-                request_serializer=hsm_management.DeleteSingleTenantHsmInstanceProposalRequest.serialize,
-                response_deserializer=empty_pb2.Empty.FromString,
+            self._stubs["delete_single_tenant_hsm_instance_proposal"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.kms.v1.HsmManagement/DeleteSingleTenantHsmInstanceProposal",
+                    request_serializer=hsm_management.DeleteSingleTenantHsmInstanceProposalRequest.serialize,
+                    response_deserializer=empty_pb2.Empty.FromString,
+                )
             )
         return self._stubs["delete_single_tenant_hsm_instance_proposal"]
 

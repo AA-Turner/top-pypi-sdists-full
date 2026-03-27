@@ -4740,7 +4740,7 @@ class UsersApi(object):
                 previous_email (Email): Pagination based query with the user's email as the key. To get the initial entries supply an empty string.. [optional]
                 org_id (str): Organisation Unique identifier. [optional]
                 limit (int): limit the number of rows in the response. [optional] if omitted the server will use the default value of 500
-                type (str): user type. [optional]
+                type ([str]): The type of users to search for. Multiple values are ORed together.. [optional]
                 user_id (str): Query based on user id. [optional]
                 status ([UserStatusEnum]): The status of users to search for. Multiple values are ORed together.. [optional]
                 mfa_enrolled (bool): Restrict query based on the mfa enrollment status of users. Can be omitted for no query restriction. If true, only get users with at least one mfa challenge method. If false, only get users without any mfa challenge methods. . [optional]
@@ -4753,6 +4753,8 @@ class UsersApi(object):
                 search_params ([str]): A list of strings to perform a case-insensitive search on all relevant fields in the database for a given collection. Multiple values are ANDed together . [optional]
                 disabled_at_time (bool): If set to true, query users that have the disabled_at_time property set. . [optional]
                 show_system_user (bool): If set to false, query users that have is_system_user set to False. . [optional]
+                includes_any_label ([LabelName]): A list of labels to match against. Matches objects with any of the labels. [optional]
+                has_label (bool): Filter objects that either have (true) or don't have (false) a label.. [optional]
                 _return_http_data_only (bool): response data without head status
                     code and headers. Default is True.
                 _preload_content (bool): if False, the urllib3.HTTPResponse object
@@ -4830,6 +4832,8 @@ class UsersApi(object):
                         'search_params',
                         'disabled_at_time',
                         'show_system_user',
+                        'includes_any_label',
+                        'has_label',
                     ],
                     'required': [],
                     'nullable': [
@@ -4876,7 +4880,7 @@ class UsersApi(object):
                         'limit':
                             (int,),
                         'type':
-                            (str,),
+                            ([str],),
                         'user_id':
                             (str,),
                         'status':
@@ -4901,6 +4905,10 @@ class UsersApi(object):
                             (bool,),
                         'show_system_user':
                             (bool,),
+                        'includes_any_label':
+                            ([LabelName],),
+                        'has_label':
+                            (bool,),
                     },
                     'attribute_map': {
                         'email': 'email',
@@ -4920,6 +4928,8 @@ class UsersApi(object):
                         'search_params': 'search_params',
                         'disabled_at_time': 'disabled_at_time',
                         'show_system_user': 'show_system_user',
+                        'includes_any_label': 'includes_any_label',
+                        'has_label': 'has_label',
                     },
                     'location_map': {
                         'email': 'query',
@@ -4939,10 +4949,14 @@ class UsersApi(object):
                         'search_params': 'query',
                         'disabled_at_time': 'query',
                         'show_system_user': 'query',
+                        'includes_any_label': 'query',
+                        'has_label': 'query',
                     },
                     'collection_format_map': {
+                        'type': 'multi',
                         'status': 'multi',
                         'search_params': 'multi',
+                        'includes_any_label': 'multi',
                     }
                 },
                 headers_map={

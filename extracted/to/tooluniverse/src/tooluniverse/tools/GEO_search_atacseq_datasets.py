@@ -1,7 +1,7 @@
 """
 GEO_search_atacseq_datasets
 
-Search NCBI GEO for ATAC-seq chromatin accessibility datasets by query keyword, tissue, or cell type.
+Search NCBI GEO for ATAC-seq chromatin accessibility datasets by query keyword, tissue, or cell t...
 """
 
 from typing import Any, Optional, Callable
@@ -9,7 +9,7 @@ from ._shared_client import get_shared_client
 
 
 def GEO_search_atacseq_datasets(
-    query: Optional[str] = None,
+    query: Optional[str | Any] = None,
     organism: Optional[str] = "Homo sapiens",
     limit: Optional[int] = 20,
     *,
@@ -18,12 +18,12 @@ def GEO_search_atacseq_datasets(
     validate: bool = True,
 ) -> Any:
     """
-    Search NCBI GEO for ATAC-seq chromatin accessibility datasets.
+    Search NCBI GEO for ATAC-seq chromatin accessibility datasets by query keyword, tissue, or cell t...
 
     Parameters
     ----------
-    query : str, optional
-        Search terms (e.g., 'T cell differentiation', 'liver hepatocyte', 'hematopoiesis').
+    query : str | Any
+        Search query (e.g., 'T cell differentiation', 'liver hepatocyte', 'hematopoie...
     organism : str
         Organism scientific name (e.g., 'Homo sapiens', 'Mus musculus').
     limit : int
@@ -39,6 +39,9 @@ def GEO_search_atacseq_datasets(
     -------
     Any
     """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
         for k, v in {"query": query, "organism": organism, "limit": limit}.items()

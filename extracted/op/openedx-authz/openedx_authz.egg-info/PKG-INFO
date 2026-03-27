@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-authz
-Version: 1.0.0
+Version: 1.1.0
 Summary: Open edX AuthZ provides the architecture and foundations of the authorization framework.
 Home-page: https://github.com/openedx/openedx-authz
 Author: Open edX Project
@@ -26,6 +26,7 @@ Requires-Dist: edx-api-doc-tools
 Requires-Dist: edx-django-utils
 Requires-Dist: edx-drf-extensions
 Requires-Dist: edx-opaque-keys
+Requires-Dist: edx-organizations
 Requires-Dist: openedx-atlas
 Requires-Dist: pycasbin
 Dynamic: author
@@ -192,6 +193,22 @@ Change Log
 
 Unreleased
 **********
+
+1.1.0 - 2026-03-17
+******************
+
+Added
+=====
+
+* Add support for organization global scopes.
+
+1.0.0 - 2026-03-13
+******************
+
+Removed
+=======
+
+* Dropped support for Python 3.11.
 
 0.23.0 - 2026-02-18
 ********************

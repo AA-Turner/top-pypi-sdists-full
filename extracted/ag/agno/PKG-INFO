@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.5.10
+Version: 2.5.11
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -304,7 +304,7 @@ Requires-Dist: groq; extra == "groq"
 Provides-Extra: ibm
 Requires-Dist: ibm-watsonx-ai; extra == "ibm"
 Provides-Extra: litellm
-Requires-Dist: litellm; extra == "litellm"
+Requires-Dist: litellm<=1.82.6; extra == "litellm"
 Provides-Extra: lmstudio
 Requires-Dist: lmstudio; extra == "lmstudio"
 Provides-Extra: meta
@@ -348,7 +348,7 @@ Requires-Dist: web3; extra == "evm"
 Provides-Extra: exa
 Requires-Dist: exa_py; extra == "exa"
 Provides-Extra: seltz
-Requires-Dist: seltz; extra == "seltz"
+Requires-Dist: seltz>=0.2.0; extra == "seltz"
 Provides-Extra: fal
 Requires-Dist: fal_client; extra == "fal"
 Provides-Extra: firecrawl
@@ -368,6 +368,10 @@ Requires-Dist: google-auth-httplib2; extra == "gmail"
 Requires-Dist: google-auth-oauthlib; extra == "gmail"
 Provides-Extra: google-bigquery
 Requires-Dist: google-cloud-bigquery; extra == "google-bigquery"
+Provides-Extra: google-slides
+Requires-Dist: google-api-python-client; extra == "google-slides"
+Requires-Dist: google-auth-httplib2; extra == "google-slides"
+Requires-Dist: google-auth-oauthlib; extra == "google-slides"
 Provides-Extra: googlemaps
 Requires-Dist: googlemaps; extra == "googlemaps"
 Requires-Dist: google-maps-places; extra == "googlemaps"
@@ -431,6 +435,7 @@ Requires-Dist: pymongo>=4.9; extra == "async-mongo"
 Requires-Dist: motor; extra == "async-mongo"
 Provides-Extra: sqlite
 Requires-Dist: sqlalchemy; extra == "sqlite"
+Requires-Dist: aiosqlite; extra == "sqlite"
 Provides-Extra: gcs
 Requires-Dist: google-cloud-storage; extra == "gcs"
 Provides-Extra: firestore
@@ -525,7 +530,6 @@ Requires-Dist: agno[cohere]; extra == "models"
 Requires-Dist: agno[google]; extra == "models"
 Requires-Dist: agno[groq]; extra == "models"
 Requires-Dist: agno[ibm]; extra == "models"
-Requires-Dist: agno[litellm]; extra == "models"
 Requires-Dist: agno[meta]; extra == "models"
 Requires-Dist: agno[mistral]; extra == "models"
 Requires-Dist: agno[ollama]; extra == "models"
@@ -543,10 +547,10 @@ Requires-Dist: agno[newspaper]; extra == "tools"
 Requires-Dist: agno[youtube]; extra == "tools"
 Requires-Dist: agno[firecrawl]; extra == "tools"
 Requires-Dist: agno[tavily]; extra == "tools"
-Requires-Dist: agno[crawl4ai]; extra == "tools"
 Requires-Dist: agno[github]; extra == "tools"
 Requires-Dist: agno[gitlab]; extra == "tools"
 Requires-Dist: agno[gmail]; extra == "tools"
+Requires-Dist: agno[google_slides]; extra == "tools"
 Requires-Dist: agno[googlemaps]; extra == "tools"
 Requires-Dist: agno[todoist]; extra == "tools"
 Requires-Dist: agno[matplotlib]; extra == "tools"
@@ -629,7 +633,7 @@ Requires-Dist: agno[agui]; extra == "tests"
 Requires-Dist: agno[integration-tests]; extra == "tests"
 Requires-Dist: twine; extra == "tests"
 Requires-Dist: build; extra == "tests"
-Requires-Dist: grpcio==1.74.0; extra == "tests"
+Requires-Dist: grpcio>=1.76.0; extra == "tests"
 Provides-Extra: integration-tests
 Requires-Dist: exa_py; extra == "integration-tests"
 Requires-Dist: ddgs; extra == "integration-tests"

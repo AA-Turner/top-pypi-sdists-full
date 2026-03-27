@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip_compile_multi
-Version: 3.2.2
+Version: 3.3.0
 Summary: Compile multiple requirements files to lock dependency versions
 Home-page: https://github.com/peterdemin/pip-compile-multi
 Author: Peter Demin
@@ -11,15 +11,15 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Environment :: Console
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Utilities
-Requires-Python: ~=3.9
+Requires-Python: ~=3.10
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
 Requires-Dist: click
@@ -70,6 +70,13 @@ Links
 
 History
 =======
+
+3.3.0 (2025-03-25)
+------------------
+
+* Add Python 3.14 to supported versions.
+* Remove Python 3.9 from supported versions.
+* Using Python 3.10 as the base version going forward.
 
 3.2.2 (2025-06-19)
 ------------------

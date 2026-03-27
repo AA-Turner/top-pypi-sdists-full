@@ -28,10 +28,25 @@ except ImportError:
     NATIVE_PARSER_AVAILABLE = False
     logger.warning("Native PlainBuffer parser module not found, using Python implementation")
 
+# Try to import native C++ decoder for full protobuf+PlainBuffer decoding
+try:
+    from tablestore.ots_sdk import ots_sdk as _native_sdk
+    NATIVE_DECODER_AVAILABLE = getattr(_native_sdk, 'NATIVE_DECODER_AVAILABLE', False)
+    if NATIVE_DECODER_AVAILABLE:
+        logger.info("Native C++ decoder is available, will use it for P0 APIs")
+except ImportError:
+    NATIVE_DECODER_AVAILABLE = False
+    _native_sdk = None
+    logger.warning("Native C++ decoder not available, using Python implementation")
+
 class OTSProtoBufferDecoder(object):
 
-    def __init__(self, encoding):
+    def __init__(self, encoding, enable_native=True, native_fallback=True):
         self.encoding = encoding
+        self.enable_native = enable_native
+        self.native_fallback = native_fallback
+        self._use_native_decoder = NATIVE_DECODER_AVAILABLE and enable_native
+        self._use_native_parser = NATIVE_PARSER_AVAILABLE and enable_native
 
         self.api_decode_map = {
             'CreateTable'           : self._decode_create_table,
@@ -350,6 +365,15 @@ class OTSProtoBufferDecoder(object):
         return update_table_response, proto
 
     def _decode_get_row(self, body, request_id):
+        if self._use_native_decoder:
+            try:
+                result_tuple = _native_sdk.decode_get_row(body)
+                return result_tuple, None
+            except Exception as e:
+                if not self.native_fallback:
+                    raise
+                logger.warning("Native decode_get_row failed, falling back to Python: %s", e)
+
         proto = pb.GetRowResponse()
         proto.ParseFromString(body)
 
@@ -360,16 +384,18 @@ class OTSProtoBufferDecoder(object):
 
         if len(proto.row) != 0:
             native_decode_error = False
-            if NATIVE_PARSER_AVAILABLE:
+            if self._use_native_parser:
                 try:
                     primary_keys, columns = parse_single_row(proto.row)
                     return_row = Row(primary_keys, columns)
 
                 except Exception as e:
+                    if not self.native_fallback:
+                        raise
                     logger.warning(f"Native parsing failed, falling back to Python: {e}")
                     native_decode_error = True
 
-            if not NATIVE_PARSER_AVAILABLE or native_decode_error:
+            if not self._use_native_parser or native_decode_error:
                 inputStream = PlainBufferInputStream(proto.row)
                 codedInputStream = PlainBufferCodedInputStream(inputStream)
                 primary_key, attributes = codedInputStream.read_row()
@@ -378,6 +404,15 @@ class OTSProtoBufferDecoder(object):
         return (consumed, return_row, next_token), proto
 
     def _decode_put_row(self, body, request_id):
+        if self._use_native_decoder:
+            try:
+                result_tuple = _native_sdk.decode_put_row(body)
+                return result_tuple, None
+            except Exception as e:
+                if not self.native_fallback:
+                    raise
+                logger.warning("Native decode_put_row failed, falling back to Python: %s", e)
+
         proto = pb.PutRowResponse()
         proto.ParseFromString(body)
 
@@ -394,6 +429,15 @@ class OTSProtoBufferDecoder(object):
         return (consumed, return_row), proto
 
     def _decode_update_row(self, body, request_id):
+        if self._use_native_decoder:
+            try:
+                result_tuple = _native_sdk.decode_update_row(body)
+                return result_tuple, None
+            except Exception as e:
+                if not self.native_fallback:
+                    raise
+                logger.warning("Native decode_update_row failed, falling back to Python: %s", e)
+
         proto = pb.UpdateRowResponse()
         proto.ParseFromString(body)
 
@@ -410,6 +454,15 @@ class OTSProtoBufferDecoder(object):
         return (consumed, return_row), proto
 
     def _decode_delete_row(self, body, request_id):
+        if self._use_native_decoder:
+            try:
+                result_tuple = _native_sdk.decode_delete_row(body)
+                return result_tuple, None
+            except Exception as e:
+                if not self.native_fallback:
+                    raise
+                logger.warning("Native decode_delete_row failed, falling back to Python: %s", e)
+
         proto = pb.DeleteRowResponse()
         proto.ParseFromString(body)
 
@@ -426,6 +479,15 @@ class OTSProtoBufferDecoder(object):
         return (consumed, return_row), proto
 
     def _decode_batch_get_row(self, body, request_id):
+        if self._use_native_decoder:
+            try:
+                rows = _native_sdk.decode_batch_get_row(body)
+                return rows, None
+            except Exception as e:
+                if not self.native_fallback:
+                    raise
+                logger.warning("Native decode_batch_get_row failed, falling back to Python: %s", e)
+
         proto = pb.BatchGetRowResponse()
         proto.ParseFromString(body)
 
@@ -433,6 +495,15 @@ class OTSProtoBufferDecoder(object):
         return rows, proto
 
     def _decode_batch_write_row(self, body, request_id):
+        if self._use_native_decoder:
+            try:
+                rows = _native_sdk.decode_batch_write_row(body)
+                return rows, None
+            except Exception as e:
+                if not self.native_fallback:
+                    raise
+                logger.warning("Native decode_batch_write_row failed, falling back to Python: %s", e)
+
         proto = pb.BatchWriteRowResponse()
         proto.ParseFromString(body)
 
@@ -440,6 +511,15 @@ class OTSProtoBufferDecoder(object):
         return rows, proto
 
     def _decode_get_range(self, body, request_id):
+        if self._use_native_decoder:
+            try:
+                result_tuple = _native_sdk.decode_get_range(body)
+                return result_tuple, None
+            except Exception as e:
+                if not self.native_fallback:
+                    raise
+                logger.warning("Native decode_get_range failed, falling back to Python: %s", e)
+
         proto = pb.GetRangeResponse()
         proto.ParseFromString(body)
 
@@ -450,7 +530,7 @@ class OTSProtoBufferDecoder(object):
 
         if len(proto.rows) != 0:
             native_decode_error = False
-            if NATIVE_PARSER_AVAILABLE:
+            if self._use_native_parser:
                 try:
                     parsed_rows = parse_multiple_rows(proto.rows)
                     for row_data in parsed_rows:
@@ -460,24 +540,28 @@ class OTSProtoBufferDecoder(object):
                         row = Row(primary_keys, columns)
                         row_list.append(row)
                 except Exception as e:
+                    if not self.native_fallback:
+                        raise
                     logger.warning(f"Native parsing failed, falling back to Python: {e}")
                     native_decode_error = True
 
-            if not NATIVE_PARSER_AVAILABLE or native_decode_error:
+            if not self._use_native_parser or native_decode_error:
                 inputStream = PlainBufferInputStream(proto.rows)
                 codedInputStream = PlainBufferCodedInputStream(inputStream)
                 row_list = codedInputStream.read_rows()
 
         if len(proto.next_start_primary_key) != 0:
             native_decode_error = False
-            if NATIVE_PARSER_AVAILABLE:
+            if self._use_native_parser:
                 try:
                     next_start_pk, _ = parse_single_row(proto.next_start_primary_key)
                 except Exception as e:
+                    if not self.native_fallback:
+                        raise
                     logger.warning(f"Native parsing of next_start_primary_key failed, falling back to Python: {e}")
                     native_decode_error = True
 
-            if not NATIVE_PARSER_AVAILABLE or native_decode_error:
+            if not self._use_native_parser or native_decode_error:
                 inputStream = PlainBufferInputStream(proto.next_start_primary_key)
                 codedInputStream = PlainBufferCodedInputStream(inputStream)
                 next_start_pk, att = codedInputStream.read_row()
@@ -554,10 +638,19 @@ class OTSProtoBufferDecoder(object):
             analyzer=proto.analyzer, sub_field_schemas=sub_field_schemas,
             analyzer_parameter=analyzer_parameter, date_formats=date_formats,
             is_virtual_field=is_virtual_field, source_fields=source_fields, vector_options=vector_options,
-            json_type=self._parse_json_type(proto.json_type)
+            json_type=self._parse_json_type(proto.json_type),
+            text_similarity=self._parse_text_similarity(proto.text_similarity)
         )
 
         return field_schema
+
+    def _parse_text_similarity(self, proto_text_similarity):
+        text_similarity = None
+        if proto_text_similarity == search_pb.BM25:
+            text_similarity = TextSimilarity.BM25
+        elif proto_text_similarity == search_pb.SHORT_TEXT:
+            text_similarity = TextSimilarity.SHORT_TEXT
+        return text_similarity
 
     def _parse_json_type(self, proto_json_type):
         json_type = None
@@ -720,6 +813,15 @@ class OTSProtoBufferDecoder(object):
         return None, proto
 
     def _decode_search(self, body, request_id):
+        if self._use_native_decoder:
+            try:
+                search_response = _native_sdk.decode_search(body, request_id=request_id)
+                return search_response, None
+            except Exception as e:
+                if not self.native_fallback:
+                    raise
+                logger.warning("Native decode_search failed, falling back to Python: %s", e)
+
         proto = search_pb.SearchResponse()
         proto.ParseFromString(body)
         rows = []
@@ -953,6 +1055,15 @@ class OTSProtoBufferDecoder(object):
         return compute_splits_response, proto
 
     def _decode_parallel_scan(self, body, request_id):
+        if self._use_native_decoder:
+            try:
+                response = _native_sdk.decode_parallel_scan(body, request_id=request_id)
+                return response, None
+            except Exception as e:
+                if not self.native_fallback:
+                    raise
+                logger.warning("Native decode_parallel_scan failed, falling back to Python: %s", e)
+
         proto = search_pb.ParallelScanResponse()
         proto.ParseFromString(body)
         rows = []

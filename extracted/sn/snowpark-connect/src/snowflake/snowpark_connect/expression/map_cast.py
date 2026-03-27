@@ -2,6 +2,8 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+import json
+
 import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
 import pyspark.sql.connect.proto.types_pb2 as types_proto
 from pyspark.errors.exceptions.base import (
@@ -15,6 +17,7 @@ from pyspark.errors.exceptions.base import (
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake.snowpark.column import Column
 from snowflake.snowpark.types import (
+    ArrayType,
     BinaryType,
     BooleanType,
     DataType,
@@ -31,6 +34,7 @@ from snowflake.snowpark.types import (
     StructType,
     TimestampTimeZone,
     TimestampType,
+    VariantType,
     YearMonthIntervalType,
     _FractionalType,
     _IntegralType,
@@ -84,6 +88,194 @@ def timestamp_to_spark_string(col: Column) -> Column:
     formatted = snowpark_fn.to_varchar(col, "YYYY-MM-DD HH24:MI:SS.FF6")
     trimmed = snowpark_fn.rtrim(formatted, snowpark_fn.lit("0"))
     return snowpark_fn.rtrim(trimmed, snowpark_fn.lit("."))
+
+
+def _has_map_type(datatype: DataType) -> bool:
+    """Check recursively if a DataType contains any MapType."""
+    if isinstance(datatype, MapType):
+        return True
+    if isinstance(datatype, StructType):
+        return any(_has_map_type(f.datatype) for f in datatype.fields)
+    if isinstance(datatype, ArrayType):
+        return _has_map_type(datatype.element_type)
+    return False
+
+
+def _build_type_descriptor(dt: DataType) -> str:
+    """Build a compact JSON type descriptor so the struct-to-string UDF can
+    distinguish structs from maps (both arrive as Python dicts at runtime)."""
+
+    def _describe(t: DataType) -> dict:
+        if isinstance(t, StructType) and t.structured and t.fields:
+            return {
+                "t": "struct",
+                "f": [{"n": f.name, "d": _describe(f.datatype)} for f in t.fields],
+            }
+        elif isinstance(t, MapType):
+            return {"t": "map", "v": _describe(t.value_type)}
+        elif isinstance(t, ArrayType):
+            return {"t": "array", "e": _describe(t.element_type)}
+        else:
+            return {"t": "p"}
+
+    return json.dumps(_describe(dt), separators=(",", ":"))
+
+
+def _build_to_string_with_udf(col: Column, datatype: DataType) -> Column:
+    """Use a single UDF to format any structured type (struct, array, map) containing
+    maps as Spark's string representation.
+
+    Maps and structs both arrive as Python dicts at runtime, so a type descriptor
+    is needed to distinguish them. This unified function handles all three top-level
+    types (struct, array, map).
+    """
+
+    def _complex_to_spark_string(data, type_desc: str) -> str:
+        import json as _json
+
+        def _fmt(value, td):
+            if value is None:
+                return "null"
+            t = td["t"]
+            if t == "struct":
+                parts = [_fmt(value.get(f["n"]), f["d"]) for f in td["f"]]
+                return "{" + ", ".join(parts) + "}"
+            elif t == "map":
+                vtd = td["v"]
+                parts = [f"{k} -> {_fmt(v, vtd)}" for k, v in value.items()]
+                return "{" + ", ".join(parts) + "}"
+            elif t == "array":
+                etd = td["e"]
+                return "[" + ", ".join(_fmt(item, etd) for item in value) + "]"
+            else:
+                if isinstance(value, bool):
+                    return str(value).lower()
+                return str(value)
+
+        if data is None:
+            return None
+        td = _json.loads(type_desc)
+        return _fmt(data, td)
+
+    type_desc = _build_type_descriptor(datatype)
+    udf_fn = cached_udf(
+        _complex_to_spark_string,
+        input_types=[VariantType(), StringType()],
+        return_type=StringType(),
+    )
+
+    return snowpark_fn.cast(
+        udf_fn(snowpark_fn.to_variant(col), snowpark_fn.lit(type_desc)),
+        StringType(),
+    )
+
+
+def _build_array_to_string_expr(
+    arr_col: Column, element_type: DataType | None = None
+) -> Column:
+    """Format an array as Spark's [val1, val2, ...] string using only SQL expressions.
+
+    Uses TRANSFORM to convert each element to its string representation,
+    casts the result to an unstructured array so that ARRAY_TO_STRING accepts
+    it, then wraps in ``[…]``.
+    """
+    from collections import defaultdict
+
+    from snowflake.snowpark import Session
+
+    placeholder = snowpark_fn.col("x")
+
+    if element_type is not None:
+        if isinstance(element_type, ArrayType):
+            element_str = _build_array_to_string_expr(
+                placeholder, element_type.element_type
+            )
+        else:
+            element_str = _field_to_string_expr(placeholder, element_type)
+    else:
+        # Unknown / untyped – best-effort cast
+        element_str = snowpark_fn.when(
+            placeholder.is_null(), snowpark_fn.lit("null")
+        ).otherwise(placeholder.cast(StringType()))
+
+    analyzer = Session.get_active_session()._analyzer
+    fn_sql = analyzer.analyze(element_str._expression, defaultdict())
+
+    # TRANSFORM each element to its string representation, then cast to an
+    # unstructured ARRAY (dropping the structured ARRAY(VARCHAR) wrapper that
+    # Snowflake produces for structured input) so ARRAY_TO_STRING works.
+    transformed = snowpark_fn.call_function(
+        "transform",
+        arr_col,
+        snowpark_fn.sql_expr(f"x -> ({fn_sql})"),
+    )
+    joined = snowpark_fn.call_function(
+        "array_to_string",
+        transformed.cast(ArrayType()),
+        snowpark_fn.lit(", "),
+    )
+    result = snowpark_fn.concat(snowpark_fn.lit("["), joined, snowpark_fn.lit("]"))
+    return snowpark_fn.when(
+        arr_col.is_null(), snowpark_fn.lit(None).cast(StringType())
+    ).otherwise(result)
+
+
+def _float_to_spark_string(col: Column) -> Column:
+    """Format a float/double value as Spark would: whole numbers get a trailing '.0'."""
+    str_val = col.cast(StringType())
+    return snowpark_fn.when(col.is_null(), snowpark_fn.lit("null")).otherwise(
+        snowpark_fn.iff(
+            (col == snowpark_fn.floor(col)),
+            snowpark_fn.concat(snowpark_fn.floor(col), snowpark_fn.lit(".0")),
+            str_val,
+        )
+    )
+
+
+def _field_to_string_expr(field_val: Column, field_type: DataType) -> Column:
+    """Convert a single struct field value to its Spark string representation."""
+    if isinstance(field_type, StructType) and field_type.structured:
+        inner_str = _build_struct_to_string_expr(field_val, field_type)
+        return snowpark_fn.when(field_val.is_null(), snowpark_fn.lit("null")).otherwise(
+            inner_str
+        )
+    elif isinstance(field_type, ArrayType):
+        formatted = _build_array_to_string_expr(field_val, field_type.element_type)
+        return snowpark_fn.when(field_val.is_null(), snowpark_fn.lit("null")).otherwise(
+            formatted
+        )
+    elif isinstance(field_type, (FloatType, DoubleType)):
+        return _float_to_spark_string(field_val)
+    elif isinstance(field_type, TimestampType):
+        return snowpark_fn.when(field_val.is_null(), snowpark_fn.lit("null")).otherwise(
+            timestamp_to_spark_string(field_val)
+        )
+    else:
+        return snowpark_fn.when(field_val.is_null(), snowpark_fn.lit("null")).otherwise(
+            field_val.cast(StringType())
+        )
+
+
+def _build_struct_to_string_expr(struct_col: Column, struct_type: StructType) -> Column:
+    """Build a SQL expression that formats a struct as Spark's {val1, val2, ...} string.
+
+    Only used when the struct contains no MapType fields, so no UDFs are needed.
+    """
+    parts: list[Column] = []
+    for i, field in enumerate(struct_type.fields):
+        if i > 0:
+            parts.append(snowpark_fn.lit(", "))
+        field_val = struct_col[field.name]
+        field_str = _field_to_string_expr(field_val, field.datatype)
+        parts.append(field_str)
+    struct_str = snowpark_fn.concat(
+        snowpark_fn.lit("{"),
+        *parts,
+        snowpark_fn.lit("}"),
+    )
+    return snowpark_fn.when(
+        struct_col.is_null(), snowpark_fn.lit(None).cast(StringType())
+    ).otherwise(struct_str)
 
 
 def map_cast(
@@ -165,38 +357,20 @@ def map_cast(
             result_exp = col
         case (NullType(), _):
             result_exp = col.cast(to_type)
+        case (StructType(), StringType()) if from_type.structured:
+            if _has_map_type(from_type):
+                result_exp = _build_to_string_with_udf(col, from_type)
+            else:
+                result_exp = _build_struct_to_string_expr(col, from_type)
         case (StructType(), _) if from_type.structured:
             result_exp = col.cast(to_type, rename_fields=True)
+        case (ArrayType(), StringType()) if from_type.structured:
+            if _has_map_type(from_type):
+                result_exp = _build_to_string_with_udf(col, from_type)
+            else:
+                result_exp = _build_array_to_string_expr(col, from_type.element_type)
         case (MapType(), StringType()):
-
-            def _map_to_string(map: dict) -> str:
-                def format_value(v):
-                    if isinstance(v, dict):
-                        return _map_to_string(v)
-                    elif isinstance(v, list):
-                        return "[" + ", ".join(format_value(item) for item in v) + "]"
-                    elif isinstance(v, bool):
-                        return str(v).lower()  # Spark prints true/false
-                    elif v is None:
-                        return "null"
-                    else:
-                        return str(v)
-
-                if map is None:
-                    return None
-                parts = [f"{k} -> {format_value(v)}" for k, v in map.items()]
-                return "{" + ", ".join(parts) + "}"
-
-            _map_entries = cached_udf(
-                _map_to_string,
-                input_types=[StructType()],
-                return_type=StringType(),
-            )
-
-            result_exp = snowpark_fn.cast(
-                _map_entries(col.cast(StructType())),
-                StringType(),
-            )
+            result_exp = _build_to_string_with_udf(col, from_type)
 
         # date and timestamp
         case (TimestampType(), _) if isinstance(to_type, _NumericType):

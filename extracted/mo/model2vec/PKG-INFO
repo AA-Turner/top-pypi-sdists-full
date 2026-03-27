@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model2vec
-Version: 0.7.0
+Version: 0.8.0
 Summary: Fast State-of-the-Art Static Embeddings
 Author-email: Stéphan Tulkens <stephantul@gmail.com>, Thomas van Dongen <thomas123@live.nl>
 License: MIT License
@@ -35,13 +35,12 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Natural Language :: English
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: jinja2
 Requires-Dist: joblib
@@ -63,6 +62,7 @@ Provides-Extra: distill
 Requires-Dist: torch; extra == "distill"
 Requires-Dist: transformers; extra == "distill"
 Requires-Dist: scikit-learn; extra == "distill"
+Requires-Dist: skeletoken>=0.3.2; extra == "distill"
 Provides-Extra: onnx
 Requires-Dist: onnx; extra == "onnx"
 Requires-Dist: torch; extra == "onnx"
@@ -122,7 +122,7 @@ Requires-Dist: scikit-learn; extra == "quantization"
 
 
 
-Model2Vec is a technique to turn any sentence transformer into a small, fast static embedding model. Model2Vec reduces model size by a factor up to 50 and makes models up to 500 times faster, with a small drop in performance. Our [best model](https://huggingface.co/minishlab/potion-base-8M) is the most performant static embedding model in the world. See our [results](results/README.md), read our [docs](https://minish.ai/packages/model2vec/introduction), or dive in to see how it works.
+Model2Vec is a technique to turn any sentence transformer into a small, fast static embedding model. Model2Vec reduces model size by a factor up to 50 and makes models up to 500 times faster, with a small drop in performance. Our [best model](https://huggingface.co/minishlab/potion-base-32M) is the most performant static embedding model in the world. See our [results](results/README.md), read our [docs](https://minish.ai/packages/model2vec/introduction), or dive in to see how it works.
 
 <div align="center">
 <h3>
@@ -143,8 +143,8 @@ You can start using Model2Vec by loading one of our [flagship models from the Hu
 ```python
 from model2vec import StaticModel
 
-# Load a model from the HuggingFace hub (in this case the potion-base-8M model)
-model = StaticModel.from_pretrained("minishlab/potion-base-8M")
+# Load a model from the HuggingFace hub (in this case the potion-base-32M model)
+model = StaticModel.from_pretrained("minishlab/potion-base-32M")
 
 # Make embeddings
 embeddings = model.encode(["It's dangerous to go alone!", "It's a secret to everybody."])
@@ -255,6 +255,8 @@ We provide a number of models that can be used out of the box. These models are 
 
 We have performed extensive experiments to evaluate the performance of Model2Vec models. The results are documented in the [results](results/README.md) folder. The results are presented in the following sections:
 - [MTEB Results](results/README.md#mteb-results)
+- [MMTEB Results](results/README.md#mmteb-results)
+- [Retrieval Results](results/README.md#retrieval-results)
 - [Training Results](results/README.md#training-results)
 - [Ablations](results/README.md#ablations)
 
@@ -265,11 +267,15 @@ MIT
 ## Citing
 
 If you use Model2Vec in your research, please cite the following:
+
 ```bibtex
-@article{minishlab2024model2vec,
-  author = {Tulkens, Stephan and {van Dongen}, Thomas},
-  title = {Model2Vec: Fast State-of-the-Art Static Embeddings},
-  year = {2024},
-  url = {https://github.com/MinishLab/model2vec}
+@software{minishlab2024model2vec,
+  author       = {Stephan Tulkens and {van Dongen}, Thomas},
+  title        = {Model2Vec: Fast State-of-the-Art Static Embeddings},
+  year         = {2024},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.17270888},
+  url          = {https://github.com/MinishLab/model2vec},
+  license      = {MIT}
 }
 ```

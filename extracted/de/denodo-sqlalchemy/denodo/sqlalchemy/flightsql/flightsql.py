@@ -134,6 +134,7 @@ class FlightSQLDenodoDialect(default.DefaultDialect):
     def get_schema_names(self, connection, schema=None, **kw):
         schema_meta = adbc.get_schema_meta(connection)
         schema_name = schema_meta["db_schema_name"]
+        new_schema = adbc.get_schema_meta(connection) # This returns an empty-named schema!!
         return [schema_name] if schema_name else []
 
     @reflection.cache
@@ -195,7 +196,7 @@ class FlightSQLDenodoDialect(default.DefaultDialect):
         return []
 
     # Parameterized queries are not supported in Denodo via FlightSQL
-    def do_execute(self, cursor, statement, parameters, context=...):
+    def _interpolate_parameters(self, statement, parameters):
         rep = ( lambda st, value: st.replace('?', value, 1) )
         st = statement
         for v in parameters:
@@ -217,7 +218,27 @@ class FlightSQLDenodoDialect(default.DefaultDialect):
                     st = rep(st, f"TIME '{v.isoformat(timespec='milliseconds')}'")
             else:
                 st = rep(st, "'" + str(v).replace("'", "''") + "'")
-        super().do_execute_no_params(cursor, st, context)
+        return st
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+        if context and (context.isinsert or context.isupdate or context.isdelete):
+            # For DML statements (INSERT, UPDATE, DELETE), we use executemany even
+            # with a single parameter set, as it is the only reliable way to perform
+            # these operations through the ADBC driver.
+            cursor.executemany(statement, [parameters or ()])
+        else:
+            if parameters:
+                # For non-DML statements (e.g., SELECT) with parameters,
+                # we must interpolate them as ? placeholders fail for execute.
+                st = self._interpolate_parameters(statement, parameters)
+                cursor.execute(st)
+            else:
+                cursor.execute(statement)
+
+    def do_executemany(self, cursor, statement, parameters, context=None):
+        # Native executemany with ? placeholders is supported for DML and
+        # handles multiple parameter sets correctly and efficiently.
+        cursor.executemany(statement, parameters)
 
 
 dialect = FlightSQLDenodoDialect

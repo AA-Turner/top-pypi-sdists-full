@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: sqlfluff-templater-dbt
-Version: 4.0.4
+Version: 4.1.0
 Summary: Lint your dbt project SQL
 Author-email: Alan Cruickshank <alan@designingoverload.com>
 License: MIT License
         
-        Copyright (c) 2018 Alan Cruickshank
+        Copyright (c) 2018-2026 Alan Cruickshank
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -54,7 +54,7 @@ Classifier: Topic :: Utilities
 Classifier: Topic :: Software Development :: Quality Assurance
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: sqlfluff==4.0.4
+Requires-Dist: sqlfluff==4.1.0
 Requires-Dist: dbt-core>=1.4.1
 Requires-Dist: jinja2-simple-tags>=0.3.1
 Dynamic: license-file

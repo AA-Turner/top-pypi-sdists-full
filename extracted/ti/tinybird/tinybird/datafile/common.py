@@ -282,12 +282,16 @@ def extract_column_names_from_sorting_key_part(part: str) -> List[str]:
     """
     Extract actual column names from a sorting key part (which might be an expression).
 
-    Examples:
-    - "shop" -> ["shop"]
-    - "`column_name`" -> ["column_name"]
-    - "ifNull(ad_id, '')" -> ["ad_id"]
-    - "toDate(timestamp)" -> ["timestamp"]
-    - "concat(first_name, last_name)" -> ["first_name", "last_name"]
+    >>> extract_column_names_from_sorting_key_part("shop")
+    ['shop']
+    >>> extract_column_names_from_sorting_key_part("`column_name`")
+    ['column_name']
+    >>> extract_column_names_from_sorting_key_part("ifNull(ad_id, '')")
+    ['ad_id']
+    >>> extract_column_names_from_sorting_key_part("toDate(timestamp)")
+    ['timestamp']
+    >>> extract_column_names_from_sorting_key_part("concat(first_name, last_name)")
+    ['first_name', 'last_name']
     """
     columns = []
 
@@ -312,10 +316,20 @@ def parse_sorting_key_column_names(sorting_key: str) -> List[str]:
     """
     Extract all column names from a sorting key expression.
 
-    Examples:
-    - "shop, event_date, channel" -> ["shop", "event_date", "channel"]
-    - "shop, event_date, ifNull(ad_id, ''), event_id" -> ["shop", "event_date", "ad_id", "event_id"]
-    - "tuple(shop, toDate(timestamp))" -> ["shop", "timestamp"]
+    >>> parse_sorting_key_column_names("shop, event_date, channel")
+    ['shop', 'event_date', 'channel']
+    >>> parse_sorting_key_column_names("shop, event_date, ifNull(ad_id, ''), event_id")
+    ['shop', 'event_date', 'ad_id', 'event_id']
+    >>> parse_sorting_key_column_names("tuple(shop, toDate(timestamp))")
+    ['shop', 'timestamp']
+    >>> parse_sorting_key_column_names("timestamp, substring(value, 2, 1)")
+    ['timestamp', 'value']
+    >>> parse_sorting_key_column_names("cityHash64(id)")
+    ['id']
+    >>> parse_sorting_key_column_names("toStartOfHour(timestamp)")
+    ['timestamp']
+    >>> parse_sorting_key_column_names("toStartOfHour(timestamp), id, substring(a, 2, 1)")
+    ['timestamp', 'id', 'a']
     """
     # Remove tuple() wrapper if present
     column_str = sorting_key
@@ -611,7 +625,6 @@ class Datafile:
 
     def _parse_sorting_key_columns(self, sorting_key: str, engine_ver_column: Optional[str]) -> List[str]:
         """Parse sorting key to extract column names and validate constraints."""
-        # Validate ENGINE_VER column constraint early
         if engine_ver_column and engine_ver_column in sorting_key:
             raise DatafileValidationError(
                 f"ENGINE_VER column '{engine_ver_column}' cannot be included in the sorting key for ReplacingMergeTree. "
@@ -620,36 +633,33 @@ class Datafile:
                 f"define the record identity (what makes it unique), while ENGINE_VER tracks which version to keep."
             )
 
-        # Remove tuple() wrapper if present
-        column_str = sorting_key
-        if column_str.startswith("tuple(") and column_str.endswith(")"):
-            column_str = column_str[6:-1]
+        self._validate_no_aggregate_functions_in_sorting_key(sorting_key)
 
-        sorting_key_columns = []
+        return parse_sorting_key_column_names(sorting_key)
 
-        for part in column_str.split(","):
-            part = part.strip()
-
-            if self._is_aggregate_function_expression(part):
+    def _validate_no_aggregate_functions_in_sorting_key(self, sorting_key: str) -> None:
+        """Validate that sorting key doesn't contain aggregate function expressions."""
+        for match in re.finditer(r"(\w+)\s*\(", sorting_key):
+            func_name = match.group(1)
+            if self._is_aggregate_function_expression(func_name):
+                start = match.start()
+                paren_start = match.end() - 1
+                depth = 1
+                pos = paren_start + 1
+                while pos < len(sorting_key) and depth > 0:
+                    if sorting_key[pos] == "(":
+                        depth += 1
+                    elif sorting_key[pos] == ")":
+                        depth -= 1
+                    pos += 1
+                full_expr = sorting_key[start:pos]
                 raise DatafileValidationError(
-                    f"Sorting key contains aggregate function expression '{part}'. Aggregate function expressions cannot be used in sorting keys."
+                    f"Sorting key contains aggregate function expression '{full_expr}'. "
+                    f"Aggregate function expressions cannot be used in sorting keys."
                 )
 
-            # Extract column names from the part
-            extracted_columns = extract_column_names_from_sorting_key_part(part)
-            sorting_key_columns.extend(extracted_columns)
-
-        return sorting_key_columns
-
-    def _is_aggregate_function_expression(self, part: str) -> bool:
-        """Check if a sorting key part is an aggregate function expression."""
-        if not ("(" in part and part.endswith(")")):
-            return False
-
-        func_start = part.find("(")
-        func_name = part[:func_start].strip().lower()
-
-        aggregate_function_names = {
+    _AGGREGATE_FUNCTION_NAMES = frozenset(
+        {
             "sum",
             "count",
             "avg",
@@ -669,8 +679,11 @@ class Datafile:
             "groupuniqarraymerge",
             "uniqmerge",
         }
+    )
 
-        return func_name in aggregate_function_names
+    def _is_aggregate_function_expression(self, func_name: str) -> bool:
+        """Check if a function name is an aggregate function."""
+        return func_name.lower() in self._AGGREGATE_FUNCTION_NAMES
 
     def _validate_columns_against_schema(
         self, sorting_key_columns: List[str], schema_columns: Dict[str, Dict[str, Any]]
@@ -680,10 +693,11 @@ class Datafile:
             return  # No schema information available, can't validate
 
         for col_name in sorting_key_columns:
-            if col_name not in schema_columns:
+            column_info = schema_columns.get(col_name)
+            if column_info is None:
                 continue
 
-            self._validate_single_column(col_name, schema_columns[col_name])
+            self._validate_single_column(col_name, column_info)
 
     def _validate_single_column(self, col_name: str, column_info: Dict[str, Any]) -> None:
         """Validate a single column for use in sorting keys."""

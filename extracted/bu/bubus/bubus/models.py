@@ -457,38 +457,6 @@ class BaseEvent(BaseModel, Generic[T_EventResultType]):
         completed_times = [result.completed_at for result in self.event_results.values() if result.completed_at is not None]
         return max(completed_times) if completed_times else self.event_processed_at
 
-    def event_create_pending_results(
-        self,
-        handlers: dict[PythonIdStr, EventHandler],
-        *,
-        eventbus: 'EventBus | None' = None,
-        timeout: float | None = None,
-    ) -> 'dict[PythonIdStr, EventResult[T_EventResultType]]':
-        """Ensure EventResult placeholders exist for provided handlers before execution.
-
-        Any stale timing/error data from prior runs is cleared so consumers immediately see a fresh pending state.
-        """
-        pending_results: dict[PythonIdStr, 'EventResult[T_EventResultType]'] = {}
-        for handler_id, handler in handlers.items():
-            event_result = self.event_result_update(
-                handler=handler,
-                eventbus=eventbus,
-                status='pending',
-            )
-            # Reset runtime fields so we never reuse stale data
-            event_result.result = None
-            event_result.error = None
-            event_result.started_at = None
-            event_result.completed_at = None
-            event_result.status = 'pending'
-            event_result.timeout = timeout if timeout is not None else self.event_timeout
-            event_result.result_type = self.event_result_type
-            pending_results[handler_id] = event_result
-
-        if self.event_completed_signal and not self.event_completed_signal.is_set():
-            self.event_processed_at = self.event_processed_at or datetime.now(UTC)
-        return pending_results
-
     @staticmethod
     def _event_result_is_truthy(event_result: 'EventResult[T_EventResultType]') -> bool:
         if event_result.status != 'completed':
@@ -714,10 +682,6 @@ class BaseEvent(BaseModel, Generic[T_EventResultType]):
 
         # Update the EventResult with provided kwargs
         self.event_results[handler_id].update(**kwargs)
-        if 'timeout' in kwargs:
-            self.event_results[handler_id].timeout = kwargs['timeout']
-        if kwargs.get('status') == 'started' and hasattr(self, 'event_processed_at'):
-            self.event_processed_at = self.event_processed_at or datetime.now(UTC)
         # logger.debug(
         #     f'Updated EventResult for handler {handler_id}: status={self.event_results[handler_id].status}, total_results={len(self.event_results)}'
         # )
@@ -796,12 +760,12 @@ class BaseEvent(BaseModel, Generic[T_EventResultType]):
         self,
         indent: str = '',
         is_last: bool = True,
-        event_children_by_parent: 'dict[str | None, list[BaseEvent[Any]]] | None' = None,
+        child_events_by_parent: 'dict[str | None, list[BaseEvent[Any]]] | None' = None,
     ) -> None:
         """Print this event and its results with proper tree formatting"""
         from bubus.logging import log_event_tree
 
-        log_event_tree(self, indent, is_last, event_children_by_parent)
+        log_event_tree(self, indent, is_last, child_events_by_parent)
 
     @property
     def event_bus(self) -> 'EventBus':
@@ -883,11 +847,6 @@ class EventResult(BaseModel, Generic[T_EventResultType]):
     #   it's not worth the complexity headache it would incur on users of the library though,
     #   and it would significantly reduce runtime flexibility, e.g. you couldn't define and dispatch arbitrary server-provided event types at runtime
     event_children: list['BaseEvent[Any]'] = Field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
-
-    @field_serializer('result', when_used='json')
-    def _serialize_result(self, value: T_EventResultType | BaseEvent[Any] | None) -> Any:
-        """Preserve handler return values when serializing without extra validation."""
-        return value
 
     @property
     def handler_completed_signal(self) -> asyncio.Event | None:
@@ -999,146 +958,13 @@ class EventResult(BaseModel, Generic[T_EventResultType]):
                 self.handler_completed_signal.set()
         return self
 
-    async def execute(
-        self,
-        event: 'BaseEvent[T_EventResultType]',
-        handler: EventHandler,
-        *,
-        eventbus: 'EventBus',
-        timeout: float | None,
-        enter_handler_context: Callable[[BaseEvent[Any], str], tuple[Any, Any, Any]] | None = None,
-        exit_handler_context: Callable[[tuple[Any, Any, Any]], None] | None = None,
-        format_exception_for_log: Callable[[BaseException], str] | None = None,
-    ) -> T_EventResultType | BaseEvent[Any] | None:
-        """Execute the handler and update internal state automatically."""
-
-        def _default_enter_handler_context(_: BaseEvent[Any], __: str) -> tuple[None, None, None]:
-            return (None, None, None)
-
-        def _default_exit_handler_context(_: tuple[Any, Any, Any]) -> None:
-            return None
-
-        def _default_format_exception_for_log(exc: BaseException) -> str:
-            from traceback import TracebackException
-
-            return ''.join(
-                TracebackException.from_exception(exc, capture_locals=False).format()
-            )
-
-        _enter_handler_context_callable = enter_handler_context or _default_enter_handler_context
-        _exit_handler_context_callable = exit_handler_context or _default_exit_handler_context
-        _format_exception_for_log_callable = format_exception_for_log or _default_format_exception_for_log
-
-        self.timeout = timeout if timeout is not None else self.timeout or event.event_timeout
-        self.result_type = event.event_result_type
-        self.update(status='started')
-        if hasattr(event, 'event_processed_at'):
-            event.event_processed_at = event.event_processed_at or datetime.now(UTC)
-
-        monitor_task: asyncio.Task[None] | None = None
-        handler_task: asyncio.Task[Any] | None = None
-
-        handler_context_tokens = _enter_handler_context_callable(event, self.handler_id)
-
-        async def deadlock_monitor() -> None:
-            await asyncio.sleep(15.0)
-            logger.warning(
-                f'⚠️ {eventbus} handler {self.handler_name}() has been running for >15s on event. Possible slow processing or deadlock.\n'
-                '(handler could be trying to await its own result or could be blocked by another async task).\n'
-                f'{self.handler_name}({event})'
-            )
-
-        monitor_task = asyncio.create_task(
-            deadlock_monitor(), name=f'{eventbus}.deadlock_monitor({event}, {self.handler_name}#{self.handler_id[-4:]})'
-        )
-
-        try:
-            if inspect.iscoroutinefunction(handler):
-                handler_task = asyncio.create_task(handler(event))  # type: ignore
-                handler_return_value: Any = await asyncio.wait_for(handler_task, timeout=self.timeout)
-            elif inspect.isfunction(handler) or inspect.ismethod(handler):
-                handler_return_value = handler(event)
-                if isinstance(handler_return_value, BaseEvent):
-                    logger.debug(
-                        f'Handler {self.handler_name} returned BaseEvent, not awaiting to avoid circular dependency'
-                    )
-            else:
-                raise ValueError(f'Handler {get_handler_name(handler)} must be a sync or async function, got: {type(handler)}')
-
-            monitor_task.cancel()
-            self.update(result=handler_return_value)
-            return self.result
-
-        except asyncio.CancelledError as exc:
-            if monitor_task:
-                monitor_task.cancel()
-            handler_interrupted_error = asyncio.CancelledError(
-                f'Event handler {self.handler_name}#{self.handler_id[-4:]}({event}) was interrupted because of a parent timeout'
-            )
-            self.update(error=handler_interrupted_error)
-            raise handler_interrupted_error from exc
-
-        except TimeoutError as exc:
-            if monitor_task:
-                monitor_task.cancel()
-            children = (
-                f' and interrupted any processing of {len(event.event_children)} child events'
-                if event.event_children
-                else ''
-            )
-            timeout_error = TimeoutError(
-                f'Event handler {self.handler_name}#{self.handler_id[-4:]}({event}) timed out after {self.timeout}s{children}'
-            )
-            self.update(error=timeout_error)
-            event.event_cancel_pending_child_processing(timeout_error)
-
-            from bubus.logging import log_timeout_tree
-
-            log_timeout_tree(event, self)
-            raise timeout_error from exc
-
-        except Exception as exc:
-            if monitor_task:
-                monitor_task.cancel()
-            self.update(error=exc)
-
-            red = '\033[91m'
-            reset = '\033[0m'
-            logger.error(
-                f'❌ {eventbus} Error in event handler {self.handler_name}({event}) -> \n{red}{type(exc).__name__}({exc}){reset}\n{_format_exception_for_log_callable(exc)}',
-            )
-            raise
-
-        finally:
-            if handler_task and not handler_task.done():
-                handler_task.cancel()
-                try:
-                    await asyncio.wait_for(handler_task, timeout=0.1)
-                except (asyncio.CancelledError, TimeoutError):
-                    pass
-
-            if monitor_task:
-                try:
-                    if not monitor_task.done():
-                        monitor_task.cancel()
-                    await monitor_task
-                except asyncio.CancelledError:
-                    pass
-                except Exception:
-                    pass
-
-            _exit_handler_context_callable(handler_context_tokens)
-
     def log_tree(
-        self,
-        indent: str = '',
-        is_last: bool = True,
-        event_children_by_parent: dict[str | None, list[BaseEvent[Any]]] | None = None,
+        self, indent: str = '', is_last: bool = True, child_events_by_parent: dict[str | None, list[BaseEvent[Any]]] | None = None
     ) -> None:
         """Print this result and its child events with proper tree formatting"""
         from bubus.logging import log_eventresult_tree
 
-        log_eventresult_tree(self, indent, is_last, event_children_by_parent)
+        log_eventresult_tree(self, indent, is_last, child_events_by_parent)
 
 
 # Resolve forward references

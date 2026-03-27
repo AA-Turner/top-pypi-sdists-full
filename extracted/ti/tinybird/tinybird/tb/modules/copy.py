@@ -83,8 +83,21 @@ def copy_ls(ctx: Context, match: str, format_: str):
     default=None,
     help="Key and value of the params you want the Copy pipe to be called with. For example: tb pipe copy run <my_copy_pipe> --param foo=bar",
 )
+@click.option(
+    "--on-demand-compute",
+    is_flag=True,
+    default=False,
+    help="Use on-demand compute instances for the copy job.",
+)
 @click.pass_context
-def copy_run(ctx: click.Context, pipe_name_or_id: str, wait: bool, mode: str, param: Optional[Tuple[str]]):
+def copy_run(
+    ctx: click.Context,
+    pipe_name_or_id: str,
+    wait: bool,
+    mode: str,
+    param: Optional[Tuple[str]],
+    on_demand_compute: bool,
+):
     """Run an on-demand copy pipe"""
 
     params = dict(key_value.split("=") for key_value in param) if param else {}
@@ -93,7 +106,7 @@ def copy_run(ctx: click.Context, pipe_name_or_id: str, wait: bool, mode: str, pa
     config = ctx.ensure_object(dict)["config"]
 
     try:
-        response = client.pipe_run(pipe_name_or_id, "copy", params, mode)
+        response = client.pipe_run(pipe_name_or_id, "copy", params, mode, on_demand_compute=on_demand_compute)
         job_id = response["job"]["job_id"]
         job_url = response["job"]["job_url"]
         echo_job_url(client.token, client.host, config.get("name") or "", job_url)

@@ -373,6 +373,7 @@ def _map_co_group_map_python(
     snowpark_other_grouping_exprs: list[snowpark.Column],
 ) -> DataFrameContainer:
     """Handle co_group_map for Python UDFs (applyInPandas)."""
+    from snowflake.snowpark_connect.utils.context import get_spark_session_id
     from snowflake.snowpark_connect.utils.pandas_udtf_utils import (
         create_cogroup_pandas_udtf,
     )
@@ -388,6 +389,7 @@ def _map_co_group_map_python(
     udtf_packages = global_config.get("snowpark.connect.udf.packages", "")
     udtf_imports = get_python_udxf_import_files(snowpark.Session.get_active_session())
     artifact_repository = get_artifact_repository()
+    session_id = get_spark_session_id()
 
     if require_creating_udf_in_sproc(func_proto):
         cogroup_udtf_name = create_cogroup_udtf_in_sproc(
@@ -398,6 +400,7 @@ def _map_co_group_map_python(
             udtf_packages,
             udtf_imports,
             artifact_repository=artifact_repository,
+            session_id=session_id,
         )
     else:
         cogroup_udtf = create_cogroup_pandas_udtf(
@@ -408,6 +411,7 @@ def _map_co_group_map_python(
             udtf_packages,
             udtf_imports,
             artifact_repository=artifact_repository,
+            session_id=session_id,
         )
         cogroup_udtf_name = cogroup_udtf.name
 

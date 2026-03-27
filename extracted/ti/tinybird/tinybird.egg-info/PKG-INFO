@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.3.1
+Version: 4.4.0
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,16 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.4.0
+*******
+
+- `Added` `tb copy run` has a new `--on-demand-compute` flag to use on-demand compute instances for copy jobs.
+
+4.3.2
+*******
+
+- `Changed` CLI API requests now set the `from` parameter dynamically from the detected project type (`python-sdk`, `ts-sdk`, or `cli`) instead of using a hardcoded source.
 
 4.3.1
 *******

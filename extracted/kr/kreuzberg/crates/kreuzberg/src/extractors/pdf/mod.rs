@@ -294,7 +294,7 @@ impl PdfExtractor {
         let content = &*derotated;
 
         #[cfg(feature = "pdf")]
-        #[allow(unused_variables)]
+        #[allow(unused_variables, unused_mut)]
         let (
             mut pdf_metadata,
             native_text,

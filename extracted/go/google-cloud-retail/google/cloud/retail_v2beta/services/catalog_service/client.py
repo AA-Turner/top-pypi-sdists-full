@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.retail_v2beta import gapic_version as package_version
 
@@ -61,14 +61,18 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.retail_v2beta.services.catalog_service import pagers
-from google.cloud.retail_v2beta.types import catalog_service, common, import_config
-from google.cloud.retail_v2beta.types import catalog
+from google.cloud.retail_v2beta.types import (
+    catalog,
+    catalog_service,
+    common,
+    import_config,
+)
 from google.cloud.retail_v2beta.types import catalog as gcr_catalog
 
 from .transports.base import DEFAULT_CLIENT_INFO, CatalogServiceTransport
@@ -85,9 +89,7 @@ class CatalogServiceClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[CatalogServiceTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[CatalogServiceTransport]]
     _transport_registry["grpc"] = CatalogServiceGrpcTransport
     _transport_registry["grpc_asyncio"] = CatalogServiceGrpcAsyncIOTransport
     _transport_registry["rest"] = CatalogServiceRestTransport
@@ -118,7 +120,7 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
     """Service for managing catalog configuration."""
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -126,7 +128,7 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -136,6 +138,10 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -511,7 +517,7 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -608,7 +614,7 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -695,18 +701,16 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = CatalogServiceClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            CatalogServiceClient._read_environment_variables()
+        )
         self._client_cert_source = CatalogServiceClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = CatalogServiceClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -734,8 +738,7 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(CatalogServiceTransport, transport)
             self._api_endpoint = self._transport.host
@@ -2219,7 +2222,7 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
 
     def list_operations(
         self,
-        request: Optional[operations_pb2.ListOperationsRequest] = None,
+        request: Optional[Union[operations_pb2.ListOperationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2245,8 +2248,12 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.ListOperationsRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.ListOperationsRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.ListOperationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2255,7 +2262,7 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2264,7 +2271,7 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -2278,7 +2285,7 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
 
     def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2304,8 +2311,12 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2314,7 +2325,7 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2323,7 +2334,7 @@ class CatalogServiceClient(metaclass=CatalogServiceClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,

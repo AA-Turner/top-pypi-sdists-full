@@ -114,6 +114,8 @@ def validate_run_spec_and_set_defaults(
             )
     if run_spec.configuration.priority is None:
         run_spec.configuration.priority = RUN_PRIORITY_DEFAULT
+    # We do not reject top-level `resources` when `replicas` is a list. Adding strict checks
+    # would be fragile because the spec may be changed later (for example by plugins).
     set_resources_defaults(run_spec.configuration.resources)
     set_gpu_vendor_default(
         run_spec.configuration.resources,

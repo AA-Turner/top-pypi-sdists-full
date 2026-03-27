@@ -18,10 +18,10 @@ from snowflake.snowpark_connect.utils.artifacts import ArtifactKey
 from snowflake.snowpark_connect.utils.describe_query_cache import (
     instrument_session_for_describe_cache,
 )
-from snowflake.snowpark_connect.utils.external_udxf_cache import (
-    init_external_udxf_cache,
-)
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+from snowflake.snowpark_connect.utils.spark_session_cache import (
+    init_spark_session_cache_registry,
+)
 from snowflake.snowpark_connect.utils.telemetry import telemetry
 from snowflake.snowpark_connect.utils.udf_cache import init_builtin_udf_cache
 
@@ -71,9 +71,6 @@ def configure_snowpark_session(session: snowpark.Session):
     logger.info(f"Configuring session {session}")
 
     telemetry.initialize(session)
-    # custom udfs
-    session._udfs = {}
-    session._udtfs = {}
     session._sprocs = set()
 
     # custom udf imports
@@ -102,7 +99,7 @@ def configure_snowpark_session(session: snowpark.Session):
 
     # built-in udf cache
     init_builtin_udf_cache(session)
-    init_external_udxf_cache(session)
+    init_spark_session_cache_registry(session)
 
     # file format cache
     session._file_formats = set()

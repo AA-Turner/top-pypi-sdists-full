@@ -551,6 +551,16 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.UpdateWorkspaceGroupManagersRequest.SerializeToString,
                 response_deserializer=beaker__pb2.UpdateWorkspaceGroupManagersResponse.FromString,
                 _registered_method=True)
+        self.UpdateWorkspaceGroupName = channel.unary_unary(
+                '/allenai.beaker.Beaker/UpdateWorkspaceGroupName',
+                request_serializer=beaker__pb2.UpdateWorkspaceGroupNameRequest.SerializeToString,
+                response_deserializer=beaker__pb2.UpdateWorkspaceGroupNameResponse.FromString,
+                _registered_method=True)
+        self.SetChildAllocations = channel.unary_unary(
+                '/allenai.beaker.Beaker/SetChildAllocations',
+                request_serializer=beaker__pb2.SetChildAllocationsRequest.SerializeToString,
+                response_deserializer=beaker__pb2.SetChildAllocationsResponse.FromString,
+                _registered_method=True)
         self.CreateQueue = channel.unary_unary(
                 '/allenai.beaker.Beaker/CreateQueue',
                 request_serializer=beaker__pb2.CreateQueueRequest.SerializeToString,
@@ -1252,6 +1262,18 @@ class BeakerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def UpdateWorkspaceGroupName(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetChildAllocations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def CreateQueue(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1847,6 +1869,16 @@ def add_BeakerServicer_to_server(servicer, server):
                     servicer.UpdateWorkspaceGroupManagers,
                     request_deserializer=beaker__pb2.UpdateWorkspaceGroupManagersRequest.FromString,
                     response_serializer=beaker__pb2.UpdateWorkspaceGroupManagersResponse.SerializeToString,
+            ),
+            'UpdateWorkspaceGroupName': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateWorkspaceGroupName,
+                    request_deserializer=beaker__pb2.UpdateWorkspaceGroupNameRequest.FromString,
+                    response_serializer=beaker__pb2.UpdateWorkspaceGroupNameResponse.SerializeToString,
+            ),
+            'SetChildAllocations': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetChildAllocations,
+                    request_deserializer=beaker__pb2.SetChildAllocationsRequest.FromString,
+                    response_serializer=beaker__pb2.SetChildAllocationsResponse.SerializeToString,
             ),
             'CreateQueue': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateQueue,
@@ -4697,6 +4729,60 @@ class Beaker(object):
             '/allenai.beaker.Beaker/UpdateWorkspaceGroupManagers',
             beaker__pb2.UpdateWorkspaceGroupManagersRequest.SerializeToString,
             beaker__pb2.UpdateWorkspaceGroupManagersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateWorkspaceGroupName(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/UpdateWorkspaceGroupName',
+            beaker__pb2.UpdateWorkspaceGroupNameRequest.SerializeToString,
+            beaker__pb2.UpdateWorkspaceGroupNameResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetChildAllocations(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/SetChildAllocations',
+            beaker__pb2.SetChildAllocationsRequest.SerializeToString,
+            beaker__pb2.SetChildAllocationsResponse.FromString,
             options,
             channel_credentials,
             insecure,

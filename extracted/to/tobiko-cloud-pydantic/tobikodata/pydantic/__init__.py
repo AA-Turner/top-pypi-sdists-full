@@ -23,7 +23,7 @@ PYDANTIC_MAJOR_VERSION, PYDANTIC_MINOR_VERSION = [int(p) for p in pydantic.__ver
 
 
 if t.TYPE_CHECKING:
-    from sqlglot import Expression  # pants: no-infer-dep
+    from sqlglot import exp  # pants: no-infer-dep
 
 
 class PydanticModel(pydantic.BaseModel):  # noqa: TID251
@@ -163,7 +163,7 @@ class ForwardCompatiblePydanticModel(PydanticModel):
 
 
 class ComputedColumn:
-    def __init__(self, expression: Expression) -> None:
+    def __init__(self, expression: "exp.Expr") -> None:
         self.expression = expression
 
     @classmethod
@@ -172,7 +172,7 @@ class ComputedColumn:
         return _contains_annotation(cls, field_info)
 
     @classmethod
-    def get_expression(cls, field_info: FieldInfo) -> Expression:
+    def get_expression(cls, field_info: FieldInfo) -> "exp.Expr":
         """Helper function to get a ComputedColumn's SQLGlot expression from a Pydantic FieldInfo object."""
         for metadata in field_info.metadata:
             if isinstance(metadata, cls):

@@ -7,7 +7,17 @@ import unittest
 import numpy as np
 import yaml
 
-from pythainlp.benchmarks import bleu_score, rouge_score, word_tokenization
+from pythainlp.benchmarks import (
+    BleuScore,
+    CharLevelStat,
+    GlobalStat,
+    RougeScore,
+    TokenizationStat,
+    WordLevelStat,
+    bleu_score,
+    rouge_score,
+    word_tokenization,
+)
 
 with open("./tests/data/sentences.yml", "r", encoding="utf8") as stream:
     TEST_DATA = yaml.safe_load(stream)
@@ -48,6 +58,35 @@ class BenchmarksTestCaseX(unittest.TestCase):
 
             self.assertIsNotNone(result)
 
+    def test_compute_stats_return_type(self):
+        """Test that compute_stats returns a TokenizationStat typed dict."""
+        ref = word_tokenization.preprocessing("อากาศ|ร้อน|มาก")
+        act = word_tokenization.preprocessing("อากาศ|ร้อนมาก")
+
+        result: TokenizationStat = word_tokenization.compute_stats(ref, act)
+
+        self.assertIsInstance(result, dict)
+        self.assertIn("char_level", result)
+        self.assertIn("word_level", result)
+        self.assertIn("global_", result)
+
+        char: CharLevelStat = result["char_level"]
+        self.assertIsInstance(char, dict)
+        self.assertIsInstance(char["tp"], int)
+        self.assertIsInstance(char["fp"], int)
+        self.assertIsInstance(char["tn"], int)
+        self.assertIsInstance(char["fn"], int)
+
+        word: WordLevelStat = result["word_level"]
+        self.assertIsInstance(word, dict)
+        self.assertIsInstance(word["correctly_tokenized_words"], int)
+        self.assertIsInstance(word["total_words_in_sample"], int)
+        self.assertIsInstance(word["total_words_in_ref_sample"], int)
+
+        glob: GlobalStat = result["global_"]
+        self.assertIsInstance(glob, dict)
+        self.assertIsInstance(glob["tokenization_indicators"], str)
+
     def test_benchmark(self):
         expected = []
         actual = []
@@ -59,7 +98,7 @@ class BenchmarksTestCaseX(unittest.TestCase):
 
         self.assertIsNotNone(df)
 
-    def test_count_correctly_tokenised_words(self):
+    def test_count_correctly_tokenized_words(self):
         for d in TEST_DATA["binary_sentences"]:
             sample = np.array(list(d["actual"])).astype(int)
             ref_sample = np.array(list(d["expected"])).astype(int)
@@ -69,26 +108,26 @@ class BenchmarksTestCaseX(unittest.TestCase):
 
             # in binary [{0, 1}, ...]
             correctly_tokenized_words = (
-                word_tokenization._find_words_correctly_tokenised(rb, sb)
+                word_tokenization._find_words_correctly_tokenized(rb, sb)
             )
 
             self.assertEqual(
                 np.sum(correctly_tokenized_words), d["expected_count"]
             )
 
-    def test_words_correctly_tokenised(self):
+    def test_words_correctly_tokenized(self):
         r = [(0, 2), (2, 10), (10, 12)]
         s = [(0, 10), (10, 12)]
 
         expected = "01"
 
-        labels = word_tokenization._find_words_correctly_tokenised(r, s)
+        labels = word_tokenization._find_words_correctly_tokenized(r, s)
         self.assertEqual(expected, "".join(np.array(labels).astype(str)))
 
     def test_flatten_result(self):
-        result = {"key1": {"v1": 6}, "key2": {"v2": 7}}
-
-        actual = word_tokenization._flatten_result(result)
+        actual = word_tokenization._flatten_result(
+            {"key1": {"v1": 6}, "key2": {"v2": 7}}
+        )
         self.assertEqual(actual, {"key1:v1": 6, "key2:v2": 7})
 
     def test_bleu_score_single_reference(self):
@@ -102,6 +141,22 @@ class BenchmarksTestCaseX(unittest.TestCase):
         self.assertIn("bleu", score)
         self.assertGreater(score["bleu"], 0)
         self.assertLessEqual(score["bleu"], 100)
+
+    def test_bleu_score_return_type(self):
+        """Test that bleu_score returns a BleuScore typed dict."""
+        references = ["สวัสดีครับ วันนี้อากาศดีมาก"]
+        hypotheses = ["สวัสดีค่ะ วันนี้อากาศดี"]
+
+        score: BleuScore = bleu_score(references, hypotheses)
+
+        self.assertIsInstance(score, dict)
+        self.assertIsInstance(score["bleu"], float)
+        self.assertIsInstance(score["precisions"], list)
+        self.assertTrue(all(isinstance(p, float) for p in score["precisions"]))
+        self.assertIsInstance(score["bp"], float)
+        self.assertIsInstance(score["length_ratio"], float)
+        self.assertIsInstance(score["hyp_length"], int)
+        self.assertIsInstance(score["ref_length"], int)
 
     def test_bleu_score_multiple_references(self):
         """Test BLEU score with multiple references per hypothesis."""
@@ -174,16 +229,36 @@ class BenchmarksTestCaseX(unittest.TestCase):
         self.assertIn("rouge2", scores)
         self.assertIn("rougeL", scores)
 
-        # Each score should be a tuple of (precision, recall, fmeasure)
+        # Each score is a RougeScore dict with precision, recall, fmeasure
         for key in ["rouge1", "rouge2", "rougeL"]:
-            self.assertEqual(len(scores[key]), 3)
-            precision, recall, fmeasure = scores[key]
-            self.assertGreaterEqual(precision, 0.0)
-            self.assertLessEqual(precision, 1.0)
-            self.assertGreaterEqual(recall, 0.0)
-            self.assertLessEqual(recall, 1.0)
-            self.assertGreaterEqual(fmeasure, 0.0)
-            self.assertLessEqual(fmeasure, 1.0)
+            self.assertIsInstance(scores[key], dict)
+            self.assertIsInstance(scores[key]["precision"], float)
+            self.assertIsInstance(scores[key]["recall"], float)
+            self.assertIsInstance(scores[key]["fmeasure"], float)
+            self.assertGreaterEqual(scores[key]["precision"], 0.0)
+            self.assertLessEqual(scores[key]["precision"], 1.0)
+            self.assertGreaterEqual(scores[key]["recall"], 0.0)
+            self.assertLessEqual(scores[key]["recall"], 1.0)
+            self.assertGreaterEqual(scores[key]["fmeasure"], 0.0)
+            self.assertLessEqual(scores[key]["fmeasure"], 1.0)
+
+    def test_rouge_score_return_type(self):
+        """Test that rouge_score returns dict[str, RougeScore] typed dicts."""
+        reference = "สวัสดีครับ วันนี้อากาศดีมาก"
+        hypothesis = "สวัสดีค่ะ วันนี้อากาศดี"
+
+        scores: dict[str, RougeScore] = rouge_score(reference, hypothesis)
+
+        self.assertIsInstance(scores, dict)
+        for key in ["rouge1", "rouge2", "rougeL"]:
+            score: RougeScore = scores[key]
+            self.assertIsInstance(score, dict)
+            self.assertIn("precision", score)
+            self.assertIn("recall", score)
+            self.assertIn("fmeasure", score)
+            self.assertIsInstance(score["precision"], float)
+            self.assertIsInstance(score["recall"], float)
+            self.assertIsInstance(score["fmeasure"], float)
 
     def test_rouge_score_identical_text(self):
         """Test ROUGE score when reference and hypothesis are identical."""
@@ -193,10 +268,9 @@ class BenchmarksTestCaseX(unittest.TestCase):
 
         # All scores should be perfect (1.0)
         for key in ["rouge1", "rouge2", "rougeL"]:
-            precision, recall, fmeasure = scores[key]
-            self.assertEqual(precision, 1.0)
-            self.assertEqual(recall, 1.0)
-            self.assertEqual(fmeasure, 1.0)
+            self.assertEqual(scores[key]["precision"], 1.0)
+            self.assertEqual(scores[key]["recall"], 1.0)
+            self.assertEqual(scores[key]["fmeasure"], 1.0)
 
     def test_rouge_score_custom_types(self):
         """Test ROUGE score with custom rouge types."""
@@ -237,10 +311,9 @@ class BenchmarksTestCaseX(unittest.TestCase):
 
         # Scores should be 0 or very low since there's no overlap
         for key in ["rouge1", "rouge2", "rougeL"]:
-            precision, recall, fmeasure = scores[key]
-            self.assertGreaterEqual(precision, 0.0)
-            self.assertGreaterEqual(recall, 0.0)
-            self.assertGreaterEqual(fmeasure, 0.0)
+            self.assertGreaterEqual(scores[key]["precision"], 0.0)
+            self.assertGreaterEqual(scores[key]["recall"], 0.0)
+            self.assertGreaterEqual(scores[key]["fmeasure"], 0.0)
 
     def test_word_error_rate_basic(self):
         """Test WER with basic Thai text."""

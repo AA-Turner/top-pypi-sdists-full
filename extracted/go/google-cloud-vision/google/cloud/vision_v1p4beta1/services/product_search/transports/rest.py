@@ -16,17 +16,17 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -1080,6 +1080,12 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[ProductSearchRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -1183,9 +1189,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
                         be of type `bytes`.
             """
 
-            http_options = (
-                _BaseProductSearchRestTransport._BaseAddProductToProductSet._get_http_options()
-            )
+            http_options = _BaseProductSearchRestTransport._BaseAddProductToProductSet._get_http_options()
 
             request, metadata = self._interceptor.pre_add_product_to_product_set(
                 request, metadata
@@ -1211,7 +1215,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1456,9 +1460,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
 
             """
 
-            http_options = (
-                _BaseProductSearchRestTransport._BaseCreateProductSet._get_http_options()
-            )
+            http_options = _BaseProductSearchRestTransport._BaseCreateProductSet._get_http_options()
 
             request, metadata = self._interceptor.pre_create_product_set(
                 request, metadata
@@ -1612,9 +1614,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
 
             """
 
-            http_options = (
-                _BaseProductSearchRestTransport._BaseCreateReferenceImage._get_http_options()
-            )
+            http_options = _BaseProductSearchRestTransport._BaseCreateReferenceImage._get_http_options()
 
             request, metadata = self._interceptor.pre_create_reference_image(
                 request, metadata
@@ -1783,7 +1783,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1867,9 +1867,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseProductSearchRestTransport._BaseDeleteProductSet._get_http_options()
-            )
+            http_options = _BaseProductSearchRestTransport._BaseDeleteProductSet._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_product_set(
                 request, metadata
@@ -1891,7 +1889,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1975,9 +1973,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseProductSearchRestTransport._BaseDeleteReferenceImage._get_http_options()
-            )
+            http_options = _BaseProductSearchRestTransport._BaseDeleteReferenceImage._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_reference_image(
                 request, metadata
@@ -1999,7 +1995,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2388,9 +2384,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
 
             """
 
-            http_options = (
-                _BaseProductSearchRestTransport._BaseGetReferenceImage._get_http_options()
-            )
+            http_options = _BaseProductSearchRestTransport._BaseGetReferenceImage._get_http_options()
 
             request, metadata = self._interceptor.pre_get_reference_image(
                 request, metadata
@@ -2540,9 +2534,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
 
             """
 
-            http_options = (
-                _BaseProductSearchRestTransport._BaseImportProductSets._get_http_options()
-            )
+            http_options = _BaseProductSearchRestTransport._BaseImportProductSets._get_http_options()
 
             request, metadata = self._interceptor.pre_import_product_sets(
                 request, metadata
@@ -2568,7 +2560,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2988,9 +2980,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
 
             """
 
-            http_options = (
-                _BaseProductSearchRestTransport._BaseListProductsInProductSet._get_http_options()
-            )
+            http_options = _BaseProductSearchRestTransport._BaseListProductsInProductSet._get_http_options()
 
             request, metadata = self._interceptor.pre_list_products_in_product_set(
                 request, metadata
@@ -3140,9 +3130,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
                     Response message for the ``ListReferenceImages`` method.
             """
 
-            http_options = (
-                _BaseProductSearchRestTransport._BaseListReferenceImages._get_http_options()
-            )
+            http_options = _BaseProductSearchRestTransport._BaseListReferenceImages._get_http_options()
 
             request, metadata = self._interceptor.pre_list_reference_images(
                 request, metadata
@@ -3320,7 +3308,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3441,9 +3429,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
                         be of type `bytes`.
             """
 
-            http_options = (
-                _BaseProductSearchRestTransport._BaseRemoveProductFromProductSet._get_http_options()
-            )
+            http_options = _BaseProductSearchRestTransport._BaseRemoveProductFromProductSet._get_http_options()
 
             request, metadata = self._interceptor.pre_remove_product_from_product_set(
                 request, metadata
@@ -3469,7 +3455,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3716,9 +3702,7 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
 
             """
 
-            http_options = (
-                _BaseProductSearchRestTransport._BaseUpdateProductSet._get_http_options()
-            )
+            http_options = _BaseProductSearchRestTransport._BaseUpdateProductSet._get_http_options()
 
             request, metadata = self._interceptor.pre_update_product_set(
                 request, metadata
@@ -3823,7 +3807,9 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._AddProductToProductSet(self._session, self._host, self._interceptor)  # type: ignore
+        return self._AddProductToProductSet(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_product(
@@ -3955,7 +3941,9 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListProductsInProductSet(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListProductsInProductSet(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_reference_images(
@@ -3986,7 +3974,9 @@ class ProductSearchRestTransport(_BaseProductSearchRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._RemoveProductFromProductSet(self._session, self._host, self._interceptor)  # type: ignore
+        return self._RemoveProductFromProductSet(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_product(

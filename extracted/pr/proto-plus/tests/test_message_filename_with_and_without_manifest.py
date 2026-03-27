@@ -35,7 +35,6 @@ class NotInManifest(proto.Message):
 
 
 def test_manifest_causes_exclusion_of_classname_salt():
-
     assert (
         This.pb(This()).DESCRIPTOR.file.name
         == "test_message_filename_with_and_without_manifest.proto"

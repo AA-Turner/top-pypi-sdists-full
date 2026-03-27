@@ -1,7 +1,7 @@
 """
 Main CLI entrypoint.
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 """
 
 import sys
@@ -12,8 +12,8 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for boto3 TimestreamInfluxDB 1.42.11\n"
-        "Version:         1.42.11\n"
+        "Type annotations for boto3 TimestreamInfluxDB 1.42.77\n"
+        "Version:         1.42.77\n"
         "Builder version: 8.12.0\n"
         "Docs:            https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb.html#timestreaminfluxdb\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("1.42.11\n")
+    sys.stdout.write("1.42.77\n")
 
 
 def main() -> None:

@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.monitoring_v3 import gapic_version as package_version
 
@@ -61,14 +61,13 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.type.calendar_period_pb2 as calendar_period_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.type import calendar_period_pb2  # type: ignore
 
 from google.cloud.monitoring_v3.services.service_monitoring_service import pagers
-from google.cloud.monitoring_v3.types import service
+from google.cloud.monitoring_v3.types import service, service_service
 from google.cloud.monitoring_v3.types import service as gm_service
-from google.cloud.monitoring_v3.types import service_service
 
 from .transports.base import DEFAULT_CLIENT_INFO, ServiceMonitoringServiceTransport
 from .transports.grpc import ServiceMonitoringServiceGrpcTransport
@@ -83,9 +82,7 @@ class ServiceMonitoringServiceClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[ServiceMonitoringServiceTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[ServiceMonitoringServiceTransport]]
     _transport_registry["grpc"] = ServiceMonitoringServiceGrpcTransport
     _transport_registry["grpc_asyncio"] = ServiceMonitoringServiceGrpcAsyncIOTransport
 
@@ -120,7 +117,7 @@ class ServiceMonitoringServiceClient(metaclass=ServiceMonitoringServiceClientMet
     """
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -128,7 +125,7 @@ class ServiceMonitoringServiceClient(metaclass=ServiceMonitoringServiceClientMet
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -138,6 +135,10 @@ class ServiceMonitoringServiceClient(metaclass=ServiceMonitoringServiceClientMet
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -462,7 +463,7 @@ class ServiceMonitoringServiceClient(metaclass=ServiceMonitoringServiceClientMet
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -561,7 +562,7 @@ class ServiceMonitoringServiceClient(metaclass=ServiceMonitoringServiceClientMet
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -652,11 +653,9 @@ class ServiceMonitoringServiceClient(metaclass=ServiceMonitoringServiceClientMet
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = ServiceMonitoringServiceClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            ServiceMonitoringServiceClient._read_environment_variables()
+        )
         self._client_cert_source = (
             ServiceMonitoringServiceClient._get_client_cert_source(
                 self._client_options.client_cert_source, self._use_client_cert
@@ -665,7 +664,7 @@ class ServiceMonitoringServiceClient(metaclass=ServiceMonitoringServiceClientMet
         self._universe_domain = ServiceMonitoringServiceClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -693,8 +692,7 @@ class ServiceMonitoringServiceClient(metaclass=ServiceMonitoringServiceClientMet
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(ServiceMonitoringServiceTransport, transport)
             self._api_endpoint = self._transport.host

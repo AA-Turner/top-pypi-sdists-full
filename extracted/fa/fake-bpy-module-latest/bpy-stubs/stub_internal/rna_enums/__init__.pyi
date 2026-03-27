@@ -1485,6 +1485,7 @@ type IconItems = typing.Literal[
     "FILE_TEXT",  # FILE_TEXT.
     "FILE_VOLUME",  # FILE_VOLUME.
     "FILTER",  # FILTER.
+    "FILTER_FILLED",  # FILTER_FILLED.
     "FONTPREVIEW",  # FONTPREVIEW.
     "FORWARD",  # FORWARD.
     "HOME",  # HOME.

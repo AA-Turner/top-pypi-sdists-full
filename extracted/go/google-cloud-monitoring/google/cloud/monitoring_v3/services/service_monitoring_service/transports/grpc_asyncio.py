@@ -17,25 +17,24 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async
 from google.api_core import retry_async as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
-from google.cloud.monitoring_v3.types import service
+from google.cloud.monitoring_v3.types import service, service_service
 from google.cloud.monitoring_v3.types import service as gm_service
-from google.cloud.monitoring_v3.types import service_service
 
 from .base import DEFAULT_CLIENT_INFO, ServiceMonitoringServiceTransport
 from .grpc import ServiceMonitoringServiceGrpcTransport
@@ -64,7 +63,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -99,7 +98,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -243,6 +242,10 @@ class ServiceMonitoringServiceGrpcAsyncIOTransport(ServiceMonitoringServiceTrans
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -496,12 +499,12 @@ class ServiceMonitoringServiceGrpcAsyncIOTransport(ServiceMonitoringServiceTrans
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_service_level_objective" not in self._stubs:
-            self._stubs[
-                "create_service_level_objective"
-            ] = self._logged_channel.unary_unary(
-                "/google.monitoring.v3.ServiceMonitoringService/CreateServiceLevelObjective",
-                request_serializer=service_service.CreateServiceLevelObjectiveRequest.serialize,
-                response_deserializer=service.ServiceLevelObjective.deserialize,
+            self._stubs["create_service_level_objective"] = (
+                self._logged_channel.unary_unary(
+                    "/google.monitoring.v3.ServiceMonitoringService/CreateServiceLevelObjective",
+                    request_serializer=service_service.CreateServiceLevelObjectiveRequest.serialize,
+                    response_deserializer=service.ServiceLevelObjective.deserialize,
+                )
             )
         return self._stubs["create_service_level_objective"]
 
@@ -527,12 +530,12 @@ class ServiceMonitoringServiceGrpcAsyncIOTransport(ServiceMonitoringServiceTrans
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_service_level_objective" not in self._stubs:
-            self._stubs[
-                "get_service_level_objective"
-            ] = self._logged_channel.unary_unary(
-                "/google.monitoring.v3.ServiceMonitoringService/GetServiceLevelObjective",
-                request_serializer=service_service.GetServiceLevelObjectiveRequest.serialize,
-                response_deserializer=service.ServiceLevelObjective.deserialize,
+            self._stubs["get_service_level_objective"] = (
+                self._logged_channel.unary_unary(
+                    "/google.monitoring.v3.ServiceMonitoringService/GetServiceLevelObjective",
+                    request_serializer=service_service.GetServiceLevelObjectiveRequest.serialize,
+                    response_deserializer=service.ServiceLevelObjective.deserialize,
+                )
             )
         return self._stubs["get_service_level_objective"]
 
@@ -558,12 +561,12 @@ class ServiceMonitoringServiceGrpcAsyncIOTransport(ServiceMonitoringServiceTrans
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_service_level_objectives" not in self._stubs:
-            self._stubs[
-                "list_service_level_objectives"
-            ] = self._logged_channel.unary_unary(
-                "/google.monitoring.v3.ServiceMonitoringService/ListServiceLevelObjectives",
-                request_serializer=service_service.ListServiceLevelObjectivesRequest.serialize,
-                response_deserializer=service_service.ListServiceLevelObjectivesResponse.deserialize,
+            self._stubs["list_service_level_objectives"] = (
+                self._logged_channel.unary_unary(
+                    "/google.monitoring.v3.ServiceMonitoringService/ListServiceLevelObjectives",
+                    request_serializer=service_service.ListServiceLevelObjectivesRequest.serialize,
+                    response_deserializer=service_service.ListServiceLevelObjectivesResponse.deserialize,
+                )
             )
         return self._stubs["list_service_level_objectives"]
 
@@ -589,12 +592,12 @@ class ServiceMonitoringServiceGrpcAsyncIOTransport(ServiceMonitoringServiceTrans
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_service_level_objective" not in self._stubs:
-            self._stubs[
-                "update_service_level_objective"
-            ] = self._logged_channel.unary_unary(
-                "/google.monitoring.v3.ServiceMonitoringService/UpdateServiceLevelObjective",
-                request_serializer=service_service.UpdateServiceLevelObjectiveRequest.serialize,
-                response_deserializer=service.ServiceLevelObjective.deserialize,
+            self._stubs["update_service_level_objective"] = (
+                self._logged_channel.unary_unary(
+                    "/google.monitoring.v3.ServiceMonitoringService/UpdateServiceLevelObjective",
+                    request_serializer=service_service.UpdateServiceLevelObjectiveRequest.serialize,
+                    response_deserializer=service.ServiceLevelObjective.deserialize,
+                )
             )
         return self._stubs["update_service_level_objective"]
 
@@ -619,12 +622,12 @@ class ServiceMonitoringServiceGrpcAsyncIOTransport(ServiceMonitoringServiceTrans
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_service_level_objective" not in self._stubs:
-            self._stubs[
-                "delete_service_level_objective"
-            ] = self._logged_channel.unary_unary(
-                "/google.monitoring.v3.ServiceMonitoringService/DeleteServiceLevelObjective",
-                request_serializer=service_service.DeleteServiceLevelObjectiveRequest.serialize,
-                response_deserializer=empty_pb2.Empty.FromString,
+            self._stubs["delete_service_level_objective"] = (
+                self._logged_channel.unary_unary(
+                    "/google.monitoring.v3.ServiceMonitoringService/DeleteServiceLevelObjective",
+                    request_serializer=service_service.DeleteServiceLevelObjectiveRequest.serialize,
+                    response_deserializer=empty_pb2.Empty.FromString,
+                )
             )
         return self._stubs["delete_service_level_objective"]
 

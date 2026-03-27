@@ -55,6 +55,31 @@ SUPPORTED_FILE_EXTENSIONS = {
 STRUCTURED_TYPE_PATTERN = re.compile(r"\([^)]*\)")
 
 
+def _add_partition_columns(
+    df: DataFrame,
+    partition_columns: list[str],
+    partition_types: dict[str, DataType],
+) -> DataFrame:
+    """Add partition columns extracted from METADATA$FILENAME to a DataFrame."""
+    col_names = []
+    col_exprs = []
+    for col_name in partition_columns:
+        quoted_col_name = quote_name_without_upper_casing(col_name)
+        escaped_col_name = re.escape(col_name)
+        regex_pattern = rf"{escaped_col_name}=([^/]+)"
+        raw_value = snowpark_fn.regexp_extract(METADATA_FILENAME, regex_pattern, 1)
+        value_or_null = (
+            snowpark_fn.when(raw_value == "", None)
+            .when(raw_value == "__HIVE_DEFAULT_PARTITION__", None)
+            .otherwise(raw_value)
+        )
+        col_names.append(quoted_col_name)
+        col_exprs.append(snowpark_fn.cast(value_or_null, partition_types[col_name]))
+    if col_names:
+        df = df.with_columns(col_names, col_exprs)
+    return df
+
+
 def _read_partitioned_file_with_partitions(
     session: Session,
     reader: DataFrameReader,
@@ -88,27 +113,13 @@ def _read_partitioned_file_with_partitions(
         if not partition_columns:
             return read_file(reader, file_format, path)
         else:
-            # In case of too big overhead we can always optimize by using option: MAX_FILE_COUNT and allow user to define how many files should be scanned
-            df = read_file(reader.with_metadata(METADATA_FILENAME), file_format, path)
-
-            for col_name in partition_columns:
-                quoted_col_name = quote_name_without_upper_casing(col_name)
-                escaped_col_name = re.escape(col_name)
-                regex_pattern = rf"{escaped_col_name}=([^/]+)"
-
-                raw_value = snowpark_fn.regexp_extract(
-                    METADATA_FILENAME, regex_pattern, 1
-                )
-                value_or_null = (
-                    snowpark_fn.when(raw_value == "", None)
-                    .when(raw_value == "__HIVE_DEFAULT_PARTITION__", None)
-                    .otherwise(raw_value)
-                )
-
-                df = df.with_column(
-                    quoted_col_name,
-                    snowpark_fn.cast(value_or_null, inferred_types[col_name]),
-                )
+            # Add METADATA$FILENAME only if the reader doesn't already have it
+            # (it may have been added by add_filename_metadata_to_reader earlier).
+            metadata_reader = reader
+            if not getattr(reader, "_metadata_cols", None):
+                metadata_reader = reader.with_metadata(METADATA_FILENAME)
+            df = read_file(metadata_reader, file_format, path)
+            df = _add_partition_columns(df, partition_columns, inferred_types)
 
             if str_to_bool(raw_options.get("snowpark.populateFileMetadata", "false")):
                 return df
@@ -145,33 +156,56 @@ def _read_file_with_partitions(
     schema: StructType | None,
     snowpark_options: dict[str, Any],
     raw_options: dict[str, Any],
-    fix_relaxed_types: bool = False,
+    relax_types_to_infer_schema: bool = False,
 ) -> tuple[DataFrame, bool]:
-    df, _, uses_external_table = _read_partitioned_file_with_partitions(
+    df, partition_columns, uses_external_table = _read_partitioned_file_with_partitions(
         session, reader, file_format, path, schema, snowpark_options, raw_options
     )
 
-    # TODO: SNOW-3198432 USE_RELAXED_TYPES only updates the schema, but not the underlying SQL query,
-    # so we need to reconstruct the dataframe to update the underlying SQL query with the widened schema.
-    # This can be removed once we have a proper fix for this in Snowpark Python.
-    if fix_relaxed_types:
-        df = _fix_relaxed_schema(df, reader, path)
+    if relax_types_to_infer_schema and file_format == "json":
+        from snowflake.snowpark_connect.relation.read.map_read_json import (
+            relax_json_types,
+        )
+
+        relaxed_schema = relax_json_types(df.schema)
+        # Build the re-read schema excluding METADATA$FILENAME and partition
+        # columns.  Partition columns are extracted from METADATA$FILENAME via
+        # regexp_extract (not from JSON content), so they must be re-applied
+        # after the re-read to support externally-written Hive partitioned data.
+        partition_col_names = set(partition_columns)
+        normalized = StructType(
+            [
+                StructField(
+                    unquote_if_quoted(f.name),
+                    f.datatype,
+                    nullable=f.nullable,
+                )
+                for f in relaxed_schema.fields
+                if unquote_if_quoted(f.name) != "METADATA$FILENAME"
+                and unquote_if_quoted(f.name) not in partition_col_names
+            ]
+        )
+
+        if partition_columns:
+            # Preserve partition column types from the relaxed schema
+            partition_types = {
+                unquote_if_quoted(f.name): f.datatype
+                for f in relaxed_schema.fields
+                if unquote_if_quoted(f.name) in partition_col_names
+            }
+            metadata_reader = reader
+            if not getattr(reader, "_metadata_cols", None):
+                metadata_reader = reader.with_metadata(METADATA_FILENAME)
+            df = metadata_reader.schema(normalized).json(path)
+            df = _add_partition_columns(df, partition_columns, partition_types)
+            if not str_to_bool(
+                raw_options.get("snowpark.populateFileMetadata", "false")
+            ):
+                df = df.drop(METADATA_FILENAME)
+        else:
+            df = reader.schema(normalized).json(path)
 
     return df, uses_external_table
-
-
-def _fix_relaxed_schema(df: DataFrame, reader: DataFrameReader, path: str) -> DataFrame:
-    normalized_schema = StructType(
-        [
-            StructField(
-                unquote_if_quoted(f.name),  # id instead of "id"
-                f.datatype,
-                nullable=f.nullable,
-            )
-            for f in df.schema.fields
-        ]
-    )
-    return reader.schema(normalized_schema).json(path)
 
 
 def read_file(

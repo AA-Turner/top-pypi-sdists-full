@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qase-api-client
-Version: 2.0.5
+Version: 2.0.6
 Summary: Qase TestOps API V1 client for Python
 Author-email: Qase Team <support@qase.io>
 Project-URL: Homepage, https://github.com/qase-tms/qase-python

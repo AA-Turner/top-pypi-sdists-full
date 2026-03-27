@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.type import postal_address_pb2  # type: ignore
+import google.type.postal_address_pb2 as postal_address_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -193,6 +193,7 @@ class AddressComponent(proto.Message):
                 likely to be wrong. For example, a neighborhood
                 that does not fit the rest of the address.
         """
+
         CONFIRMATION_LEVEL_UNSPECIFIED = 0
         CONFIRMED = 1
         UNCONFIRMED_BUT_PLAUSIBLE = 2

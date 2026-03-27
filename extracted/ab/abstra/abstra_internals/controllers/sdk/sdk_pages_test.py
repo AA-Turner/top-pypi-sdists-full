@@ -1,4 +1,7 @@
 import json
+import os
+import pathlib
+import tempfile
 import unittest
 from unittest.mock import MagicMock, call
 
@@ -10,10 +13,11 @@ from abstra_internals.settings import Settings
 Settings.set_root_path("/tmp")
 
 
-def _make_sdk() -> tuple[PageSDKController, PageClient]:
+def _make_sdk(page_path: str = "my-page") -> tuple[PageSDKController, PageClient]:
     context = PageContext(
         request=Request(headers={}, body="", query_params={}, method="POST"),
         response=Response(headers={}, status=200, body=""),
+        page_path=page_path,
     )
     conn = MagicMock()
     client = PageClient(context=context, conn=conn, production_mode=False)
@@ -193,3 +197,91 @@ class TestPageClientStreaming(unittest.TestCase):
         conn.send.assert_called_once()
         sent = conn.send.call_args[0][0]
         self.assertEqual(sent.body, "hello")
+
+
+class TestRegisterStatic(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        Settings.set_root_path(self.tmpdir)
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+        Settings.set_root_path("/tmp")
+
+    def test_register_static_copies_file_and_returns_url(self):
+        sdk, _ = _make_sdk(page_path="my-page")
+        src = pathlib.Path(self.tmpdir) / "code.js"
+        src.write_text("console.log('hello');")
+
+        url = sdk.register_static(src)
+
+        self.assertTrue(url.startswith("/_page/my-page/_static/code."))
+        self.assertTrue(url.endswith(".js"))
+        # File should exist in public dir
+        public_file = (
+            pathlib.Path(self.tmpdir)
+            / ".abstra"
+            / "persistent"
+            / "_public"
+            / url.split("/")[-1]
+        )
+        self.assertTrue(public_file.exists())
+        self.assertEqual(public_file.read_text(), "console.log('hello');")
+
+    def test_register_static_accepts_str_path(self):
+        sdk, _ = _make_sdk(page_path="my-page")
+        src = pathlib.Path(self.tmpdir) / "style.css"
+        src.write_text("body { color: red; }")
+
+        url = sdk.register_static(str(src))
+
+        self.assertTrue(url.startswith("/_page/my-page/_static/style."))
+        self.assertTrue(url.endswith(".css"))
+
+    def test_register_static_accepts_pathlike(self):
+        sdk, _ = _make_sdk(page_path="my-page")
+        src = pathlib.Path(self.tmpdir) / "app.js"
+        src.write_text("var x = 1;")
+
+        url = sdk.register_static(os.fspath(src))
+
+        self.assertTrue(url.startswith("/_page/my-page/_static/app."))
+
+    def test_register_static_home_page(self):
+        sdk, _ = _make_sdk(page_path="")
+        src = pathlib.Path(self.tmpdir) / "app.js"
+        src.write_text("var x = 1;")
+
+        url = sdk.register_static(src)
+
+        self.assertTrue(url.startswith("/_page-home/_static/app."))
+
+    def test_register_static_same_content_same_url(self):
+        sdk, _ = _make_sdk()
+        src = pathlib.Path(self.tmpdir) / "a.js"
+        src.write_text("same content")
+
+        url1 = sdk.register_static(src)
+        url2 = sdk.register_static(src)
+
+        self.assertEqual(url1, url2)
+
+    def test_register_static_different_content_different_url(self):
+        sdk, _ = _make_sdk()
+        src = pathlib.Path(self.tmpdir) / "a.js"
+
+        src.write_text("version 1")
+        url1 = sdk.register_static(src)
+
+        src.write_text("version 2")
+        url2 = sdk.register_static(src)
+
+        self.assertNotEqual(url1, url2)
+
+    def test_register_static_file_not_found(self):
+        sdk, _ = _make_sdk()
+
+        with self.assertRaises(FileNotFoundError):
+            sdk.register_static("/nonexistent/file.js")

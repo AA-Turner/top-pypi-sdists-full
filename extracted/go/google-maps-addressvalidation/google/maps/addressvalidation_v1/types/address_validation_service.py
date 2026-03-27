@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.type import postal_address_pb2  # type: ignore
+import google.type.postal_address_pb2 as postal_address_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.maps.addressvalidation_v1.types import address as gma_address
@@ -200,6 +200,7 @@ class ProvideValidationFeedbackRequest(proto.Message):
                 The transaction was abandoned and the address
                 was not used.
         """
+
         VALIDATION_CONCLUSION_UNSPECIFIED = 0
         VALIDATED_VERSION_USED = 1
         USER_VERSION_USED = 2
@@ -375,6 +376,7 @@ class Verdict(proto.Message):
                 All other granularities, which are bucketed
                 together since they are not deliverable.
         """
+
         GRANULARITY_UNSPECIFIED = 0
         SUB_PREMISE = 1
         PREMISE = 2

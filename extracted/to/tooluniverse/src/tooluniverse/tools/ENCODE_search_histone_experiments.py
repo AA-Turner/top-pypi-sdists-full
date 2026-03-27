@@ -17,6 +17,7 @@ def ENCODE_search_histone_experiments(
     limit: Optional[int] = 25,
     biosample_term: Optional[str | Any] = None,
     cell_type: Optional[str | Any] = None,
+    tissue: Optional[str | Any] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -43,6 +44,8 @@ def ENCODE_search_histone_experiments(
         Alias for biosample_term_name. Biosample tissue or cell line (e.g., "breast e...
     cell_type : str | Any
         Alias for biosample_term_name. Cell type or tissue (e.g., 'GM12878', 'K562', ...
+    tissue : str | Any
+        Alias for biosample_term_name. Tissue or cell line (e.g., 'liver', 'brain', '...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -68,6 +71,7 @@ def ENCODE_search_histone_experiments(
             "limit": limit,
             "biosample_term": biosample_term,
             "cell_type": cell_type,
+            "tissue": tissue,
         }.items()
         if v is not None
     }

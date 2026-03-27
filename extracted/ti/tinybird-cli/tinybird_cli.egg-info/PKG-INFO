@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird_cli
-Version: 6.1.0
+Version: 6.3.0
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/cli
 Author: Tinybird
@@ -42,6 +42,16 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+6.3.0
+***********
+
+- `Added` `tb copy run` and `tb pipe copy run` have a new `--on-demand-compute` flag to use on-demand compute instances for copy jobs.
+
+6.2.0
+***********
+
+- `Fixed` `tb push` with `SHARED_WITH` now uses the user token to fetch workspaces, avoiding failures caused by using the wrong token
 
 6.0.2
 ***********

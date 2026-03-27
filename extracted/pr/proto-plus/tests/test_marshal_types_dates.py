@@ -21,7 +21,6 @@ from google.protobuf import timestamp_pb2
 
 import proto
 from proto.marshal.marshal import BaseMarshal
-from proto import datetime_helpers
 from proto.datetime_helpers import DatetimeWithNanoseconds
 
 

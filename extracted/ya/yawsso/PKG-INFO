@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: yawsso
-Version: 1.2.1
+Version: 1.3.0
 Summary: Yet Another AWS SSO - sync up AWS CLI v2 SSO login session to legacy CLI v1 credentials
 Home-page: https://github.com/victorskl/yawsso
 Author: Victor San Kho Lin
@@ -9,7 +9,6 @@ License: MIT
 Project-URL: Bug Tracker, https://github.com/victorskl/yawsso/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
@@ -29,25 +28,31 @@ Requires-Dist: twine; extra == "dev"
 Requires-Dist: setuptools; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
 Requires-Dist: build; extra == "dev"
-Requires-Dist: aws-cdk-lib; extra == "dev"
-Requires-Dist: constructs; extra == "dev"
 Requires-Dist: tox; extra == "dev"
 Requires-Dist: nose2; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: detect-secrets; extra == "dev"
 Requires-Dist: ggshield; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 # yawsso
 
-[![DOI](https://zenodo.org/badge/267410733.svg)](https://zenodo.org/badge/latestdoi/267410733)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13893205.svg)](https://doi.org/10.5281/zenodo.13893205)
 [![Pull Request Build Status](https://github.com/victorskl/yawsso/workflows/Pull%20Request%20Build/badge.svg)](https://github.com/victorskl/yawsso/actions/workflows/prbuild.yml) 
 [![CodeQL](https://github.com/victorskl/yawsso/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/victorskl/yawsso/actions/workflows/codeql-analysis.yml) 
 [![codecov.io](https://codecov.io/gh/victorskl/yawsso/coverage.svg?branch=main)](https://codecov.io/gh/victorskl/yawsso?branch=main)
 [![coveralls.io](https://coveralls.io/repos/github/victorskl/yawsso/badge.svg?branch=main)](https://coveralls.io/github/victorskl/yawsso?branch=main)
-[![codeclimate - Test Coverage](https://api.codeclimate.com/v1/badges/44dd1cbae44465118742/test_coverage)](https://codeclimate.com/github/victorskl/yawsso/test_coverage)
-[![codeclimate - Maintainability](https://api.codeclimate.com/v1/badges/44dd1cbae44465118742/maintainability)](https://codeclimate.com/github/victorskl/yawsso/maintainability)
-[![snyk](https://snyk.io/advisor/python/yawsso/badge.svg)](https://snyk.io/advisor/python/yawsso) 
-[![kandi](https://img.shields.io/badge/kandi-X--Ray%20Report-ff69b4)](https://kandi.openweaver.com/python/victorskl/yawsso) 
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/yawsso?style=flat)](https://pypistats.org/packages/yawsso) 
 [![PyPI](https://img.shields.io/pypi/v/yawsso?style=flat)](https://pypi.org/project/yawsso)
 [![PyPI - License](https://img.shields.io/pypi/l/yawsso?style=flat)](https://opensource.org/licenses/MIT)
@@ -272,6 +277,21 @@ yawsso auto --profile dev
 export AWS_PROFILE=dev
 yawsso auto
 ```
+
+### Set Default
+
+- You can copy a named profile's credentials to the `default` profile in `$HOME/.aws/credentials`:
+
+```
+yawsso set-default dev
+```
+
+- Or use the short alias `sd`:
+```
+yawsso sd dev
+```
+
+- This is useful when the `default` profile has no SSO configuration but your tools rely on it.
 
 ### Set Region
 

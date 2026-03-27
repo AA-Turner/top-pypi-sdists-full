@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sybil
-Version: 10.0.0
+Version: 10.0.1
 Summary: Automated testing for the examples in your code and documentation.
 Project-URL: Homepage, https://github.com/simplistix/sybil
 Project-URL: Documentation, https://sybil.readthedocs.org/en/latest/
@@ -13,6 +13,8 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.11
+Provides-Extra: myst
+Requires-Dist: pyyaml>=6.0.3; extra == 'myst'
 Provides-Extra: pytest
 Requires-Dist: pytest>=8; extra == 'pytest'
 Description-Content-Type: text/x-rst

@@ -8,7 +8,7 @@ from typing import List, Optional
 
 from abstra_internals.cloud_api.http_client import HTTPClient
 from abstra_internals.consts.filepaths import EXECUTIONS_DIR_PATH
-from abstra_internals.entities.execution import Execution, ExecutionStatus
+from abstra_internals.entities.execution import Execution
 from abstra_internals.repositories.producer import WebEditorControlProducerRepository
 from abstra_internals.services.sql_storage import SqlStorage
 
@@ -80,12 +80,6 @@ class ExecutionRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def find_by_worker(
-        self, worker_id: str, status: ExecutionStatus
-    ) -> List[Execution]:
-        raise NotImplementedError()
-
-    @abstractmethod
     def clear(self):
         raise NotImplementedError()
 
@@ -115,11 +109,6 @@ class LocalExecutionRepository(ExecutionRepository):
             self.update(execution)
         except Exception:
             pass
-
-    def find_by_worker(
-        self, worker_id: str, status: ExecutionStatus
-    ) -> List[Execution]:
-        return []
 
     def clear(self):
         self.fs_storage.clear()
@@ -251,23 +240,6 @@ class ProductionExecutionRepository(ExecutionRepository):
         )
 
         res.raise_for_status()
-
-    def find_by_worker(
-        self, worker_id: str, status: ExecutionStatus
-    ) -> List[Execution]:
-        res = self.client.get(
-            "/executions",
-            params=dict(
-                status=status,
-                workerId=worker_id,
-            ),
-        )
-
-        res.raise_for_status()
-
-        dtos = self._adapt_legacy_execution_dtos(res.json())
-
-        return [Execution(**dto) for dto in dtos]
 
     def get(self, execution_id: str) -> Execution:
         raise NotImplementedError

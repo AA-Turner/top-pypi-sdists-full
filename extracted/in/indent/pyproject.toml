@@ -7,9 +7,9 @@ name = "indent"
 dynamic = ["version"]
 description = "Indent is an AI Pair Programmer"
 authors = [{ name = "Sashank Thupukari", email = "sashank@exponent.run" }]
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.12,<3.13"
 dependencies = [
-    "async-timeout>=4.0.3,<5 ; python_version < '3.11'",
+
     "aiohttp>=3.13.2,<3.14",
     "click>=8.1.7,<9",
 

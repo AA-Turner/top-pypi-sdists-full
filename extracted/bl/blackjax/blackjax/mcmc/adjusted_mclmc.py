@@ -31,7 +31,20 @@ from blackjax.util import generate_unit_vector
 __all__ = ["init", "build_kernel", "as_top_level_api"]
 
 
-def init(position: ArrayLikeTree, logdensity_fn: Callable):
+def init(position: ArrayLikeTree, logdensity_fn: Callable) -> HMCState:
+    """Create an initial state for the MHMCHMC kernel.
+
+    Parameters
+    ----------
+    position
+        Initial position of the chain.
+    logdensity_fn
+        Log-density function of the target distribution.
+
+    Returns
+    -------
+    The initial HMCState.
+    """
     logdensity, logdensity_grad = jax.value_and_grad(logdensity_fn)(position)
     return HMCState(position, logdensity, logdensity_grad)
 
@@ -42,19 +55,19 @@ def build_kernel(
     divergence_threshold: float = 1000,
     inverse_mass_matrix=1.0,
 ):
-    """Build an MHMCHMC kernel where the number of integration steps is chosen randomly.
+    """Build an MHMCHMC kernel.
 
     Parameters
     ----------
+    logdensity_fn
+        The log-density function of the target distribution.
     integrator
-        The integrator to use to integrate the Hamiltonian dynamics.
+        The symplectic integrator to use to integrate the Hamiltonian dynamics.
     divergence_threshold
-        Value of the difference in energy above which we consider that the transition is divergent.
-    next_random_arg_fn
-        Function that generates the next `random_generator_arg` from its previous value.
-    integration_steps_fn
-        Function that generates the next pseudo or quasi-random number of integration steps in the
-        sequence, given the current `random_generator_arg`. Needs to return an `int`.
+        Value of the difference in energy above which we consider that the
+        transition is divergent.
+    inverse_mass_matrix
+        Inverse mass matrix for the isokinetic integrator. Scalar or array.
 
     Returns
     -------
@@ -121,17 +134,18 @@ def as_top_level_api(
         The log-density function we wish to draw samples from.
     step_size
         The value to use for the step size in the symplectic integrator.
+    L_proposal_factor
+        Factor controlling partial momentum refreshment. ``jnp.inf`` disables
+        refreshment (standard HMC-like behavior).
+    inverse_mass_matrix
+        Inverse mass matrix for the isokinetic integrator. Scalar or array.
     divergence_threshold
         The absolute value of the difference in energy between two states above
-        which we say that the transition is divergent. The default value is
-        commonly found in other libraries, and yet is arbitrary.
+        which we say that the transition is divergent.
     integrator
-        (algorithm parameter) The symplectic integrator to use to integrate the trajectory.
-    next_random_arg_fn
-        Function that generates the next `random_generator_arg` from its previous value.
-    integration_steps_fn
-        Function that generates the next pseudo or quasi-random number of integration steps in the
-        sequence, given the current `random_generator_arg`.
+        The symplectic integrator to use to integrate the trajectory.
+    num_integration_steps
+        Number of integration steps per transition.
 
 
     Returns
@@ -208,8 +222,15 @@ def adjusted_mclmc_proposal(
         return next_state, kinetic_energy + next_kinetic_energy, next_rng_key
 
     def build_trajectory(state, num_integration_steps, rng_key):
+        # Derive zero from state.logdensity so it inherits the correct sharding
+        # (varying inside shard_map, plain scalar outside) without needing pcast.
+        initial_kinetic_energy = state.logdensity * 0.0
+
         return jax.lax.fori_loop(
-            0 * num_integration_steps, num_integration_steps, step, (state, 0, rng_key)
+            0 * num_integration_steps,
+            num_integration_steps,
+            step,
+            (state, initial_kinetic_energy, rng_key),
         )
 
     def generate(
@@ -240,3 +261,13 @@ def adjusted_mclmc_proposal(
         return sampled_state, info, other_proposal_info
 
     return generate
+
+
+def rescale(mu):
+    """returns s, such that
+     round(U(0, 1) * s + 0.5)
+    has expected value mu.
+    """
+    k = jnp.floor(2 * mu - 1)
+    x = k * (mu - 0.5 * (k + 1)) / (k + 1 - mu)
+    return k + x

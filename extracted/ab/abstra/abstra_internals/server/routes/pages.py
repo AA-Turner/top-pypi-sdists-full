@@ -1,5 +1,6 @@
 import flask
 
+from abstra_internals.constants import get_public_dir
 from abstra_internals.controllers.main import MainController
 from abstra_internals.entities.execution_context import (
     extract_flask_request,
@@ -63,6 +64,10 @@ def get_editor_bp(controller: MainController):
         )
         controller.delete_stage(id, remove_file)
         return {"success": True}
+
+    @bp.get("/<path:id>/run/_static/<path:filename>")
+    def _page_static(id: str, filename: str):
+        return flask.send_from_directory(get_public_dir(), filename)
 
     @bp.route("/<path:id>/run", methods=["POST", "GET", "PUT", "DELETE", "PATCH"])
     @editor_usage

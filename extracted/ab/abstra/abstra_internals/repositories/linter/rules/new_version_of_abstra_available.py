@@ -1,13 +1,14 @@
 import webbrowser
 from typing import List
 
-from abstra_internals.environment import EDITOR_MODE
+from abstra_internals.environment import EDITOR_MODE, RABBITMQ_CONNECTION_URI
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.linter.models import (
     LinterFix,
     LinterIssue,
     LinterRule,
 )
+from abstra_internals.repositories.producer import WebEditorControlProducerRepository
 from abstra_internals.utils.platform import is_windows
 from abstra_internals.version import PackageVersionManager, VersionStatus
 
@@ -25,6 +26,21 @@ def _update_lib_version():
         )
 
         if EDITOR_MODE == "web":
+            # Restart workers first so they reload with the new code
+            if RABBITMQ_CONNECTION_URI:
+                try:
+                    control_producer = WebEditorControlProducerRepository(
+                        RABBITMQ_CONNECTION_URI
+                    )
+                    control_producer.restart_workers()
+                    AbstraLogger.warning(
+                        "[UpdateAbstra] Sent restart signal to workers"
+                    )
+                except Exception as e:
+                    AbstraLogger.error(
+                        f"[UpdateAbstra] Failed to send restart signal to workers: {e}"
+                    )
+
             # Force immediate process termination for Kubernetes to restart
             # sys.exit(0) doesn't work because Flask runs in threaded mode
             # os._exit() bypasses threads and terminates the process directly

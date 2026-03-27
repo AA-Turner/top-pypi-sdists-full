@@ -1,6 +1,5 @@
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from multiprocessing import Queue
 from queue import Empty
 from threading import Event, Lock, Thread
@@ -18,20 +17,13 @@ from abstra_internals.environment import (
     RABBITMQ_RETRY_MAX_ATTEMPTS,
 )
 from abstra_internals.logger import AbstraLogger
-from abstra_internals.repositories.producer import PreExecution, QueueMessage
+from abstra_internals.repositories.models import (
+    ControlMessage,
+    ControlQueueMessage,
+    PreExecution,
+    QueueMessage,
+)
 from abstra_internals.utils import deserialize
-from abstra_internals.utils.serializable import Serializable
-
-
-class ControlMessage(Serializable):
-    type: str
-    payload: dict
-
-
-@dataclass
-class ControlQueueMessage:
-    message: ControlMessage
-    delivery_tag: int
 
 
 class Consumer(ABC):
@@ -88,7 +80,6 @@ class RabbitMQConsumer(Consumer):
         self._heartbeat_stop_evt = Event()
         self._pending_callbacks = 0
         self._pending_callbacks_lock = Lock()
-
         self._connect()
         self._start_heartbeat_thread()
 
@@ -333,6 +324,14 @@ class RabbitMQConsumer(Consumer):
     def stop_iter(self):
         AbstraLogger.warning(f"[{self.logger_prefix}] Setting stop event for consumer")
         self.stop_evt.set()
+        channel: Optional[BlockingChannel] = getattr(self, "channel", None)
+        if channel and channel.is_open:
+            try:
+                channel.cancel()
+            except Exception as e:
+                AbstraLogger.warning(
+                    f"[{self.logger_prefix}] Error cancelling channel on stop_iter: {e}"
+                )
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop_iter()
@@ -359,8 +358,6 @@ class RabbitMQConsumer(Consumer):
             AbstraLogger.warning(f"[{self.logger_prefix}] Data events processed")
 
             if self.connection.is_open:
-                AbstraLogger.warning(f"[{self.logger_prefix}] Cancelling channel")
-                self.channel.cancel()
                 AbstraLogger.warning(f"[{self.logger_prefix}] Closing channel")
                 self.channel.close()
                 AbstraLogger.warning(f"[{self.logger_prefix}] Closing connection")

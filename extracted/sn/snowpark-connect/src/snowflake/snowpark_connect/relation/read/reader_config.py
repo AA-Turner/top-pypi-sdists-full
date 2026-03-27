@@ -11,6 +11,8 @@ from snowflake.snowpark_connect.date_time_format_mapping import (
 )
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 
+DEFAULT_ROWS_TO_INFER_SCHEMA = 20000
+
 
 @dataclass
 class _Config:
@@ -178,6 +180,7 @@ CSV_READ_DEFAULT_CONFIG = lowercase_dict_keys(
         # TODO: Snowpark does not support quoteAll argument
         # "quoteAll": "false",
         "escape": "\\\\",
+        "rowsToInferSchema": DEFAULT_ROWS_TO_INFER_SCHEMA,
     }
 )
 
@@ -186,7 +189,13 @@ def apply_infer_schema_options(snowpark_config: dict[str, Any]) -> None:
     """Pop rowsToInferSchema and relaxTypesToInferSchema from config.
 
     If rowsToInferSchema is present and > 0, sets INFER_SCHEMA_OPTIONS
-    with MAX_RECORDS_PER_FILE and USE_RELAXED_TYPES.
+    with MAX_RECORDS_PER_FILE and sets relaxtypestoinferschema for SAS
+    to handle type widening (via relax_json_types in map_read_json.py).
+
+    We intentionally do NOT use Snowpark's USE_RELAXED_TYPES option because
+    Snowpark's most_permissive_type() maps all numerics to DoubleType, which
+    doesn't match Spark's JSON inference rules (integers should be LongType,
+    not DoubleType). Instead, SCOS applies its own Spark-compatible relaxation.
 
     Shared by CSV and JSON readers.
     """
@@ -195,16 +204,12 @@ def apply_infer_schema_options(snowpark_config: dict[str, Any]) -> None:
 
     rows_to_infer_schema = int(snowpark_config.pop("rowstoinferschema"))
 
-    relax_types_to_infer_schema = True
-    if "relaxtypestoinferschema" in snowpark_config:
-        relax_types_to_infer_schema = str_to_bool(
-            str(snowpark_config.pop("relaxtypestoinferschema"))
-        )
+    if "relaxtypestoinferschema" not in snowpark_config:
+        snowpark_config["relaxtypestoinferschema"] = rows_to_infer_schema > 0
 
     if rows_to_infer_schema > 0:
         snowpark_config["INFER_SCHEMA_OPTIONS"] = {
             "MAX_RECORDS_PER_FILE": rows_to_infer_schema,
-            "USE_RELAXED_TYPES": relax_types_to_infer_schema,
         }
 
 
@@ -411,6 +416,7 @@ class JsonReaderConfig(ReaderWriterConfig):
                     # this controls the number of rows to pull locally to infer nested schema. Once infer schema supports nested schema, this will be removed.
                     "jsonLocalRowsToInferSchema": 1000,
                     "splitSizeMb": 2,
+                    "rowsToInferSchema": DEFAULT_ROWS_TO_INFER_SCHEMA,
                 },
                 supported_options={
                     "schema",
@@ -498,7 +504,9 @@ class ParquetReaderConfig(ReaderWriterConfig):
     def __init__(self, options: dict[str, str]) -> None:
         super().__init__(
             _Config(
-                default_config={},
+                default_config={
+                    "rowsToInferSchema": DEFAULT_ROWS_TO_INFER_SCHEMA,
+                },
                 supported_options={
                     # "mergeSchema",
                     "pathGlobFilter",
@@ -512,7 +520,7 @@ class ParquetReaderConfig(ReaderWriterConfig):
                     "rowsToInferSchema",
                 },
                 boolean_config_list=[],
-                int_config_list=[],
+                int_config_list=["rowsToInferSchema"],
                 float_config_list=[],
             ),
             options,
@@ -554,8 +562,8 @@ class XmlReaderConfig(ReaderWriterConfig):
         super().__init__(
             _Config(
                 default_config={
-                    # TODO: samplingRatio: 1.0,
-                    # TODO: inferSchema: true,
+                    "samplingRatio": "1.0",
+                    "inferSchema": "true",
                     "attributePrefix": "_",
                     "valueTag": "_VALUE",
                     "mode": "PERMISSIVE",
@@ -574,10 +582,10 @@ class XmlReaderConfig(ReaderWriterConfig):
                 },
                 supported_options={
                     "rowTag",
-                    # "samplingRatio",
+                    "samplingRatio",
                     "excludeAttribute",
                     "mode",
-                    # "inferSchema",
+                    "inferSchema",
                     "columnNameOfCorruptRecord",
                     "attributePrefix",
                     "valueTag",
@@ -605,9 +613,12 @@ class XmlReaderConfig(ReaderWriterConfig):
                     "excludeAttribute",
                     "ignoreNamespace",
                     "ignoreSurroundingSpaces",
+                    "inferSchema",
                 ],
                 int_config_list=[],
-                float_config_list=[],
+                float_config_list=[
+                    "samplingRatio",
+                ],
             ),
             options,
         )

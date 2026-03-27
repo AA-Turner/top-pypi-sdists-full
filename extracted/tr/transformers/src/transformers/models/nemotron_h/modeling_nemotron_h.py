@@ -20,7 +20,6 @@
 # limitations under the License.
 
 
-import contextlib
 import math
 from collections.abc import Callable
 from typing import Any
@@ -157,24 +156,11 @@ class NemotronHHybridDynamicCache:
             return 0
         return self.key_cache[layer_idx].shape[-2]
 
-    def get_mask_sizes(self, cache_position: torch.Tensor, layer_idx: int) -> tuple[int, int]:
+    def get_mask_sizes(self, query_length: int, layer_idx: int) -> tuple[int, int]:
         """Return the length and offset of the cache, used to generate the mask"""
         kv_offset = 0
-        query_length = cache_position.shape[0]
         kv_length = self.get_seq_length(layer_idx) + query_length
         return kv_length, kv_offset
-
-    def update_conv_state(
-        self, layer_idx: int, new_conv_state: torch.Tensor, cache_position: torch.LongTensor
-    ) -> torch.Tensor:
-        conv_state = self.conv_states[layer_idx]
-        cache_position = cache_position.clamp(0, self.conv_kernel_size - 1)
-
-        conv_state = conv_state.roll(shifts=-1, dims=-1)
-        conv_state[:, :, cache_position] = new_conv_state.to(conv_state.device)
-        self.conv_states[layer_idx].zero_()
-        self.conv_states[layer_idx] += conv_state
-        return self.conv_states[layer_idx]
 
     def reset(self):
         self.conv_states.zero_()
@@ -233,6 +219,9 @@ def segment_sum(input_tensor):
     mask = torch.tril(torch.ones(chunk_size, chunk_size, device=input_tensor.device, dtype=torch.bool), diagonal=0)
     tensor_segsum = tensor_segsum.masked_fill(~mask, -torch.inf)
     return tensor_segsum
+
+
+is_fast_path_available = False
 
 
 class NemotronHMamba2Mixer(nn.Module):
@@ -687,9 +676,14 @@ class NemotronHMamba2Mixer(nn.Module):
         hidden_states,
         cache_params: NemotronHHybridDynamicCache | None = None,
         attention_mask: torch.Tensor | None = None,
+        **kwargs,
     ):
         if is_fast_path_available and "cuda" in self.in_proj.weight.device.type and not is_torchdynamo_compiling():
-            return self.cuda_kernels_forward(hidden_states, cache_params, attention_mask)
+            # Use cuda stream to avoid NaN when using multiple GPUs, which is caused by multi-GPU synchronization issue.
+            # Mamba might launch on the default cuda stream that not strictly respect the current Pytorch cuda stream.
+            # This leads to kernel reading uninitialized memory before the data transfer is complete.
+            with torch.cuda.stream(torch.cuda.default_stream(hidden_states.device)):
+                return self.cuda_kernels_forward(hidden_states, cache_params, attention_mask)
 
         return self.torch_forward(hidden_states, cache_params, attention_mask)
 
@@ -975,7 +969,6 @@ class NemotronHAttention(nn.Module):
         hidden_states: torch.Tensor,
         attention_mask: torch.Tensor | None = None,
         past_key_values: NemotronHHybridDynamicCache | None = None,
-        cache_position: torch.LongTensor | None = None,
         **kwargs: Unpack[TransformersKwargs],
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         input_shape = hidden_states.shape[:-1]
@@ -986,9 +979,7 @@ class NemotronHAttention(nn.Module):
         value_states = self.v_proj(hidden_states).view(hidden_shape).transpose(1, 2)
 
         if past_key_values is not None:
-            key_states, value_states = past_key_values.update(
-                key_states, value_states, self.layer_idx, {"cache_position": cache_position}
-            )
+            key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx)
 
         attention_interface: Callable = ALL_ATTENTION_FUNCTIONS.get_interface(
             self.config._attn_implementation, eager_attention_forward
@@ -1046,41 +1037,31 @@ class NemotronHBlock(GradientCheckpointingLayer):
         self,
         hidden_states,
         past_key_values: NemotronHHybridDynamicCache | None = None,
-        cache_position: torch.LongTensor | None = None,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.LongTensor | None = None,
         use_cache: bool | None = False,
         **kwargs: Unpack[TransformersKwargs],
     ):
-        if hidden_states.device.type == "cuda":
-            # Use cuda stream to avoid NaN when using multiple GPUs, which is caused by multi-GPU synchronization issue.
-            # Mamba might launch on the default cuda stream that not strictly respect the current Pytorch cuda stream.
-            # This leads to kernel reading uninitialized memory before the data transfer is complete.
-            stream_context = torch.cuda.stream(torch.cuda.default_stream(hidden_states.device))
+        residual = hidden_states
+        hidden_states = self.norm(hidden_states.to(dtype=self.norm.weight.dtype))
+
+        if self.block_type == "mamba":
+            hidden_states = self.mixer(hidden_states, cache_params=past_key_values, attention_mask=attention_mask)
+        elif self.block_type == "attention":
+            hidden_states, _ = self.mixer(
+                hidden_states=hidden_states,
+                past_key_values=past_key_values,
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                user_cache=use_cache,
+                **kwargs,
+            )
         else:
-            stream_context = contextlib.nullcontext()
+            hidden_states = self.mixer(hidden_states)
 
-        with stream_context:
-            residual = hidden_states
-            hidden_states = self.norm(hidden_states.to(dtype=self.norm.weight.dtype))
+        hidden_states = residual + hidden_states
 
-            if self.block_type == "mamba":
-                hidden_states = self.mixer(hidden_states, cache_params=past_key_values, attention_mask=attention_mask)
-            elif self.block_type == "attention":
-                hidden_states, _ = self.mixer(
-                    hidden_states=hidden_states,
-                    past_key_values=past_key_values,
-                    attention_mask=attention_mask,
-                    position_ids=position_ids,
-                    user_cache=use_cache,
-                    cache_position=cache_position,
-                    **kwargs,
-                )
-            else:
-                hidden_states = self.mixer(hidden_states)
-
-            hidden_states = residual + hidden_states
-            return hidden_states
+        return hidden_states
 
 
 class NemotronHPreTrainedModel(PreTrainedModel):
@@ -1100,7 +1081,6 @@ class NemotronHPreTrainedModel(PreTrainedModel):
     _keep_in_fp32_modules_strict = [
         "e_score_correction_bias",
     ]
-    _tied_weights_keys = {}
     _keys_to_ignore_on_load_unexpected = [r"mtp.*"]
 
     @torch.no_grad()
@@ -1184,7 +1164,6 @@ class NemotronHModel(NemotronHPreTrainedModel):
         position_ids: torch.LongTensor | None = None,
         past_key_values: NemotronHHybridDynamicCache | None = None,
         use_cache: bool | None = None,
-        cache_position: torch.LongTensor | None = None,
         attention_mask: torch.Tensor | None = None,
         **kwargs: Unpack[TransformersKwargs],
     ) -> tuple | BaseModelOutputWithPast:
@@ -1204,23 +1183,19 @@ class NemotronHModel(NemotronHPreTrainedModel):
 
         hidden_states = inputs_embeds
 
-        if cache_position is None:
-            past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
-            cache_position = torch.arange(
-                past_seen_tokens, past_seen_tokens + hidden_states.shape[1], device=hidden_states.device
-            )
         if position_ids is None:
-            position_ids = cache_position.unsqueeze(0)
+            past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
+            position_ids = torch.arange(hidden_states.shape[1], device=hidden_states.device) + past_seen_tokens
+            position_ids = position_ids.unsqueeze(0)
 
         causal_mask = create_causal_mask(
             config=self.config,
             input_embeds=inputs_embeds,
             attention_mask=attention_mask,
-            cache_position=cache_position,
             past_key_values=past_key_values,
             position_ids=position_ids,
         )
-        mamba_mask = self._update_mamba_mask(attention_mask, cache_position)
+        mamba_mask = self._update_mamba_mask(attention_mask, past_key_values)
 
         # Map block types to their corresponding masks
         block_type_to_mask = {
@@ -1238,7 +1213,6 @@ class NemotronHModel(NemotronHPreTrainedModel):
                 position_ids=position_ids,
                 past_key_values=past_key_values,
                 use_cache=use_cache,
-                cache_position=cache_position,
                 **kwargs,
             )
 
@@ -1252,14 +1226,14 @@ class NemotronHModel(NemotronHPreTrainedModel):
             past_key_values=past_key_values if use_cache else None,
         )
 
-    def _update_mamba_mask(self, attention_mask, cache_position):
+    def _update_mamba_mask(self, attention_mask, past_key_values):
         """
         No need for zeroing states when
             1. Cached forward
             2. Attending to all inputs
         """
         mamba_mask = attention_mask
-        if (cache_position is not None and cache_position[0] > 0) or (
+        if (past_key_values is not None and past_key_values.has_previous_state) or (
             attention_mask is not None and torch.all(attention_mask == 1)
         ):
             mamba_mask = None
@@ -1270,7 +1244,7 @@ class NemotronHModel(NemotronHPreTrainedModel):
 class NemotronHForCausalLM(NemotronHPreTrainedModel, GenerationMixin):
     _tied_weights_keys = {}
 
-    def __init__(self, config):
+    def __init__(self, config: NemotronHConfig):
         super().__init__(config)
         self.model = NemotronHModel(config)
         self.vocab_size = config.vocab_size
@@ -1290,7 +1264,6 @@ class NemotronHForCausalLM(NemotronHPreTrainedModel, GenerationMixin):
         inputs_embeds: torch.FloatTensor | None = None,
         labels: torch.LongTensor | None = None,
         use_cache: bool | None = None,
-        cache_position: torch.LongTensor | None = None,
         logits_to_keep: int | torch.Tensor = 0,
         **kwargs,
     ) -> tuple | CausalLMOutputWithPast:
@@ -1323,7 +1296,6 @@ class NemotronHForCausalLM(NemotronHPreTrainedModel, GenerationMixin):
             past_key_values=past_key_values,
             inputs_embeds=inputs_embeds,
             use_cache=use_cache,
-            cache_position=cache_position,
             **kwargs,
         )
 
@@ -1350,7 +1322,6 @@ class NemotronHForCausalLM(NemotronHPreTrainedModel, GenerationMixin):
         past_key_values=None,
         attention_mask=None,
         inputs_embeds=None,
-        cache_position=None,
         position_ids=None,
         use_cache=True,
         is_first_iteration=False,
@@ -1369,7 +1340,6 @@ class NemotronHForCausalLM(NemotronHPreTrainedModel, GenerationMixin):
             past_key_values=past_key_values,
             attention_mask=attention_mask,
             inputs_embeds=inputs_embeds,
-            cache_position=cache_position,
             position_ids=position_ids,
             use_cache=use_cache,
             is_first_iteration=is_first_iteration,

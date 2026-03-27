@@ -1,0 +1,506 @@
+kind: workflow
+id: local_claude_codex_issue_delivery
+version: 0.2.0
+
+inputs:
+  issue_number:
+    type: integer
+    required: true
+
+steps:
+  - id: gate_issue_current
+    type: gate
+    condition: issue_is_current
+    if_false: blocked_issue_not_open
+
+  - id: prepare_issue
+    type: runner
+    runner: python_script
+    command: "scripts/workflows/local_cli_issue_flow.py"
+    argv:
+      - "prepare"
+      - "--issue"
+      - "{issue_number}"
+    timeout: 300
+    retry:
+      max_attempts: 2
+      backoff: fixed
+      initial_delay: 5
+
+  - id: plan_loop
+    type: loop
+    max_rounds: 10
+    until:
+      step: verify_plan_labels
+      field: result_status
+      equals: success
+    fail_if_not_met: true
+    steps:
+      - id: draft_plan
+        type: runner
+        runner: cli_claude
+        prompt: |
+          Use Claude's `/plan-work` workflow for GitHub issue #{issue_number}.
+
+          Use the worktree path from context. Operate only inside that worktree
+          when you inspect or edit repository files. Use bash for all GitHub and
+          git operations.
+
+          Match `/plan-work` expectations:
+          - do vision and scope alignment against VISION.md and CLAUDE.md
+          - inspect the repository deeply enough to produce a concrete implementation plan
+          - identify affected files, test coverage needs, and any required docs/config updates
+          - do not start coding
+
+          Required outcome:
+          - read the issue body and comments
+          - inspect the repository as needed
+          - update the issue body plan section between the anteroom markers
+          - leave the issue with needs-senior-review present and senior-approved removed
+
+          Return a short summary of what changed in the plan.
+        context_from:
+          - step: prepare_issue
+            field: result_summary
+        tools:
+          - bash
+          - read_file
+          - grep
+          - glob_files
+        timeout: 1800
+        retry:
+          max_attempts: 2
+          backoff: exponential
+          initial_delay: 10
+
+      - id: review_plan
+        type: runner
+        runner: cli_codex
+        prompt: |
+          Use Codex's `senior-review` workflow in issue mode for GitHub issue #{issue_number}.
+
+          Use the worktree path from context when you inspect the repository.
+          Use bash for GitHub access and for posting the review result.
+
+          Follow the repository's senior-review gate exactly:
+          - approve only if the issue plan is implementation-ready with zero blockers
+          - post one concise issue comment with blockers first if changes are needed
+          - keep needs-senior-review when requesting changes
+          - add senior-approved and remove needs-senior-review when approving
+
+          Return a one-sentence decision summary.
+        context_from:
+          - step: prepare_issue
+            field: result_summary
+          - step: draft_plan
+            field: result_summary
+        tools:
+          - bash
+          - read_file
+          - grep
+          - glob_files
+        timeout: 1800
+        retry:
+          max_attempts: 2
+          backoff: exponential
+          initial_delay: 10
+
+      - id: verify_plan_labels
+        type: runner
+        runner: shell
+        command: "gh issue view {issue_number} --json labels -q '.labels[].name' | grep -q senior-approved"
+        timeout: 30
+        continue_on:
+          - failed
+
+  - id: gate_plan_approved
+    type: gate
+    condition: plan_is_approved
+    if_false: blocked_plan_not_approved
+
+  - id: implement_issue
+    type: runner
+    runner: cli_claude
+    max_iterations: 60
+    prompt: |
+      Implement GitHub issue #{issue_number} in the prepared worktree from context.
+
+      Use bash for all repository actions. Keep work scoped to the approved plan
+      and stop once the branch is ready for the workflow's `/submit-pr` quality
+      gate.
+
+      Match `/submit-pr` expectations while implementing:
+      - keep tests and docs aligned with any user-visible behavior change
+      - leave the branch in a state that should pass lint, tests, and other repo checks
+      - do not create the PR yourself; the workflow handles sync and PR creation
+
+      Return a short change summary.
+    context_from:
+      - step: prepare_issue
+        field: result_summary
+    timeout: 3600
+    tools:
+      - bash
+      - read_file
+      - edit_file
+      - grep
+      - glob_files
+    retry:
+      max_attempts: 2
+      backoff: exponential
+      initial_delay: 15
+    on_failure:
+      - id: capture_impl_state
+        type: runner
+        runner: shell
+        command: |
+          cd "$(cat /tmp/anteroom-worktree-{issue_number} 2>/dev/null || echo .)" &&
+          echo "=== git status ===" && git status --short &&
+          echo "=== git diff --stat ===" && git diff --stat &&
+          echo "=== recent commits ===" && git log --oneline -5
+        timeout: 30
+
+  - id: initial_checks_loop
+    type: loop
+    max_rounds: 8
+    until:
+      step: initial_checks
+      field: result_status
+      equals: success
+    fail_if_not_met: true
+    steps:
+      - id: initial_checks
+        type: runner
+        runner: python_script
+        command: "scripts/workflows/local_cli_issue_flow.py"
+        argv:
+          - "checks"
+          - "--issue"
+          - "{issue_number}"
+          - "--mode"
+          - "initial"
+        env:
+          ANTEROOM_LOCAL_CHECKS: "ruff check src/ tests/ && python -m pytest tests/unit/ -x -q --tb=short"
+        timeout: 1800
+        continue_on:
+          - failed
+
+      - id: autofix_checks
+        type: runner
+        runner: python_script
+        when:
+          step: initial_checks
+          field: result_status
+          equals: failed
+        command: "scripts/workflows/local_cli_issue_flow.py"
+        argv:
+          - "autofix"
+          - "--issue"
+          - "{issue_number}"
+          - "--mode"
+          - "initial"
+        env:
+          ANTEROOM_LOCAL_AUTOFIX: "ruff check src/ tests/ --fix"
+        timeout: 600
+
+      - id: fix_checks
+        type: runner
+        runner: cli_claude
+        when:
+          step: initial_checks
+          field: result_status
+          equals: failed
+        prompt: |
+          The initial checks (lint + tests) failed for issue #{issue_number}.
+          Fix them to the same quality bar expected by Claude's `/submit-pr` workflow.
+
+          Use the worktree path from context and operate only inside that worktree.
+          The source of truth is the failed checks output, not the issue title,
+          touched files, or the part of the codebase you were already editing.
+          Start with the exact first failing test, assertion, and first
+          repository traceback frame from the failed-step context below. If the
+          failure points outside the files already changed in the branch, follow
+          the failure signal anyway.
+
+          Do not assume the failing code is in the issue's main implementation
+          area. Only inspect unrelated workflow/helper files if the failing test
+          or traceback points there directly.
+
+          A cheap Ruff autofix step has already run before you. Assume any
+          remaining failure needs an actual code or test change. Run the smallest
+          targeted validation needed while you work, and leave the branch ready
+          for the next full checks round in this workflow. Do not run broad
+          repo-wide checks here like `python -m pytest -q`, `pytest` on the whole
+          suite, or `ruff check src/ tests/`; the workflow reruns the full checks
+          after this step.
+
+          If you find junk untracked files with names like `<MagicMock ...>`,
+          remove them with `rm -f -- <path>`, not `git rm`.
+
+          Only fix what is broken — do not refactor or add features.
+        context_from:
+          - step: initial_checks
+            field: result_summary
+          - step: prepare_issue
+            field: result_summary
+        context_from_failed_step: initial_checks
+        tools:
+          - bash
+          - read_file
+          - edit_file
+          - grep
+          - glob_files
+        timeout: 1800
+
+  - id: initial_sync
+    type: runner
+    runner: python_script
+    command: "scripts/workflows/local_cli_issue_flow.py"
+    argv:
+      - "sync"
+      - "--issue"
+      - "{issue_number}"
+      - "--mode"
+      - "initial"
+    timeout: 600
+    retry:
+      max_attempts: 2
+      backoff: fixed
+      initial_delay: 5
+
+  - id: open_pr
+    type: runner
+    runner: python_script
+    command: "scripts/workflows/local_cli_issue_flow.py"
+    argv:
+      - "open-pr"
+      - "--issue"
+      - "{issue_number}"
+    timeout: 300
+    retry:
+      max_attempts: 2
+      backoff: fixed
+      initial_delay: 10
+
+  - id: pr_review_loop
+    type: loop
+    max_rounds: 10
+    until:
+      step: verify_pr_labels
+      field: result_status
+      equals: success
+    fail_if_not_met: true
+    steps:
+      - id: ensure_pr_ready
+        type: runner
+        runner: python_script
+        command: "scripts/workflows/local_cli_issue_flow.py"
+        argv:
+          - "ready-pr"
+          - "--issue"
+          - "{issue_number}"
+        timeout: 60
+
+      - id: review_pr
+        type: runner
+        runner: cli_codex
+        prompt: |
+          Use Codex's `senior-review` workflow in PR mode for the PR tied to GitHub issue #{issue_number}.
+
+          Use the worktree path from context for repository inspection and bash
+          for all GitHub operations.
+
+          Required outcome:
+          - inspect the current PR diff and repository state
+          - focus on unresolved blocking issues only; do not relitigate already-fixed points
+          - treat the PR as ready for review; draft state alone is not a blocker
+          - post the review to the PR
+          - add senior-approved and remove needs-senior-review if ready
+          - otherwise request changes and keep needs-senior-review present
+
+          If GitHub refuses a formal request-changes review because the reviewer
+          identity matches the PR author, post the blocking feedback as a normal
+          PR comment instead and keep needs-senior-review present.
+
+          Return a one-sentence review outcome.
+        context_from:
+          - step: prepare_issue
+            field: result_summary
+          - step: open_pr
+            field: result_summary
+        tools:
+          - bash
+          - read_file
+          - grep
+          - glob_files
+        timeout: 1800
+        retry:
+          max_attempts: 2
+          backoff: exponential
+          initial_delay: 10
+
+      - id: fix_pr
+        type: runner
+        runner: cli_claude
+        max_iterations: 60
+        prompt: |
+          Address the latest requested changes for the PR tied to GitHub issue #{issue_number}.
+
+          Use the worktree path from context. Use bash for repository and GitHub
+          operations. If the PR is already senior-approved or there are no
+          actionable findings, do nothing and say "no changes were needed".
+
+          Work to Claude's `/submit-pr` quality bar:
+          - fix only the unresolved blockers
+          - keep tests, docs, and validation aligned with the actual shipped behavior
+          - leave the branch in a state that should pass `/submit-pr --checks-only`
+          - leave the branch ready for another senior-review pass
+
+          Focus on the latest unresolved senior-review feedback first. Keep the
+          fix scoped to actual blockers. Before returning, run the smallest
+          targeted validation needed to prove the blockers are fixed.
+
+          If you find junk untracked files with names like `<MagicMock ...>`,
+          remove them with `rm -f -- <path>`, not `git rm`.
+
+          Return a short summary of the changes you made, or that no changes were needed.
+        context_from:
+          - step: prepare_issue
+            field: result_summary
+          - step: review_pr
+            field: result_summary
+        tools:
+          - bash
+          - read_file
+          - edit_file
+          - grep
+          - glob_files
+        timeout: 3600
+        retry:
+          max_attempts: 2
+          backoff: exponential
+          initial_delay: 10
+
+      - id: post_review_checks
+        type: runner
+        runner: python_script
+        command: "scripts/workflows/local_cli_issue_flow.py"
+        argv:
+          - "checks"
+          - "--issue"
+          - "{issue_number}"
+          - "--mode"
+          - "post-review"
+        env:
+          ANTEROOM_LOCAL_CHECKS: "ruff check src/ tests/ && python -m pytest tests/unit/ -x -q --tb=short"
+        timeout: 1800
+        continue_on:
+          - failed
+        on_failure:
+          - id: autofix_post_review
+            type: runner
+            runner: python_script
+            command: "scripts/workflows/local_cli_issue_flow.py"
+            argv:
+              - "autofix"
+              - "--issue"
+              - "{issue_number}"
+              - "--mode"
+              - "post-review"
+            env:
+              ANTEROOM_LOCAL_AUTOFIX: "ruff check src/ tests/ --fix"
+            timeout: 600
+          - id: fix_post_review
+            type: runner
+            runner: cli_claude
+            prompt: |
+              Post-review checks failed for issue #{issue_number}. Fix the issues
+              to the same quality bar expected by Claude's `/submit-pr` workflow.
+
+              Use the worktree path from context and operate only inside that
+              worktree. The source of truth is the failed checks output, not the
+              issue title, touched files, or earlier implementation area.
+              Start with the exact first failing test, assertion, and first
+              repository traceback frame from the failed-step context below.
+
+              A cheap Ruff autofix step has already run.
+              Do not run broad repo-wide checks here; use only the smallest
+              targeted validation needed and let the workflow rerun the full
+              checks afterward.
+
+              If you find junk untracked files with names like `<MagicMock ...>`,
+              remove them with `rm -f -- <path>`, not `git rm`.
+
+              Only fix what is broken — do not refactor or add features.
+            context_from:
+              - step: post_review_checks
+                field: result_summary
+              - step: prepare_issue
+                field: result_summary
+            context_from_failed_step: post_review_checks
+            tools:
+              - bash
+              - read_file
+              - edit_file
+              - grep
+              - glob_files
+            timeout: 1800
+          - id: rerun_post_checks
+            type: runner
+            runner: python_script
+            command: "scripts/workflows/local_cli_issue_flow.py"
+            argv:
+              - "checks"
+              - "--issue"
+              - "{issue_number}"
+              - "--mode"
+              - "post-review"
+            env:
+              ANTEROOM_LOCAL_CHECKS: "ruff check src/ tests/ && python -m pytest tests/unit/ -x -q --tb=short"
+            timeout: 1800
+
+      - id: post_review_sync
+        type: runner
+        runner: python_script
+        command: "scripts/workflows/local_cli_issue_flow.py"
+        argv:
+          - "sync"
+          - "--issue"
+          - "{issue_number}"
+          - "--mode"
+          - "post-review"
+        timeout: 600
+        retry:
+          max_attempts: 2
+          backoff: fixed
+          initial_delay: 5
+
+      - id: verify_pr_labels
+        type: runner
+        runner: python_script
+        command: "scripts/workflows/local_cli_issue_flow.py"
+        argv:
+          - "assert-pr-approved"
+          - "--issue"
+          - "{issue_number}"
+          - "--wait-seconds"
+          - "0"
+          - "--poll-interval"
+          - "5"
+        timeout: 15
+        continue_on:
+          - failed
+
+  - id: assert_pr_approved
+    type: runner
+    runner: python_script
+    command: "scripts/workflows/local_cli_issue_flow.py"
+    argv:
+      - "assert-pr-approved"
+      - "--issue"
+      - "{issue_number}"
+      - "--wait-seconds"
+      - "30"
+      - "--poll-interval"
+      - "5"
+    timeout: 90

@@ -38,7 +38,7 @@ class FlightSQLDenodoCursor(DBAPICursor):
         self._wrapped = wrapped
 
     def __getattr__(self, key: str) -> Any:
-        return self._wrapped.__getattr__(key)
+        return getattr(self._wrapped, key)
 
     def callproc(self, procname: str, parameters: Sequence[Any] = ...) -> Any:
         return self._wrapped.callproc(procname, parameters)

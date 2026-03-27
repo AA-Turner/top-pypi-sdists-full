@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import expr_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.expr_pb2 as expr_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.orgpolicy_v2.types import constraint
@@ -692,12 +692,12 @@ class ListCustomConstraintsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    custom_constraints: MutableSequence[
-        constraint.CustomConstraint
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=constraint.CustomConstraint,
+    custom_constraints: MutableSequence[constraint.CustomConstraint] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=constraint.CustomConstraint,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

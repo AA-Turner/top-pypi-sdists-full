@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: codecov-cli
-Version: 11.2.7
+Version: 11.2.8
 Summary: Codecov Command Line Interface
 Author-email: Tom Hu <thomas.hu@sentry.io>
 Maintainer-email: Codecov Support <support@codecov.io>
@@ -15,7 +15,7 @@ License-File: LICENSE
 Requires-Dist: click<8.3.0,>=8.0.0
 Requires-Dist: ijson==3.*
 Requires-Dist: PyYAML==6.*
-Requires-Dist: responses==0.21.*
+Requires-Dist: requests>=2.25.0
 Requires-Dist: sentry-sdk==2.*
 Requires-Dist: test-results-parser==0.6.1
 Dynamic: license-file

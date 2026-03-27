@@ -209,6 +209,7 @@ def build_project(
     TINYBIRD_API_URL = urljoin(tb_client.host, build_url)
     logging.debug(TINYBIRD_API_URL)
     TINYBIRD_API_KEY = tb_client.token
+    request_from = getattr(tb_client, "request_from", None)
     error: Optional[str] = None
 
     try:
@@ -235,8 +236,8 @@ def build_project(
 
                 files.append((MULTIPART_BOUNDARY_DATA_PROJECT, (relative_path, content, content_type)))
         HEADERS = {"Authorization": f"Bearer {TINYBIRD_API_KEY}"}
-
-        r = requests.post(TINYBIRD_API_URL, files=files, headers=HEADERS)
+        params = {"from": request_from} if request_from else None
+        r = requests.post(TINYBIRD_API_URL, files=files, headers=HEADERS, params=params)
         try:
             result = r.json()
         except Exception as e:

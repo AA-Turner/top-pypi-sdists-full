@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: x-transformers
-Version: 2.17.7
+Version: 2.17.8
 Summary: X-Transformers
 Project-URL: Homepage, https://pypi.org/project/x-transformers/
 Project-URL: Repository, https://codeberg.org/lucidrains/x-transformers
@@ -2690,6 +2690,16 @@ ids_out, num_out, is_number_mask = model.generate(start_ids, start_nums, 17)
     archivePrefix = {arXiv},
     primaryClass = {cs.AI},
     url     = {https://arxiv.org/abs/2601.21582},
+}
+```
+
+```bibtex
+@article{ng2026rys,
+    title   = {LLM Neuroanatomy: How I Topped the LLM Leaderboard Without Changing a Single Weight},
+    author  = {Ng, David Noel},
+    year    = {2026},
+    month   = {March},
+    url     = {https://dnhkng.github.io/posts/rys/}
 }
 ```
 

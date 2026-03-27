@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: sentry-prevent-cli
-Version: 11.2.7
+Version: 11.2.8
 Summary: Sentry Prevent Command Line Interface
 Author-email: Sentry <oss@sentry.io>
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: codecov-cli==11.2.7
+Requires-Dist: codecov-cli==11.2.8
 Requires-Dist: click<8.3.0,>=8.0.0
 Requires-Dist: sentry-sdk==2.*
 Dynamic: license-file

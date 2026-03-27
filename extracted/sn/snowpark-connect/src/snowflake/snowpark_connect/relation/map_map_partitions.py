@@ -20,6 +20,7 @@ from snowflake.snowpark_connect.relation.output_struct_utils import (
     unpack_struct_output_to_container,
 )
 from snowflake.snowpark_connect.type_mapping import proto_to_snowpark_type
+from snowflake.snowpark_connect.utils.context import get_spark_session_id
 from snowflake.snowpark_connect.utils.java_udtf_utils import (
     JAVA_UDTF_PREFIX,
     create_java_udtf,
@@ -201,6 +202,7 @@ def _map_with_udtf(
     udtf_packages = global_config.get("snowpark.connect.udf.packages", "")
     udtf_imports = get_python_udxf_import_files(snowpark.Session.get_active_session())
     artifact_repository = get_artifact_repository()
+    session_id = get_spark_session_id()
     if require_creating_udtf_in_sproc(udf_proto):
         udtf_name = create_pandas_udtf_in_sproc(
             udf_proto,
@@ -210,6 +212,7 @@ def _map_with_udtf(
             udtf_packages,
             udtf_imports,
             artifact_repository=artifact_repository,
+            session_id=session_id,
         )
     else:
         if map_in_arrow:
@@ -221,6 +224,7 @@ def _map_with_udtf(
                 udtf_packages,
                 udtf_imports,
                 artifact_repository=artifact_repository,
+                session_id=session_id,
             )
         else:
             map_udtf = create_pandas_udtf(
@@ -231,6 +235,7 @@ def _map_with_udtf(
                 udtf_packages,
                 udtf_imports,
                 artifact_repository=artifact_repository,
+                session_id=session_id,
             )
         udtf_name = map_udtf.name
     return _call_udtf(udtf_name, input_df, return_type)

@@ -24,31 +24,32 @@ jobs:
             python-version: "3.10"
             tox-env: py310
           - name: py2.7
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             python-version: 2.7
             tox-env: py27
           - name: py2.7 with old gmpy
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             python-version: 2.7
             tox-env: py27_old_gmpy
           - name: py2.7 with old gmpy2
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             python-version: 2.7
             tox-env: py27_old_gmpy2
           - name: py2.7 with old six
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             python-version: 2.7
             tox-env: py27_old_six
           - name: py2.7 with gmpy
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             python-version: 2.7
             tox-env: gmpypy27
           - name: py2.7 with gmpy2
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             python-version: 2.7
             tox-env: gmpy2py27
           - name: py3.6
-            os: ubuntu-20.04
+            os: ubuntu-latest
+            container: centos:8
             python-version: 3.6
             tox-env: py36
           - name: py3.7
@@ -97,7 +98,7 @@ jobs:
             tox-env: pypy3
           # special configurations
           - name: py2.7 with instrumental
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             python-version: 2.7
             opt-deps: ['instrumental']
           - name: code checks
@@ -118,7 +119,7 @@ jobs:
         if: ${{ matrix.container }}
         with:
           fetch-depth: 50
-      - name: Ensure dependencies on CentOS
+      - name: Ensure dependencies on CentOS:6
         if: ${{ matrix.container == 'centos:6' }}
         run: |
           ls /etc/yum.repos.d/
@@ -147,13 +148,55 @@ jobs:
           echo installing
           yum clean all
           yum repolist all
-          yum install -y git make python curl gcc libffi-devel python-devel glibc-devel openssl-devel wget
+          yum install -y make python curl gcc libffi-devel python-devel glibc-devel openssl-devel wget curl-config curl-devel expat-devel gettext-devel zlib-devel perl-ExtUtils-MakeMaker
+          cd /usr/src
+          wget https://www.kernel.org/pub/software/scm/git/git-2.31.0.tar.gz
+          tar xzf git-2.31.0.tar.gz
+          cd git-2.31.0
+          make prefix=/usr/local/git all
+          make prefix=/usr/local/git install
+          ln -fs /usr/local/git/bin/git /usr/bin/git
+      - name: Ensere dependenceis on CentOS:8
+        if: ${{ matrix.container == 'centos:8' }}
+        run: |
+          ls /etc/yum.repos.d/
+          cat /etc/yum.repos.d/CentOS-Linux-BaseOS.repo
+          cat /etc/yum.repos.d/CentOS-Linux-AppStream.repo
+          cat /etc/yum.repos.d/CentOS-Linux-Extras.repo
+          rm /etc/yum.repos.d/CentOS-Linux-BaseOS.repo
+          rm /etc/yum.repos.d/CentOS-Linux-AppStream.repo
+          rm /etc/yum.repos.d/CentOS-Linux-Extras.repo
+          cat > /etc/yum.repos.d/CentOS-Linux-BaseOS.repo <<EOF
+          [BaseOS]
+          name=CentOS Linux $releasever - BaseOS
+          baseurl=https://vault.centos.org/8.5.2111/BaseOS/x86_64/os/
+          gpgcheck=0
+          metadata_expire=-1
+          EOF
+          cat > /etc/yum.repos.d/CentOS-Linux-AppStream.repo <<EOF
+          [AppStream]
+          name=CentOS Linux $releasever - AppStream
+          baseurl=https://vault.centos.org/8.5.2111/AppStream/x86_64/os/
+          gpgcheck=0
+          metadata_expire=-1
+          EOF
+          cat > /etc/yum.repos.d/CentOS-Linux-Extras.repo <<EOF
+          [Extras]
+          name=CentOS Linux $releasever - Extras
+          baseurl=https://vault.centos.org/8.5.2111/extras/x86_64/os/
+          gpgcheck=0
+          metadata_expire=-1
+          EOF
+          echo installing
+          yum clean all
+          yum repolist all
+          yum install -y git make python36 curl gcc libffi-devel python36-devel glibc-devel openssl-devel wget
+          ln -fs /usr/bin/python3.6 /usr/bin/python
       - name: Ensure dependencies on Ubuntu 22.04
         if: ${{ matrix.container == 'ubuntu:22.04' }}
         run: |
           apt-get update
           apt-get install -y git make python-is-python3 python3 curl wget python3-distutils python3-pip
-
       - name: Dependencies for mutation testing
         if: ${{ matrix.mutation == 'true' }}
         run: |
@@ -178,10 +221,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            python2.7 python2.7-dev python-pip-whl
+            python2.7 python2.7-dev
+          curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py
           sudo ln -sf python2.7 /usr/bin/python
-          export PYTHONPATH=`echo /usr/share/python-wheels/pip-*py2*.whl`
-          sudo --preserve-env=PYTHONPATH python -m pip install --upgrade pip setuptools wheel
+          sudo python get-pip.py
+          sudo pip install --upgrade setuptools wheel
           sudo chown -R $USER /usr/local/lib/python2.7
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
@@ -208,6 +252,11 @@ jobs:
           wget https://files.pythonhosted.org/packages/3b/7e/293d19ccd106119e35db4bf3e111b1895098f618b455b758aa636496cf03/setuptools-28.8.0-py2.py3-none-any.whl
           wget https://files.pythonhosted.org/packages/83/53/e120833aa2350db333df89a40dea3b310dd9dabf6f29eaa18934a597dc79/wheel-0.30.0a0-py2.py3-none-any.whl
           pip install setuptools-28.8.0-py2.py3-none-any.whl wheel-0.30.0a0-py2.py3-none-any.whl
+      - name: ensure working pip on 3.6
+        if: ${{ matrix.python-version == '3.6' }}
+        run: |
+          curl -o get-pip.py https://bootstrap.pypa.io/pip/3.6/get-pip.py
+          python get-pip.py
       - name: Install instrumental
         if: ${{ contains(matrix.opt-deps, 'instrumental') }}
         run: pip install instrumental
@@ -225,7 +274,7 @@ jobs:
         run: |
           wget https://files.pythonhosted.org/packages/1d/4e/20c679f8c5948f7c48591fde33d442e716af66a31a88f5791850a75041eb/tox-2.9.1-py2.py3-none-any.whl
           wget https://files.pythonhosted.org/packages/d9/9d/077582a4c6d771e3b742631e6c1d3688f48210626de488e032776242b3f2/inflect-0.3.0-py2.py3-none-any.whl
-          wget https://files.pythonhosted.org/packages/79/db/7c0cfe4aa8341a5fab4638952520d8db6ab85ff84505e12c00ea311c3516/pyOpenSSL-17.5.0-py2.py3-none-any.whl 
+          wget https://files.pythonhosted.org/packages/79/db/7c0cfe4aa8341a5fab4638952520d8db6ab85ff84505e12c00ea311c3516/pyOpenSSL-17.5.0-py2.py3-none-any.whl
           wget https://files.pythonhosted.org/packages/2d/bf/960e5a422db3ac1a5e612cb35ca436c3fc985ed4b7ed13a1b4879006f450/cffi-1.13.2.tar.gz
           wget https://files.pythonhosted.org/packages/4b/2a/0276479a4b3caeb8a8c1af2f8e4355746a97fab05a372e4a2c6a6b876165/idna-2.7-py2.py3-none-any.whl
           wget https://files.pythonhosted.org/packages/72/20/7f0f433060a962200b7272b8c12ba90ef5b903e218174301d0abfd523813/unittest2-1.1.0-py2.py3-none-any.whl
@@ -383,7 +432,6 @@ jobs:
           else
             coveralls
           fi
-
   coveralls:
     name: Indicate completion to coveralls.io
     needs: test

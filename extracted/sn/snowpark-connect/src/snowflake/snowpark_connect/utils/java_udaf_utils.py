@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import snowflake.snowpark.types as snowpark_type
 from snowflake.snowpark_connect.config import get_scala_version, global_config
 from snowflake.snowpark_connect.type_mapping import map_type_to_snowflake_type
+from snowflake.snowpark_connect.utils.context import get_spark_session_id
 from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     NullHandling,
     Param,
@@ -264,12 +265,14 @@ def create_java_udaf_for_reduce_scala_function(
     from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 
     function_name = pciudf._function_name
-    # If a function name is not provided, hash the binary file and use the first ten characters as the function name.
     if not function_name:
+        # If a function name is not provided, hash the binary file and use the first ten characters as the function name.
         import hashlib
 
         function_name = hashlib.sha256(pciudf._payload).hexdigest()[:10]
-    udf_name = CREATE_JAVA_UDAF_PREFIX + function_name
+    session_id = get_spark_session_id()
+    session_suffix = f"_{session_id.replace('-','_')}" if session_id else ""
+    udf_name = CREATE_JAVA_UDAF_PREFIX + function_name + session_suffix
 
     input_types = pciudf._input_types
 

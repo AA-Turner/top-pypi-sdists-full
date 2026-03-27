@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.notebooks_v1.types import diagnostic_config as gcn_diagnostic_config
@@ -93,6 +93,7 @@ class UpgradeType(proto.Enum):
         UPGRADE_ALL (4):
             Upgrade All (OS, Framework and CUDA).
     """
+
     UPGRADE_TYPE_UNSPECIFIED = 0
     UPGRADE_FRAMEWORK = 1
     UPGRADE_OS = 2
@@ -664,6 +665,7 @@ class GetInstanceHealthResponse(proto.Message):
                 The instance health monitoring agent is not
                 running. Applies to ACTIVE state.
         """
+
         HEALTH_STATE_UNSPECIFIED = 0
         HEALTHY = 1
         UNHEALTHY = 2

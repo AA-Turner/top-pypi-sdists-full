@@ -16,14 +16,11 @@ from snowflake.snowpark_connect.expression.typer import ExpressionTyper
 from snowflake.snowpark_connect.type_mapping import proto_to_snowpark_type
 from snowflake.snowpark_connect.typed_column import TypedColumn
 from snowflake.snowpark_connect.utils.context import get_grouping_by_scala_udf_key
-from snowflake.snowpark_connect.utils.external_udxf_cache import (
-    cache_external_udf,
-    get_external_udf_from_cache,
-)
 from snowflake.snowpark_connect.utils.java_stored_procedure import create_java_udf
 from snowflake.snowpark_connect.utils.java_udaf_utils import JavaUdaf
 from snowflake.snowpark_connect.utils.jvm_udf_utils import to_json
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
+from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
 from snowflake.snowpark_connect.utils.udf_helper import (
     SnowparkUDF,
     infer_snowpark_arguments,
@@ -46,21 +43,25 @@ def cache_external_udf_wrapper(from_register_udf: bool):
             udf_proto: expressions_proto.CommonInlineUserDefinedFunction,
         ) -> SnowparkUDF | None:
             udf_hash = hash(str(udf_proto))
-            cached_udf = get_external_udf_from_cache(udf_hash)
+            cache = get_spark_session_cache()
+            cached_udf = cache.udfs.get_cached(udf_hash)
 
             if cached_udf:
-                session = get_or_create_snowpark_session()
                 function_type = udf_proto.WhichOneof("function")
                 # TODO: Align this with SNOW-2316798 after merge
                 match function_type:
                     case "scalar_scala_udf":
-                        session._udfs[cached_udf.name] = cached_udf
+                        cache.udfs.register(cached_udf.name, cached_udf)
+                        if from_register_udf:
+                            cache.udfs.register(
+                                udf_proto.function_name.lower(), cached_udf
+                            )
                     case "python_udf" if from_register_udf:
-                        session._udfs[udf_proto.function_name.lower()] = cached_udf
+                        cache.udfs.register(udf_proto.function_name.lower(), cached_udf)
                     case "python_udf":
                         pass
                     case "java_udf":
-                        session._udfs[udf_proto.function_name.lower()] = cached_udf
+                        cache.udfs.register(udf_proto.function_name.lower(), cached_udf)
                     case _:
                         exception = ValueError(f"Unsupported UDF type: {function_type}")
                         attach_custom_error_code(
@@ -71,7 +72,7 @@ def cache_external_udf_wrapper(from_register_udf: bool):
                 return cached_udf
 
             snowpark_udf = wrapper_func(udf_proto)
-            cache_external_udf(udf_hash, snowpark_udf)
+            cache.udfs.cache(udf_hash, snowpark_udf)
             return snowpark_udf
 
         return wrapper
@@ -135,7 +136,9 @@ def register_udf(
                 original_return_type=original_return_type,
                 cast_to_original_return_type=True,
             )
-            session._udfs[udf_proto.function_name.lower()] = udf
+            get_spark_session_cache().udfs.register(
+                udf_proto.function_name.lower(), udf
+            )
             return udf
         case _:
             exception = ValueError(
@@ -175,10 +178,10 @@ def register_udf(
             attach_schema_json=is_scala_udf and not isinstance(udf, JavaUdaf),
             is_scala=is_scala_udf,
         )
-        session._udfs[udf_proto.function_name.lower()] = udf
-        # scala udfs can be also accessed using `udf.name`
+        cache = get_spark_session_cache()
+        cache.udfs.register(udf_proto.function_name.lower(), udf)
         if udf_processor._function_type == "scalar_scala_udf":
-            session._udfs[udf.name] = udf
+            cache.udfs.register(udf.name, udf)
         return udf
 
 

@@ -34,11 +34,8 @@ from snowflake.snowpark_connect.type_mapping import (
     proto_to_snowpark_type,
 )
 from snowflake.snowpark_connect.utils.context import push_udtf_context
-from snowflake.snowpark_connect.utils.external_udxf_cache import (
-    cache_external_udtf,
-    get_external_udtf_from_cache,
-)
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
+from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
 from snowflake.snowpark_connect.utils.udtf_helper import (
     SnowparkUDTF,
     create_udtf_in_sproc,
@@ -58,12 +55,13 @@ def cache_external_udtf_wrapper(from_register_udtf: bool):
             spark_column_names,
         ) -> SnowparkUDTF | None:
             udf_hash = hash(str(udtf_proto))
-            cached_udtf = get_external_udtf_from_cache(udf_hash)
+            cache = get_spark_session_cache()
+            cached_udtf = cache.udtfs.get_cached(udf_hash)
 
             if cached_udtf:
                 if from_register_udtf:
-                    session = get_or_create_snowpark_session()
-                    session._udtfs[udtf_proto.function_name.lower()] = (
+                    cache.udtfs.register(
+                        udtf_proto.function_name.lower(),
                         cached_udtf,
                         spark_column_names,
                     )
@@ -71,7 +69,7 @@ def cache_external_udtf_wrapper(from_register_udtf: bool):
                 return cached_udtf
 
             snowpark_udf = wrapper_func(udtf_proto, spark_column_names)
-            cache_external_udtf(udf_hash, snowpark_udf)
+            cache.udtfs.cache(udf_hash, snowpark_udf)
             return snowpark_udf
 
         return wrapper
@@ -238,8 +236,9 @@ def register_udtf(
         return snowpark_udtf
 
     snowpark_udtf = _register_udtf(udtf_proto, spark_column_names)
-    # We have to update cached _udtfs here, because function could have been cached in map_common_inline_user_defined_table_function
-    session._udtfs[function_name.lower()] = (snowpark_udtf, spark_column_names)
+    get_spark_session_cache().udtfs.register(
+        function_name.lower(), snowpark_udtf, spark_column_names
+    )
     return snowpark_udtf
 
 
@@ -332,6 +331,8 @@ def map_common_inline_user_defined_table_function(
 
     snowpark_column_types = []
     # Replace JSON strings with Python dicts for map columns
+    col_names = []
+    col_exprs = []
     for field in output_schema.fields:
         if isinstance(field.datatype, VariantType):
             col_name = field.name
@@ -339,14 +340,17 @@ def map_common_inline_user_defined_table_function(
                 original_types[col_name], MapType
             ):
                 original_map_type = original_types[col_name]
-                parsed_col = parse_json(col(col_name))
-                df = df.with_column(col_name, parsed_col.cast(original_map_type))
+                col_names.append(col_name)
+                col_exprs.append(parse_json(col(col_name)).cast(original_map_type))
                 snowpark_column_types.append(original_map_type)
             else:
-                df = df.with_column(col_name, parse_json(col(col_name)))
+                col_names.append(col_name)
+                col_exprs.append(parse_json(col(col_name)))
                 snowpark_column_types.append(field.datatype)
         else:
             snowpark_column_types.append(field.datatype)
+    if col_names:
+        df = df.with_columns(col_names, col_exprs)
 
     snowpark_columns = [f.name for f in output_schema.fields]
 

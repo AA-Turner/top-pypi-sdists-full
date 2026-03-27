@@ -64,8 +64,8 @@ DEV_MODE_ROUTED_COMMANDS = {"build", "deploy"}
 SDK_PROJECT_ROUTED_COMMANDS = {"build", "deploy", "preview"}
 TS_PROJECT_ROUTED_COMMANDS = SDK_PROJECT_ROUTED_COMMANDS
 COMMANDS_ALWAYS_CLOUD = {"infra", "branch", "environment", "workspace", "preview"}
-PROJECT_TYPE_TYPESCRIPT = "typescript"
-PROJECT_TYPE_PYTHON = "python"
+PROJECT_TYPE_TYPESCRIPT = "ts-sdk"
+PROJECT_TYPE_PYTHON = "python-sdk"
 PROJECT_TYPE_CLI = "cli"
 PROJECT_TYPES = {PROJECT_TYPE_TYPESCRIPT, PROJECT_TYPE_PYTHON, PROJECT_TYPE_CLI}
 CLI_PROJECT_MARKERS = (
@@ -613,7 +613,9 @@ def cli(
         user_token = os.environ.get("TB_USER_TOKEN", "")
 
     config = get_config(host, token, user_token=user_token, config_file=config_temp._path)
-    client = _get_tb_client(config.get("token", ""), config["host"])
+    project_type = get_project_type_from_tinybird_config(os.getcwd()) or PROJECT_TYPE_CLI
+    ctx.ensure_object(dict)["project_type"] = project_type
+    client = _get_tb_client(config.get("token", ""), config["host"], request_from=project_type)
 
     tinybird_dev_mode = get_dev_mode_from_tinybird_config(os.getcwd())
     if tinybird_dev_mode:
@@ -631,8 +633,6 @@ def cli(
             folder = os.path.normpath(os.path.join(tinyb_dir, cwd_config))
 
     project = Project(folder=folder, workspace_name=config.get("name", ""), max_depth=max_depth)
-
-    project_type = get_project_type_from_tinybird_config(os.getcwd())
 
     sdk_virtual_project: Optional[Union[PythonVirtualProject, TypescriptVirtualProject]] = None
     if ctx.invoked_subcommand in SDK_PROJECT_ROUTED_COMMANDS:
@@ -724,6 +724,7 @@ def cli(
         effective_cloud,
         staging,
         project=project,
+        project_type=project_type,
         show_warnings=version_warning,
         branch=effective_branch,
         create_branch_if_missing=(
@@ -1013,6 +1014,7 @@ def create_ctx_client(
     cloud: bool,
     staging: bool,
     project: Project,
+    project_type: str = PROJECT_TYPE_CLI,
     show_warnings: bool = True,
     branch: Optional[str] = None,
     create_branch_if_missing: bool = False,
@@ -1066,6 +1068,7 @@ def create_ctx_client(
             staging=staging,
             branch=branch,
             create_branch_if_missing=create_branch_if_missing,
+            request_from=project_type,
         )
     test = command in command_always_test
     if show_warnings and command:

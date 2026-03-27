@@ -1650,6 +1650,7 @@ class MainController:
         context = PageContext(
             request=request,
             response=Response(headers={}, status=200, body=""),
+            page_path=page.path,
         )
 
         connection = self.repositories.producer.enqueue(
@@ -2210,31 +2211,6 @@ class MainController:
 
         return {"public_url": None}
 
-    # Worker lifecycle
-    def fail_worker_executions(self, *, worker_id: str, reason: str):
-        killed_executions = self.execution_repository.find_by_worker(
-            worker_id=worker_id,
-            status="running",
-        )
-
-        for execution in killed_executions:
-            err_log = LogEntry(
-                execution_id=execution.id,
-                stage_id=execution.stage_id,
-                created_at=datetime.datetime.now(),
-                payload={"text": "[ABSTRA] Execution aborted. " + reason},
-                sequence=999999,
-                event="stderr",
-            )
-            self.execution_logs_repository.save(err_log)
-
-            self.execution_repository.set_failure_by_id(execution_id=execution.id)
-            self.tasks_repository.set_locked_tasks_to_pending(execution.id)
-
-        AbstraLogger.capture_message(
-            f"[ABSTRA] Failed {len(killed_executions)} running executions for worker {worker_id} with reason: {reason}"
-        )
-
     def fail_execution(self, execution_id: str, reason: str):
         err_log = LogEntry(
             execution_id=execution_id,
@@ -2478,13 +2454,15 @@ class MainController:
                     {
                         "type": msg.type,
                         "text": msg.text,
-                        "location": {
-                            "url": msg.location.get("url", ""),
-                            "line": msg.location.get("lineNumber", 0),
-                            "column": msg.location.get("columnNumber", 0),
-                        }
-                        if msg.location
-                        else {},
+                        "location": (
+                            {
+                                "url": msg.location.get("url", ""),
+                                "line": msg.location.get("lineNumber", 0),
+                                "column": msg.location.get("columnNumber", 0),
+                            }
+                            if msg.location
+                            else {}
+                        ),
                     }
                 )
 
@@ -2494,9 +2472,9 @@ class MainController:
                         "method": request.method,
                         "url": request.url,
                         "resource_type": request.resource_type,
-                        "post_data": request.post_data[:500]
-                        if request.post_data
-                        else None,
+                        "post_data": (
+                            request.post_data[:500] if request.post_data else None
+                        ),
                     }
                 )
 

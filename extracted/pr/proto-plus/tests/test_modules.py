@@ -63,7 +63,7 @@ def test_module_package_cross_api():
         # Test using multiple packages together
         # See https://github.com/googleapis/proto-plus-python/issues/349.
         msg = AnotherMessage(qux=Baz())
-        assert type(msg) == AnotherMessage
+        assert type(msg) is AnotherMessage
     finally:
         del sys.modules[__name__].__protobuf__
 
@@ -87,7 +87,7 @@ def test_module_package_explicit_marshal():
 
 
 def test_module_manifest():
-    __protobuf__ = proto.module(
+    __protobuf__ = proto.module(  # noqa: F841
         manifest={"Foo", "Bar", "Baz"},
         package="spam.eggs.v1",
     )

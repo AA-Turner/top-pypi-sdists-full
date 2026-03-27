@@ -147,6 +147,8 @@ class WorkflowDefinition:
     content_hash: str = ""
     triggers: list[TriggerDef] = field(default_factory=list)
     summary: dict[str, Any] | None = None  # workflow-level summary templates (#1150)
+    description: str | None = None  # human-readable description for binding selection (#1154)
+    tags: list[str] = field(default_factory=list)  # structured labels for binding selection (#1154)
 
 
 # ---------------------------------------------------------------------------
@@ -534,6 +536,9 @@ def load_definition(source: str | Path) -> WorkflowDefinition:
 
     triggers = [_parse_trigger(t) for t in raw.get("triggers", [])]
 
+    raw_tags = raw.get("tags", [])
+    tags = [str(t) for t in raw_tags] if isinstance(raw_tags, list) else []
+
     defn = WorkflowDefinition(
         id=raw["id"],
         version=raw["version"],
@@ -546,6 +551,8 @@ def load_definition(source: str | Path) -> WorkflowDefinition:
         content_hash=content_hash,
         triggers=triggers,
         summary=raw.get("summary"),
+        description=raw.get("description"),
+        tags=tags,
     )
     _validate_definition(defn)
     return defn

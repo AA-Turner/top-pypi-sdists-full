@@ -365,7 +365,7 @@ Keyword arguments:
 
     def __init__(
         self,
-        data: typing.Optional[typing.Sequence[typing.Union[str]]] = None,
+        data: typing.Optional[typing.Sequence[typing.Union[str, typing.Dict[str, typing.Any]]]] = None,
         value: typing.Optional[str] = None,
         disabled: typing.Optional[bool] = None,
         name: typing.Optional[str] = None,

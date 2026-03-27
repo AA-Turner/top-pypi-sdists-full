@@ -10,9 +10,10 @@ from ._shared_client import get_shared_client
 
 def OncoKB_annotate_copy_number(
     gene: str,
-    copy_number_type: str,
     operation: Optional[str] = None,
+    copy_number_type: Optional[str] = None,
     tumor_type: Optional[str] = None,
+    copy_number_alteration: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -31,6 +32,8 @@ def OncoKB_annotate_copy_number(
         Type of copy number alteration (case-insensitive: AMPLIFICATION or DELETION)
     tumor_type : str
         Optional OncoTree tumor type code
+    copy_number_alteration : str
+        Alias for copy_number_type. Amplification or Deletion.
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -52,6 +55,7 @@ def OncoKB_annotate_copy_number(
             "gene": gene,
             "copy_number_type": copy_number_type,
             "tumor_type": tumor_type,
+            "copy_number_alteration": copy_number_alteration,
         }.items()
         if v is not None
     }

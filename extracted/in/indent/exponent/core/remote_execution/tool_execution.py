@@ -17,6 +17,8 @@ from exponent.core.config import get_chat_artifacts_dir
 from exponent.core.file_layout import bash_result_path, generate_bash_id
 from exponent.core.remote_execution import files
 from exponent.core.remote_execution.cli_rpc_types import (
+    NO_CHARACTER_LIMIT,
+    NO_LINE_LIMIT,
     ApplyPatchToolInput,
     BashToolInput,
     BashToolResult,
@@ -133,7 +135,10 @@ async def execute_read_file(
     offset = tool_input.offset if tool_input.offset is not None else 0
     limit = tool_input.limit if tool_input.limit is not None else 2000
 
-    if limit <= 0:
+    if limit == NO_LINE_LIMIT:
+        limit = None  # Will be handled below to read all lines
+
+    if limit is not None and limit <= 0:
         return ErrorToolResult(error_message=f"Limit must be positive, got: {limit}")
 
     file = AsyncPath(working_directory, tool_input.file_path)
@@ -205,15 +210,13 @@ async def execute_read_file(
         )
 
     # Use Python's native slicing - it handles negative offsets naturally
-    # Handle the case where offset + limit < 0 (can't mix negative and non-negative indices)
-    if offset < 0 and offset + limit < 0:
-        # Both start and end are negative, use negative end index
+    if limit is None:
+        end_index = None
+    elif offset < 0 and offset + limit < 0:
         end_index = offset + limit
     elif offset < 0 and offset + limit >= 0:
-        # Start is negative but end would be positive/zero, slice to end
         end_index = None
     else:
-        # Normal case: both indices are non-negative
         end_index = offset + limit
 
     content_lines = content_lines[offset:end_index]
@@ -229,12 +232,13 @@ async def execute_read_file(
     # This ensures the content field and num_lines field remain in sync
     # This is the primary truncation point for ReadToolResult - truncation.py
     # also has a fallback but this handles line-count synchronization
-    CHARACTER_LIMIT = 20_000  # Match DEFAULT_CHARACTER_LIMIT in truncation.py
+    DEFAULT_CHARACTER_LIMIT = 20_000  # Match DEFAULT_CHARACTER_LIMIT in truncation.py
+    character_limit = tool_input.character_limit if tool_input.character_limit is not None else DEFAULT_CHARACTER_LIMIT
 
     # Join lines and check total size
     final_content = "".join(content_lines)
 
-    if len(final_content) > CHARACTER_LIMIT:
+    if character_limit != NO_CHARACTER_LIMIT and len(final_content) > character_limit:
         # Truncate at line boundaries to stay under the limit
         truncated_lines: list[str] = []
         current_size = 0
@@ -244,7 +248,7 @@ async def execute_read_file(
 
         for line in content_lines:
             # Check if adding this line would exceed the limit (accounting for truncation message)
-            if current_size + len(line) + truncation_size > CHARACTER_LIMIT:
+            if current_size + len(line) + truncation_size > character_limit:
                 final_content = "".join(truncated_lines) + truncation_message
                 break
             truncated_lines.append(line)

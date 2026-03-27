@@ -668,6 +668,56 @@ def sandbox_flow(
         out.success({"flow_name": flow_name, "url": str(public_url)}, "Flow complete")
 
 
+@sandbox_app.command(name="pull-config")
+def sandbox_pull_config(
+    working_dir: WorkingDirArg,
+    dataset: DatasetArg,
+    artifact_id: str = typer.Option(
+        None,
+        "--artifact-id",
+        "-a",
+        help="Artifact UUID (reads from .plato/state.json if not provided)",
+    ),
+    json_output: JsonArg = False,
+    verbose: VerboseArg = False,
+):
+    """Download plato-config.yml and flows.yml from an artifact.
+
+    Fetches config files from the artifact API so they can be edited
+    locally and applied via start-worker / sandbox flow.
+
+    Example:
+        plato sandbox pull-config
+        plato sandbox pull-config -a <artifact-uuid>
+    """
+    with sandbox_context(working_dir, json_output, verbose) as (client, out):
+        # Resolve artifact_id from state if not provided
+        if not artifact_id:
+            state_path = working_dir / ".plato" / "state.json"
+            if state_path.exists():
+                with open(state_path) as f:
+                    state = json.load(f)
+                artifact_id = state.get("artifact_id")
+            if not artifact_id:
+                out.error("No artifact_id found. Provide --artifact-id or run 'plato sandbox start -a' first.")
+                raise typer.Exit(1)
+
+        resolved_dataset = str(dataset) if dataset else "base"
+        out.console.print(f"Pulling config from artifact {artifact_id}...")
+        result = client.pull_config(artifact_id=artifact_id, dataset=resolved_dataset)
+
+        if not result["plato_config_written"] and not result["flows_written"]:
+            out.error(
+                f"Failed to pull config for artifact {artifact_id}: neither plato-config.yml nor flows were written."
+            )
+            raise typer.Exit(1)
+
+        out.success(
+            {"artifact_id": artifact_id, **result},
+            "Config pulled",
+        )
+
+
 @sandbox_app.command(name="clear-audit")
 def sandbox_clear_audit(
     working_dir: WorkingDirArg,

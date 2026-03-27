@@ -9,7 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def MetabolomicsWorkbench_search_compound_by_name(
-    input_value: str,
+    input_value: Optional[str] = None,
+    compound_name: Optional[str] = None,
     output_item: Optional[str] = "all",
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
@@ -23,6 +24,8 @@ def MetabolomicsWorkbench_search_compound_by_name(
     ----------
     input_value : str
         Compound/metabolite name to search (e.g., 'Glucose', 'Cholesterol', 'Palmitic...
+    compound_name : str
+        Alias for input_value.
     output_item : str
         Type of output to return.
     stream_callback : Callable, optional
@@ -41,7 +44,11 @@ def MetabolomicsWorkbench_search_compound_by_name(
     # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
-        for k, v in {"input_value": input_value, "output_item": output_item}.items()
+        for k, v in {
+            "input_value": input_value,
+            "compound_name": compound_name,
+            "output_item": output_item,
+        }.items()
         if v is not None
     }
     return get_shared_client().run_one_function(

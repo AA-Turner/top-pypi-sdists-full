@@ -18,6 +18,8 @@ def intact_get_interaction_network(
     limit: Optional[int] = 50,
     size: Optional[int] = 50,
     format: Optional[str] = "json",
+    protein_name: Optional[str] = None,
+    protein: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -46,6 +48,10 @@ def intact_get_interaction_network(
         Alias for limit. Maximum number of interactions to return (default: 50).
     format : str
 
+    protein_name : str
+        Alias for gene_symbol/identifier. Common protein name (e.g., MDM2, TP53).
+    protein : str
+        Alias for identifier. Gene symbol or protein name (e.g., 'TP53', 'BRCA1').
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -72,6 +78,8 @@ def intact_get_interaction_network(
             "limit": limit,
             "size": size,
             "format": format,
+            "protein_name": protein_name,
+            "protein": protein,
         }.items()
         if v is not None
     }

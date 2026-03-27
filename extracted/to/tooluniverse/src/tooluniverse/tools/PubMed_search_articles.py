@@ -14,7 +14,7 @@ def PubMed_search_articles(
     mindate: Optional[str] = None,
     maxdate: Optional[str] = None,
     datetype: Optional[str] = "pdat",
-    include_abstract: Optional[bool] = True,
+    include_abstract: Optional[bool] = False,
     sort: Optional[str] = None,
     max_results: Optional[int] = None,
     *,

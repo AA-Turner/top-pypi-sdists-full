@@ -16,6 +16,7 @@ import os
 import shutil
 import subprocess
 import sys
+import webbrowser
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -39,6 +40,7 @@ from cogames import play as play_module
 from cogames import train as train_module
 from cogames import verbose
 from cogames.auth import DEFAULT_COGAMES_SERVER, load_token
+from cogames.cli.assay import assay_app
 from cogames.cli.auth import auth_app
 from cogames.cli.base import console, emit_json
 from cogames.cli.client import SeasonDetail, TournamentServerClient
@@ -75,6 +77,7 @@ from cogames.cli.submit import (
     RESULTS_URL,
     create_bundle,
     ensure_docker_daemon_access,
+    observatory_profile_url,
     upload_policy,
     validate_bundle_docker,
 )
@@ -260,6 +263,7 @@ app.add_typer(tutorial_app, name="tutorial", rich_help_panel="Tutorials")
 app.add_typer(auth_app, name="auth", rich_help_panel="Tournament")
 app.add_typer(season_app, name="season", rich_help_panel="Tournament")
 app.add_typer(episode_app, name="episode", rich_help_panel="Tournament")
+app.add_typer(assay_app, name="assay", rich_help_panel="Tournament")
 
 
 def _help_callback(ctx: typer.Context, value: bool) -> None:
@@ -579,6 +583,14 @@ def play_cmd(
         help="Max steps per episode (note: -s is steps, not seed).",
         rich_help_panel="Simulation",
     ),
+    action_timeout_ms: int = typer.Option(
+        10000,
+        "--action-timeout-ms",
+        metavar="MS",
+        help="Max ms per action before noop.",
+        min=1,
+        rich_help_panel="Simulation",
+    ),
     render: Literal["auto", "gui", "vibescope", "unicode", "log", "none"] = typer.Option(  # noqa: B008
         "auto",
         "--render",
@@ -704,6 +716,7 @@ def play_cmd(
         seed=seed,
         device=str(resolved_device),
         render_mode=render,
+        action_timeout_ms=action_timeout_ms,
         game_name=resolved_mission,
         save_replay=save_replay_dir,
         save_replay_file=save_replay_file,
@@ -2151,6 +2164,12 @@ def submit_cmd(
     console.print(f"\n[bold green]Submitted to season '{season_name}'[/bold green]")
     if result.pools:
         console.print(f"[dim]Added to pools: {', '.join(result.pools)}[/dim]")
+    profile_url = observatory_profile_url(pv.id, login_server_url=login_server)
+    console.print(f"[dim]Profile:[/dim] {profile_url}")
+    if has_display():
+        webbrowser.open(profile_url)
+    else:
+        console.print("[dim]Browser launch skipped: no GUI display detected[/dim]")
     console.print(f"[dim]Results:[/dim] {RESULTS_URL}")
     console.print(f"[dim]CLI:[/dim] cogames leaderboard --season {season_name}")
 

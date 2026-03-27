@@ -219,6 +219,7 @@ def create_pandas_udtf_in_sproc(
     udtf_packages: str = "",
     udtf_imports: str = "",
     artifact_repository: str | None = None,
+    session_id: str = "",
 ) -> str:
     session = get_or_create_snowpark_session()
     sproc_name = _get_or_create_pandas_udtf_sproc_helper(
@@ -243,6 +244,7 @@ def create_pandas_udtf_in_sproc(
         udtf_packages,
         udtf_imports,
         artifact_repository,
+        session_id,
     )
 
 
@@ -270,7 +272,8 @@ CREATE OR REPLACE TEMPORARY PROCEDURE {sproc_name}(
     return_schema_json_str VARCHAR,
     udtf_packages VARCHAR,
     udtf_imports VARCHAR,
-    artifact_repository VARCHAR
+    artifact_repository VARCHAR,
+    session_id VARCHAR
 )
 RETURNS STRING
 LANGUAGE PYTHON
@@ -289,7 +292,7 @@ from snowflake.snowpark.types import _parse_datatype_json_value
 
 {inline_udtf_utils_py_code}
 
-def create(session, b64_str, spark_column_names_json_str, input_schema_json_str, return_schema_json_str, udtf_packages, udtf_imports, artifact_repository):
+def create(session, b64_str, spark_column_names_json_str, input_schema_json_str, return_schema_json_str, udtf_packages, udtf_imports, artifact_repository, session_id):
     session._use_scoped_temp_objects = False
     import snowflake.snowpark.context as context
     context._use_structured_type_semantics = True
@@ -311,11 +314,11 @@ def create(session, b64_str, spark_column_names_json_str, input_schema_json_str,
     map_in_arrow = udf_proto.WhichOneof("function") == "python_udf" and udf_proto.python_udf.eval_type == 207
     if map_in_arrow:
         map_udtf = create_pandas_udtf_with_arrow(
-            udf_proto, spark_column_names, input_schema, return_schema, udtf_packages, udtf_imports, artifact_repository=artifact_repository
+            udf_proto, spark_column_names, input_schema, return_schema, udtf_packages, udtf_imports, artifact_repository=artifact_repository, session_id=session_id
         )
     else:
         map_udtf = create_pandas_udtf(
-            udf_proto, spark_column_names, input_schema, return_schema, udtf_packages, udtf_imports, artifact_repository=artifact_repository
+            udf_proto, spark_column_names, input_schema, return_schema, udtf_packages, udtf_imports, artifact_repository=artifact_repository, session_id=session_id
         )
     return map_udtf.name
 $$;
@@ -628,6 +631,7 @@ def create_cogroup_udtf_in_sproc(
     udtf_packages: str,
     udtf_imports: str,
     artifact_repository: str | None = None,
+    session_id: str = "",
 ) -> str:
     """
     This is used when the local Python version doesn't match the UDF's Python version,
@@ -640,9 +644,10 @@ def create_cogroup_udtf_in_sproc(
     )
 
     udtf_base64 = base64.b64encode(udtf_proto.python_udf.command).decode("ascii")
-    udtf_name = (
+    base_name = (
         "cogroup_pandas_udtf_" + hashlib.md5(udtf_proto.python_udf.command).hexdigest()
     )
+    udtf_name = f"{base_name}_{session_id.replace('-','_')}"
 
     output_column_original_names = [
         field.original_column_identifier for field in output_schema.fields

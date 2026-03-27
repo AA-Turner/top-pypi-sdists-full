@@ -81,12 +81,10 @@ def emulate_integral_types(t: DataType) -> DataType:
     Returns:
         The transformed DataType with integral type conversions applied based on precision.
     """
-    global _integral_types_conversion_enabled
-
-    with _client_mode_lock:
-        enabled = _integral_types_conversion_enabled
-
-    if not enabled or getattr(t, "_is_already_mapped", False):
+    if (
+        getattr(t, "_is_already_mapped", False)
+        or not is_integral_types_conversion_enabled()
+    ):
         return t
 
     if isinstance(t, _IntegralType):
@@ -138,13 +136,13 @@ def emulate_integral_types(t: DataType) -> DataType:
     return ret
 
 
-def emulate_decimal_type(t: _IntegralType) -> Union[DecimalType, _IntegralType]:
-    global _integral_types_conversion_enabled
-
+def is_integral_types_conversion_enabled() -> bool:
     with _client_mode_lock:
-        enabled = _integral_types_conversion_enabled
+        return _integral_types_conversion_enabled
 
-    if not enabled:
+
+def emulate_decimal_type(t: _IntegralType) -> Union[DecimalType, _IntegralType]:
+    if not is_integral_types_conversion_enabled():
         return t
 
     if isinstance(t, ByteType):

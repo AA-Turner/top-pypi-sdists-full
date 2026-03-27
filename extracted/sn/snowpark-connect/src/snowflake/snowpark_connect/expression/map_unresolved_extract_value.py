@@ -2,9 +2,13 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+import uuid
+from collections import defaultdict
+
 import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
 
 import snowflake.snowpark.functions as snowpark_fn
+from snowflake.snowpark import Session
 from snowflake.snowpark._internal.analyzer.expression import Literal
 from snowflake.snowpark.types import (
     ArrayType,
@@ -32,6 +36,25 @@ def _check_if_array_type(
     )
 
 
+def _is_array_struct_field_access(
+    child_typed_column: TypedColumn, extract_typed_column: TypedColumn
+) -> bool:
+    """True when .getField(string) targets an ArrayType(StructType(...)).
+
+    Spark extracts the named field from every element, producing
+    ArrayType(field_type) via TRANSFORM.
+    """
+    child_types = child_typed_column.types
+    return (
+        child_types is not None
+        and len(child_types) == 1
+        and isinstance(child_types[0], ArrayType)
+        and isinstance(child_types[0].element_type, StructType)
+        and isinstance(extract_typed_column.col._expression, Literal)
+        and isinstance(extract_typed_column.col._expression.value, str)
+    )
+
+
 def map_unresolved_extract_value(
     exp: expressions_proto.Expression,
     column_mapping: ColumnNameMap,
@@ -49,11 +72,7 @@ def map_unresolved_extract_value(
         column_mapping,
         typer,
     )
-    spark_function_name = (
-        f"{child_name}.{extract_name}"
-        if isinstance(child_typed_column.typ, StructType)
-        else f"{child_name}[{extract_name}]"
-    )
+    display_child_name = child_typed_column._spark_struct_field_path or child_name
     # Spark respects "spark.sql.caseSensitive" for struct fields
     # map keys are compared as-is
     if global_config.spark_sql_caseSensitive or isinstance(
@@ -62,7 +81,17 @@ def map_unresolved_extract_value(
         extract_fn = snowpark_fn.get
     else:
         extract_fn = snowpark_fn.get_ignore_case
+
     is_array = _check_if_array_type(extract_typed_column, child_typed_column)
+    is_array_struct_field = _is_array_struct_field_access(
+        child_typed_column, extract_typed_column
+    )
+
+    if isinstance(child_typed_column.typ, StructType) or is_array_struct_field:
+        spark_function_name = f"{display_child_name}.{extract_name}"
+    else:
+        spark_function_name = f"{display_child_name}[{extract_name}]"
+
     if is_array:
         if isinstance(extract_typed_column.typ, NullType):
             result_exp = snowpark_fn.lit(None)
@@ -96,6 +125,24 @@ def map_unresolved_extract_value(
                 )
             )
 
+    elif is_array_struct_field:
+        var_name = f"item_{uuid.uuid4().hex[:8]}"
+        inner_exp = extract_fn(snowpark_fn.sql_expr(var_name), extract_typed_column.col)
+        inner_exp = snowpark_fn.iff(
+            snowpark_fn.call_function(
+                "IS_NULL_VALUE", snowpark_fn.to_variant(inner_exp)
+            ),
+            snowpark_fn.lit(None),
+            inner_exp,
+        )
+        analyzer = Session.get_active_session()._analyzer
+        inner_sql = analyzer.analyze(inner_exp._expression, defaultdict())
+        result_exp = snowpark_fn.call_function(
+            "transform",
+            child_typed_column.col,
+            snowpark_fn.sql_expr(f"{var_name} -> {inner_sql}"),
+        )
+
     else:
         result_exp = extract_fn(child_typed_column.col, extract_typed_column.col)
         # Snowflake's GET/GET_IGNORE_CASE on structured types may return a value
@@ -124,6 +171,18 @@ def map_unresolved_extract_value(
     def _get_extracted_value_type():
         if is_array:
             return [child_typed_column.typ.element_type]
+        elif is_array_struct_field:
+            element_struct = child_typed_column.typ.element_type
+            field_name = extract_typed_column.col._expression.value
+            if not global_config.spark_sql_caseSensitive:
+                field_name = field_name.lower()
+            for f in element_struct.fields:
+                name = (
+                    f.name if global_config.spark_sql_caseSensitive else f.name.lower()
+                )
+                if name == field_name:
+                    return [ArrayType(f.datatype)]
+            return typer.type(result_exp)
         elif isinstance(child_typed_column.typ, MapType):
             return [child_typed_column.typ.value_type]
         elif (

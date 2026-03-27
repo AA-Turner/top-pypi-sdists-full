@@ -347,6 +347,7 @@ __all__ = (
     "PutTransformerRequestTypeDef",
     "QueryDefinitionTypeDef",
     "QueryInfoTypeDef",
+    "QueryParameterTypeDef",
     "QueryStatisticsTypeDef",
     "RecordFieldTypeDef",
     "RejectedEntityInfoTypeDef",
@@ -818,14 +819,6 @@ class DescribeQueryDefinitionsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
-class QueryDefinitionTypeDef(TypedDict):
-    queryLanguage: NotRequired[QueryLanguageType]
-    queryDefinitionId: NotRequired[str]
-    name: NotRequired[str]
-    queryString: NotRequired[str]
-    lastModified: NotRequired[int]
-    logGroupNames: NotRequired[list[str]]
-
 class DescribeResourcePoliciesRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     limit: NotRequired[int]
@@ -861,6 +854,8 @@ class SubscriptionFilterTypeDef(TypedDict):
 class S3ConfigurationTypeDef(TypedDict):
     destinationIdentifier: str
     roleArn: str
+    ownerAccountId: NotRequired[str]
+    kmsKeyId: NotRequired[str]
 
 class DisassociateKmsKeyRequestTypeDef(TypedDict):
     logGroupName: NotRequired[str]
@@ -1230,13 +1225,10 @@ class PutLogGroupDeletionProtectionRequestTypeDef(TypedDict):
     logGroupIdentifier: str
     deletionProtectionEnabled: bool
 
-class PutQueryDefinitionRequestTypeDef(TypedDict):
+class QueryParameterTypeDef(TypedDict):
     name: str
-    queryString: str
-    queryLanguage: NotRequired[QueryLanguageType]
-    queryDefinitionId: NotRequired[str]
-    logGroupNames: NotRequired[Sequence[str]]
-    clientToken: NotRequired[str]
+    defaultValue: NotRequired[str]
+    description: NotRequired[str]
 
 class PutResourcePolicyRequestTypeDef(TypedDict):
     policyName: NotRequired[str]
@@ -1786,11 +1778,6 @@ class DescribeQueriesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class DescribeQueryDefinitionsResponseTypeDef(TypedDict):
-    queryDefinitions: list[QueryDefinitionTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
 class DescribeResourcePoliciesResponseTypeDef(TypedDict):
     resourcePolicies: list[ResourcePolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1953,6 +1940,24 @@ class PutLogEventsResponseTypeDef(TypedDict):
     rejectedLogEventsInfo: RejectedLogEventsInfoTypeDef
     rejectedEntityInfo: RejectedEntityInfoTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class PutQueryDefinitionRequestTypeDef(TypedDict):
+    name: str
+    queryString: str
+    queryLanguage: NotRequired[QueryLanguageType]
+    queryDefinitionId: NotRequired[str]
+    logGroupNames: NotRequired[Sequence[str]]
+    clientToken: NotRequired[str]
+    parameters: NotRequired[Sequence[QueryParameterTypeDef]]
+
+class QueryDefinitionTypeDef(TypedDict):
+    queryLanguage: NotRequired[QueryLanguageType]
+    queryDefinitionId: NotRequired[str]
+    name: NotRequired[str]
+    queryString: NotRequired[str]
+    lastModified: NotRequired[int]
+    logGroupNames: NotRequired[list[str]]
+    parameters: NotRequired[list[QueryParameterTypeDef]]
 
 class RenameKeysOutputTypeDef(TypedDict):
     entries: list[RenameKeyEntryTypeDef]
@@ -2196,6 +2201,11 @@ class PutIntegrationRequestTypeDef(TypedDict):
     integrationName: str
     resourceConfig: ResourceConfigTypeDef
     integrationType: Literal["OPENSEARCH"]
+
+class DescribeQueryDefinitionsResponseTypeDef(TypedDict):
+    queryDefinitions: list[QueryDefinitionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 RenameKeysUnionTypeDef = Union[RenameKeysTypeDef, RenameKeysOutputTypeDef]
 

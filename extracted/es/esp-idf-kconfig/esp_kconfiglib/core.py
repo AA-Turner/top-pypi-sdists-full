@@ -33,6 +33,7 @@ from esp_kconfiglib.constants import DefaultsPolicy
 from esp_kconfiglib.report import PRAGMA_PREFIX
 from esp_kconfiglib.report import STATUS_ERROR as REPORT_STATUS_ERROR
 from esp_kconfiglib.report import DefaultValuesArea
+from esp_kconfiglib.report import DisabledSymbolArea
 from esp_kconfiglib.report import KconfigReport
 from esp_kconfiglib.report import MiscArea
 from esp_kconfiglib.report import MultipleAssignmentArea
@@ -1530,28 +1531,42 @@ class Kconfig(object):
             #############################################
 
             for choice in choices_with_user_set_value:
+                choice_selections = choices_with_user_set_value[choice]
+                if choice.visibility == 0:
+                    if is_main_sdkconfig:  # Only report if loading main sdkconfig
+                        if all(val == "n" for _, val in choice_selections):
+                            choice_user_val: Optional[str] = None
+                        else:
+                            choice_user_val = _choice_user_entries_last_y_name(choice_selections)
+                        self.report.add_record(
+                            DisabledSymbolArea,
+                            sym_or_choice=choice,
+                            user_value=choice_user_val,
+                        )
                 # if all symbols are set to n, we need to report that the current choice selection
                 # is attempted to be set to n without setting another choice symbol to y
-                if all(val == "n" for _, val in choices_with_user_set_value[choice]):
-                    self.report.add_record(
-                        MiscArea,
-                        message=(
-                            f"Trying to set symbol {choice.selection.name} to n, but it is currently selected "
-                            f"by choice {choice.name}. For setting it to n, set another choice symbol to y instead."
-                        ),
-                    )
+                elif all(val == "n" for _, val in choice_selections):
+                    sel = choice.selection
+                    if sel is not None:
+                        self.report.add_record(
+                            MiscArea,
+                            message=(
+                                f"Trying to set symbol {sel.name} to n, but it is currently selected "
+                                f"by choice {choice.name}. For setting it to n, set another choice symbol to y instead."
+                            ),
+                        )
                 # if there are multiple active selections, report that the last one will be used
-                if len([val for _, val in choices_with_user_set_value[choice] if val == "y"]) > 1:
-                    active_selections = [sym.name for sym, val in choices_with_user_set_value[choice] if val == "y"]
+                elif len([val for _, val in choice_selections if val == "y"]) > 1:
+                    last_y_name = _choice_user_entries_last_y_name(choice_selections)
                     self.report.add_record(
                         MiscArea,
                         message=(
                             f"Choice {choice.name} has multiple active selections. "
-                            f"The last one will be used: {active_selections[-1]} ."
+                            f"The last one will be used: {last_y_name}."
                         ),
                     )
 
-                for sym, val in choices_with_user_set_value[choice]:
+                for sym, val in choice_selections:
                     self.set_value_and_source(sym, val, filename)
                     if is_main_sdkconfig:
                         sym._sdkconfig_value = val
@@ -3280,6 +3295,46 @@ class Kconfig(object):
 
                 node.implies.append((self._expect_nonconst_sym(), self._parse_cond()))
 
+            elif t0 == _T_SET:
+                if node.item.__class__ is not Symbol:
+                    self.report.add_record(
+                        MiscArea,
+                        message=(
+                            f"{self.filename}:{self.linenr}: "
+                            "'set' option is only valid for config and "
+                            "menuconfig entries. Option ignored."
+                        ),
+                    )
+                    while self._tokens[self._tokens_i] is not None:
+                        self._tokens_i += 1
+                    continue
+
+                is_default = self._check_token(_T_DEFAULT)
+
+                if node.item.orig_type and node.item.orig_type is not BOOL:
+                    kind = "set default" if is_default else "set"
+                    self.report.add_record(
+                        MiscArea,
+                        message=(
+                            f"{node.item.name} of type "
+                            f"{TYPE_TO_STR[node.item.orig_type]} "
+                            f"(defined at {self.filename}:{node.linenr}) "
+                            f"has '{kind}' option, which is only supported for "
+                            "boolean symbols. Option ignored."
+                        ),
+                    )
+                    while self._tokens[self._tokens_i] is not None:
+                        self._tokens_i += 1
+                    continue
+
+                output_list = node.weak_sets if is_default else node.sets
+
+                expr = self._parse_expr()
+                if not (isinstance(expr, tuple) and len(expr) == 3 and expr[0] is EQUAL):
+                    self._parse_error("'set' syntax is 'set [default] <config>=<value> [if <condition>]'")
+
+                output_list.append((expr[1], expr[2], self._parse_cond()))
+
             elif t0 == _T_VISIBLE:
                 if not self._check_token(_T_IF):
                     self._parse_error("expected 'if' after 'visible'")
@@ -3849,7 +3904,7 @@ class Kconfig(object):
             if len(choice.nodes) > 1 and choice.name not in self.allowed_multi_def_choices:
                 occurrences = set(f"    {os.path.abspath(node.filename)}:{node.linenr}" for node in choice.nodes)
                 if len(occurrences) > 1:
-                    self.report.add_record(MultipleDefinitionArea, sym_or_choice=sym, occurrences=occurrences)
+                    self.report.add_record(MultipleDefinitionArea, sym_or_choice=choice, occurrences=occurrences)
 
     def _check_sym_sanity(self):
         # Checks various symbol properties that are handiest to check after
@@ -7024,6 +7079,20 @@ def standard_sc_expr_str(sc):
     return f"<choice {sc.name}>" if sc.name else "<choice>"
 
 
+def _choice_user_entries_last_y_name(entries: List[Tuple[Symbol, str]]) -> Optional[str]:
+    """
+    Name of the last symbol set to y in sdkconfig load order (choices_with_user_set_value entries).
+
+    Same 'last wins' rule as for multiple y in deferred load. Related: Choice.resolve_defaults uses
+    y_syms_from_sdkconfig[-1] in definition order with visibility filtering, not this entry order.
+    """
+    last_sym: Optional[Symbol] = None
+    for sym, val in entries:
+        if val == "y":
+            last_sym = sym
+    return last_sym.name if last_sym else None
+
+
 def _parenthesize(expr, type_, sc_expr_str_fn):
     # expr_str() helper. Adds parentheses around expressions of type 'type_'.
 
@@ -7865,7 +7934,8 @@ except AttributeError:
     _T_VISIBLE,
     _T_WARNING,
     _T_FLOAT,
-) = range(1, 53)
+    _T_SET,
+) = range(1, 54)
 
 
 def _recursively_perform_action(start_node, action, exclude_items=[_T_MENU, _T_COMMENT]):
@@ -7929,6 +7999,7 @@ _get_keyword = {
     "range": _T_RANGE,
     "rsource": _T_RSOURCE,
     "select": _T_SELECT,
+    "set": _T_SET,
     "source": _T_SOURCE,
     "string": _T_STRING,
     "visible": _T_VISIBLE,

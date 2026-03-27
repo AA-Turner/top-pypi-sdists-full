@@ -365,37 +365,6 @@ public:
 
 public:
 
-    // deprecated parse methods
-
-    /** @cond dev */
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_place(csubstr filename, substr yaml, Tree *t, size_t node_id);
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_place(                  substr yaml, Tree *t, size_t node_id);
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_place(csubstr filename, substr yaml, Tree *t                );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_place(                  substr yaml, Tree *t                );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_place(csubstr filename, substr yaml, NodeRef node           );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_place(                  substr yaml, NodeRef node           );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, Tree>::type parse_in_place(csubstr filename, substr yaml                         );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, Tree>::type parse_in_place(                  substr yaml                         );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(csubstr filename, csubstr yaml, Tree *t, size_t node_id);
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(                  csubstr yaml, Tree *t, size_t node_id);
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(csubstr filename, csubstr yaml, Tree *t                );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(                  csubstr yaml, Tree *t                );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(csubstr filename, csubstr yaml, NodeRef node           );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(                  csubstr yaml, NodeRef node           );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, Tree>::type parse_in_arena(csubstr filename, csubstr yaml                         );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, Tree>::type parse_in_arena(                  csubstr yaml                         );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(csubstr filename, substr yaml, Tree *t, size_t node_id);
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(                  substr yaml, Tree *t, size_t node_id);
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(csubstr filename, substr yaml, Tree *t                );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(                  substr yaml, Tree *t                );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(csubstr filename, substr yaml, NodeRef node           );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(                  substr yaml, NodeRef node           );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, Tree>::type parse_in_arena(csubstr filename, substr yaml                         );
-    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, Tree>::type parse_in_arena(                  substr yaml                         );
-    /** @endcond */
-
-public:
-
     /** @name locations */
     /** @{ */
 
@@ -538,6 +507,7 @@ private:
     void  _end_seq_blck();
     void  _end2_map();
     void  _end2_seq();
+    void  _flow_container_was_a_key(size_t orig_indent);
 
     void  _begin2_doc();
     void  _begin2_doc_expl();
@@ -661,12 +631,14 @@ private:
     void _free();
     void _clr();
 
+    template<class ...Args> C4_NORETURN C4_NO_INLINE void _err(Location const& cpploc, const char *fmt, Args const& ...args) const;
+    template<class ...Args> C4_NORETURN C4_NO_INLINE void _err(Location const& cpploc, Location const& ymlloc, const char *fmt, Args const& ...args) const;
     #ifdef RYML_DBG
     template<class ...Args> C4_NO_INLINE void _dbg(csubstr fmt, Args const& ...args) const;
     template<class DumpFn>  C4_NO_INLINE void _fmt_msg(DumpFn &&dumpfn) const;
+    C4_NO_INLINE void _print_state_stack() const;
+    C4_NO_INLINE void _print_state_stack(substr buf) const;
     #endif
-    template<class ...Args> C4_NORETURN C4_NO_INLINE void _err(Location const& cpploc, const char *fmt, Args const& ...args) const;
-    template<class ...Args> C4_NORETURN C4_NO_INLINE void _err(Location const& cpploc, Location const& ymlloc, const char *fmt, Args const& ...args) const;
 
 
 private:
@@ -738,6 +710,37 @@ private:
     size_t  m_newline_offsets_size;
     size_t  m_newline_offsets_capacity;
     csubstr m_newline_offsets_buf;
+
+public:
+
+    // deprecated parse methods
+
+    /** @cond dev */
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_place(csubstr filename, substr yaml, Tree *t, size_t node_id);
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_place(                  substr yaml, Tree *t, size_t node_id);
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_place(csubstr filename, substr yaml, Tree *t                );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_place(                  substr yaml, Tree *t                );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_place(csubstr filename, substr yaml, NodeRef node           );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_place(                  substr yaml, NodeRef node           );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, Tree>::type parse_in_place(csubstr filename, substr yaml                         );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, Tree>::type parse_in_place(                  substr yaml                         );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(csubstr filename, csubstr yaml, Tree *t, size_t node_id);
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(                  csubstr yaml, Tree *t, size_t node_id);
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(csubstr filename, csubstr yaml, Tree *t                );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(                  csubstr yaml, Tree *t                );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(csubstr filename, csubstr yaml, NodeRef node           );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(                  csubstr yaml, NodeRef node           );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, Tree>::type parse_in_arena(csubstr filename, csubstr yaml                         );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the function in parse.hpp.") typename std::enable_if<U::is_wtree, Tree>::type parse_in_arena(                  csubstr yaml                         );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(csubstr filename, substr yaml, Tree *t, size_t node_id);
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(                  substr yaml, Tree *t, size_t node_id);
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(csubstr filename, substr yaml, Tree *t                );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(                  substr yaml, Tree *t                );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(csubstr filename, substr yaml, NodeRef node           );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, void>::type parse_in_arena(                  substr yaml, NodeRef node           );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, Tree>::type parse_in_arena(csubstr filename, substr yaml                         );
+    template<class U=EventHandler> RYML_DEPRECATED("removed, deliberately undefined. use the csubstr version in parse.hpp.") typename std::enable_if<U::is_wtree, Tree>::type parse_in_arena(                  substr yaml                         );
+    /** @endcond */
 
 };
 

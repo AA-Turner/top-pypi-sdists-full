@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ecdsa
-Version: 0.19.1
+Version: 0.19.2
 Summary: ECDSA cryptographic signature library (pure python)
 Home-page: http://github.com/tlsfuzzer/python-ecdsa
 Author: Brian Warner

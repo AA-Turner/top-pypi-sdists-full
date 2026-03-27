@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.8.11
+Version: 0.8.14
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -164,7 +164,6 @@ Requires-Dist: pydantic<3.0.0,>=2.6.1; extra == "drtools"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "drtools"
 Requires-Dist: datarobot-early-access==3.14.0.2026.3.18.162920; extra == "drtools"
 Requires-Dist: aiohttp<4.0.0,>=3.9.0; extra == "drtools"
-Requires-Dist: fastmcp<3.0.0,>=2.13.0.2; extra == "drtools"
 Provides-Extra: dragent
 Requires-Dist: requests<3.0.0,>=2.32.4; extra == "dragent"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "dragent"

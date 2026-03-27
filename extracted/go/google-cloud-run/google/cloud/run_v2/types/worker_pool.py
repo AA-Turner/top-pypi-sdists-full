@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.api import launch_stage_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api.launch_stage_pb2 as launch_stage_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.run_v2.types import (
@@ -405,7 +405,8 @@ class WorkerPool(proto.Message):
             Threat Detection monitoring is enabled for the
             parent project of this worker pool.
         custom_audiences (MutableSequence[str]):
-            Not supported, and ignored by Cloud Run.
+            Deprecated: Not supported, and ignored by
+            Cloud Run.
         satisfies_pzs (bool):
             Output only. Reserved for future use.
         reconciling (bool):
@@ -520,12 +521,12 @@ class WorkerPool(proto.Message):
         number=18,
         message=worker_pool_revision_template.WorkerPoolRevisionTemplate,
     )
-    instance_splits: MutableSequence[
-        instance_split.InstanceSplit
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=26,
-        message=instance_split.InstanceSplit,
+    instance_splits: MutableSequence[instance_split.InstanceSplit] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=26,
+            message=instance_split.InstanceSplit,
+        )
     )
     scaling: vendor_settings.WorkerPoolScaling = proto.Field(
         proto.MESSAGE,
@@ -554,12 +555,12 @@ class WorkerPool(proto.Message):
         proto.STRING,
         number=34,
     )
-    instance_split_statuses: MutableSequence[
-        instance_split.InstanceSplitStatus
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=27,
-        message=instance_split.InstanceSplitStatus,
+    instance_split_statuses: MutableSequence[instance_split.InstanceSplitStatus] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=27,
+            message=instance_split.InstanceSplitStatus,
+        )
     )
     threat_detection_enabled: bool = proto.Field(
         proto.BOOL,

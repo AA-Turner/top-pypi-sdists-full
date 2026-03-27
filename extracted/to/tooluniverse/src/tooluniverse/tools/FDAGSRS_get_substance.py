@@ -1,7 +1,7 @@
 """
 FDAGSRS_get_substance
 
-Get full FDA substance record by UNII (Unique Ingredient Identifier) code.
+Get full FDA substance record by UNII (Unique Ingredient Identifier) code. Returns complete subst...
 """
 
 from typing import Any, Optional, Callable
@@ -16,12 +16,12 @@ def FDAGSRS_get_substance(
     validate: bool = True,
 ) -> Any:
     """
-    Get full FDA substance record by UNII code.
+    Get full FDA substance record by UNII (Unique Ingredient Identifier) code. Returns complete subst...
 
     Parameters
     ----------
     unii : str
-        FDA UNII (Unique Ingredient Identifier) code (e.g., 'R16CO5Y76E' for aspirin).
+        FDA UNII (Unique Ingredient Identifier) code. 10-character alphanumeric strin...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -33,10 +33,14 @@ def FDAGSRS_get_substance(
     -------
     Any
     """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"unii": unii}.items() if v is not None}
     return get_shared_client().run_one_function(
         {
             "name": "FDAGSRS_get_substance",
-            "arguments": {"unii": unii},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

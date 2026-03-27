@@ -1190,7 +1190,7 @@ class TestSubclasses(unittest.TestCase):
         from multiprocessing import Queue
 
         from abstra_internals.repositories.consumer import EditorConsumer
-        from abstra_internals.repositories.producer import PreExecution, QueueMessage
+        from abstra_internals.repositories.models import PreExecution, QueueMessage
 
         q = Queue()
         consumer = EditorConsumer(q)
@@ -1216,7 +1216,7 @@ class TestSubclasses(unittest.TestCase):
         from multiprocessing import Queue
 
         from abstra_internals.repositories.consumer import EditorConsumer
-        from abstra_internals.repositories.producer import PreExecution, QueueMessage
+        from abstra_internals.repositories.models import PreExecution, QueueMessage
 
         q = Queue()
         consumer = EditorConsumer(q)

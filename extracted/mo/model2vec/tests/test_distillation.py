@@ -8,8 +8,10 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 from pytest import LogCaptureFixture
+from skeletoken import TokenizerModel
 from transformers import BertTokenizerFast
 from transformers.modeling_utils import PreTrainedModel
+from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
 from model2vec.distill.distillation import distill, distill_from_model
 from model2vec.distill.inference import PoolingMode, create_embeddings, post_process_embeddings
@@ -42,7 +44,7 @@ rng = np.random.default_rng()
 def test_distill_from_model(
     mock_auto_model: MagicMock,
     mock_model_info: MagicMock,
-    mock_berttokenizer: BertTokenizerFast,
+    mock_berttokenizer: PreTrainedTokenizerFast,
     mock_transformer: PreTrainedModel,
     vocabulary: list[str] | None,
     pca_dims: int | None,
@@ -80,7 +82,7 @@ def test_distill_from_model(
 
 @patch.object(import_module("model2vec.distill.distillation"), "model_info")
 @patch("transformers.AutoModel.from_pretrained")
-def test_distill_removal_pattern(
+def test_distill_removal_pattern_all_tokens(
     mock_auto_model: MagicMock,
     mock_model_info: MagicMock,
     mock_berttokenizer: BertTokenizerFast,
@@ -90,8 +92,34 @@ def test_distill_removal_pattern(
     mock_model_info.return_value = type("ModelInfo", (object,), {"cardData": {"language": "en"}})
     mock_auto_model.return_value = mock_transformer
 
-    # The vocab size is 30522, but we remove 998 tokens: [CLS], [SEP], and [MASK], and all [unused] tokens.
-    expected_vocab_size = mock_berttokenizer.vocab_size - 998
+    # Even if we remove all tokens, we can't remove the [UNK] token
+    model = distill_from_model(
+        model=mock_transformer,
+        tokenizer=mock_berttokenizer,
+        vocabulary=None,
+        device="cpu",
+        token_remove_pattern=r".*",
+    )
+
+    # So the only token left is the [UNK] token.
+    assert model.tokens == ("[UNK]",)
+
+
+@patch.object(import_module("model2vec.distill.distillation"), "model_info")
+@patch("transformers.AutoModel.from_pretrained")
+@pytest.mark.parametrize("mock_transformer", [{"vocab_size": 35022}], indirect=True)
+def test_distill_removal_pattern(
+    mock_auto_model: MagicMock,
+    mock_model_info: MagicMock,
+    mock_berttokenizer: PreTrainedTokenizerFast,
+    mock_transformer: PreTrainedModel,
+) -> None:
+    """Test the removal pattern."""
+    mock_model_info.return_value = type("ModelInfo", (object,), {"cardData": {"language": "en"}})
+    mock_auto_model.return_value = mock_transformer
+
+    # Because the added [MASK], [CLS] and [SEP] get removed
+    expected_vocab_size = mock_berttokenizer.vocab_size - 3
 
     static_model = distill_from_model(
         model=mock_transformer,
@@ -112,6 +140,16 @@ def test_distill_removal_pattern(
     )
     assert len(static_model.embedding) == expected_vocab_size
 
+    # Test whether regexes remove words from the vocabulary
+    static_model = distill_from_model(
+        model=mock_transformer,
+        tokenizer=mock_berttokenizer,
+        vocabulary=["hellooooooo"],
+        device="cpu",
+        token_remove_pattern="hellooooooo",
+    )
+    assert "hellooooooo" not in static_model.tokens
+
     # Weird pattern.
     with pytest.raises(ValueError):
         _ = distill_from_model(
@@ -126,18 +164,19 @@ def test_distill_removal_pattern(
 @pytest.mark.parametrize(
     "vocabulary, pca_dims, sif_coefficient, expected_shape",
     [
-        (None, 256, None, (29524, 256)),  # PCA applied, SIF off
-        (None, "auto", None, (29524, 768)),  # PCA 'auto', SIF off
-        (None, "auto", 1e-4, (29524, 768)),  # PCA 'auto', SIF on
+        (None, 256, None, (30519, 256)),  # PCA applied, SIF off
+        (None, "auto", None, (30519, 768)),  # PCA 'auto', SIF off
+        (None, "auto", 1e-4, (30519, 768)),  # PCA 'auto', SIF on
         (None, "auto", 0, None),  # invalid SIF (too low) -> raises
         (None, "auto", 1, None),  # invalid SIF (too high) -> raises
-        (None, 1024, None, (29524, 768)),  # PCA set high (no reduction)
-        (["wordA", "wordB"], 4, None, (29526, 4)),  # Custom vocab, PCA applied
-        (None, None, None, (29524, 768)),  # No PCA, SIF off
+        (None, 1024, None, (30519, 768)),  # PCA set high (no reduction)
+        (["wordA", "wordB"], 4, None, (30521, 4)),  # Custom vocab, PCA applied
+        (None, None, None, (30519, 768)),  # No PCA, SIF off
     ],
 )
 @patch.object(import_module("model2vec.distill.distillation"), "model_info")
 @patch("transformers.AutoModel.from_pretrained")
+@pytest.mark.parametrize("mock_transformer", [{"vocab_size": 30522}], indirect=True)
 def test_distill(
     mock_auto_model: MagicMock,
     mock_model_info: MagicMock,
@@ -161,6 +200,7 @@ def test_distill(
                 device="cpu",
                 pca_dims=pca_dims,
                 sif_coefficient=sif_coefficient,
+                token_remove_pattern=None,
             )
     else:
         static_model = distill(
@@ -169,6 +209,7 @@ def test_distill(
             device="cpu",
             pca_dims=pca_dims,
             sif_coefficient=sif_coefficient,
+            token_remove_pattern=None,
         )
         assert isinstance(static_model, StaticModel)
         assert static_model.embedding.shape == expected_shape
@@ -180,10 +221,12 @@ def test_distill(
 def test_missing_modelinfo(
     mock_model_info: MagicMock,
     mock_transformer: PreTrainedModel,
-    mock_berttokenizer: BertTokenizerFast,
+    mock_berttokenizer: PreTrainedTokenizerFast,
 ) -> None:
     """Test that missing model info does not crash."""
-    mock_model_info.side_effect = RepositoryNotFoundError("Model not found")
+    mock_response = MagicMock()
+    mock_response.status_code = 404
+    mock_model_info.side_effect = RepositoryNotFoundError("Model not found", response=mock_response)
     static_model = distill_from_model(model=mock_transformer, tokenizer=mock_berttokenizer, device="cpu")
     assert static_model.language is None
 
@@ -229,15 +272,16 @@ def test__post_process_embeddings(
     "added_tokens, expected_output, expected_warnings",
     [
         # Case: duplicates ("2010", "government") and an empty token ("")
-        (["2010", "government", "nerv", ""], ["nerv"], ["Removed", "duplicate", "empty"]),
+        (["2010", "government", "nerv", ""], ["nerv"], ["already", "empty"]),
         # Case: No duplicates, no empty tokens
         (["worda", "wordb", "wordc"], ["worda", "wordb", "wordc"], []),
         # Case: Only empty token (""), should return an empty list
-        ([""], [], ["Removed", "empty"]),
+        ([""], [], ["empty"]),
+        (["multi word token"], ["multi word token"], []),
     ],
 )
 def test_clean_and_create_vocabulary(
-    mock_berttokenizer: BertTokenizerFast,
+    mock_tokenizermodel: TokenizerModel,
     added_tokens: list[str],
     expected_output: list[str],
     expected_warnings: list[str],
@@ -245,11 +289,12 @@ def test_clean_and_create_vocabulary(
 ) -> None:
     """Test the clean_and_create_vocabulary helper."""
     with caplog.at_level("WARNING"):
-        tokens, _ = clean_and_create_vocabulary(mock_berttokenizer, added_tokens, None)
+        old_tokens = mock_tokenizermodel.sorted_vocabulary
+        tokenizer_model = clean_and_create_vocabulary(mock_tokenizermodel, added_tokens, None)
+        tokens = set(tokenizer_model.sorted_vocabulary) - set(old_tokens)
 
-        cleaned_vocab = [token.form for token in tokens if not token.is_internal]
         # Check the cleaned vocabulary matches the expected output
-        assert cleaned_vocab == expected_output
+        assert tokens == set(expected_output)
 
         # Check the warnings were logged as expected
         logged_warnings = [record.message for record in caplog.records]
@@ -266,9 +311,11 @@ def test_clean_and_create_vocabulary(
         (PoolingMode.POOLER, True, [7.0, 7.0]),  # pooler_output used
     ],
 )
-def test_pooling_strategies(mock_transformer, pooling, with_pooler, expected_rows) -> None:
+def test_pooling_strategies(
+    mock_transformer: PreTrainedModel, pooling: PoolingMode, with_pooler: bool, expected_rows: tuple[float, float]
+) -> None:
     """Test different pooling strategies."""
-    mock_transformer.with_pooler = with_pooler
+    mock_transformer.with_pooler = with_pooler  # type: ignore
     tokenized = [[10, 11, 12], [20]]
     out = create_embeddings(
         model=mock_transformer,
@@ -282,9 +329,9 @@ def test_pooling_strategies(mock_transformer, pooling, with_pooler, expected_row
     assert np.allclose(out, expected, rtol=1e-6, atol=0.0)
 
 
-def test_pooler_raises_without_pooler_output(mock_transformer) -> None:
+def test_pooler_raises_without_pooler_output(mock_transformer: PreTrainedModel) -> None:
     """POOLER should raise when the model doesn't expose pooler_output."""
-    mock_transformer.with_pooler = False
+    mock_transformer.with_pooler = False  # type: ignore
     tokenized = [[10, 11, 12], [20]]
     with pytest.raises(ValueError, match="pooler_output"):
         _ = create_embeddings(

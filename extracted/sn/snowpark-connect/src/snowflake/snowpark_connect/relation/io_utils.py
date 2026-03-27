@@ -41,7 +41,17 @@ SUPPORTED_COMPRESSION_PER_FORMAT = {
         "UNCOMPRESSED",
     },
     "parquet": {"AUTO", "LZO", "SNAPPY", "NONE", "UNCOMPRESSED"},
-    "text": {"NONE", "UNCOMPRESSED"},
+    "text": {
+        "AUTO",
+        "GZIP",
+        "BZ2",
+        "BROTLI",
+        "ZSTD",
+        "DEFLATE",
+        "RAW_DEFLATE",
+        "NONE",
+        "UNCOMPRESSED",
+    },
 }
 
 
@@ -74,13 +84,13 @@ def _get_last_extension(file_path: str) -> str:
 def infer_compression_from_file_extension(
     file_paths: list[str], read_format: str
 ) -> str:
-    """Infer compression from file extensions for CSV/JSON reads.
+    """Infer compression from file extensions for CSV/JSON/text reads.
 
     Returns the compression type if all files share the same one, "AUTO"
     for mixed/unrecognized extensions, or raises if unsupported.
     """
     match read_format:
-        case "json" | "csv":
+        case "json" | "csv" | "text":
             if not file_paths:
                 return "AUTO"
             inferred: set[str] = set()
@@ -128,7 +138,7 @@ def get_compression_for_source_and_options(
     compression = options.get("compression", default_compression).upper()
     if compression == "UNCOMPRESSED":
         compression = "NONE"
-    elif compression == "BZIP2" and source in ["json", "csv"]:
+    elif compression == "BZIP2" and source in ["json", "csv", "text"]:
         compression = "BZ2"
 
     if not is_supported_compression(source, compression):

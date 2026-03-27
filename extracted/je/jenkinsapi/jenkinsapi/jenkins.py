@@ -22,6 +22,7 @@ from jenkinsapi.credentials import CredentialsById
 from jenkinsapi.executors import Executors
 from jenkinsapi.jobs import Jobs
 from jenkinsapi.job import Job
+from jenkinsapi.lockable_resources import LockableResources
 from jenkinsapi.view import View
 from jenkinsapi.label import Label
 from jenkinsapi.node import Node
@@ -466,7 +467,14 @@ class Jenkins(JenkinsBase):
         @param force_restart: Boolean, force Jenkins to restart,
             ignoring plugin preferences
         """
-        if isinstance(plugin, Plugin):
+        if isinstance(plugin, str):
+            if "@" in plugin:
+                raise ValueError(
+                    "Plugin name must not include a version. "
+                    'Use the short name only, e.g. "plugin-name" not "%s"'
+                    % plugin
+                )
+        elif isinstance(plugin, Plugin):
             plugin = plugin.shortName
         del self.plugins[plugin]
         if force_restart or (restart and self.plugins.restart_required):
@@ -779,3 +787,6 @@ class Jenkins(JenkinsBase):
         opener = build_opener(SmartRedirectHandler())
         res = opener.open(request)
         Requester.AUTH_COOKIE = res.cookie
+
+    def get_lockable_resources(self) -> LockableResources:
+        return LockableResources(self)

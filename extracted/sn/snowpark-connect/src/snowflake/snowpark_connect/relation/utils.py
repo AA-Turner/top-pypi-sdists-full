@@ -14,6 +14,7 @@ import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark import Column
+from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
 from snowflake.snowpark.types import (
     BinaryType,
     BooleanType,
@@ -36,7 +37,15 @@ from snowflake.snowpark_connect.column_name_handler import (
     make_column_names_snowpark_compatible,
 )
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
+from snowflake.snowpark_connect.error.error_codes import ErrorCodes
+from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.map_relation import map_relation
+from snowflake.snowpark_connect.utils.identifiers import (
+    split_fully_qualified_spark_name,
+)
+from snowflake.snowpark_connect.utils.telemetry import (
+    SnowparkConnectNotImplementedError,
+)
 
 TYPE_MAP_FOR_TO_SCHEMA = {
     StringType: {
@@ -334,6 +343,166 @@ def is_aggregate_function(func_name: str) -> bool:
 
     except Exception:
         return False
+
+
+def _sf_connector_identifiers_match(desired: str, current: str | None) -> bool:
+    """Case-insensitive identifier comparison for Snowflake Connector for Spark options.
+
+    Snowflake's ``session.get_current_*`` methods always return the identifier in quoted
+    form (e.g. ``"MY_ROLE"``).  When the caller supplies an unquoted value the comparison
+    is done case-insensitively; when the caller supplies a quoted value an exact match is
+    required so that case-sensitive identifiers are respected.
+    """
+    if current is None:
+        return False
+    desired_unquoted = unquote_if_quoted(desired)
+    current_unquoted = unquote_if_quoted(current)
+    desired_was_quoted = desired != desired_unquoted
+    # If the desired identifier was quoted, require an exact match.
+    if desired_was_quoted:
+        return desired == current
+    return desired_unquoted.upper() == current_unquoted
+
+
+def assert_sf_connector_auth_options_match(
+    session: snowpark.Session, sf_options: dict[str, str]
+) -> None:
+    """Raise if sfUser or sfRole differ from the current session context.
+
+    ``sf_options`` must already have its keys normalised to **lowercase**.
+    """
+    auth_checks = [
+        ("sfuser", session.get_current_user(), "sfUser"),
+        ("sfrole", session.get_current_role(), "sfRole"),
+    ]
+    for opt_key, current_val, display_name in auth_checks:
+        desired = sf_options.get(opt_key)
+        if desired in (None, "None"):
+            continue  # option not set (e.g. env var missing); skip check
+        if not _sf_connector_identifiers_match(desired, current_val):
+            exception = SnowparkConnectNotImplementedError(
+                f"Snowflake Connector option '{display_name}' specifies "
+                f"'{sf_options[opt_key]}' but the current session {display_name} is "
+                f"'{current_val}'. Changing the user or role is not supported."
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
+
+
+def assert_sf_connector_warehouse_matches(
+    session: snowpark.Session, sf_options: dict[str, str]
+) -> None:
+    """Raise if sfWarehouse differs from the current session warehouse.
+
+    ``sf_options`` must already have its keys normalised to **lowercase**.
+    """
+    desired_warehouse = sf_options.get("sfwarehouse")
+    if desired_warehouse is None:
+        return  # option not set; skip check
+
+    current_warehouse = session.get_current_warehouse()
+    if not _sf_connector_identifiers_match(desired_warehouse, current_warehouse):
+        exception = SnowparkConnectNotImplementedError(
+            f"Snowflake Connector option 'sfWarehouse' specifies "
+            f"'{desired_warehouse}' but the current session sfWarehouse is "
+            f"'{current_warehouse}'. Changing the warehouse is not supported."
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+
+
+def assert_sf_connector_context_matches(
+    session: snowpark.Session, sf_options: dict[str, str]
+) -> None:
+    """Raise if any sf context option differs from the current session context.
+
+    For reads, context switching is not supported because the returned DataFrame
+    is lazy — by the time the client triggers an action (e.g. ``collect()``),
+    any session mutation made here would already be stale or would have
+    permanently polluted the shared session.
+
+    - ``sfUser`` / ``sfRole``: delegated to :func:`assert_sf_connector_auth_options_match`.
+    - ``sfWarehouse``: delegated to :func:`assert_sf_connector_warehouse_matches`.
+    - ``sfDatabase`` / ``sfSchema``: must match the session; raises and asks the
+      caller to embed the target location in the ``dbtable`` or ``query`` option
+      as a fully-qualified name instead.
+
+    ``sf_options`` must already have its keys normalised to **lowercase**.
+    """
+    assert_sf_connector_auth_options_match(session, sf_options)
+    assert_sf_connector_warehouse_matches(session, sf_options)
+
+    location_checks = [
+        ("sfdatabase", session.get_current_database(), "sfDatabase"),
+        ("sfschema", session.get_current_schema(), "sfSchema"),
+    ]
+    for opt_key, current_val, display_name in location_checks:
+        if opt_key in sf_options and not _sf_connector_identifiers_match(
+            sf_options[opt_key], current_val
+        ):
+            exception = SnowparkConnectNotImplementedError(
+                f"Snowflake Connector read option '{display_name}' specifies "
+                f"'{sf_options[opt_key]}' but the current session {display_name} is "
+                f"'{current_val}'. Context switching is not supported for reads "
+                "because the DataFrame is evaluated lazily. Use a fully-qualified "
+                "name in the 'dbtable' or 'query' option instead of relying on "
+                f"'{display_name}'."
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
+
+
+def qualify_dbtable_with_sf_options(
+    dbtable: str, sf_options: dict[str, str], session: snowpark.Session
+) -> str:
+    """Return a fully-qualified ``db.schema.table`` name for a dbtable option.
+
+    If *dbtable* already has 3 or more dot-separated parts it is returned
+    unchanged.  Missing parts are filled in from *sf_options*
+    (``sfdatabase`` / ``sfschema``), then from the current session context,
+    and finally ``""`` when the session context is also unset.
+
+    ``sf_options`` must already have its keys normalized to **lowercase**.
+    """
+    parts = split_fully_qualified_spark_name(dbtable)
+    if len(parts) >= 3:
+        # dbtable is in db.schema.table format
+        return dbtable
+
+    # session.get_current_database/schema() return Snowflake-quoted identifiers
+    # like '"TESTDB_SAS"'.  Unquote them before embedding in the dot-joined FQN
+    # string so _spark_to_snowflake doesn't double-quote them.
+    session_db = session.get_current_database()
+    session_schema = session.get_current_schema()
+    db = sf_options.get("sfdatabase") or (
+        unquote_if_quoted(session_db) if session_db else ""
+    )
+    schema = sf_options.get("sfschema") or (
+        unquote_if_quoted(session_schema) if session_schema else ""
+    )
+
+    if not db:
+        exception = ValueError(
+            f"Cannot qualify table '{dbtable}': no database found. "
+            f"Please configure database in the session."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+        raise exception
+
+    if len(parts) == 1 and not schema:
+        exception = ValueError(
+            f"Cannot qualify table '{dbtable}': no schema found. "
+            f"Please configure schema in the session."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+        raise exception
+
+    if len(parts) == 2:
+        # dbtable is schema.table, need to add database
+        return f"{db}.{dbtable}"
+
+    # dbtable is only a table name, need to add database and schema
+    return f"{db}.{schema}.{dbtable}"
 
 
 def get_all_dependent_column_names(columns: list[Column]) -> set[str]:

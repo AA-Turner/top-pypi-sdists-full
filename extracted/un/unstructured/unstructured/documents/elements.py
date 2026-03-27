@@ -195,6 +195,10 @@ class ElementMetadata:
     page_number: Optional[int]
     parent_id: Optional[str]
 
+    # -- routing decision (page-level) --
+    routing: Optional[str]
+    routing_score: Optional[float]
+
     # -- e-mail specific metadata fields --
     bcc_recipient: Optional[list[str]]
     cc_recipient: Optional[list[str]]
@@ -208,7 +212,15 @@ class ElementMetadata:
     text_as_html: Optional[str]
     is_extracted: Optional[str]
     table_as_cells: Optional[dict[str, str | int]]
+
+    # -- used for TableChunk elements to enable table reconstruction --
+    table_id: Optional[str]
+    chunk_index: Optional[int]
     url: Optional[str]
+
+    # -- speech-to-text segment timestamps (seconds) when element is from partition_audio --
+    segment_end_seconds: Optional[float]
+    segment_start_seconds: Optional[float]
 
     # -- debug fields can be assigned and referenced using dotted-notation but are not serialized
     # -- to dict/JSON, do not participate in equality comparison, and are not included in the
@@ -246,13 +258,19 @@ class ElementMetadata:
         page_name: Optional[str] = None,
         page_number: Optional[int] = None,
         parent_id: Optional[str] = None,
+        routing: Optional[str] = None,
+        routing_score: Optional[float] = None,
         sent_from: Optional[list[str]] = None,
         sent_to: Optional[list[str]] = None,
         signature: Optional[str] = None,
         subject: Optional[str] = None,
         table_as_cells: Optional[dict[str, str | int]] = None,
+        table_id: Optional[str] = None,
+        chunk_index: Optional[int] = None,
         text_as_html: Optional[str] = None,
         url: Optional[str] = None,
+        segment_end_seconds: Optional[float] = None,
+        segment_start_seconds: Optional[float] = None,
     ) -> None:
         self.attached_to_filename = attached_to_filename
         self.bcc_recipient = bcc_recipient
@@ -291,13 +309,19 @@ class ElementMetadata:
         self.page_name = page_name
         self.page_number = page_number
         self.parent_id = parent_id
+        self.routing = routing
+        self.routing_score = routing_score
         self.sent_from = sent_from
         self.sent_to = sent_to
         self.signature = signature
         self.subject = subject
         self.text_as_html = text_as_html
         self.table_as_cells = table_as_cells
+        self.table_id = table_id
+        self.chunk_index = chunk_index
         self.url = url
+        self.segment_end_seconds = segment_end_seconds
+        self.segment_start_seconds = segment_start_seconds
 
     def __eq__(self, other: object) -> bool:
         """Implments equivalence, like meta == other_meta.
@@ -512,13 +536,23 @@ class ConsolidationStrategy(enum.Enum):
             "page_name": cls.FIRST,
             "page_number": cls.FIRST,
             "parent_id": cls.DROP,
+            "routing": cls.DROP,
+            "routing_score": cls.DROP,
             "sent_from": cls.FIRST,
             "sent_to": cls.FIRST,
             "signature": cls.FIRST,
             "subject": cls.FIRST,
             "text_as_html": cls.STRING_CONCATENATE,
             "table_as_cells": cls.FIRST,  # -- only occurs in Table --
+            "table_id": cls.DROP,  # -- added by chunking, not before --
+            "chunk_index": cls.DROP,  # -- added by chunking, not before --
             "url": cls.FIRST,
+            # TODO: ideally a chunk spanning multiple audio segments would keep min(start) and
+            # max(end) across its constituent elements. ConsolidationStrategy currently has no
+            # MIN/MAX variants, so DROP is the safe fallback for now. Add MIN/MAX strategies
+            # and switch these to cls.MIN / cls.MAX when that work is done.
+            "segment_start_seconds": cls.DROP,
+            "segment_end_seconds": cls.DROP,
             "key_value_pairs": cls.DROP,  # -- only occurs in FormKeysValues --
         }
 
@@ -900,6 +934,12 @@ class NarrativeText(Text):
     category = "NarrativeText"
 
 
+class Form(Text):
+    """An element for capturing form text."""
+
+    category = "Form"
+
+
 class ListItem(Text):
     """ListItem is a NarrativeText element that is part of a list."""
 
@@ -1000,7 +1040,7 @@ TYPE_TO_TEXT_ELEMENT_MAP: dict[str, type[Text]] = {
     # this mapping favors ensures yolox produces backward compatible categories
     ElementType.ABSTRACT: NarrativeText,
     ElementType.THREADING: NarrativeText,
-    ElementType.FORM: NarrativeText,
+    ElementType.FORM: Form,
     ElementType.VALUE: NarrativeText,
     ElementType.LINK: NarrativeText,
     ElementType.LIST_ITEM: ListItem,

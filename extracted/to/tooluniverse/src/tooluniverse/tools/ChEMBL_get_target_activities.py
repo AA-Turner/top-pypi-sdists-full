@@ -9,9 +9,10 @@ from ._shared_client import get_shared_client
 
 
 def ChEMBL_get_target_activities(
-    target_chembl_id__exact: str,
+    target_chembl_id__exact: Optional[str] = None,
     limit: Optional[int] = 20,
     offset: Optional[int] = 0,
+    target_chembl_id: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -28,6 +29,8 @@ def ChEMBL_get_target_activities(
 
     offset : int
 
+    target_chembl_id : str
+        Alias for target_chembl_id__exact. ChEMBL target ID (e.g., CHEMBL213).
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -48,6 +51,7 @@ def ChEMBL_get_target_activities(
             "target_chembl_id__exact": target_chembl_id__exact,
             "limit": limit,
             "offset": offset,
+            "target_chembl_id": target_chembl_id,
         }.items()
         if v is not None
     }

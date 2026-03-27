@@ -21,6 +21,7 @@ from snowflake.snowpark.types import (
     FloatType,
     IntegerType,
     LongType,
+    NullType,
     ShortType,
     StringType,
     StructField,
@@ -122,6 +123,11 @@ def _cast_column_if_needed(
     """
     if isinstance(current_type, StringType) and isinstance(target_type, BinaryType):
         return to_binary(df[col_name], "utf-8").alias(col_name)
+    elif isinstance(current_type, NullType) and current_type != target_type:
+        from snowflake.snowpark._internal.type_utils import convert_sp_to_sf_type
+
+        sf_type_str = convert_sp_to_sf_type(target_type)
+        return snowpark_expr(f"NULL :: {sf_type_str}").alias(col_name)
     elif current_type != target_type:
         return df[col_name].cast(target_type).alias(col_name)
     else:
@@ -978,16 +984,15 @@ def map_replace(
             column_map.get_snowpark_column_name_from_spark_column_name(c)
             for c in rel.replace.cols
         ]
-        for c in columns:
-            input_df = input_df.with_column(c, replace_case_expr(c, to_replace, values))
     else:
-        for c in result.column_map.columns:
-            cn = c.snowpark_name
-            if c.is_hidden or cn == METADATA_FILENAME_COLUMN:
-                continue
-            input_df = input_df.with_column(
-                cn, replace_case_expr(cn, to_replace, values)
-            )
+        columns: list[str] = [
+            c.snowpark_name
+            for c in result.column_map.columns
+            if not c.is_hidden and c.snowpark_name != METADATA_FILENAME_COLUMN
+        ]
+    input_df = input_df.with_columns(
+        columns, [replace_case_expr(c, to_replace, values) for c in columns]
+    )
 
     result_df = input_df.select(*[col(c) for c in ordered_columns])
     original_schema = result.dataframe.schema

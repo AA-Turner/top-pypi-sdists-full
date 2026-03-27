@@ -226,7 +226,7 @@ class InteractiveSession:
             self._handle_launch_error("Exception", e)
             return self._attempt_fallback_launch(environment)
 
-    def process_interactive_command(self, prompt: str) -> bool | None:
+    def process_interactive_command(self, _prompt: str) -> bool | None:
         """Process special interactive commands.
 
         NOTE: As of v4.1.2, MPM slash commands are deployed as markdown files
@@ -277,7 +277,7 @@ class InteractiveSession:
                         hasattr(self.response_tracker, "session_logger")
                         and self.response_tracker.session_logger
                     ):
-                        self.response_tracker.session_logger.set_session_id(None)
+                        self.response_tracker.session_logger.set_session_id("")
                         self.logger.debug("Response tracker session cleared")
                 except Exception as e:
                     self.logger.debug(f"Error clearing response tracker session: {e}")
@@ -359,11 +359,11 @@ class InteractiveSession:
         """Get output style status for display."""
         try:
             # Check if output style manager is available through framework loader
-            if (
-                hasattr(self.runner, "framework_loader")
-                and self.runner.framework_loader
-            ) and hasattr(self.runner.framework_loader, "output_style_manager"):
-                osm = self.runner.framework_loader.output_style_manager
+            framework_loader = getattr(self.runner, "framework_loader", None)
+            if (framework_loader is not None) and hasattr(
+                framework_loader, "output_style_manager"
+            ):
+                osm = framework_loader.output_style_manager
                 if osm:
                     if osm.claude_version and osm.supports_output_styles():
                         # Check if Claude MPM style is active
@@ -420,7 +420,7 @@ class InteractiveSession:
                 "🔄 Resume mode detected - using minimal Claude command to preserve conversation selection"
             )
             # has_resume guarantees claude_args is non-empty and contains --resume
-            cmd.extend(self.runner.claude_args)
+            cmd.extend(self.runner.claude_args or [])
             self.logger.info(f"Resume command: {cmd}")
             return cmd
         # Normal mode - full command with all claude-mpm enhancements
@@ -611,7 +611,7 @@ class InteractiveSession:
 
         # This will not return if successful
         os.execvpe(cmd[0], cmd, env)  # nosec B606
-        return False  # Only reached on failure
+        return False  # type: ignore[unreachable]  # reached when os.execvpe is mocked in tests
 
     def _launch_subprocess_mode(self, cmd: list, env: dict) -> bool:
         """Launch Claude as subprocess with PTY."""
@@ -626,6 +626,13 @@ class InteractiveSession:
         this keeps the MPM process alive and runs a user input loop that sends
         messages through ClaudeSDKClient.
         """
+        # Check if --channels flag was passed to activate ChannelHub
+        channels_arg = getattr(self.runner, "channels", None) or os.environ.get(
+            "CLAUDE_MPM_CHANNELS"
+        )
+        if channels_arg:
+            return self._launch_channel_hub_mode(channels_arg)
+
         import asyncio
 
         async def _run_sdk_session() -> int:
@@ -662,6 +669,62 @@ class InteractiveSession:
             if not skip_permissions_disabled():
                 permission_mode = "bypassPermissions"
 
+            # Inject GitHub context into system prompt (best-effort)
+            try:
+                from claude_mpm.services.github.repo_context import GitHubRepoContext
+                from claude_mpm.services.github.system_prompt_injector import (
+                    GitHubSystemPromptInjector,
+                )
+
+                github_ctx = await GitHubRepoContext.detect(cwd, timeout_ms=3000)
+                if github_ctx is not None:
+                    system_prompt = GitHubSystemPromptInjector().inject_into_prompt(
+                        system_prompt, github_ctx
+                    )
+                    self.logger.debug(
+                        "GitHub context injected: %s/%s",
+                        github_ctx.owner,
+                        github_ctx.repo,
+                    )
+                    # Probe GitHub MCP server and add to mcp_servers if available
+                    try:
+                        from claude_mpm.services.github.mcp_probe import (
+                            probe_github_mcp,
+                        )
+
+                        identity_manager = None
+                        try:
+                            from claude_mpm.services.github.identity_manager import (
+                                GitHubIdentityManager,
+                            )
+
+                            identity_manager = GitHubIdentityManager()
+                        except ImportError:
+                            pass
+
+                        github_mcp_cfg = await probe_github_mcp(
+                            cwd, identity_manager, timeout_ms=2000
+                        )
+                        if github_mcp_cfg is not None:
+                            if mcp_servers is None:
+                                mcp_servers = {}
+                            mcp_servers[github_mcp_cfg.server_name] = (
+                                github_mcp_cfg.config
+                            )
+                            self.logger.debug(
+                                "GitHub MCP server added: %s",
+                                github_mcp_cfg.server_name,
+                            )
+                    except ImportError:
+                        pass
+            except ImportError:
+                pass
+            except Exception:
+                self.logger.debug(
+                    "GitHub context detection failed; continuing without it",
+                    exc_info=True,
+                )
+
             # Set up hook event bus for sidecar agent injection
             event_bus = None
             pretooluse_hook = None
@@ -680,7 +743,7 @@ class InteractiveSession:
                 )
 
             # Build SDK options
-            hooks_config = None
+            hooks_config: dict | None = None
             if pretooluse_hook is not None:
                 from claude_agent_sdk import HookMatcher
 
@@ -725,9 +788,11 @@ class InteractiveSession:
                 ):
                     options.resume = claude_args[idx + 1]
 
-            print("SDK Mode -- persistent session active")
-            print("   Type /help for commands, /exit to end session")
-            print()
+            # Only print banner if not already shown before the progress bar
+            if not os.environ.get("CLAUDE_MPM_SDK_BANNER_SHOWN"):
+                print("SDK Mode -- persistent session active")
+                print("   Type /help for commands, /exit to end session")
+                print()
 
             from claude_mpm.services.agents.session_state_tracker import SessionState
 
@@ -769,12 +834,22 @@ class InteractiveSession:
 
                     tracker.record_user_input(user_input)
 
+                    # Agent tracking: maps tool_use_id -> agent name for sub-agents
+                    tool_id_to_agent: dict[str, str] = {}
+                    current_agent: str = "PM"
+
                     try:
                         await client.query(user_input)
                         async for message in client.receive_response():
                             if isinstance(message, AssistantMessage):
                                 if hasattr(message, "model") and message.model:
                                     tracker.set_model(message.model)
+                                # Determine which agent produced this message
+                                parent_id = getattr(message, "parent_tool_use_id", None)
+                                if parent_id and parent_id in tool_id_to_agent:
+                                    current_agent = tool_id_to_agent[parent_id]
+                                else:
+                                    current_agent = "PM"
                                 for block in message.content:
                                     if isinstance(block, TextBlock):
                                         print(block.text)
@@ -783,7 +858,22 @@ class InteractiveSession:
                                             usage=getattr(message, "usage", None),
                                         )
                                     elif isinstance(block, ToolUseBlock):
-                                        print(f"  [tool] {block.name}...")
+                                        if block.name == "Task":
+                                            # Agent delegation — extract the sub-agent name
+                                            block_input = (
+                                                getattr(block, "input", {}) or {}
+                                            )
+                                            agent_name = (
+                                                block_input.get("subagent_type")
+                                                or block_input.get("description")
+                                                or "Agent"
+                                            )
+                                            tool_id_to_agent[block.id] = agent_name
+                                            print(
+                                                f"  [{current_agent}:Task → {agent_name}]"
+                                            )
+                                        else:
+                                            print(f"  [{current_agent}:{block.name}]")
                                         tracker.record_tool_call(block.name)
                             elif isinstance(message, ResultMessage):
                                 if message.session_id:
@@ -897,6 +987,38 @@ class InteractiveSession:
             self.runner._log_session_event(
                 {"event": "session_interrupted", "reason": "user_interrupt"}
             )
+
+    def _launch_channel_hub_mode(self, _channels_str: str) -> bool:
+        """Launch the multi-channel hub instead of a single-channel session.
+
+        Args:
+            channels_str: Comma-separated channel names (e.g. "terminal,telegram")
+
+        Returns:
+            bool: True if the hub ran and exited cleanly
+        """
+        import asyncio
+
+        from claude_mpm.services.channels.channel_config import load_channels_config
+        from claude_mpm.services.channels.channel_hub import ChannelHub
+
+        config = load_channels_config()
+
+        async def _run() -> None:
+            hub = ChannelHub(runner=self.runner, config=config)
+            await hub.start()
+            try:
+                await hub.run_until_stopped()
+            except KeyboardInterrupt:
+                pass
+            finally:
+                await hub.stop()
+
+        try:
+            asyncio.run(_run())
+        except KeyboardInterrupt:
+            pass
+        return True
 
     def _attempt_fallback_launch(self, environment: dict[str, Any]) -> bool:
         """Attempt fallback launch using subprocess."""

@@ -14,6 +14,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 # ─── Sync-state TTL helpers ──────────────────────────────────────────────────
 
@@ -643,7 +644,7 @@ def deploy_bundled_skills(force_deploy: bool = False):
 
     try:
         # Check if auto-deploy is disabled in config
-        from ..config.config_loader import ConfigLoader
+        from ..config.config_loader import ConfigLoader  # type: ignore
 
         config_loader = ConfigLoader()
         try:
@@ -1839,7 +1840,7 @@ def auto_install_chrome_devtools_on_startup():
     """
     try:
         # Check if auto-install is disabled in config
-        from ..config.config_loader import ConfigLoader
+        from ..config.config_loader import ConfigLoader  # type: ignore
 
         config_loader = ConfigLoader()
         try:
@@ -1967,7 +1968,10 @@ def generate_dynamic_domain_authority_skills():
 
 
 def run_background_services(
-    force_sync: bool = False, headless: bool = False, no_sync: bool = False
+    force_sync: bool = False,
+    headless: bool = False,
+    no_sync: bool = False,
+    progress: "Any | None" = None,
 ):
     """
     Initialize all background services on startup.
@@ -1989,18 +1993,34 @@ def run_background_services(
         headless: If True, redirect stdout to stderr during startup.
                   This keeps stdout clean for JSON streaming in headless mode.
         no_sync: Skip remote agent/skills sync entirely (use existing cache).
+        progress: Optional StartupProgressBar instance. When provided, each
+                  major startup step calls progress.step() to advance the bar.
     """
+
+    def _step(label: str) -> None:
+        """Advance progress bar if one is active."""
+        if progress is not None:
+            progress.step(label)
+
     # Wrap all startup operations in quiet_startup_context for headless mode
     # This redirects stdout to stderr, keeping stdout clean for JSON output
     with quiet_startup_context(headless=headless):
         # Consolidated deployment block: hooks + agents
         # RATIONALE: Hooks and agents are deployed together before other services
         # This ensures the deployment phase is complete before configuration checks
+        _step("Syncing hooks & agents")
         sync_deployment_on_startup(force_sync=force_sync, no_sync=no_sync)
 
+        _step("Loading project registry")
         initialize_project_registry()
+
+        _step("Checking MCP config")
         check_mcp_auto_configuration()
+
+        _step("Starting MCP gateway")
         verify_mcp_gateway_startup()
+
+        _step("Checking for updates")
         check_for_updates_async()
 
         # Skills deployment order (precedence: remote > bundled)
@@ -2008,6 +2028,7 @@ def run_background_services(
         # 2. Sync and deploy remote skills (Git sources, can override bundled) — TTL: 1h
         # 3. Discover and link runtime skills (user-added skills) — only if skills changed
         # This ensures remote skills take precedence over bundled skills when names conflict
+        _step("Loading skills")
         deploy_bundled_skills(
             force_deploy=force_sync
         )  # Base layer: package-bundled skills
@@ -2016,6 +2037,7 @@ def run_background_services(
 
             _get_logger("cli").debug("Skipping skills sync (--no-sync flag set)")
         else:
+            _step("Syncing remote skills")
             sync_remote_skills_on_startup(
                 force_sync=force_sync
             )  # Override layer: Git-based skills (takes precedence)
@@ -2027,21 +2049,26 @@ def run_background_services(
             _is_sync_fresh("skills") and _is_sync_fresh("bundled_skills")
         )
         if not _skills_all_fresh:
+            _step("Discovering skills")
             discover_and_link_runtime_skills()  # Discovery: user-added skills
             show_skill_summary()  # Display skill counts after deployment
 
         # Generate dynamic domain authority skills for PM
+        _step("Building domain skills")
         generate_dynamic_domain_authority_skills()
 
         # PM skills: verify and auto-repair once per day (same TTL as other syncs)
         # Skip when --no-sync is set — remote operations are intentionally suppressed.
         if not no_sync and (not _skills_all_fresh or not _is_sync_fresh("pm_skills")):
+            _step("Verifying PM skills")
             verify_and_show_pm_skills()  # PM skills verification and status
             _mark_sync_done("pm_skills")
 
+        _step("Configuring output")
         deploy_output_style_on_startup()
 
         # Auto-install chrome-devtools-mcp for browser automation
+        _step("Setting up browser tools")
         auto_install_chrome_devtools_on_startup()
 
 
@@ -2141,7 +2168,9 @@ def check_mcp_auto_configuration():
         return
 
     try:
-        from ..services.mcp_gateway.auto_configure import check_and_configure_mcp
+        from ..services.mcp_gateway.auto_configure import (
+            check_and_configure_mcp,  # type: ignore
+        )
 
         # Show progress feedback - this operation can take 10+ seconds
         # Only show progress message in TTY mode to avoid interfering with Claude Code's status display
@@ -2196,7 +2225,7 @@ def verify_mcp_gateway_startup():
         import asyncio
 
         from ..core.logger import get_logger
-        from ..services.mcp_gateway.core.startup_verification import (
+        from ..services.mcp_gateway.core.startup_verification import (  # type: ignore
             is_mcp_gateway_configured,
             verify_mcp_gateway_on_startup,
         )
@@ -2287,10 +2316,10 @@ def check_for_updates_async():
 
     def run_update_check():
         """Inner function to run in background thread."""
+        import asyncio
+
         loop = None
         try:
-            import asyncio
-
             from ..core.config import Config
             from ..core.logger import get_logger
             from ..services.self_upgrade_service import SelfUpgradeService

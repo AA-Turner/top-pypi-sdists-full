@@ -1,0 +1,72 @@
+# This is a GitHub workflow defining a set of jobs with a set of steps.
+# ref: https://docs.github.com/en/actions/learn-github-actions/workflow-syntax-for-github-actions
+#
+name: Tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - ".github/workflows/*.yaml"
+      - "!.github/workflows/test.yaml"
+  push:
+    paths-ignore:
+      - "docs/**"
+      - ".github/workflows/*.yaml"
+      - "!.github/workflows/test.yaml"
+    branches-ignore:
+      - "dependabot/**"
+      - "pre-commit-ci-update-config"
+    tags: ["**"]
+  workflow_dispatch:
+
+env:
+  OAUTH2_TOKEN_URL: "token_url"
+  OAUTH2_USERDATA_URL: "userdata_url"
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    strategy:
+      # Keep running even if one variation of the job fail
+      fail-fast: false
+      matrix:
+        python:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+        include:
+          - python: "3.10"
+            oldest_dependencies: oldest_dependencies
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "${{ matrix.python }}"
+
+      - name: Install Python dependencies
+        run: |
+          pip install ".[test]"
+          pip list
+
+      - name: Downgrade to oldest dependencies
+        if: matrix.oldest_dependencies != ''
+        # take any dependencies in requirements.txt such as jupyterhub>=2.2 and
+        # transform them to jupyterhub==2.2 so we can run tests with the
+        # earliest-supported versions
+        run: |
+          cat requirements.txt | grep '>=' | sed -e 's@>=@==@g' > oldest-requirements.txt
+          pip install -r oldest-requirements.txt
+          pip list
+
+      - name: Run tests
+        run: |
+          pytest
+
+      # GitHub action reference: https://github.com/codecov/codecov-action
+      - uses: codecov/codecov-action@v5

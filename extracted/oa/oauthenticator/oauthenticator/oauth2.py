@@ -971,7 +971,7 @@ class OAuthenticator(Authenticator):
         https://www.rfc-editor.org/rfc/rfc6749#section-4.1.3. utf-8 is also
         required according to https://www.rfc-editor.org/rfc/rfc6749#appendix-B,
         and that can be specified with a Content-Type directive according to
-        https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type#directives.
+        https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Type#directives.
         """
         headers = {
             "Accept": "application/json",
@@ -1237,13 +1237,21 @@ class OAuthenticator(Authenticator):
             if isawaitable(groups):
                 groups = await groups
             return set(groups)
+        groups = None
         try:
-            return set(
-                reduce(dict.get, self.auth_state_groups_key.split("."), auth_state)
-            )
+            groups = reduce(dict.get, self.auth_state_groups_key.split("."), auth_state)
         except TypeError:
+            pass
+        if groups is None:
             self.log.error(
                 f"The auth_state_groups_key {self.auth_state_groups_key} does not exist in the auth_model. Available keys are: {auth_state.keys()}"
+            )
+            return set()
+        try:
+            return set(groups)
+        except TypeError:
+            self.log.error(
+                f"The value of the auth_state_groups_key {self.auth_state_groups_key} is invalid: {groups}"
             )
             return set()
 
@@ -1563,9 +1571,7 @@ class OAuthenticator(Authenticator):
 # patch allowed_users help string to match our definition
 # base Authenticator class help string gives the wrong impression
 # when combined with other allow options
-OAuthenticator.class_traits()[
-    "allowed_users"
-].help = """
+OAuthenticator.class_traits()["allowed_users"].help = """
 Set of usernames that should be allowed to login.
 
 If unspecified, grants no access. You must set at least one other `allow` configuration

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Sequence, TypeVar, Union, cast
+from typing import TypeVar, cast
 
 import huggingface_hub
 import numpy as np
@@ -13,8 +14,8 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MultiLabelBinarizer
 
-from model2vec.hf_utils import _create_model_card
 from model2vec.model import PathLike, StaticModel
+from model2vec.modelcards import create_model_card
 
 _DEFAULT_TRUST_PATTERN = re.compile(r"sklearn\..+")
 _DEFAULT_MODEL_FILENAME = "pipeline.skops"
@@ -76,7 +77,7 @@ class StaticModelPipeline:
         :param token: The token to use to push to the hub.
         :param private: Whether the repository should be private.
         """
-        from model2vec.hf_utils import push_folder_to_hub
+        from model2vec.persistence import push_folder_to_hub
 
         with TemporaryDirectory() as temp_dir:
             save_pipeline(self, temp_dir)
@@ -265,11 +266,11 @@ def save_pipeline(pipeline: StaticModelPipeline, folder_path: str | Path) -> Non
         name = base_model_name
     else:
         name = "unknown"
-    _create_model_card(
+    create_model_card(
         folder_path,
         base_model_name=name,
         language=pipeline.model.language,
-        template_path="modelcards/classifier_template.md",
+        template_path="classifier_template.md",
     )
 
 
@@ -293,14 +294,14 @@ def evaluate_single_or_multi_label(
     """
     if _is_multi_label_shaped(y):
         # Cast because the type checker doesn't understand that y is a list of lists.
-        y = cast(Union[list[list[str]], list[list[int]]], y)
+        y = cast(list[list[str]] | list[list[int]], y)
         classes = sorted(set([label for labels in y for label in labels]))
         mlb = MultiLabelBinarizer(classes=classes)
         y_transformed = mlb.fit_transform(y)
         predictions_transformed = mlb.transform(predictions)
     else:
         if all(isinstance(label, (str, int)) for label in y):
-            y = cast(Union[list[str], list[int]], y)
+            y = cast(list[str] | list[int], y)
             classes = sorted(set(y))
         y_transformed = np.array(y)
         predictions_transformed = np.array(predictions)
@@ -309,7 +310,7 @@ def evaluate_single_or_multi_label(
         y_transformed,
         predictions_transformed,
         output_dict=output_dict,
-        zero_division=0,
+        zero_division=0,  # type: ignore  # incorrect type in sklearn.
     )
 
     return report

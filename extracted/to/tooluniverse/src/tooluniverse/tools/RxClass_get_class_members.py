@@ -1,7 +1,7 @@
 """
 RxClass_get_class_members
 
-List all drugs belonging to a specific drug class by class ID in NLM RxClass.
+List all drugs belonging to a specific drug class by class ID in NLM RxClass. Returns RXCUIs and ...
 """
 
 from typing import Any, Optional, Callable
@@ -10,26 +10,26 @@ from ._shared_client import get_shared_client
 
 def RxClass_get_class_members(
     class_id: str,
-    rela_source: Optional[str] = None,
-    ttys: Optional[str] = None,
-    limit: Optional[int] = None,
+    rela_source: Optional[str | Any] = None,
+    ttys: Optional[str | Any] = None,
+    limit: Optional[int | Any] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
 ) -> Any:
     """
-    List all drugs belonging to a specific drug class.
+    List all drugs belonging to a specific drug class by class ID in NLM RxClass. Returns RXCUIs and ...
 
     Parameters
     ----------
     class_id : str
-        Drug class identifier (e.g., 'M01AE' for propionic acid derivatives).
-    rela_source : str, optional
-        Classification source: 'ATC' (default), 'FDASPL', 'MESH', 'VA', 'DAILYMED'.
-    ttys : str, optional
-        RxNorm term types: 'IN' (ingredients, default), 'PIN', 'MIN', 'SCD'.
-    limit : int, optional
+        Drug class identifier. ATC class codes: 'M01AE' (propionic acid derivatives),...
+    rela_source : str | Any
+        Classification source system. Options: 'ATC' (default), 'FDASPL', 'MESH', 'VA...
+    ttys : str | Any
+        RxNorm term types to include. Options: 'IN' (ingredients, default), 'PIN' (pr...
+    limit : int | Any
         Maximum number of drugs to return (default 50).
     stream_callback : Callable, optional
         Callback for streaming output
@@ -42,6 +42,9 @@ def RxClass_get_class_members(
     -------
     Any
     """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
         for k, v in {

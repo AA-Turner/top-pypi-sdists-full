@@ -22,17 +22,17 @@ try:
 except ImportError:  # pragma: NO COVER
     import mock
 
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,21 +43,26 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
 
 from google.cloud.scheduler_v1.services.cloud_scheduler import (
     CloudSchedulerAsyncClient,
@@ -65,10 +70,8 @@ from google.cloud.scheduler_v1.services.cloud_scheduler import (
     pagers,
     transports,
 )
-from google.cloud.scheduler_v1.types import cloudscheduler
-from google.cloud.scheduler_v1.types import job
+from google.cloud.scheduler_v1.types import cloudscheduler, job, target
 from google.cloud.scheduler_v1.types import job as gcs_job
-from google.cloud.scheduler_v1.types import target
 
 CRED_INFO_JSON = {
     "credential_source": "/path/to/file",
@@ -124,6 +127,7 @@ def test__get_default_mtls_endpoint():
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert CloudSchedulerClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -144,6 +148,10 @@ def test__get_default_mtls_endpoint():
     )
     assert (
         CloudSchedulerClient._get_default_mtls_endpoint(non_googleapi) == non_googleapi
+    )
+    assert (
+        CloudSchedulerClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -955,10 +963,9 @@ def test_cloud_scheduler_client_get_mtls_endpoint_and_cert_source(client_class):
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1003,10 +1010,9 @@ def test_cloud_scheduler_client_get_mtls_endpoint_and_cert_source(client_class):
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1042,10 +1048,9 @@ def test_cloud_scheduler_client_get_mtls_endpoint_and_cert_source(client_class):
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -1288,13 +1293,13 @@ def test_cloud_scheduler_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -6184,8 +6189,9 @@ def test_list_jobs_rest_bad_request(request_type=cloudscheduler.ListJobsRequest)
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6248,17 +6254,19 @@ def test_list_jobs_rest_interceptors(null_interceptor):
     )
     client = CloudSchedulerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_list_jobs"
-    ) as post, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_list_jobs_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "pre_list_jobs"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_list_jobs"
+        ) as post,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_list_jobs_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "pre_list_jobs"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6309,8 +6317,9 @@ def test_get_job_rest_bad_request(request_type=cloudscheduler.GetJobRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6381,17 +6390,19 @@ def test_get_job_rest_interceptors(null_interceptor):
     )
     client = CloudSchedulerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_get_job"
-    ) as post, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_get_job_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "pre_get_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_get_job"
+        ) as post,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_get_job_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "pre_get_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6440,8 +6451,9 @@ def test_create_job_rest_bad_request(request_type=cloudscheduler.CreateJobReques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6638,17 +6650,19 @@ def test_create_job_rest_interceptors(null_interceptor):
     )
     client = CloudSchedulerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_create_job"
-    ) as post, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_create_job_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "pre_create_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_create_job"
+        ) as post,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_create_job_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "pre_create_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6699,8 +6713,9 @@ def test_update_job_rest_bad_request(request_type=cloudscheduler.UpdateJobReques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6897,17 +6912,19 @@ def test_update_job_rest_interceptors(null_interceptor):
     )
     client = CloudSchedulerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_update_job"
-    ) as post, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_update_job_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "pre_update_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_update_job"
+        ) as post,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_update_job_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "pre_update_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6958,8 +6975,9 @@ def test_delete_job_rest_bad_request(request_type=cloudscheduler.DeleteJobReques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7016,13 +7034,13 @@ def test_delete_job_rest_interceptors(null_interceptor):
     )
     client = CloudSchedulerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "pre_delete_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "pre_delete_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = cloudscheduler.DeleteJobRequest.pb(
             cloudscheduler.DeleteJobRequest()
@@ -7065,8 +7083,9 @@ def test_pause_job_rest_bad_request(request_type=cloudscheduler.PauseJobRequest)
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7137,17 +7156,19 @@ def test_pause_job_rest_interceptors(null_interceptor):
     )
     client = CloudSchedulerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_pause_job"
-    ) as post, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_pause_job_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "pre_pause_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_pause_job"
+        ) as post,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_pause_job_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "pre_pause_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7196,8 +7217,9 @@ def test_resume_job_rest_bad_request(request_type=cloudscheduler.ResumeJobReques
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7268,17 +7290,19 @@ def test_resume_job_rest_interceptors(null_interceptor):
     )
     client = CloudSchedulerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_resume_job"
-    ) as post, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_resume_job_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "pre_resume_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_resume_job"
+        ) as post,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_resume_job_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "pre_resume_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7329,8 +7353,9 @@ def test_run_job_rest_bad_request(request_type=cloudscheduler.RunJobRequest):
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7401,17 +7426,19 @@ def test_run_job_rest_interceptors(null_interceptor):
     )
     client = CloudSchedulerClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_run_job"
-    ) as post, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "post_run_job_with_metadata"
-    ) as post_with_metadata, mock.patch.object(
-        transports.CloudSchedulerRestInterceptor, "pre_run_job"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_run_job"
+        ) as post,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "post_run_job_with_metadata"
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.CloudSchedulerRestInterceptor, "pre_run_job"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7462,8 +7489,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -7522,8 +7550,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -7800,11 +7829,14 @@ def test_cloud_scheduler_base_transport():
 
 def test_cloud_scheduler_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.scheduler_v1.services.cloud_scheduler.transports.CloudSchedulerTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.scheduler_v1.services.cloud_scheduler.transports.CloudSchedulerTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.CloudSchedulerTransport(
@@ -7821,9 +7853,12 @@ def test_cloud_scheduler_base_transport_with_credentials_file():
 
 def test_cloud_scheduler_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.scheduler_v1.services.cloud_scheduler.transports.CloudSchedulerTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.scheduler_v1.services.cloud_scheduler.transports.CloudSchedulerTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.CloudSchedulerTransport()
@@ -7895,11 +7930,12 @@ def test_cloud_scheduler_transport_auth_gdch_credentials(transport_class):
 def test_cloud_scheduler_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -8512,6 +8548,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = CloudSchedulerClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = CloudSchedulerAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = CloudSchedulerClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -8651,6 +8721,40 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = CloudSchedulerClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = CloudSchedulerAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
 
 
 def test_transport_close_grpc():

@@ -85,6 +85,7 @@ class PageContext(Serializable):
     type: Literal["page"] = "page"
     request: Request
     response: Response
+    page_path: str = ""
     sent_tasks: List[str] = Field(default_factory=list)
     legacy_thread_data: dict = Field(default_factory=dict)
     mock_execution: PageExecutionMock = Field(default_factory=PageExecutionMock)

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.notebooks_v1.types import execution
@@ -99,6 +99,7 @@ class Schedule(proto.Message):
             DELETING (6):
                 The schedule resource is being deleted.
         """
+
         STATE_UNSPECIFIED = 0
         ENABLED = 1
         PAUSED = 2

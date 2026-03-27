@@ -16,20 +16,29 @@ class _MemoryCore(_BaseCore):
         self,
         hash_func: Optional[HashFunc],
         wait_for_calc_timeout: Optional[int],
+        entry_size_limit: Optional[int] = None,
     ):
-        super().__init__(hash_func, wait_for_calc_timeout)
+        super().__init__(hash_func, wait_for_calc_timeout, entry_size_limit)
         self.cache: Dict[str, CacheEntry] = {}
 
     def _hash_func_key(self, key: str) -> str:
         return f"{_get_func_str(self.func)}:{key}"
 
-    def get_entry_by_key(
-        self, key: str, reload=False
-    ) -> Tuple[str, Optional[CacheEntry]]:
+    def get_entry_by_key(self, key: str, reload=False) -> Tuple[str, Optional[CacheEntry]]:
         with self.lock:
             return key, self.cache.get(self._hash_func_key(key), None)
 
-    def set_entry(self, key: str, func_res: Any) -> None:
+    async def aget_entry(self, args: tuple[Any, ...], kwds: dict[str, Any]) -> Tuple[str, Optional[CacheEntry]]:
+        key = self.get_key(args, kwds)
+        return await self.aget_entry_by_key(key)
+
+    async def aget_entry_by_key(self, key: str) -> Tuple[str, Optional[CacheEntry]]:
+        """Get an entry by key."""
+        return self.get_entry_by_key(key)
+
+    def set_entry(self, key: str, func_res: Any) -> bool:
+        if not self._should_store(func_res):
+            return False
         hash_key = self._hash_func_key(key)
         with self.lock:
             try:
@@ -47,6 +56,11 @@ class _MemoryCore(_BaseCore):
                 _condition=cond,
                 _completed=True,
             )
+        return True
+
+    async def aset_entry(self, key: str, func_res: Any) -> bool:
+        """Set an entry."""
+        return self.set_entry(key, func_res)
 
     def mark_entry_being_calculated(self, key: str) -> None:
         with self.lock:
@@ -65,6 +79,9 @@ class _MemoryCore(_BaseCore):
                     _condition=condition,
                 )
 
+    async def amark_entry_being_calculated(self, key: str) -> None:
+        self.mark_entry_being_calculated(key)
+
     def mark_entry_not_calculated(self, key: str) -> None:
         hash_key = self._hash_func_key(key)
         with self.lock:
@@ -78,6 +95,9 @@ class _MemoryCore(_BaseCore):
                 cond.notify_all()
                 cond.release()
                 entry._condition = None
+
+    async def amark_entry_not_calculated(self, key: str) -> None:
+        self.mark_entry_not_calculated(key)
 
     def wait_on_entry_calc(self, key: str) -> Any:
         hash_key = self._hash_func_key(key)
@@ -108,8 +128,6 @@ class _MemoryCore(_BaseCore):
         """Remove stale entries from the in-memory cache."""
         now = datetime.now()
         with self.lock:
-            keys_to_delete = [
-                k for k, v in self.cache.items() if now - v.time > stale_after
-            ]
+            keys_to_delete = [k for k, v in self.cache.items() if now - v.time > stale_after]
             for key in keys_to_delete:
                 del self.cache[key]

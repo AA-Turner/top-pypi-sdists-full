@@ -9,8 +9,9 @@ from ._shared_client import get_shared_client
 
 
 def ols_get_ontology_info(
-    ontology_id: str,
     operation: Optional[str] = None,
+    ontology_id: Optional[str] = None,
+    ontology: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -25,6 +26,8 @@ def ols_get_ontology_info(
         The operation to perform (get_ontology_info)
     ontology_id : str
         The ID of the ontology to retrieve
+    ontology : str
+        Alias for ontology_id. The ontology abbreviation (e.g. mondo, hp, go, ordo).
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -41,7 +44,11 @@ def ols_get_ontology_info(
     # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
-        for k, v in {"operation": operation, "ontology_id": ontology_id}.items()
+        for k, v in {
+            "operation": operation,
+            "ontology_id": ontology_id,
+            "ontology": ontology,
+        }.items()
         if v is not None
     }
     return get_shared_client().run_one_function(

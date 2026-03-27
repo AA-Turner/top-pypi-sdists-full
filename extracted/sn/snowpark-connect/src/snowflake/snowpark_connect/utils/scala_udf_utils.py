@@ -19,6 +19,7 @@ from typing import List
 
 import snowflake.snowpark.types as snowpark_type
 from snowflake.snowpark_connect.config import get_scala_version, global_config
+from snowflake.snowpark_connect.utils.context import get_spark_session_id
 from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     NullHandling,
     Param,
@@ -177,12 +178,14 @@ def create_scala_udf(pciudf: ProcessCommonInlineUserDefinedFunction) -> ScalaUdf
     ensure_scala_udf_jars_uploaded()
 
     function_name = pciudf._function_name
-    # If a function name is not provided, hash the binary file and use the first ten characters as the function name.
     if not function_name:
+        # If a function name is not provided, hash the binary file and use the first ten characters as the function name.
         import hashlib
 
         function_name = hashlib.sha256(pciudf._payload).hexdigest()[:10]
-    udf_name = CREATE_SCALA_UDF_PREFIX + function_name
+    session_id = get_spark_session_id()
+    session_suffix = f"_{session_id.replace('-','_')}" if session_id else ""
+    udf_name = CREATE_SCALA_UDF_PREFIX + function_name + session_suffix
 
     # In case the Scala UDF was created with `spark.udf.register`, the Spark Scala input types (from protobuf) are
     # stored in pciudf.scala_input_types.

@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..constants import CLICommands
-from ..utils.progress import ProgressBar
+from ..utils.progress import ProgressBar, StartupProgressBar
 from .executor import ensure_run_attributes, execute_command
 
 # handle_missing_configuration, has_configuration_file, should_skip_config_check
@@ -142,6 +142,25 @@ def main(argv: list | None = None):
         # Check if running in headless mode
         is_headless = getattr(args, "headless", False)
 
+        # Detect if SDK mode will be used (explicit --sdk flag OR auto-detect)
+        _will_use_sdk = False
+        if os.environ.get("CLAUDE_MPM_RUNTIME") == "sdk":
+            _will_use_sdk = True
+        elif os.environ.get("CLAUDE_MPM_RUNTIME") != "cli":
+            # Auto-detect: SDK if claude_agent_sdk is importable
+            try:
+                import claude_agent_sdk
+
+                _will_use_sdk = True
+            except ImportError:
+                _will_use_sdk = False
+
+        if _will_use_sdk:
+            print("SDK Mode -- persistent session active")
+            print("   Type /help for commands, /exit to end session")
+            print()
+            os.environ["CLAUDE_MPM_SDK_BANNER_SHOWN"] = "1"
+
         if is_headless:
             # Headless mode: Run services quietly (stdout -> stderr)
             # No progress bar - stdout must stay clean for JSON streaming
@@ -149,32 +168,42 @@ def main(argv: list | None = None):
                 force_sync=force_sync, headless=True, no_sync=no_sync
             )
         else:
-            # Normal mode: Show "Launching Claude..." progress bar
-            # This matches the visual style of agent/skill sync progress bars
-            launch_progress = ProgressBar(
-                total=100,
-                prefix="Launching Claude",
-                show_percentage=False,
-                show_counter=False,
-                bar_width=25,
-            )
-
-            try:
+            # Normal mode: Show single-line startup progress bar.
+            # StartupProgressBar suppresses sub-step stdout while active,
+            # then clears itself so Claude's output starts on a clean line.
+            _startup_steps = [
+                "Syncing hooks & agents",
+                "Loading project registry",
+                "Checking MCP config",
+                "Starting MCP gateway",
+                "Checking for updates",
+                "Loading skills",
+                "Syncing remote skills",
+                "Discovering skills",
+                "Building domain skills",
+                "Verifying PM skills",
+                "Configuring output",
+                "Setting up browser tools",
+            ]
+            with StartupProgressBar(
+                steps=_startup_steps,
+                title="Loading claude-mpm",
+            ) as startup_pb:
                 run_background_services(
-                    force_sync=force_sync, headless=False, no_sync=no_sync
+                    force_sync=force_sync,
+                    headless=False,
+                    no_sync=no_sync,
+                    progress=startup_pb,
                 )
-                launch_progress.finish(message="Ready")
-
-                # Inform user about Claude Code initialization delay (3-5 seconds)
-                # This message appears before os.execvpe() replaces our process
-                # See: docs/research/claude-startup-delay-analysis-2025-12-01.md
+            # Progress bar cleared on __exit__; now show the "starting" notice
+            # Inform user about Claude Code initialization delay (3-5 seconds)
+            # This message appears before os.execvpe() replaces our process
+            # See: docs/research/claude-startup-delay-analysis-2025-12-01.md
+            if not _will_use_sdk:
                 print(
                     "⏳ Starting Claude Code... (this may take a few seconds)",
                     flush=True,
                 )
-            except Exception:
-                launch_progress.finish(message="Failed")
-                raise
 
     if hasattr(args, "debug") and args.debug:
         logger.debug(f"Command: {args.command}")

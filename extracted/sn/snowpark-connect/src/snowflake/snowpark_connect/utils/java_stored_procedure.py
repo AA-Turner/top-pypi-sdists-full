@@ -24,6 +24,7 @@ from snowflake.snowpark_connect.resources_initializer import (
     SPARK_SQL_JAR_213,
     ensure_scala_udf_jars_uploaded,
 )
+from snowflake.snowpark_connect.utils.context import get_spark_session_id
 from snowflake.snowpark_connect.utils.upload_java_jar import upload_java_udf_jar
 
 CREATE_JAVA_UDF_PREFIX = "__SC_JAVA_UDF_"
@@ -133,7 +134,9 @@ def create_java_udf(session: Session, function_name: str, java_class: str):
             ).replace("__scala_version__", get_scala_version())
         ).collect()
         set_java_udf_creator_initialized_state(True)
-    name = CREATE_JAVA_UDF_PREFIX + function_name
+    session_id = get_spark_session_id()
+    session_suffix = f"_{session_id.replace('-','_')}" if session_id else ""
+    name = CREATE_JAVA_UDF_PREFIX + function_name + session_suffix
     result = session.sql(
         f"CALL {PROCEDURE_NAME}('{name}', '{java_class}', ARRAY_CONSTRUCT({get_quoted_imports(session)})::ARRAY(VARCHAR))"
     ).collect()

@@ -214,9 +214,11 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
     @classmethod
     def get_version(cls) -> str:
         """Get version from package metadata."""
-        for pkg_name in [cls.__module__.split(".")[0], f"plato-world-{cls.name}"]:
+        top_package = cls.__module__.split(".")[0]
+        dist_names = importlib.metadata.packages_distributions().get(top_package, [])
+        for dist_name in dist_names:
             try:
-                return importlib.metadata.version(pkg_name)
+                return importlib.metadata.version(dist_name)
             except importlib.metadata.PackageNotFoundError:
                 continue
         return "0.0.0"

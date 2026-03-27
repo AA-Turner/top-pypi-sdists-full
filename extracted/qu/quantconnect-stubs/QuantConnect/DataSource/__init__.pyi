@@ -485,6 +485,9 @@ class Party(IntEnum):
     DEMOCRATIC = 2
     """Democratic Party. https://en.wikipedia.org/wiki/Democratic_Party_(United_States)"""
 
+    LIBERTARIAN = 3
+    """Libertarian Party. https://en.wikipedia.org/wiki/Libertarian_Party_(United_States)"""
+
 
 class QuiverCongressDataPoint(QuantConnect.Data.BaseData):
     """Single data point for QuiverCongress data"""

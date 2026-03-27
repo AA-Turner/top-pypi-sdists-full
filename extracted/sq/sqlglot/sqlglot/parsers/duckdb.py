@@ -15,6 +15,7 @@ from sqlglot.dialects.dialect import (
 from sqlglot.helper import seq_get
 from sqlglot.parser import binary_range_parser
 from sqlglot.tokens import TokenType
+from collections.abc import Collection
 
 
 def _build_sort_array_desc(args: t.List) -> exp.Expr:
@@ -205,7 +206,7 @@ class DuckDBParser(parser.Parser):
         # https://duckdb.org/docs/sql/data_types/numeric
         exp.DType.DECIMAL: build_default_decimal_type(precision=18, scale=3),
         # https://duckdb.org/docs/sql/data_types/text
-        exp.DType.TEXT: lambda dtype: exp.DataType.build("TEXT"),
+        exp.DType.TEXT: lambda dtype: exp.DataType.build(exp.DType.TEXT),
     }
 
     STATEMENT_PARSERS = {
@@ -258,7 +259,7 @@ class DuckDBParser(parser.Parser):
         self,
         schema: bool = False,
         joins: bool = False,
-        alias_tokens: t.Optional[t.Collection[TokenType]] = None,
+        alias_tokens: t.Optional[Collection[TokenType]] = None,
         parse_bracket: bool = False,
         is_db_reference: bool = False,
         parse_partition: bool = False,
@@ -349,7 +350,8 @@ class DuckDBParser(parser.Parser):
         )
 
     def _parse_show_duckdb(self, this: str) -> exp.Show:
-        return self.expression(exp.Show(this=this))
+        from_ = self._parse_table(schema=True) if self._match(TokenType.FROM) else None
+        return self.expression(exp.Show(this=this, from_=from_))
 
     def _parse_force(self) -> exp.Install | exp.Command:
         # FORCE can only be followed by INSTALL or CHECKPOINT

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -47,6 +47,7 @@ class ExecutionView(proto.Enum):
         FULL (2):
             Includes all data.
     """
+
     EXECUTION_VIEW_UNSPECIFIED = 0
     BASIC = 1
     FULL = 2
@@ -102,6 +103,7 @@ class Execution(proto.Message):
             CANCELLED (4):
                 The execution was stopped intentionally.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         SUCCEEDED = 2

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowpark-connect
-Version: 1.18.0
+Version: 1.19.0
 Summary: Snowpark Connect for Spark
 Author: Snowflake, Inc
 License: Apache License, Version 2.0
@@ -19,17 +19,17 @@ Requires-Dist: jpype1
 Requires-Dist: protobuf<6.32.0,>=4.25.3
 Requires-Dist: s3fs>=2025.3.0
 Requires-Dist: snowflake.core<2,>=1.0.5
-Requires-Dist: snowflake-snowpark-python[pandas]<1.48.0,>=1.47.0
+Requires-Dist: snowflake-snowpark-python[pandas]<1.49.0,>=1.48.0
 Requires-Dist: snowflake-connector-python<4.2.0,>=3.18.0
 Requires-Dist: sqlglot>=26.3.8
 Requires-Dist: aiobotocore<=2.26.0,>=2.23.0
-Requires-Dist: py4j==0.10.9.7
+Requires-Dist: py4j==0.10.9.9
 Requires-Dist: pandas>=1.0.5
 Requires-Dist: pyarrow<=18.1.0,>=4.0.0
 Requires-Dist: grpcio<=1.76.0,>=1.56.0
 Requires-Dist: grpcio-status<=1.76.0,>=1.56.0
 Requires-Dist: googleapis-common-protos>=1.56.4
-Requires-Dist: numpy<2,>=1.15
+Requires-Dist: numpy>=1.15
 Requires-Dist: gcsfs>=2025.2.0
 Provides-Extra: jdk
 Requires-Dist: jdk4py==17.0.9.2; extra == "jdk"

@@ -329,17 +329,20 @@ class CrashReportsShell(AfcShell):
         self._register_arg_parse_alias("parse-latest", self._do_parse_latest)
         self._register_arg_parse_alias("clear", self._do_clear)
 
+    def _run_manager(self, awaitable):
+        return self.afc._runner.run(awaitable)
+
     def _do_parse(self, filename: Annotated[str, Arg(completer=path_completer)]) -> None:
         """
         Parse and print a crash report by filename.
 
         :param filename: Path to the crash report file
         """
-        print(XSH.ctx["_shell"]._async_runner.run(XSH.ctx["_manager"].parse(filename)))
+        print(self._run_manager(XSH.ctx["_manager"].parse(filename)))
 
     def _do_parse_latest(
         self,
-        path: Annotated[str, Arg(completer=path_completer)] = "/",
+        path: Annotated[str, Arg(nargs="?", completer=path_completer)] = "/",
         match: Annotated[Optional[list[str]], Arg("--match", "-m", action="append")] = None,
         match_insensitive: Annotated[
             Optional[list[str]],
@@ -348,7 +351,7 @@ class CrashReportsShell(AfcShell):
         count: Annotated[int, Arg("--count", "-n")] = 1,
     ) -> None:
         """Parse latest top-level crash report(s) under a path, ordered by newest first"""
-        latest_reports = XSH.ctx["_shell"]._async_runner.run(
+        latest_reports = self._run_manager(
             XSH.ctx["_manager"].parse_latest(
                 path=path,
                 match=match or [],
@@ -359,6 +362,6 @@ class CrashReportsShell(AfcShell):
         for report in latest_reports:
             print(report)
 
-    def _do_clear(self, path: Annotated[str, Arg(completer=path_completer)] = "/") -> None:
+    def _do_clear(self, path: Annotated[str, Arg(nargs="?", completer=path_completer)] = "/") -> None:
         """Clear crash reports from the device under a path."""
-        XSH.ctx["_shell"]._async_runner.run(XSH.ctx["_manager"].clear(path))
+        self._run_manager(XSH.ctx["_manager"].clear(path))

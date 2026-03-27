@@ -405,13 +405,18 @@ class SnowflakeCatalog(AbstractSparkCatalog):
         )
         if pattern:
 
-            @cached_udf(
-                input_types=[StringType(), StringType()], return_type=BooleanType()
-            )
             def python_regex_filter(pattern: str, input: str) -> bool:
                 return bool(re.match(pattern, input))
 
-            df = df.filter(python_regex_filter(lit(pattern), df['"name"']))
+            namespace_hash = f"{abs(hash((database, schema))):X}"
+            python_regex_filter.__name__ = f"python_regex_filter_{namespace_hash}"
+            regex_filter_udf = cached_udf(
+                python_regex_filter,
+                input_types=[StringType(), StringType()],
+                return_type=BooleanType(),
+            )
+
+            df = df.filter(regex_filter_udf(lit(pattern), df['"name"']))
 
         return df.collect()
 

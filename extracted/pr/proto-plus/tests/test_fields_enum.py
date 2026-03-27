@@ -366,7 +366,6 @@ if os.environ.get("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python") == "cpp":
         # but will explicitly allow this behavior if the enum is defined with
         # the `allow_alias` option set.
         with pytest.raises(TypeError):
-
             # The wrapper message is a hack to avoid manifest wrangling to
             # define the enum.
             class BadMessage(proto.Message):

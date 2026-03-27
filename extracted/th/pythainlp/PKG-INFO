@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pythainlp
-Version: 5.3.2
+Version: 5.3.3
 Summary: Thai Natural Language Processing library
 Project-URL: homepage, https://pythainlp.org/
 Project-URL: source, https://github.com/PyThaiNLP/pythainlp.git
@@ -263,8 +263,8 @@ pip install pythainlp
 
 | Version | Python version | Changes | Documentation |
 |:-------:|:--------------:|:-------:|:-------------:|
-| [5.3.2](https://github.com/PyThaiNLP/pythainlp/releases) | 3.9+ | [Log](https://github.com/PyThaiNLP/pythainlp/blob/dev/CHANGELOG.md#532---2026-03-19) | [pythainlp.org/docs](https://pythainlp.org/docs) |
-| [`dev`](https://github.com/PyThaiNLP/pythainlp/tree/dev) | 3.9+ | [Log](https://github.com/PyThaiNLP/pythainlp/compare/v5.3.2...HEAD) | [pythainlp.org/dev-docs](https://pythainlp.org/dev-docs/) |
+| [5.3.3](https://github.com/PyThaiNLP/pythainlp/releases) | 3.9+ | [Log](https://github.com/PyThaiNLP/pythainlp/blob/dev/CHANGELOG.md#533---2026-03-26) | [pythainlp.org/docs](https://pythainlp.org/docs) |
+| [`dev`](https://github.com/PyThaiNLP/pythainlp/tree/dev) | 3.9+ | [Log](https://github.com/PyThaiNLP/pythainlp/compare/v5.3.3...HEAD) | [pythainlp.org/dev-docs](https://pythainlp.org/dev-docs/) |
 
 ## Features
 
@@ -452,6 +452,10 @@ with this BibTeX entry:
 }
 ```
 
+## Sponsors
+
+See [SPONSORS.md](https://github.com/PyThaiNLP/pythainlp/blob/dev/SPONSORS.md)
+
 ## Acknowledgements
 
 PyThaiNLP was founded by Wannaphong Phatthiyaphaibun in 2016.
@@ -489,9 +493,6 @@ native support for Apple Silicon runners.
 [dreal]: https://d-real.ie/
 [nlp-chula]: https://attapol.github.io/lab.html
 [macstadium]: https://www.macstadium.com/
-
-![VISTEC-depa Thailand AI Research Institute](./docs/images/airesearch-logo.png)
-![MacStadium](./docs/images/macstadium-logo.png)
 
 We have only one official repository at
 <https://github.com/PyThaiNLP/pythainlp>

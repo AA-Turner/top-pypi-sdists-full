@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import base64
-import pytest
 
 import proto
 
@@ -79,7 +78,7 @@ def test_bytes_string_distinct():
     # converting a proto message to a dict base64 encodes the bytes
     # because it may be sent over the network via a protocol like HTTP.
     encoded_swallow: str = base64.urlsafe_b64encode(b"unladen swallow").decode("utf-8")
-    assert type(encoded_swallow) == str
+    assert type(encoded_swallow) is str
     foo.baz = encoded_swallow
     assert foo.baz == b"unladen swallow"
 

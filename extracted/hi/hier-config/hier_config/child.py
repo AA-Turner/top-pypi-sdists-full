@@ -6,7 +6,7 @@ from re import search, sub
 from typing import TYPE_CHECKING, Any
 
 from .base import HConfigBase
-from .models import Instance, MatchRule, SetLikeOfStr
+from .models import Instance, MatchRule, SetLikeOfStr, TextStyle
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -69,10 +69,7 @@ class HConfigChild(  # noqa: PLR0904  pylint: disable=too-many-instance-attribut
         return hash(
             (
                 self.text,
-                # self.tags,
-                # self.comments,
-                self.new_in_config,
-                self.order_weight,
+                self.tags,
                 *self.children,
             ),
         )
@@ -131,16 +128,7 @@ class HConfigChild(  # noqa: PLR0904  pylint: disable=too-many-instance-attribut
 
     @property
     def sectional_exit(self) -> str | None:
-        for rule in self.driver.rules.sectional_exiting:
-            if self.is_lineage_match(rule.match_rules):
-                if exit_text := rule.exit_text:
-                    return exit_text
-                return None
-
-        if not self.children:
-            return None
-
-        return "exit"
+        return self.driver.sectional_exit(self)
 
     @property
     def sectional_exit_text_parent_level(self) -> bool:
@@ -193,7 +181,7 @@ class HConfigChild(  # noqa: PLR0904  pylint: disable=too-many-instance-attribut
 
     def cisco_style_text(
         self,
-        style: str = "without_comments",
+        style: TextStyle = "without_comments",
         tag: str | None = None,
     ) -> str:
         """Return a Cisco style formated line i.e. indentation_level + text ! comments."""

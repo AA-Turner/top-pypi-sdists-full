@@ -16,11 +16,10 @@ use ruff_python_parser::semantic_errors::{
     LazyImportContext, SemanticSyntaxChecker, SemanticSyntaxContext, SemanticSyntaxError,
     SemanticSyntaxErrorKind, YieldOutsideFunctionKind,
 };
-use ruff_text_size::TextRange;
+use ruff_text_size::{Ranged, TextRange};
 use ty_module_resolver::{ModuleName, resolve_module};
 
 use crate::ast_node_ref::AstNodeRef;
-use crate::node_key::NodeKey;
 use crate::semantic_index::ast_ids::AstIdsBuilder;
 use crate::semantic_index::ast_ids::node_key::ExpressionNodeKey;
 use crate::semantic_index::definition::{
@@ -35,8 +34,8 @@ use crate::semantic_index::expression::{Expression, ExpressionKind};
 use crate::semantic_index::member::MemberExprBuilder;
 use crate::semantic_index::place::{PlaceExpr, PlaceTableBuilder, ScopedPlaceId};
 use crate::semantic_index::predicate::{
-    ClassPatternKind, PatternPredicate, PatternPredicateKind, Predicate, PredicateNode,
-    PredicateOrLiteral, ScopedPredicateId, StarImportPlaceholderPredicate,
+    CallableAndCallExpr, ClassPatternKind, PatternPredicate, PatternPredicateKind, Predicate,
+    PredicateNode, PredicateOrLiteral, ScopedPredicateId, StarImportPlaceholderPredicate,
 };
 use crate::semantic_index::re_exports::exported_names;
 use crate::semantic_index::reachability_constraints::{
@@ -665,8 +664,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             self.mark_symbol_used(symbol_id);
         }
         let use_id = self.current_ast_ids().record_use(expr);
-        self.current_use_def_map_mut()
-            .record_use(place_id, use_id, NodeKey::from_node(expr));
+        self.current_use_def_map_mut().record_use(place_id, use_id);
     }
 
     fn record_place_definition(&mut self, place_id: ScopedPlaceId, expr: &'ast ast::Expr) {
@@ -1728,6 +1726,9 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
     fn visit_stmt(&mut self, stmt: &'ast ast::Stmt) {
         self.with_semantic_checker(|semantic, context| semantic.visit_stmt(stmt, context));
 
+        self.current_use_def_map_mut()
+            .record_range_reachability(stmt.range());
+
         match stmt {
             ast::Stmt::FunctionDef(function_def) => {
                 let ast::StmtFunctionDef {
@@ -1792,11 +1793,8 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                 // done on the `Identifier` node as opposed to `ExprName` because that's what the
                 // AST uses.
                 let use_id = self.current_ast_ids().record_use(name);
-                self.current_use_def_map_mut().record_use(
-                    symbol.into(),
-                    use_id,
-                    NodeKey::from_node(name),
-                );
+                self.current_use_def_map_mut()
+                    .record_use(symbol.into(), use_id);
 
                 self.add_definition(symbol.into(), function_def);
                 self.mark_symbol_used(symbol);
@@ -1847,9 +1845,6 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                 );
             }
             ast::Stmt::Import(node) => {
-                self.current_use_def_map_mut()
-                    .record_node_reachability(NodeKey::from_node(node));
-
                 for (alias_index, alias) in node.names.iter().enumerate() {
                     // Mark the imported module, and all of its parents, as being imported in this
                     // file.
@@ -1877,9 +1872,6 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                 }
             }
             ast::Stmt::ImportFrom(node) => {
-                self.current_use_def_map_mut()
-                    .record_node_reachability(NodeKey::from_node(node));
-
                 // If we see:
                 //
                 // * `from .x.y import z` (or `from whatever.thispackage.x.y`)
@@ -2879,37 +2871,63 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                 // kind of constraint to mark the following code as unreachable.
                 //
                 // Ideally, these constraints should be added for every call expression, even those in
-                // sub-expressions and in the module-level scope. But doing so makes the number of
-                // such constraints so high that it significantly degrades performance. We thus cut
-                // scope here and add these constraints only at statement level function calls,
-                // like `sys.exit()`, and not within sub-expression like `3 + sys.exit()` etc.
-                //
-                // We also only add these inside function scopes, since considering module-level
-                // constraints can affect the type of imported symbols, leading to a lot more
-                // work in third-party code.
-                let is_call = match value.as_ref() {
-                    ast::Expr::Call(_) => true,
-                    ast::Expr::Await(ast::ExprAwait { value: inner, .. }) => inner.is_call_expr(),
-                    _ => false,
+                // sub-expressions. But doing so makes the number of such constraints so high that
+                // it significantly degrades performance. We thus cut scope here and add these
+                // constraints only at statement-level function calls, like `sys.exit()`, and not
+                // within sub-expressions like `3 + sys.exit()` etc.
+                let call_info = match value.as_ref() {
+                    ast::Expr::Call(ast::ExprCall { func, .. }) => {
+                        Some((func.as_ref(), value.as_ref(), false))
+                    }
+                    ast::Expr::Await(ast::ExprAwait { value: inner, .. }) => match inner.as_ref() {
+                        ast::Expr::Call(ast::ExprCall { func, .. }) => {
+                            Some((func.as_ref(), value.as_ref(), true))
+                        }
+                        _ => None,
+                    },
+                    _ => None,
                 };
 
-                if is_call && !self.source_type.is_stub() && self.in_function_scope() {
-                    let call_expr = self.add_standalone_expression(value.as_ref());
+                if let Some((func, expr, is_await)) = call_info {
+                    if !self.source_type.is_stub() {
+                        let callable = self.add_standalone_expression(func);
+                        let call_expr = self.add_standalone_expression(expr);
 
-                    let predicate = Predicate {
-                        node: PredicateNode::IsNonTerminalCall(call_expr),
-                        is_positive: true,
-                    };
-                    let constraint = self
-                        .record_reachability_constraint(PredicateOrLiteral::Predicate(predicate));
+                        let predicate = Predicate {
+                            node: PredicateNode::IsNonTerminalCall(CallableAndCallExpr {
+                                callable,
+                                call_expr,
+                                is_await,
+                            }),
+                            is_positive: true,
+                        };
 
-                    // Also gate narrowing by this constraint: if the call returns
-                    // `Never`, any narrowing in the current branch should be
-                    // invalidated (since this path is unreachable). This enables
-                    // narrowing to be preserved after if-statements where one branch
-                    // calls a `NoReturn` function like `sys.exit()`.
-                    self.current_use_def_map_mut()
-                        .record_narrowing_constraint_for_all_places(constraint);
+                        if self.in_function_scope() {
+                            let constraint = self.record_reachability_constraint(
+                                PredicateOrLiteral::Predicate(predicate),
+                            );
+
+                            // Also gate narrowing by this constraint: if the call returns
+                            // `Never`, any narrowing in the current branch should be
+                            // invalidated (since this path is unreachable). This enables
+                            // narrowing to be preserved after if-statements where one branch
+                            // calls a `NoReturn` function like `sys.exit()`.
+                            self.current_use_def_map_mut()
+                                .record_narrowing_constraint_for_all_places(constraint);
+                        } else {
+                            // In non-function scopes, we only record a narrowing constraint
+                            // (not a reachability constraint). Recording reachability for
+                            // calls in module scope is simply too expensive, and it's not
+                            // too important of a use case.
+                            let predicate_id =
+                                self.add_predicate(PredicateOrLiteral::Predicate(predicate));
+                            let constraint = self
+                                .current_reachability_constraints_mut()
+                                .add_atom(predicate_id);
+                            self.current_use_def_map_mut()
+                                .record_narrowing_constraint_for_all_places(constraint);
+                        }
+                    }
                 }
             }
             _ => {
@@ -2955,11 +2973,8 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
             });
 
         let use_id = self.ast_ids[current_scope].record_use(keyword);
-        self.use_def_maps[current_scope].record_multi_use(
-            member_places.into_iter().flatten(),
-            use_id,
-            NodeKey::from_node(keyword),
-        );
+        self.use_def_maps[current_scope]
+            .record_multi_use(member_places.into_iter().flatten(), use_id);
     }
 
     fn visit_expr(&mut self, expr: &'ast ast::Expr) {
@@ -2967,8 +2982,6 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
 
         self.scopes_by_expression
             .record_expression(expr, self.current_scope());
-
-        let node_key = NodeKey::from_node(expr);
 
         match expr {
             ast::Expr::Name(ast::ExprName { ctx, .. })
@@ -3019,13 +3032,6 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                         (ast::ExprContext::Invalid, _) => (false, false),
                     };
                     deferred_effects = Some((place_expr, is_use, is_definition));
-                }
-
-                // Track reachability of attribute expressions to silence `unresolved-attribute`
-                // diagnostics in unreachable code.
-                if expr.is_attribute_expr() {
-                    self.current_use_def_map_mut()
-                        .record_node_reachability(node_key);
                 }
 
                 walk_expr(self, expr);
@@ -3088,12 +3094,16 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                 let pre_if = self.flow_snapshot();
                 let (predicate, predicate_id) = self.record_expression_narrowing_constraint(test);
                 let reachability_constraint = self.record_reachability_constraint(predicate);
+                self.current_use_def_map_mut()
+                    .record_range_reachability(body.range());
                 self.visit_expr(body);
                 let post_body = self.flow_snapshot();
                 self.flow_restore(pre_if);
 
                 self.record_negated_narrowing_constraint(predicate, predicate_id);
                 self.record_negated_reachability_constraint(reachability_constraint);
+                self.current_use_def_map_mut()
+                    .record_range_reachability(orelse.range());
                 self.visit_expr(orelse);
                 self.flow_merge(post_body);
             }
@@ -3162,6 +3172,8 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                             .record_reachability_constraint(*id); // TODO: nicer API
                     }
 
+                    self.current_use_def_map_mut()
+                        .record_range_reachability(value.range());
                     self.visit_expr(value);
 
                     // For the last value, we don't need to model control flow. There is no short-circuiting
@@ -3204,11 +3216,6 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                 }
             }
             ast::Expr::StringLiteral(_) => {
-                // Track reachability of string literals, as they could be a stringified annotation
-                // with child expressions whose reachability we are interested in.
-                self.current_use_def_map_mut()
-                    .record_node_reachability(node_key);
-
                 walk_expr(self, expr);
             }
             ast::Expr::Yield(_) | ast::Expr::YieldFrom(_) => {

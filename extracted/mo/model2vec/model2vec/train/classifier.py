@@ -23,7 +23,7 @@ from model2vec.inference import StaticModelPipeline, evaluate_single_or_multi_la
 from model2vec.train.base import FinetunableStaticModel, TextDataset
 
 logger = logging.getLogger(__name__)
-_RANDOM_SEED = 42
+_DEFAULT_RANDOM_SEED = 42
 
 LabelType = TypeVar("LabelType", list[str], list[list[str]])
 
@@ -66,20 +66,29 @@ class StaticModelForClassification(FinetunableStaticModel):
 
     def construct_head(self) -> nn.Sequential:
         """Constructs a simple classifier head."""
+        modules: list[nn.Module] = []
         if self.n_layers == 0:
-            return nn.Sequential(nn.Linear(self.embed_dim, self.out_dim))
-        modules = [
-            nn.Linear(self.embed_dim, self.hidden_dim),
-            nn.ReLU(),
-        ]
-        for _ in range(self.n_layers - 1):
-            modules.extend([nn.Linear(self.hidden_dim, self.hidden_dim), nn.ReLU()])
-        modules.extend([nn.Linear(self.hidden_dim, self.out_dim)])
+            modules.append(nn.Linear(self.embed_dim, self.out_dim))
+        else:
+            # If we have a hidden layer, we should first project to hidden_dim
+            modules = [
+                nn.Linear(self.embed_dim, self.hidden_dim),
+                nn.ReLU(),
+            ]
+            for _ in range(self.n_layers - 1):
+                modules.extend([nn.Linear(self.hidden_dim, self.hidden_dim), nn.ReLU()])
+            # We always have a layer mapping from hidden to out.
+            modules.append(nn.Linear(self.hidden_dim, self.out_dim))
 
-        for module in modules:
-            if isinstance(module, nn.Linear):
-                nn.init.kaiming_uniform_(module.weight)
+        linear_modules = [module for module in modules if isinstance(module, nn.Linear)]
+        if linear_modules:
+            *initial, last = linear_modules
+            for module in initial:
+                nn.init.kaiming_uniform_(module.weight, nonlinearity="relu")
                 nn.init.zeros_(module.bias)
+            # Final layer does not kaiming
+            nn.init.xavier_uniform_(last.weight)
+            nn.init.zeros_(last.bias)
 
         return nn.Sequential(*modules)
 
@@ -149,6 +158,7 @@ class StaticModelForClassification(FinetunableStaticModel):
         X_val: list[str] | None = None,
         y_val: LabelType | None = None,
         class_weight: torch.Tensor | None = None,
+        random_seed: int = _DEFAULT_RANDOM_SEED,
     ) -> StaticModelForClassification:
         """
         Fit a model.
@@ -178,14 +188,14 @@ class StaticModelForClassification(FinetunableStaticModel):
         :param y_val: The labels to be used for validation.
         :param class_weight: The weight of the classes. If None, all classes are weighted equally. Must
             have the same length as the number of classes.
+        :param random_seed: The random seed to use. Defaults to 42.
         :return: The fitted model.
         :raises ValueError: If either X_val or y_val are provided, but not both.
         """
-        pl.seed_everything(_RANDOM_SEED)
+        pl.seed_everything(random_seed)
         logger.info("Re-initializing model.")
 
         # Determine whether the task is multilabel based on the type of y.
-
         self._initialize(y)
 
         if (X_val is not None) != (y_val is not None):
@@ -371,14 +381,13 @@ class StaticModelForClassification(FinetunableStaticModel):
         """Convert the model to an sklearn pipeline."""
         static_model = self.to_static_model()
 
-        random_state = np.random.RandomState(_RANDOM_SEED)
+        random_state = np.random.RandomState(_DEFAULT_RANDOM_SEED)
         n_items = len(self.classes)
         X = random_state.randn(n_items, static_model.dim)
         y = self.classes
 
-        converted = make_pipeline(MLPClassifier(hidden_layer_sizes=(self.hidden_dim,) * self.n_layers))
-        converted.fit(X, y)
-        mlp_head: MLPClassifier = converted[-1]
+        mlp_head = MLPClassifier(hidden_layer_sizes=(self.hidden_dim,) * self.n_layers)
+        mlp_head.fit(X, y)
 
         for index, layer in enumerate([module for module in self.head if isinstance(module, nn.Linear)]):
             mlp_head.coefs_[index] = layer.weight.detach().cpu().numpy().T
@@ -392,7 +401,8 @@ class StaticModelForClassification(FinetunableStaticModel):
         # Set to softmax or sigmoid
         mlp_head.out_activation_ = "logistic" if self.multilabel else "softmax"
 
-        return StaticModelPipeline(static_model, converted)
+        pipeline = make_pipeline(mlp_head)
+        return StaticModelPipeline(static_model, pipeline)
 
 
 class _ClassifierLightningModule(pl.LightningModule):

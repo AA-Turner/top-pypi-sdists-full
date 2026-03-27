@@ -5932,6 +5932,22 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSSERVICE_ROLE_FOR_AWS_TRANSFORM_CUSTOM = "AWSSERVICE_ROLE_FOR_AWS_TRANSFORM_CUSTOM"
+    '''
+    :stability: experimental
+    '''
+    DBMOD_DISCOVERY_AND_ASSESSMENT = "DBMOD_DISCOVERY_AND_ASSESSMENT"
+    '''
+    :stability: experimental
+    '''
+    DBMOD_PROVISIONING_AND_MIGRATION = "DBMOD_PROVISIONING_AND_MIGRATION"
+    '''
+    :stability: experimental
+    '''
+    AWSEC2_VSS_RESTORE_POLICY = "AWSEC2_VSS_RESTORE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

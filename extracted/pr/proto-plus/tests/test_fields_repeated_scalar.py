@@ -72,7 +72,7 @@ def test_repeated_scalar_eq_ne():
     foo = Foo(bar=[1, 1, 2, 3, 5, 8, 13])
     assert foo.bar == copy.copy(foo.bar)
     assert foo.bar != [1, 2, 4, 8, 16]
-    assert foo.bar != None
+    assert foo.bar is not None
 
 
 def test_repeated_scalar_del():

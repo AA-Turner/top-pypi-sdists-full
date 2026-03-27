@@ -12,7 +12,7 @@ import pickle  # for local caching
 import time
 from contextlib import suppress
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import IO, Any, Dict, Optional, Tuple, Union, cast
 
 import portalocker  # to lock on pickle cache IO
 from watchdog.events import PatternMatchingEventHandler
@@ -78,16 +78,13 @@ class _PickleCore(_BaseCore):
         cache_dir: Optional[Union[str, os.PathLike]],
         separate_files: Optional[bool],
         wait_for_calc_timeout: Optional[int],
+        entry_size_limit: Optional[int] = None,
     ):
-        super().__init__(hash_func, wait_for_calc_timeout)
+        super().__init__(hash_func, wait_for_calc_timeout, entry_size_limit)
         self._cache_dict: Dict[str, CacheEntry] = {}
         self.reload = _update_with_defaults(pickle_reload, "pickle_reload")
-        self.cache_dir = os.path.expanduser(
-            _update_with_defaults(cache_dir, "cache_dir")
-        )
-        self.separate_files = _update_with_defaults(
-            separate_files, "separate_files"
-        )
+        self.cache_dir = os.path.expanduser(_update_with_defaults(cache_dir, "cache_dir"))
+        self.separate_files = _update_with_defaults(separate_files, "separate_files")
         self._cache_used_fpath = ""
 
     @property
@@ -98,9 +95,7 @@ class _PickleCore(_BaseCore):
     @property
     def cache_fpath(self) -> str:
         os.makedirs(self.cache_dir, exist_ok=True)
-        return os.path.abspath(
-            os.path.join(os.path.realpath(self.cache_dir), self.cache_fname)
-        )
+        return os.path.abspath(os.path.join(os.path.realpath(self.cache_dir), self.cache_fname))
 
     @staticmethod
     def _convert_legacy_cache_entry(
@@ -119,14 +114,11 @@ class _PickleCore(_BaseCore):
     def _load_cache_dict(self) -> Dict[str, CacheEntry]:
         try:
             with portalocker.Lock(self.cache_fpath, mode="rb") as cf:
-                cache = pickle.load(cf)
+                cache = pickle.load(cast(IO[bytes], cf))
             self._cache_used_fpath = str(self.cache_fpath)
         except (FileNotFoundError, EOFError):
             cache = {}
-        return {
-            k: _PickleCore._convert_legacy_cache_entry(v)
-            for k, v in cache.items()
-        }
+        return {k: _PickleCore._convert_legacy_cache_entry(v) for k, v in cache.items()}
 
     def get_cache_dict(self, reload: bool = False) -> Dict[str, CacheEntry]:
         if self._cache_used_fpath != self.cache_fpath:
@@ -139,14 +131,12 @@ class _PickleCore(_BaseCore):
             self._cache_dict = self._load_cache_dict()
         return self._cache_dict
 
-    def _load_cache_by_key(
-        self, key=None, hash_str=None
-    ) -> Optional[CacheEntry]:
+    def _load_cache_by_key(self, key=None, hash_str=None) -> Optional[CacheEntry]:
         fpath = self.cache_fpath
         fpath += f"_{hash_str or key}"
         try:
             with portalocker.Lock(fpath, mode="rb") as cache_file:
-                entry = pickle.load(cache_file)
+                entry = pickle.load(cast(IO[bytes], cache_file))
             return _PickleCore._convert_legacy_cache_entry(entry)
         except (FileNotFoundError, EOFError):
             return None
@@ -161,9 +151,7 @@ class _PickleCore(_BaseCore):
         path, name = os.path.split(self.cache_fpath)
         for subpath in os.listdir(path):
             if subpath.startswith(name):
-                entry = self._load_cache_by_key(
-                    hash_str=subpath.split("_")[-1]
-                )
+                entry = self._load_cache_by_key(hash_str=subpath.split("_")[-1])
                 if entry is not None:
                     entry._processing = False
                     self._save_cache(entry, hash_str=subpath.split("_")[-1])
@@ -175,9 +163,7 @@ class _PickleCore(_BaseCore):
         hash_str: Optional[str] = None,
     ) -> None:
         if separate_file_key and not isinstance(cache, CacheEntry):
-            raise ValueError(
-                "`separate_file_key` should only be used with a CacheEntry"
-            )
+            raise ValueError("`separate_file_key` should only be used with a CacheEntry")
         fpath = self.cache_fpath
         if separate_file_key is not None:
             fpath += f"_{separate_file_key}"
@@ -185,20 +171,27 @@ class _PickleCore(_BaseCore):
             fpath += f"_{hash_str}"
         with self.lock:
             with portalocker.Lock(fpath, mode="wb") as cf:
-                pickle.dump(cache, cf, protocol=4)
+                pickle.dump(cache, cast(IO[bytes], cf), protocol=4)
             # the same as check for separate_file, but changed for typing
             if isinstance(cache, dict):
                 self._cache_dict = cache
                 self._cache_used_fpath = str(self.cache_fpath)
 
-    def get_entry_by_key(
-        self, key: str, reload: bool = False
-    ) -> Tuple[str, Optional[CacheEntry]]:
+    def get_entry_by_key(self, key: str, reload: bool = False) -> Tuple[str, Optional[CacheEntry]]:
         if self.separate_files:
             return key, self._load_cache_by_key(key)
         return key, self.get_cache_dict(reload).get(key)
 
-    def set_entry(self, key: str, func_res: Any) -> None:
+    async def aget_entry(self, args: tuple[Any, ...], kwds: dict[str, Any]) -> Tuple[str, Optional[CacheEntry]]:
+        key = self.get_key(args, kwds)
+        return await self.aget_entry_by_key(key)
+
+    async def aget_entry_by_key(self, key: str) -> Tuple[str, Optional[CacheEntry]]:
+        return self.get_entry_by_key(key)
+
+    def set_entry(self, key: str, func_res: Any) -> bool:
+        if not self._should_store(func_res):
+            return False
         key_data = CacheEntry(
             value=func_res,
             time=datetime.now(),
@@ -208,21 +201,20 @@ class _PickleCore(_BaseCore):
         )
         if self.separate_files:
             self._save_cache(key_data, key)
-            return  # pragma: no cover
+            return True  # pragma: no cover
 
         with self.lock:
             cache = self.get_cache_dict()
             cache[key] = key_data
             self._save_cache(cache)
+        return True
+
+    async def aset_entry(self, key: str, func_res: Any) -> bool:
+        return self.set_entry(key, func_res)
 
     def mark_entry_being_calculated_separate_files(self, key: str) -> None:
         self._save_cache(
-            CacheEntry(
-                value=None,
-                time=datetime.now(),
-                stale=False,
-                _processing=True,
-            ),
+            CacheEntry(value=None, time=datetime.now(), stale=False, _processing=True),
             separate_file_key=key,
         )
 
@@ -243,13 +235,11 @@ class _PickleCore(_BaseCore):
             if key in cache:
                 cache[key]._processing = True
             else:
-                cache[key] = CacheEntry(
-                    value=None,
-                    time=datetime.now(),
-                    stale=False,
-                    _processing=True,
-                )
+                cache[key] = CacheEntry(value=None, time=datetime.now(), stale=False, _processing=True)
             self._save_cache(cache)
+
+    async def amark_entry_being_calculated(self, key: str) -> None:
+        self.mark_entry_being_calculated(key)
 
     def mark_entry_not_calculated(self, key: str) -> None:
         if self.separate_files:
@@ -260,6 +250,9 @@ class _PickleCore(_BaseCore):
             if isinstance(cache, dict) and key in cache:
                 cache[key]._processing = False
                 self._save_cache(cache)
+
+    async def amark_entry_not_calculated(self, key: str) -> None:
+        self.mark_entry_not_calculated(key)
 
     def _create_observer(self) -> Observer:  # type: ignore[valid-type]
         """Create a new observer instance."""
@@ -296,12 +289,20 @@ class _PickleCore(_BaseCore):
                 return self._wait_with_polling(key)
             else:
                 raise
+        except RuntimeError as e:
+            if "Cannot add watch" in str(e):
+                # Fall back to polling if watch already scheduled (FSEvents)
+                logging.debug(
+                    "Watch already scheduled for %s, falling back to polling",
+                    self.cache_dir,
+                )
+                return self._wait_with_polling(key)
+            else:
+                raise
 
     def _wait_with_inotify(self, key: str, filename: str) -> Any:  # type: ignore[valid-type]
         """Wait for calculation using inotify with proper cleanup."""
-        event_handler = _PickleCore.CacheChangeHandler(
-            filename=filename, core=self, key=key
-        )
+        event_handler = _PickleCore.CacheChangeHandler(filename=filename, core=self, key=key)
 
         observer = self._create_observer()
         event_handler.inject_observer(observer)
@@ -374,9 +375,7 @@ class _PickleCore(_BaseCore):
             for subpath in os.listdir(path):
                 if not subpath.startswith(f"{name}_"):
                     continue
-                entry = self._load_cache_by_key(
-                    hash_str=subpath.split("_")[-1]
-                )
+                entry = self._load_cache_by_key(hash_str=subpath.split("_")[-1])
                 if entry is not None and (now - entry.time > stale_after):
                     with suppress(FileNotFoundError):
                         os.remove(os.path.join(path, subpath))
@@ -384,9 +383,7 @@ class _PickleCore(_BaseCore):
 
         with self.lock:
             cache = self.get_cache_dict(reload=True)
-            keys_to_delete = [
-                k for k, v in cache.items() if now - v.time > stale_after
-            ]
+            keys_to_delete = [k for k, v in cache.items() if now - v.time > stale_after]
             for key in keys_to_delete:
                 del cache[key]
             self._save_cache(cache)

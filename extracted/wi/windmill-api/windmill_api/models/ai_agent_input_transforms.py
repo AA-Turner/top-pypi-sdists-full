@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from ..models.ai_agent_input_transforms_streaming import AiAgentInputTransformsStreaming
     from ..models.ai_agent_input_transforms_system_prompt import AiAgentInputTransformsSystemPrompt
     from ..models.ai_agent_input_transforms_temperature import AiAgentInputTransformsTemperature
-    from ..models.ai_agent_input_transforms_user_images import AiAgentInputTransformsUserImages
+    from ..models.ai_agent_input_transforms_user_attachments import AiAgentInputTransformsUserAttachments
     from ..models.ai_agent_input_transforms_user_message import AiAgentInputTransformsUserMessage
 
 
@@ -51,10 +51,10 @@ class AiAgentInputTransforms:
             maxLength, minimum, maximum, etc.
             Example: { type: 'object', properties: { name: { type: 'string' }, age: { type: 'integer' } }, required:
             ['name'] }
-        user_images (Union[Unset, AiAgentInputTransformsUserImages]): Array of image references for vision-capable
-            models.
+        user_attachments (Union[Unset, AiAgentInputTransformsUserAttachments]): Array of file references (images or
+            PDFs) for the AI agent.
             Format: Array<{ bucket: string, key: string }> - S3 object references
-            Example: [{ bucket: 'my-bucket', key: 'images/photo.jpg' }]
+            Example: [{ bucket: 'my-bucket', key: 'documents/report.pdf' }]
         max_completion_tokens (Union[Unset, AiAgentInputTransformsMaxCompletionTokens]): Integer. Maximum number of
             tokens the AI will generate in its response.
             Range: 1 to 4,294,967,295. Typical values: 256-4096 for most use cases.
@@ -82,7 +82,7 @@ class AiAgentInputTransforms:
         Unset,
     ] = UNSET
     output_schema: Union[Unset, "AiAgentInputTransformsOutputSchema"] = UNSET
-    user_images: Union[Unset, "AiAgentInputTransformsUserImages"] = UNSET
+    user_attachments: Union[Unset, "AiAgentInputTransformsUserAttachments"] = UNSET
     max_completion_tokens: Union[Unset, "AiAgentInputTransformsMaxCompletionTokens"] = UNSET
     temperature: Union[Unset, "AiAgentInputTransformsTemperature"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -139,9 +139,9 @@ class AiAgentInputTransforms:
         if not isinstance(self.output_schema, Unset):
             output_schema = self.output_schema.to_dict()
 
-        user_images: Union[Unset, Dict[str, Any]] = UNSET
-        if not isinstance(self.user_images, Unset):
-            user_images = self.user_images.to_dict()
+        user_attachments: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.user_attachments, Unset):
+            user_attachments = self.user_attachments.to_dict()
 
         max_completion_tokens: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.max_completion_tokens, Unset):
@@ -168,8 +168,8 @@ class AiAgentInputTransforms:
             field_dict["memory"] = memory
         if output_schema is not UNSET:
             field_dict["output_schema"] = output_schema
-        if user_images is not UNSET:
-            field_dict["user_images"] = user_images
+        if user_attachments is not UNSET:
+            field_dict["user_attachments"] = user_attachments
         if max_completion_tokens is not UNSET:
             field_dict["max_completion_tokens"] = max_completion_tokens
         if temperature is not UNSET:
@@ -191,7 +191,7 @@ class AiAgentInputTransforms:
         from ..models.ai_agent_input_transforms_streaming import AiAgentInputTransformsStreaming
         from ..models.ai_agent_input_transforms_system_prompt import AiAgentInputTransformsSystemPrompt
         from ..models.ai_agent_input_transforms_temperature import AiAgentInputTransformsTemperature
-        from ..models.ai_agent_input_transforms_user_images import AiAgentInputTransformsUserImages
+        from ..models.ai_agent_input_transforms_user_attachments import AiAgentInputTransformsUserAttachments
         from ..models.ai_agent_input_transforms_user_message import AiAgentInputTransformsUserMessage
 
         d = src_dict.copy()
@@ -301,12 +301,12 @@ class AiAgentInputTransforms:
         else:
             output_schema = AiAgentInputTransformsOutputSchema.from_dict(_output_schema)
 
-        _user_images = d.pop("user_images", UNSET)
-        user_images: Union[Unset, AiAgentInputTransformsUserImages]
-        if isinstance(_user_images, Unset):
-            user_images = UNSET
+        _user_attachments = d.pop("user_attachments", UNSET)
+        user_attachments: Union[Unset, AiAgentInputTransformsUserAttachments]
+        if isinstance(_user_attachments, Unset):
+            user_attachments = UNSET
         else:
-            user_images = AiAgentInputTransformsUserImages.from_dict(_user_images)
+            user_attachments = AiAgentInputTransformsUserAttachments.from_dict(_user_attachments)
 
         _max_completion_tokens = d.pop("max_completion_tokens", UNSET)
         max_completion_tokens: Union[Unset, AiAgentInputTransformsMaxCompletionTokens]
@@ -330,7 +330,7 @@ class AiAgentInputTransforms:
             streaming=streaming,
             memory=memory,
             output_schema=output_schema,
-            user_images=user_images,
+            user_attachments=user_attachments,
             max_completion_tokens=max_completion_tokens,
             temperature=temperature,
         )

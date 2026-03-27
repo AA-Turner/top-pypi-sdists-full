@@ -1,8 +1,7 @@
 """
 GDC_get_clinical_data
 
-Get detailed clinical data for cancer cases from NCI GDC/TCGA.
-Returns demographics, diagnoses, treatments, and survival information.
+Get detailed clinical data for cancer cases from NCI GDC/TCGA. Returns demographics (gender, race...
 """
 
 from typing import Any, Optional, Callable
@@ -23,29 +22,38 @@ def GDC_get_clinical_data(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Get detailed clinical data for cancer cases from NCI GDC/TCGA.
+    Get detailed clinical data for cancer cases from NCI GDC/TCGA. Returns demographics (gender, race...
 
     Parameters
     ----------
-    project_id : str, optional
-        GDC project identifier (e.g., 'TCGA-BRCA', 'TCGA-LUAD').
-    primary_site : str, optional
-        Primary anatomical site (e.g., 'Breast', 'Lung', 'Brain').
-    disease_type : str, optional
-        Disease type filter.
-    vital_status : str, optional
-        Vital status: 'Alive' or 'Dead'.
-    gender : str, optional
-        Gender: 'female' or 'male'.
+    project_id : str
+        GDC project identifier (e.g., 'TCGA-BRCA', 'TCGA-LUAD', 'TARGET-AML')
+    primary_site : str
+        Primary anatomical site (e.g., 'Breast', 'Lung', 'Brain')
+    disease_type : str
+        Disease type filter (e.g., 'Ductal and Lobular Neoplasms')
+    vital_status : str
+        Vital status filter: 'Alive' or 'Dead'
+    gender : str
+        Gender filter: 'female' or 'male'
     size : int
-        Number of cases to return (1-100).
+        Number of cases to return (1-100)
     offset : int
-        Pagination offset (0-based).
+        Pagination offset (0-based)
+    stream_callback : Callable, optional
+        Callback for streaming output
+    use_cache : bool, default False
+        Enable caching
+    validate : bool, default True
+        Validate parameters
 
     Returns
     -------
     dict[str, Any]
     """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
         for k, v in {
@@ -60,7 +68,10 @@ def GDC_get_clinical_data(
         if v is not None
     }
     return get_shared_client().run_one_function(
-        {"name": "GDC_get_clinical_data", "arguments": _args},
+        {
+            "name": "GDC_get_clinical_data",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

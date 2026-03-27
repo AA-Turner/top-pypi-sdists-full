@@ -33,7 +33,7 @@ class BaseOTSClient(ABC):
 
     DEFAULT_ENCODING = 'utf8'
     DEFAULT_SOCKET_TIMEOUT = 50
-    DEFAULT_MAX_CONNECTION = 50
+    DEFAULT_MAX_CONNECTION = 500
     DEFAULT_LOGGER_NAME = 'tablestore-client'
 
     def __init__(self, end_point, access_key_id=None, access_key_secret=None, instance_name=None,
@@ -63,17 +63,18 @@ class BaseOTSClient(ABC):
 
         ``socket_timeout`` is the Socket timeout for each connection in the connection pool, measured in seconds. It can be an int or float. The default value is 50.
 
-        ``max_connection`` is the maximum number of connections in the connection pool. The default is 50.
+        ``max_connection`` is the maximum number of connections in the connection pool. The default is 500.
 
         ``logger_name`` is used to log DEBUG logs during requests or ERROR logs when errors occur.
 
         ``retry_policy`` defines the retry policy. The default retry policy is DefaultRetryPolicy. You can inherit from RetryPolicy to implement your own retry policy; please refer to the code of DefaultRetryPolicy.
-
         ``ssl_version`` defines the TLS version used for https connections. The default is None.
 
+        ``enable_native`` specifies whether to use native C/C++ encoder and decoder for better performance. The default is True.
+
+        ``native_fallback`` specifies whether to fall back to the Python implementation when the native encoder/decoder raises an exception. The default is True.
 
         Example: Create an OTSClient instance
-
             from tablestore.client import OTSClient
 
             client = OTSClient('your_instance_endpoint', 'your_user_id', 'your_user_key', 'your_instance_name', region='region')
@@ -122,12 +123,19 @@ class BaseOTSClient(ABC):
             )
 
         extra_headers = kwargs.get('extra_headers')
+
+        # initialize native codec configuration
+        self.enable_native = kwargs.get('enable_native', True)
+        self.native_fallback = kwargs.get('native_fallback', True)
+
         # initialize protocol instance via user configuration
         self.protocol = OTSProtocol(
             instance_name=instance_name,
             encoding=self.encoding,
             logger=self.logger,
-            extra_headers=extra_headers
+            extra_headers=extra_headers,
+            enable_native=self.enable_native,
+            native_fallback=self.native_fallback,
         )
 
         # initialize connection via user configuration
@@ -426,7 +434,7 @@ class OTSClient(BaseOTSClient):
             primary_key = [('gid',1), ('uid',101)]
             update_of_attribute_columns = {
                 'put' : [('name','Zhang Sanfeng'), ('address','Location B, China')],
-                'delete' : [('mobile', 1493725896147)],
+                'delete' : [('mobile', None, 1493725896147)],
                 'delete_all' : [('age')],
                 'increment' : [('counter', 1)]
             }
@@ -537,7 +545,7 @@ class OTSClient(BaseOTSClient):
     def batch_write_row(self, request):
         """
         Description: Batch modification of multiple rows.
-        request = MiltiTableInBatchWriteRowItem()
+        request = BatchWriteRowRequest()
 
         request.add(TableInBatchWriteRowItem(table0, row_items))
         request.add(TableInBatchWriteRowItem(table1, row_items))
@@ -1300,7 +1308,7 @@ class AsyncOTSClient(BaseOTSClient):
             primary_key = [('gid',1), ('uid',101)]
             update_of_attribute_columns = {
                 'put' : [('name','Zhang Sanfeng'), ('address','Location B, China')],
-                'delete' : [('mobile', 1493725896147)],
+                'delete' : [('mobile', None, 1493725896147)],
                 'delete_all' : [('age')],
                 'increment' : [('counter', 1)]
             }
@@ -1411,7 +1419,7 @@ class AsyncOTSClient(BaseOTSClient):
     async def batch_write_row(self, request):
         """
         Description: Batch modification of multiple rows.
-        request = MiltiTableInBatchWriteRowItem()
+        request = BatchWriteRowRequest()
 
         request.add(TableInBatchWriteRowItem(table0, row_items))
         request.add(TableInBatchWriteRowItem(table1, row_items))

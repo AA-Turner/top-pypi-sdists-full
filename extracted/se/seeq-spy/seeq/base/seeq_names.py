@@ -114,6 +114,7 @@ class SeeqNames:
         usage_restricted_label_namespace = '__Seeq.'
         vantage_label_category_namespace = '__Vantage'
         user_defined_context_namespace = 'UserDefinedContext'
+        reason_code_namespace = 'reasonCode'
         suppression_label_category_name = '__Seeq.suppression'
         flag_label_category_name = '__Vantage.flag'
         reviewed_label_category_name = '__Vantage.reviewed'

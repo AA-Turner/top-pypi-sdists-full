@@ -31,11 +31,11 @@ from snowflake.snowpark_connect.utils.context import (
     get_jpype_jclass_lock,
     get_spark_session_id,
 )
-from snowflake.snowpark_connect.utils.external_udxf_cache import (
-    clear_external_udxf_cache,
-)
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+from snowflake.snowpark_connect.utils.spark_session_cache import (
+    clear_spark_session_cache,
+)
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
     telemetry,
@@ -219,10 +219,6 @@ class GlobalConfig:
         "spark.app.name": lambda session, name: setattr(
             session, "query_tag", f"Spark-Connect-App-Name={name}"
         ),
-        # TODO SNOW-2896871: Remove with version 1.10.0
-        "snowpark.connect.udf.imports": lambda session, imports: parse_imports(
-            session, imports, "python"
-        ),
         "snowpark.connect.udf.python.imports": lambda session, imports: parse_imports(
             session, imports, "python"
         ),
@@ -230,8 +226,8 @@ class GlobalConfig:
             session, imports, "java"
         ),
         # When artifact repository changes, cached UDXFs need to be recreated with the new repository
-        "snowpark.connect.artifact_repository": lambda session, _: clear_external_udxf_cache(
-            session
+        "snowpark.connect.artifact_repository": lambda session, _: clear_spark_session_cache(
+            get_spark_session_id()
         ),
     }
 
@@ -873,7 +869,7 @@ def parse_imports(
         return
 
     # UDF needs to be recreated to include new imports
-    clear_external_udxf_cache(session)
+    clear_spark_session_cache(get_spark_session_id())
     if language == "java":
 
         set_java_udf_creator_initialized_state(False)

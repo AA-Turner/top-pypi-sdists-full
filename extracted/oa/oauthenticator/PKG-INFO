@@ -1,41 +1,38 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: oauthenticator
-Version: 17.3.0
+Version: 17.4.0
 Summary: OAuthenticator: Authenticate JupyterHub users with common OAuth providers
-Home-page: https://jupyter.org
-Author: Jupyter Development Team
-Author-email: jupyter@googlegroups.com
-License: BSD
-Keywords: Interactive,Interpreter,Shell,Web
-Platform: Linux
-Platform: Mac OS X
+Project-URL: Homepage, https://jupyter.org
+Project-URL: Source, https://github.com/jupyterhub/oauthenticator
+Author-email: Jupyter Development Team <jupyter@googlegroups.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
 Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: System Administrators
 Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-License-File: LICENSE
+Requires-Python: >=3.10
 Requires-Dist: jsonschema
 Requires-Dist: jupyterhub>=2.2
 Requires-Dist: pyjwt>=2
 Requires-Dist: requests
-Requires-Dist: ruamel.yaml
+Requires-Dist: ruamel-yaml
 Requires-Dist: tornado
 Requires-Dist: traitlets
 Provides-Extra: googlegroups
-Requires-Dist: google-auth-oauthlib; extra == "googlegroups"
+Requires-Dist: google-auth-oauthlib; extra == 'googlegroups'
 Provides-Extra: mediawiki
-Requires-Dist: mwoauth>=0.3.8; extra == "mediawiki"
+Requires-Dist: mwoauth>=0.3.8; extra == 'mediawiki'
 Provides-Extra: test
-Requires-Dist: pytest>=2.8; extra == "test"
-Requires-Dist: pytest-asyncio<0.23,>=0.17; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: requests-mock; extra == "test"
-Requires-Dist: google-auth-oauthlib; extra == "test"
-Requires-Dist: mwoauth>=0.3.8; extra == "test"
+Requires-Dist: google-auth-oauthlib; extra == 'test'
+Requires-Dist: mwoauth>=0.3.8; extra == 'test'
+Requires-Dist: pytest-asyncio>=1.2; extra == 'test'
+Requires-Dist: pytest-cov; extra == 'test'
+Requires-Dist: pytest>=6; extra == 'test'
+Requires-Dist: requests-mock; extra == 'test'
+Description-Content-Type: text/markdown
 
 # OAuth + JupyterHub Authenticator = OAuthenticator :heart:
 

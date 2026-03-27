@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.api import distribution_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api.distribution_pb2 as distribution_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -60,6 +60,7 @@ class ComparisonType(proto.Enum):
             True if the left argument is not equal to the
             right argument.
     """
+
     COMPARISON_UNSPECIFIED = 0
     COMPARISON_GT = 1
     COMPARISON_GE = 2
@@ -94,6 +95,7 @@ class ServiceTier(proto.Enum):
             details, see `the service tiers
             documentation <https://cloud.google.com/monitoring/workspaces/tiers>`__.
     """
+
     _pb_options = {"deprecated": True}
     SERVICE_TIER_UNSPECIFIED = 0
     SERVICE_TIER_BASIC = 1
@@ -493,6 +495,7 @@ class Aggregation(proto.Message):
                 that the values for the metric will always be positive. The
                 output is a ``GAUGE`` metric with ``value_type`` ``DOUBLE``.
         """
+
         ALIGN_NONE = 0
         ALIGN_DELTA = 1
         ALIGN_RATE = 2
@@ -608,6 +611,7 @@ class Aggregation(proto.Message):
                 numeric and distribution type. The value of the output is
                 ``DOUBLE``.
         """
+
         REDUCE_NONE = 0
         REDUCE_MEAN = 1
         REDUCE_MIN = 2

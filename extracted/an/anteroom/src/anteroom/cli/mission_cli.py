@@ -57,21 +57,37 @@ def _handle_create(config: AppConfig, db: Any, args: argparse.Namespace) -> None
 
     spec_fqn = getattr(args, "spec", None)
     prompt = getattr(args, "prompt", None)
+    profile_name = getattr(args, "profile", None)
+
+    # Resolve execution profile (if specified)
+    profile = None
+    if profile_name:
+        from ..services.mission_profiles import resolve_profile
+
+        try:
+            profile = resolve_profile(profile_name)
+        except ValueError as exc:
+            console.print(f"[red]Error:[/red] {exc}")
+            return
 
     adapter_type = getattr(args, "adapter", "noop") or "noop"
     workflow_path = getattr(args, "workflow_path", None)
     adapter_config: dict[str, Any] = {}
     if workflow_path:
         adapter_config["workflow_path"] = workflow_path
-    defaults = AdapterDefaults(adapter_type=adapter_type, adapter_config=adapter_config)
+
+    # Explicit --adapter/--workflow-path override profile defaults
+    defaults: AdapterDefaults | None = None
+    if adapter_type != "noop" or workflow_path:
+        defaults = AdapterDefaults(adapter_type=adapter_type, adapter_config=adapter_config)
 
     if prompt:
-        plan = _compile_from_prompt_sync(config, prompt, defaults)
+        plan = _compile_from_prompt_sync(config, prompt, defaults, execution_profile=profile)
         if plan is None:
             return
     elif spec_fqn:
         try:
-            plan = compile_from_spec(db, spec_fqn, adapter_defaults=defaults)
+            plan = compile_from_spec(db, spec_fqn, adapter_defaults=defaults, execution_profile=profile)
         except ValueError as exc:
             console.print(f"[red]Error:[/red] {exc}")
             return
@@ -79,15 +95,29 @@ def _handle_create(config: AppConfig, db: Any, args: argparse.Namespace) -> None
         console.print("[red]Error:[/red] --spec or --prompt is required")
         return
 
+    if profile:
+        console.print(f"[bold]Profile:[/bold] {profile.name} — {profile.description}")
+
     table = Table(title="Compiled Plan", show_header=True)
     table.add_column("ID", style="dim")
     table.add_column("Summary")
     table.add_column("Priority", justify="right")
     table.add_column("Adapter")
+    table.add_column("Lane")
     table.add_column("Depends On")
+    table.add_column("Binding Reason", style="dim")
     for item in plan.items:
         deps = ", ".join(item.depends_on) if item.depends_on else "-"
-        table.add_row(item.temp_id, item.summary, str(item.priority), item.adapter_type, deps)
+        reason = item.adapter_config.get("_binding_reason", "") if item.adapter_config else ""
+        table.add_row(
+            item.temp_id,
+            item.summary,
+            str(item.priority),
+            item.adapter_type,
+            item.lane or "-",
+            deps,
+            reason,
+        )
     console.print(table)
 
     launch = getattr(args, "launch", False)
@@ -100,9 +130,14 @@ def _handle_create(config: AppConfig, db: Any, args: argparse.Namespace) -> None
             console.print("Aborted")
             return
 
+    # Compute lane_limits from profile for session persistence
+    lane_limits: dict[str, int] | None = None
+    if profile and profile.lane_limits:
+        lane_limits = dict(profile.lane_limits)
+
     source_type = "spec" if spec_fqn else "prompt"
     try:
-        session = apply_plan(db, plan, source_type=source_type, source_fqn=spec_fqn)
+        session = apply_plan(db, plan, source_type=source_type, source_fqn=spec_fqn, lane_limits=lane_limits)
     except ValueError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         return
@@ -122,6 +157,8 @@ def _compile_from_prompt_sync(
     config: AppConfig,
     prompt: str,
     defaults: Any,
+    *,
+    execution_profile: Any | None = None,
 ) -> Any:
     """Create an AI service and compile a plan from a prompt synchronously."""
     from ..services.mission_compiler import compile_from_prompt
@@ -133,7 +170,9 @@ def _compile_from_prompt_sync(
         return None
 
     try:
-        return asyncio.run(compile_from_prompt(prompt, ai_service, adapter_defaults=defaults))
+        return asyncio.run(
+            compile_from_prompt(prompt, ai_service, adapter_defaults=defaults, execution_profile=execution_profile)
+        )
     except Exception as exc:
         console.print(f"[red]Error:[/red] {exc}")
         return None

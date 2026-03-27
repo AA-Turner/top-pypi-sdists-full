@@ -1,7 +1,7 @@
 """
 ENCODE_search_rnaseq_experiments
 
-Search ENCODE RNA-seq experiments by biosample (cell type or tissue), organism, and assay type.
+Search ENCODE RNA-seq experiments by biosample (cell type or tissue), organism, and assay type (t...
 """
 
 from typing import Any, Optional, Callable
@@ -9,10 +9,10 @@ from ._shared_client import get_shared_client
 
 
 def ENCODE_search_rnaseq_experiments(
-    biosample_term_name: Optional[str] = None,
-    biosample: Optional[str] = None,
-    cell_type: Optional[str] = None,
-    tissue: Optional[str] = None,
+    biosample_term_name: Optional[str | Any] = None,
+    biosample: Optional[str | Any] = None,
+    cell_type: Optional[str | Any] = None,
+    tissue: Optional[str | Any] = None,
     organism: Optional[str] = "Homo sapiens",
     assay_type: Optional[str] = "total RNA-seq",
     limit: Optional[int] = 25,
@@ -22,23 +22,22 @@ def ENCODE_search_rnaseq_experiments(
     validate: bool = True,
 ) -> Any:
     """
-    Search ENCODE RNA-seq experiments by biosample, organism, and assay type.
+    Search ENCODE RNA-seq experiments by biosample (cell type or tissue), organism, and assay type (t...
 
     Parameters
     ----------
-    biosample_term_name : str, optional
-        Biosample from ENCODE ontology (e.g., 'K562', 'HepG2', 'liver', 'brain').
-    biosample : str, optional
-        Alias for biosample_term_name.
-    cell_type : str, optional
-        Alias for biosample_term_name. Cell type (e.g., 'K562', 'GM12878').
-    tissue : str, optional
-        Alias for biosample_term_name. Tissue (e.g., 'liver', 'brain').
+    biosample_term_name : str | Any
+        Biosample name from ENCODE ontology (e.g., 'K562', 'HepG2', 'GM12878', 'liver...
+    biosample : str | Any
+        Alias for biosample_term_name. Cell type or tissue (e.g., 'K562', 'liver').
+    cell_type : str | Any
+        Alias for biosample_term_name. Cell type (e.g., 'K562', 'HepG2', 'GM12878').
+    tissue : str | Any
+        Alias for biosample_term_name. Tissue type (e.g., 'liver', 'brain', 'heart').
     organism : str
         Organism scientific name (e.g., 'Homo sapiens', 'Mus musculus').
     assay_type : str
-        RNA-seq assay type: 'total RNA-seq' (default), 'polyA plus RNA-seq', 'small RNA-seq',
-        'microRNA-seq'. Aliases: 'total', 'polya', 'mirna', 'small'.
+        RNA-seq assay type: 'total RNA-seq' (default, all RNA), 'polyA plus RNA-seq' ...
     limit : int
         Maximum number of results to return (1-100).
     stream_callback : Callable, optional
@@ -52,6 +51,9 @@ def ENCODE_search_rnaseq_experiments(
     -------
     Any
     """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
         for k, v in {

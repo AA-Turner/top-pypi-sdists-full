@@ -12,17 +12,17 @@ A pure Python spell checker utilizing spylls, a port of Hunspell.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     import phunspell
 
 try:
     import phunspell
-except ImportError:
+except ImportError as e:
     raise ImportError(
-        "Import Error; Install phunspell by pip install phunspell"
-    )
+        "phunspell is not installed. Install it with: pip install phunspell"
+    ) from e
 
 pspell: "phunspell.Phunspell" = phunspell.Phunspell("th_TH")
 
@@ -32,4 +32,4 @@ def spell(text: str) -> list[str]:
 
 
 def correct(text: str) -> str:
-    return list(pspell.suggest(text))[0]  # type: ignore[no-any-return]
+    return cast(str, list(pspell.suggest(text))[0])

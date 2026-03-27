@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anteroom
-Version: 1.144.0
+Version: 1.147.0
 Summary: Anteroom - your gateway to AI conversation
 License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3
@@ -57,6 +57,14 @@ Provides-Extra: providers
 Requires-Dist: litellm>=1.55.0; extra == "providers"
 Provides-Extra: encryption
 Requires-Dist: sqlcipher3>=0.5.0; extra == "encryption"
+Provides-Extra: kitchensink
+Requires-Dist: pytest>=8.3.5; extra == "kitchensink"
+Requires-Dist: pytest-asyncio>=0.26.0; extra == "kitchensink"
+Requires-Dist: pytest-cov>=6.1.1; extra == "kitchensink"
+Requires-Dist: httpx>=0.25.0; extra == "kitchensink"
+Requires-Dist: ruff>=0.15.4; extra == "kitchensink"
+Requires-Dist: mypy>=1.15.0; extra == "kitchensink"
+Requires-Dist: types-PyYAML>=6.0.0; extra == "kitchensink"
 Provides-Extra: dev
 Requires-Dist: pytest>=8.3.5; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.26.0; extra == "dev"

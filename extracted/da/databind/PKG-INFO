@@ -1,24 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: databind
-Version: 4.5.2
+Version: 4.5.3
 Summary: Databind is a library inspired by jackson-databind to de-/serialize Python dataclasses. The `databind` package will install the full suite of databind packages. Compatible with Python 3.8 and newer.
-License: MIT
 Author: Niklas Rosenstein
-Author-email: rosensteinniklas@gmail.com
-Requires-Python: >=3.8.0,<4.0.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: Deprecated (>=1.2.12,<2.0.0)
-Requires-Dist: nr-date (>=2.0.0,<3.0.0)
-Requires-Dist: nr-stream (>=1.0.0,<2.0.0)
-Requires-Dist: setuptools (>=40.8.0) ; python_version < "3.10"
-Requires-Dist: typeapi (>=2.0.1,<3)
-Requires-Dist: typing-extensions (>=3.10.0,<5)
+Author-email: Niklas Rosenstein <rosensteinniklas@gmail.com>
+License-Expression: MIT
+Requires-Dist: deprecated>=1.2.12,<2
+Requires-Dist: nr-date>=2.0.0,<3
+Requires-Dist: nr-stream>=1.0.0,<2
+Requires-Dist: setuptools>=40.8.0,<82 ; python_full_version < '3.9'
+Requires-Dist: typeapi>=2.0.1,<3
+Requires-Dist: typing-extensions>=3.10.0,<5
+Requires-Python: >=3.8
 Project-URL: Bug Tracker, https://github.com/NiklasRosenstein/python-databind/issues
 Project-URL: Documentation, https://niklasrosenstein.github.io/python-databind/
 Project-URL: Repository, https://github.com/NiklasRosenstein/python-databind
@@ -93,4 +86,3 @@ assert dump(loaded, Config) == dict_payload
 ---
 
 <p align="center">Copyright &copy; 2022 &ndash; Niklas Rosenstein</p>
-

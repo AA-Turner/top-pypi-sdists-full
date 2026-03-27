@@ -232,6 +232,7 @@ class S3DestinationTypeDef(TypedDict):
     S3Prefix: str
     S3Region: str
     S3OutputConfigurations: S3OutputConfigurationsTypeDef
+    S3BucketOwner: NotRequired[str]
 
 class TableTypeDef(TypedDict):
     TableName: NotRequired[str]

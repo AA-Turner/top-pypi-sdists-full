@@ -10421,8 +10421,8 @@ class InferenceComponentDeploymentConfigTypeDef(TypedDict):
 class CreateInferenceComponentInputTypeDef(TypedDict):
     InferenceComponentName: str
     EndpointName: str
-    Specification: InferenceComponentSpecificationTypeDef
     VariantName: NotRequired[str]
+    Specification: NotRequired[InferenceComponentSpecificationTypeDef]
     RuntimeConfig: NotRequired[InferenceComponentRuntimeConfigTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
 

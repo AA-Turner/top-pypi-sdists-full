@@ -15,7 +15,7 @@ import tablestore
 import tablestore.utils as utils
 from tablestore.auth import SignBase, RequestContext
 from tablestore.error import *
-from tablestore.encoder import OTSProtoBufferEncoder
+from tablestore.encoder import OTSProtoBufferEncoder, NativeEncodedBytes
 from tablestore.decoder import OTSProtoBufferDecoder
 import tablestore.protobuf.table_store_pb2 as pb2
 
@@ -78,11 +78,12 @@ class OTSProtocol(object):
         'Retrieve',
     ]
 
-    def __init__(self, instance_name, encoding, logger, extra_headers=None):
+    def __init__(self, instance_name, encoding, logger, extra_headers=None,
+                 enable_native=True, native_fallback=True):
         self.instance_name = instance_name
         self.encoding = encoding
-        self.encoder = OTSProtoBufferEncoder(encoding)
-        self.decoder = OTSProtoBufferDecoder(encoding)
+        self.encoder = OTSProtoBufferEncoder(encoding, enable_native=enable_native, native_fallback=native_fallback)
+        self.decoder = OTSProtoBufferDecoder(encoding, enable_native=enable_native, native_fallback=native_fallback)
         self.logger = logger
         self.extra_headers = extra_headers if extra_headers is not None else {}
 
@@ -188,16 +189,22 @@ class OTSProtocol(object):
             raise OTSClientError('API %s is not supported.' % api_name)
 
         proto = self.encoder.encode_request(api_name, *args, **kwargs)
+
         body = proto.SerializeToString()
         query = '/' + api_name
         headers = self._make_request_headers(body, query, signer, request_context)
 
         if self.logger.level <= logging.DEBUG:
-            # prevent to generate formatted message which is time-consuming
-            self.logger.debug("OTS request, API: %s, Headers: %s, Protobuf: %s" % (
-                api_name, headers,
-                text_format.MessageToString(proto, as_utf8=True, as_one_line=True)
-            ))
+            if isinstance(proto, NativeEncodedBytes):
+                self.logger.debug("OTS request (native encoded), API: %s, Headers: %s, Body size: %d" % (
+                    api_name, headers, len(body)
+                ))
+            else:
+                # prevent to generate formatted message which is time-consuming
+                self.logger.debug("OTS request, API: %s, Headers: %s, Protobuf: %s" % (
+                    api_name, headers,
+                    text_format.MessageToString(proto, as_utf8=True, as_one_line=True)
+                ))
         return query, headers, body
 
     def make_json_request(self, api_name, signer: SignBase, request, request_context: RequestContext):
@@ -233,7 +240,7 @@ class OTSProtocol(object):
         request_id = self._get_request_id_string(headers)
 
         try:
-            ret, proto = self.decoder.decode_response(api_name, body, request_id)
+            ret, _ = self.decoder.decode_response(api_name, body, request_id)
         except Exception as e:
             error_message = 'Response format is invalid, %s, RequestID: %s, " \
                 "HTTP status: %s, Body: %s.' % (str(e), request_id, status, body)

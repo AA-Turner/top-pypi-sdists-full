@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -69,6 +69,7 @@ class Feature(proto.Enum):
         SPEECH_TRANSCRIPTION (6):
             Speech transcription.
     """
+
     FEATURE_UNSPECIFIED = 0
     LABEL_DETECTION = 1
     SHOT_CHANGE_DETECTION = 2
@@ -90,6 +91,7 @@ class LabelDetectionMode(proto.Enum):
             Detect both shot-level and frame-level
             labels.
     """
+
     LABEL_DETECTION_MODE_UNSPECIFIED = 0
     SHOT_MODE = 1
     FRAME_MODE = 2
@@ -113,6 +115,7 @@ class Likelihood(proto.Enum):
         VERY_LIKELY (5):
             Very likely.
     """
+
     LIKELIHOOD_UNSPECIFIED = 0
     VERY_UNLIKELY = 1
     UNLIKELY = 2
@@ -625,12 +628,12 @@ class AnnotateVideoProgress(proto.Message):
             ``AnnotateVideoRequest``.
     """
 
-    annotation_progress: MutableSequence[
-        "VideoAnnotationProgress"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="VideoAnnotationProgress",
+    annotation_progress: MutableSequence["VideoAnnotationProgress"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="VideoAnnotationProgress",
+        )
     )
 
 

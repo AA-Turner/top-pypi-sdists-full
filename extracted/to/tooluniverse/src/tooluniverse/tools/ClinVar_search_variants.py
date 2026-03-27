@@ -15,6 +15,9 @@ def ClinVar_search_variants(
     max_results: Optional[int] = 20,
     limit: Optional[int] = None,
     clinical_significance: Optional[str] = None,
+    gene_symbol: Optional[str | Any] = None,
+    significance: Optional[str | Any] = None,
+    query: Optional[str | Any] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -37,6 +40,12 @@ def ClinVar_search_variants(
         Alias for max_results: maximum number of results to return.
     clinical_significance : str
         Filter by clinical significance (e.g., 'Pathogenic', 'Likely pathogenic', 'Be...
+    gene_symbol : str | Any
+        Alias for gene. HGNC gene symbol (e.g., "DPYD", "CYP2C19").
+    significance : str | Any
+        Alias for clinical_significance (e.g., "pathogenic", "benign", "uncertain_sig...
+    query : str | Any
+        Alias for condition. Free-text search mapped to condition/disease field.
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -60,6 +69,9 @@ def ClinVar_search_variants(
             "max_results": max_results,
             "limit": limit,
             "clinical_significance": clinical_significance,
+            "gene_symbol": gene_symbol,
+            "significance": significance,
+            "query": query,
         }.items()
         if v is not None
     }

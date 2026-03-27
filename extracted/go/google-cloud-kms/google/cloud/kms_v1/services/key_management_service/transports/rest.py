@@ -16,19 +16,21 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -2114,6 +2116,12 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[KeyManagementServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -2229,9 +2237,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseAsymmetricDecrypt._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseAsymmetricDecrypt._get_http_options()
 
             request, metadata = self._interceptor.pre_asymmetric_decrypt(
                 request, metadata
@@ -2389,9 +2395,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseAsymmetricSign._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseAsymmetricSign._get_http_options()
 
             request, metadata = self._interceptor.pre_asymmetric_sign(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseAsymmetricSign._get_transcoded_request(
@@ -2550,9 +2554,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseCreateCryptoKey._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseCreateCryptoKey._get_http_options()
 
             request, metadata = self._interceptor.pre_create_crypto_key(
                 request, metadata
@@ -2719,9 +2721,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseCreateCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseCreateCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_create_crypto_key_version(
                 request, metadata
@@ -2920,9 +2920,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseCreateImportJob._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseCreateImportJob._get_http_options()
 
             request, metadata = self._interceptor.pre_create_import_job(
                 request, metadata
@@ -3077,9 +3075,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseCreateKeyRing._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseCreateKeyRing._get_http_options()
 
             request, metadata = self._interceptor.pre_create_key_ring(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseCreateKeyRing._get_transcoded_request(
@@ -3231,9 +3227,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseDecapsulate._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseDecapsulate._get_http_options()
 
             request, metadata = self._interceptor.pre_decapsulate(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseDecapsulate._get_transcoded_request(
@@ -3539,9 +3533,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseDeleteCryptoKey._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseDeleteCryptoKey._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_crypto_key(
                 request, metadata
@@ -3688,9 +3680,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseDeleteCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseDeleteCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_crypto_key_version(
                 request, metadata
@@ -3853,9 +3843,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseDestroyCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseDestroyCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_destroy_crypto_key_version(
                 request, metadata
@@ -4163,9 +4151,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGenerateRandomBytes._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGenerateRandomBytes._get_http_options()
 
             request, metadata = self._interceptor.pre_generate_random_bytes(
                 request, metadata
@@ -4329,9 +4315,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetCryptoKey._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetCryptoKey._get_http_options()
 
             request, metadata = self._interceptor.pre_get_crypto_key(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetCryptoKey._get_transcoded_request(
@@ -4490,9 +4474,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_get_crypto_key_version(
                 request, metadata
@@ -4685,9 +4667,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetImportJob._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetImportJob._get_http_options()
 
             request, metadata = self._interceptor.pre_get_import_job(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetImportJob._get_transcoded_request(
@@ -4834,9 +4814,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetKeyRing._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetKeyRing._get_http_options()
 
             request, metadata = self._interceptor.pre_get_key_ring(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetKeyRing._get_transcoded_request(
@@ -4984,9 +4962,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetPublicKey._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetPublicKey._get_http_options()
 
             request, metadata = self._interceptor.pre_get_public_key(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetPublicKey._get_transcoded_request(
@@ -5135,9 +5111,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetRetiredResource._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetRetiredResource._get_http_options()
 
             request, metadata = self._interceptor.pre_get_retired_resource(
                 request, metadata
@@ -5301,9 +5275,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseImportCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseImportCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_import_crypto_key_version(
                 request, metadata
@@ -5458,9 +5430,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseListCryptoKeys._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseListCryptoKeys._get_http_options()
 
             request, metadata = self._interceptor.pre_list_crypto_keys(
                 request, metadata
@@ -5608,9 +5578,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseListCryptoKeyVersions._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseListCryptoKeyVersions._get_http_options()
 
             request, metadata = self._interceptor.pre_list_crypto_key_versions(
                 request, metadata
@@ -5762,9 +5730,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseListImportJobs._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseListImportJobs._get_http_options()
 
             request, metadata = self._interceptor.pre_list_import_jobs(
                 request, metadata
@@ -5912,9 +5878,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseListKeyRings._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseListKeyRings._get_http_options()
 
             request, metadata = self._interceptor.pre_list_key_rings(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseListKeyRings._get_transcoded_request(
@@ -6060,9 +6024,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseListRetiredResources._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseListRetiredResources._get_http_options()
 
             request, metadata = self._interceptor.pre_list_retired_resources(
                 request, metadata
@@ -6369,9 +6331,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseMacVerify._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseMacVerify._get_http_options()
 
             request, metadata = self._interceptor.pre_mac_verify(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseMacVerify._get_transcoded_request(
@@ -6523,9 +6483,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseRawDecrypt._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseRawDecrypt._get_http_options()
 
             request, metadata = self._interceptor.pre_raw_decrypt(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseRawDecrypt._get_transcoded_request(
@@ -6677,9 +6635,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseRawEncrypt._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseRawEncrypt._get_http_options()
 
             request, metadata = self._interceptor.pre_raw_encrypt(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseRawEncrypt._get_transcoded_request(
@@ -6845,9 +6801,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseRestoreCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseRestoreCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_restore_crypto_key_version(
                 request, metadata
@@ -7008,9 +6962,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseUpdateCryptoKey._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseUpdateCryptoKey._get_http_options()
 
             request, metadata = self._interceptor.pre_update_crypto_key(
                 request, metadata
@@ -7174,9 +7126,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseUpdateCryptoKeyPrimaryVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseUpdateCryptoKeyPrimaryVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_update_crypto_key_primary_version(
                 request, metadata
@@ -7245,11 +7195,10 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             resp = self._interceptor.post_update_crypto_key_primary_version(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_update_crypto_key_primary_version_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_update_crypto_key_primary_version_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -7346,9 +7295,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseUpdateCryptoKeyVersion._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseUpdateCryptoKeyVersion._get_http_options()
 
             request, metadata = self._interceptor.pre_update_crypto_key_version(
                 request, metadata
@@ -7477,7 +7424,9 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     ) -> Callable[[service.CreateCryptoKeyVersionRequest], resources.CryptoKeyVersion]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateCryptoKeyVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateCryptoKeyVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_import_job(
@@ -7523,7 +7472,9 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     ) -> Callable[[service.DeleteCryptoKeyVersionRequest], operations_pb2.Operation]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteCryptoKeyVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteCryptoKeyVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def destroy_crypto_key_version(
@@ -7531,7 +7482,9 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     ) -> Callable[[service.DestroyCryptoKeyVersionRequest], resources.CryptoKeyVersion]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DestroyCryptoKeyVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DestroyCryptoKeyVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def encrypt(self) -> Callable[[service.EncryptRequest], service.EncryptResponse]:
@@ -7601,7 +7554,9 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     ) -> Callable[[service.ImportCryptoKeyVersionRequest], resources.CryptoKeyVersion]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ImportCryptoKeyVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ImportCryptoKeyVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_crypto_keys(
@@ -7683,7 +7638,9 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     ) -> Callable[[service.RestoreCryptoKeyVersionRequest], resources.CryptoKeyVersion]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._RestoreCryptoKeyVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._RestoreCryptoKeyVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_crypto_key(
@@ -7699,7 +7656,9 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     ) -> Callable[[service.UpdateCryptoKeyPrimaryVersionRequest], resources.CryptoKey]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateCryptoKeyPrimaryVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateCryptoKeyPrimaryVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_crypto_key_version(
@@ -7707,7 +7666,9 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
     ) -> Callable[[service.UpdateCryptoKeyVersionRequest], resources.CryptoKeyVersion]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateCryptoKeyVersion(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateCryptoKeyVersion(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_location(self):
@@ -7767,9 +7728,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 locations_pb2.Location: Response from GetLocation method.
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetLocation._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetLocation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_location(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetLocation._get_transcoded_request(
@@ -7908,9 +7867,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseListLocations._get_transcoded_request(
@@ -8049,9 +8006,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 policy_pb2.Policy: Response from GetIamPolicy method.
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetIamPolicy._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_get_iam_policy(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetIamPolicy._get_transcoded_request(
@@ -8191,9 +8146,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 policy_pb2.Policy: Response from SetIamPolicy method.
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseSetIamPolicy._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseSetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_set_iam_policy(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseSetIamPolicy._get_transcoded_request(
@@ -8338,9 +8291,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 iam_policy_pb2.TestIamPermissionsResponse: Response from TestIamPermissions method.
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseTestIamPermissions._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseTestIamPermissions._get_http_options()
 
             request, metadata = self._interceptor.pre_test_iam_permissions(
                 request, metadata
@@ -8488,9 +8439,7 @@ class KeyManagementServiceRestTransport(_BaseKeyManagementServiceRestTransport):
                 operations_pb2.Operation: Response from GetOperation method.
             """
 
-            http_options = (
-                _BaseKeyManagementServiceRestTransport._BaseGetOperation._get_http_options()
-            )
+            http_options = _BaseKeyManagementServiceRestTransport._BaseGetOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operation(request, metadata)
             transcoded_request = _BaseKeyManagementServiceRestTransport._BaseGetOperation._get_transcoded_request(

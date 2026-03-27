@@ -2687,6 +2687,7 @@ def main() -> None:
     mission_create_group.add_argument("--prompt", help="Free-form prompt to decompose")
     mission_create_parser.add_argument("--adapter", default="noop", help="Default adapter type")
     mission_create_parser.add_argument("--workflow-path", help="Workflow definition path")
+    mission_create_parser.add_argument("--profile", help="Execution profile name")
     mission_create_parser.add_argument("--launch", action="store_true", help="Launch immediately")
 
     mission_list_parser = mission_sub.add_parser("list", help="List missions")
@@ -2718,6 +2719,11 @@ def main() -> None:
 
     # `aroom status` subcommand
     subparsers.add_parser("status", help="Show web UI server status")
+
+    # `aroom unpack` subcommand
+    unpack_parser = subparsers.add_parser("unpack", help="Extract bundled tests, docs, and config to a directory")
+    unpack_parser.add_argument("dest", help="Destination directory")
+    unpack_parser.add_argument("--force", action="store_true", help="Overwrite existing destination")
 
     # `aroom artifact import` subcommand
     art_import_parser = artifact_subparsers.add_parser("import", help="Import skills/instructions into artifacts")
@@ -2752,6 +2758,12 @@ def main() -> None:
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
         datefmt="%H:%M:%S",
     )
+
+    if args.command == "unpack":
+        from .unpack import unpack
+
+        unpack(args.dest, force=getattr(args, "force", False))
+        return
 
     if args.command == "init":
         _run_init(

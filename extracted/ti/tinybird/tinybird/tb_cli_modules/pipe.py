@@ -732,10 +732,22 @@ async def regression_test(
     default=None,
     help="Key and value of the params you want the Copy pipe to be called with. For example: tb pipe copy run <my_copy_pipe> --param foo=bar",
 )
+@click.option(
+    "--on-demand-compute",
+    is_flag=True,
+    default=False,
+    help="Use on-demand compute instances for the copy job.",
+)
 @click.pass_context
 @coro
 async def pipe_copy_run(
-    ctx: click.Context, pipe_name_or_id: str, wait: bool, mode: str, yes: bool, param: Optional[Tuple[str]]
+    ctx: click.Context,
+    pipe_name_or_id: str,
+    wait: bool,
+    mode: str,
+    yes: bool,
+    param: Optional[Tuple[str]],
+    on_demand_compute: bool,
 ):
     """Run an on-demand copy job"""
 
@@ -746,7 +758,7 @@ async def pipe_copy_run(
         client: TinyB = ctx.ensure_object(dict)["client"]
 
         try:
-            response = await client.pipe_run_copy(pipe_name_or_id, params, mode)
+            response = await client.pipe_run_copy(pipe_name_or_id, params, mode, on_demand_compute=on_demand_compute)
 
             job_id = response["job"]["job_id"]
             job_url = response["job"]["job_url"]

@@ -50,13 +50,14 @@ from sqlglot.expressions.functions import Case, Cast
 from sqlglot.expressions.array import Array
 
 if t.TYPE_CHECKING:
+    from collections.abc import Sequence, Iterable
     from sqlglot.dialects.dialect import DialectType
     from sqlglot.expressions.core import ExpOrStr, Func
     from sqlglot.expressions.datatypes import DATA_TYPE
     from sqlglot.expressions.query import Query
 
 
-def select(*expressions: ExpOrStr, dialect: DialectType = None, **opts) -> Select:
+def select(*expressions: ExpOrStr, dialect: DialectType = None, **opts: t.Any) -> Select:
     """
     Initializes a syntax tree from one or multiple SELECT expressions.
 
@@ -78,7 +79,7 @@ def select(*expressions: ExpOrStr, dialect: DialectType = None, **opts) -> Selec
     return Select().select(*expressions, dialect=dialect, **opts)
 
 
-def from_(expression: ExpOrStr, dialect: DialectType = None, **opts) -> Select:
+def from_(expression: ExpOrStr, dialect: DialectType = None, **opts: t.Any) -> Select:
     """
     Initializes a syntax tree from a FROM expression.
 
@@ -105,9 +106,9 @@ def update(
     properties: t.Optional[dict] = None,
     where: t.Optional[ExpOrStr] = None,
     from_: t.Optional[ExpOrStr] = None,
-    with_: t.Optional[t.Dict[str, ExpOrStr]] = None,
+    with_: t.Optional[dict[str, ExpOrStr]] = None,
     dialect: DialectType = None,
-    **opts,
+    **opts: t.Any,
 ) -> Update:
     """
     Creates an update statement.
@@ -166,7 +167,7 @@ def delete(
     where: t.Optional[ExpOrStr] = None,
     returning: t.Optional[ExpOrStr] = None,
     dialect: DialectType = None,
-    **opts,
+    **opts: t.Any,
 ) -> Delete:
     """
     Builds a delete statement.
@@ -195,12 +196,12 @@ def delete(
 def insert(
     expression: ExpOrStr,
     into: ExpOrStr,
-    columns: t.Optional[t.Sequence[str | Identifier]] = None,
+    columns: t.Optional[Sequence[str | Identifier]] = None,
     overwrite: t.Optional[bool] = None,
     returning: t.Optional[ExpOrStr] = None,
     dialect: DialectType = None,
     copy: bool = True,
-    **opts,
+    **opts: t.Any,
 ) -> Insert:
     """
     Builds an INSERT statement.
@@ -244,7 +245,7 @@ def merge(
     returning: t.Optional[ExpOrStr] = None,
     dialect: DialectType = None,
     copy: bool = True,
-    **opts,
+    **opts: t.Any,
 ) -> Merge:
     """
     Builds a MERGE statement.
@@ -408,7 +409,7 @@ def subquery(
     expression: ExpOrStr,
     alias: t.Optional[Identifier | str] = None,
     dialect: DialectType = None,
-    **opts,
+    **opts: t.Any,
 ) -> Select:
     """
     Build a subquery expression that's selected from.
@@ -433,7 +434,11 @@ def subquery(
 
 
 def cast(
-    expression: ExpOrStr, to: DATA_TYPE, copy: bool = True, dialect: DialectType = None, **opts
+    expression: ExpOrStr,
+    to: DATA_TYPE,
+    copy: bool = True,
+    dialect: DialectType = None,
+    **opts: t.Any,
 ) -> Cast:
     """Cast an expression to a data type.
 
@@ -512,9 +517,9 @@ def table_(
 
 
 def values(
-    values: t.Iterable[t.Tuple[object, ...] | Tuple],
+    values: Iterable[tuple[object, ...] | Tuple],
     alias: t.Optional[str] = None,
-    columns: t.Optional[t.Iterable[str] | t.Dict[str, DataType]] = None,
+    columns: t.Optional[Iterable[str] | dict[str, DataType]] = None,
 ) -> Values:
     """Build VALUES statement.
 
@@ -962,7 +967,7 @@ def func(name: str, *args, copy: bool = True, dialect: DialectType = None, **kwa
 
 def case(
     expression: t.Optional[ExpOrStr] = None,
-    **opts,
+    **opts: t.Any,
 ) -> Case:
     """
     Initialize a CASE statement.

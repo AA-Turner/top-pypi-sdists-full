@@ -24,13 +24,6 @@ pub const STANDARD_BUFFER_THRESHOLD: u64 = 8 * 1024; // 8KB - balanced for laten
 // Error message constants to avoid repeated allocations in hot paths
 const QUEUE_FULL_ERROR: &str = "Queue full - backpressure required (loss-intolerant protocol)";
 const DATACHANNEL_CLOSED_ERROR: &str = "DataChannel closed";
-/// Timeout for dc.send() to prevent the outbound task from blocking indefinitely
-/// on webrtc-sctp's PendingQueue semaphore (128KB capacity). Under SCTP congestion,
-/// semaphore.acquire_many().await blocks until the write_loop drains the queue,
-/// but the write_loop is starved by mutex contention with the read_loop that
-/// processes SACKs. A 100ms timeout breaks this cycle by returning control to
-/// the caller, which queues the frame at the application level instead.
-const DC_SEND_TIMEOUT: Duration = Duration::from_millis(100);
 
 // Type alias for complex callback type - callbacks still need Mutex (can't be atomic)
 type BufferedAmountLowCallback =
@@ -629,10 +622,9 @@ impl EventDrivenSender {
                     let mut failed_at = total; // assume all succeed
 
                     for (i, frame) in to_send.iter().enumerate() {
-                        // Timeout prevents blocking on SCTP semaphore during congestion
-                        match tokio::time::timeout(DC_SEND_TIMEOUT, dc.send(frame.clone())).await {
-                            Ok(Ok(_)) => continue,
-                            Ok(Err(_)) | Err(_) => {
+                        match dc.send(frame.clone()).await {
+                            Ok(_) => continue,
+                            Err(_) => {
                                 can_send_for_batch.store(false, Ordering::Release);
                                 failed_at = i;
                                 break;
@@ -662,16 +654,11 @@ impl EventDrivenSender {
     pub async fn send_with_natural_backpressure(&self, frame: Bytes) -> Result<(), &'static str> {
         let frame_len = frame.len(); // Capture for logging
 
-        // Fast path: send immediately if buffer has space AND no queued frames.
-        // When queue is non-empty, ALL frames must go through the queue to preserve
-        // strict ordering — otherwise a new frame could bypass older queued frames.
-        if self.can_send.load(Ordering::Acquire) && self.queue_size.load(Ordering::Acquire) == 0 {
-            // Timeout prevents blocking on SCTP's PendingQueue semaphore (128KB)
-            // which causes outbound task starvation under congestion.
-            match tokio::time::timeout(DC_SEND_TIMEOUT, self.data_channel.send(frame.clone())).await
-            {
-                Ok(Ok(_)) => return Ok(()),
-                Ok(Err(e)) => {
+        // Fast path: send immediately if buffer has space
+        if self.can_send.load(Ordering::Acquire) {
+            match self.data_channel.send(frame.clone()).await {
+                Ok(_) => return Ok(()),
+                Err(e) => {
                     let error_str = e.to_string();
 
                     // Detect permanent failures (WebRTC closed) vs temporary failures (buffer full)
@@ -704,12 +691,6 @@ impl EventDrivenSender {
                         );
                     }
 
-                    self.can_send.store(false, Ordering::Release);
-                    // Fall through to queueing
-                }
-                Err(_elapsed) => {
-                    // Timeout: SCTP PendingQueue semaphore is full (congestion).
-                    // Don't block — queue at application level for retry.
                     self.can_send.store(false, Ordering::Release);
                     // Fall through to queueing
                 }
@@ -1136,146 +1117,5 @@ mod drain_callback_tests {
         assert_eq!(seq_of(&requeue.pop().unwrap()), 0);
         assert_eq!(seq_of(&requeue.pop().unwrap()), 1);
         assert_eq!(seq_of(&requeue.pop().unwrap()), 2);
-    }
-}
-
-/// Tests proving that dc.send() blocking on SCTP's 128KB PendingQueue semaphore
-/// causes outbound task starvation under congestion, and that a timeout fixes it.
-#[cfg(test)]
-mod sctp_send_timeout_tests {
-    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-    use std::sync::Arc;
-    use std::time::{Duration, Instant};
-    use tokio::sync::{Mutex, Semaphore};
-
-    const QUEUE_PERMITS: usize = 4; // Smaller for fast tests
-
-    /// Without timeout: dc.send() blocks on semaphore when drain is slow.
-    /// Uses tokio::time::pause() for deterministic, instant execution.
-    #[tokio::test]
-    async fn test_send_blocks_under_congestion_without_timeout() {
-        let sem = Arc::new(Semaphore::new(QUEUE_PERMITS));
-        let done = Arc::new(AtomicBool::new(false));
-
-        // Slow drainer: releases 1 permit every 50ms
-        let drain_sem = sem.clone();
-        let drain_done = done.clone();
-        let drainer = tokio::spawn(async move {
-            while !drain_done.load(Ordering::Acquire) {
-                tokio::time::sleep(Duration::from_millis(50)).await;
-                drain_sem.add_permits(1);
-            }
-        });
-
-        // Send QUEUE_PERMITS + 5 messages — last 5 must wait for drain
-        let mut blocked_count = 0usize;
-        for _ in 0..(QUEUE_PERMITS + 5) {
-            let before = Instant::now();
-            let permit = sem.acquire().await.unwrap();
-            permit.forget();
-            if before.elapsed() >= Duration::from_millis(20) {
-                blocked_count += 1;
-            }
-        }
-
-        done.store(true, Ordering::Release);
-        drainer.abort();
-
-        assert!(
-            blocked_count >= 3,
-            "Expected at least 3 blocked sends, got {}",
-            blocked_count
-        );
-    }
-
-    /// With timeout: send never blocks longer than the timeout.
-    /// Uses tokio::time::pause() for deterministic, instant execution.
-    #[tokio::test]
-    async fn test_send_timeout_prevents_long_block() {
-        let sem = Arc::new(Semaphore::new(QUEUE_PERMITS));
-        let done = Arc::new(AtomicBool::new(false));
-        let timeouts = Arc::new(AtomicUsize::new(0));
-
-        // Slow drainer: 50ms per permit
-        let drain_sem = sem.clone();
-        let drain_done = done.clone();
-        let drainer = tokio::spawn(async move {
-            while !drain_done.load(Ordering::Acquire) {
-                tokio::time::sleep(Duration::from_millis(50)).await;
-                drain_sem.add_permits(1);
-            }
-        });
-
-        let send_timeout = Duration::from_millis(50);
-        for _ in 0..(QUEUE_PERMITS + 10) {
-            match tokio::time::timeout(send_timeout, sem.acquire()).await {
-                Ok(Ok(permit)) => {
-                    permit.forget();
-                }
-                _ => {
-                    timeouts.fetch_add(1, Ordering::AcqRel);
-                }
-            }
-        }
-
-        done.store(true, Ordering::Release);
-        drainer.abort();
-
-        let timeout_count = timeouts.load(Ordering::Acquire);
-        assert!(
-            timeout_count > 0,
-            "Should have timeouts under congestion, had {}",
-            timeout_count
-        );
-    }
-
-    /// Mutex starvation: write_loop holding mutex starves read_loop.
-    /// Uses tokio::time::pause() for deterministic, instant execution.
-    #[tokio::test]
-    async fn test_read_loop_starved_by_write_loop_mutex() {
-        let mutex = Arc::new(Mutex::new(()));
-        let blocked = Arc::new(AtomicUsize::new(0));
-        let done = Arc::new(AtomicBool::new(false));
-
-        // Write loop holds mutex for 50ms per iteration
-        let w_mutex = mutex.clone();
-        let w_done = done.clone();
-        let writer = tokio::spawn(async move {
-            while !w_done.load(Ordering::Acquire) {
-                let _lock = w_mutex.lock().await;
-                tokio::time::sleep(Duration::from_millis(50)).await;
-                drop(_lock);
-                tokio::time::sleep(Duration::from_millis(1)).await;
-            }
-        });
-
-        // Read loop tries to acquire mutex every 5ms
-        let r_mutex = mutex.clone();
-        let r_done = done.clone();
-        let r_blocked = blocked.clone();
-        let reader = tokio::spawn(async move {
-            while !r_done.load(Ordering::Acquire) {
-                let before = tokio::time::Instant::now();
-                let _lock = r_mutex.lock().await;
-                drop(_lock);
-                if before.elapsed() > Duration::from_millis(10) {
-                    r_blocked.fetch_add(1, Ordering::AcqRel);
-                }
-                tokio::time::sleep(Duration::from_millis(5)).await;
-            }
-        });
-
-        // Let contention run for 500ms
-        tokio::time::sleep(Duration::from_millis(500)).await;
-        done.store(true, Ordering::Release);
-        writer.abort();
-        reader.abort();
-
-        let block_count = blocked.load(Ordering::Acquire);
-        assert!(
-            block_count > 3,
-            "Read loop should be starved by write loop, blocked only {} times",
-            block_count
-        );
     }
 }

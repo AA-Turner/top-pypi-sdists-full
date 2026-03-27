@@ -1,3 +1,4 @@
+import json
 import os
 
 import flask
@@ -16,6 +17,7 @@ from abstra_internals.controllers.codebase import CodebaseController
 from abstra_internals.controllers.codebase_events import CodebaseEventController
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.factory import Repositories
+from abstra_internals.repositories.project.project import Project
 from abstra_internals.settings import Settings
 from abstra_internals.utils.code_check import code_check
 from abstra_internals.utils.zip import zip_folder_to_buffer
@@ -171,5 +173,26 @@ def get_editor_bp(repos: Repositories):
         return AbstraLibApiEditorCodebaseTypeCheckPostResponse(
             success=result.success, stdout=result.stdout, stderr=result.stderr
         ).to_dict()
+
+    @bp.post("/validate-abstra-json")
+    def _validate_abstra_json():
+        content = flask.request.get_data(as_text=True)
+        if not content:
+            return {"valid": False, "error": "Empty content provided"}
+
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError as e:
+            return {"valid": False, "error": f"Invalid JSON syntax: {e}"}
+
+        try:
+            Project._Project__from_dict(data)  # type: ignore
+            return {"valid": True, "error": None}
+        except KeyError as e:
+            return {"valid": False, "error": f"Missing required field: {e}"}
+        except TypeError as e:
+            return {"valid": False, "error": f"Invalid field type: {e}"}
+        except Exception as e:
+            return {"valid": False, "error": f"Invalid abstra.json structure: {e}"}
 
     return bp

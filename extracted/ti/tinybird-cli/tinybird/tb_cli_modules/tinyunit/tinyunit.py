@@ -226,7 +226,7 @@ async def run_test_file(tb_client: TinyB, file: str) -> List[TestResult]:
             pipe = test_case.pipe.name
             params = test_case.pipe.params
             try:
-                sql = test_case.sql if test_case.sql else None
+                sql = test_case.sql or None
                 test_response = await tb_client.pipe_data(pipe, format="json", params=params, sql=sql)
                 results.append(
                     TestResult(
@@ -263,7 +263,7 @@ def test_run_summary(results: List[TestSummaryResults], only_fail: bool = False,
             total_counts[test.status] = total_counts.get(test.status, 0) + 1
 
             # Skip the PASS tests if we only want the failed ones
-            if only_fail and test.status in [PASS]:
+            if only_fail and test.status == PASS:
                 continue
 
             summary.append(

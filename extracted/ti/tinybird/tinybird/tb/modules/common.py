@@ -360,7 +360,9 @@ def _get_tb_client(
     staging: bool = False,
     branch: Optional[str] = None,
     create_branch_if_missing: bool = False,
+    request_from: Optional[str] = None,
 ) -> TinyB:
+    resolved_request_from = request_from
     disable_ssl: bool = getenv_bool("TB_DISABLE_SSL_CHECKS", False)
     cloud_client = TinyB(
         token,
@@ -369,6 +371,7 @@ def _get_tb_client(
         disable_ssl_checks=disable_ssl,
         send_telemetry=True,
         staging=staging,
+        request_from=resolved_request_from,
     )
 
     if not branch:
@@ -402,13 +405,16 @@ def _get_tb_client(
         disable_ssl_checks=disable_ssl,
         send_telemetry=True,
         staging=staging,
+        request_from=resolved_request_from,
     )
 
 
 def create_tb_client(ctx: Context) -> TinyB:
-    token = ctx.ensure_object(dict)["config"].get("token", "")
-    host = ctx.ensure_object(dict)["config"].get("host", DEFAULT_API_HOST)
-    return _get_tb_client(token, host)
+    obj = ctx.ensure_object(dict)
+    token = obj["config"].get("token", "")
+    host = obj["config"].get("host", DEFAULT_API_HOST)
+    request_from = obj.get("project_type")
+    return _get_tb_client(token, host, request_from=request_from)
 
 
 def _analyze(filename: str, client: TinyB, format: str):
@@ -1668,6 +1674,7 @@ def run_aws_iamrole_connection_flow(
                 token=config.get("token", ""),
                 host=config.get("host", ""),
                 staging=False,
+                request_from=getattr(client, "request_from", None),
             )
         except Exception as e:
             click.echo(FeedbackManager.warning(message=f"Failed to initialize cloud client: {e}"))

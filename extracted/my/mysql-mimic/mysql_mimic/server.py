@@ -17,7 +17,6 @@ from mysql_mimic.constants import DEFAULT_SERVER_CAPABILITIES
 from mysql_mimic.stream import MysqlStream
 from mysql_mimic.types import Capabilities
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -132,7 +131,7 @@ class MysqlServer:
         kw = {}
         kw.update(self._serve_kwargs)
         kw.update(kwargs)
-        self._server = await asyncio.start_unix_server(self._client_connected_cb, **kw)
+        self._server = await asyncio.start_unix_server(self._client_connected_cb, **kw)  # type: ignore[attr-defined]
 
     async def serve_forever(self, **kwargs: Any) -> None:
         """

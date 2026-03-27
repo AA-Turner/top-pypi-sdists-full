@@ -16,21 +16,21 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api import metric_pb2  # type: ignore
-from google.api import monitored_resource_pb2  # type: ignore
-from google.api_core import gapic_v1, grpc_helpers
+import google.api.metric_pb2 as metric_pb2  # type: ignore
+import google.api.monitored_resource_pb2 as monitored_resource_pb2  # type: ignore
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.longrunning import operations_pb2  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
 from google.cloud.monitoring_v3.types import metric_service
 
@@ -58,7 +58,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -93,7 +93,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -189,6 +189,10 @@ class MetricServiceGrpcTransport(MetricServiceTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -350,12 +354,12 @@ class MetricServiceGrpcTransport(MetricServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_monitored_resource_descriptors" not in self._stubs:
-            self._stubs[
-                "list_monitored_resource_descriptors"
-            ] = self._logged_channel.unary_unary(
-                "/google.monitoring.v3.MetricService/ListMonitoredResourceDescriptors",
-                request_serializer=metric_service.ListMonitoredResourceDescriptorsRequest.serialize,
-                response_deserializer=metric_service.ListMonitoredResourceDescriptorsResponse.deserialize,
+            self._stubs["list_monitored_resource_descriptors"] = (
+                self._logged_channel.unary_unary(
+                    "/google.monitoring.v3.MetricService/ListMonitoredResourceDescriptors",
+                    request_serializer=metric_service.ListMonitoredResourceDescriptorsRequest.serialize,
+                    response_deserializer=metric_service.ListMonitoredResourceDescriptorsResponse.deserialize,
+                )
             )
         return self._stubs["list_monitored_resource_descriptors"]
 
@@ -382,12 +386,12 @@ class MetricServiceGrpcTransport(MetricServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_monitored_resource_descriptor" not in self._stubs:
-            self._stubs[
-                "get_monitored_resource_descriptor"
-            ] = self._logged_channel.unary_unary(
-                "/google.monitoring.v3.MetricService/GetMonitoredResourceDescriptor",
-                request_serializer=metric_service.GetMonitoredResourceDescriptorRequest.serialize,
-                response_deserializer=monitored_resource_pb2.MonitoredResourceDescriptor.FromString,
+            self._stubs["get_monitored_resource_descriptor"] = (
+                self._logged_channel.unary_unary(
+                    "/google.monitoring.v3.MetricService/GetMonitoredResourceDescriptor",
+                    request_serializer=metric_service.GetMonitoredResourceDescriptorRequest.serialize,
+                    response_deserializer=monitored_resource_pb2.MonitoredResourceDescriptor.FromString,
+                )
             )
         return self._stubs["get_monitored_resource_descriptor"]
 
@@ -594,12 +598,12 @@ class MetricServiceGrpcTransport(MetricServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_service_time_series" not in self._stubs:
-            self._stubs[
-                "create_service_time_series"
-            ] = self._logged_channel.unary_unary(
-                "/google.monitoring.v3.MetricService/CreateServiceTimeSeries",
-                request_serializer=metric_service.CreateTimeSeriesRequest.serialize,
-                response_deserializer=empty_pb2.Empty.FromString,
+            self._stubs["create_service_time_series"] = (
+                self._logged_channel.unary_unary(
+                    "/google.monitoring.v3.MetricService/CreateServiceTimeSeries",
+                    request_serializer=metric_service.CreateTimeSeriesRequest.serialize,
+                    response_deserializer=empty_pb2.Empty.FromString,
+                )
             )
         return self._stubs["create_service_time_series"]
 

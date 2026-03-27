@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.api import launch_stage_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api.launch_stage_pb2 as launch_stage_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.run_v2.types import (
@@ -625,12 +625,12 @@ class Service(proto.Message):
         proto.STRING,
         number=34,
     )
-    traffic_statuses: MutableSequence[
-        traffic_target.TrafficTargetStatus
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=35,
-        message=traffic_target.TrafficTargetStatus,
+    traffic_statuses: MutableSequence[traffic_target.TrafficTargetStatus] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=35,
+            message=traffic_target.TrafficTargetStatus,
+        )
     )
     uri: str = proto.Field(
         proto.STRING,

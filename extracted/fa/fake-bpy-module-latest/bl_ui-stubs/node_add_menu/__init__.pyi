@@ -314,6 +314,7 @@ def add_repeat_zone(layout, label) -> None: ...
 def add_simulation_zone(layout, label) -> None:
     """Add simulation zone to a menu."""
 
+def color_mix_node_defaults(enum_identifier, props) -> None: ...
 def draw_node_group_add_menu(context, layout) -> None:
     """Add items to the layout used for interacting with node groups."""
 

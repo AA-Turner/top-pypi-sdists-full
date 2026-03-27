@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-discovery
-Version: 1.2.0
+Version: 1.2.1
 Summary: Python interpreter discovery
 Project-URL: Changelog, https://github.com/tox-dev/python-discovery/releases
 Project-URL: Documentation, https://python-discovery.readthedocs.io

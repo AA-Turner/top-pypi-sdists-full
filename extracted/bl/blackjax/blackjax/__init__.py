@@ -43,10 +43,10 @@ from .smc import persistent_sampling
 from .smc import pretuning as _pretuning
 from .smc import tempered
 from .vi import meanfield_vi as _meanfield_vi
+from .vi import multipathfinder as _multipathfinder
 from .vi import pathfinder as _pathfinder
 from .vi import schrodinger_follmer as _schrodinger_follmer
 from .vi import svgd as _svgd
-from .vi.pathfinder import PathFinderAlgorithm
 
 """
 The above three classes exist as a backwards compatible way of exposing both the high level, differentiable
@@ -85,7 +85,7 @@ class GeneratePathfinderAPI:
     approximate: Callable
     sample: Callable
 
-    def __call__(self, *args, **kwargs) -> PathFinderAlgorithm:
+    def __call__(self, *args, **kwargs) -> VIAlgorithm:
         return self.differentiable(*args, **kwargs)
 
 
@@ -167,6 +167,8 @@ pathfinder = GeneratePathfinderAPI(
     _pathfinder.as_top_level_api, _pathfinder.approximate, _pathfinder.sample
 )
 
+multipathfinder = _multipathfinder.as_top_level_api
+
 
 __all__ = [
     "__version__",
@@ -180,4 +182,5 @@ __all__ = [
     "adjusted_mclmc_find_L_and_step_size",  # adjusted mclmc adaptation
     "ess",  # diagnostics
     "rhat",
+    "multipathfinder",
 ]

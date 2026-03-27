@@ -15,9 +15,13 @@ class MorphemeTestCase(unittest.TestCase):
         self.assertEqual(nighit("สํ", "นิษฐาน"), "สันนิษฐาน")
         self.assertEqual(nighit("สํ", "ปทา"), "สัมปทา")
         self.assertEqual(nighit("สํ", "โยค"), "สังโยค")
+        with self.assertRaises(NotImplementedError):
+            nighit("abc", "คีต")  # w1 does not end with ํ and len > 2
+        with self.assertRaises(NotImplementedError):
+            nighit("สํ", "มาร")  # consonant ม is not in any supported group
 
     def test_is_native_thai(self):
-        self.assertFalse(is_native_thai(None), False)
+        self.assertFalse(is_native_thai(None), False)  # type: ignore[arg-type]
         self.assertFalse(is_native_thai(""), False)
         self.assertFalse(is_native_thai("116"), False)
         self.assertFalse(is_native_thai("abc"), False)

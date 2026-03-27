@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -48,6 +48,7 @@ class ExecutionView(proto.Enum):
         FULL (2):
             Includes all data.
     """
+
     EXECUTION_VIEW_UNSPECIFIED = 0
     BASIC = 1
     FULL = 2
@@ -139,6 +140,7 @@ class Execution(proto.Message):
                 Request has been placed in the backlog for
                 processing at a later time.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         SUCCEEDED = 2
@@ -163,6 +165,7 @@ class Execution(proto.Message):
             LOG_NONE (3):
                 Explicitly log nothing.
         """
+
         CALL_LOG_LEVEL_UNSPECIFIED = 0
         LOG_ALL_CALLS = 1
         LOG_ERRORS_ONLY = 2
@@ -328,6 +331,7 @@ class Execution(proto.Message):
                 KMS_ERROR (1):
                     Caused by an issue with KMS.
             """
+
             TYPE_UNSPECIFIED = 0
             KMS_ERROR = 1
 

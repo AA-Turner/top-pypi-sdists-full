@@ -163,6 +163,7 @@ def create_pandas_udtf(
     udtf_packages: str,
     udtf_imports: str,
     artifact_repository: str | None = None,
+    session_id: str = "",
 ):
     user_function, _ = cloudpickle.loads(udtf_proto.python_udf.command)
     output_column_names = [field.name for field in return_schema.fields]
@@ -234,7 +235,7 @@ def create_pandas_udtf(
         ],
         input_names=[field.name for field in input_schema.fields]
         + ["_DUMMY_PARTITION_KEY"],
-        name="map_pandas_udtf",
+        name=f"map_pandas_udtf_{session_id.replace('-','_')}",
         replace=True,
         packages=process_udtf_packages(
             udtf_packages,
@@ -255,6 +256,7 @@ def create_pandas_udtf_with_arrow(
     udtf_packages: str,
     udtf_imports: str,
     artifact_repository: str | None = None,
+    session_id: str = "",
 ) -> str | snowpark.udtf.UserDefinedTableFunction:
 
     user_function, _ = cloudpickle.loads(udtf_proto.python_udf.command)
@@ -277,7 +279,7 @@ def create_pandas_udtf_with_arrow(
         ],
         input_names=[field.name for field in input_schema.fields]
         + ["_DUMMY_PARTITION_KEY"],
-        name="mapinarrow_udtf",
+        name=f"mapinarrow_udtf_{session_id.replace('-','_')}",
         replace=True,
         packages=process_udtf_packages(
             udtf_packages,
@@ -399,6 +401,7 @@ def create_cogroup_pandas_udtf(
     udtf_packages: str,
     udtf_imports: str,
     artifact_repository: str | None = None,
+    session_id: str = "",
 ):
     """
     Create a pandas UDTF for co-group operations (applyInPandas on cogrouped data).
@@ -408,9 +411,10 @@ def create_cogroup_pandas_udtf(
     It separates the rows by source, reconstructs two pandas DataFrames, and calls
     the user function with both DataFrames.
     """
-    udtf_name = (
+    base_name = (
         "cogroup_pandas_udtf_" + hashlib.md5(udtf_proto.python_udf.command).hexdigest()
     )
+    udtf_name = f"{base_name}_{session_id.replace('-','_')}"
 
     user_function, _ = cloudpickle.loads(udtf_proto.python_udf.command)
     output_column_names = [field.name for field in return_schema.fields]

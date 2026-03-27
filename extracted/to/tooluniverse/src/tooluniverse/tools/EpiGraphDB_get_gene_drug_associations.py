@@ -9,7 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def EpiGraphDB_get_gene_drug_associations(
-    gene_name: str,
+    gene_name: Optional[str] = None,
+    gene_symbol: Optional[str] = None,
     pval_threshold: Optional[float] = 0.05,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
@@ -23,6 +24,8 @@ def EpiGraphDB_get_gene_drug_associations(
     ----------
     gene_name : str
         Gene symbol to find drug associations for (e.g., 'TP53', 'EGFR', 'DPYD', 'CYP...
+    gene_symbol : str
+        Alias for gene_name. Gene symbol (e.g., 'CYP2D6', 'BRCA1').
     pval_threshold : float
         P-value threshold (default 0.05).
     stream_callback : Callable, optional
@@ -41,7 +44,11 @@ def EpiGraphDB_get_gene_drug_associations(
     # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
-        for k, v in {"gene_name": gene_name, "pval_threshold": pval_threshold}.items()
+        for k, v in {
+            "gene_name": gene_name,
+            "gene_symbol": gene_symbol,
+            "pval_threshold": pval_threshold,
+        }.items()
         if v is not None
     }
     return get_shared_client().run_one_function(

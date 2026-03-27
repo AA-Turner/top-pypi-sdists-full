@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.api import launch_stage_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api.launch_stage_pb2 as launch_stage_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.run_v2.types import (
@@ -569,12 +569,12 @@ class Instance(proto.Message):
         number=43,
         message=condition.Condition,
     )
-    container_statuses: MutableSequence[
-        container_status.ContainerStatus
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=44,
-        message=container_status.ContainerStatus,
+    container_statuses: MutableSequence[container_status.ContainerStatus] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=44,
+            message=container_status.ContainerStatus,
+        )
     )
     satisfies_pzs: bool = proto.Field(
         proto.BOOL,

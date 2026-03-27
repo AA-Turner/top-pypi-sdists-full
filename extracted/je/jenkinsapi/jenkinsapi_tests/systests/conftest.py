@@ -4,7 +4,12 @@ import pytest
 import time
 import requests
 from jenkinsapi.jenkins import Jenkins
-from jenkinsapi.utils.jenkins_launcher import JenkinsLancher
+from jenkinsapi.utils.docker_jenkins import DockerJenkins, DEFAULT_IMAGE_NAME
+from jenkinsapi_tests.unittests.conftest_helpers import (
+    parse_worker_id,
+    generate_container_name,
+    find_free_port,
+)
 
 log = logging.getLogger(__name__)
 state = {}
@@ -12,63 +17,6 @@ state = {}
 # User/password for authentication testcases
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin"
-
-# Extra plugins required by the systests
-PLUGIN_DEPENDENCIES = [
-    "https://updates.jenkins.io/latest/apache-httpcomponents-client-4-api.hpi",
-    "https://updates.jenkins.io/latest/mina-sshd-api-common.hpi",
-    "https://updates.jenkins.io/latest/mina-sshd-api-core.hpi",
-    "https://updates.jenkins.io/latest/jsch.hpi",
-    "https://updates.jenkins.io/latest/gson-api.hpi",
-    "https://updates.jenkins.io/latest/trilead-api.hpi",
-    "https://updates.jenkins.io/latest/bouncycastle-api.hpi",
-    "https://updates.jenkins.io/latest/ssh-slaves.hpi",
-    "https://updates.jenkins.io/latest/instance-identity.hpi",
-    "https://updates.jenkins.io/latest/bootstrap5-api.hpi",
-    "https://updates.jenkins.io/latest/workflow-api.hpi",
-    "https://updates.jenkins.io/latest/display-url-api.hpi",
-    "https://updates.jenkins.io/latest/eddsa-api.hpi",
-    "https://updates.jenkins.io/latest/workflow-step-api.hpi",
-    "https://updates.jenkins.io/latest/workflow-scm-step.hpi",
-    "https://updates.jenkins.io/latest/antisamy-markup-formatter.hpi",
-    "https://updates.jenkins.io/latest/prism-api.hpi",
-    "https://updates.jenkins.io/latest/junit.hpi",
-    "https://updates.jenkins.io/latest/script-security.hpi",
-    "https://updates.jenkins.io/latest/matrix-project.hpi",
-    "https://updates.jenkins.io/latest/credentials.hpi",
-    "https://updates.jenkins.io/latest/variant.hpi",
-    "https://updates.jenkins.io/latest/ssh-credentials.hpi",
-    "https://updates.jenkins.io/latest/asm-api.hpi",
-    "https://updates.jenkins.io/latest/scm-api.hpi",
-    "https://updates.jenkins.io/latest/git.hpi",
-    "https://updates.jenkins.io/latest/git-client.hpi",
-    "https://updates.jenkins.io/latest/jakarta-mail-api.hpi",
-    "https://updates.jenkins.io/latest/nested-view.hpi",
-    "https://updates.jenkins.io/latest/structs.hpi",
-    "https://updates.jenkins.io/latest/plain-credentials.hpi",
-    "https://updates.jenkins.io/latest/envinject.hpi",
-    "https://updates.jenkins.io/latest/envinject-api.hpi",
-    "https://updates.jenkins.io/latest/jdk-tool.hpi",
-    "https://updates.jenkins.io/latest/credentials-binding.hpi",
-    "https://updates.jenkins.io/latest/jakarta-activation-api.hpi",
-    "https://updates.jenkins.io/latest/caffeine-api.hpi",
-    "https://updates.jenkins.io/latest/checks-api.hpi",
-    "https://updates.jenkins.io/latest/json-api.hpi",
-    "https://updates.jenkins.io/latest/jakarta-xml-bind-api.hpi",
-    "https://updates.jenkins.io/latest/jackson2-api.hpi",
-    "https://updates.jenkins.io/latest/echarts-api.hpi",
-    "https://updates.jenkins.io/latest/ionicons-api.hpi",
-    "https://updates.jenkins.io/latest/plugin-util-api.hpi",
-    "https://updates.jenkins.io/latest/font-awesome-api.hpi",
-    "https://updates.jenkins.io/latest/commons-text-api.hpi",
-    "https://updates.jenkins.io/latest/commons-lang3-api.hpi",
-    "https://updates.jenkins.io/latest/snakeyaml-api.hpi",
-    "https://updates.jenkins.io/latest/workflow-support.hpi",
-    "https://updates.jenkins.io/latest/jquery3-api.hpi",
-    "https://updates.jenkins.io/latest/javax-activation-api.hpi",
-    "https://updates.jenkins.io/latest/jaxb.hpi",
-    "https://updates.jenkins.io/latest/mailer.hpi",
-]
 
 
 def _delete_all_jobs(jenkins):
@@ -131,24 +79,91 @@ instance.save()
 
 
 @pytest.fixture(scope="session")
-def launched_jenkins():
-    systests_dir, _ = os.path.split(__file__)
-    local_orig_dir = os.path.join(systests_dir, "localinstance_files")
-    if not os.path.exists(local_orig_dir):
-        os.mkdir(local_orig_dir)
-    war_name = "jenkins.war"
-    launcher = JenkinsLancher(
-        local_orig_dir,
-        systests_dir,
-        war_name,
-        PLUGIN_DEPENDENCIES,
-        jenkins_url=os.getenv("JENKINS_URL", None),
+def docker_image(worker_id):
+    """
+    Build shared Docker image once per session.
+
+    Worker 0 builds the image; all other workers wait for it.
+    All workers share one image but each gets a unique container.
+    """
+    import docker as docker_lib
+
+    worker_num, display_name = parse_worker_id(worker_id)
+    repo_root = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     )
-    launcher.start()
+    dockerfile_path = os.path.join(repo_root, "docker", "Dockerfile")
+
+    client = docker_lib.from_env()
+    image_name = DEFAULT_IMAGE_NAME
+
+    # If image already exists, all workers can use it immediately
+    try:
+        client.images.get(image_name)
+        log.info(
+            "[%s] Docker image already exists, skipping build", display_name
+        )
+        return image_name
+    except docker_lib.errors.ImageNotFound:
+        pass
+
+    if worker_num == 0:
+        log.info("[%s] Building Docker image %s...", display_name, image_name)
+        try:
+            client.images.build(
+                path=os.path.dirname(dockerfile_path),
+                dockerfile="Dockerfile",
+                tag=image_name,
+                rm=True,
+            )
+            log.info("[%s] Image build complete", display_name)
+            return image_name
+        except Exception as e:
+            log.error("[%s] Image build failed: %s", display_name, e)
+            raise
+    log.info(
+        "[%s] Waiting for shared image to be built by worker-0...",
+        display_name,
+    )
+    max_wait = 300
+    start = time.time()
+    while time.time() - start < max_wait:
+        try:
+            client.images.get(image_name)
+            log.info("[%s] Image ready", display_name)
+            return image_name
+        except docker_lib.errors.ImageNotFound:
+            time.sleep(2)
+    raise RuntimeError(f"Timeout waiting for image (waited {max_wait}s)")
+
+
+@pytest.fixture(scope="session")
+def launched_jenkins(docker_image, worker_id):
+    worker_num, display_name = parse_worker_id(worker_id)
+    base_port = 8080 if worker_num == 0 else 8100 + (worker_num - 1) * 10
+    port = find_free_port(start_port=base_port)
+    container_name = generate_container_name(
+        worker_id, base_name="jenkinsapi-systest"
+    )
+
+    launcher = DockerJenkins(
+        image_name=docker_image,
+        container_name=container_name,
+        port=port,
+    )
+
+    log.info(
+        "[%s] Starting container %s on port %d",
+        display_name,
+        container_name,
+        port,
+    )
+    launcher.start(timeout=300)
+    ensure_jenkins_up(launcher.jenkins_url, timeout=60)
 
     yield launcher
 
-    log.info("All tests finished")
+    log.info("[%s] All tests finished", display_name)
     launcher.stop()
 
 

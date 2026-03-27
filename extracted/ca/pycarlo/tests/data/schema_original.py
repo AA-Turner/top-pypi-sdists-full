@@ -16099,8 +16099,9 @@ class AssetSelectionResult(sgqlc.types.Type):
         "count_database_schema",
         "selected",
         "mcon",
-        "count_require_row_count_monitoring",
-        "count_has_row_count_monitoring",
+        "count_row_count_collection_not_enabled",
+        "count_row_count_collection_enabled",
+        "count_row_count_collection_user_disabled",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
@@ -16120,12 +16121,16 @@ class AssetSelectionResult(sgqlc.types.Type):
 
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
 
-    count_require_row_count_monitoring = sgqlc.types.Field(
-        sgqlc.types.non_null(Int), graphql_name="countRequireRowCountMonitoring"
+    count_row_count_collection_not_enabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="countRowCountCollectionNotEnabled"
     )
 
-    count_has_row_count_monitoring = sgqlc.types.Field(
-        sgqlc.types.non_null(Int), graphql_name="countHasRowCountMonitoring"
+    count_row_count_collection_enabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="countRowCountCollectionEnabled"
+    )
+
+    count_row_count_collection_user_disabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="countRowCountCollectionUserDisabled"
     )
 
 
@@ -25472,6 +25477,17 @@ class ExtendedDataSource(sgqlc.types.Type):
     """Segment count from the previous run."""
 
 
+class ExtractMemoryData(sgqlc.types.Type):
+    """Trigger an async extraction of incident memory data for the
+    caller's account.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("ok",)
+    ok = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="ok")
+    """True if extraction was triggered, False if it already exists."""
+
+
 class FHEvent(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -27914,6 +27930,17 @@ class InfrastructureDetails(sgqlc.types.Type):
     """Azure information"""
 
 
+class IngestMemoryData(sgqlc.types.Type):
+    """Trigger async ingestion of exported memory data into ai-agent
+    memory stores.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("ok",)
+    ok = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="ok")
+    """True if ingestion was triggered, False if no extraction exists."""
+
+
 class Insight(sgqlc.types.Type):
     """Available data on a specific element of the system created by DS"""
 
@@ -29931,6 +29958,23 @@ class McpServerAuthDiscovery(sgqlc.types.Type):
     """Error message when auth_metadata_found is False"""
 
 
+class MemoryExtractionStatus(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("exists", "last_modified", "record_count")
+    exists = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="exists")
+    """Whether a completed extraction file exists for the account."""
+
+    last_modified = sgqlc.types.Field(DateTime, graphql_name="lastModified")
+    """When the extraction file was last modified (UTC). Null if no
+    extraction exists.
+    """
+
+    record_count = sgqlc.types.Field(Int, graphql_name="recordCount")
+    """Number of incident records in the extraction file. Null if no
+    extraction exists.
+    """
+
+
 class MemoryFacetsType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("sources", "domains", "is_account_level")
@@ -31350,6 +31394,8 @@ class Mutation(sgqlc.types.Type):
         "update_logs_integration",
         "delete_logs_integration",
         "generate_report",
+        "extract_memory_data",
+        "ingest_memory_data",
         "create_datadog_integration",
         "update_datadog_integration",
         "delete_datadog_integration",
@@ -32893,6 +32939,27 @@ class Mutation(sgqlc.types.Type):
     * `report_parameters` (`ReportArgumentsUnionInput!`)None
     """
 
+    extract_memory_data = sgqlc.types.Field(
+        ExtractMemoryData,
+        graphql_name="extractMemoryData",
+        args=sgqlc.types.ArgDict(
+            (("start_date", sgqlc.types.Arg(Date, graphql_name="startDate", default=None)),)
+        ),
+    )
+    """(experimental) Extract incident memory data for the caller's
+    account
+
+    Arguments:
+
+    * `start_date` (`Date`): Only extract incidents created on or
+      after this date. Defaults to 90 days ago.
+    """
+
+    ingest_memory_data = sgqlc.types.Field(IngestMemoryData, graphql_name="ingestMemoryData")
+    """(experimental) Ingest exported memory data into ai-agent memory
+    stores
+    """
+
     create_datadog_integration = sgqlc.types.Field(
         CreateDatadogIntegration,
         graphql_name="createDatadogIntegration",
@@ -33177,6 +33244,18 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
                 (
+                    "enable_row_count_collection",
+                    sgqlc.types.Arg(
+                        Boolean, graphql_name="enableRowCountCollection", default=False
+                    ),
+                ),
+                (
+                    "enable_row_count_collection_limit",
+                    sgqlc.types.Arg(
+                        Int, graphql_name="enableRowCountCollectionLimit", default=None
+                    ),
+                ),
+                (
                     "failure_audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -33219,6 +33298,11 @@ class Mutation(sgqlc.types.Type):
     * `domain_restrictions` (`[UUID!]`): The domains to restrict to
     * `dry_run` (`Boolean`): Dry run the monitor creation or update
       and return the YAML and queries. (default: `false`)
+    * `enable_row_count_collection` (`Boolean`): Enable row count
+      collection for tables that require it. (default: `false`)
+    * `enable_row_count_collection_limit` (`Int`): Maximum number of
+      tables to enable row count collection for. If not provided, uses
+      the default limit.
     * `failure_audiences` (`[String!]`): The audiences to notify on
       failure
     * `is_draft` (`Boolean`): Make target a draft monitor. (default:
@@ -54524,10 +54608,12 @@ class Query(sgqlc.types.Type):
         "get_supported_aws_regions",
         "get_data_export_url",
         "get_generate_report_status",
+        "get_memory_extraction_status",
         "evaluate_asset_selection",
         "evaluate_field_pattern_matches",
         "get_account_audit_logs",
         "get_monitor_audit_logs",
+        "get_size_collection_audit_logs",
         "get_monitored_rules_audit_logs",
         "get_assigned_assets",
         "get_alerts",
@@ -69023,6 +69109,10 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(String), graphql_name="mcons", default=None
                     ),
                 ),
+                (
+                    "filter_by_criticality",
+                    sgqlc.types.Arg(Boolean, graphql_name="filterByCriticality", default=None),
+                ),
             )
         ),
     )
@@ -69048,6 +69138,10 @@ class Query(sgqlc.types.Type):
     * `exclude_standard_prefix_suffix_set` (`Boolean`): Exclude tmp
       and similar prefix/suffix table and schema names
     * `mcons` (`[String]`): Filter by mcons
+    * `filter_by_criticality` (`Boolean`): Filter tables by
+      criticality score. Defaults to True when the criticality_score
+      feature flag is enabled for the account. Pass False to opt out
+      (e.g. when viewing a specific asset regardless of criticality).
     """
 
     get_object = sgqlc.types.Field(
@@ -72782,6 +72876,13 @@ class Query(sgqlc.types.Type):
     * `report_job_id` (`UUID!`): Report Job ID
     """
 
+    get_memory_extraction_status = sgqlc.types.Field(
+        MemoryExtractionStatus, graphql_name="getMemoryExtractionStatus"
+    )
+    """(experimental) Get status of memory data extraction for the
+    caller's account
+    """
+
     evaluate_asset_selection = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(AssetSelectionResult)),
         graphql_name="evaluateAssetSelection",
@@ -72843,9 +72944,9 @@ class Query(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="isMonitored", default=None),
                 ),
                 (
-                    "include_require_row_count_monitoring",
+                    "include_require_row_count_collection",
                     sgqlc.types.Arg(
-                        Boolean, graphql_name="includeRequireRowCountMonitoring", default=None
+                        Boolean, graphql_name="includeRequireRowCountCollection", default=None
                     ),
                 ),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=100)),
@@ -72870,9 +72971,9 @@ class Query(sgqlc.types.Type):
     * `search_full_table_id` (`String`)None
     * `is_monitored` (`Boolean`): Filter by monitored status if
       provided
-    * `include_require_row_count_monitoring` (`Boolean`): Include
-      counts of tables that require row count monitoring: those
-      needing it enabled vs those already enabled.
+    * `include_require_row_count_collection` (`Boolean`): Include
+      count of tables that require row count collection but do not
+      have it enabled yet (countRowCountCollectionNotEnabled).
     * `limit` (`Int`)None (default: `100`)
     * `offset` (`Int`)None (default: `0`)
     """
@@ -73019,6 +73120,46 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `monitor_uuid` (`UUID!`): UUID of monitor
+    * `change_field` (`String`): Filter logs by specific field that
+      was changed
+    * `timestamp__lt` (`DateTime`): Filter logs with timestamp less
+      than this value
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    get_size_collection_audit_logs = sgqlc.types.Field(
+        AuditLogEntryConnection,
+        graphql_name="getSizeCollectionAuditLogs",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                ("change_field", sgqlc.types.Arg(String, graphql_name="changeField", default=None)),
+                (
+                    "timestamp__lt",
+                    sgqlc.types.Arg(DateTime, graphql_name="timestamp_Lt", default=None),
+                ),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get audit logs for a table's size collection.
+
+    Arguments:
+
+    * `mcon` (`String!`): MC unique identifier of the table
     * `change_field` (`String`): Filter logs by specific field that
       was changed
     * `timestamp__lt` (`DateTime`): Filter logs with timestamp less
@@ -76730,6 +76871,8 @@ class SizeCollectionConfiguration(sgqlc.types.Type):
         "collection_status",
         "collection_error",
         "connection_id",
+        "enabled_by_table_monitor",
+        "user_disabled",
     )
     enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
     """True if collection is enabled. False if disabled"""
@@ -76747,6 +76890,20 @@ class SizeCollectionConfiguration(sgqlc.types.Type):
 
     connection_id = sgqlc.types.Field(UUID, graphql_name="connectionId")
     """The connection ID where the size collector is run on."""
+
+    enabled_by_table_monitor = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TableMonitor")),
+        graphql_name="enabledByTableMonitor",
+    )
+    """List of table monitors that enabled row count collection for this
+    table. Empty list if manually enabled by user/API or not enabled
+    at all.
+    """
+
+    user_disabled = sgqlc.types.Field(Boolean, graphql_name="userDisabled")
+    """True if the user explicitly disabled row count collection for this
+    table. When true, table monitors will not re-enable it.
+    """
 
 
 class SizeCollectionQuery(sgqlc.types.Type):
@@ -90393,7 +90550,11 @@ class Monitor(
     IComparisonMonitor,
 ):
     __schema__ = schema
-    __field_names__ = ()
+    __field_names__ = ("supports_sensitivity_update",)
+    supports_sensitivity_update = sgqlc.types.Field(
+        Boolean, graphql_name="supportsSensitivityUpdate"
+    )
+    """Whether this monitor supports sensitivity tuning"""
 
 
 class MonteCarloConfigTemplate(sgqlc.types.Type, Node):
@@ -91078,6 +91239,8 @@ class TableMonitor(sgqlc.types.Type, Node):
         "monitor_name",
         "deleted_by",
         "domain_restrictions",
+        "enable_row_count_collection",
+        "enable_row_count_collection_limit",
         "asset_selection",
         "audiences",
         "failure_audiences",
@@ -91142,6 +91305,18 @@ class TableMonitor(sgqlc.types.Type, Node):
     )
     """List of domain UUIDs that need to be allowed to access this
     monitor, if any
+    """
+
+    enable_row_count_collection = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="enableRowCountCollection"
+    )
+    """Enable row count collection for tables that require it"""
+
+    enable_row_count_collection_limit = sgqlc.types.Field(
+        Int, graphql_name="enableRowCountCollectionLimit"
+    )
+    """Maximum number of tables to enable row count collection for, null
+    means use default limit (100)
     """
 
     asset_selection = sgqlc.types.Field(AssetSelection, graphql_name="assetSelection")
@@ -93025,6 +93200,7 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "filters",
         "has_custom_rule_name",
         "is_transitioning_data_provider",
+        "supports_sensitivity_update",
         "notify_rule_run_failure",
         "is_tracking_only",
     )
@@ -93233,6 +93409,11 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
     is_transitioning_data_provider = sgqlc.types.Field(
         Boolean, graphql_name="isTransitioningDataProvider"
     )
+
+    supports_sensitivity_update = sgqlc.types.Field(
+        Boolean, graphql_name="supportsSensitivityUpdate"
+    )
+    """Whether this monitor supports sensitivity tuning"""
 
     notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
     """DEPRECATED: Replaced by failure audiences"""

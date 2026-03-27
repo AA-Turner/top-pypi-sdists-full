@@ -14,6 +14,7 @@ def OpenFDA_search_drug_events(
     count: Optional[str | Any] = None,
     drug_name: Optional[str | Any] = None,
     reaction: Optional[str | Any] = None,
+    adverse_event: Optional[str | Any] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -34,6 +35,8 @@ def OpenFDA_search_drug_events(
         Drug name to search for adverse events (e.g., 'warfarin', 'metformin'). Alter...
     reaction : str | Any
         MedDRA adverse reaction term (British spelling: 'haemorrhage' not 'hemorrhage...
+    adverse_event : str | Any
+        Alias for reaction. MedDRA adverse reaction term (British spelling).
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -56,6 +59,7 @@ def OpenFDA_search_drug_events(
             "count": count,
             "drug_name": drug_name,
             "reaction": reaction,
+            "adverse_event": adverse_event,
         }.items()
         if v is not None
     }

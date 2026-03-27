@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.api import monitored_resource_pb2  # type: ignore
+import google.api.monitored_resource_pb2 as monitored_resource_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.monitoring_v3.types import common
@@ -351,12 +351,12 @@ class ListGroupMembersResponse(proto.Message):
     def raw_page(self):
         return self
 
-    members: MutableSequence[
-        monitored_resource_pb2.MonitoredResource
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=monitored_resource_pb2.MonitoredResource,
+    members: MutableSequence[monitored_resource_pb2.MonitoredResource] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=monitored_resource_pb2.MonitoredResource,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

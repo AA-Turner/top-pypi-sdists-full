@@ -101,7 +101,7 @@ class DoctestConfig(dict):
         add_argument: typing.Callable[..., typing.Any],
         prefix: str | list[str] | None = None,
         defaults: dict[str, typing.Any] = {},
-    ):
+    ) -> None:
         """
         Updates a pytest or argparse CLI
 
@@ -109,12 +109,13 @@ class DoctestConfig(dict):
             add_argument (callable): the parser.add_argument function
         """
         import argparse
+        from typing import Any
 
-        def str_lower(x):
+        def str_lower(x: str) -> str:
             # python2 fix
             return str.lower(str(x))
 
-        add_argument_kws = [
+        add_argument_kws: list[tuple[list[str], dict[str, Any]]] = [
             (
                 ['--colored'],
                 dict(
@@ -242,7 +243,7 @@ class DoctestConfig(dict):
             if argname in environ_aware:
                 env_argname = 'XDOCTEST_' + argname.replace('-', '_').upper()
                 if 'default' in kw:
-                    kw['default'] = os.environ.get(env_argname, kw['default'])  # type: ignore
+                    kw['default'] = os.environ.get(env_argname, kw['default'])
 
             alias = [
                 a.replace('--', '--' + p + '-') if p else a
@@ -972,7 +973,10 @@ class DocTest:
                     print(f'runstate._global_state={runstate._global_state}')
 
                 # Handle runtime actions
-                if runstate['SKIP'] or len(runstate['REQUIRES']) > 0:  # type: ignore
+                requires = runstate['REQUIRES']
+                if runstate['SKIP'] or (
+                    isinstance(requires, set) and len(requires) > 0
+                ):
                     if DEBUG:
                         print(f'part[{partx}] runstate requests skipping')
                     self._skipped_parts.append(part)
@@ -1572,9 +1576,13 @@ class DocTest:
         lines += [self._color(self._block_prefix + ' TRACEBACK', 'white')]
         if hasattr(ex_value, 'output_difference'):
             assert hasattr(ex_value, 'output_repr_difference')
+            # Cast to GotWantException since we verified it has the required methods
+            ex_value_cast = typing.cast(checker.GotWantException, ex_value)
             lines += [
-                ex_value.output_difference(self._runstate, colored=colored),  # type: ignore
-                ex_value.output_repr_difference(self._runstate),  # type: ignore
+                ex_value_cast.output_difference(
+                    self._runstate, colored=colored
+                ),
+                ex_value_cast.output_repr_difference(self._runstate),
             ]
         else:
             if with_tb:

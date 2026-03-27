@@ -5,6 +5,7 @@ from __future__ import annotations
 
 __all__ = [
     "find_best_byte_unit",
+    "make_bar",
     "repr_indent",
     "repr_mapping",
     "repr_mapping_line",
@@ -33,6 +34,44 @@ BYTE_UNITS = {
     "GB": 1024 * 1024 * 1024,
     "TB": 1024 * 1024 * 1024 * 1024,
 }
+
+
+def make_bar(value: float, length: int = 10) -> str:
+    """Create a progress bar string for a given value between 0 and 1.
+
+    Args:
+        value: A float between 0 and 1 representing the metric value.
+        length: The length of the progress bar. Must be a positive integer.
+
+    Returns:
+        A string representing the progress bar.
+
+    Raises:
+        ValueError: If ``value`` is not in [0, 1], or ``length`` is not positive.
+
+    Example:
+        ```pycon
+        >>> from coola.utils.format import make_bar
+        >>> make_bar(0.6)
+        '[██████░░░░]'
+        >>> make_bar(0.1)
+        '[█░░░░░░░░░]'
+        >>> make_bar(1.0)
+        '[██████████]'
+        >>> make_bar(0.0)
+        '[░░░░░░░░░░]'
+
+        ```
+    """
+    if not 0.0 <= value <= 1.0:
+        msg = f"value must be in [0, 1], but got {value}"
+        raise ValueError(msg)
+    if length <= 0:
+        msg = f"length must be a positive integer, but got {length}"
+        raise ValueError(msg)
+
+    filled = round(value * length)
+    return f"[{'█' * filled}{'░' * (length - filled)}]"
 
 
 def repr_indent(original: object, num_spaces: int = 2) -> str:

@@ -107,6 +107,11 @@ def _build_fully_qualified_name(session: Session, name: str) -> list[str]:
     return [db, schema, name]
 
 
+def _build_cache_key(session: Session, name: str) -> tuple[list[str], str]:
+    fqn_parts = _build_fully_qualified_name(session, name)
+    return fqn_parts, ".".join(fqn_parts)
+
+
 def cached_udaf(
     class_type: typing.Type,
     *,
@@ -125,16 +130,18 @@ def cached_udaf(
     def _cached_udaf(udaf_type: typing.Type):
         telemetry.report_udf_usage(udaf_type.__name__)
         with _lock:
-            cache = Session.get_active_session()._cached_udafs
+            session = Session.get_active_session()
+            cache = session._cached_udafs
             name = _udxf_name(udaf_type, input_types, return_type)
+            fqn_parts, cache_key = _build_cache_key(session, name)
 
-            if name in cache:
-                return cache[name]
+            if cache_key in cache:
+                return cache[cache_key]
 
-        # Register the function outside the lock to avoid contention
+        # Register the function outside the lock to avoid contention.
         wrapped_func = udaf(
             udaf_type,
-            name=_build_fully_qualified_name(Session.get_active_session(), name),
+            name=fqn_parts,
             return_type=return_type,
             input_types=input_types,
             imports=imports,
@@ -144,7 +151,7 @@ def cached_udaf(
         )
 
         with _lock:
-            cache[name] = wrapped_func
+            cache[cache_key] = wrapped_func
 
         return wrapped_func
 
@@ -175,23 +182,24 @@ def cached_udf(
     def _cached_udf(func: Callable):
         telemetry.report_udf_usage(func.__name__)
         with _lock:
-            cache = Session.get_active_session()._cached_udfs
+            session = Session.get_active_session()
+            cache = session._cached_udfs
             name = _udxf_name(func, input_types, return_type)
-            # Check if the udf is already cached
-            if name in cache:
-                return cache[name]
+            fqn_parts, cache_key = _build_cache_key(session, name)
+            if cache_key in cache:
+                return cache[cache_key]
 
         # Create a wrapper function that handles sqlNullWrapper objects
         from snowflake.snowpark_connect.utils.udf_utils import create_null_safe_wrapper
 
         _null_safe_wrapper = create_null_safe_wrapper(func)
 
-        # Register the function outside the lock to avoid contention when registering multiple functions.
-        # It's possible that multiple threads will try to register the same function,
-        # but this will not cause any issues.
+        # Register the function outside the lock to avoid contention when registering
+        # multiple functions. It's possible multiple threads register the same function,
+        # but this is safe because registration is idempotent.
         wrapped_func = udf(
             _null_safe_wrapper,
-            name=_build_fully_qualified_name(Session.get_active_session(), name),
+            name=fqn_parts,
             return_type=return_type,
             input_types=input_types,
             imports=imports,
@@ -201,8 +209,7 @@ def cached_udf(
         )
 
         with _lock:
-            # Cache the udf
-            cache[name] = wrapped_func
+            cache[cache_key] = wrapped_func
 
         return wrapped_func
 
@@ -232,16 +239,18 @@ def cached_udtf(
     def _cached_udtf(func: Callable):
         telemetry.report_udf_usage(func.__name__)
         with _lock:
-            cache = Session.get_active_session()._cached_udtfs
+            session = Session.get_active_session()
+            cache = session._cached_udtfs
             name = _udxf_name(func, input_types, output_schema)
+            fqn_parts, cache_key = _build_cache_key(session, name)
 
-            if name in cache:
-                return cache[name]
+            if cache_key in cache:
+                return cache[cache_key]
 
-        # Register the function outside the lock to avoid contention
+        # Register the function outside the lock to avoid contention.
         wrapped_func = udtf(
             func,
-            name=_build_fully_qualified_name(Session.get_active_session(), name),
+            name=fqn_parts,
             output_schema=output_schema,
             input_types=input_types,
             imports=imports,
@@ -251,7 +260,7 @@ def cached_udtf(
         )
 
         with _lock:
-            cache[name] = wrapped_func
+            cache[cache_key] = wrapped_func
 
         return wrapped_func
 
@@ -329,8 +338,9 @@ def register_cached_sql_udf(
     with _lock:
         session = Session.get_active_session()
         cache = session._cached_sql_udfs
+        _, cache_key = _build_cache_key(session, function_name)
 
-        udf_is_cached = function_name in cache
+        udf_is_cached = cache_key in cache
 
     if not udf_is_cached:
         _create_temporary_sql_udf(
@@ -342,16 +352,11 @@ def register_cached_sql_udf(
         )
 
         with _lock:
-            function_identifier = ".".join(
-                _build_fully_qualified_name(Session.get_active_session(), function_name)
-            )
-            cache[function_name] = function_identifier
-    else:
-        function_identifier = cache[function_name]
+            cache[cache_key] = True
 
     return functools.partial(
         call_udf,
-        function_identifier,
+        cache_key,
     )
 
 
@@ -377,16 +382,18 @@ def register_cached_java_udf(
 
     function_name = f"{_BUILTIN_UDF_PREFIX}{java_fun_name.upper()}{input_types_hash}"
 
-    with (_lock):
+    with _lock:
         session = Session.get_active_session()
         cache = session._cached_java_udfs
         stage = session.get_session_stage()
 
         if len(cache) == 0:
-            # This is the first Java UDF being registered, so we need to upload the JAR with UDF definitions first
+            # This is the first Java UDF in the session, so upload the shared JAR.
             upload_java_udf_jar(session)
 
-        udf_is_cached = function_name in cache
+        _, cache_key = _build_cache_key(session, function_name)
+
+        udf_is_cached = cache_key in cache
 
     if not udf_is_cached:
         _create_temporary_java_udf(
@@ -400,16 +407,11 @@ def register_cached_java_udf(
         )
 
         with _lock:
-            function_identifier = ".".join(
-                _build_fully_qualified_name(Session.get_active_session(), function_name)
-            )
-            cache[function_name] = function_identifier
-    else:
-        function_identifier = cache[function_name]
+            cache[cache_key] = True
 
     return functools.partial(
         call_udf,
-        function_identifier,
+        cache_key,
     )
 
 
@@ -451,13 +453,10 @@ def register_cached_sproc(
     with _lock:
         session = Session.get_active_session()
         cache = session._cached_sprocs
+        _, fully_qualified_name = _build_cache_key(session, sproc_name)
 
-        if sproc_name in cache:
-            return cache[sproc_name]
-
-    # Build the FQN outside the lock (and after the cache-hit early return) so
-    # that _build_fully_qualified_name's error check only runs on first registration.
-    fully_qualified_name = ".".join(_build_fully_qualified_name(session, sproc_name))
+        if fully_qualified_name in cache:
+            return fully_qualified_name
 
     args_str = ",".join(
         f"arg{idx} {type_}" for idx, type_ in enumerate(input_arg_types)
@@ -479,6 +478,6 @@ $$
     ).collect()
 
     with _lock:
-        cache[sproc_name] = fully_qualified_name
+        cache[fully_qualified_name] = True
 
     return fully_qualified_name

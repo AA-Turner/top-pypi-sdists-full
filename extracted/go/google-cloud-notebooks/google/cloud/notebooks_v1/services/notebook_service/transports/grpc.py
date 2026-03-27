@@ -16,21 +16,23 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers, operations_v1
 import google.auth  # type: ignore
-from google.auth import credentials as ga_credentials  # type: ignore
-from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.cloud.location import locations_pb2  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf.json_format import MessageToJson
 import google.protobuf.message
 import grpc  # type: ignore
 import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
+from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.transport.grpc import SslCredentials  # type: ignore
+from google.cloud.location import locations_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
+from google.longrunning import operations_pb2  # type: ignore
+from google.protobuf.json_format import MessageToJson
 
 from google.cloud.notebooks_v1.types import (
     environment,
@@ -64,7 +66,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -99,7 +101,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -194,6 +196,10 @@ class NotebookServiceGrpcTransport(NotebookServiceTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -557,12 +563,12 @@ class NotebookServiceGrpcTransport(NotebookServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_shielded_instance_config" not in self._stubs:
-            self._stubs[
-                "update_shielded_instance_config"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.notebooks.v1.NotebookService/UpdateShieldedInstanceConfig",
-                request_serializer=service.UpdateShieldedInstanceConfigRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["update_shielded_instance_config"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.notebooks.v1.NotebookService/UpdateShieldedInstanceConfig",
+                    request_serializer=service.UpdateShieldedInstanceConfigRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["update_shielded_instance_config"]
 
@@ -614,12 +620,12 @@ class NotebookServiceGrpcTransport(NotebookServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_instance_metadata_items" not in self._stubs:
-            self._stubs[
-                "update_instance_metadata_items"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.notebooks.v1.NotebookService/UpdateInstanceMetadataItems",
-                request_serializer=service.UpdateInstanceMetadataItemsRequest.serialize,
-                response_deserializer=service.UpdateInstanceMetadataItemsResponse.deserialize,
+            self._stubs["update_instance_metadata_items"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.notebooks.v1.NotebookService/UpdateInstanceMetadataItems",
+                    request_serializer=service.UpdateInstanceMetadataItemsRequest.serialize,
+                    response_deserializer=service.UpdateInstanceMetadataItemsResponse.deserialize,
+                )
             )
         return self._stubs["update_instance_metadata_items"]
 

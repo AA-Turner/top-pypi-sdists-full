@@ -47,6 +47,7 @@ from snowflake.snowpark_connect.relation.read.map_read_partitioned_file import (
     _read_file_with_partitions,
 )
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
+    METADATA_FILENAME_COLUMN,
     add_filename_metadata_to_reader,
     populate_metadata,
 )
@@ -200,7 +201,7 @@ def _get_schema_for_copy_into_json(
     raw_options: dict,
     json_local_rows_to_infer_schema: int,
     drop_field_if_all_null: bool,
-    fix_relaxed_types: bool = False,
+    relax_types_to_infer_schema: bool = False,
 ) -> StructType:
     """
     Get schema for COPY INTO operation by reading the first file.
@@ -217,6 +218,7 @@ def _get_schema_for_copy_into_json(
         raw_options: Raw options from the read request.
         json_local_rows_to_infer_schema: Number of rows to use for schema inference.
         drop_field_if_all_null: Whether to drop fields that are all null.
+        relax_types_to_infer_schema: Whether to widen numeric types for overflow safety.
 
     Returns:
         StructType schema to use for COPY INTO.
@@ -231,15 +233,20 @@ def _get_schema_for_copy_into_json(
     )
     df = reader.json(first_path)
 
-    # Workaround for SNOW-3198432: USE_RELAXED_TYPES updates the schema but
-    # not the underlying SQL query.  Re-read with the widened schema so rows
-    # beyond the sampled range don't overflow narrow inferred types.
-    if fix_relaxed_types:
-        from snowflake.snowpark_connect.relation.read.map_read_partitioned_file import (
-            _fix_relaxed_schema,
+    # When sampling is active, the inferred SQL uses narrow types from the
+    # sampled rows (e.g. NUMBER(2,0) from 10 rows).  Re-read with widened
+    # types so _infer_json_schema_from_rows can scan beyond the sampled
+    # range without overflowing narrow casts.
+    if relax_types_to_infer_schema:
+        relaxed_schema = relax_json_types(df.schema)
+        normalized = StructType(
+            [
+                StructField(unquote_if_quoted(f.name), f.datatype, f.nullable)
+                for f in relaxed_schema.fields
+                if unquote_if_quoted(f.name) != METADATA_FILENAME_COLUMN
+            ]
         )
-
-        df = _fix_relaxed_schema(df, reader, first_path)
+        df = reader.schema(normalized).json(first_path)
 
     inferred_schema = _infer_json_schema_from_rows(
         df=df,
@@ -291,13 +298,11 @@ def map_read_json(
         compression = snowpark_options.get("compression", "auto")
         split_size_mb = snowpark_options.pop("splitsizemb", 2)
         mode = snowpark_options.pop("mode", "PERMISSIVE")
-        apply_metadata_exclusion_pattern(snowpark_options)
-        infer_schema_opts = snowpark_options.get("INFER_SCHEMA_OPTIONS", {})
-        fix_relaxed_types = (
-            "MAX_RECORDS_PER_FILE" in infer_schema_opts
-            and infer_schema_opts.get("USE_RELAXED_TYPES", False)
-            and not parallel_load_json_file
+        relax_types_to_infer_schema = (
+            snowpark_options.pop("relaxtypestoinferschema", False)
+            or _integral_types_conversion_enabled
         )
+        apply_metadata_exclusion_pattern(snowpark_options)
 
         if len(paths) <= 0:
             exception = ValueError(f"No paths provided to read JSON files: {paths}")
@@ -316,6 +321,7 @@ def map_read_json(
                 mode,
                 compression not in ("none", "NONE"),
                 file_encoding,
+                relax_types_to_infer_schema,
             )
         else:
             # Determine if COPY INTO will be used (to set can_be_cached flag)
@@ -333,7 +339,7 @@ def map_read_json(
                 use_bulk,
                 batch_size,
                 schema,
-                fix_relaxed_types,
+                relax_types_to_infer_schema,
             )
 
         spark_column_names = get_spark_column_names_from_snowpark_columns(df.columns)
@@ -345,11 +351,11 @@ def map_read_json(
             dataframe=renamed_df,
             spark_column_names=spark_column_names,
             snowpark_column_names=snowpark_column_names,
-            # Emulate OSS Spark's JSON integer type inference: DecimalType -> LongType,
-            # and for Scala/Java clients (integral_types_conversion_enabled), further
-            # convert LongType -> ByteType/ShortType/IntegerType/LongType by precision.
             snowpark_column_types=[
-                _emulate_integral_types_for_json(f.datatype) for f in df.schema.fields
+                relax_json_types(f.datatype)
+                if relax_types_to_infer_schema
+                else f.datatype
+                for f in df.schema.fields
             ],
             can_be_cached=result_can_be_cached,
         )
@@ -365,6 +371,7 @@ def read_single_bz2_file(
     mode: str,
     compressed: bool,
     file_encoding: str,
+    relax_types_to_infer_schema: bool = False,
 ) -> snowpark.DataFrame:
     # Read the single bz2 file, not support metadata population for now
     stage_name, file_path = separate_stage_and_file_from_path(paths[0])
@@ -408,11 +415,8 @@ def read_single_bz2_file(
         schema = real_schema
 
     schema, _ = validate_and_update_schema(schema)
-    # Apply integral type emulation *before* DDL generation so that
-    # _generate_snowflake_type_signature sees the correct precision-tagged
-    # integral types (e.g. LongType with _precision=19) and creates
-    # NUMBER(p,0) columns instead of BIGINT (NUMBER(38,0)).
-    schema = _emulate_integral_types_for_json(schema)
+    if relax_types_to_infer_schema:
+        schema = relax_json_types(schema)
 
     return construct_dataframe_by_schema_bulk(
         schema,
@@ -432,7 +436,7 @@ def read_normal_json_files(
     use_bulk: bool,
     batch_size: int,
     schema: StructType | None,
-    fix_relaxed_types: bool,
+    relax_types_to_infer_schema: bool,
 ) -> snowpark.DataFrame:
     # Read the normal JSON files, support metadata population
 
@@ -463,7 +467,7 @@ def read_normal_json_files(
             schema=schema,
             snowpark_options=snowpark_options,
             raw_options=raw_options,
-            fix_relaxed_types=fix_relaxed_types,
+            relax_types_to_infer_schema=relax_types_to_infer_schema,
         )
         for p in paths[1:]:
             partition_df, _ = _read_file_with_partitions(
@@ -474,7 +478,7 @@ def read_normal_json_files(
                 schema=schema,
                 snowpark_options=snowpark_options,
                 raw_options=raw_options,
-                fix_relaxed_types=fix_relaxed_types,
+                relax_types_to_infer_schema=relax_types_to_infer_schema,
             )
             df = df.union_all(partition_df)
     else:
@@ -492,7 +496,7 @@ def read_normal_json_files(
                 raw_options=raw_options,
                 json_local_rows_to_infer_schema=json_local_rows_to_infer_schema,
                 drop_field_if_all_null=drop_field_if_all_null,
-                fix_relaxed_types=fix_relaxed_types,
+                relax_types_to_infer_schema=relax_types_to_infer_schema,
             )
             if len(stage_files) == 1:
                 stage_file_paths = []
@@ -530,12 +534,8 @@ def read_normal_json_files(
     if fields_changed:
         schema = new_schema
 
-    # Apply integral type emulation *before* the bulk/row-by-row paths so that
-    # both paths receive the same precision-aware integral types. In the bulk
-    # path this ensures _generate_snowflake_type_signature creates NUMBER(p,0)
-    # columns preserving precision through Snowflake roundtrips; in the
-    # row-by-row path it ensures consistent type reporting to the client.
-    schema = _emulate_integral_types_for_json(schema)
+    if relax_types_to_infer_schema:
+        schema = relax_json_types(schema)
 
     if use_bulk:
         df = construct_dataframe_by_schema_bulk(
@@ -1098,17 +1098,11 @@ def _generate_snowflake_type_signature(data_type: DataType) -> str:
         precision = getattr(data_type, "_precision", None)
         if precision is not None:
             return f"NUMBER({precision},0)"
-        # For Scala/Java clients, _emulate_integral_types_for_json converts
-        # all integral types to LongType before we get here, so only LongType
-        # is expected.  Use NUMBER(19,0) instead of BIGINT (NUMBER(38,0)) so
-        # that emulate_integral_types maps the readback type to LongType
-        # rather than DecimalType(38,0).
+        # For Scala/Java clients, use NUMBER(19,0) so that on readback
+        # column_name_handler's emulate_integral_types sees precision=19
+        # and maps to LongType rather than DecimalType(38,0).
         if _integral_types_conversion_enabled:
             return "NUMBER(19,0)"
-        # For Python clients, _emulate_integral_types_for_json is a no-op, so
-        # inferred types may be smaller than the actual data (e.g. IntegerType
-        # for a 13-digit integer).  Fall back to generic aliases
-        # (INT/BIGINT -> NUMBER(38,0)) to avoid overflow.
         return map_type_to_snowflake_type(data_type)
 
     else:
@@ -1318,31 +1312,26 @@ def construct_row_by_schema(
     return cast_to_match_snowpark_type(schema, content)
 
 
-def _emulate_integral_types_for_json(t: DataType) -> DataType:
-    """
-    JSON type handling to match OSS Spark JSON schema inference.
-    Recursively applies to nested types (ArrayType, StructType, MapType).
+def relax_json_types(t: DataType) -> DataType:
+    """Widen numeric types to match OSS Spark's JSON schema inference rules.
 
-    After applying emulate_integral_types, converts to Spark JSON types:
+    Recursively applies to nested types (ArrayType, StructType, MapType):
     - All integral types (ByteType, ShortType, IntegerType, LongType) -> LongType
     - DecimalType with scale > 0 -> DoubleType
     - DecimalType with scale = 0 -> LongType (if precision <= 18) or DecimalType
     - FloatType, DoubleType -> DoubleType
     """
-    if not _integral_types_conversion_enabled:
-        return t
-
     if isinstance(t, StructType):
         for sf in t.fields:
-            sf.datatype = _emulate_integral_types_for_json(sf.datatype)
+            sf.datatype = relax_json_types(sf.datatype)
         return t
     elif isinstance(t, ArrayType):
         if t.element_type is not None:
-            t.element_type = _emulate_integral_types_for_json(t.element_type)
+            t.element_type = relax_json_types(t.element_type)
         return t
     elif isinstance(t, MapType):
-        t.key_type = _emulate_integral_types_for_json(t.key_type)
-        t.value_type = _emulate_integral_types_for_json(t.value_type)
+        t.key_type = relax_json_types(t.key_type)
+        t.value_type = relax_json_types(t.value_type)
         return t
 
     # First apply standard integral type conversion
@@ -1351,7 +1340,6 @@ def _emulate_integral_types_for_json(t: DataType) -> DataType:
     if isinstance(t, _IntegralType):
         # All integral types -> LongType for JSON
         return LongType()
-
     elif isinstance(t, DecimalType):
         # DecimalType with scale > 0 means it has decimal places -> DoubleType
         if t.scale > 0:
@@ -1360,9 +1348,7 @@ def _emulate_integral_types_for_json(t: DataType) -> DataType:
         if t.precision > 18:
             # Too big for long, keep as DecimalType
             return DecimalType(t.precision, 0)
-        else:
-            return LongType()
-
+        return LongType()
     elif isinstance(t, _FractionalType):
         # FloatType, DoubleType -> DoubleType
         return DoubleType()

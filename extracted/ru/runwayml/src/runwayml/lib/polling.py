@@ -17,6 +17,15 @@ from ..types.task_retrieve_response import (
     Throttled,
     TaskRetrieveResponse,
 )
+from ..types.workflow_invocation_retrieve_response import (
+    Failed as WIFailed,
+    Pending as WIPending,
+    Running as WIRunning,
+    Cancelled as WICancelled,
+    Succeeded as WISucceeded,
+    Throttled as WIThrottled,
+    WorkflowInvocationRetrieveResponse,
+)
 
 if TYPE_CHECKING:
     from .._client import RunwayML, AsyncRunwayML
@@ -243,4 +252,187 @@ def inject_async_wait_method(client: "AsyncRunwayML", response: T) -> T:
     import types
 
     response.wait_for_task_output = types.MethodType(_make_async_wait_for_task_output(client), response)  # type: ignore[attr-defined]
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Workflow Invocation polling
+# ---------------------------------------------------------------------------
+
+
+class AwaitableWorkflowInvocationResponseMixin:
+    def wait_for_task_output(self, timeout: Union[float, None] = 60 * 10) -> WorkflowInvocationRetrieveResponse:  # type: ignore[empty-body]
+        """
+        When called, this will block until the workflow invocation is complete.
+
+        If the invocation fails or is cancelled, a `WorkflowInvocationFailedError`
+        will be raised.
+
+        Args:
+          timeout: The maximum amount of time to wait in seconds. If not specified,
+              the default timeout is 10 minutes. Will raise a
+              `WorkflowInvocationTimeoutError` if the invocation does not complete
+              within the timeout.
+
+        Returns:
+          The workflow invocation details, equivalent to calling
+          `client.workflow_invocations.retrieve(id)`.
+        """
+        ...
+
+
+class AsyncAwaitableWorkflowInvocationResponseMixin:
+    async def wait_for_task_output(self, timeout: Union[float, None] = 60 * 10) -> WorkflowInvocationRetrieveResponse:  # type: ignore[empty-body]
+        """
+        When called, this will wait until the workflow invocation is complete.
+
+        If the invocation fails or is cancelled, a `WorkflowInvocationFailedError`
+        will be raised.
+
+        Args:
+          timeout: The maximum amount of time to wait in seconds. If not specified,
+              the default timeout is 10 minutes. Will raise a
+              `WorkflowInvocationTimeoutError` if the invocation does not complete
+              within the timeout. Setting this to `None` will wait indefinitely
+              (disabling the timeout).
+
+        Returns:
+          The workflow invocation details, equivalent to awaiting
+          `client.workflow_invocations.retrieve(id)`.
+        """
+        ...
+
+
+class AwaitableWIPending(AwaitableWorkflowInvocationResponseMixin, WIPending): ...
+
+
+class AwaitableWIThrottled(AwaitableWorkflowInvocationResponseMixin, WIThrottled): ...
+
+
+class AwaitableWICancelled(AwaitableWorkflowInvocationResponseMixin, WICancelled): ...
+
+
+class AwaitableWIRunning(AwaitableWorkflowInvocationResponseMixin, WIRunning): ...
+
+
+class AwaitableWIFailed(AwaitableWorkflowInvocationResponseMixin, WIFailed): ...
+
+
+class AwaitableWISucceeded(AwaitableWorkflowInvocationResponseMixin, WISucceeded): ...
+
+
+AwaitableWorkflowInvocationRetrieveResponse: TypeAlias = Annotated[
+    Union[
+        AwaitableWIPending,
+        AwaitableWIThrottled,
+        AwaitableWICancelled,
+        AwaitableWIRunning,
+        AwaitableWIFailed,
+        AwaitableWISucceeded,
+    ],
+    PropertyInfo(discriminator="status"),
+]
+
+
+class AsyncAwaitableWIPending(AsyncAwaitableWorkflowInvocationResponseMixin, WIPending): ...
+
+
+class AsyncAwaitableWIThrottled(AsyncAwaitableWorkflowInvocationResponseMixin, WIThrottled): ...
+
+
+class AsyncAwaitableWICancelled(AsyncAwaitableWorkflowInvocationResponseMixin, WICancelled): ...
+
+
+class AsyncAwaitableWIRunning(AsyncAwaitableWorkflowInvocationResponseMixin, WIRunning): ...
+
+
+class AsyncAwaitableWIFailed(AsyncAwaitableWorkflowInvocationResponseMixin, WIFailed): ...
+
+
+class AsyncAwaitableWISucceeded(AsyncAwaitableWorkflowInvocationResponseMixin, WISucceeded): ...
+
+
+AsyncAwaitableWorkflowInvocationRetrieveResponse: TypeAlias = Annotated[
+    Union[
+        AsyncAwaitableWIPending,
+        AsyncAwaitableWIThrottled,
+        AsyncAwaitableWICancelled,
+        AsyncAwaitableWIRunning,
+        AsyncAwaitableWIFailed,
+        AsyncAwaitableWISucceeded,
+    ],
+    PropertyInfo(discriminator="status"),
+]
+
+
+class WorkflowInvocationFailedError(Exception):
+    def __init__(self, invocation_details: WorkflowInvocationRetrieveResponse):
+        self.invocation_details = invocation_details
+        super().__init__("Workflow invocation failed")
+
+
+class WorkflowInvocationTimeoutError(Exception):
+    def __init__(self, invocation_details: WorkflowInvocationRetrieveResponse):
+        self.invocation_details = invocation_details
+        super().__init__("Workflow invocation timed out")
+
+
+def _make_sync_wait_for_workflow_invocation_output(
+    client: "RunwayML",
+) -> Callable[["AwaitableWorkflowInvocationResponseMixin", Union[float, None]], WorkflowInvocationRetrieveResponse]:
+    def wait_for_task_output(
+        self: "AwaitableWorkflowInvocationResponseMixin", timeout: Union[float, None] = 60 * 10
+    ) -> WorkflowInvocationRetrieveResponse:
+        start_time = time.time()
+        while True:
+            time.sleep(POLL_TIME + random.random() * POLL_JITTER - POLL_JITTER / 2)
+            details = client.workflow_invocations.retrieve(self.id)  # type: ignore[attr-defined]
+            if details.status == "SUCCEEDED":
+                return details
+            if details.status == "FAILED" or details.status == "CANCELLED":
+                raise WorkflowInvocationFailedError(details)
+            if timeout is not None and time.time() - start_time > timeout:
+                raise WorkflowInvocationTimeoutError(details)
+
+    return wait_for_task_output
+
+
+def inject_sync_workflow_invocation_wait_method(client: "RunwayML", response: T) -> T:
+    import types
+
+    response.wait_for_task_output = types.MethodType(  # type: ignore[attr-defined]
+        _make_sync_wait_for_workflow_invocation_output(client), response
+    )
+    return response
+
+
+def _make_async_wait_for_workflow_invocation_output(
+    client: "AsyncRunwayML",
+) -> Callable[
+    ["AsyncAwaitableWorkflowInvocationResponseMixin", Union[float, None]],
+    Coroutine[None, None, WorkflowInvocationRetrieveResponse],
+]:
+    async def wait_for_task_output(
+        self: "AsyncAwaitableWorkflowInvocationResponseMixin", timeout: Union[float, None] = 60 * 10
+    ) -> WorkflowInvocationRetrieveResponse:
+        start_time = anyio.current_time()
+        while True:
+            await anyio.sleep(POLL_TIME + random.random() * POLL_JITTER - POLL_JITTER / 2)
+            details = await client.workflow_invocations.retrieve(self.id)  # type: ignore[attr-defined]
+            if details.status == "SUCCEEDED":
+                return details
+            if details.status == "FAILED" or details.status == "CANCELLED":
+                raise WorkflowInvocationFailedError(details)
+            if timeout is not None and anyio.current_time() - start_time > timeout:
+                raise WorkflowInvocationTimeoutError(details)
+
+    return wait_for_task_output
+
+
+def inject_async_workflow_invocation_wait_method(client: "AsyncRunwayML", response: T) -> T:
+    import types
+
+    response.wait_for_task_output = types.MethodType(  # type: ignore[attr-defined]
+        _make_async_wait_for_workflow_invocation_output(client), response
+    )
     return response

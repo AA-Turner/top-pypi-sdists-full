@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -105,6 +105,7 @@ class MerchantCenterAccountLink(proto.Message):
             FAILED (3):
                 Link creation failed.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         ACTIVE = 2

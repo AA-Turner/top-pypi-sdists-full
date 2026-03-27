@@ -59,6 +59,7 @@ from dstack._internal.server.services.jobs import (
     emit_job_status_change_event,
     get_job_provisioning_data,
     get_job_runtime_data,
+    get_job_spec,
 )
 from dstack._internal.server.services.locking import get_locker
 from dstack._internal.server.services.logging import fmt
@@ -83,7 +84,7 @@ class JobTerminatingPipelineItem(PipelineItem):
 class JobTerminatingPipeline(Pipeline[JobTerminatingPipelineItem]):
     def __init__(
         self,
-        workers_num: int = 10,
+        workers_num: int = 20,
         queue_lower_limit_factor: float = 0.5,
         queue_upper_limit_factor: float = 2.0,
         min_processing_interval: timedelta = timedelta(seconds=5),
@@ -581,7 +582,7 @@ async def _process_terminating_job(
     """
     Stops the job: tells shim to stop the container, detaches the job from the instance,
     and detaches volumes from the instance.
-    Graceful stop should already be done by `process_terminating_run`.
+    Graceful stop should already be done by the run terminating path.
     """
     instance_update_map = None if instance_model is None else _InstanceUpdateMap()
     result = _ProcessResult(instance_update_map=instance_update_map)
@@ -803,7 +804,7 @@ async def _detach_volumes_from_job_instance(
     jpd: JobProvisioningData,
     run_termination_reason: Optional[RunTerminationReason],
 ) -> _VolumeDetachResult:
-    job_spec = JobSpec.__response__.parse_raw(job_model.job_spec_data)
+    job_spec = get_job_spec(job_model)
     backend = await backends_services.get_project_backend_by_type(
         project=instance_model.project,
         backend_type=jpd.backend,

@@ -54,6 +54,9 @@ class ToolInput(msgspec.Struct, tag_field="tool_name", omit_defaults=True):
         """
         return None
 
+    def skip_result_truncation(self) -> bool:
+        return False
+
 
 class ToolResult(msgspec.Struct, tag_field="tool_name", omit_defaults=True):
     """Concrete subclasses return data from a tool execution."""
@@ -95,11 +98,18 @@ class ApplyPatchToolResult(ToolResult, tag=APPLY_PATCH_TOOL_NAME):
 READ_TOOL_NAME = "read"
 READ_TOOL_ARTIFACT_NAME = "read_tool_artifact"
 
+NO_CHARACTER_LIMIT = -1
+NO_LINE_LIMIT = -1
+
 
 class ReadToolInput(ToolInput, tag=READ_TOOL_NAME):
     file_path: FilePath
     offset: int | None = None
     limit: int | None = None
+    character_limit: int | None = None
+
+    def skip_result_truncation(self) -> bool:
+        return self.character_limit == NO_CHARACTER_LIMIT
 
 
 class FileMetadata(msgspec.Struct):
@@ -547,6 +557,23 @@ class ListTerminalsResponse(msgspec.Struct, tag="list_terminals"):
     terminals: list[TerminalInfo]
 
 
+class StartBlitTerminalRequest(msgspec.Struct, tag="start_blit_terminal"):
+    """Start a terminal directly in the blit server."""
+
+    command: str
+    tag: str
+    cols: int = 80
+    rows: int = 24
+
+
+class StartBlitTerminalResponse(msgspec.Struct, tag="start_blit_terminal"):
+    """Acknowledge a blit-backed terminal start request."""
+
+    success: bool
+    pty_id: int | None = None
+    error_message: str | None = None
+
+
 class StreamingCodeExecutionRequest(msgspec.Struct, tag="streaming_code_execution"):
     correlation_id: str
     language: str  # "python" or "shell"
@@ -570,6 +597,7 @@ class CliRpcRequest(msgspec.Struct):
         | TerminalResizeRequest
         | StopTerminalRequest
         | ListTerminalsRequest
+        | StartBlitTerminalRequest
         | StreamingCodeExecutionRequest
     )
     idempotency_key: str | None = None
@@ -668,6 +696,7 @@ class CliRpcResponse(msgspec.Struct):
         | TerminalResizeResponse
         | StopTerminalResponse
         | ListTerminalsResponse
+        | StartBlitTerminalResponse
         | StreamingCodeExecutionResponseChunk
         | StreamingCodeExecutionResponse
         | StreamingErrorResponse

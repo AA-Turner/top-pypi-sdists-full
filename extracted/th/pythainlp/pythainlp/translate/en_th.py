@@ -10,25 +10,25 @@ Website: https://airesearch.in.th/releases/machine-translation-models/
 
 from __future__ import annotations
 
-import os
 import warnings
 from typing import Optional
 
 try:
     from fairseq.models.transformer import TransformerModel
-except ImportError:
+except ImportError as e:
     raise ImportError(
-        "Not found fairseq! Please install fairseq by pip install fairseq"
-    )
+        "fairseq is not installed. Install it with: pip install fairseq"
+    ) from e
 
 try:
     from sacremoses import MosesTokenizer
-except ImportError:
+except ImportError as e:
     raise ImportError(
-        "Not found sacremoses! Please install sacremoses by pip install sacremoses"
-    )
+        "sacremoses is not installed. Install it with: pip install sacremoses"
+    ) from e
 
 from pythainlp.corpus import download, get_corpus_path
+from pythainlp.tools.path import safe_path_join
 
 _EN_TH_MODEL_NAME: str = "scb_1m_en-th_moses"
 # SCB_1M-MT_OPUS+TBASE_en-th_moses-spm_130000-16000_v1.0.tar.gz
@@ -45,7 +45,7 @@ def _get_translate_path(model: str, *path: str) -> str:
     corpus_path = get_corpus_path(model, version="1.0")
     if not corpus_path:
         return ""
-    return os.path.join(corpus_path, *path)
+    return safe_path_join(corpus_path, *path)
 
 
 def _download_install(name: str) -> None:

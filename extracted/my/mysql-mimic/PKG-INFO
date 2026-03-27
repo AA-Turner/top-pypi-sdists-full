@@ -1,12 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mysql-mimic
-Version: 2.6.4
+Version: 3.0.2
 Summary: A python implementation of the mysql server protocol
 Home-page: https://github.com/kelsin/mysql-mimic
 Author: Christopher Giroir
 Author-email: kelsin@valefor.com
 License: MIT
-Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -15,9 +14,38 @@ Classifier: Programming Language :: SQL
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
-Provides-Extra: dev
-Provides-Extra: krb5
 License-File: LICENSE
+Requires-Dist: sqlglot
+Provides-Extra: dev
+Requires-Dist: aiomysql; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: mysql-connector-python; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: freezegun; extra == "dev"
+Requires-Dist: gssapi; extra == "dev"
+Requires-Dist: k5test; extra == "dev"
+Requires-Dist: pylint; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: sqlalchemy; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Provides-Extra: krb5
+Requires-Dist: gssapi; extra == "krb5"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # MySQL-Mimic
 
@@ -95,6 +123,24 @@ Plugins are provided to the server by implementing [`mysql_mimic.IdentityProvide
 
 Custom plugins can be created by extending [`mysql_mimic.auth.AuthPlugin`](mysql_mimic/auth.py).
 
+## Performance
+
+MySQL-Mimic uses [mypyc](https://mypyc.readthedocs.io/) to compile performance-critical modules to C extensions. When installed from a wheel (the default via `pip install`), the compiled extensions are included automatically.
+
+| | rows/s | time | vs baseline |
+|---|---|---|---|
+| Pure Python | 122,000 | 82ms | 1.0x |
+| mypyc compiled | 380,000 | 26ms | **3.1x** |
+
+*Benchmark: 10,000 rows x 5 columns, real client-server over loopback. See `bench.py`.*
+
+### Options
+
+- `NO_MYPYC=1 pip install .` - Install without compiling C extensions (pure Python fallback)
+- `MYPYC_OPT_LEVEL=2 pip install .` - Set mypyc optimization level (default: 3)
+
+If installing from source without a C compiler, the package falls back to pure Python automatically.
+
 ## Development
 
 You can install dependencies with `make deps`.
@@ -110,5 +156,3 @@ You can run tests with `make test`. This will build a coverage report in `./html
 You can run all the checks with `make check`.
 
 You can build a pip package with `make build`.
-
-

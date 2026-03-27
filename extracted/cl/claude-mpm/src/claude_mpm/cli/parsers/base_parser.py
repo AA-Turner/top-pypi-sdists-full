@@ -1,5 +1,3 @@
-from pathlib import Path
-
 """
 Base parser module for claude-mpm CLI.
 
@@ -12,6 +10,8 @@ and reduce duplication across command parsers.
 
 import argparse
 import sys
+from pathlib import Path
+from typing import NoReturn
 
 from ...constants import CLICommands, CLIPrefix, LogLevel
 
@@ -28,7 +28,7 @@ class SuggestingArgumentParser(argparse.ArgumentParser):
     invalid options.
     """
 
-    def error(self, message: str) -> None:
+    def error(self, message: str) -> NoReturn:
         """
         Override error method to add command suggestions.
 
@@ -360,6 +360,13 @@ def add_top_level_run_arguments(parser: argparse.ArgumentParser) -> None:
         metavar="PORT",
         help="Start message injection endpoint on PORT (default: 7856)",
     )
+    run_group.add_argument(
+        "--channels",
+        metavar="CHANNELS",
+        help="Comma-separated channel list to enable with --sdk (e.g. telegram,slack). "
+        "Activates the ChannelHub. Requires --sdk.",
+        default=None,
+    )
 
     # Dependency checking options (for backward compatibility at top level)
     dep_group_top = parser.add_argument_group(
@@ -677,6 +684,14 @@ def create_parser(
     except ImportError:
         pass
 
+    # Add channels command parser
+    try:
+        from ..commands.channels import add_channels_subcommand
+
+        add_channels_subcommand(subparsers)
+    except ImportError:
+        pass
+
     # Import and add additional command parsers from commands module
     try:
         from ..commands.aggregate import add_aggregate_parser
@@ -709,6 +724,11 @@ def create_parser(
         from ..commands.upgrade import add_upgrade_parser
 
         add_upgrade_parser(subparsers)
+
+        # Add migrate command for configuration migrations
+        from ..commands.migrate import add_migrate_parser
+
+        add_migrate_parser(subparsers)
 
         # Add verify command for MCP service verification
         from ..commands.verify import add_parser as add_verify_parser

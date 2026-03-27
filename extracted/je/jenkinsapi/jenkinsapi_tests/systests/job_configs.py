@@ -60,7 +60,7 @@ SHORTISH_JOB = """
   <concurrentBuild>false</concurrentBuild>
   <builders>
     <hudson.tasks.Shell>
-      <command>ping -c 5 127.0.0.1</command>
+      <command>python3 -c "print('ok')"</command>
     </hudson.tasks.Shell>
   </builders>
   <publishers/>
@@ -139,8 +139,8 @@ JOB_WITH_ARTIFACTS = """
   <concurrentBuild>false</concurrentBuild>
   <builders>
     <hudson.tasks.Shell>
-      <command>ping -c 10 127.0.0.1 > out.txt
-gzip &lt; out.txt &gt; out.gz</command>
+      <command>printf 'PING localhost (127.0.0.1): 56 data bytes\n64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.050 ms' > out.txt
+cat out.txt | gzip > out.gz</command>
     </hudson.tasks.Shell>
   </builders>
   <publishers>
@@ -182,7 +182,7 @@ MATRIX_JOB = """
   </axes>
   <builders>
     <hudson.tasks.Shell>
-      <command>ping -c 10 127.0.0.1</command>
+      <command>python3 -c "print('ok')"</command>
     </hudson.tasks.Shell>
   </builders>
   <publishers/>
@@ -252,7 +252,7 @@ JOB_WITH_PARAMETERS = """
   <concurrentBuild>false</concurrentBuild>
   <builders>
     <hudson.tasks.Shell>
-      <command>ping -c 1 127.0.0.1 | tee out.txt
+      <command>python3 -c "print('ok')" > out.txt
 echo $A &gt; a.txt
 echo $B &gt; b.txt</command>
     </hudson.tasks.Shell>
@@ -328,7 +328,7 @@ JOB_WITH_ENV_VARS = """\
   <builders/>
   <publishers/>
   <buildWrappers>
-    <EnvInjectBuildWrapper plugin="envinject@1.93.1">
+    <EnvInjectBuildWrapper plugin="envinject">
       <info>
         <groovyScriptContent>
           return [\'key1\': \'value1\', \'key2\': \'value2\']
@@ -339,3 +339,37 @@ JOB_WITH_ENV_VARS = """\
   </buildWrappers>
 </project>
 """.strip()
+
+PIPELINE_SCM_JOB = """<?xml version='1.0' encoding='UTF-8'?>
+<flow-definition>
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties/>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition">
+    <scriptPath>Jenkinsfile</scriptPath>
+    <scm class="hudson.plugins.git.GitSCM">
+      <configVersion>2</configVersion>
+      <userRemoteConfigs>
+        <hudson.plugins.git.UserRemoteConfig>
+          <url>https://github.com/salimfadhley/jenkinsapi.git</url>
+        </hudson.plugins.git.UserRemoteConfig>
+      </userRemoteConfigs>
+      <branches>
+        <hudson.plugins.git.BranchSpec>
+          <name>**</name>
+        </hudson.plugins.git.BranchSpec>
+      </branches>
+      <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+      <submoduleCfg class="list"/>
+      <extensions/>
+    </scm>
+  </definition>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+</flow-definition>""".strip()
+
+PIPELINE_SCM_CONFIG = {
+    "scm_class": "hudson.plugins.git.GitSCM",
+    "git_url": "https://github.com/salimfadhley/jenkinsapi.git",
+}

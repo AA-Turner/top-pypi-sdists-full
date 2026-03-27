@@ -12,13 +12,15 @@ Thai Language Toolkit
 
 from __future__ import annotations
 
+from typing import cast
+
 try:
     from tltk.nlp import spell_candidates
-except ImportError:
+except ImportError as e:
     raise ImportError(
-        "Not found tltk! Please install tltk by pip install tltk"
-    )
+        "tltk is not installed. Install it with: pip install tltk"
+    ) from e
 
 
 def spell(text: str) -> list[str]:
-    return spell_candidates(text)  # type: ignore[no-any-return]
+    return cast(list[str], spell_candidates(text))

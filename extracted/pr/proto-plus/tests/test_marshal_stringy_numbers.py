@@ -45,6 +45,5 @@ INT_32BIT_PLUS_ONE = 0xFFFFFFFF + 1
     ],
 )
 def test_marshal_to_proto_stringy_numbers(pb_type, value, expected):
-
     marshal = BaseMarshal()
     assert marshal.to_proto(pb_type, value) == expected

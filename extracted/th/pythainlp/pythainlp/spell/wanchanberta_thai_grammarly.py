@@ -31,7 +31,7 @@ tokenizer: "PreTrainedTokenizer" = AutoTokenizer.from_pretrained(
 )
 
 
-class BertModel(torch.nn.Module):
+class BertModel(torch.nn.Module):  # type: ignore[misc]
     def __init__(self) -> None:
         super().__init__()
         self.bert: BertForTokenClassification = (
@@ -71,10 +71,7 @@ def align_word_ids(texts: str) -> list[int]:
         if word_idx is None:
             label_ids.append(-100)
         else:
-            try:
-                label_ids.append(2)
-            except Exception:
-                label_ids.append(-100)
+            label_ids.append(2)
 
     return label_ids
 

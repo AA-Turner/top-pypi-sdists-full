@@ -9,7 +9,9 @@ from ._shared_client import get_shared_client
 
 
 def alphafold_get_annotations(
-    qualifier: str,
+    qualifier: Optional[str] = None,
+    uniprot_id: Optional[str] = None,
+    uniprot_accession: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -21,7 +23,11 @@ def alphafold_get_annotations(
     Parameters
     ----------
     qualifier : str
-        UniProt ACCESSION (e.g., 'P69905'). Must be an accession number, not an entry...
+        UniProt ACCESSION (e.g., 'P69905'). Aliases: uniprot_id, uniprot_accession.
+    uniprot_id : str
+        Alias for qualifier. UniProt accession (e.g., 'P69905').
+    uniprot_accession : str
+        Alias for qualifier. UniProt accession (e.g., 'P69905').
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -36,7 +42,15 @@ def alphafold_get_annotations(
     # Handle mutable defaults to avoid B006 linting error
 
     # Strip None values so optional parameters don't trigger schema validation errors
-    _args = {k: v for k, v in {"qualifier": qualifier}.items() if v is not None}
+    _args = {
+        k: v
+        for k, v in {
+            "qualifier": qualifier,
+            "uniprot_id": uniprot_id,
+            "uniprot_accession": uniprot_accession,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "alphafold_get_annotations",

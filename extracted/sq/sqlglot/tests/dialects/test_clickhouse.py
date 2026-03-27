@@ -184,6 +184,9 @@ class TestClickhouse(Validator):
             "CREATE TABLE test (id UInt8) ENGINE=AggregatingMergeTree() ORDER BY tuple()"
         )
         self.validate_identity(
+            "CREATE TABLE test UUID '28f1c61c-2970-457a-bffe-454156ddcfef' (n UInt64) ENGINE=MergeTree"
+        )
+        self.validate_identity(
             "CREATE TABLE test ON CLUSTER default (id UInt8) ENGINE=AggregatingMergeTree() ORDER BY tuple()"
         )
         self.validate_identity(
@@ -1746,10 +1749,12 @@ LIFETIME(MIN 0 MAX 0)""",
             )
 
     def test_to_start_of(self):
-        for unit in ("SECOND", "DAY", "YEAR"):
+        for unit in ("SECOND", "DAY", "MONTH", "YEAR"):
             self.validate_all(
                 f"toStartOf{unit}(x)",
                 write={
+                    "clickhouse, version=23.8": f"dateTrunc('{unit.lower()}', x)",
+                    "clickhouse, version=24.1": f"dateTrunc('{unit}', x)",
                     "databricks": f"DATE_TRUNC('{unit}', x)",
                     "duckdb": f"DATE_TRUNC('{unit}', x)",
                     "doris": f"DATE_TRUNC(x, '{unit}')",
@@ -1761,6 +1766,8 @@ LIFETIME(MIN 0 MAX 0)""",
         self.validate_all(
             "toMonday(x)",
             write={
+                "clickhouse, version=23.8": "dateTrunc('week', x)",
+                "clickhouse, version=24.1": "dateTrunc('WEEK', x)",
                 "databricks": "DATE_TRUNC('WEEK', x)",
                 "duckdb": "DATE_TRUNC('WEEK', x)",
                 "doris": "DATE_TRUNC(x, 'WEEK')",

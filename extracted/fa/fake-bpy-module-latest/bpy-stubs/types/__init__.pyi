@@ -21080,6 +21080,60 @@ class CompositorNodeBilateralblur(CompositorNode, NodeInternal, Node, bpy_struct
         :return: The class or default when not found.
         """
 
+class CompositorNodeBlankImage(CompositorNode, NodeInternal, Node, bpy_struct):
+    """Returns an image with the given size and constant color"""
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
 class CompositorNodeBlur(CompositorNode, NodeInternal, Node, bpy_struct):
     """Blur an image, using several blur modes"""
 
@@ -83105,6 +83159,9 @@ class PreferencesSystem(bpy_struct):
 
     dpi: int
     """ (in [-inf, inf], default 0, readonly)"""
+
+    geometry_nodes_stack_limit: int
+    """ Approximate maximum size of the call stack used by Geometry Nodes. For example, this corresponds to the number of allowed nested node groups. Setting this too high can result in crashes caused by running out of stack memory. (in [1, inf], default 100)"""
 
     gl_clip_alpha: float
     """ Clip alpha below this threshold in the 3D textured view (in [0, 1], default 0.004)"""

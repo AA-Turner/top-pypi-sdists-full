@@ -7,6 +7,7 @@ import os
 import psutil
 import numpy as np
 from scipy.ndimage import zoom
+
 class Focus(Experiment):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -111,38 +112,52 @@ class Focus(Experiment):
 
         self.AcousticFields = listAcousticFields
 
-    def reconFocus(self):
+    def reconFocus(self, withTumor=True, signals_AO= None):
         """
-        Reconstruction de l'image de la zone focalisée à partir des champs acoustiques et des signaux AO.
-        Place les signaux AO côte à côte, puis redimensionne pour obtenir une image (X, Z).
+        Reconstruction de l'image de la zone focalisée à partir des signaux AO.
+        Les signaux AO sont déjà sous forme de tableau NumPy de dimensions (times, N).
+        On limite les signaux à Nt échantillons, puis on redimensionne pour obtenir une image (X, Z).
 
         Returns:
             np.ndarray: Image reconstruite de dimensions (X, Z).
         """
-        # --- 1. Récupération des signaux AO (ex: self.signals_AO) ---
-        # Supposons que self.signals_AO est une liste de signaux 1D (un par position focale)
-        # Chaque signal AO est de longueur Nt (nombre d'échantillons temporels)
-        if not hasattr(self, 'signals_AO') or self.signals_AO is None:
-            raise ValueError("Les signaux AO ne sont pas initialisés.")
+        # --- 1. Récupération des signaux AO ---
+        if signals_AO is None:
+            if withTumor:
+                signals_AO = self.AOsignal_withTumor
+            else:
+                signals_AO = self.AOsignal_withoutTumor
 
-        # --- 2. Concaténation des signaux AO côte à côte ---
-        # Stack les signaux verticalement pour former une image (X, Time)
-        ao_signals_stacked = np.stack(self.signals_AO, axis=0)  # Shape: (num_focal_positions, Nt)
 
-        # --- 3. Redimensionnement pour obtenir une image (X, Z) ---
-        # Détermine les dimensions cibles (X, Z)
-        X = self.params.general['Nx']  # Nombre de pixels en X (ex: 400)
-        Z = self.params.general['Nz']  # Nombre de pixels en Z (ex: 500)
+        print(f"Original shape of AO signals: {signals_AO.shape}")
 
-        # Redimensionne avec scipy.ndimage.zoom (conserve l'intégrité des données)
-        # Le facteur de zoom est calculé pour passer de Nt à Z
-        zoom_factor_y = Z / ao_signals_stacked.shape[1]  # Facteur pour passer de Time à Z
-        recon_image = zoom(ao_signals_stacked, (1, zoom_factor_y), order=1)  # order=1 pour interpolation linéaire
+        # --- 2. Calcul de Nt ---
+        # Calcul basé sur la profondeur Z et les paramètres physiques
+        Z = self.params.general['Nz']
+        dx = self.params.general['dx']
+        c0 = self.params.acoustic['medium']['c0']
+        f_saving = self.params.acoustic['f_saving']
+        Nt = int(np.ceil(Z * dx / c0 * f_saving))  # Nombre d'échantillons temporels
+        print(f"Calculated Nt: {Nt}")
 
-        # --- 4. Normalisation (optionnel) ---
+        # --- 3. Troncature des signaux à Nt échantillons ---
+        # Transpose pour avoir (N, times) et tronquer chaque signal
+        signals_AO_truncated = signals_AO[5:Nt, :]  # Shape: (Nt, N)
+        print(f"Shape of AO signals after truncation: {signals_AO_truncated.shape}")
+
+        # --- 4. Redimensionnement pour obtenir une image (X, Z) ---
+        X = self.params.general['Nx']  # Nombre de pixels en X
+        Z = self.params.general['Nz']  # Nombre de pixels en Z
+
+        # Facteurs de zoom pour passer de (Nt, N) à (Z, X)
+        zoom_factor_y = Z / signals_AO_truncated.shape[0]  # Facteur pour l'axe Y (temps → Z)
+        zoom_factor_x = X / signals_AO_truncated.shape[1]  # Facteur pour l'axe X (positions focales → X)
+
+        # Applique le zoom
+        recon_image = zoom(signals_AO_truncated, (zoom_factor_y, zoom_factor_x), order=1)  # Interpolation linéaire
+
+        # --- 5. Normalisation (optionnel) ---
         recon_image = (recon_image - np.min(recon_image)) / (np.max(recon_image) - np.min(recon_image) + 1e-9)
 
         return recon_image
-
-
-        
+            

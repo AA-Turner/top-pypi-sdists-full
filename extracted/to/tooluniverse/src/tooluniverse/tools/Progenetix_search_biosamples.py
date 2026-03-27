@@ -1,7 +1,7 @@
 """
 Progenetix_search_biosamples
 
-Search cancer tumor biosamples in the Progenetix database by NCIt disease ontology code.
+Search cancer tumor biosamples in the Progenetix database by NCIt disease ontology code. Progenet...
 """
 
 from typing import Any, Optional, Callable
@@ -10,24 +10,24 @@ from ._shared_client import get_shared_client
 
 def Progenetix_search_biosamples(
     filters: str,
-    limit: Optional[int] = None,
-    skip: Optional[int] = None,
+    limit: Optional[int] = 10,
+    skip: Optional[int] = 0,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> Any:
+) -> dict[str, Any]:
     """
-    Search cancer tumor biosamples in Progenetix by NCIt disease code.
+    Search cancer tumor biosamples in the Progenetix database by NCIt disease ontology code. Progenet...
 
     Parameters
     ----------
     filters : str
-        NCIt ontology code (e.g., 'NCIT:C3058' for Glioblastoma, 'NCIT:C4017' for Breast Carcinoma).
-    limit : int, optional
-        Maximum number of biosamples to return (default 10, max 100).
-    skip : int, optional
-        Number of results to skip for pagination (default 0).
+        NCIt ontology code to filter biosamples by cancer type. Examples: 'NCIT:C3058...
+    limit : int
+        Maximum number of biosamples to return (default: 10).
+    skip : int
+        Number of results to skip for pagination (default: 0).
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -37,8 +37,11 @@ def Progenetix_search_biosamples(
 
     Returns
     -------
-    Any
+    dict[str, Any]
     """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
         for k, v in {"filters": filters, "limit": limit, "skip": skip}.items()

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import unittest
+from typing import cast
 
 import numpy as np
 
@@ -17,8 +18,8 @@ def _count_difference(st1: str, st2: str) -> int:
     # this assumes len(st1) == len(st2)
 
     count = 0
-    for i in range(len(st1)):
-        if st1[i] != st2[i]:
+    for i, c in enumerate(st1):
+        if c != st2[i]:
             count += 1
 
     return count
@@ -38,7 +39,7 @@ class MisspellTestCaseC(unittest.TestCase):
         self.assertEqual(len(result), 1)
         # Edge case: None raises TypeError
         with self.assertRaises(TypeError):
-            misspell(None)
+            misspell(None)  # type: ignore[arg-type]
 
     def test_misspell_naive(self):
         for text in self.texts:
@@ -95,12 +96,14 @@ class MisspellTestCaseC(unittest.TestCase):
         # Test Thai characters
         loc = search_location_of_character("ก")
         self.assertIsNotNone(loc)
-        self.assertEqual(len(loc), 4)  # (language_ix, is_shift, row, pos)
+        # loc shape is (language_ix, is_shift, row, pos)
+        self.assertEqual(len(loc), 4)  # type: ignore[arg-type]
 
         # Test English characters
         loc = search_location_of_character("a")
         self.assertIsNotNone(loc)
-        self.assertEqual(len(loc), 4)
+        # loc shape is (language_ix, is_shift, row, pos)
+        self.assertEqual(len(loc), 4)  # type: ignore[arg-type]
 
         # Test shifted characters
         loc = search_location_of_character("A")
@@ -126,12 +129,14 @@ class MisspellTestCaseC(unittest.TestCase):
         candidates = find_misspell_candidates("ก")
         self.assertIsNotNone(candidates)
         self.assertIsInstance(candidates, list)
+        candidates = cast("list[str]", candidates)  # for type checker
         self.assertGreater(len(candidates), 0)
 
         # Test English character
         candidates = find_misspell_candidates("a")
         self.assertIsNotNone(candidates)
         self.assertIsInstance(candidates, list)
+        candidates = cast("list[str]", candidates)  # for type checker
         self.assertGreater(len(candidates), 0)
 
         # Test character not in keyboard

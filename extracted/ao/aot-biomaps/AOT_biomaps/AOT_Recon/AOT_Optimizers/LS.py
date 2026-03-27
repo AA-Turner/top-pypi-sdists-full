@@ -491,3 +491,4 @@ def _LS_CG_sparseSELL_pycuda(SMatrix, y, numIterations, isSavingEachIteration, t
     finally:
         if SMatrix and hasattr(SMatrix, 'ctx') and SMatrix.ctx:
             SMatrix.ctx.pop()
+            

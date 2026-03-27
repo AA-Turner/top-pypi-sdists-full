@@ -635,11 +635,17 @@ class TinyB:
         return await self._req(f"/v0/pipes/{pipe_name_or_id}/nodes/{node_id}/copy", method="DELETE")
 
     async def pipe_run_copy(
-        self, pipe_name_or_id: str, params: Optional[Dict[str, str]] = None, mode: Optional[str] = None
+        self,
+        pipe_name_or_id: str,
+        params: Optional[Dict[str, str]] = None,
+        mode: Optional[str] = None,
+        on_demand_compute: bool = False,
     ):
         params = {**params} if params else {}
         if mode:
             params["_mode"] = mode
+        if on_demand_compute:
+            params["on_demand_compute"] = "true"
         return await self._req(f"/v0/pipes/{pipe_name_or_id}/copy?{urlencode(params)}", method="POST")
 
     async def pipe_resume_copy(self, pipe_name_or_id: str):

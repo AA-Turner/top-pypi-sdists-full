@@ -1,13 +1,11 @@
+import logging
 import os
 import sys
 import sysconfig
-import logging
-
-from typing import List, Literal, Optional, Set, Tuple, Type, TypeVar, cast
 from functools import partial
+from typing import List, Literal, Optional, Set, Tuple, Type, TypeVar, cast
 
 from setuptools.command.build_ext import build_ext
-
 from setuptools.command.install import install
 from setuptools.command.install_lib import install_lib
 from setuptools.command.install_scripts import install_scripts
@@ -15,7 +13,7 @@ from setuptools.command.sdist import sdist
 from setuptools.dist import Distribution
 
 from ._utils import Env, run_subprocess
-from .build import _get_bdist_wheel_cmd
+from .build import _get_bdist_wheel_cmd, _Platform
 from .extension import Binding, RustBin, RustExtension, Strip
 
 try:
@@ -173,7 +171,7 @@ def add_rust_extension(dist: Distribution) -> None:
 
         def initialize_options(self) -> None:
             super().initialize_options()
-            self.target = os.getenv("CARGO_BUILD_TARGET")
+            self.target = os.getenv("CARGO_BUILD_TARGET", _Platform.CARGO_DEFAULT)
 
         def run(self) -> None:
             super().run()
@@ -310,7 +308,7 @@ def rust_extensions(
 
     # Monkey patch has_ext_modules to include Rust extensions.
     orig_has_ext_modules = dist.has_ext_modules
-    dist.has_ext_modules = lambda: (orig_has_ext_modules() or has_rust_extensions)  # type: ignore[method-assign]
+    dist.has_ext_modules = lambda: orig_has_ext_modules() or has_rust_extensions  # type: ignore[method-assign]
 
     if has_rust_extensions:
         add_rust_extension(dist)

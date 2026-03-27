@@ -14,6 +14,8 @@ def GPCRdb_get_structures(
     state: Optional[str] = None,
     resolution: Optional[float] = None,
     protein_id: Optional[str] = None,
+    receptor_name: Optional[str] = None,
+    protein_name: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -34,6 +36,10 @@ def GPCRdb_get_structures(
         Maximum resolution in Angstroms (client-side filter, e.g., 2.5 returns only s...
     protein_id : str
         Alias for protein parameter
+    receptor_name : str
+        Alias for protein. GPCRdb entry name (e.g., adrb2_human).
+    protein_name : str
+        Alias for protein. GPCRdb entry name (e.g., adrb2_human).
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -56,6 +62,8 @@ def GPCRdb_get_structures(
             "state": state,
             "resolution": resolution,
             "protein_id": protein_id,
+            "receptor_name": receptor_name,
+            "protein_name": protein_name,
         }.items()
         if v is not None
     }

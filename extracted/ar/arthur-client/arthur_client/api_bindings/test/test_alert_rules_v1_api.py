@@ -61,6 +61,13 @@ class TestAlertRulesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_post_alert_rule_query_validation_static(self) -> None:
+        """Test case for post_alert_rule_query_validation_static
+
+        Validate An Alert Rule Query (Static)
+        """
+        pass
+
     def test_post_model_alert_rule(self) -> None:
         """Test case for post_model_alert_rule
 

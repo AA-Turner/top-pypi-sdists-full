@@ -5,7 +5,7 @@ import ssl
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple, Union
-from urllib.parse import quote, urlencode
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit
 
 import requests
 import requests.adapters
@@ -89,6 +89,7 @@ class TinyB:
         semver: Optional[str] = None,
         env: Optional[str] = "production",
         staging: bool = False,
+        request_from: Optional[str] = None,
     ):
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
@@ -102,6 +103,12 @@ class TinyB:
         self.semver = semver
         self.env = env
         self.staging = staging
+        self.request_from = request_from
+
+    @staticmethod
+    def _has_query_param(url: str, param_name: str) -> bool:
+        query_params = parse_qsl(urlsplit(url).query, keep_blank_values=True)
+        return any(key == param_name for key, _ in query_params)
 
     def _req_raw(
         self,
@@ -124,6 +131,8 @@ class TinyB:
             url += ("&" if "?" in url else "?") + "__tb__semver=" + self.semver
         if self.staging:
             url += ("&" if "?" in url else "?") + "__tb__deployment=staging"
+        if self.request_from and not self._has_query_param(url, "from"):
+            url += ("&" if "?" in url else "?") + "from=" + quote(self.request_from, safe="")
 
         verify_ssl = not self.disable_ssl_checks
         try:
@@ -636,11 +645,18 @@ class TinyB:
         return self._req(f"/v0/pipes/{pipe_name_or_id}/nodes/{node_id}/copy", method="DELETE")
 
     def pipe_run(
-        self, pipe_name_or_id: str, pipe_type: str, params: Optional[Dict[str, str]] = None, mode: Optional[str] = None
+        self,
+        pipe_name_or_id: str,
+        pipe_type: str,
+        params: Optional[Dict[str, str]] = None,
+        mode: Optional[str] = None,
+        on_demand_compute: bool = False,
     ):
         params = {**params} if params else {}
         if mode:
             params["_mode"] = mode
+        if on_demand_compute:
+            params["on_demand_compute"] = "true"
         return self._req(f"/v0/pipes/{pipe_name_or_id}/{pipe_type}?{urlencode(params)}", method="POST")
 
     def pipe_resume_copy(self, pipe_name_or_id: str):

@@ -9,6 +9,10 @@ from ._shared_client import get_shared_client
 
 
 def CPIC_list_guidelines(
+    gene: Optional[str] = None,
+    gene_symbol: Optional[str] = None,
+    drug: Optional[str] = None,
+    drug_name: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -19,7 +23,14 @@ def CPIC_list_guidelines(
 
     Parameters
     ----------
-    No parameters
+    gene : str
+        Filter by gene symbol (e.g., CYP2D6, TPMT). Returns only guidelines involving...
+    gene_symbol : str
+        Alias for gene. Filter by gene symbol (e.g., CYP2D6, TPMT).
+    drug : str
+        Filter by drug name (e.g., 'codeine', 'warfarin', 'clopidogrel'). Case-insens...
+    drug_name : str
+        Alias for drug.
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -34,7 +45,16 @@ def CPIC_list_guidelines(
     # Handle mutable defaults to avoid B006 linting error
 
     # Strip None values so optional parameters don't trigger schema validation errors
-    _args = {k: v for k, v in {}.items() if v is not None}
+    _args = {
+        k: v
+        for k, v in {
+            "gene": gene,
+            "gene_symbol": gene_symbol,
+            "drug": drug,
+            "drug_name": drug_name,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "CPIC_list_guidelines",

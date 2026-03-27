@@ -257,7 +257,8 @@ def schema_to_sql_columns(schema: List[Dict[str, Any]], skip_jsonpaths: bool = F
         name = x["normalized_name"] if "normalized_name" in x else x["name"]
         if x["nullable"]:
             if (_type := try_to_fix_nullable_in_simple_aggregating_function(x["type"])) is None:
-                _type = "Nullable(%s)" % x["type"]
+                # Skip wrapping if Nullable already present, e.g. LowCardinality(Nullable(String))
+                _type = x["type"] if "Nullable(" in x["type"] else "Nullable(%s)" % x["type"]
         else:
             _type = x["type"]
         parts = [col_name(name, backquotes=True), _type]
@@ -821,11 +822,11 @@ def _parse_table_structure(schema: str) -> List[Dict[str, Any]]:
         nullable = column["type"].lower().startswith("nullable")
         column["type"] = column["type"] if not nullable else column["type"][len("Nullable(") : -1]  # ')'
         column["nullable"] = nullable
-        column["codec"] = column["codec"] if column["codec"] else None
+        column["codec"] = column["codec"] or None
         column["name"] = column["name"]
         column["normalized_name"] = column["name"]
-        column["jsonpath"] = column["jsonpath"] if column["jsonpath"] else None
-        default_value = column["default_value"] if column["default_value"] else None
+        column["jsonpath"] = column["jsonpath"] or None
+        default_value = column["default_value"] or None
         if nullable and default_value and default_value.lower() == "default null":
             default_value = None
         column["default_value"] = default_value

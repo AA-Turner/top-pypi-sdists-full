@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pubnub
-Version: 10.6.1
+Version: 10.6.2
 Summary: PubNub Real-time push service in the cloud
 Home-page: http://pubnub.com
 Author: PubNub
@@ -24,7 +24,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: pycryptodomex>=3.3
-Requires-Dist: httpx>=0.28
+Requires-Dist: httpx<1.0,>=0.28
 Requires-Dist: h2>=4.1
 Requires-Dist: requests>=2.32.2
 Requires-Dist: aiohttp>3.10.11

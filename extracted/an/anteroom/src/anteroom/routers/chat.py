@@ -1249,6 +1249,7 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
 
             _output_filter = OutputContentFilter(_of_cfg, system_prompt=ctx.extra_system_prompt)
 
+        _cli_cfg = getattr(_app_config, "cli", None)
         agent_gen = run_agent_loop(
             ai_service=ctx.ai_service,
             messages=ctx.ai_messages,
@@ -1258,6 +1259,8 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
             extra_system_prompt=ctx.extra_system_prompt,
             message_queue=_message_queues.get(ctx.conversation_id),
             narration_cadence=ctx.ai_service.config.narration_cadence,
+            max_iterations=getattr(_cli_cfg, "max_tool_iterations", CliConfig.max_tool_iterations),
+            tool_output_max_chars=getattr(_cli_cfg, "tool_output_max_chars", CliConfig.tool_output_max_chars),
             auto_plan_threshold=(
                 _planning_cfg.auto_threshold_tools if not ctx.plan_mode and _planning_cfg.auto_mode != "off" else 0
             ),
@@ -1267,15 +1270,9 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
             injection_detector=_injection_detector,
             output_filter=_output_filter,
             max_consecutive_text_only=getattr(
-                getattr(_app_config, "cli", None),
-                "max_consecutive_text_only",
-                CliConfig.max_consecutive_text_only,
+                _cli_cfg, "max_consecutive_text_only", CliConfig.max_consecutive_text_only
             ),
-            max_line_repeats=getattr(
-                getattr(_app_config, "cli", None),
-                "max_line_repeats",
-                CliConfig.max_line_repeats,
-            ),
+            max_line_repeats=getattr(_cli_cfg, "max_line_repeats", CliConfig.max_line_repeats),
         )
         _pending_usage: dict[str, Any] | None = None
         async for agent_event in _with_keepalive(agent_gen):

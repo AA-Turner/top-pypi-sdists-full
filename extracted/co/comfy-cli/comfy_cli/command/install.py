@@ -18,6 +18,7 @@ from comfy_cli.command.custom_nodes.command import update_node_id_cache
 from comfy_cli.command.github.pr_info import PRInfo
 from comfy_cli.constants import GPU_OPTION
 from comfy_cli.git_utils import checkout_pr, git_checkout_tag
+from comfy_cli.resolve_python import ensure_workspace_python
 from comfy_cli.uv import DependencyCompiler
 from comfy_cli.workspace_manager import WorkspaceManager, check_comfy_repo
 
@@ -38,6 +39,8 @@ def pip_install_comfyui_dependencies(
     cuda_version: constants.CUDAVersion,
     skip_torch_or_directml: bool,
     skip_requirement: bool,
+    python: str = sys.executable,
+    rocm_version: constants.ROCmVersion = constants.ROCmVersion.v6_3,
 ):
     os.chdir(repo_dir)
 
@@ -45,10 +48,10 @@ def pip_install_comfyui_dependencies(
     if not skip_torch_or_directml:
         # install torch for AMD Linux
         if gpu == GPU_OPTION.AMD and plat == constants.OS.LINUX:
-            pip_url = ["--extra-index-url", "https://download.pytorch.org/whl/rocm6.0"]
+            pip_url = ["--index-url", f"https://download.pytorch.org/whl/rocm{rocm_version.value}"]
             result = subprocess.run(
                 [
-                    sys.executable,
+                    python,
                     "-m",
                     "pip",
                     "install",
@@ -62,43 +65,19 @@ def pip_install_comfyui_dependencies(
 
         # install torch for NVIDIA
         if gpu == GPU_OPTION.NVIDIA:
-            base_command = [
-                sys.executable,
-                "-m",
-                "pip",
-                "install",
-                "torch",
-                "torchvision",
-                "torchaudio",
-            ]
-
-            if plat == constants.OS.WINDOWS and cuda_version == constants.CUDAVersion.v12_9:
-                base_command += [
-                    "--extra-index-url",
-                    "https://download.pytorch.org/whl/cu129",
-                ]
-            elif plat == constants.OS.WINDOWS and cuda_version == constants.CUDAVersion.v12_6:
-                base_command += [
-                    "--extra-index-url",
-                    "https://download.pytorch.org/whl/cu126",
-                ]
-            elif plat == constants.OS.WINDOWS and cuda_version == constants.CUDAVersion.v12_4:
-                base_command += [
-                    "--extra-index-url",
-                    "https://download.pytorch.org/whl/cu124",
-                ]
-            elif plat == constants.OS.WINDOWS and cuda_version == constants.CUDAVersion.v12_1:
-                base_command += [
-                    "--extra-index-url",
-                    "https://download.pytorch.org/whl/cu121",
-                ]
-            elif plat == constants.OS.WINDOWS and cuda_version == constants.CUDAVersion.v11_8:
-                base_command += [
-                    "--extra-index-url",
-                    "https://download.pytorch.org/whl/cu118",
-                ]
+            cuda_tag = f"cu{cuda_version.value.replace('.', '')}"
+            pip_url = ["--index-url", f"https://download.pytorch.org/whl/{cuda_tag}"]
             result = subprocess.run(
-                base_command,
+                [
+                    python,
+                    "-m",
+                    "pip",
+                    "install",
+                    "torch",
+                    "torchvision",
+                    "torchaudio",
+                ]
+                + pip_url,
                 check=False,
             )
         # Update installation to use upstream torch xpu. ipex is no longer needed for Intel Arc GPUs
@@ -112,7 +91,7 @@ def pip_install_comfyui_dependencies(
             # TODO: wrap pip install in a function
             result = subprocess.run(
                 [
-                    sys.executable,
+                    python,
                     "-m",
                     "pip",
                     "install",
@@ -132,7 +111,7 @@ def pip_install_comfyui_dependencies(
             ]
             result = subprocess.run(
                 [
-                    sys.executable,
+                    python,
                     "-m",
                     "pip",
                     "install",
@@ -150,13 +129,13 @@ def pip_install_comfyui_dependencies(
 
         # install directml for AMD windows
         if gpu == GPU_OPTION.AMD and plat == constants.OS.WINDOWS:
-            result = subprocess.run([sys.executable, "-m", "pip", "install", "torch-directml"], check=True)
+            result = subprocess.run([python, "-m", "pip", "install", "torch-directml"], check=True)
 
         # install torch for Mac M Series
         if gpu == GPU_OPTION.MAC_M_SERIES:
             result = subprocess.run(
                 [
-                    sys.executable,
+                    python,
                     "-m",
                     "pip",
                     "install",
@@ -173,16 +152,16 @@ def pip_install_comfyui_dependencies(
     # install requirements.txt
     if skip_requirement:
         return
-    result = subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], check=False)
+    result = subprocess.run([python, "-m", "pip", "install", "-r", "requirements.txt"], check=False)
     if result.returncode != 0:
         rprint("Failed to install ComfyUI dependencies. Please check your environment (`comfy env`) and try again.")
         sys.exit(1)
 
 
 # install requirements for manager
-def pip_install_manager_dependencies(repo_dir):
+def pip_install_manager_dependencies(repo_dir, python=sys.executable):
     os.chdir(os.path.join(repo_dir, "custom_nodes", "ComfyUI-Manager"))
-    subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], check=True)
+    subprocess.run([python, "-m", "pip", "install", "-r", "requirements.txt"], check=True)
 
 
 def execute(
@@ -196,6 +175,7 @@ def execute(
     manager_commit: str | None = None,
     gpu: constants.GPU_OPTION = None,
     cuda_version: constants.CUDAVersion = constants.CUDAVersion.v12_6,
+    rocm_version: constants.ROCmVersion = constants.ROCmVersion.v6_3,
     plat: constants.OS = None,
     skip_torch_or_directml: bool = False,
     skip_requirement: bool = False,
@@ -248,8 +228,20 @@ def execute(
         os.chdir(repo_dir)
         subprocess.run(["git", "checkout", commit], check=True)
 
+    python = ensure_workspace_python(repo_dir)
+    rprint(f"Using Python: [bold]{python}[/bold]")
+
     if not fast_deps:
-        pip_install_comfyui_dependencies(repo_dir, gpu, plat, cuda_version, skip_torch_or_directml, skip_requirement)
+        pip_install_comfyui_dependencies(
+            repo_dir,
+            gpu,
+            plat,
+            cuda_version,
+            skip_torch_or_directml,
+            skip_requirement,
+            python=python,
+            rocm_version=rocm_version,
+        )
 
     WorkspaceManager().set_recent_workspace(repo_dir)
     workspace_manager.setup_workspace_manager(specified_workspace=repo_dir)
@@ -264,7 +256,7 @@ def execute(
 
         if os.path.exists(manager_repo_dir):
             if restore and not fast_deps:
-                pip_install_manager_dependencies(repo_dir)
+                pip_install_manager_dependencies(repo_dir, python=python)
             else:
                 rprint(
                     f"Directory {manager_repo_dir} already exists. Skipping installation of ComfyUI-Manager.\nIf you want to restore dependencies, add the '--restore' option."
@@ -285,10 +277,18 @@ def execute(
                     subprocess.run(["git", "checkout", manager_commit], check=True, cwd=manager_repo_dir)
 
             if not fast_deps:
-                pip_install_manager_dependencies(repo_dir)
+                pip_install_manager_dependencies(repo_dir, python=python)
 
     if fast_deps:
-        depComp = DependencyCompiler(cwd=repo_dir, gpu=gpu)
+        DependencyCompiler.Install_Build_Deps(executable=python)
+        depComp = DependencyCompiler(
+            cwd=repo_dir,
+            executable=python,
+            gpu=gpu,
+            cuda_version=cuda_version.value,
+            rocm_version=rocm_version.value,
+            skip_torch=skip_torch_or_directml,
+        )
         depComp.compile_deps()
         depComp.install_deps()
 

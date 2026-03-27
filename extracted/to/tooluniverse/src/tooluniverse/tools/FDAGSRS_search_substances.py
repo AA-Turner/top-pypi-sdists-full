@@ -1,7 +1,7 @@
 """
 FDAGSRS_search_substances
 
-Search FDA GSRS (Global Substance Registration System) for substances by name, UNII, InChIKey, or formula.
+Search FDA GSRS (Global Substance Registration System) for substances by name, UNII code, InChIKe...
 """
 
 from typing import Any, Optional, Callable
@@ -10,23 +10,23 @@ from ._shared_client import get_shared_client
 
 def FDAGSRS_search_substances(
     query: str,
-    substance_class: Optional[str] = None,
-    limit: Optional[int] = None,
+    substance_class: Optional[str | Any] = None,
+    limit: Optional[int | Any] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
 ) -> Any:
     """
-    Search FDA GSRS for substances by name, UNII code, InChIKey, or formula.
+    Search FDA GSRS (Global Substance Registration System) for substances by name, UNII code, InChIKe...
 
     Parameters
     ----------
     query : str
-        Search query: drug/chemical name, UNII code, InChIKey, or molecular formula.
-    substance_class : str, optional
-        Filter by substance class (e.g., 'chemical', 'protein', 'mixture').
-    limit : int, optional
+        Search query: drug/chemical name, UNII code, InChIKey, or molecular formula. ...
+    substance_class : str | Any
+        Filter by substance class. Options: 'chemical', 'protein', 'mixture', 'polyme...
+    limit : int | Any
         Maximum number of results to return (1-50, default 10).
     stream_callback : Callable, optional
         Callback for streaming output
@@ -39,6 +39,9 @@ def FDAGSRS_search_substances(
     -------
     Any
     """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
         for k, v in {

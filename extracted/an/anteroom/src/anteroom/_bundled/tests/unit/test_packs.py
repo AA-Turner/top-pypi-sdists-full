@@ -1,0 +1,1120 @@
+"""Tests for anteroom.services.packs — pack management."""
+
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+
+import pytest
+import yaml
+
+from anteroom.db import _SCHEMA, ThreadSafeConnection
+from anteroom.services.packs import (
+    ManifestArtifact,
+    _extract_yaml_frontmatter,
+    _read_artifact_content,
+    _resolve_artifact_file,
+    get_pack,
+    get_pack_by_id,
+    install_pack,
+    list_packs,
+    load_project_packs,
+    parse_manifest,
+    remove_pack,
+    remove_pack_by_id,
+    resolve_pack,
+    update_pack,
+    validate_manifest,
+)
+
+
+@pytest.fixture()
+def db() -> ThreadSafeConnection:
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.executescript(_SCHEMA)
+    conn.commit()
+    return ThreadSafeConnection(conn)
+
+
+def _write_manifest(path: Path, data: dict) -> Path:
+    manifest_path = path / "pack.yaml"
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        yaml.dump(data, f)
+    return manifest_path
+
+
+def _create_pack_dir(tmp_path: Path, name: str = "test-pack", namespace: str = "test-ns") -> Path:
+    """Create a minimal valid pack directory with one skill artifact."""
+    pack_dir = tmp_path / "pack"
+    pack_dir.mkdir(parents=True)
+    (pack_dir / "skills").mkdir()
+    (pack_dir / "skills" / "greet.yaml").write_text("content: Hello!\nmetadata:\n  tier: read\n", encoding="utf-8")
+    _write_manifest(
+        pack_dir,
+        {
+            "name": name,
+            "namespace": namespace,
+            "version": "1.0.0",
+            "description": "A test pack",
+            "artifacts": [
+                {"type": "skill", "name": "greet"},
+            ],
+        },
+    )
+    return pack_dir
+
+
+class TestParseManifest:
+    def test_valid_manifest(self, tmp_path: Path) -> None:
+        _write_manifest(
+            tmp_path,
+            {
+                "name": "my-pack",
+                "namespace": "my-ns",
+                "version": "2.1.0",
+                "description": "A great pack",
+                "artifacts": [
+                    {"type": "skill", "name": "greet"},
+                    {"type": "rule", "name": "no-eval"},
+                ],
+            },
+        )
+        m = parse_manifest(tmp_path / "pack.yaml")
+        assert m.name == "my-pack"
+        assert m.namespace == "my-ns"
+        assert m.version == "2.1.0"
+        assert m.description == "A great pack"
+        assert len(m.artifacts) == 2
+        assert m.artifacts[0].type == "skill"
+        assert m.artifacts[0].name == "greet"
+
+    def test_missing_file(self, tmp_path: Path) -> None:
+        with pytest.raises(ValueError, match="Manifest not found"):
+            parse_manifest(tmp_path / "pack.yaml")
+
+    def test_missing_name(self, tmp_path: Path) -> None:
+        _write_manifest(tmp_path, {"namespace": "ns", "artifacts": []})
+        with pytest.raises(ValueError, match="missing required field: name"):
+            parse_manifest(tmp_path / "pack.yaml")
+
+    def test_missing_namespace(self, tmp_path: Path) -> None:
+        _write_manifest(tmp_path, {"name": "p", "artifacts": []})
+        with pytest.raises(ValueError, match="missing required field: namespace"):
+            parse_manifest(tmp_path / "pack.yaml")
+
+    def test_invalid_name_format(self, tmp_path: Path) -> None:
+        _write_manifest(tmp_path, {"name": "../evil", "namespace": "ns", "artifacts": []})
+        with pytest.raises(ValueError, match="Invalid pack name"):
+            parse_manifest(tmp_path / "pack.yaml")
+
+    def test_invalid_namespace_format(self, tmp_path: Path) -> None:
+        _write_manifest(tmp_path, {"name": "p", "namespace": "../../etc", "artifacts": []})
+        with pytest.raises(ValueError, match="Invalid namespace"):
+            parse_manifest(tmp_path / "pack.yaml")
+
+    def test_invalid_yaml(self, tmp_path: Path) -> None:
+        (tmp_path / "pack.yaml").write_text("not a mapping", encoding="utf-8")
+        with pytest.raises(ValueError, match="must be a YAML mapping"):
+            parse_manifest(tmp_path / "pack.yaml")
+
+    def test_artifacts_not_list(self, tmp_path: Path) -> None:
+        _write_manifest(tmp_path, {"name": "p", "namespace": "ns", "artifacts": "bad"})
+        with pytest.raises(ValueError, match="must be a list"):
+            parse_manifest(tmp_path / "pack.yaml")
+
+    def test_invalid_artifact_type(self, tmp_path: Path) -> None:
+        _write_manifest(
+            tmp_path,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "artifacts": [{"type": "invalid", "name": "x"}],
+            },
+        )
+        with pytest.raises(ValueError, match="invalid type"):
+            parse_manifest(tmp_path / "pack.yaml")
+
+    def test_artifact_missing_name(self, tmp_path: Path) -> None:
+        _write_manifest(
+            tmp_path,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "artifacts": [{"type": "skill"}],
+            },
+        )
+        with pytest.raises(ValueError, match="missing required field 'name'"):
+            parse_manifest(tmp_path / "pack.yaml")
+
+    def test_artifact_entry_not_mapping(self, tmp_path: Path) -> None:
+        _write_manifest(
+            tmp_path,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "artifacts": ["just a string"],
+            },
+        )
+        with pytest.raises(ValueError, match="must be a mapping"):
+            parse_manifest(tmp_path / "pack.yaml")
+
+    def test_default_version(self, tmp_path: Path) -> None:
+        _write_manifest(tmp_path, {"name": "p", "namespace": "ns", "artifacts": []})
+        m = parse_manifest(tmp_path / "pack.yaml")
+        assert m.version == "0.0.0"
+
+    def test_custom_file_field(self, tmp_path: Path) -> None:
+        _write_manifest(
+            tmp_path,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "artifacts": [{"type": "rule", "name": "x", "file": "rules/x.md"}],
+            },
+        )
+        m = parse_manifest(tmp_path / "pack.yaml")
+        assert m.artifacts[0].file == "rules/x.md"
+
+
+class TestValidateManifest:
+    def test_valid_pack(self, tmp_path: Path) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        errors = validate_manifest(manifest, pack_dir)
+        assert errors == []
+
+    def test_missing_artifact_file(self, tmp_path: Path) -> None:
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "artifacts": [{"type": "skill", "name": "missing"}],
+            },
+        )
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        errors = validate_manifest(manifest, pack_dir)
+        assert len(errors) == 1
+        assert "Missing artifact file" in errors[0]
+
+    def test_custom_file_path(self, tmp_path: Path) -> None:
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        (pack_dir / "my-rule.md").write_text("# Rule", encoding="utf-8")
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "artifacts": [{"type": "rule", "name": "r", "file": "my-rule.md"}],
+            },
+        )
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        errors = validate_manifest(manifest, pack_dir)
+        assert errors == []
+
+    def test_path_traversal_blocked(self, tmp_path: Path) -> None:
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "artifacts": [{"type": "skill", "name": "evil", "file": "../../../etc/passwd"}],
+            },
+        )
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        errors = validate_manifest(manifest, pack_dir)
+        assert len(errors) == 1
+        assert "Path traversal" in errors[0]
+
+
+class TestResolveArtifactFile:
+    def test_yaml_extension(self, tmp_path: Path) -> None:
+        (tmp_path / "skills").mkdir()
+        (tmp_path / "skills" / "greet.yaml").write_text("content: hi")
+        art = ManifestArtifact(type="skill", name="greet")
+        result = _resolve_artifact_file(art, tmp_path)
+        assert result is not None
+        assert result.name == "greet.yaml"
+
+    def test_md_extension(self, tmp_path: Path) -> None:
+        (tmp_path / "rules").mkdir()
+        (tmp_path / "rules" / "no-eval.md").write_text("# No eval")
+        art = ManifestArtifact(type="rule", name="no-eval")
+        result = _resolve_artifact_file(art, tmp_path)
+        assert result is not None
+        assert result.name == "no-eval.md"
+
+    def test_custom_file(self, tmp_path: Path) -> None:
+        (tmp_path / "custom.txt").write_text("custom")
+        art = ManifestArtifact(type="rule", name="r", file="custom.txt")
+        result = _resolve_artifact_file(art, tmp_path)
+        assert result is not None
+
+    def test_not_found(self, tmp_path: Path) -> None:
+        art = ManifestArtifact(type="skill", name="missing")
+        result = _resolve_artifact_file(art, tmp_path)
+        assert result is None
+
+    def test_path_traversal_blocked(self, tmp_path: Path) -> None:
+        art = ManifestArtifact(type="skill", name="evil", file="../../../etc/passwd")
+        result = _resolve_artifact_file(art, tmp_path)
+        assert result is None
+
+
+class TestReadArtifactContent:
+    def test_yaml_file(self, tmp_path: Path) -> None:
+        p = tmp_path / "skill.yaml"
+        p.write_text("content: Hello!\nmetadata:\n  tier: read\n")
+        content, metadata = _read_artifact_content(p)
+        assert content == "Hello!"
+        assert metadata == {"tier": "read"}
+
+    def test_markdown_file(self, tmp_path: Path) -> None:
+        p = tmp_path / "rule.md"
+        p.write_text("# No eval\nDo not use eval().")
+        content, metadata = _read_artifact_content(p)
+        assert "No eval" in content
+        assert metadata == {}
+
+    def test_yaml_without_content_key(self, tmp_path: Path) -> None:
+        p = tmp_path / "plain.yaml"
+        p.write_text("just: a mapping\n")
+        content, metadata = _read_artifact_content(p)
+        # Falls back to raw content since there's no "content" key
+        assert "just: a mapping" in content
+
+
+class TestInstallPack:
+    def test_install_basic(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+
+        assert result["name"] == "test-pack"
+        assert result["namespace"] == "test-ns"
+        assert result["version"] == "1.0.0"
+        assert result["artifact_count"] == 1
+
+    def test_install_creates_db_rows(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        install_pack(db, manifest, pack_dir)
+
+        # Pack row
+        row = db.execute("SELECT * FROM packs WHERE name = 'test-pack'").fetchone()
+        assert row is not None
+        assert dict(row)["namespace"] == "test-ns"
+
+        # Artifact row
+        art = db.execute("SELECT * FROM artifacts WHERE fqn = '@test-ns/skill/greet'").fetchone()
+        assert art is not None
+
+        # Junction row
+        pa = db.execute("SELECT * FROM pack_artifacts").fetchone()
+        assert pa is not None
+
+    def test_install_duplicate_allowed(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        r1 = install_pack(db, manifest, pack_dir)
+        r2 = install_pack(db, manifest, pack_dir)
+        assert r1["id"] != r2["id"]
+
+    def test_install_with_project_dir(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        install_pack(db, manifest, pack_dir, project_dir=project_dir)
+
+        dest = project_dir / ".anteroom" / "packs" / "test-ns" / "test-pack"
+        assert dest.is_dir()
+        assert (dest / "pack.yaml").is_file()
+
+    def test_install_skips_missing_artifact_file(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "version": "1.0.0",
+                "artifacts": [{"type": "skill", "name": "missing"}],
+            },
+        )
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+        assert result["artifact_count"] == 0
+
+    def test_install_multiple_artifacts(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        (pack_dir / "skills").mkdir()
+        (pack_dir / "rules").mkdir()
+        (pack_dir / "skills" / "greet.yaml").write_text("content: hi\n")
+        (pack_dir / "rules" / "no-eval.md").write_text("# No eval\n")
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "multi",
+                "namespace": "ns",
+                "version": "1.0.0",
+                "artifacts": [
+                    {"type": "skill", "name": "greet"},
+                    {"type": "rule", "name": "no-eval"},
+                ],
+            },
+        )
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+        assert result["artifact_count"] == 2
+
+
+class TestRemovePack:
+    def test_remove_existing(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        install_pack(db, manifest, pack_dir)
+
+        removed = remove_pack(db, "test-ns", "test-pack")
+        assert removed is True
+
+        # Pack gone
+        assert db.execute("SELECT * FROM packs WHERE name = 'test-pack'").fetchone() is None
+        # Artifact gone (orphaned)
+        assert db.execute("SELECT * FROM artifacts WHERE fqn = '@test-ns/skill/greet'").fetchone() is None
+
+    def test_remove_nonexistent(self, db: ThreadSafeConnection) -> None:
+        assert remove_pack(db, "no", "such") is False
+
+    def test_shared_artifact_survives(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        """An artifact shared between two packs should survive removal of one pack."""
+        # Install pack A with artifact 'greet'
+        pack_a = _create_pack_dir(tmp_path / "a", name="pack-a", namespace="ns")
+        manifest_a = parse_manifest(pack_a / "pack.yaml")
+        install_pack(db, manifest_a, pack_a)
+
+        # Install pack B referencing the same artifact FQN (different pack, same content)
+        pack_b = tmp_path / "b" / "pack"
+        pack_b.mkdir(parents=True)
+        (pack_b / "skills").mkdir()
+        (pack_b / "skills" / "greet.yaml").write_text("content: Hello!\n")
+        _write_manifest(
+            pack_b,
+            {
+                "name": "pack-b",
+                "namespace": "ns",
+                "version": "1.0.0",
+                "artifacts": [{"type": "skill", "name": "greet"}],
+            },
+        )
+        manifest_b = parse_manifest(pack_b / "pack.yaml")
+        install_pack(db, manifest_b, pack_b)
+
+        # Remove pack A — artifact should survive because pack B still references it
+        remove_pack(db, "ns", "pack-a")
+        art = db.execute("SELECT * FROM artifacts WHERE fqn = '@ns/skill/greet'").fetchone()
+        assert art is not None
+
+        # Remove pack B — artifact should now be deleted
+        remove_pack(db, "ns", "pack-b")
+        art = db.execute("SELECT * FROM artifacts WHERE fqn = '@ns/skill/greet'").fetchone()
+        assert art is None
+
+
+class TestUpdatePack:
+    def test_update_replaces(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        install_pack(db, manifest, pack_dir)
+
+        # Modify version in manifest
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "test-pack",
+                "namespace": "test-ns",
+                "version": "2.0.0",
+                "description": "Updated",
+                "artifacts": [{"type": "skill", "name": "greet"}],
+            },
+        )
+        new_manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = update_pack(db, new_manifest, pack_dir)
+        assert result["version"] == "2.0.0"
+
+        # Only one pack row
+        rows = db.execute("SELECT * FROM packs").fetchall()
+        assert len(rows) == 1
+
+    def test_update_not_installed(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        with pytest.raises(ValueError, match="not installed"):
+            update_pack(db, manifest, pack_dir)
+
+
+class TestListPacks:
+    def test_empty(self, db: ThreadSafeConnection) -> None:
+        assert list_packs(db) == []
+
+    def test_with_packs(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        install_pack(db, manifest, pack_dir)
+
+        packs = list_packs(db)
+        assert len(packs) == 1
+        assert packs[0]["name"] == "test-pack"
+        assert packs[0]["artifact_count"] == 1
+
+
+class TestGetPack:
+    def test_found(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        install_pack(db, manifest, pack_dir)
+
+        p = get_pack(db, "test-ns", "test-pack")
+        assert p is not None
+        assert p["name"] == "test-pack"
+        assert len(p["artifacts"]) == 1
+        assert p["artifacts"][0]["fqn"] == "@test-ns/skill/greet"
+
+    def test_not_found(self, db: ThreadSafeConnection) -> None:
+        assert get_pack(db, "no", "such") is None
+
+
+class TestLoadProjectPacks:
+    def test_loads_from_project_dir(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        project_dir = tmp_path / "project"
+        packs_root = project_dir / ".anteroom" / "packs" / "test-ns" / "my-pack"
+        packs_root.mkdir(parents=True)
+        (packs_root / "skills").mkdir()
+        (packs_root / "skills" / "hello.yaml").write_text("content: Hello!\n")
+        _write_manifest(
+            packs_root,
+            {
+                "name": "my-pack",
+                "namespace": "test-ns",
+                "version": "1.0.0",
+                "artifacts": [{"type": "skill", "name": "hello"}],
+            },
+        )
+
+        results = load_project_packs(db, project_dir)
+        assert len(results) == 1
+        assert results[0]["name"] == "my-pack"
+
+    def test_skips_already_installed(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        # Pre-install the pack
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        install_pack(db, manifest, pack_dir)
+
+        # Set up project dir with same pack
+        project_dir = tmp_path / "project"
+        packs_root = project_dir / ".anteroom" / "packs" / "test-ns" / "test-pack"
+        packs_root.mkdir(parents=True)
+        (packs_root / "skills").mkdir()
+        (packs_root / "skills" / "greet.yaml").write_text("content: Hello!\n")
+        _write_manifest(
+            packs_root,
+            {
+                "name": "test-pack",
+                "namespace": "test-ns",
+                "version": "1.0.0",
+                "artifacts": [{"type": "skill", "name": "greet"}],
+            },
+        )
+
+        results = load_project_packs(db, project_dir)
+        assert len(results) == 0
+
+    def test_no_packs_dir(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        assert load_project_packs(db, tmp_path) == []
+
+    def test_invalid_manifest_skipped(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        project_dir = tmp_path / "project"
+        packs_root = project_dir / ".anteroom" / "packs" / "ns" / "bad"
+        packs_root.mkdir(parents=True)
+        (packs_root / "pack.yaml").write_text("not a mapping")
+
+        results = load_project_packs(db, project_dir)
+        assert len(results) == 0
+
+
+# ---------------------------------------------------------------------------
+# Bug fix: _read_artifact_content YAML crash (#522)
+# ---------------------------------------------------------------------------
+
+
+class TestReadArtifactContentYamlError:
+    def test_invalid_yaml_returns_raw(self, tmp_path: Path) -> None:
+        """Invalid YAML should fall back to raw content instead of crashing."""
+        p = tmp_path / "bad.yaml"
+        p.write_text("content: [\ninvalid yaml {{{\n")
+        content, metadata = _read_artifact_content(p)
+        assert "invalid yaml" in content
+        assert metadata == {}
+
+    def test_yaml_with_tabs_returns_raw(self, tmp_path: Path) -> None:
+        """YAML with tab indentation (common error) should degrade gracefully."""
+        p = tmp_path / "tabbed.yaml"
+        p.write_text("key:\n\t- invalid tab indent\n")
+        content, metadata = _read_artifact_content(p)
+        assert "invalid tab indent" in content
+        assert metadata == {}
+
+
+# ---------------------------------------------------------------------------
+# Bug fix: install_pack skipped_artifacts reporting (#522)
+# ---------------------------------------------------------------------------
+
+
+class TestInstallPackSkippedArtifacts:
+    def test_skipped_artifacts_in_result(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        """install_pack should report which artifacts were skipped."""
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        (pack_dir / "skills").mkdir()
+        (pack_dir / "skills" / "found.yaml").write_text("content: hi\n")
+        # 'missing' artifact has no file
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "version": "1.0.0",
+                "artifacts": [
+                    {"type": "skill", "name": "found"},
+                    {"type": "skill", "name": "missing"},
+                ],
+            },
+        )
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+        assert result["artifact_count"] == 1
+        assert "skill/missing" in result["skipped_artifacts"]
+        assert len(result["skipped_artifacts"]) == 1
+
+    def test_no_skipped_artifacts(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        """When all artifacts resolve, skipped_artifacts should be empty."""
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+        assert result["skipped_artifacts"] == []
+
+
+class TestResolvePack:
+    def test_resolve_unique(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+        match, candidates = resolve_pack(db, "test-ns", "test-pack")
+        assert match is not None
+        assert match["id"] == result["id"]
+        assert candidates == []
+
+    def test_resolve_after_reinstall(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        """Reinstalling a pack should not create duplicates (#772)."""
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        install_pack(db, manifest, pack_dir)
+        install_pack(db, manifest, pack_dir)
+        match, candidates = resolve_pack(db, "test-ns", "test-pack")
+        assert match is not None
+        assert candidates == []
+
+    def test_resolve_not_found(self, db: ThreadSafeConnection) -> None:
+        match, candidates = resolve_pack(db, "no", "pack")
+        assert match is None
+        assert candidates == []
+
+
+class TestGetPackById:
+    def test_get_by_id(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+        got = get_pack_by_id(db, result["id"])
+        assert got is not None
+        assert got["id"] == result["id"]
+        assert got["name"] == "test-pack"
+
+    def test_get_by_id_missing(self, db: ThreadSafeConnection) -> None:
+        assert get_pack_by_id(db, "nonexistent") is None
+
+
+class TestRemovePackById:
+    def test_remove_by_id(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+        assert remove_pack_by_id(db, result["id"]) is True
+        assert get_pack_by_id(db, result["id"]) is None
+
+    def test_remove_by_id_missing(self, db: ThreadSafeConnection) -> None:
+        assert remove_pack_by_id(db, "nonexistent") is False
+
+    def test_remove_by_id_transactional(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        """remove_pack_by_id uses a transaction — all-or-nothing."""
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+        pack_id = result["id"]
+
+        assert remove_pack_by_id(db, pack_id) is True
+        assert get_pack_by_id(db, pack_id) is None
+        row = db.execute("SELECT COUNT(*) FROM pack_artifacts WHERE pack_id = ?", (pack_id,)).fetchone()
+        assert row[0] == 0
+
+
+class TestInstallPackSource:
+    def test_install_pack_global_source_when_no_project_dir(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        install_pack(db, manifest, pack_dir)
+
+        art = db.execute("SELECT source FROM artifacts LIMIT 1").fetchone()
+        assert art["source"] == "global"
+
+    def test_install_pack_project_source_when_project_dir_set(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        project = tmp_path / "proj"
+        project.mkdir()
+        install_pack(db, manifest, pack_dir, project_dir=project)
+
+        art = db.execute("SELECT source FROM artifacts LIMIT 1").fetchone()
+        assert art["source"] == "project"
+
+
+class TestRemovePackByIdOrphanDetection:
+    """Tests for CRITICAL bug — remove_pack_by_id must not delete shared artifacts."""
+
+    def _create_two_packs_sharing_artifact(self, tmp_path: Path, db: ThreadSafeConnection) -> tuple[str, str, str]:
+        """Create two packs that share one artifact. Returns (pack1_id, pack2_id, shared_artifact_id)."""
+        # Pack 1 with skill "greet"
+        pack1_dir = tmp_path / "pack1"
+        pack1_dir.mkdir()
+        (pack1_dir / "skills").mkdir()
+        (pack1_dir / "skills" / "greet.yaml").write_text("content: Hello!\n", encoding="utf-8")
+        _write_manifest(
+            pack1_dir,
+            {
+                "name": "pack-a",
+                "namespace": "shared-ns",
+                "version": "1.0.0",
+                "artifacts": [{"type": "skill", "name": "greet"}],
+            },
+        )
+        m1 = parse_manifest(pack1_dir / "pack.yaml")
+        r1 = install_pack(db, m1, pack1_dir)
+
+        # Pack 2 referencing the same artifact FQN
+        pack2_dir = tmp_path / "pack2"
+        pack2_dir.mkdir()
+        (pack2_dir / "skills").mkdir()
+        (pack2_dir / "skills" / "greet.yaml").write_text("content: Hello!\n", encoding="utf-8")
+        _write_manifest(
+            pack2_dir,
+            {
+                "name": "pack-b",
+                "namespace": "shared-ns",
+                "version": "1.0.0",
+                "artifacts": [{"type": "skill", "name": "greet"}],
+            },
+        )
+        m2 = parse_manifest(pack2_dir / "pack.yaml")
+        r2 = install_pack(db, m2, pack2_dir)
+
+        # The shared artifact should exist once (upserted)
+        shared_row = db.execute("SELECT artifact_id FROM pack_artifacts WHERE pack_id = ?", (r1["id"],)).fetchone()
+        shared_id = shared_row["artifact_id"]
+
+        return r1["id"], r2["id"], shared_id
+
+    def test_removing_one_pack_preserves_shared_artifact(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack1_id, pack2_id, shared_id = self._create_two_packs_sharing_artifact(tmp_path, db)
+
+        # Remove pack1 — shared artifact should survive
+        assert remove_pack_by_id(db, pack1_id)
+
+        # Artifact still exists because pack2 references it
+        art_row = db.execute("SELECT id FROM artifacts WHERE id = ?", (shared_id,)).fetchone()
+        assert art_row is not None
+
+        # pack2 still has its link
+        link = db.execute(
+            "SELECT * FROM pack_artifacts WHERE pack_id = ? AND artifact_id = ?",
+            (pack2_id, shared_id),
+        ).fetchone()
+        assert link is not None
+
+    def test_removing_both_packs_deletes_orphaned_artifact(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack1_id, pack2_id, shared_id = self._create_two_packs_sharing_artifact(tmp_path, db)
+
+        assert remove_pack_by_id(db, pack1_id)
+        assert remove_pack_by_id(db, pack2_id)
+
+        # Now artifact is orphaned and should be deleted
+        art_row = db.execute("SELECT id FROM artifacts WHERE id = ?", (shared_id,)).fetchone()
+        assert art_row is None
+
+    def test_remove_pack_by_id_cleans_attachments(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+        pack_id = result["id"]
+
+        # Create an attachment
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc).isoformat()
+        db.execute(
+            "INSERT INTO pack_attachments (id, pack_id, scope, created_at) VALUES (?, ?, 'global', ?)",
+            ("att-1", pack_id, now),
+        )
+        db.commit()
+
+        assert remove_pack_by_id(db, pack_id)
+
+        # Attachment should be cleaned up
+        att = db.execute("SELECT id FROM pack_attachments WHERE pack_id = ?", (pack_id,)).fetchone()
+        assert att is None
+
+
+class TestRemovePackAttachmentCleanup:
+    """Tests for remove_pack() cleaning up pack_attachments."""
+
+    def test_remove_pack_cleans_attachments(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+        pack_id = result["id"]
+
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc).isoformat()
+        db.execute(
+            "INSERT INTO pack_attachments (id, pack_id, scope, created_at) VALUES (?, ?, 'global', ?)",
+            ("att-1", pack_id, now),
+        )
+        db.commit()
+
+        assert remove_pack(db, "test-ns", "test-pack")
+
+        att = db.execute("SELECT id FROM pack_attachments WHERE pack_id = ?", (pack_id,)).fetchone()
+        assert att is None
+
+
+class TestInstallPackUpsert:
+    """Tests for #772 — install_pack should update existing pack, not create duplicate."""
+
+    def test_reinstall_updates_instead_of_duplicating(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+
+        result1 = install_pack(db, manifest, pack_dir)
+        assert result1["action"] == "installed"
+
+        result2 = install_pack(db, manifest, pack_dir)
+        assert result2["action"] == "updated"
+
+        # Only one pack row
+        rows = db.execute("SELECT COUNT(*) as c FROM packs").fetchone()
+        assert rows["c"] == 1
+
+    def test_reinstall_keeps_single_row(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+
+        install_pack(db, manifest, pack_dir)
+        install_pack(db, manifest, pack_dir)
+        install_pack(db, manifest, pack_dir)
+
+        rows = db.execute("SELECT COUNT(*) as c FROM packs WHERE namespace='test-ns' AND name='test-pack'").fetchone()
+        assert rows["c"] == 1
+
+    def test_reinstall_updates_version(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        install_pack(db, manifest, pack_dir)
+
+        # Update manifest version
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "test-pack",
+                "namespace": "test-ns",
+                "version": "2.0.0",
+                "description": "Updated pack",
+                "artifacts": [{"type": "skill", "name": "greet"}],
+            },
+        )
+        manifest2 = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest2, pack_dir)
+        assert result["action"] == "updated"
+
+        row = db.execute("SELECT version FROM packs").fetchone()
+        assert row["version"] == "2.0.0"
+
+
+class TestUpdatePackPreservesAttachments:
+    """update_pack() must preserve pack_attachments across the remove+reinstall cycle."""
+
+    def test_attachments_survive_update(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = _create_pack_dir(tmp_path)
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+        pack_id = result["id"]
+
+        # Attach the pack at global scope
+        import uuid as _uuid
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+
+        att_id = _uuid.uuid4().hex
+        db.execute(
+            """INSERT INTO pack_attachments (id, pack_id, project_path, space_id, scope, priority, created_at)
+               VALUES (?, ?, NULL, NULL, 'global', 10, ?)""",
+            (att_id, pack_id, _dt.now(_tz.utc).isoformat()),
+        )
+        db.commit()
+
+        # Update the pack (triggers remove+reinstall with new ID)
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "test-pack",
+                "namespace": "test-ns",
+                "version": "2.0.0",
+                "description": "Updated",
+                "artifacts": [{"type": "skill", "name": "greet"}],
+            },
+        )
+        manifest2 = parse_manifest(pack_dir / "pack.yaml")
+        result2 = install_pack(db, manifest2, pack_dir)
+        new_pack_id = result2["id"]
+        assert new_pack_id != pack_id
+
+        # Attachment should be transferred to the new pack ID
+        att = db.execute(
+            "SELECT pack_id, priority FROM pack_attachments WHERE pack_id = ?",
+            (new_pack_id,),
+        ).fetchone()
+        assert att is not None, "Attachment was lost during update"
+        assert att["priority"] == 10
+
+        # Old attachment should be gone
+        old_att = db.execute(
+            "SELECT pack_id FROM pack_attachments WHERE pack_id = ?",
+            (pack_id,),
+        ).fetchone()
+        assert old_att is None
+
+
+# ---------------------------------------------------------------------------
+# #873 — YAML front matter for Markdown rule artifacts
+# ---------------------------------------------------------------------------
+
+
+class TestExtractYamlFrontmatter:
+    def test_valid_frontmatter(self, tmp_path: Path) -> None:
+        text = (
+            "---\nenforce: hard\nreason: Policy\nmatches:\n"
+            "  - tool: bash\n    pattern: danger\n---\n# Rule body\nDo not do this."
+        )
+        body, meta = _extract_yaml_frontmatter(text, tmp_path / "rule.md")
+        assert meta["enforce"] == "hard"
+        assert meta["reason"] == "Policy"
+        assert len(meta["matches"]) == 1
+        assert "Rule body" in body
+
+    def test_no_delimiters_returns_empty(self, tmp_path: Path) -> None:
+        text = "# Just markdown\nNo front matter here."
+        body, meta = _extract_yaml_frontmatter(text, tmp_path / "rule.md")
+        assert body == text
+        assert meta == {}
+
+    def test_invalid_yaml_raises(self, tmp_path: Path) -> None:
+        text = "---\n[invalid yaml {{{\n---\n# Body"
+        with pytest.raises(ValueError, match="Invalid YAML in front matter"):
+            _extract_yaml_frontmatter(text, tmp_path / "rule.md")
+
+    def test_non_dict_raises(self, tmp_path: Path) -> None:
+        text = "---\n- list\n- not mapping\n---\n# Body"
+        with pytest.raises(ValueError, match="must be a YAML mapping"):
+            _extract_yaml_frontmatter(text, tmp_path / "rule.md")
+
+    def test_unclosed_delimiter_raises(self, tmp_path: Path) -> None:
+        text = "---\nenforce: hard\n# No closing delimiter"
+        with pytest.raises(ValueError, match="Unclosed front matter"):
+            _extract_yaml_frontmatter(text, tmp_path / "rule.md")
+
+    def test_empty_frontmatter_returns_empty_meta(self, tmp_path: Path) -> None:
+        text = "---\n---\n# Body only"
+        body, meta = _extract_yaml_frontmatter(text, tmp_path / "rule.md")
+        assert meta == {}
+        assert "Body only" in body
+
+
+class TestReadArtifactContentMarkdownRules:
+    def test_markdown_rule_with_frontmatter(self, tmp_path: Path) -> None:
+        p = tmp_path / "no-eval.md"
+        p.write_text(
+            "---\nenforce: hard\nreason: No eval\nmatches:\n"
+            "  - tool: bash\n    pattern: eval\n---\n# No eval\nDo not use eval().",
+            encoding="utf-8",
+        )
+        content, metadata = _read_artifact_content(p, artifact_type="rule")
+        assert metadata["enforce"] == "hard"
+        assert "No eval" in content
+        assert "---" not in content
+
+    def test_markdown_rule_malformed_raises(self, tmp_path: Path) -> None:
+        p = tmp_path / "bad.md"
+        p.write_text("---\n[broken yaml\n---\n# Body", encoding="utf-8")
+        with pytest.raises(ValueError, match="Invalid YAML in front matter"):
+            _read_artifact_content(p, artifact_type="rule")
+
+    def test_markdown_non_rule_ignores_frontmatter(self, tmp_path: Path) -> None:
+        p = tmp_path / "instruction.md"
+        p.write_text("---\nenforce: hard\n---\n# Instruction", encoding="utf-8")
+        content, metadata = _read_artifact_content(p, artifact_type="instruction")
+        assert metadata == {}
+        assert "---" in content
+
+    def test_markdown_rule_no_frontmatter(self, tmp_path: Path) -> None:
+        p = tmp_path / "soft-rule.md"
+        p.write_text("# Soft rule\nJust a guideline.", encoding="utf-8")
+        content, metadata = _read_artifact_content(p, artifact_type="rule")
+        assert metadata == {}
+        assert "Soft rule" in content
+
+
+class TestInstallPackMarkdownRuleMetadata:
+    def test_install_preserves_frontmatter_metadata(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        (pack_dir / "rules").mkdir()
+        (pack_dir / "rules" / "no-eval.md").write_text(
+            "---\nenforce: hard\nreason: No eval allowed\nmatches:\n"
+            "  - tool: bash\n    pattern: eval\n---\n# No eval\nDo not use eval().",
+            encoding="utf-8",
+        )
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "sec-pack",
+                "namespace": "sec",
+                "version": "1.0.0",
+                "artifacts": [{"type": "rule", "name": "no-eval"}],
+            },
+        )
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        result = install_pack(db, manifest, pack_dir)
+        assert result["artifact_count"] == 1
+
+        import json
+
+        row = db.execute("SELECT metadata FROM artifacts WHERE fqn = '@sec/rule/no-eval'").fetchone()
+        meta = json.loads(row["metadata"])
+        assert meta["enforce"] == "hard"
+        assert meta["reason"] == "No eval allowed"
+        assert len(meta["matches"]) == 1
+
+    def test_install_fails_on_malformed_frontmatter(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        (pack_dir / "rules").mkdir()
+        (pack_dir / "rules" / "bad.md").write_text(
+            "---\n[broken yaml {{{\n---\n# Body",
+            encoding="utf-8",
+        )
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "bad-pack",
+                "namespace": "ns",
+                "version": "1.0.0",
+                "artifacts": [{"type": "rule", "name": "bad"}],
+            },
+        )
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        with pytest.raises(ValueError, match="Invalid YAML in front matter"):
+            install_pack(db, manifest, pack_dir)
+
+        assert db.execute("SELECT * FROM packs").fetchone() is None
+
+
+class TestValidateManifestRuleMetadata:
+    def test_hard_rule_missing_matches_fails(self, tmp_path: Path) -> None:
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        (pack_dir / "rules").mkdir()
+        (pack_dir / "rules" / "no-eval.md").write_text(
+            "---\nenforce: hard\nreason: No eval\n---\n# No eval",
+            encoding="utf-8",
+        )
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "artifacts": [{"type": "rule", "name": "no-eval"}],
+            },
+        )
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        errors = validate_manifest(manifest, pack_dir)
+        assert any("enforce: hard" in e and "matches" in e for e in errors)
+
+    def test_valid_hard_rule_passes(self, tmp_path: Path) -> None:
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        (pack_dir / "rules").mkdir()
+        (pack_dir / "rules" / "no-eval.md").write_text(
+            "---\nenforce: hard\nmatches:\n  - tool: bash\n    pattern: eval\n---\n# No eval",
+            encoding="utf-8",
+        )
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "artifacts": [{"type": "rule", "name": "no-eval"}],
+            },
+        )
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        errors = validate_manifest(manifest, pack_dir)
+        assert errors == []
+
+    def test_malformed_frontmatter_in_validation(self, tmp_path: Path) -> None:
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        (pack_dir / "rules").mkdir()
+        (pack_dir / "rules" / "bad.md").write_text(
+            "---\n[broken yaml\n---\n# Body",
+            encoding="utf-8",
+        )
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "artifacts": [{"type": "rule", "name": "bad"}],
+            },
+        )
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        errors = validate_manifest(manifest, pack_dir)
+        assert any("Malformed front matter" in e for e in errors)

@@ -7,7 +7,7 @@ from uuid import UUID
 import requests
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, load_only
+from sqlalchemy.orm import load_only
 
 from dstack._internal.core.consts import DSTACK_RUNNER_HTTP_PORT
 from dstack._internal.core.errors import (
@@ -19,6 +19,7 @@ from dstack._internal.core.models.backends.base import BackendType
 from dstack._internal.core.models.configurations import RunConfigurationType
 from dstack._internal.core.models.runs import (
     Job,
+    JobConnectionInfo,
     JobProvisioningData,
     JobRuntimeData,
     JobSpec,
@@ -37,6 +38,7 @@ from dstack._internal.server.models import (
 )
 from dstack._internal.server.services import events
 from dstack._internal.server.services import volumes as volumes_services
+from dstack._internal.server.services.ides import get_ide
 from dstack._internal.server.services.instances import (
     get_instance_ssh_private_keys,
 )
@@ -51,9 +53,14 @@ from dstack._internal.server.services.logging import fmt
 from dstack._internal.server.services.probes import probe_model_to_probe
 from dstack._internal.server.services.runner import client
 from dstack._internal.server.services.runner.ssh import runner_ssh_tunnel
+from dstack._internal.server.services.sshproxy import (
+    build_proxied_job_ssh_command,
+    build_proxied_job_ssh_url_authority,
+)
 from dstack._internal.utils import common
 from dstack._internal.utils.common import run_async
 from dstack._internal.utils.logging import get_logger
+from dstack._internal.utils.ssh import build_ssh_command, build_ssh_url_authority
 
 logger = get_logger(__name__)
 
@@ -267,6 +274,10 @@ def get_job_runtime_data(job_model: JobModel) -> Optional[JobRuntimeData]:
     return JobRuntimeData.__response__.parse_raw(job_model.job_runtime_data)
 
 
+def get_job_spec(job_model: JobModel) -> JobSpec:
+    return JobSpec.__response__.parse_raw(job_model.job_spec_data)
+
+
 def delay_job_instance_termination(job_model: JobModel):
     job_model.remove_at = common.get_current_datetime() + timedelta(seconds=15)
 
@@ -298,15 +309,12 @@ _job_configurator_classes = [
 _configuration_type_to_configurator_class_map = {c.TYPE: c for c in _job_configurator_classes}
 
 
-async def stop_runner(session: AsyncSession, job_model: JobModel):
-    res = await session.execute(
-        select(InstanceModel)
-        .where(InstanceModel.id == job_model.instance_id)
-        .options(joinedload(InstanceModel.project))
-    )
-    instance: Optional[InstanceModel] = res.scalar()
-
-    ssh_private_keys = get_instance_ssh_private_keys(common.get_or_error(instance))
+async def stop_runner(job_model: JobModel, instance_model: InstanceModel):
+    """
+    Stops the runner using a preloaded instance model.
+    `instance_model.project` must be loaded because SSH key resolution uses the project keys.
+    """
+    ssh_private_keys = get_instance_ssh_private_keys(instance_model)
     try:
         jpd = get_job_provisioning_data(job_model)
         if jpd is not None:
@@ -484,6 +492,47 @@ async def get_job_attached_volumes(
 
 def remove_job_spec_sensitive_info(spec: JobSpec):
     spec.ssh_key = None
+
+
+def get_job_connection_info(job_model: JobModel, run_spec: RunSpec) -> JobConnectionInfo:
+    # Run.attach() Python API method, used internally by CLI, uses the following as the Hostname
+    # in the SSH config:
+    # * for the (job=0 replica=0) job - run name, e.g., `my-task`
+    # * for other jobs - job name, e.g., `my-task-0-1`
+    attached_hostname = run_spec.run_name
+    if job_model.job_num != 0 or job_model.replica_num != 0:
+        attached_hostname = job_model.job_name
+    assert attached_hostname is not None
+
+    # ide_* fields are for dev-environment only
+    ide_name: Optional[str] = None
+    # IDE URLs are not set until the job status is switched to RUNNING,
+    # as JobRuntimeData.working_dir, which is required to build URLs, is returned
+    # by dstack-runner's `/api/run` method
+    attached_ide_url: Optional[str] = None
+    proxied_ide_url: Optional[str] = None
+    if (
+        run_spec.configuration.type == RunConfigurationType.DEV_ENVIRONMENT.value
+        and run_spec.configuration.ide is not None
+    ):
+        ide = get_ide(run_spec.configuration.ide)
+        if ide is not None:
+            ide_name = ide.name
+            jrd = get_job_runtime_data(job_model)
+            if jrd is not None and jrd.working_dir is not None:
+                attached_url_authority = build_ssh_url_authority(hostname=attached_hostname)
+                attached_ide_url = ide.get_url(attached_url_authority, jrd.working_dir)
+                proxied_url_authority = build_proxied_job_ssh_url_authority(job_model)
+                if proxied_url_authority is not None:
+                    proxied_ide_url = ide.get_url(proxied_url_authority, jrd.working_dir)
+
+    return JobConnectionInfo(
+        ide_name=ide_name,
+        attached_ide_url=attached_ide_url,
+        proxied_ide_url=proxied_ide_url,
+        attached_ssh_command=build_ssh_command(hostname=attached_hostname),
+        proxied_ssh_command=build_proxied_job_ssh_command(job_model),
+    )
 
 
 def _get_job_mount_point_attached_volume(

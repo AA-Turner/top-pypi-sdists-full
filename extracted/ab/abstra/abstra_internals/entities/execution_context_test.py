@@ -10,7 +10,7 @@ from abstra_internals.entities.execution_context import (
     Response,
     ScriptContext,
 )
-from abstra_internals.repositories.producer import PreExecution
+from abstra_internals.repositories.models import PreExecution
 
 
 def _make_preexecution(context) -> PreExecution:

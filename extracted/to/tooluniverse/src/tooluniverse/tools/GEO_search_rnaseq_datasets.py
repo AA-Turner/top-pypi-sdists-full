@@ -1,7 +1,7 @@
 """
 GEO_search_rnaseq_datasets
 
-Search NCBI GEO for RNA-seq gene expression datasets by query keyword, disease, tissue, or gene of interest.
+Search NCBI GEO for RNA-seq gene expression datasets by query keyword, disease, tissue, or gene o...
 """
 
 from typing import Any, Optional, Callable
@@ -9,7 +9,7 @@ from ._shared_client import get_shared_client
 
 
 def GEO_search_rnaseq_datasets(
-    query: Optional[str] = None,
+    query: Optional[str | Any] = None,
     organism: Optional[str] = "Homo sapiens",
     limit: Optional[int] = 20,
     *,
@@ -18,12 +18,12 @@ def GEO_search_rnaseq_datasets(
     validate: bool = True,
 ) -> Any:
     """
-    Search NCBI GEO for RNA-seq gene expression datasets by query keyword, disease, tissue, or gene of interest.
+    Search NCBI GEO for RNA-seq gene expression datasets by query keyword, disease, tissue, or gene o...
 
     Parameters
     ----------
-    query : str, optional
-        Search terms (e.g., 'BRCA1 breast cancer', 'T cell activation', 'Alzheimer disease').
+    query : str | Any
+        Search query (e.g., 'BRCA1 breast cancer', 'T cell activation', 'Alzheimer di...
     organism : str
         Organism scientific name (e.g., 'Homo sapiens', 'Mus musculus').
     limit : int
@@ -39,6 +39,9 @@ def GEO_search_rnaseq_datasets(
     -------
     Any
     """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
         for k, v in {"query": query, "organism": organism, "limit": limit}.items()

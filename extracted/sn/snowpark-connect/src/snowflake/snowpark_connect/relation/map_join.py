@@ -69,6 +69,7 @@ class JoinInfo:
     is_join_with: bool
     is_left_struct: bool
     is_right_struct: bool
+    is_directed: bool
 
     def is_using_columns(self):
         return self.condition_type == ConditionType.USING_COLUMNS
@@ -90,6 +91,7 @@ def map_join(rel: relation_proto.Relation) -> DataFrameContainer:
     disambiguated_right_container = _disambiguate_snowpark_columns(
         left_container, right_container, right_plan if left_plan != right_plan else None
     )
+    disambiguated_right_container.dataframe_hint = right_container.dataframe_hint
 
     join_info = _get_join_info(rel, left_container, disambiguated_right_container)
 
@@ -138,6 +140,7 @@ def _join_unconditionally(
         if join_type in ["left", "right", "full_outer"]
         else None,
         how=join_type,
+        directed=info.is_directed,
     )
 
     columns = left_container.column_map.columns + right_container.column_map.columns
@@ -222,6 +225,7 @@ def _join_using_columns(
             (left == right for left, right in snowpark_using_columns),
         ),
         how=info.join_type,
+        directed=info.is_directed,
     )
 
     # figure out default column ordering after the join
@@ -409,6 +413,7 @@ def _join_using_condition(
         right=right_input,
         on=join_expression.col,
         how=info.join_type,
+        directed=info.is_directed,
     )
 
     # early return for joinWith
@@ -554,6 +559,17 @@ def _get_join_info(
         is_left_struct = rel.join.join_data_type.is_left_struct
         is_right_struct = rel.join.join_data_type.is_right_struct
 
+    is_directed = left.dataframe_hint == "DIRECTED"
+
+    if right.dataframe_hint == "DIRECTED":
+        # TODO SNOW-3282322: Extend handling hits to right to left optimisation
+        raise ValueError(
+            "Illegal usage of DIRECTED hint: right side of the join cannot be directed"
+        )
+
+    left.dataframe_hint = None
+    right.dataframe_hint = None
+
     return JoinInfo(
         join_type,
         condition_type,
@@ -562,6 +578,7 @@ def _get_join_info(
         is_join_with,
         is_left_struct,
         is_right_struct,
+        is_directed,
     )
 
 

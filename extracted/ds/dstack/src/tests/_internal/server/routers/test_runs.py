@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, Mock, patch
 from uuid import UUID
 
 import pytest
-from fastapi.testclient import TestClient
 from freezegun import freeze_time
 from httpx import AsyncClient
 from sqlalchemy import select
@@ -15,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dstack._internal import settings
 from dstack._internal.core.errors import GatewayError
 from dstack._internal.core.models.backends.base import BackendType
-from dstack._internal.core.models.common import ApplyAction
+from dstack._internal.core.models.common import ApplyAction, EntityReference
 from dstack._internal.core.models.configurations import (
     AnyRunConfiguration,
     DevEnvironmentConfiguration,
@@ -32,7 +31,7 @@ from dstack._internal.core.models.instances import (
     InstanceType,
     Resources,
 )
-from dstack._internal.core.models.profiles import Schedule
+from dstack._internal.core.models.profiles import Profile, Schedule
 from dstack._internal.core.models.resources import Range
 from dstack._internal.core.models.runs import (
     ApplyRunPlanInput,
@@ -45,7 +44,6 @@ from dstack._internal.core.models.runs import (
 )
 from dstack._internal.core.models.users import GlobalRole, ProjectRole
 from dstack._internal.core.models.volumes import InstanceMountPoint, MountPoint
-from dstack._internal.server.main import app
 from dstack._internal.server.models import JobModel, RunModel
 from dstack._internal.server.schemas.runs import ApplyRunPlanRequest
 from dstack._internal.server.services.projects import add_project_member
@@ -70,15 +68,19 @@ from dstack._internal.server.testing.common import (
     get_auth_headers,
     get_fleet_spec,
     get_job_provisioning_data,
+    get_job_runtime_data,
     get_run_spec,
     get_ssh_fleet_configuration,
     list_events,
 )
 from dstack._internal.server.testing.matchers import SomeUUID4Str
 
-pytestmark = pytest.mark.usefixtures("image_config_mock")
+pytestmark = pytest.mark.usefixtures("image_config_mock", "disable_sshproxy")
 
-client = TestClient(app)
+
+@pytest.fixture
+def disable_sshproxy(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr("dstack._internal.server.settings.SSHPROXY_ENABLED", False)
 
 
 def get_dev_env_run_plan_dict(
@@ -107,7 +109,7 @@ def get_dev_env_run_plan_dict(
                 " && pip install -q --no-cache-dir ipykernel 2> /dev/null)"
                 " || echo 'no pip, ipykernel was not installed'"
                 " && echo"
-                " && echo 'To open in VS Code Desktop, use link below:'"
+                " && echo 'To open in VS Code, use link below:'"
                 " && echo"
                 ' && echo "  vscode://vscode-remote/ssh-remote+dry-run$DSTACK_WORKING_DIR"'
                 " && echo"
@@ -134,7 +136,7 @@ def get_dev_env_run_plan_dict(
                 " && pip install -q --no-cache-dir ipykernel 2> /dev/null)"
                 " || echo 'no pip, ipykernel was not installed'"
                 " && echo"
-                " && echo 'To open in VS Code Desktop, use link below:'"
+                " && echo 'To open in VS Code, use link below:'"
                 " && echo"
                 ' && echo "  vscode://vscode-remote/ssh-remote+dry-run$DSTACK_WORKING_DIR"'
                 " && echo"
@@ -340,7 +342,7 @@ def get_dev_env_run_dict(
                 " && pip install -q --no-cache-dir ipykernel 2> /dev/null)"
                 " || echo 'no pip, ipykernel was not installed'"
                 " && echo"
-                " && echo 'To open in VS Code Desktop, use link below:'"
+                " && echo 'To open in VS Code, use link below:'"
                 " && echo"
                 ' && echo "  vscode://vscode-remote/ssh-remote+test-run$DSTACK_WORKING_DIR"'
                 " && echo"
@@ -367,7 +369,7 @@ def get_dev_env_run_dict(
                 " && pip install -q --no-cache-dir ipykernel 2> /dev/null)"
                 " || echo 'no pip, ipykernel was not installed'"
                 " && echo"
-                " && echo 'To open in VS Code Desktop, use link below:'"
+                " && echo 'To open in VS Code, use link below:'"
                 " && echo"
                 ' && echo "  vscode://vscode-remote/ssh-remote+test-run$DSTACK_WORKING_DIR"'
                 " && echo"
@@ -561,6 +563,7 @@ def get_dev_env_run_dict(
                         "probes": [],
                     }
                 ],
+                "job_connection_info": None,
             }
         ],
         "latest_job_submission": {
@@ -729,6 +732,7 @@ class TestListRuns:
                                 "probes": [],
                             }
                         ],
+                        "job_connection_info": None,
                     }
                 ],
                 "latest_job_submission": {
@@ -919,6 +923,7 @@ class TestListRuns:
                                 "probes": [],
                             }
                         ],
+                        "job_connection_info": None,
                     }
                 ],
                 "latest_job_submission": {
@@ -1121,6 +1126,207 @@ class TestGetRun:
 
         assert response.status_code == 200
         assert response.json()["run_spec"]["configuration"]["probes"] == expected_probes
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "sshproxy",
+        [
+            pytest.param(False, id="without-sshproxy"),
+            pytest.param(True, id="with-sshproxy"),
+        ],
+    )
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_returns_run_with_job_connection_info_dev_environment(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        sshproxy: bool,
+    ):
+        monkeypatch.setattr("dstack._internal.server.settings.SSHPROXY_ENABLED", sshproxy)
+        monkeypatch.setattr("dstack._internal.server.settings.SSHPROXY_HOSTNAME", "example.com")
+        monkeypatch.setattr("dstack._internal.server.settings.SSHPROXY_PORT", 2222)
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        repo = await create_repo(
+            session=session,
+            project_id=project.id,
+        )
+        run_spec = get_run_spec(
+            repo_id=repo.name,
+            run_name="dev-env",
+            configuration=DevEnvironmentConfiguration(ide="cursor"),
+        )
+        run = await create_run(
+            session=session,
+            project=project,
+            repo=repo,
+            user=user,
+            run_spec=run_spec,
+            run_name=run_spec.run_name,
+        )
+        job_runtime_data = get_job_runtime_data(working_dir="/test")
+        job = await create_job(
+            session=session, run=run, status=JobStatus.RUNNING, job_runtime_data=job_runtime_data
+        )
+        response = await client.post(
+            f"/api/project/{project.name}/runs/get",
+            headers=get_auth_headers(user.token),
+            json={"run_name": run.run_name},
+        )
+        assert response.status_code == 200, response.json()
+        assert response.json()["jobs"][0]["job_connection_info"] == {
+            "ide_name": "Cursor",
+            "attached_ide_url": "cursor://vscode-remote/ssh-remote+dev-env/test",
+            "proxied_ide_url": f"cursor://vscode-remote/ssh-remote+{job.id.hex}@example.com:2222/test"
+            if sshproxy
+            else None,
+            "attached_ssh_command": ["ssh", "dev-env"],
+            "proxied_ssh_command": ["ssh", f"{job.id.hex}@example.com", "-p", "2222"]
+            if sshproxy
+            else None,
+        }
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_returns_run_with_job_connection_info_task(
+        self, monkeypatch: pytest.MonkeyPatch, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        repo = await create_repo(
+            session=session,
+            project_id=project.id,
+        )
+        run_spec = get_run_spec(
+            repo_id=repo.name,
+            run_name="test-task",
+            configuration=TaskConfiguration(commands=["sleep inf"]),
+        )
+        run = await create_run(
+            session=session,
+            project=project,
+            repo=repo,
+            user=user,
+            run_spec=run_spec,
+            run_name=run_spec.run_name,
+        )
+        job_runtime_data = get_job_runtime_data(working_dir="/test")
+        for replica_num in range(2):
+            for job_num in range(2):
+                await create_job(
+                    session=session,
+                    run=run,
+                    # test-task-1-1 is still PULLING, other jobs are RUNNING
+                    status=JobStatus.PULLING if replica_num == job_num == 1 else JobStatus.RUNNING,
+                    job_runtime_data=job_runtime_data,
+                    replica_num=replica_num,
+                    job_num=job_num,
+                )
+        response = await client.post(
+            f"/api/project/{project.name}/runs/get",
+            headers=get_auth_headers(user.token),
+            json={"run_name": run.run_name},
+        )
+        assert response.status_code == 200, response.json()
+        jobs = response.json()["jobs"]
+        common_fields = {
+            "ide_name": None,
+            "attached_ide_url": None,
+            "proxied_ide_url": None,
+            "proxied_ssh_command": None,
+        }
+        assert jobs[0]["job_connection_info"] == {
+            "attached_ssh_command": ["ssh", "test-task"],
+            **common_fields,
+        }
+        assert jobs[1]["job_connection_info"] == {
+            "attached_ssh_command": ["ssh", "test-task-1-0"],
+            **common_fields,
+        }
+        assert jobs[2]["job_connection_info"] == {
+            "attached_ssh_command": ["ssh", "test-task-0-1"],
+            **common_fields,
+        }
+        assert jobs[3]["job_connection_info"] is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "client_version,expected_fleets",
+        [
+            (
+                "0.20.13",
+                [
+                    "my-fleet",
+                    "other-project/other-fleet",
+                ],
+            ),
+            (
+                "0.20.14",
+                [
+                    {"project": None, "name": "my-fleet"},
+                    {"project": "other-project", "name": "other-fleet"},
+                ],
+            ),
+            (
+                None,
+                [
+                    {"project": None, "name": "my-fleet"},
+                    {"project": "other-project", "name": "other-fleet"},
+                ],
+            ),
+        ],
+    )
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_patches_fleets_for_old_clients(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        client_version: Optional[str],
+        expected_fleets: list,
+    ) -> None:
+        user = await create_user(session=session)
+        project = await create_project(session=session, owner=user)
+        repo = await create_repo(session=session, project_id=project.id)
+
+        fleets: list[Union[EntityReference, str]] = [
+            EntityReference(project=None, name="my-fleet"),
+            EntityReference(project="other-project", name="other-fleet"),
+        ]
+        run_spec = get_run_spec(
+            configuration=TaskConfiguration(
+                commands=["echo hello"],
+                fleets=fleets,
+            ),
+            repo_id=repo.name,
+            profile=Profile(
+                fleets=fleets,
+            ),
+        )
+        run = await create_run(
+            session=session, project=project, repo=repo, user=user, run_spec=run_spec
+        )
+
+        headers = get_auth_headers(user.token)
+        if client_version is not None:
+            headers["X-API-Version"] = client_version
+        response = await client.post(
+            f"/api/project/{project.name}/runs/get",
+            headers=headers,
+            json={"run_name": run.run_name},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["run_spec"]["configuration"]["fleets"] == expected_fleets
+        assert response.json()["run_spec"]["profile"]["fleets"] == expected_fleets
 
 
 class TestGetRunPlan:
@@ -1388,11 +1594,22 @@ class TestGetRunPlan:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    @pytest.mark.parametrize(
+        "configuration",
+        [
+            pytest.param({"type": "dev-environment", "ide": "vscode"}, id="regular-configuration"),
+            pytest.param(
+                {"type": "task", "commands": [":"], "image": "scratch"},
+                id="special-configuration-used-by-dstack-offer-cli-command",
+            ),
+        ],
+    )
     async def test_returns_run_plan_with_offer_from_imported_fleet(
         self,
         test_db,
         session: AsyncSession,
         client: AsyncClient,
+        configuration: dict,
     ) -> None:
         importer_user = await create_user(session, global_role=GlobalRole.USER)
         exporter_project = await create_project(session, name="exporter-project")
@@ -1424,7 +1641,7 @@ class TestGetRunPlan:
             exported_fleets=[fleet],
         )
 
-        run_spec = {"configuration": {"type": "dev-environment", "ide": "vscode"}}
+        run_spec = {"configuration": configuration}
         body = {"run_spec": run_spec}
         response = await client.post(
             "/api/project/importer-project/runs/get_plan",
@@ -1477,6 +1694,161 @@ class TestGetRunPlan:
         assert response.status_code == 200, response.json()
         response_json = response.json()
         assert response_json["project_name"] == "importer-project"
+        assert len(response_json["job_plans"][0]["offers"]) == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    @pytest.mark.parametrize(
+        ("configured_fleet", "expected_price"),
+        [
+            ("exporter-a/test-fleet", 1.0),
+            ("exporter-b/test-fleet", 2.0),
+            ("importer/test-fleet", 3.0),
+            ("test-fleet", 3.0),
+        ],
+    )
+    async def test_returns_run_plan_offers_from_specified_fleet_across_projects(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        configured_fleet: str,
+        expected_price: float,
+    ) -> None:
+        user = await create_user(session, global_role=GlobalRole.USER)
+        exporter_a = await create_project(session, name="exporter-a", owner=user)
+        exporter_b = await create_project(session, name="exporter-b", owner=user)
+        importer = await create_project(session, name="importer", owner=user)
+        await add_project_member(
+            session=session,
+            project=importer,
+            user=user,
+            project_role=ProjectRole.USER,
+        )
+        fleet_a = await create_fleet(
+            session=session,
+            project=exporter_a,
+            name="test-fleet",
+            spec=get_fleet_spec(get_ssh_fleet_configuration()),
+        )
+        await create_instance(
+            session=session,
+            project=exporter_a,
+            fleet=fleet_a,
+            backend=BackendType.REMOTE,
+            price=1.0,
+        )
+        fleet_b = await create_fleet(
+            session=session,
+            project=exporter_b,
+            name="test-fleet",
+            spec=get_fleet_spec(get_ssh_fleet_configuration()),
+        )
+        await create_instance(
+            session=session,
+            project=exporter_b,
+            fleet=fleet_b,
+            backend=BackendType.REMOTE,
+            price=2.0,
+        )
+        fleet_importer = await create_fleet(
+            session=session,
+            project=importer,
+            name="test-fleet",
+            spec=get_fleet_spec(get_ssh_fleet_configuration()),
+        )
+        await create_instance(
+            session=session,
+            project=importer,
+            fleet=fleet_importer,
+            backend=BackendType.REMOTE,
+            price=3.0,
+        )
+        await create_export(
+            session=session,
+            exporter_project=exporter_a,
+            importer_projects=[importer],
+            exported_fleets=[fleet_a],
+        )
+        await create_export(
+            session=session,
+            exporter_project=exporter_b,
+            importer_projects=[importer],
+            exported_fleets=[fleet_b],
+        )
+
+        run_spec = {
+            "configuration": {
+                "type": "dev-environment",
+                "ide": "vscode",
+                "fleets": [configured_fleet],
+            }
+        }
+        body = {"run_spec": run_spec}
+        response = await client.post(
+            "/api/project/importer/runs/get_plan",
+            headers=get_auth_headers(user.token),
+            json=body,
+        )
+        assert response.status_code == 200, response.json()
+        response_json = response.json()
+        assert response_json["project_name"] == "importer"
+        offers = response_json["job_plans"][0]["offers"]
+        assert offers[0]["price"] == expected_price
+        assert len(offers) == 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_returns_no_offers_if_imported_fleet_specified_without_project_prefix(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+    ) -> None:
+        importer_user = await create_user(session, global_role=GlobalRole.USER)
+        exporter_a = await create_project(session, name="exporter-a")
+        importer = await create_project(session, name="importer", owner=importer_user)
+        await add_project_member(
+            session=session,
+            project=importer,
+            user=importer_user,
+            project_role=ProjectRole.USER,
+        )
+        fleet_a = await create_fleet(
+            session=session,
+            project=exporter_a,
+            name="test-fleet",
+            spec=get_fleet_spec(get_ssh_fleet_configuration()),
+        )
+        await create_instance(
+            session=session,
+            project=exporter_a,
+            fleet=fleet_a,
+            backend=BackendType.REMOTE,
+        )
+        await create_export(
+            session=session,
+            exporter_project=exporter_a,
+            importer_projects=[importer],
+            exported_fleets=[fleet_a],
+        )
+
+        run_spec = {
+            "configuration": {
+                "type": "dev-environment",
+                "ide": "vscode",
+                "fleets": ["test-fleet"],  # won't work, should be exporter-a/test-fleet
+            }
+        }
+        body = {"run_spec": run_spec}
+        response = await client.post(
+            "/api/project/importer/runs/get_plan",
+            headers=get_auth_headers(importer_user.token),
+            json=body,
+        )
+        assert response.status_code == 200, response.json()
+        response_json = response.json()
+        assert response_json["project_name"] == "importer"
         assert len(response_json["job_plans"][0]["offers"]) == 0
 
     @pytest.mark.parametrize(

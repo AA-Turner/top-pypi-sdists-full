@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: proto-plus
-Version: 1.27.1
+Version: 1.27.2
 Summary: Beautiful, Pythonic protocol buffers
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache 2.0
 Project-URL: Documentation, https://googleapis.dev/python/proto-plus/latest/
-Project-URL: Repository, https://github.com/googleapis/proto-plus-python
+Project-URL: Repository, https://github.com/googleapis/google-cloud-python
+Project-URL: Homepage, https://github.com/googleapis/google-cloud-python/tree/main/packages/proto-plus
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -22,10 +21,10 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: protobuf<7.0.0,>=3.19.0
+Requires-Dist: protobuf<8.0.0,>=4.25.8
 Provides-Extra: testing
 Requires-Dist: google-api-core>=1.31.5; extra == "testing"
 Dynamic: license-file

@@ -20,6 +20,7 @@ class GlobalUserInfo:
         verified (bool):
         first_time_user (bool):
         role_source (GlobalUserInfoRoleSource):
+        disabled (bool):
         devops (Union[Unset, bool]):
         name (Union[Unset, str]):
         company (Union[Unset, str]):
@@ -33,6 +34,7 @@ class GlobalUserInfo:
     verified: bool
     first_time_user: bool
     role_source: GlobalUserInfoRoleSource
+    disabled: bool
     devops: Union[Unset, bool] = UNSET
     name: Union[Unset, str] = UNSET
     company: Union[Unset, str] = UNSET
@@ -49,6 +51,7 @@ class GlobalUserInfo:
         first_time_user = self.first_time_user
         role_source = self.role_source.value
 
+        disabled = self.disabled
         devops = self.devops
         name = self.name
         company = self.company
@@ -65,6 +68,7 @@ class GlobalUserInfo:
                 "verified": verified,
                 "first_time_user": first_time_user,
                 "role_source": role_source,
+                "disabled": disabled,
             }
         )
         if devops is not UNSET:
@@ -95,6 +99,8 @@ class GlobalUserInfo:
 
         role_source = GlobalUserInfoRoleSource(d.pop("role_source"))
 
+        disabled = d.pop("disabled")
+
         devops = d.pop("devops", UNSET)
 
         name = d.pop("name", UNSET)
@@ -112,6 +118,7 @@ class GlobalUserInfo:
             verified=verified,
             first_time_user=first_time_user,
             role_source=role_source,
+            disabled=disabled,
             devops=devops,
             name=name,
             company=company,

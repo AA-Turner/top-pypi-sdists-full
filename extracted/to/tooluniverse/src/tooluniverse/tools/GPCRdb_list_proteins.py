@@ -10,8 +10,8 @@ from ._shared_client import get_shared_client
 
 def GPCRdb_list_proteins(
     operation: Optional[str] = None,
-    family: Optional[str] = None,
     protein_class: Optional[str] = None,
+    family: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -24,10 +24,10 @@ def GPCRdb_list_proteins(
     ----------
     operation : str
         Operation type (fixed: list_proteins)
+    protein_class : str
+        Human-readable GPCR class or family name (e.g., 'Chemokine receptors', 'Class...
     family : str
         GPCR family code (e.g., '001' for Class A Rhodopsin, '002' for Class B). If n...
-    protein_class : str
-        Human-readable family name (e.g., 'Chemokine receptors', 'Class A'). Alias for family.
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -46,8 +46,8 @@ def GPCRdb_list_proteins(
         k: v
         for k, v in {
             "operation": operation,
-            "family": family,
             "protein_class": protein_class,
+            "family": family,
         }.items()
         if v is not None
     }

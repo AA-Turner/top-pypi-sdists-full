@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: denodo-sqlalchemy
-Version: 2.0.4
+Version: 2.0.5
 Summary: Denodo Dialect for SQLAlchemy
 Author-email: Denodo Research Labs <research.labs@denodo.com>
 License: This is the MIT license: http://www.opensource.org/licenses/mit-license.php

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.translate_v3.types import common
@@ -433,12 +433,12 @@ class AdaptiveMtTranslateResponse(proto.Message):
         proto.STRING,
         number=2,
     )
-    glossary_translations: MutableSequence[
-        "AdaptiveMtTranslation"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message="AdaptiveMtTranslation",
+    glossary_translations: MutableSequence["AdaptiveMtTranslation"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message="AdaptiveMtTranslation",
+        )
     )
 
 

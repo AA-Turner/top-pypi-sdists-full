@@ -1,7 +1,7 @@
 """
 RxClass_get_drug_classes
 
-Get drug classification from NLM RxClass for a drug name or RXCUI.
+Get drug classification from NLM RxClass for a drug name or RXCUI. Returns ATC codes, EPC (Establ...
 """
 
 from typing import Any, Optional, Callable
@@ -9,27 +9,27 @@ from ._shared_client import get_shared_client
 
 
 def RxClass_get_drug_classes(
-    drug_name: Optional[str] = None,
-    rxcui: Optional[str] = None,
-    rela_source: Optional[str] = None,
-    limit: Optional[int] = None,
+    drug_name: Optional[str | Any] = None,
+    rxcui: Optional[str | Any] = None,
+    rela_source: Optional[str | Any] = None,
+    limit: Optional[int | Any] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
 ) -> Any:
     """
-    Get drug classification from NLM RxClass for a drug name or RXCUI.
+    Get drug classification from NLM RxClass for a drug name or RXCUI. Returns ATC codes, EPC (Establ...
 
     Parameters
     ----------
-    drug_name : str, optional
-        Drug name to classify (e.g., 'metformin', 'aspirin').
-    rxcui : str, optional
-        RxNorm RXCUI identifier (alternative to drug_name).
-    rela_source : str, optional
-        Classification source: 'ATC' (default), 'FDASPL', 'MESH', 'VA', 'DAILYMED', 'ALL'.
-    limit : int, optional
+    drug_name : str | Any
+        Drug name to classify. Examples: 'metformin', 'aspirin', 'ibuprofen', 'metopr...
+    rxcui : str | Any
+        RxNorm RXCUI identifier (alternative to drug_name). Examples: '6809' (metform...
+    rela_source : str | Any
+        Classification source. Options: 'ATC' (WHO Anatomical Therapeutic Chemical, d...
+    limit : int | Any
         Maximum results to return (default 20).
     stream_callback : Callable, optional
         Callback for streaming output
@@ -42,6 +42,9 @@ def RxClass_get_drug_classes(
     -------
     Any
     """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
         for k, v in {

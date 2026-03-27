@@ -11,7 +11,7 @@ from urllib import request
 import typer
 from rich import print as pprint
 from rich.progress import BarColumn, Column, Progress, Table, TimeElapsedColumn
-from websocket import WebSocket
+from websocket import WebSocket, WebSocketException, WebSocketTimeoutException
 
 from comfy_cli.env_checker import check_comfy_server_running
 from comfy_cli.workspace_manager import WorkspaceManager
@@ -85,6 +85,15 @@ def execute(workflow: str, host, port, wait=True, verbose=False, local_paths=Fal
             pprint(f"[bold green]\nWorkflow execution completed ({elapsed})[/bold green]")
         else:
             pprint("[bold green]Workflow queued[/bold green]")
+    except WebSocketTimeoutException:
+        pprint(
+            f"[bold red]Error: WebSocket timed out after {timeout}s waiting for server response.[/bold red]\n"
+            "[yellow]For long-running workflows, increase the timeout: comfy run --workflow <file> --timeout 300[/yellow]"
+        )
+        raise typer.Exit(code=1)
+    except (WebSocketException, ConnectionError, OSError) as e:
+        pprint(f"[bold red]Error: Lost connection to ComfyUI server: {e}[/bold red]")
+        raise typer.Exit(code=1)
     finally:
         if progress:
             progress.stop()
@@ -169,7 +178,9 @@ class WorkflowExecution:
         self.progress.update(self.overall_task, completed=self.total_nodes - len(self.remaining_nodes))
 
     def get_node_title(self, node_id):
-        node = self.workflow[node_id]
+        node = self.workflow.get(node_id)
+        if node is None:
+            return str(node_id)
         if "_meta" in node and "title" in node["_meta"]:
             return node["_meta"]["title"]
         return node["class_type"]
@@ -178,7 +189,10 @@ class WorkflowExecution:
         if not self.verbose:
             return
 
-        node = self.workflow[node_id]
+        node = self.workflow.get(node_id)
+        if node is None:
+            pprint(f"{type} : [bright_black]({node_id})[/]")
+            return
         class_type = node["class_type"]
         title = self.get_node_title(node_id)
 

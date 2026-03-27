@@ -1,7 +1,7 @@
 """
 KEGG_convert_ids
 
-Convert KEGG gene/compound identifiers to external database IDs using the KEGG /conv API.
+Convert KEGG gene/compound identifiers to external database IDs using the KEGG /conv API. Maps KE...
 """
 
 from typing import Any, Optional, Callable
@@ -15,16 +15,16 @@ def KEGG_convert_ids(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> Any:
+) -> list[Any]:
     """
-    Convert KEGG gene/compound identifiers to external database IDs.
+    Convert KEGG gene/compound identifiers to external database IDs using the KEGG /conv API. Maps KE...
 
     Parameters
     ----------
     kegg_id : str
-        KEGG entry ID (e.g., 'hsa:7157' for TP53, 'cpd:C00002' for ATP).
+        KEGG entry ID. For genes use format 'organism:gene_id' (e.g., 'hsa:7157' for ...
     target_db : str
-        External database: 'uniprot', 'ncbi-geneid', 'ncbi-proteinid', 'chebi', 'pubchem'.
+        External database to convert to. Options: 'uniprot' (UniProt accessions), 'nc...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -34,8 +34,11 @@ def KEGG_convert_ids(
 
     Returns
     -------
-    Any
+    list[Any]
     """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
         for k, v in {"kegg_id": kegg_id, "target_db": target_db}.items()

@@ -24,7 +24,7 @@ pub(crate) async fn self_update(
 ) -> Result<ExitStatus> {
     if client_builder.is_offline() {
         writeln!(
-            printer.stderr(),
+            printer.stderr_important(),
             "{}",
             format_args!(
                 "{}{} Self-update is not possible because network connectivity is disabled (i.e., with `--offline`)",
@@ -36,7 +36,9 @@ pub(crate) async fn self_update(
     }
 
     let mut updater = AxoUpdater::new_for("uv");
-    updater.disable_installer_output();
+    updater
+        .set_client(client_builder.build().raw_client().clone())
+        .disable_installer_output();
 
     if let Some(ref token) = token {
         updater.set_github_token(token);
@@ -47,7 +49,7 @@ pub(crate) async fn self_update(
     let Ok(updater) = updater.load_receipt() else {
         debug!("No receipt found; assuming uv was installed via a package manager");
         writeln!(
-            printer.stderr(),
+            printer.stderr_important(),
             "{}",
             format_args!(
                 concat!(
@@ -79,7 +81,7 @@ pub(crate) async fn self_update(
         let receipt_prefix = updater.install_prefix_root()?;
 
         writeln!(
-            printer.stderr(),
+            printer.stderr_important(),
             "{}",
             format_args!(
                 concat!(
@@ -152,7 +154,7 @@ pub(crate) async fn self_update(
 
         if dry_run {
             writeln!(
-                printer.stderr(),
+                printer.stderr_important(),
                 "Would update uv from {} to {}",
                 format!("v{}", env!("CARGO_PKG_VERSION")).bold().white(),
                 format!("v{}", resolved.version).bold().white(),
@@ -188,7 +190,7 @@ pub(crate) async fn self_update(
                 }
             };
             writeln!(
-                printer.stderr(),
+                printer.stderr_important(),
                 "Would update uv from {} to {}",
                 format!("v{}", env!("CARGO_PKG_VERSION")).bold().white(),
                 version.bold().white(),
@@ -309,7 +311,7 @@ async fn run_updater(
             };
 
             writeln!(
-                printer.stderr(),
+                printer.stderr_important(),
                 "{}",
                 format_args!(
                     "{}{} {direction} uv {}! {}",
@@ -340,7 +342,7 @@ async fn run_updater(
             return if let AxoupdateError::Reqwest(err) = err {
                 if err.status() == Some(http::StatusCode::FORBIDDEN) && !has_token {
                     writeln!(
-                        printer.stderr(),
+                        printer.stderr_important(),
                         "{}",
                         format_args!(
                             "{}{} GitHub API rate limit exceeded. Please provide a GitHub token via the {} option.",

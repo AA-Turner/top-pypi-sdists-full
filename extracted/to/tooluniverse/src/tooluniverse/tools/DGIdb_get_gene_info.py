@@ -9,7 +9,9 @@ from ._shared_client import get_shared_client
 
 
 def DGIdb_get_gene_info(
-    genes: list[str],
+    genes: Optional[list[str]] = None,
+    gene_name: Optional[str] = None,
+    gene: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -21,7 +23,11 @@ def DGIdb_get_gene_info(
     Parameters
     ----------
     genes : list[str]
-        List of gene symbols.
+        List of gene symbols. Aliases: gene_name, gene.
+    gene_name : str
+        Alias for genes. Single gene symbol (e.g., 'EGFR').
+    gene : str
+        Alias for genes. Single gene symbol (e.g., 'EGFR').
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -36,7 +42,11 @@ def DGIdb_get_gene_info(
     # Handle mutable defaults to avoid B006 linting error
 
     # Strip None values so optional parameters don't trigger schema validation errors
-    _args = {k: v for k, v in {"genes": genes}.items() if v is not None}
+    _args = {
+        k: v
+        for k, v in {"genes": genes, "gene_name": gene_name, "gene": gene}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "DGIdb_get_gene_info",

@@ -16,25 +16,29 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
-from google.cloud.retail_v2alpha.types import export_config, import_config
-from google.cloud.retail_v2alpha.types import product
+from google.cloud.retail_v2alpha.types import (
+    export_config,
+    import_config,
+    product,
+    product_service,
+    purge_config,
+)
 from google.cloud.retail_v2alpha.types import product as gcr_product
-from google.cloud.retail_v2alpha.types import product_service, purge_config
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
 from .rest_base import _BaseProductServiceRestTransport
@@ -892,6 +896,12 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[ProductServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -1039,9 +1049,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseProductServiceRestTransport._BaseAddFulfillmentPlaces._get_http_options()
-            )
+            http_options = _BaseProductServiceRestTransport._BaseAddFulfillmentPlaces._get_http_options()
 
             request, metadata = self._interceptor.pre_add_fulfillment_places(
                 request, metadata
@@ -1067,7 +1075,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1195,9 +1203,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseProductServiceRestTransport._BaseAddLocalInventories._get_http_options()
-            )
+            http_options = _BaseProductServiceRestTransport._BaseAddLocalInventories._get_http_options()
 
             request, metadata = self._interceptor.pre_add_local_inventories(
                 request, metadata
@@ -1223,7 +1229,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1519,7 +1525,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1638,7 +1644,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -1940,7 +1946,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2243,7 +2249,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2371,9 +2377,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseProductServiceRestTransport._BaseRemoveFulfillmentPlaces._get_http_options()
-            )
+            http_options = _BaseProductServiceRestTransport._BaseRemoveFulfillmentPlaces._get_http_options()
 
             request, metadata = self._interceptor.pre_remove_fulfillment_places(
                 request, metadata
@@ -2399,7 +2403,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2529,9 +2533,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseProductServiceRestTransport._BaseRemoveLocalInventories._get_http_options()
-            )
+            http_options = _BaseProductServiceRestTransport._BaseRemoveLocalInventories._get_http_options()
 
             request, metadata = self._interceptor.pre_remove_local_inventories(
                 request, metadata
@@ -2557,7 +2559,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2712,7 +2714,7 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3020,7 +3022,9 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._RemoveFulfillmentPlaces(self._session, self._host, self._interceptor)  # type: ignore
+        return self._RemoveFulfillmentPlaces(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def remove_local_inventories(
@@ -3030,7 +3034,9 @@ class ProductServiceRestTransport(_BaseProductServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._RemoveLocalInventories(self._session, self._host, self._interceptor)  # type: ignore
+        return self._RemoveLocalInventories(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def set_inventory(

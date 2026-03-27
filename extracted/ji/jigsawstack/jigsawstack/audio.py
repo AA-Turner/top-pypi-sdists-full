@@ -50,15 +50,10 @@ class SpeechToTextParams(TypedDict):
     """
 
 
-class ChunkParams(TypedDict):
+class ChunkResponse(TypedDict):
     text: str
     timestamp: tuple[int, int]
-
-
-class BySpeakerParams(ChunkParams):
-    speaker: str
-    timestamp: tuple[int, int]
-    text: str
+    speaker: Optional[str]
 
 
 class SpeechToTextResponse(BaseResponse):
@@ -67,14 +62,9 @@ class SpeechToTextResponse(BaseResponse):
     the text of the transcription
     """
 
-    chunks: List[ChunkParams]
+    chunks: List[ChunkResponse]
     """
     the chunks of the transcription
-    """
-
-    speakers: Optional[List[BySpeakerParams]]
-    """
-    the speakers of the transcription, available if by_speaker is set to true
     """
 
     language_detected: Optional[Dict[str, Any]]

@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import os
 from typing import Callable, Dict
 
 from abstra_internals.controllers.sdk.sdk_context import SDKContextStore
@@ -76,8 +79,18 @@ def get_query_params() -> Dict[str, str]:
     return SDKContextStore.get_by_thread().page_sdk.get_query_params()
 
 
+def register_static(file_path: str | os.PathLike) -> str:
+    """Register a static file to be served by the Pages system. Copies the file to a public directory with a content-hashed name for cache busting and returns the URL path. Raises FileNotFoundError if the file does not exist.
+
+    Args:
+        file_path (str | os.PathLike): Path to the static file to register.
+    """
+    return SDKContextStore.get_by_thread().page_sdk.register_static(file_path)
+
+
 __all__ = [
     "register_function",
+    "register_static",
     "get_user",
     "get_query_params",
 ]

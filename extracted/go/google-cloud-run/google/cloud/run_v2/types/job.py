@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.api import launch_stage_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api.launch_stage_pb2 as launch_stage_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.run_v2.types import (
@@ -670,6 +670,7 @@ class ExecutionReference(proto.Message):
             EXECUTION_CANCELLED (5):
                 Job execution has been cancelled by the user.
         """
+
         COMPLETION_STATUS_UNSPECIFIED = 0
         EXECUTION_SUCCEEDED = 1
         EXECUTION_FAILED = 2

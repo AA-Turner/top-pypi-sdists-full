@@ -114,7 +114,7 @@ class AnalyticRecon(Recon):
             else:            
                 raise ValueError(f"Unknown analytic type: {self.analyticType}")
         else:
-            self.AOsignal_demoldulated = self.parse_and_demodulate(withTumor=False)
+            self.AOsignal_demoldulated = self.experiment.parse_and_demodulate(withTumor=False)
             if self.analyticType == AnalyticType.iFOURIER:
                 self.reconLaser = self._iFourierRecon(
                     R = AOsignal    ,

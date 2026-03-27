@@ -10,11 +10,11 @@ from tablestore.protobuf import search_pb2
 
 class TableMeta(DefaultJsonObject):
 
-    def __init__(self, table_name, schema_of_primary_key, defined_columns=[]):
+    def __init__(self, table_name, schema_of_primary_key, defined_columns=None):
         # schema_of_primary_key: [('PK0', 'STRING'), ('PK1', 'INTEGER'), ...]
         self.table_name = table_name
         self.schema_of_primary_key = schema_of_primary_key
-        self.defined_columns = defined_columns
+        self.defined_columns = [] if defined_columns is None else defined_columns[:]
 
 
 class TableOptions(DefaultJsonObject):
@@ -195,8 +195,8 @@ class Sort(DefaultJsonObject):
 
 class IndexSetting(DefaultJsonObject):
 
-    def __init__(self, routing_fields=[]):
-        self.routing_fields = routing_fields
+    def __init__(self, routing_fields=None):
+        self.routing_fields = [] if routing_fields is None else routing_fields[:]
 
 
 class VectorDataType(IntEnum):
@@ -222,13 +222,18 @@ class JsonType(IntEnum):
     NESTED_JSON = search_pb2.NESTED_JSON
 
 
+class TextSimilarity(IntEnum):
+    BM25 = search_pb2.BM25
+    SHORT_TEXT = search_pb2.SHORT_TEXT
+
+
 class FieldSchema(DefaultJsonObject):
 
     def __init__(self, field_name, field_type, index=None,
                  store=None, is_array=None, enable_sort_and_agg=None,
-                 analyzer=None, sub_field_schemas=[], analyzer_parameter=None,
-                 date_formats=[], is_virtual_field=False, source_fields=[], vector_options=None,
-                 enable_highlighting=None, json_type=None):
+                 analyzer=None, sub_field_schemas=None, analyzer_parameter=None,
+                 date_formats=None, is_virtual_field=False, source_fields=None, vector_options=None,
+                 enable_highlighting=None, json_type=None, text_similarity=None):
         self.field_name = field_name
         self.field_type = field_type
         self.index = index
@@ -237,13 +242,14 @@ class FieldSchema(DefaultJsonObject):
         self.enable_sort_and_agg = enable_sort_and_agg
         self.analyzer = analyzer
         self.analyzer_parameter = analyzer_parameter
-        self.sub_field_schemas = sub_field_schemas
-        self.date_formats = date_formats
+        self.sub_field_schemas = [] if sub_field_schemas is None else sub_field_schemas[:]
+        self.date_formats = [] if date_formats is None else date_formats[:]
         self.is_virtual_field = is_virtual_field
-        self.source_fields = source_fields
+        self.source_fields = [] if source_fields is None else source_fields[:]
         self.vector_options = vector_options
         self.enable_highlighting = enable_highlighting
         self.json_type = json_type
+        self.text_similarity = text_similarity
 
 
 class SyncPhase(IntEnum):
@@ -356,12 +362,12 @@ class UpdateTableResponse(CommonResponse):
 
 class DescribeTableResponse(CommonResponse):
 
-    def __init__(self, table_meta, table_options, reserved_throughput_details, secondary_indexes=[], sse_details=None):
+    def __init__(self, table_meta, table_options, reserved_throughput_details, secondary_indexes=None, sse_details=None):
         self.table_meta = table_meta
         self.table_options = table_options
         self.reserved_throughput_details = reserved_throughput_details
         self.sse_details = sse_details
-        self.secondary_indexes = secondary_indexes
+        self.secondary_indexes = [] if secondary_indexes is None else secondary_indexes[:]
 
 
 class RowDataItem(DefaultJsonObject):
@@ -737,7 +743,7 @@ class Condition(DefaultJsonObject):
         self.column_condition = column_condition
 
     def get_column_condition(self):
-        self.column_condition
+        return self.column_condition
 
 
 class Row(DefaultJsonObject):
@@ -1106,12 +1112,12 @@ class WildcardQuery(Query):
 
 class BoolQuery(Query):
 
-    def __init__(self, must_queries=[], must_not_queries=[],
-                 filter_queries=[], should_queries=[], minimum_should_match=None, weight=None):
-        self.must_queries = must_queries
-        self.must_not_queries = must_not_queries
-        self.filter_queries = filter_queries
-        self.should_queries = should_queries
+    def __init__(self, must_queries=None, must_not_queries=None,
+                 filter_queries=None, should_queries=None, minimum_should_match=None, weight=None):
+        self.must_queries = [] if must_queries is None else must_queries[:]
+        self.must_not_queries = [] if must_not_queries is None else must_not_queries[:]
+        self.filter_queries = [] if filter_queries is None else filter_queries[:]
+        self.should_queries = [] if should_queries is None else should_queries[:]
         self.minimum_should_match = minimum_should_match
         self.weight = weight
 
@@ -1278,8 +1284,8 @@ class ColumnReturnType(IntEnum):
 
 class ColumnsToGet(DefaultJsonObject):
 
-    def __init__(self, column_names=[], return_type=ColumnReturnType.NONE):
-        self.column_names = column_names
+    def __init__(self, column_names=None, return_type=ColumnReturnType.NONE):
+        self.column_names = [] if column_names is None else column_names[:]
         self.return_type = return_type
 
 

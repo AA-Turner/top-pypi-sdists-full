@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured
-Version: 0.21.5
+Version: 0.22.6
 Summary: A library that prepares raw documents for downstream ML tasks.
 Project-URL: Homepage, https://github.com/Unstructured-IO/unstructured
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
@@ -41,12 +41,13 @@ Requires-Dist: spacy<4.0.0,>=3.7.0
 Requires-Dist: tqdm<5.0.0,>=4.67.3
 Requires-Dist: typing-extensions<5.0.0,>=4.15.0
 Requires-Dist: unstructured-client<1.0.0,>=0.25.9
-Requires-Dist: wrapt<2.0.0,>=1.0.0
+Requires-Dist: wrapt<3.0.0,>=2.1.1
 Provides-Extra: all-docs
 Requires-Dist: google-cloud-vision<4.0.0,>=3.12.1; extra == 'all-docs'
 Requires-Dist: markdown<4.0.0,>=3.10.1; extra == 'all-docs'
 Requires-Dist: msoffcrypto-tool<7.0.0,>=6.0.0; extra == 'all-docs'
 Requires-Dist: networkx<4.0.0,>=3.2.0; extra == 'all-docs'
+Requires-Dist: openai-whisper<20270000,>=20231117; extra == 'all-docs'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'all-docs'
 Requires-Dist: pandas<4.0.0,>=2.0.0; extra == 'all-docs'
 Requires-Dist: pdf2image<2.0.0,>=1.17.0; extra == 'all-docs'
@@ -62,6 +63,8 @@ Requires-Dist: unstructured-inference<2.0.0,>=1.2.0; (platform_system != 'Window
 Requires-Dist: unstructured-inference<2.0.0,>=1.2.0; (platform_system == 'Windows' and python_version < '3.13') and extra == 'all-docs'
 Requires-Dist: unstructured-pytesseract<1.0.0,>=0.3.15; extra == 'all-docs'
 Requires-Dist: xlrd<3.0.0,>=2.0.1; extra == 'all-docs'
+Provides-Extra: audio
+Requires-Dist: openai-whisper<20270000,>=20231117; extra == 'audio'
 Provides-Extra: chunking-tokens
 Requires-Dist: tiktoken<1.0.0,>=0.12.0; extra == 'chunking-tokens'
 Provides-Extra: csv
@@ -77,7 +80,7 @@ Provides-Extra: huggingface
 Requires-Dist: sentencepiece<1.0.0,>=0.2.0; extra == 'huggingface'
 Requires-Dist: torch<3.0.0,>=2.10.0; (platform_system != 'Windows') and extra == 'huggingface'
 Requires-Dist: torch<3.0.0,>=2.10.0; (platform_system == 'Windows' and python_version < '3.13') and extra == 'huggingface'
-Requires-Dist: transformers<5.0.0,>=4.55.4; extra == 'huggingface'
+Requires-Dist: transformers<6.0.0,>=5.2.0; extra == 'huggingface'
 Provides-Extra: image
 Requires-Dist: google-cloud-vision<4.0.0,>=3.12.1; extra == 'image'
 Requires-Dist: pdf2image<2.0.0,>=1.17.0; extra == 'image'
@@ -96,6 +99,7 @@ Requires-Dist: google-cloud-vision<4.0.0,>=3.12.1; extra == 'local-inference'
 Requires-Dist: markdown<4.0.0,>=3.10.1; extra == 'local-inference'
 Requires-Dist: msoffcrypto-tool<7.0.0,>=6.0.0; extra == 'local-inference'
 Requires-Dist: networkx<4.0.0,>=3.2.0; extra == 'local-inference'
+Requires-Dist: openai-whisper<20270000,>=20231117; extra == 'local-inference'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'local-inference'
 Requires-Dist: pandas<4.0.0,>=2.0.0; extra == 'local-inference'
 Requires-Dist: pdf2image<2.0.0,>=1.17.0; extra == 'local-inference'
@@ -424,4 +428,4 @@ Encountered a bug? Please create a new [GitHub issue](https://github.com/Unstruc
 
 ## :chart_with_upwards_trend: Analytics
 
-This library includes a very lightweight analytics "ping" when the library is loaded, however you can opt out of this data collection by setting the environment variable `DO_NOT_TRACK=true` before executing any `unstructured` code. To learn more about how we collect and use this data, please read our [Privacy Policy](https://unstructured.io/privacy-policy).
+Telemetry is **off by default**. To opt in, set `UNSTRUCTURED_TELEMETRY_ENABLED=true` (or `=1`) before importing `unstructured`. To opt out, set `DO_NOT_TRACK` or `SCARF_NO_ANALYTICS` to any non-empty value (e.g. `true`, `1`, `yes`, `false`, `0`—any non-empty string opts out); opt-out takes precedence. Unset the variable or leave it empty if you do not want to opt out. See our [Privacy Policy](https://unstructured.io/privacy-policy).

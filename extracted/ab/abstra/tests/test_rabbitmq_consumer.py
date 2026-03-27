@@ -1,7 +1,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from abstra_internals.repositories.consumer import QueueMessage, RabbitMQConsumer
+from abstra_internals.repositories.consumer import RabbitMQConsumer
+from abstra_internals.repositories.models import QueueMessage
 
 
 class TestRabbitMQConsumerACK(unittest.TestCase):

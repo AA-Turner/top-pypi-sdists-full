@@ -16,18 +16,18 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers, operations_v1
 import google.auth  # type: ignore
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
-import proto  # type: ignore
 
 from google.cloud.osconfig_v1alpha.types import (
     instance_os_policies_compliance,
@@ -61,7 +61,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -96,7 +96,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -195,6 +195,10 @@ class OsConfigZonalServiceGrpcTransport(OsConfigZonalServiceTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport
@@ -381,12 +385,12 @@ class OsConfigZonalServiceGrpcTransport(OsConfigZonalServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_os_policy_assignment" not in self._stubs:
-            self._stubs[
-                "create_os_policy_assignment"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.osconfig.v1alpha.OsConfigZonalService/CreateOSPolicyAssignment",
-                request_serializer=os_policy_assignments.CreateOSPolicyAssignmentRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["create_os_policy_assignment"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.osconfig.v1alpha.OsConfigZonalService/CreateOSPolicyAssignment",
+                    request_serializer=os_policy_assignments.CreateOSPolicyAssignmentRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["create_os_policy_assignment"]
 
@@ -421,12 +425,12 @@ class OsConfigZonalServiceGrpcTransport(OsConfigZonalServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_os_policy_assignment" not in self._stubs:
-            self._stubs[
-                "update_os_policy_assignment"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.osconfig.v1alpha.OsConfigZonalService/UpdateOSPolicyAssignment",
-                request_serializer=os_policy_assignments.UpdateOSPolicyAssignmentRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["update_os_policy_assignment"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.osconfig.v1alpha.OsConfigZonalService/UpdateOSPolicyAssignment",
+                    request_serializer=os_policy_assignments.UpdateOSPolicyAssignmentRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["update_os_policy_assignment"]
 
@@ -488,12 +492,12 @@ class OsConfigZonalServiceGrpcTransport(OsConfigZonalServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_os_policy_assignments" not in self._stubs:
-            self._stubs[
-                "list_os_policy_assignments"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.osconfig.v1alpha.OsConfigZonalService/ListOSPolicyAssignments",
-                request_serializer=os_policy_assignments.ListOSPolicyAssignmentsRequest.serialize,
-                response_deserializer=os_policy_assignments.ListOSPolicyAssignmentsResponse.deserialize,
+            self._stubs["list_os_policy_assignments"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.osconfig.v1alpha.OsConfigZonalService/ListOSPolicyAssignments",
+                    request_serializer=os_policy_assignments.ListOSPolicyAssignmentsRequest.serialize,
+                    response_deserializer=os_policy_assignments.ListOSPolicyAssignmentsResponse.deserialize,
+                )
             )
         return self._stubs["list_os_policy_assignments"]
 
@@ -521,12 +525,12 @@ class OsConfigZonalServiceGrpcTransport(OsConfigZonalServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_os_policy_assignment_revisions" not in self._stubs:
-            self._stubs[
-                "list_os_policy_assignment_revisions"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.osconfig.v1alpha.OsConfigZonalService/ListOSPolicyAssignmentRevisions",
-                request_serializer=os_policy_assignments.ListOSPolicyAssignmentRevisionsRequest.serialize,
-                response_deserializer=os_policy_assignments.ListOSPolicyAssignmentRevisionsResponse.deserialize,
+            self._stubs["list_os_policy_assignment_revisions"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.osconfig.v1alpha.OsConfigZonalService/ListOSPolicyAssignmentRevisions",
+                    request_serializer=os_policy_assignments.ListOSPolicyAssignmentRevisionsRequest.serialize,
+                    response_deserializer=os_policy_assignments.ListOSPolicyAssignmentRevisionsResponse.deserialize,
+                )
             )
         return self._stubs["list_os_policy_assignment_revisions"]
 
@@ -564,12 +568,12 @@ class OsConfigZonalServiceGrpcTransport(OsConfigZonalServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_os_policy_assignment" not in self._stubs:
-            self._stubs[
-                "delete_os_policy_assignment"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.osconfig.v1alpha.OsConfigZonalService/DeleteOSPolicyAssignment",
-                request_serializer=os_policy_assignments.DeleteOSPolicyAssignmentRequest.serialize,
-                response_deserializer=operations_pb2.Operation.FromString,
+            self._stubs["delete_os_policy_assignment"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.osconfig.v1alpha.OsConfigZonalService/DeleteOSPolicyAssignment",
+                    request_serializer=os_policy_assignments.DeleteOSPolicyAssignmentRequest.serialize,
+                    response_deserializer=operations_pb2.Operation.FromString,
+                )
             )
         return self._stubs["delete_os_policy_assignment"]
 
@@ -597,12 +601,12 @@ class OsConfigZonalServiceGrpcTransport(OsConfigZonalServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_instance_os_policies_compliance" not in self._stubs:
-            self._stubs[
-                "get_instance_os_policies_compliance"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.osconfig.v1alpha.OsConfigZonalService/GetInstanceOSPoliciesCompliance",
-                request_serializer=instance_os_policies_compliance.GetInstanceOSPoliciesComplianceRequest.serialize,
-                response_deserializer=instance_os_policies_compliance.InstanceOSPoliciesCompliance.deserialize,
+            self._stubs["get_instance_os_policies_compliance"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.osconfig.v1alpha.OsConfigZonalService/GetInstanceOSPoliciesCompliance",
+                    request_serializer=instance_os_policies_compliance.GetInstanceOSPoliciesComplianceRequest.serialize,
+                    response_deserializer=instance_os_policies_compliance.InstanceOSPoliciesCompliance.deserialize,
+                )
             )
         return self._stubs["get_instance_os_policies_compliance"]
 
@@ -630,12 +634,12 @@ class OsConfigZonalServiceGrpcTransport(OsConfigZonalServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_instance_os_policies_compliances" not in self._stubs:
-            self._stubs[
-                "list_instance_os_policies_compliances"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.osconfig.v1alpha.OsConfigZonalService/ListInstanceOSPoliciesCompliances",
-                request_serializer=instance_os_policies_compliance.ListInstanceOSPoliciesCompliancesRequest.serialize,
-                response_deserializer=instance_os_policies_compliance.ListInstanceOSPoliciesCompliancesResponse.deserialize,
+            self._stubs["list_instance_os_policies_compliances"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.osconfig.v1alpha.OsConfigZonalService/ListInstanceOSPoliciesCompliances",
+                    request_serializer=instance_os_policies_compliance.ListInstanceOSPoliciesCompliancesRequest.serialize,
+                    response_deserializer=instance_os_policies_compliance.ListInstanceOSPoliciesCompliancesResponse.deserialize,
+                )
             )
         return self._stubs["list_instance_os_policies_compliances"]
 
@@ -663,12 +667,12 @@ class OsConfigZonalServiceGrpcTransport(OsConfigZonalServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_os_policy_assignment_report" not in self._stubs:
-            self._stubs[
-                "get_os_policy_assignment_report"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.osconfig.v1alpha.OsConfigZonalService/GetOSPolicyAssignmentReport",
-                request_serializer=os_policy_assignment_reports.GetOSPolicyAssignmentReportRequest.serialize,
-                response_deserializer=os_policy_assignment_reports.OSPolicyAssignmentReport.deserialize,
+            self._stubs["get_os_policy_assignment_report"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.osconfig.v1alpha.OsConfigZonalService/GetOSPolicyAssignmentReport",
+                    request_serializer=os_policy_assignment_reports.GetOSPolicyAssignmentReportRequest.serialize,
+                    response_deserializer=os_policy_assignment_reports.OSPolicyAssignmentReport.deserialize,
+                )
             )
         return self._stubs["get_os_policy_assignment_report"]
 
@@ -696,12 +700,12 @@ class OsConfigZonalServiceGrpcTransport(OsConfigZonalServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_os_policy_assignment_reports" not in self._stubs:
-            self._stubs[
-                "list_os_policy_assignment_reports"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.osconfig.v1alpha.OsConfigZonalService/ListOSPolicyAssignmentReports",
-                request_serializer=os_policy_assignment_reports.ListOSPolicyAssignmentReportsRequest.serialize,
-                response_deserializer=os_policy_assignment_reports.ListOSPolicyAssignmentReportsResponse.deserialize,
+            self._stubs["list_os_policy_assignment_reports"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.osconfig.v1alpha.OsConfigZonalService/ListOSPolicyAssignmentReports",
+                    request_serializer=os_policy_assignment_reports.ListOSPolicyAssignmentReportsRequest.serialize,
+                    response_deserializer=os_policy_assignment_reports.ListOSPolicyAssignmentReportsResponse.deserialize,
+                )
             )
         return self._stubs["list_os_policy_assignment_reports"]
 
@@ -814,12 +818,12 @@ class OsConfigZonalServiceGrpcTransport(OsConfigZonalServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_vulnerability_reports" not in self._stubs:
-            self._stubs[
-                "list_vulnerability_reports"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.osconfig.v1alpha.OsConfigZonalService/ListVulnerabilityReports",
-                request_serializer=vulnerability.ListVulnerabilityReportsRequest.serialize,
-                response_deserializer=vulnerability.ListVulnerabilityReportsResponse.deserialize,
+            self._stubs["list_vulnerability_reports"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.osconfig.v1alpha.OsConfigZonalService/ListVulnerabilityReports",
+                    request_serializer=vulnerability.ListVulnerabilityReportsRequest.serialize,
+                    response_deserializer=vulnerability.ListVulnerabilityReportsResponse.deserialize,
+                )
             )
         return self._stubs["list_vulnerability_reports"]
 

@@ -229,7 +229,7 @@ async def init(
     config = CLIConfig.get_project_config()
     if config.get("token") is None:
         raise AuthNoTokenException
-    folder = folder if folder else getcwd()
+    folder = folder or getcwd()
 
     workspaces: List[Dict[str, Any]] = (await client.user_workspaces_and_branches()).get("workspaces", [])
     current_ws: Dict[str, Any] = next(
@@ -644,7 +644,7 @@ async def pull(ctx: Context, folder: str, auto: bool, match: Optional[str], forc
     """Retrieve latest versions for project files from Tinybird."""
 
     client = ctx.ensure_object(dict)["client"]
-    folder = folder if folder else getcwd()
+    folder = folder or getcwd()
 
     return await folder_pull(client, folder, auto, match, force, fmt=fmt)
 

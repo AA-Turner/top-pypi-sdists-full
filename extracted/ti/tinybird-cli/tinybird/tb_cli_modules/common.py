@@ -695,7 +695,7 @@ async def create_workspace_branch(
         if not branch_name:
             click.echo(FeedbackManager.info_workspace_branch_create_greeting())
             default_name = f"{workspace['name']}_{uuid.uuid4().hex[0:4]}"
-            branch_name = click.prompt("\Branch name", default=default_name, err=True, type=str)
+            branch_name = click.prompt("\nBranch name", default=default_name, err=True, type=str)
         assert isinstance(branch_name, str)
 
         response = await config.get_client().create_workspace_branch(
@@ -1601,7 +1601,7 @@ async def wait_job(
             if "progress_percentage" in res:
                 progress_bar.update(int(round(res["progress_percentage"])) - progress_bar.pos)
             elif res["status"] != "working":
-                progress_bar.update(progress_bar.length if progress_bar.length else 0)
+                progress_bar.update(progress_bar.length or 0)
 
         try:
             # TODO: Simplify this as it's not needed to use two functions for

@@ -6,6 +6,7 @@ import os
 from enum import Enum
 from pathlib import Path
 
+from dstack._internal.server.utils.settings import parse_hostname_port
 from dstack._internal.utils.env import environ
 from dstack._internal.utils.logging import get_logger
 
@@ -105,6 +106,12 @@ SERVER_EVENTS_TTL_SECONDS = int(
     os.getenv("DSTACK_SERVER_EVENTS_TTL_SECONDS", 30 * 24 * 3600)
 )
 
+SSHPROXY_API_TOKEN = environ.get("DSTACK_SSHPROXY_API_TOKEN") or None
+SSHPROXY_HOSTNAME, SSHPROXY_PORT = environ.get_callback(
+    "DSTACK_SERVER_SSHPROXY_ADDRESS", parse_hostname_port, default=(None, None)
+)
+SSHPROXY_ENABLED = SSHPROXY_API_TOKEN is not None and SSHPROXY_HOSTNAME is not None
+
 SERVER_KEEP_SHIM_TASKS = os.getenv("DSTACK_SERVER_KEEP_SHIM_TASKS") is not None
 
 DEFAULT_PROJECT_NAME = "main"
@@ -132,6 +139,11 @@ FORBID_SERVICES_WITHOUT_GATEWAY = os.getenv("DSTACK_FORBID_SERVICES_WITHOUT_GATE
 SERVER_CODE_UPLOAD_LIMIT = int(os.getenv("DSTACK_SERVER_CODE_UPLOAD_LIMIT", 2 * 2**20))
 
 SERVER_TEMPLATES_REPO = os.getenv("DSTACK_SERVER_TEMPLATES_REPO")
+
+# Per-job log quota: maximum bytes of log output per calendar hour. 0 = unlimited.
+SERVER_LOG_QUOTA_PER_JOB_HOUR = int(
+    os.getenv("DSTACK_SERVER_LOG_QUOTA_PER_JOB_HOUR", 50 * 1024 * 1024)  # 50 MB
+)
 
 # Development settings
 

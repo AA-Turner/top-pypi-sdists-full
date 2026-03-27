@@ -88,7 +88,7 @@ async def validar_e_inserir_mfa(task, page, tentativas=3):
         log_step("5A", f"Validação MFA - tentativa {tentativa}/{tentativas}")
 
         code = await get_mfa_code("mfa-raizen")
-        log_data("Retorno bruto do MFA")
+        log_data(f"Retorno bruto do MFA: {code}")
 
         if not code:
             log_warn("get_mfa_code retornou vazio")
@@ -156,6 +156,9 @@ async def consulta_preco_raizen(task, config_entrada=None, fuel_itens=None):
     browser = None
     context = None
     page = None
+
+    fuel_itens_config = await get_config_by_name("ConsultaPrecoCombustiveisIds")
+    fuel_itens = fuel_itens_config.conConfiguracao["CombustiveisIds"]
 
     if config_entrada is None:
         config_entrada = getattr(task, "configEntrada", None) or {}
@@ -279,7 +282,7 @@ async def consulta_preco_raizen(task, config_entrada=None, fuel_itens=None):
                 await element.scroll_into_view_if_needed()
                 await element.click()
                 log_ok("Empresa selecionada com sucesso")
-            except Exception as e:
+            except Exception:
                 log_warn(f"Código do posto: {consulta_posto} não localizado.")
                 return RpaRetornoProcessoDTO(
                     sucesso=False,
@@ -482,32 +485,100 @@ async def consulta_preco_raizen(task, config_entrada=None, fuel_itens=None):
             )
             log_ok("compare_itens executado com sucesso")
 
-            log_step(19, "Montando JSON para envio ao datalake")
-            payload_json = {
-                "fonte": "raizen",
-                "dataConsulta": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "consultaPosto": config_entrada.get("consultaPosto"),
-                "codigoEmpresa": config_entrada.get("codigoEmpresa"),
-                "nomeEmpresa": config_entrada.get("nomeEmpresa"),
-                "baseNome": config_entrada.get("baseNome"),
-                "consultaBase": config_entrada.get("consultaBase"),
-                "baseUuid": config_entrada.get("baseUuid"),
-                "baseBandeira": config_entrada.get("baseBandeira"),
-                "cnpjEmpresa": config_entrada.get("cnpjEmpresa"),
-                "identificador": config_entrada.get("identificador"),
-                "uuidHistorico": config_entrada.get("uuidHistorico"),
-                "processo": config_entrada.get("processo"),
-                "fuel_list_site": fuel_list,
-                "precos_atualizados": config_entrada.get("precos", []),
+            log_step("18A", "Garantindo preenchimento explícito dos preços no JSON final")
+
+            precos_entrada = config_entrada.get("precos", [])
+
+            mapa_precos_site = {
+                str(item.get("name", "")).strip().upper(): item.get("price", 0)
+                for item in fuel_list
+            }
+            log_data(f"mapa_precos_site: {mapa_precos_site}")
+
+            mapa_combustiveis_config = {}
+            for item_cfg in fuel_itens:
+                descricao_raizen = str(item_cfg.get("descricaoRaizen", "")).strip().upper()
+                uuid_cfg = item_cfg.get("uuid")
+                if descricao_raizen:
+                    mapa_combustiveis_config[descricao_raizen] = uuid_cfg
+
+            log_data(f"mapa_combustiveis_config: {mapa_combustiveis_config}")
+
+            mapa_uuid_para_preco = {}
+            for nome_site, preco_site in mapa_precos_site.items():
+                uuid_encontrado = mapa_combustiveis_config.get(nome_site)
+                if uuid_encontrado:
+                    mapa_uuid_para_preco[uuid_encontrado] = preco_site
+
+            log_data(f"mapa_uuid_para_preco: {mapa_uuid_para_preco}")
+
+            novos_precos = []
+            for item_preco in precos_entrada:
+                uuid_item = item_preco.get("uuidItem")
+                preco_encontrado = mapa_uuid_para_preco.get(uuid_item)
+
+                if preco_encontrado is not None and float(preco_encontrado) > 0:
+                    item_atualizado = dict(item_preco)
+                    item_atualizado["preco"] = float(preco_encontrado)
+                    novos_precos.append(item_atualizado)
+
+                    log_data(
+                        f"Item incluído no JSON | uuidItem={uuid_item} | "
+                        f"descricaoProduto={item_atualizado.get('descricaoProduto')} | "
+                        f"preco={item_atualizado['preco']}"
+                    )
+                else:
+                    log_warn(
+                        f"Item ignorado no JSON por não ter preço encontrado | "
+                        f"uuidItem={uuid_item} | descricaoProduto={item_preco.get('descricaoProduto')}"
+                    )
+
+            config_entrada["precos"] = novos_precos
+            log_data(f"config_entrada['precos'] final: {config_entrada['precos']}")
+
+            log_step(19, "Montando JSON no padrão esperado")
+
+            return_json = {
+                "coleta": {
+                    "metodo": "RPA",
+                    "detalhe": "ALAN",
+                    "dataHora": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "identificador": config_entrada.get("identificador"),
+                    "cnpjEmpresa": config_entrada.get("cnpjEmpresa"),
+                    "nomeEmpresa": config_entrada.get("nomeEmpresa"),
+                    "codigoEmpresa": config_entrada.get("codigoEmpresa"),
+                    "consultaPosto": config_entrada.get("consultaPosto"),
+                    "consultaBase": config_entrada.get("consultaBase"),
+                },
+                "base": {
+                    "uuid": config_entrada.get("baseUuid"),
+                    "nome": config_entrada.get("baseNome"),
+                    "bandeira": config_entrada.get("baseBandeira"),
+                    "codigoSistema": config_entrada.get("baseCodigoSistema", 0),
+                },
+                "precos": config_entrada.get("precos", []),
             }
 
-            json_bytes = json.dumps(
-                payload_json,
-                ensure_ascii=False,
-                indent=4
-            ).encode("utf-8")
+            json_str = json.dumps(return_json, ensure_ascii=False, indent=4)
+            json_bytes = json_str.encode("utf-8")
 
-            nome_arquivo_json = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            nome_arquivo_json = (
+                f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            )
+
+            log_data("JSON que será enviado ao datalake:")
+            logger.print(json_str)
+
+            print("\n================ JSON ENVIADO AO DATALAKE ================\n")
+            print(json_str)
+            print("\n==========================================================\n")
+
+            log_data(
+                f"Metadados do envio | "
+                f"directory={DATALAKE_DIRECTORY} | "
+                f"filename={nome_arquivo_json} | "
+                f"bytes={len(json_bytes)}"
+            )
 
             try:
                 await send_file_to_datalake(
@@ -518,12 +589,15 @@ async def consulta_preco_raizen(task, config_entrada=None, fuel_itens=None):
                 )
                 log_ok(
                     f"JSON enviado ao datalake com sucesso | "
-                    f"diretório={DATALAKE_DIRECTORY} | arquivo={nome_arquivo_json}"
+                    f"directory={DATALAKE_DIRECTORY} | "
+                    f"filename={nome_arquivo_json}"
                 )
             except Exception as e:
                 log_error(
                     f"Erro ao enviar JSON ao datalake | "
-                    f"diretório={DATALAKE_DIRECTORY} | arquivo={nome_arquivo_json} | erro={e}"
+                    f"directory={DATALAKE_DIRECTORY} | "
+                    f"filename={nome_arquivo_json} | "
+                    f"error={e}"
                 )
                 raise Exception(f"Erro ao enviar JSON ao datalake: {e}")
 

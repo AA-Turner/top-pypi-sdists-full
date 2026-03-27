@@ -681,29 +681,3 @@ def sync_to_async(
         thread_sensitive=thread_sensitive,
         executor=executor,
     )
-
-
-def run_function_in_event_loop(func_def: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
-    """Run an async function, handling the case where an event loop may already be running."""
-    try:
-        asyncio.get_running_loop()
-        # If we're already in an event loop, we need to run the coroutine in a thread
-        # to avoid blocking the current event loop
-        import concurrent.futures
-
-        def run_in_new_loop() -> Any:
-            # Create a new event loop for this thread
-            new_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(new_loop)
-            try:
-                return new_loop.run_until_complete(func_def(*args, **kwargs))
-            finally:
-                new_loop.close()
-
-        # Run in a separate thread to avoid blocking the current event loop
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(run_in_new_loop)
-            return future.result()
-    except RuntimeError:
-        # No event loop running, use asyncio.run()
-        return asyncio.run(func_def(*args, **kwargs))

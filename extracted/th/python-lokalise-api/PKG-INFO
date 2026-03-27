@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-lokalise-api
-Version: 4.0.3
+Version: 4.0.4
 Summary: Official Python interface for the Lokalise API v2
 Project-URL: Homepage, https://python-lokalise-api.readthedocs.io/
 Project-URL: Repository, https://github.com/lokalise/python-lokalise-api

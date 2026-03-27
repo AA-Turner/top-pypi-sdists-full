@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bedrock-agentcore
-Version: 1.4.7
+Version: 1.4.8
 Summary: An SDK for using Bedrock AgentCore
 Project-URL: Homepage, https://github.com/aws/bedrock-agentcore-sdk-python
 Project-URL: Bug Tracker, https://github.com/aws/bedrock-agentcore-sdk-python/issues

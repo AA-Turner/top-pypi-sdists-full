@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Type, TypeVar, Union
+from typing import Any, Dict, List, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -23,6 +23,7 @@ class CreateAccountJsonBody:
         cc_token_url (Union[Unset, str]): OAuth token URL override for resource-level authentication (client_credentials
             flow only)
         mcp_server_url (Union[Unset, str]): MCP server URL for MCP OAuth token refresh
+        scopes (Union[Unset, List[str]]): OAuth scopes to use for token refresh. Overrides instance-level scopes.
     """
 
     refresh_token: str
@@ -33,6 +34,7 @@ class CreateAccountJsonBody:
     cc_client_secret: Union[Unset, str] = UNSET
     cc_token_url: Union[Unset, str] = UNSET
     mcp_server_url: Union[Unset, str] = UNSET
+    scopes: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -44,6 +46,9 @@ class CreateAccountJsonBody:
         cc_client_secret = self.cc_client_secret
         cc_token_url = self.cc_token_url
         mcp_server_url = self.mcp_server_url
+        scopes: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.scopes, Unset):
+            scopes = self.scopes
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -64,6 +69,8 @@ class CreateAccountJsonBody:
             field_dict["cc_token_url"] = cc_token_url
         if mcp_server_url is not UNSET:
             field_dict["mcp_server_url"] = mcp_server_url
+        if scopes is not UNSET:
+            field_dict["scopes"] = scopes
 
         return field_dict
 
@@ -86,6 +93,8 @@ class CreateAccountJsonBody:
 
         mcp_server_url = d.pop("mcp_server_url", UNSET)
 
+        scopes = cast(List[str], d.pop("scopes", UNSET))
+
         create_account_json_body = cls(
             refresh_token=refresh_token,
             expires_in=expires_in,
@@ -95,6 +104,7 @@ class CreateAccountJsonBody:
             cc_client_secret=cc_client_secret,
             cc_token_url=cc_token_url,
             mcp_server_url=mcp_server_url,
+            scopes=scopes,
         )
 
         create_account_json_body.additional_properties = d

@@ -9,8 +9,9 @@ from ._shared_client import get_shared_client
 
 
 def ChEMBL_get_molecule(
-    chembl_id: str,
+    chembl_id: Optional[str] = None,
     format: Optional[str] = "json",
+    molecule_chembl_id: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -25,6 +26,8 @@ def ChEMBL_get_molecule(
         ChEMBL molecule ID, e.g., 'CHEMBL25'
     format : str
         Response format
+    molecule_chembl_id : str
+        Alias for chembl_id. ChEMBL molecule ID, e.g., CHEMBL1229517.
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -41,7 +44,11 @@ def ChEMBL_get_molecule(
     # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
-        for k, v in {"chembl_id": chembl_id, "format": format}.items()
+        for k, v in {
+            "chembl_id": chembl_id,
+            "format": format,
+            "molecule_chembl_id": molecule_chembl_id,
+        }.items()
         if v is not None
     }
     return get_shared_client().run_one_function(

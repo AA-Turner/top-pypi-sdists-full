@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: beaker-py
-Version: 2.5.5
+Version: 2.5.6
 Summary: A Python Beaker client
 Author-email: Allen Institute for Artificial Intelligence <contact@allenai.org>, Pete Walsh <petew@allenai.org>
 Project-URL: Homepage, https://github.com/allenai/beaker
@@ -196,7 +196,15 @@ make checks
 
 At the moment releases need to be published manually by following these steps:
 
-1. Ensure you've authenticated with [PyPI](https://pypi.org/) through a `~/.pypirc` file and have write permissions to the [beaker-py project](https://pypi.org/project/beaker-py/).
+1. Ensure you've authenticated with [PyPI](https://pypi.org/) through a `~/.pypirc` file and have write permissions to the [beaker-py project](https://pypi.org/project/beaker-py/). The local `~/.pypirc` file looks like:
+```bash
+[distutils]
+index-servers = pypi
+
+[pypi]
+username = __token__
+password = #beaker-py pypi API token from 1pass#
+```
 2. Ensure the target release version defined in `src/beaker/version.py` is correct, or change the version on the fly by adding the `Make` argument `BEAKER_PY_VERSION=X.X.X` to the command in the next step.
 3. Ensure the CHANGELOG.md has a section at the top for the new release (`## vX.X.X - %Y-%m-%d`).
 4. Run `make publish` for a stable release or `make publish-nightly` for a nightly pre-release.

@@ -1042,12 +1042,24 @@ class AsyncLambdaController:
             delay (int): Delay in seconds before delivering the message.
             message_group_id (Optional[str]): MessageGroupId for FIFO queues. Defaults to None.
         """
-        schedule_time = datetime.now(tz=timezone.utc) + timedelta(seconds=delay)
+        if delay <= _SQS_MAX_DELAY_SECONDS:
+            raise ValueError(
+                f"Delays with EventBridge Scheduler must be greater than {_SQS_MAX_DELAY_SECONDS} seconds. Use SQS delay instead."
+            )
+
+        # Schedule names are unique and ActionAfterCompletion="DELETE" is an asynchronous action. This can take a few
+        # seconds, during which time, re-scheduling yourself on the same schedule_name would fail. Utilizing full
+        # _SQS_MAX_DELAY_SECONDS as a buffer in case AWS ActionAfterCompletion becomes delayed.
+        scheduler_delay = delay - _SQS_MAX_DELAY_SECONDS
+        schedule_time = datetime.now(tz=timezone.utc) + timedelta(
+            seconds=scheduler_delay
+        )
         schedule_expression = f"at({schedule_time.strftime('%Y-%m-%dT%H:%M:%S')})"
 
         sqs_input: dict = {
             "QueueUrl": queue_url,
             "MessageBody": message_body,
+            "DelaySeconds": _SQS_MAX_DELAY_SECONDS,
         }
         if message_group_id:
             sqs_input["MessageGroupId"] = message_group_id

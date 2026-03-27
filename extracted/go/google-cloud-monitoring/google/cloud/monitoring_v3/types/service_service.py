@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.monitoring_v3.types import service as gm_service
@@ -374,12 +374,12 @@ class ListServiceLevelObjectivesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    service_level_objectives: MutableSequence[
-        gm_service.ServiceLevelObjective
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=gm_service.ServiceLevelObjective,
+    service_level_objectives: MutableSequence[gm_service.ServiceLevelObjective] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=gm_service.ServiceLevelObjective,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

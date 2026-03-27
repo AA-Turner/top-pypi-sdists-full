@@ -15,6 +15,7 @@ def proteins_api_search(
     format: Optional[str] = "json",
     gene_symbol: Optional[str] = None,
     gene: Optional[str] = None,
+    reviewed: Optional[bool] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -37,6 +38,8 @@ def proteins_api_search(
         Alias for query. Gene symbol to search (e.g., TP53, BRCA1).
     gene : str
         Alias for query. Gene name to search.
+    reviewed : bool
+        If true, return only reviewed Swiss-Prot entries. If false or omitted, includ...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -60,6 +63,7 @@ def proteins_api_search(
             "format": format,
             "gene_symbol": gene_symbol,
             "gene": gene,
+            "reviewed": reviewed,
         }.items()
         if v is not None
     }

@@ -96,6 +96,7 @@ from snowflake.snowpark_connect.utils.context import (
     set_sql_plan_name,
 )
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
+from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
     telemetry,
@@ -109,7 +110,7 @@ from ..expression.map_sql_expression import (
     map_logical_plan_expression,
     sql_parser,
 )
-from ..type_support import emulate_decimal_type
+from ..type_support import emulate_decimal_type, is_integral_types_conversion_enabled
 from ..typed_column import TypedColumn
 from ..utils.identifiers import (
     spark_to_sf_single_id,
@@ -134,6 +135,18 @@ _cte_definitions = ContextVar[dict[str, any]]("_cte_definitions", default={})
 _having_condition = ContextVar[expressions_proto.Expression | None](
     "_having_condition", default=None
 )
+_query_block_join_hint: ContextVar[str | None] = ContextVar(
+    "_query_block_join_hint", default=None
+)
+
+
+@contextmanager
+def _push_query_block_hint(hint_name: str | None):
+    token = _query_block_join_hint.set(hint_name)
+    try:
+        yield
+    finally:
+        _query_block_join_hint.reset(token)
 
 
 def _map_value_to_literal_proto(
@@ -353,6 +366,32 @@ def _rename_columns(
     return df
 
 
+def _apply_decimal_schema_emulation(df: snowpark.DataFrame) -> snowpark.DataFrame:
+    """Apply casts to emulate decimal types in the DataFrame schema for CTAS/CVAS operations."""
+    if not is_integral_types_conversion_enabled():
+        return df
+
+    if not any(
+        isinstance(field.datatype, snowpark_types._IntegralType)
+        for field in df.schema.fields
+    ):
+        return df
+
+    projections = []
+    for field in df.schema.fields:
+        # only cast integral types, there is no need to cast complex types like structs, arrays, maps, etc.
+        # as they should be already properly typed
+        if isinstance(field.datatype, snowpark_types._IntegralType):
+            target_type = emulate_decimal_type(field.datatype)
+            projections.append(
+                snowpark_fn.col(field.name).cast(target_type).alias(field.name)
+            )
+        else:
+            projections.append(snowpark_fn.col(field.name))
+
+    return df.select(projections)
+
+
 def _create_table_as_select(logical_plan, mode: str) -> None:
     # TODO: for as select create tables we'd map multi layer identifier here
     name = get_relation_identifier_name(logical_plan.name())
@@ -363,6 +402,7 @@ def _create_table_as_select(logical_plan, mode: str) -> None:
 
     container = execute_logical_plan(logical_plan.query())
     df = container.dataframe
+    df = _apply_decimal_schema_emulation(df)
     columns = container.column_map.snowpark_to_spark_map().items()
     for orig_column, user_column in columns:
         df = df.with_column_renamed(
@@ -1127,7 +1167,7 @@ def map_sql_to_pandas_df(
                     object_name: str = as_java_list(logical_plan.child().nameParts())[0]
                 _accessing_temp_object.set(False)
                 df_container = execute_logical_plan(logical_plan.query())
-                df = df_container.dataframe
+                df = _apply_decimal_schema_emulation(df_container.dataframe)
                 if _accessing_temp_object.get():
                     exception = AnalysisException(
                         f"[INVALID_TEMP_OBJ_REFERENCE] Cannot create the persistent object `{CURRENT_CATALOG_NAME}`.`{current_schema}`.`{object_name}` "
@@ -1154,7 +1194,7 @@ def map_sql_to_pandas_df(
             case "CreateViewCommand":
                 with push_processed_view(logical_plan.name().identifier()):
                     df_container = execute_logical_plan(logical_plan.plan())
-                    df = df_container.dataframe
+                    df = _apply_decimal_schema_emulation(df_container.dataframe)
                     user_specified_spark_column_names = [
                         str(col._1())
                         for col in as_java_list(logical_plan.userSpecifiedColumns())
@@ -1333,18 +1373,21 @@ def map_sql_to_pandas_df(
             case "DropFunctionCommand":
                 func_name = logical_plan.identifier().funcName().lower()
                 input_types, snowpark_name = [], ""
-                if func_name in session._udfs:
+                cache = get_spark_session_cache()
+                udf_entry = cache.udfs.get(func_name)
+                udtf_entry = cache.udtfs.get(func_name)
+                if udf_entry is not None:
                     input_types, snowpark_name = (
-                        session._udfs[func_name].input_types,
-                        session._udfs[func_name].name,
+                        udf_entry.input_types,
+                        udf_entry.name,
                     )
-                    del session._udfs[func_name]
-                elif func_name in session._udtfs:
+                    cache.udfs.drop(func_name)
+                elif udtf_entry is not None:
                     input_types, snowpark_name = (
-                        session._udtfs[func_name][0].input_types,
-                        session._udtfs[func_name][0].name,
+                        udtf_entry[0].input_types,
+                        udtf_entry[0].name,
                     )
-                    del session._udtfs[func_name]
+                    cache.udtfs.drop(func_name)
                 else:
                     if not logical_plan.ifExists():
                         exception = ValueError(
@@ -2270,6 +2313,15 @@ def map_logical_plan_relation(
 
             left = map_logical_plan_relation(rel.left())
             right = map_logical_plan_relation(rel.right())
+
+            active_hint = _query_block_join_hint.get()
+            if active_hint:
+                hinted_left = relation_proto.Relation(
+                    hint=relation_proto.Hint(input=left, name=active_hint)
+                )
+                hinted_left.common.plan_id = gen_sql_plan_id()
+                left = hinted_left
+
             join_condition = (
                 map_logical_plan_expression(condition.get())
                 if condition.isDefined()
@@ -2547,13 +2599,14 @@ def map_logical_plan_relation(
             # If the child is an UnresolvedRelation, we want to preserve the original plan id and save only aliased one
             child_class = str(rel.child().getClass().getSimpleName())
             process_aliased_relation = child_class == "UnresolvedRelation"
-            with push_processing_aliased_relation_scope(process_aliased_relation):
-                proto = relation_proto.Relation(
-                    subquery_alias=relation_proto.SubqueryAlias(
-                        input=map_logical_plan_relation(rel.child()),
-                        alias=alias,
+            with _push_query_block_hint(None):
+                with push_processing_aliased_relation_scope(process_aliased_relation):
+                    proto = relation_proto.Relation(
+                        subquery_alias=relation_proto.SubqueryAlias(
+                            input=map_logical_plan_relation(rel.child()),
+                            alias=alias,
+                        )
                     )
-                )
 
             # UDTFs do not work when processed with plan id, use alias (see SNOW-3163639)
             if child_class != "UnresolvedTableValuedFunction":
@@ -2664,14 +2717,15 @@ def map_logical_plan_relation(
             finally:
                 _having_condition.reset(token)
         case "UnresolvedHint":
+            hint_name = str(rel.name())
+            params = as_java_list(rel.parameters())
+            with _push_query_block_hint(hint_name):
+                child_proto = map_logical_plan_relation(rel.child())
             proto = relation_proto.Relation(
                 hint=relation_proto.Hint(
-                    input=map_logical_plan_relation(rel.child()),
-                    name=str(rel.name()),
-                    parameters=[
-                        map_logical_plan_expression(e)
-                        for e in as_java_list(rel.parameters())
-                    ],
+                    input=child_proto,
+                    name=hint_name,
+                    parameters=[map_logical_plan_expression(e) for e in params],
                 )
             )
         case "UnresolvedInlineTable":
@@ -2869,7 +2923,7 @@ def map_logical_plan_relation(
                             step=step,
                         )
                     )
-                case udtf_name if udtf_name in snowpark.Session.get_active_session()._udtfs:
+                case udtf_name if get_spark_session_cache().udtfs.has(udtf_name):
                     # TODO: Table arguments are now expressions, too, so we shouldn't need to handle them here;
                     # instead, handle SubqueryExpression.SUBQUERY_TYPE_TABLE_ARG in relation.map_extension.
                     table_args = []

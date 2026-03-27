@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
 from datetime import timezone
 from enum import Enum
 
@@ -47,7 +46,7 @@ def test_repeated_composite_equality():
 
     baz = Baz(foos=[Foo(bar=42)])
     assert baz.foos == baz.foos
-    assert baz.foos != None
+    assert baz.foos is not None
 
 
 def test_repeated_composite_init_struct():

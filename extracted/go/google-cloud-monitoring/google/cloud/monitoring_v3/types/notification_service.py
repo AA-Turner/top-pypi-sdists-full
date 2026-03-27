@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.monitoring_v3.types import notification
@@ -105,12 +105,12 @@ class ListNotificationChannelDescriptorsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    channel_descriptors: MutableSequence[
-        notification.NotificationChannelDescriptor
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=notification.NotificationChannelDescriptor,
+    channel_descriptors: MutableSequence[notification.NotificationChannelDescriptor] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=notification.NotificationChannelDescriptor,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -261,12 +261,12 @@ class ListNotificationChannelsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    notification_channels: MutableSequence[
-        notification.NotificationChannel
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=notification.NotificationChannel,
+    notification_channels: MutableSequence[notification.NotificationChannel] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=notification.NotificationChannel,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

@@ -309,8 +309,9 @@ class PGDialect(default.DefaultDialect):
 
     @reflection.cache
     def get_schema_names(self, connection, **kw):
-        # No schemas to be used
-        return []
+        # We will be returning a single schema, with exactly the same name as the connected database
+        database_name = self._get_database_name(connection)
+        return [database_name]
 
     @reflection.cache
     def has_table(self, connection, table_name, schema=None, **kw):

@@ -1,7 +1,10 @@
 from enum import Enum, auto
+from typing import Literal
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict, NonNegativeInt, PositiveInt
+
+TextStyle = Literal["without_comments", "merged", "with_comments"]
 
 
 class BaseModel(PydanticBaseModel):
@@ -192,6 +195,7 @@ class Platform(str, Enum):
     GENERIC = auto()  # used in cases where the specific platform is unimportant/unknown
     HP_COMWARE5 = auto()
     HP_PROCURVE = auto()
+    HUAWEI_VRP = auto()
     JUNIPER_JUNOS = auto()
     VYOS = auto()
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-mysql
-Version: 0.28.20
+Version: 0.28.21
 Summary: A Dagster integration for MySQL
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-mysql
 Author-email: Dagster Labs <hello@dagsterlabs.com>
@@ -9,5 +9,5 @@ License-File: LICENSE
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Requires-Python: <3.14,>=3.10
-Requires-Dist: dagster==1.12.20
+Requires-Dist: dagster==1.12.21
 Requires-Dist: mysql-connector-python

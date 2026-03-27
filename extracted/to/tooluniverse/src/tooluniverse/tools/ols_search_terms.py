@@ -16,6 +16,7 @@ def ols_search_terms(
     ontology: Optional[str] = None,
     exact_match: Optional[bool] = False,
     include_obsolete: Optional[bool] = False,
+    limit: Optional[int | Any] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -40,6 +41,8 @@ def ols_search_terms(
         Search for exact matches only (default: false)
     include_obsolete : bool
         Include obsolete terms (default: false)
+    limit : int | Any
+        Alias for rows. Maximum number of results to return (default: 10, max: 100).
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -64,6 +67,7 @@ def ols_search_terms(
             "ontology": ontology,
             "exact_match": exact_match,
             "include_obsolete": include_obsolete,
+            "limit": limit,
         }.items()
         if v is not None
     }

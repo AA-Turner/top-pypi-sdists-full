@@ -1,6 +1,6 @@
 [package]
 name = "xlwings"
-version = "0.33.22"
+version = "0.34.0"
 edition = "2021"
 publish = false
 

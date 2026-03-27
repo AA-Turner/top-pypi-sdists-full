@@ -51,6 +51,7 @@ __all__ = [
     'SearchIndexMeta',
     'FieldSchema',
     'JsonType',
+    'TextSimilarity',
     'VectorOptions',
     'VectorDataType',
     'VectorMetricType',

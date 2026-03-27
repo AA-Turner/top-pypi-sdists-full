@@ -174,8 +174,9 @@ def map_relation(
             case "freq_items":
                 result = map_stats.map_freq_items(rel)
             case "hint":
-                # no-op, Snowflake doesn't support hints
                 result = map_relation(rel.hint.input)
+                if rel.hint.name:
+                    result.dataframe_hint = rel.hint.name
             case "html_string":
                 result = map_show_string.map_repr_html(rel)
             case "join":

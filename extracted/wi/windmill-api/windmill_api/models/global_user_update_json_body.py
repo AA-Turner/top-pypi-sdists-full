@@ -15,17 +15,20 @@ class GlobalUserUpdateJsonBody:
         is_super_admin (Union[Unset, bool]):
         is_devops (Union[Unset, bool]):
         name (Union[Unset, str]):
+        disabled (Union[Unset, bool]):
     """
 
     is_super_admin: Union[Unset, bool] = UNSET
     is_devops: Union[Unset, bool] = UNSET
     name: Union[Unset, str] = UNSET
+    disabled: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         is_super_admin = self.is_super_admin
         is_devops = self.is_devops
         name = self.name
+        disabled = self.disabled
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -36,6 +39,8 @@ class GlobalUserUpdateJsonBody:
             field_dict["is_devops"] = is_devops
         if name is not UNSET:
             field_dict["name"] = name
+        if disabled is not UNSET:
+            field_dict["disabled"] = disabled
 
         return field_dict
 
@@ -48,10 +53,13 @@ class GlobalUserUpdateJsonBody:
 
         name = d.pop("name", UNSET)
 
+        disabled = d.pop("disabled", UNSET)
+
         global_user_update_json_body = cls(
             is_super_admin=is_super_admin,
             is_devops=is_devops,
             name=name,
+            disabled=disabled,
         )
 
         global_user_update_json_body.additional_properties = d

@@ -325,6 +325,18 @@ def build_grpc_error_response(ex: Exception) -> status_pb2.Status:
                         message_parameters={"config": '"spark.sql.ansi.enabled"'},
                     )
                     attach_custom_error_code(ex, ErrorCodes.DIVISION_BY_ZERO)
+                elif ex.sql_error_code == 100045:
+                    spark_java_classes.append("java.lang.ArithmeticException")
+                    overflow_msg = "Overflow"
+                    ex = ArithmeticException(
+                        error_class="ARITHMETIC_OVERFLOW",
+                        message_parameters={
+                            "message": overflow_msg,
+                            "alternative": "",
+                            "config": '"spark.sql.ansi.enabled"',
+                        },
+                    )
+                    attach_custom_error_code(ex, ErrorCodes.ARITHMETIC_OVERFLOW)
                 elif ex.sql_error_code in (100096, 100040):
                     # Spark seems to want the Java base class instead of org.apache.spark.sql.SparkDateTimeException
                     # which is what should really be thrown

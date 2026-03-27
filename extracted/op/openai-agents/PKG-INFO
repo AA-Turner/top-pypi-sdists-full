@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openai-agents
-Version: 0.13.1
+Version: 0.13.2
 Summary: OpenAI Agents SDK
 Project-URL: Homepage, https://openai.github.io/openai-agents-python/
 Project-URL: Repository, https://github.com/openai/openai-agents-python
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: griffe<2,>=1.5.6
+Requires-Dist: griffelib<3,>=2
 Requires-Dist: mcp<2,>=1.19.0; python_version >= '3.10'
 Requires-Dist: openai<3,>=2.26.0
 Requires-Dist: pydantic<3,>=2.12.2
@@ -34,7 +34,7 @@ Requires-Dist: grpcio>=1.60.0; extra == 'dapr'
 Provides-Extra: encrypt
 Requires-Dist: cryptography<46,>=45.0; extra == 'encrypt'
 Provides-Extra: litellm
-Requires-Dist: litellm<2,>=1.81.0; extra == 'litellm'
+Requires-Dist: litellm<=1.82.6,>=1.81.0; extra == 'litellm'
 Provides-Extra: realtime
 Requires-Dist: websockets<16,>=15.0; extra == 'realtime'
 Provides-Extra: redis
@@ -121,10 +121,22 @@ Explore the [examples](https://github.com/openai/openai-agents-python/tree/main/
 
 We'd like to acknowledge the excellent work of the open-source community, especially:
 
--   [Pydantic](https://docs.pydantic.dev/latest/) (data validation) and [PydanticAI](https://ai.pydantic.dev/) (advanced agent framework)
--   [LiteLLM](https://github.com/BerriAI/litellm) (unified interface for 100+ LLMs)
--   [MkDocs](https://github.com/squidfunk/mkdocs-material)
--   [Griffe](https://github.com/mkdocstrings/griffe)
--   [uv](https://github.com/astral-sh/uv) and [ruff](https://github.com/astral-sh/ruff)
+- [Pydantic](https://docs.pydantic.dev/latest/)
+- [Requests](https://github.com/psf/requests)
+- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
+- [Griffe](https://github.com/mkdocstrings/griffe)
+
+This library has these optional dependencies:
+
+- [websockets](https://github.com/python-websockets/websockets)
+- [SQLAlchemy](https://github.com/sqlalchemy/sqlalchemy)
+- [any-llm](https://github.com/mozilla-ai/any-llm) and [LiteLLM](https://github.com/BerriAI/litellm)
+
+We also rely on the following tools to manage the project:
+
+- [uv](https://github.com/astral-sh/uv) and [ruff](https://github.com/astral-sh/ruff)
+- [mypy](https://github.com/python/mypy) and [Pyright](https://github.com/microsoft/pyright)
+- [pytest](https://github.com/pytest-dev/pytest) and [Coverage.py](https://github.com/coveragepy/coveragepy)
+- [MkDocs](https://github.com/squidfunk/mkdocs-material)
 
 We're committed to continuing to build the Agents SDK as an open source framework so others in the community can expand on our approach.

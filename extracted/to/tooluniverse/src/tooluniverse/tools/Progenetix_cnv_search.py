@@ -1,7 +1,7 @@
 """
 Progenetix_cnv_search
 
-Search for cancer biosamples with copy number variations (CNVs) in a specific genomic region.
+Search for cancer biosamples with copy number variations (CNVs) in a specific genomic region. Com...
 """
 
 from typing import Any, Optional, Callable
@@ -12,31 +12,31 @@ def Progenetix_cnv_search(
     reference_name: str,
     start: int,
     end: int,
-    variant_type: Optional[str] = None,
-    filters: Optional[str] = None,
-    limit: Optional[int] = None,
+    variant_type: Optional[str] = "",
+    filters: Optional[str] = "",
+    limit: Optional[int] = 10,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> Any:
+) -> dict[str, Any]:
     """
-    Search for cancer biosamples with CNVs in a specific genomic region.
+    Search for cancer biosamples with copy number variations (CNVs) in a specific genomic region. Com...
 
     Parameters
     ----------
     reference_name : str
-        RefSeq chromosome accession (e.g., 'refseq:NC_000007.14' for chr7/GRCh38).
+        RefSeq chromosome accession. Examples: 'refseq:NC_000007.14' (chr7/GRCh38), '...
     start : int
-        Start position (1-based, GRCh38).
+        Start position (1-based, GRCh38). Example: 55019017 for EGFR start.
     end : int
-        End position (1-based, GRCh38).
-    variant_type : str, optional
-        CNV type: 'DUP' for amplification, 'DEL' for deletion.
-    filters : str, optional
-        NCIt ontology code to filter by cancer type (e.g., 'NCIT:C4017' for breast cancer).
-    limit : int, optional
-        Maximum number of biosamples to return (default 10).
+        End position (1-based, GRCh38). Example: 55211628 for EGFR end.
+    variant_type : str
+        CNV type: 'DUP' for amplification/duplication, 'DEL' for deletion. Leave empt...
+    filters : str
+        Optional NCIt ontology code to filter by cancer type. Example: 'NCIT:C4017' f...
+    limit : int
+        Maximum number of biosamples to return (default: 10).
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -46,8 +46,11 @@ def Progenetix_cnv_search(
 
     Returns
     -------
-    Any
+    dict[str, Any]
     """
+    # Handle mutable defaults to avoid B006 linting error
+
+    # Strip None values so optional parameters don't trigger schema validation errors
     _args = {
         k: v
         for k, v in {

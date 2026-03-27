@@ -1,12 +1,14 @@
 cmake_minimum_required(VERSION 3.12)
 include(./ext/c4core/cmake/c4Project.cmake)
+cmake_policy(SET CMP0048 NEW) # pass VERSION to project()
 project(ryml
+    VERSION 0.11.1
     DESCRIPTION "Rapid YAML parsing and emitting"
     HOMEPAGE_URL "https://github.com/biojppm/rapidyaml"
     LANGUAGES CXX)
 include(./compat.cmake)
 
-c4_project(VERSION 0.11.0 STANDALONE
+c4_project(VERSION 0.11.1 STANDALONE
     AUTHOR "Joao Paulo Magalhaes <dev@jpmag.me>")
 
 
@@ -92,7 +94,7 @@ if(RYML_WITH_TAB_TOKENS)
 endif()
 
 if(NOT RYML_DEFAULT_CALLBACKS)
-    target_compile_definitions(ryml PRIVATE RYML_NO_DEFAULT_CALLBACKS)
+    target_compile_definitions(ryml PUBLIC RYML_NO_DEFAULT_CALLBACKS)
 else()
     if(RYML_DEFAULT_CALLBACK_USES_EXCEPTIONS)
         target_compile_definitions(ryml PUBLIC RYML_DEFAULT_CALLBACK_USES_EXCEPTIONS)

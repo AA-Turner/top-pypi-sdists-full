@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-webui
-Version: 0.8.11
+Version: 0.8.12
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Copyright (c) 2023- Open WebUI Inc. [Created by Timothy Jaeryang Baek]
@@ -62,6 +62,7 @@ Requires-Dist: azure-ai-documentintelligence==1.0.2
 Requires-Dist: azure-identity==1.25.2
 Requires-Dist: azure-storage-blob==12.28.0
 Requires-Dist: bcrypt==5.0.0
+Requires-Dist: beautifulsoup4==4.14.3
 Requires-Dist: black==26.1.0
 Requires-Dist: boto3==1.42.62
 Requires-Dist: brotli==1.1.0

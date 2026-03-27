@@ -222,6 +222,7 @@ def connection_create_gcs(ctx: Context) -> None:
             token=token,
             host=host,
             staging=False,
+            request_from=getattr(client, "request_from", None),
         )
         creds_json = get_gcs_svc_account_creds()
         secret_name = f"gcs_svc_account_creds_{connection_name}_{unique_suffix}"

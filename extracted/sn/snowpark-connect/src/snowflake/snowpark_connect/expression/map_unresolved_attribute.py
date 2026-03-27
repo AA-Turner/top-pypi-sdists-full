@@ -3,12 +3,13 @@
 #
 
 import re
+from collections import defaultdict
 from typing import Any, Optional
 
 import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
 from pyspark.errors.exceptions.connect import AnalysisException
 
-from snowflake.snowpark import Column, functions as snowpark_fn
+from snowflake.snowpark import Column, Session, functions as snowpark_fn
 from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     quote_name_without_upper_casing,
 )
@@ -82,7 +83,7 @@ def _get_catalog_database_from_column_map(
 
 def _resolve_struct_field(
     path: list[str], col: Column, typer: ExpressionTyper
-) -> Column:
+) -> tuple[Column, str]:
     try:
         col_type = typer.type(col)[0]
     except SnowparkSQLException as e:
@@ -95,34 +96,15 @@ def _resolve_struct_field(
         else:
             raise
 
-    # Check if the source column is VARIANT-based (either typed as VariantType or StructType from discovery)
-    # When the underlying data is VARIANT, getItem() returns VARIANT values
     is_variant_source = isinstance(col_type, (VariantType, StructType))
-
     field_path = path[1:]
-
-    if not global_config.spark_sql_caseSensitive:
-        field_path, final_type = _match_path_to_struct_with_type(field_path, col_type)
-    else:
-        _, final_type = _match_path_to_struct_with_type(field_path, col_type)
-
-    for field_name in field_path:
-        col = col.getItem(field_name)
-
-    # When extracting from VARIANT using getItem(), Snowflake returns VARIANT values
-    # We need to cast to the expected type to:
-    # 1. Strip JSON quotes from strings (e.g., "BigQuery" -> BigQuery)
-    # 2. Convert numeric values to proper types (e.g., "1.0" -> 1.0 as double)
-    # 3. Preserve type semantics for downstream operations
-    # Only cast if we have a known type (not VariantType) to avoid unnecessary casts
-    if is_variant_source and field_path and not isinstance(final_type, VariantType):
-        col = snowpark_fn.iff(
-            snowpark_fn.call_function("IS_NULL_VALUE", snowpark_fn.to_variant(col)),
-            snowpark_fn.lit(None),
-            col.cast(final_type),
-        )
-
-    return col
+    resolved_col, display_suffix = _match_path_to_struct_with_type(
+        field_path,
+        col,
+        col_type,
+        is_variant_source,
+    )
+    return resolved_col, path[0] + display_suffix
 
 
 def _try_resolve_column_in_scopes(
@@ -381,9 +363,11 @@ def _resolve_attribute_with_original_snowpark_name(
 
     col = snowpark_fn.col(matching_snowpark_name)
     if len(path) > 1:
-        col = _resolve_struct_field(path, col, found_typer)
+        col, display_path = _resolve_struct_field(path, col, found_typer)
         # no qualifiers for struct fields
-        return TypedColumn(col, lambda: found_typer.type(col))
+        typed_col = TypedColumn(col, lambda: found_typer.type(col))
+        typed_col._spark_struct_field_path = display_path
+        return typed_col
 
     typed_col = TypedColumn(col, lambda: found_typer.type(col))
     typed_col.set_qualifiers(
@@ -616,6 +600,7 @@ def map_unresolved_attribute(
     )
 
     qualifiers = set()
+    spark_struct_field_path = None
     if snowpark_name is not None:
         col = snowpark_fn.col(snowpark_name)
         qualifiers = found_column_map.get_qualifiers_for_snowpark_column(snowpark_name)
@@ -707,10 +692,13 @@ def map_unresolved_attribute(
         path = name_parts[column_part_index:]
 
         if len(path) > 1:
-            col = _resolve_struct_field(path, col, typer)
+            col, spark_struct_field_path = _resolve_struct_field(path, col, typer)
 
     typed_col = TypedColumn(col, lambda: typer.type(col))
     typed_col.set_qualifiers(qualifiers)
+
+    if spark_struct_field_path:
+        typed_col._spark_struct_field_path = spark_struct_field_path
 
     # Store catalog/database info if available from column map
     final_catalog_database_info = _get_catalog_database_from_column_map(
@@ -723,41 +711,117 @@ def map_unresolved_attribute(
     return (name_parts[-1], typed_col)
 
 
-def _match_path_to_struct(path: list[str], col_type: DataType) -> list[str]:
-    """Takes a path of names and adjusts them to strictly match the field names in a StructType."""
-    adjusted_path, _ = _match_path_to_struct_with_type(path, col_type)
-    return adjusted_path
-
-
 def _match_path_to_struct_with_type(
-    path: list[str], col_type: DataType
-) -> tuple[list[str], DataType]:
+    path: list[str],
+    col: Column,
+    col_type: DataType,
+    is_variant_source: bool,
+    *,
+    _depth: int = 0,
+) -> tuple[Column, str]:
+    """Walk *path* through the type hierarchy, building Column expressions.
+
+    For ``StructType`` / ``MapType`` / ``VariantType`` fields the function
+    appends ``col.getItem(name)`` calls.  When the walk hits an
+    ``ArrayType`` whose element is a ``StructType`` and the current name
+    matches one of the element's fields, the function recurses using an
+    ``sql_expr`` placeholder for the TRANSFORM lambda variable and wraps
+    the serialised result in ``call_function("transform", ...)``.  Nested
+    ``ARRAY(STRUCT(ARRAY(STRUCT(...))))`` paths are handled naturally by
+    deeper recursion.
+
+    For variant-sourced columns the ``IFF(IS_NULL_VALUE(...))`` cast is
+    applied at the end to convert JSON nulls to SQL NULLs and cast the
+    extracted value to the expected type.
+
+    Returns ``(column, display_suffix)`` where *display_suffix* is the
+    Spark-style name fragment built during the walk (``.field`` for struct
+    fields, ``[key]`` for map keys).
     """
-    Takes a path of names and adjusts them to strictly match the field names in a StructType.
-    Also returns the final DataType of the resolved field.
-    """
-    adjusted_path = []
+    display = ""
     typ = col_type
     for i, name in enumerate(path):
+        lower_name = name.lower()
         if isinstance(typ, StructType):
-            lowercase_name = name.lower()
+            display += f".{name}"
             for field in typ.fields:
-                if field.name.lower() == lowercase_name:
-                    adjusted_path.append(field.name)
+                if field.name.lower() == lower_name:
+                    item_name = (
+                        field.name
+                        if not global_config.spark_sql_caseSensitive
+                        else name
+                    )
+                    col = col.getItem(item_name)
                     typ = field.datatype
                     break
-        elif isinstance(typ, MapType) or isinstance(typ, ArrayType):
-            # For MapType and ArrayType, we can use the name as is.
-            adjusted_path.append(name)
-            typ = typ.value_type if isinstance(typ, MapType) else typ.element_type
+
+        elif isinstance(typ, ArrayType):
+            element_type = typ.element_type
+            if isinstance(element_type, StructType):
+                has_field = any(
+                    f.name.lower() == name.lower() for f in element_type.fields
+                )
+                if has_field:
+                    remaining = path[i:]
+                    var_name = f"item_{_depth}"
+                    placeholder = snowpark_fn.sql_expr(var_name)
+
+                    inner_col, inner_display = _match_path_to_struct_with_type(
+                        remaining,
+                        placeholder,
+                        element_type,
+                        is_variant_source,
+                        _depth=_depth + 1,
+                    )
+                    analyzer = Session.get_active_session()._analyzer
+
+                    inner_sql = analyzer.analyze(inner_col._expression, defaultdict())
+
+                    if is_variant_source:
+                        col = snowpark_fn.iff(
+                            snowpark_fn.call_function(
+                                "IS_NULL_VALUE",
+                                snowpark_fn.to_variant(col),
+                            ),
+                            snowpark_fn.lit(None),
+                            col,
+                        )
+
+                    transform_col = snowpark_fn.call_function(
+                        "transform",
+                        col,
+                        snowpark_fn.sql_expr(f"{var_name} -> {inner_sql}"),
+                    )
+                    return transform_col, display + inner_display
+            display += f".{name}"
+            col = col.getItem(name)
+            typ = element_type
+
+        elif isinstance(typ, MapType):
+            display += f"[{name}]"
+            col = col.getItem(name)
+            typ = typ.value_type
+
         elif isinstance(typ, VariantType):
-            # VARIANT allows arbitrary field access
-            adjusted_path.append(name)
+            display += f".{name}"
+            col = col.getItem(name)
+
         else:
-            # If the type is not a struct, map, or array, we cannot access the field.
             exception = AnalysisException(
-                f"[INVALID_EXTRACT_BASE_FIELD_TYPE] Can't extract a value from \"{'.'.join(path[:i])}\". Need a complex type [STRUCT, ARRAY, MAP] but got \"{typ}\"."
+                f"[INVALID_EXTRACT_BASE_FIELD_TYPE] Can't extract a value from "
+                f"\"{'.'.join(path[:i])}\". "
+                f'Need a complex type [STRUCT, ARRAY, MAP] but got "{typ}".'
             )
             attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
             raise exception
-    return adjusted_path, typ
+
+    needs_variant_cast = is_variant_source and path and not isinstance(typ, VariantType)
+
+    if needs_variant_cast:
+        col = snowpark_fn.iff(
+            snowpark_fn.call_function("IS_NULL_VALUE", snowpark_fn.to_variant(col)),
+            snowpark_fn.lit(None),
+            col.cast(typ),
+        )
+
+    return col, display

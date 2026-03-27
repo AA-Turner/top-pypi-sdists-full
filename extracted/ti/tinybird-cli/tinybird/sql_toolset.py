@@ -3,6 +3,7 @@ import logging
 import re
 import threading
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
 from typing import FrozenSet, List, Optional, Set, Tuple, Union
@@ -34,7 +35,7 @@ class InvalidFunction(ValueError):
         super().__init__(self.msg)
 
 
-class InvalidResource(ValueError):
+class MissingResource(ValueError):
     def __init__(self, database: str, table: str, default_database: str = ""):
         if default_database and database == default_database:
             database = ""
@@ -72,6 +73,54 @@ def format_sql(sql: str) -> str:
 
 def explain_plan(sql: str) -> str:
     return chquery.explain_ast(sql)
+
+
+@dataclass(frozen=True)
+class ColumnInfo:
+    name: str
+    type: str
+    nullable: bool
+    default_specifier: str = ""
+    default_expression: str | None = None
+    codec: str | None = None
+    comment: str | None = None
+    ttl: str | None = None
+    is_primary_key: bool = False
+
+
+@dataclass
+class MaterializedViewTarget:
+    database: Optional[str]
+    table: str
+
+
+def parse_materialized_view_target(create_table_query: str) -> Optional[MaterializedViewTarget]:
+    """
+    Extract target table info from a CREATE MATERIALIZED VIEW statement.
+
+    Parses statements like:
+        CREATE MATERIALIZED VIEW db.view TO target_db.target_table AS SELECT...
+        CREATE MATERIALIZED VIEW db.view TO `target_db`.`target_table` AS SELECT...
+        CREATE MATERIALIZED VIEW db.view TO `target_db`.`target_table` (col1 Type1, col2 Nullable(DateTime64(3))) AS SELECT...
+
+    Returns:
+        MaterializedViewTarget with database (optional) and table,
+        or None if the query is not a CREATE MATERIALIZED VIEW statement.
+    """
+    try:
+        result = chquery.parse_create_materialized_view_target_table(create_table_query)
+    except ValueError:
+        return None
+
+    return MaterializedViewTarget(
+        database=result["database"],
+        table=result["table"],
+    )
+
+
+def get_columns_from_create_query(sql_schema: str) -> list[ColumnInfo]:
+    columns = chquery.get_columns_from_create_query(sql_schema)
+    return [ColumnInfo(**col) for col in columns]
 
 
 def has_join(sql: str) -> bool:
@@ -539,7 +588,7 @@ def replace_tables(
                     if (
                         dependent_table[2]
                         and dependent_table[2] not in _enabled_table_functions
-                        and not (dependent_table[2] in ["cluster"] and replacement[0] == VALID_REMOTE)
+                        and not (dependent_table[2] == "cluster" and replacement[0] == VALID_REMOTE)
                     ):
                         raise InvalidFunction(table_function_name=dependent_table[2])
                     if dependent_table[0] or dependent_table[1]:
@@ -586,7 +635,7 @@ def replace_tables(
                             "valid_tables": valid_tables,
                         },
                     )
-                    raise InvalidResource(database, table_name, default_database=default_database)
+                    raise MissingResource(database, table_name, default_database=default_database)
 
         if current_replacements:
             # We need to transform the dictionary into something cacheable, so a sorted tuple of tuples it is

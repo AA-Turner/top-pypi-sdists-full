@@ -55,6 +55,7 @@ from dstack._internal.core.models.instances import (
     InstanceType,
     RemoteConnectionInfo,
     Resources,
+    SSHConnectionParams,
     SSHKey,
 )
 from dstack._internal.core.models.placement import (
@@ -321,6 +322,7 @@ async def create_run(
     deployment_num: int = 0,
     resubmission_attempt: int = 0,
     next_triggered_at: Optional[datetime] = None,
+    last_processed_at: Optional[datetime] = None,
 ) -> RunModel:
     if run_name is None:
         run_name = "test-run"
@@ -331,6 +333,8 @@ async def create_run(
         )
     if run_id is None:
         run_id = uuid.uuid4()
+    if last_processed_at is None:
+        last_processed_at = submitted_at
     run = RunModel(
         id=run_id,
         deleted=deleted,
@@ -343,7 +347,7 @@ async def create_run(
         status=status,
         termination_reason=termination_reason,
         run_spec=run_spec.json(),
-        last_processed_at=submitted_at,
+        last_processed_at=last_processed_at,
         jobs=[],
         priority=priority,
         deployment_num=deployment_num,
@@ -428,6 +432,9 @@ def get_job_provisioning_data(
     internal_ip: Optional[str] = "127.0.0.4",
     price: float = 10.5,
     instance_type: Optional[InstanceType] = None,
+    username: str = "ubuntu",
+    ssh_port: int = 22,
+    ssh_proxy: Optional[SSHConnectionParams] = None,
 ) -> JobProvisioningData:
     gpus = [
         Gpu(
@@ -451,11 +458,11 @@ def get_job_provisioning_data(
         internal_ip=internal_ip,
         region=region,
         price=price,
-        username="ubuntu",
-        ssh_port=22,
+        username=username,
+        ssh_port=ssh_port,
         dockerized=dockerized,
         backend_data=None,
-        ssh_proxy=None,
+        ssh_proxy=ssh_proxy,
     )
 
 
@@ -663,13 +670,17 @@ async def create_fleet(
     return fm
 
 
-def get_fleet_spec(conf: Optional[FleetConfiguration] = None) -> FleetSpec:
+def get_fleet_spec(
+    conf: Optional[FleetConfiguration] = None, profile: Optional[Profile] = None
+) -> FleetSpec:
     if conf is None:
         conf = get_fleet_configuration()
+    if profile is None:
+        profile = Profile()
     return FleetSpec(
         configuration=conf,
         configuration_path="fleet.dstack.yml",
-        profile=Profile(),
+        profile=profile,
     )
 
 
@@ -869,6 +880,8 @@ def get_remote_connection_info(
     port: int = 22,
     ssh_user: str = "ubuntu",
     ssh_keys: Optional[list[SSHKey]] = None,
+    ssh_proxy: Optional[SSHConnectionParams] = None,
+    ssh_proxy_keys: Optional[list[SSHKey]] = None,
     env: Optional[Union[Env, dict]] = None,
 ):
     if ssh_keys is None:
@@ -882,6 +895,8 @@ def get_remote_connection_info(
         port=port,
         ssh_user=ssh_user,
         ssh_keys=ssh_keys,
+        ssh_proxy=ssh_proxy,
+        ssh_proxy_keys=ssh_proxy_keys,
         env=env,
     )
 

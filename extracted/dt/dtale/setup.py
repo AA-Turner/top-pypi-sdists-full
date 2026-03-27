@@ -25,7 +25,7 @@ except (IOError, ImportError, OSError):
 
 setup(
     name="dtale",
-    version="3.20.0",
+    version="3.21.0",
     author="MAN Alpha Technology",
     author_email="ManAlphaTech@man.com",
     description="Web Client for Visualizing Pandas Objects",
@@ -63,6 +63,7 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.14",
     ],
     packages=find_packages(exclude=["tests*", "script*"]),
     package_data={

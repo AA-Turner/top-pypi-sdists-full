@@ -29,6 +29,7 @@ class ComplianceStatus(str, Enum):
     PENDING = 'PENDING'
     COMPLIANT = 'COMPLIANT'
     NON_COMPLIANT = 'NON_COMPLIANT'
+    NEEDS_ATTENTION = 'NEEDS_ATTENTION'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

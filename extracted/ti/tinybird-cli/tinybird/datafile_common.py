@@ -445,10 +445,12 @@ class CLIGitRelease:
         # not expected suffixes
         return list(
             filter(
-                lambda d: d.change_type in [c.value for c in self.ChangeType]
-                and d.a_path
-                and d.a_path not in self.NO_DATAFILES_PATHS
-                and Path(d.a_path).resolve().suffix in self.DATAFILES_SUFFIXES,
+                lambda d: (
+                    d.change_type in [c.value for c in self.ChangeType]
+                    and d.a_path
+                    and d.a_path not in self.NO_DATAFILES_PATHS
+                    and Path(d.a_path).resolve().suffix in self.DATAFILES_SUFFIXES
+                ),
                 self.diff(current_ws_commit),
             )
         )
@@ -533,9 +535,7 @@ class CLIGitRelease:
     async def update_release(
         self, tb_client: TinyB, current_ws: Dict[str, Any], commit: Optional[str] = None
     ) -> Dict[str, Any]:
-        release = await tb_client.workspace_commit_update(
-            current_ws["id"], commit if commit else self.head().commit.hexsha
-        )
+        release = await tb_client.workspace_commit_update(current_ws["id"], commit or self.head().commit.hexsha)
         return release
 
 
@@ -3145,24 +3145,23 @@ async def share_and_unshare_datasource(
     datasource_name = datasource.get("name", "")
     datasource_id = datasource.get("id", "")
     workspaces: List[Dict[str, Any]]
+    # We duplicate the client to use the user_token in workspace discovery and sharing operations.
+    user_client: TinyB = deepcopy(client)
+    user_client.token = user_token
 
     # In case we are pushing to a branch, we don't share the datasource
     # FIXME: Have only once way to get the current workspace
     if current_ws:
-        # Force to get all the workspaces the user can access
         workspace = current_ws
-        workspaces = (await client.user_workspaces()).get("workspaces", [])
     else:
         workspace = await client.user_workspace_branches()
-        workspaces = workspace.get("workspaces", [])
 
     if workspace.get("is_branch", False):
         click.echo(FeedbackManager.info_skipping_sharing_datasources_branch(datasource=datasource["name"]))
         return
 
-    # We duplicate the client to use the user_token
-    user_client: TinyB = deepcopy(client)
-    user_client.token = user_token
+    # Use the user token for workspace discovery, as workspace/admin tokens may not list all targets.
+    workspaces = (await user_client.user_workspaces()).get("workspaces", [])
     if not workspaces_current_shared_with:
         for workspace_to_share in workspaces_to_share:
             w: Optional[Dict[str, Any]] = next((w for w in workspaces if w["name"] == workspace_to_share), None)
@@ -5029,7 +5028,7 @@ async def format_engine(
             file_parts.append(DATAFILE_NEW_LINE)
             for arg in sorted(node["engine"].get("args", [])):
                 elem = ", ".join([x.strip() for x in arg[1].split(",")])
-                file_parts.append(f"ENGINE_{arg[0].upper()} {elem if elem else empty}")
+                file_parts.append(f"ENGINE_{arg[0].upper()} {elem or empty}")
                 file_parts.append(DATAFILE_NEW_LINE)
             file_parts.append(DATAFILE_NEW_LINE)
         return file_parts

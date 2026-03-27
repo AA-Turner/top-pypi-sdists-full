@@ -37,6 +37,7 @@ from typer.testing import CliRunner
 from cogames.auth import save_token
 from cogames.cli.client import TournamentServerClient
 from cogames.cli.generated_models import MatchPlayerInfo
+from cogames.cli.submit import observatory_profile_url
 from cogames.main import app
 from cogames.token_storage import TokenKind
 
@@ -46,6 +47,11 @@ _POLICY_ID = str(TEST_UUID_3)
 _MATCH_ID = str(TEST_UUID_4)
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _disable_display_for_cli_tests(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("cogames.main.has_display", lambda: False)
 
 
 def _season_summary(
@@ -942,7 +948,8 @@ class TestSeasonLookupAuth:
                         "name": "test-policy",
                         "version": 1,
                     }
-                ]
+                ],
+                "total_count": 1,
             }
         )
         httpserver.expect_request("/tournament/seasons/test-season/submissions", method="POST").respond_with_json(
@@ -950,7 +957,7 @@ class TestSeasonLookupAuth:
         )
 
         with _mock_from_login(httpserver):
-            runner.invoke(
+            result = runner.invoke(
                 app,
                 [
                     "submit",
@@ -964,6 +971,8 @@ class TestSeasonLookupAuth:
                 ],
             )
 
+        assert result.exit_code == 0
+        assert "Browser launch skipped: no GUI display detected" in result.output
         season_reqs = [req for req, _ in httpserver.log if req.path == "/tournament/seasons/test-season"]
         assert season_reqs, "Expected a request to /tournament/seasons/test-season"
         assert season_reqs[0].headers.get("X-Auth-Token") == "service-token-xyz"
@@ -995,3 +1004,37 @@ class TestSeasonLookupAuth:
         season_reqs = [req for req, _ in httpserver.log if req.path == "/tournament/seasons/test-season"]
         assert season_reqs, "Expected a request to /tournament/seasons/test-season"
         assert "X-Auth-Token" not in season_reqs[0].headers
+
+
+class TestSubmitProfileLaunch:
+    @pytest.mark.parametrize(
+        ("login_server_url", "expected_base_url"),
+        [
+            (
+                "https://softmax.com/api",
+                "https://softmax.com",
+            ),
+            (
+                "https://softmax.com/api/observatory",
+                "https://softmax.com",
+            ),
+            (
+                "http://localhost:3002",
+                "http://localhost:3002",
+            ),
+        ],
+    )
+    def test_observatory_profile_url_uses_browser_origin_of_selected_login_server(
+        self,
+        login_server_url: str,
+        expected_base_url: str,
+    ) -> None:
+        policy_version_id = uuid.uuid4()
+
+        assert (
+            observatory_profile_url(
+                policy_version_id,
+                login_server_url=login_server_url,
+            )
+            == f"{expected_base_url}/observatory/profile?policyVersionId={policy_version_id}"
+        )

@@ -152,9 +152,14 @@ def process_udf_in_sproc(
         original_return_type=original_return_type,
     )
     if called_from == "register_udf":
-        session._udfs[
-            common_inline_user_defined_function.function_name.lower()
-        ] = snowpark_udf
+        from snowflake.snowpark_connect.utils.spark_session_cache import (
+            get_spark_session_cache,
+        )
+
+        get_spark_session_cache().udfs.register(
+            common_inline_user_defined_function.function_name.lower(),
+            snowpark_udf,
+        )
     return snowpark_udf
 
 

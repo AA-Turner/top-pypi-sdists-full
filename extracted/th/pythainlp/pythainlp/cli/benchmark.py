@@ -95,10 +95,11 @@ class WordTokenizationBenchmark:
             import yaml
 
             from pythainlp.benchmarks import word_tokenization
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
-                "Please install the extra dependencies `benchmarks` to use this command by running `pip install pythainlp[benchmarks]`"
-            )
+                "The 'benchmarks' extra dependencies are required for this command."
+                " Install them with: pip install pythainlp[benchmarks]"
+            ) from e
 
         df_raw = word_tokenization.benchmark(expected, actual)
 
@@ -107,7 +108,7 @@ class WordTokenizationBenchmark:
             "char_level:fp",
             "char_level:tn",
             "char_level:fn",
-            "word_level:correctly_tokenised_words",
+            "word_level:correctly_tokenized_words",
             "word_level:total_words_in_sample",
             "word_level:total_words_in_ref_sample",
         ]
@@ -126,12 +127,12 @@ class WordTokenizationBenchmark:
         )
 
         statistics["word_level:precision"] = (
-            statistics["word_level:correctly_tokenised_words"]
+            statistics["word_level:correctly_tokenized_words"]
             / statistics["word_level:total_words_in_sample"]
         )
 
         statistics["word_level:recall"] = (
-            statistics["word_level:correctly_tokenised_words"]
+            statistics["word_level:correctly_tokenized_words"]
             / statistics["word_level:total_words_in_ref_sample"]
         )
 
@@ -145,7 +146,7 @@ class WordTokenizationBenchmark:
         for c in [
             "total_words_in_sample",
             "total_words_in_ref_sample",
-            "correctly_tokenised_words",
+            "correctly_tokenized_words",
             "precision",
             "recall",
         ]:

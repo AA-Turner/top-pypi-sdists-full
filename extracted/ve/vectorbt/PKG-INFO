@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vectorbt
-Version: 0.28.4
+Version: 0.28.5
 Summary: Python library for backtesting and analyzing trading strategies at scale
 Author-email: Oleg Polakow <olegpolakow@vectorbt.pro>
 Project-URL: Homepage, https://github.com/polakowo/vectorbt
@@ -62,6 +62,11 @@ Requires-Dist: pytest; extra == "cov"
 Requires-Dist: pytest-cov; extra == "cov"
 Requires-Dist: pytest-xdist; extra == "cov"
 Requires-Dist: codecov; extra == "cov"
+Provides-Extra: docs
+Requires-Dist: mkdocs-material; extra == "docs"
+Requires-Dist: mkdocs-minify-plugin; extra == "docs"
+Requires-Dist: ruamel.yaml; extra == "docs"
+Requires-Dist: mako; extra == "docs"
 Dynamic: license-file
 
 <div align="center">
@@ -81,6 +86,15 @@ Dynamic: license-file
     <a href="https://pepy.tech/project/vectorbt" title="Downloads">
         <img src="https://pepy.tech/badge/vectorbt" />
     </a>
+    <a href="https://github.com/polakowo/vectorbt/stargazers" title="Stars">
+        <img src="https://img.shields.io/github/stars/polakowo/vectorbt?style=flat" />
+    </a>
+    <a href="https://github.com/polakowo/vectorbt/network/members" title="Forks">
+        <img src="https://img.shields.io/github/forks/polakowo/vectorbt?style=flat" />
+    </a>
+    <a href="https://github.com/polakowo/vectorbt/graphs/contributors" title="Contributors">
+        <img src="https://img.shields.io/github/contributors/polakowo/vectorbt?style=flat" />
+    </a>
     <a href="https://pypi.org/project/vectorbt" title="PyPI">
         <img src="https://img.shields.io/pypi/v/vectorbt?color=blueviolet" />
     </a>
@@ -99,22 +113,30 @@ Dynamic: license-file
     <a href="https://gitter.im/vectorbt/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge" title="Join the chat">
         <img src="https://badges.gitter.im/vectorbt.svg" />
     </a>
-</p>
-
-<p align="center">
     <a href="https://pypi.org/project/vectorbt" title="Supported Python versions">
         <img src="https://img.shields.io/pypi/pyversions/vectorbt.svg?logo=python&logoColor=white" />
     </a>
 </p>
 
-> [!TIP]
-> *New in 0.28*:
->
-> * Plotly 6 support
-> * `ticker_kwargs` in `YFData`
-> * Fixed Pandas TA dependency (→ [pandas-ta-classic](https://github.com/xgboosted/pandas-ta-classic)).
+Test thousands of trading ideas in seconds, analyze portfolios across markets and timeframes, and uncover what works with minimal code. Built for both human researchers and AI agents, VectorBT combines rapid experimentation with a mature, battle-tested backtesting stack shaped by years of community use.
 
-## :package: Installation
+VectorBT is the open-source, community edition of [VectorBT PRO](https://vectorbt.pro/), a state-of-the-art hybrid backtesting library.
+
+## Features
+
+- Fast, vectorized backtesting and strategy research on pandas/NumPy, accelerated with Numba
+- Pandas-native API with custom accessors and high-performance operations
+- Flexible broadcasting for multi-asset analysis and large parameter sweeps
+- Rich indicator ecosystem with support for custom indicators and popular TA libraries (TA-Lib, Pandas TA, etc.)
+- Portfolio backtesting with trades, positions, drawdowns, and performance analysis (incl. QuantStats)
+- Signal-based tooling for generation, ranking, mapping, and distribution analysis
+- Built-in data access (Yahoo Finance, CCXT, Alpaca, etc.), preprocessing, and random data generation
+- Robustness testing, walk-forward optimization, and label generation for ML workflows
+- Interactive visualization with Plotly, Jupyter widgets, and browser-friendly dashboards
+- Automation support for scheduled updates and Telegram notifications
+- Composable Python API suitable for rapid experimentation and AI agent-driven workflows
+
+## Installation
 
 ```sh
 pip install -U vectorbt
@@ -126,7 +148,7 @@ To install optional dependencies as well:
 pip install -U "vectorbt[full]"
 ```
 
-## :sparkles: Usage
+## Usage
 
 VectorBT lets you backtest strategies in just a few lines of Python.
 
@@ -286,12 +308,21 @@ vbt.save_animation("bbands.gif", bbands.wrapper.index, plot, bbands, delta=90, s
 
 This is just the tip of the iceberg. Visit the [website](https://vectorbt.dev/) to learn more.
 
-## :link: Links
+## Apps
+
+### Candlestick Patterns ([here](https://github.com/polakowo/vectorbt/blob/master/apps/candlestick-patterns/))
+
+Explore candlestick-pattern signals interactively and backtest them with VectorBT.
+
+[![teaser.png](https://raw.githubusercontent.com/polakowo/vectorbt/master/apps/candlestick-patterns/assets/teaser.png)](https://github.com/polakowo/vectorbt/blob/master/apps/candlestick-patterns/)
+
+## Links
 
 * [Website](https://vectorbt.dev/)
-* [Colab Notebook](https://colab.research.google.com/drive/1ibqyrf6LPFlzRb6mkPpl3hxqL6ryNBXI?usp=sharing)
+* [Docker images](https://hub.docker.com/r/polakowo/vectorbt)
+* [Colab notebook](https://colab.research.google.com/drive/1ibqyrf6LPFlzRb6mkPpl3hxqL6ryNBXI?usp=sharing)
 
-## :balance_scale: License
+## License
 
 This work is [fair-code](http://faircode.io/) distributed under the [Apache 2.0 with Commons Clause](https://github.com/polakowo/vectorbt/blob/master/LICENSE.md) license.
 
@@ -301,11 +332,11 @@ If you have questions or want to request a license exception, please [contact th
 
 Installing optional dependencies may be subject to a more restrictive license.
 
-## :star: Star History
+## Star history
 
 [![Star History Chart](https://api.star-history.com/svg?repos=polakowo/vectorbt&type=Timeline)](https://star-history.com/#polakowo/vectorbt&Timeline)
 
-## :warning: Disclaimer
+## Disclaimer
 
 This software is for educational purposes only. Do not risk money you cannot afford to lose.
 

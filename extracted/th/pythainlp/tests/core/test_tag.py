@@ -8,6 +8,7 @@ from os import path
 from pythainlp.corpus import download
 from pythainlp.tag import (
     NER,
+    EntitySpan,
     PerceptronTagger,
     perceptron,
     pos_tag,
@@ -28,7 +29,7 @@ class TagTestCase(unittest.TestCase):
         download("blackboard_unigram_tagger")
 
     def test_pos_tag(self):
-        self.assertEqual(pos_tag(None), [])
+        self.assertEqual(pos_tag(None), [])  # type: ignore[arg-type]
         self.assertEqual(pos_tag([]), [])
         self.assertEqual(
             pos_tag(["นักเรียน", "ถาม", "ครู"]),
@@ -38,13 +39,13 @@ class TagTestCase(unittest.TestCase):
             len(pos_tag(["การ", "เดินทาง", "มี", "ความ", "ท้าทาย"])), 5
         )
 
-        self.assertEqual(unigram.tag(None, corpus="pud"), [])
+        self.assertEqual(unigram.tag(None, corpus="pud"), [])  # type: ignore[arg-type]
         self.assertEqual(unigram.tag([], corpus="pud"), [])
-        self.assertEqual(unigram.tag(None, corpus="orchid"), [])
+        self.assertEqual(unigram.tag(None, corpus="orchid"), [])  # type: ignore[arg-type]
         self.assertEqual(unigram.tag([], corpus="orchid"), [])
-        self.assertEqual(unigram.tag(None, corpus="blackboard"), [])
+        self.assertEqual(unigram.tag(None, corpus="blackboard"), [])  # type: ignore[arg-type]
         self.assertEqual(unigram.tag([], corpus="blackboard"), [])
-        self.assertEqual(unigram.tag(None, corpus="tud"), [])
+        self.assertEqual(unigram.tag(None, corpus="tud"), [])  # type: ignore[arg-type]
         self.assertEqual(unigram.tag([], corpus="tud"), [])
         self.assertIsNotNone(
             pos_tag(TEST_TOKENS, engine="unigram", corpus="orchid")
@@ -85,7 +86,7 @@ class TagTestCase(unittest.TestCase):
             pos_tag(["ความ", "พอเพียง"], corpus="orchid_ud")[0][1], "NOUN"
         )
 
-        self.assertEqual(pos_tag_sents(None), [])
+        self.assertEqual(pos_tag_sents(None), [])  # type: ignore[arg-type]
         self.assertEqual(pos_tag_sents([]), [])
         self.assertEqual(
             pos_tag_sents([["ผม", "กิน", "ข้าว"], ["แมว", "วิ่ง"]]),
@@ -94,6 +95,12 @@ class TagTestCase(unittest.TestCase):
                 [("แมว", "NCMN"), ("วิ่ง", "VACT")],
             ],
         )
+
+    def test_pos_tag_error_handling(self):
+        with self.assertRaises(ValueError):
+            pos_tag(["ทดสอบ"], engine="invalid_engine", corpus="invalid_corpus")
+        with self.assertRaises(ValueError):
+            pos_tag(["ทดสอบ"], engine="unigram", corpus="invalid_corpus")
 
     def test_NER_error_handling(self):
         with self.assertRaises(ValueError):
@@ -117,15 +124,15 @@ class PerceptronTaggerTestCase(unittest.TestCase):
         download("blackboard_pt_tagger")
 
     def test_perceptron_tagger(self):
-        self.assertEqual(perceptron.tag(None, corpus="orchid"), [])
+        self.assertEqual(perceptron.tag(None, corpus="orchid"), [])  # type: ignore[arg-type]
         self.assertEqual(perceptron.tag([], corpus="orchid"), [])
-        self.assertEqual(perceptron.tag(None, corpus="orchid_ud"), [])
+        self.assertEqual(perceptron.tag(None, corpus="orchid_ud"), [])  # type: ignore[arg-type]
         self.assertEqual(perceptron.tag([], corpus="orchid_ud"), [])
-        self.assertEqual(perceptron.tag(None, corpus="pud"), [])
+        self.assertEqual(perceptron.tag(None, corpus="pud"), [])  # type: ignore[arg-type]
         self.assertEqual(perceptron.tag([], corpus="pud"), [])
-        self.assertEqual(perceptron.tag(None, corpus="blackboard"), [])
+        self.assertEqual(perceptron.tag(None, corpus="blackboard"), [])  # type: ignore[arg-type]
         self.assertEqual(perceptron.tag([], corpus="blackboard"), [])
-        self.assertEqual(perceptron.tag(None, corpus="tud"), [])
+        self.assertEqual(perceptron.tag(None, corpus="tud"), [])  # type: ignore[arg-type]
         self.assertEqual(perceptron.tag([], corpus="tud"), [])
 
         self.assertIsNotNone(
@@ -312,9 +319,9 @@ class TagNNERTestCase(unittest.TestCase):
 
         # Test with nested entities
         entities = [
-            {"text": ["ห้า"], "span": [7, 9], "entity_type": "cardinal"},
-            {"text": ["ห้า", "โมง"], "span": [7, 11], "entity_type": "time"},
-            {"text": ["โมง"], "span": [9, 11], "entity_type": "unit"},
+            EntitySpan(text=["ห้า"], span=[7, 9], entity_type="cardinal"),
+            EntitySpan(text=["ห้า", "โมง"], span=[7, 11], entity_type="time"),
+            EntitySpan(text=["โมง"], span=[9, 11], entity_type="unit"),
         ]
         top_entities = get_top_level_entities(entities)
         # Should only return 'time' as it contains the others
@@ -324,8 +331,8 @@ class TagNNERTestCase(unittest.TestCase):
 
         # Test with non-overlapping entities
         entities = [
-            {"text": ["วัน"], "span": [0, 1], "entity_type": "time"},
-            {"text": ["เดือน"], "span": [2, 3], "entity_type": "time"},
+            EntitySpan(text=["วัน"], span=[0, 1], entity_type="time"),
+            EntitySpan(text=["เดือน"], span=[2, 3], entity_type="time"),
         ]
         top_entities = get_top_level_entities(entities)
         # Both should be returned as neither contains the other
@@ -346,11 +353,7 @@ class TagNNERTestCase(unittest.TestCase):
         # Test basic IOB conversion
         tokens = ["วัน", "ที่", " ", "5", " ", "เมษายน"]
         entities = [
-            {
-                "text": ["5", " ", "เมษายน"],
-                "span": [3, 6],
-                "entity_type": "date",
-            }
+            EntitySpan(text=["5", " ", "เมษายน"], span=[3, 6], entity_type="date")
         ]
         result = _entities_to_iob(tokens, entities)
 
@@ -369,11 +372,7 @@ class TagNNERTestCase(unittest.TestCase):
         # Test basic HTML conversion
         tokens = ["วัน", "ที่", " ", "5", " ", "เมษายน"]
         entities = [
-            {
-                "text": ["5", " ", "เมษายน"],
-                "span": [3, 6],
-                "entity_type": "date",
-            }
+            EntitySpan(text=["5", " ", "เมษายน"], span=[3, 6], entity_type="date")
         ]
         result = _entities_to_html(tokens, entities)
 
@@ -384,12 +383,8 @@ class TagNNERTestCase(unittest.TestCase):
         # Test with multiple entities
         tokens = ["นาย", "สมชาย", " ", "อยู่", "ที่", "กรุงเทพ"]
         entities = [
-            {
-                "text": ["นาย", "สมชาย"],
-                "span": [0, 2],
-                "entity_type": "person",
-            },
-            {"text": ["กรุงเทพ"], "span": [5, 6], "entity_type": "location"},
+            EntitySpan(text=["นาย", "สมชาย"], span=[0, 2], entity_type="person"),
+            EntitySpan(text=["กรุงเทพ"], span=[5, 6], entity_type="location"),
         ]
         result = _entities_to_html(tokens, entities)
         expected = "<PERSON>นายสมชาย</PERSON> อยู่ที่<LOCATION>กรุงเทพ</LOCATION>"

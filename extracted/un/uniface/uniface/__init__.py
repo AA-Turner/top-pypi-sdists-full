@@ -20,6 +20,7 @@ This library provides unified APIs for:
 - Facial landmarks (106-point detection)
 - Face parsing (semantic segmentation)
 - Gaze estimation
+- Head pose estimation
 - Age, gender, and emotion prediction
 - Face anti-spoofing
 - Privacy/anonymization
@@ -29,7 +30,7 @@ from __future__ import annotations
 
 __license__ = 'MIT'
 __author__ = 'Yakhyokhuja Valikhujaev'
-__version__ = '3.1.1'
+__version__ = '3.2.0'
 
 import contextlib
 
@@ -38,7 +39,7 @@ from uniface.log import Logger, enable_logging
 from uniface.model_store import download_models, get_cache_dir, set_cache_dir, verify_model_weights
 
 from .analyzer import FaceAnalyzer
-from .attribute import AgeGender, Emotion, FairFace
+from .attribute import AgeGender, Emotion, FairFace, create_attribute_predictor
 from .detection import (
     SCRFD,
     RetinaFace,
@@ -48,13 +49,14 @@ from .detection import (
     list_available_detectors,
 )
 from .gaze import MobileGaze, create_gaze_estimator
+from .headpose import HeadPose, create_head_pose_estimator
 from .landmark import Landmark106, create_landmarker
 from .parsing import BiSeNet, XSeg, create_face_parser
 from .privacy import BlurFace
 from .recognition import AdaFace, ArcFace, MobileFace, SphereFace, create_recognizer
 from .spoofing import MiniFASNet, create_spoofer
 from .tracking import BYTETracker
-from .types import AttributeResult, EmotionResult, Face, GazeResult, SpoofingResult
+from .types import AttributeResult, EmotionResult, Face, GazeResult, HeadPoseResult, SpoofingResult
 
 # Optional: FAISS vector store (requires `pip install faiss-cpu`)
 with contextlib.suppress(ImportError):
@@ -72,6 +74,7 @@ __all__ = [
     'create_detector',
     'create_face_parser',
     'create_gaze_estimator',
+    'create_head_pose_estimator',
     'create_landmarker',
     'create_recognizer',
     'create_spoofer',
@@ -91,12 +94,16 @@ __all__ = [
     # Gaze models
     'GazeResult',
     'MobileGaze',
+    # Head pose models
+    'HeadPose',
+    'HeadPoseResult',
     # Parsing models
     'BiSeNet',
     'XSeg',
     # Attribute models
     'AgeGender',
     'AttributeResult',
+    'create_attribute_predictor',
     'Emotion',
     'EmotionResult',
     'FairFace',

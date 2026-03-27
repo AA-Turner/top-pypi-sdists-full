@@ -9,6 +9,7 @@ import os
 import unittest
 from collections import Counter
 from datetime import date, datetime, time, timedelta, timezone
+from unittest.mock import patch
 
 from pythainlp.corpus import corpus_path, thai_words
 from pythainlp.util import (
@@ -61,6 +62,7 @@ from pythainlp.util import (
     thai_consonant_to_spelling,
     thai_digit_to_arabic_digit,
     thai_keyboard_dist,
+    thai_lunar_date,
     thai_strftime,
     thai_strptime,
     thai_to_eng,
@@ -123,7 +125,8 @@ class UtilTestCase(unittest.TestCase):
         )
         self.assertEqual(bahttext(116), "หนึ่งร้อยสิบหกบาทถ้วน")
         self.assertEqual(bahttext(0), "ศูนย์บาทถ้วน")
-        self.assertEqual(bahttext(None), "")
+        with self.assertRaises(TypeError):
+            bahttext(None)  # type: ignore[arg-type]
         # Edge cases: negative number
         self.assertEqual(bahttext(-100), "ลบหนึ่งร้อยบาทถ้วน")
         self.assertEqual(bahttext(-50.50), "ลบห้าสิบบาทห้าสิบสตางค์")
@@ -165,32 +168,19 @@ class UtilTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             thaiword_to_num("ห้าพันสี่หมื่น")
         with self.assertRaises(TypeError):
-            thaiword_to_num(None)
+            thaiword_to_num(None)  # type: ignore[arg-type]
         with self.assertRaises(TypeError):
-            thaiword_to_num(["หนึ่ง"])
+            thaiword_to_num(["หนึ่ง"])  # type: ignore[arg-type]
 
-        self.assertEqual(words_to_num("ศูนย์"), 0)
-        self.assertEqual(words_to_num("แปด"), 8)
-        self.assertEqual(words_to_num("ยี่สิบ"), 20)
-        self.assertEqual(words_to_num("ร้อยสิบสอง"), 112)
-        self.assertEqual(words_to_num("ลบแปด"), -8)
-        self.assertEqual(words_to_num("ลบยี่สิบ"), -20)
-        self.assertEqual(words_to_num("ลบร้อยสิบสอง"), -112)
         self.assertEqual(
-            words_to_num("หกล้านหกแสนหกหมื่นหกพันหกร้อยหกสิบหก"), 6666666
+            words_to_num(["ห้า", "สิบ", "จุด", "เก้า", "ห้า"]),
+            50.95,
         )
-        self.assertEqual(words_to_num("สองล้านสามแสนหกร้อยสิบสอง"), 2300612)
-        self.assertEqual(words_to_num("หนึ่งร้อยสิบล้าน"), 110000000)
-        self.assertEqual(words_to_num("สิบห้าล้านล้านเจ็ดสิบสอง"), 15000000000072)
-        self.assertEqual(words_to_num("หนึ่งล้านล้าน"), 1000000000000)
         self.assertEqual(
-            words_to_num("สองแสนสี่หมื่นสามสิบล้านสี่พันล้าน"),
-            240030004000000000,
+            words_to_num(["ห้า", "สิบ"]),
+            50,
         )
-        self.assertEqual(words_to_num("ร้อยสิบล้านแปดแสนห้าพัน"), 110805000)
-        self.assertEqual(words_to_num("ลบหนึ่ง"), -1)
-        text = "ลบหนึ่งร้อยล้านสี่แสนห้าพันยี่สิบเอ็ด"
-        self.assertEqual(num_to_thaiword(words_to_num(text)), text)
+
         self.assertIsNotNone(text_to_num("เก้าร้อยแปดสิบจุดเก้าห้าบาทนี่คือจำนวนทั้งหมด"))
         self.assertIsNotNone(text_to_num("สิบล้านสองหมื่นหนึ่งพันแปดร้อยแปดสิบเก้าบาท"))
         self.assertIsNotNone(text_to_num("สิบล้านสองหมื่นหนึ่งพันแปดร้อยแปดสิบเก้า"))
@@ -198,34 +188,31 @@ class UtilTestCase(unittest.TestCase):
         self.assertEqual(
             arabic_digit_to_thai_digit("ไทยแลนด์ 4.0"), "ไทยแลนด์ ๔.๐"
         )
+        self.assertEqual(arabic_digit_to_thai_digit(""), "")
         with self.assertRaises(TypeError):
-            arabic_digit_to_thai_digit("")
-        with self.assertRaises(TypeError):
-            arabic_digit_to_thai_digit(None)
+            arabic_digit_to_thai_digit(None)  # type: ignore[arg-type]
 
         self.assertEqual(
             thai_digit_to_arabic_digit("๔๐๔ Not Found"), "404 Not Found"
         )
+        self.assertEqual(thai_digit_to_arabic_digit(""), "")
         with self.assertRaises(TypeError):
-            thai_digit_to_arabic_digit("")
-        with self.assertRaises(TypeError):
-            thai_digit_to_arabic_digit(None)
+            thai_digit_to_arabic_digit(None)  # type: ignore[arg-type]
 
         self.assertEqual(digit_to_text("RFC 7258"), "RFC เจ็ดสองห้าแปด")
+        self.assertEqual(digit_to_text(""), "")
         with self.assertRaises(TypeError):
-            digit_to_text("")
-        with self.assertRaises(TypeError):
-            digit_to_text(None)
+            digit_to_text(None)  # type: ignore[arg-type]
 
         self.assertEqual(text_to_arabic_digit("เจ็ด"), "7")
         self.assertEqual(text_to_arabic_digit(""), "")
         with self.assertRaises(TypeError):
-            text_to_arabic_digit(None)
+            text_to_arabic_digit(None)  # type: ignore[arg-type]
 
         self.assertEqual(text_to_thai_digit("เก้า"), "๙")
         self.assertEqual(text_to_thai_digit(""), "")
         with self.assertRaises(TypeError):
-            text_to_thai_digit(None)
+            text_to_thai_digit(None)  # type: ignore[arg-type]
 
     # ### pythainlp.util.keyboard
 
@@ -276,7 +263,6 @@ class UtilTestCase(unittest.TestCase):
         self.assertEqual(rank(["ใน", "การ", "ที่"], exclude_stopwords=True), Counter())
         # Edge cases: exclude_stopwords=False (explicitly test both values)
         self.assertIsNotNone(rank(["แมว", "ใน", "การ"], exclude_stopwords=False))
-        self.assertIn("ใน", rank(["แมว", "ใน", "การ"], exclude_stopwords=False))
         # Edge cases: duplicate handling
         self.assertEqual(rank(["แมว", "แมว", "แมว"]), Counter({"แมว": 3}))
 
@@ -296,9 +282,9 @@ class UtilTestCase(unittest.TestCase):
         self.assertEqual(thai_keyboard_dist("ก", "ก"), 0.0)
         # Edge cases: None and empty string raise TypeError
         with self.assertRaises(TypeError):
-            thai_keyboard_dist(None, "ก")
+            thai_keyboard_dist(None, "ก")  # type: ignore[arg-type]
         with self.assertRaises(TypeError):
-            thai_keyboard_dist("ก", None)
+            thai_keyboard_dist("ก", None)  # type: ignore[arg-type]
 
     # ### pythainlp.util.date
 
@@ -442,7 +428,7 @@ class UtilTestCase(unittest.TestCase):
                 "8:17", fmt="xx"
             )  # format string is not supported
         with self.assertRaises(TypeError):
-            time_to_thaiword(42)  # input is not datetime/time/str
+            time_to_thaiword(42)   # type: ignore[arg-type]  # input is not datetime/time/str
         with self.assertRaises(ValueError):
             time_to_thaiword("")  # input is empty
         with self.assertRaises(ValueError):
@@ -554,9 +540,9 @@ class UtilTestCase(unittest.TestCase):
         with self.assertRaises(TypeError):
             dict_trie("")
         with self.assertRaises(TypeError):
-            dict_trie(None)
+            dict_trie(None)  # type: ignore[arg-type]
         with self.assertRaises(TypeError):
-            dict_trie(42)
+            dict_trie(42)  # type: ignore[arg-type]
 
     # ### pythainlp.util.normalize
 
@@ -671,13 +657,17 @@ class UtilTestCase(unittest.TestCase):
     # ### pythainlp.util.thai
 
     def test_countthai(self):
-        self.assertEqual(countthai(""), 0.0)
-        self.assertEqual(countthai("123"), 0.0)
-        self.assertEqual(countthai("1 2 3"), 0.0)
-        self.assertEqual(countthai("ประเทศไทย"), 100.0)
-        self.assertEqual(countthai("โรค COVID-19"), 37.5)
-        self.assertEqual(countthai("(กกต.)", ".()"), 100.0)
-        self.assertEqual(countthai("(กกต.)", None), 50.0)
+        with self.assertWarns(DeprecationWarning):
+            self.assertEqual(countthai(""), 0.0)
+
+    def test_count_thai(self):
+        self.assertEqual(count_thai(""), 0.0)
+        self.assertEqual(count_thai("123"), 0.0)
+        self.assertEqual(count_thai("1 2 3"), 0.0)
+        self.assertEqual(count_thai("ประเทศไทย"), 100.0)
+        self.assertEqual(count_thai("โรค COVID-19"), 37.5)
+        self.assertEqual(count_thai("(กกต.)", ".()"), 100.0)
+        self.assertEqual(count_thai("(กกต.)", ""), 50.0)
 
     def test_count_thai_chars(self):
         self.assertEqual(
@@ -714,9 +704,8 @@ class UtilTestCase(unittest.TestCase):
         )
 
     def test_isthaichar(self):
-        self.assertTrue(isthaichar("ก"))
-        self.assertFalse(isthaichar("a"))
-        self.assertFalse(isthaichar("0"))
+        with self.assertWarns(DeprecationWarning):
+            self.assertTrue(isthaichar("ก"))
 
     def test_is_thai_char(self):
         self.assertTrue(is_thai_char("ก"))
@@ -724,12 +713,8 @@ class UtilTestCase(unittest.TestCase):
         self.assertFalse(is_thai_char("0"))
 
     def test_isthai(self):
-        self.assertTrue(isthai("ไทย"))
-        self.assertTrue(isthai("ต.ค."))
-        self.assertTrue(isthai("(ต.ค.)", ignore_chars=".()"))
-        self.assertFalse(isthai("ไทย0"))
-        self.assertFalse(isthai("(ต.ค.)"))
-        self.assertFalse(isthai("ต.ค.", ignore_chars=None))
+        with self.assertWarns(DeprecationWarning):
+            self.assertTrue(isthai("ไทย"))
 
     def test_is_thai(self):
         self.assertTrue(is_thai("ไทย"))
@@ -737,16 +722,6 @@ class UtilTestCase(unittest.TestCase):
         self.assertTrue(is_thai("(ต.ค.)", ignore_chars=".()"))
         self.assertFalse(is_thai("ไทย0"))
         self.assertFalse(is_thai("(ต.ค.)"))
-        self.assertFalse(is_thai("ต.ค.", ignore_chars=None))
-
-    def test_count_thai(self):
-        self.assertEqual(count_thai(""), 0.0)
-        self.assertEqual(count_thai("123"), 0.0)
-        self.assertEqual(count_thai("1 2 3"), 0.0)
-        self.assertEqual(count_thai("ประเทศไทย"), 100.0)
-        self.assertEqual(count_thai("โรค COVID-19"), 37.5)
-        self.assertEqual(count_thai("(กกต.)", ".()"), 100.0)
-        self.assertEqual(count_thai("(กกต.)", None), 50.0)
 
     def test_display_thai_char(self):
         self.assertEqual(display_thai_char("้"), "_้")
@@ -936,7 +911,7 @@ class UtilTestCase(unittest.TestCase):
                 "24-6-75 09:00:00",
                 "%d-%B-%Y %H:%M:%S",
                 year="be",
-                add_year="2400",
+                add_year=2400,
             )
         )
         self.assertIsNotNone(
@@ -949,7 +924,7 @@ class UtilTestCase(unittest.TestCase):
                 "05-7-99 09:00:01.10600",
                 "%d-%B-%Y %H:%M:%S.%f",
                 year="ad",
-                add_year="1900",
+                add_year=1900,
             )
         )
 
@@ -1016,10 +991,18 @@ class UtilTestCase(unittest.TestCase):
     def test_morse_encode(self):
         self.assertEqual(morse_encode("แมว", lang="th"), ".-.- -- .--")
         self.assertEqual(morse_encode("cat", lang="en"), "-.-. .- -")
+        with self.assertRaisesRegex(
+            NotImplementedError, "This function doesn't support jp"
+        ):
+            morse_encode("แมว", lang="jp")
 
     def test_morse_decode(self):
         self.assertEqual(morse_decode(".-.- -- .--", lang="th"), "แมว")
         self.assertEqual(morse_decode("-.-. .- -", lang="en"), "CAT")
+        with self.assertRaisesRegex(
+            NotImplementedError, "This function doesn't support jp"
+        ):
+            morse_decode(".-.- -- .--", lang="jp")
 
     def test_to_lunar_date(self):
         self.assertEqual(to_lunar_date(date(2024, 11, 15)), "ขึ้น 15 ค่ำ เดือน 12")
@@ -1029,6 +1012,11 @@ class UtilTestCase(unittest.TestCase):
         self.assertEqual(to_lunar_date(date(2020, 10, 31)), "ขึ้น 15 ค่ำ เดือน 12")
         with self.assertRaises(NotImplementedError):
             to_lunar_date(date(1885, 9, 7))  # back to the future
+        with patch.object(thai_lunar_date, "last_day_in_year", return_value=353):
+            with self.assertRaisesRegex(
+                ValueError, "Unexpected last_day value: 353"
+            ):
+                to_lunar_date(date(1903, 1, 1))
 
     def test_th_zodiac(self):
         self.assertEqual(th_zodiac(2024), "มะโรง")
@@ -1039,7 +1027,7 @@ class UtilTestCase(unittest.TestCase):
     #     self.assertIsInstance(abbreviation_to_full_text("รร.ของเราน่าอยู่", list))
 
     def test_spelling(self):
-        self.assertEqual(spelling([]), [])
+        self.assertEqual(spelling([]), [])  # type: ignore[arg-type]
         self.assertEqual(spelling("เรียน"), ['รอ', 'เอีย', 'นอ', 'เรียน'])
         self.assertEqual(
             spelling("เฝ้า"), ['ฝอ', 'เอา', 'เฝา', 'ไม้โท', 'เฝ้า']

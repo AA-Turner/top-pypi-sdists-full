@@ -13,7 +13,6 @@ requires = [
 backend-path = [
   ".",
   "./src",
-  "../vcs-versioning/src"
 ]
 [tools.uv.sources]
 vcs-versioning= "../vcs-versioning"
@@ -82,6 +81,7 @@ test = [
   "griffe",
   "griffe-public-wildcard-imports",
   "flake8",
+  "griffecli",
 ]
 
 [project.urls]

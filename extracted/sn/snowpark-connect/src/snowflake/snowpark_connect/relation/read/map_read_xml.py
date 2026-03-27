@@ -3,13 +3,14 @@
 #
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 from pyspark.errors.exceptions.base import IllegalArgumentException
 
 from snowflake import snowpark
-from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
 from snowflake.snowpark._internal.type_utils import convert_sp_to_sf_type
+from snowflake.snowpark._internal.xml_schema_inference import merge_struct_types
 from snowflake.snowpark.exceptions import SnowparkDataframeReaderException
 from snowflake.snowpark.functions import sql_expr
 from snowflake.snowpark.types import ArrayType, DataType, StructField, StructType
@@ -30,6 +31,12 @@ from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
+
+# MAX_CONCURRENCY_LEVEL is set to 8 by default and can be increase to a maximum of 32,
+# if issue more than MAX_CONCURRENCY_LEVEL number of queries at the same time,
+# outstanding queries will be queued to execute.
+# to maximize the resource of warehouse, we set XML_READ_MAX_PARALLEL to 32 by default
+XML_READ_MAX_PARALLEL = 32
 
 """
 This module reads XML files with Spark parity by:
@@ -56,7 +63,7 @@ def map_read_xml(
 
     Args:
         rel: Protobuf relation from Spark Connect protocol
-        schema: User-provided schema (REQUIRED - inference not supported)
+        schema: User-provided schema, or None to use Snowpark's built-in schema inference
         session: Snowpark session
         paths: Stage paths to XML files
         options: XmlReaderConfig with Spark->Snowpark option translations
@@ -65,7 +72,7 @@ def map_read_xml(
         DataFrameContainer with proper column mappings
 
     Raises:
-        SnowparkConnectNotImplementedError: If streaming or schema inference requested
+        SnowparkConnectNotImplementedError: If streaming requested
 
     Notes:
         We leverage the stage that is already created in the map_read function that calls this.
@@ -78,16 +85,6 @@ def map_read_xml(
         # TODO: Structured streaming implementation.
         exception = SnowparkConnectNotImplementedError(
             "Streaming is not supported for XML files."
-        )
-        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-        raise exception
-
-    if schema is None:
-        # TODO: Schema inference is not yet supported.
-        exception = SnowparkConnectNotImplementedError(
-            "XML schema inference is not yet supported. "
-            "Please provide a schema using .schema() before .load(). "
-            "Example: spark.read.format('xml').option('rowTag', 'book').schema(user_schema).load(path)"
         )
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
@@ -121,22 +118,55 @@ def map_read_xml(
                 "rowvalidationxsdpath"
             ] = f"{stage_name}/{os.path.basename(local_xsd)}"
 
-    apply_metadata_exclusion_pattern(snowpark_options)
-    reader = add_filename_metadata_to_reader(
-        session.read.options(snowpark_options), raw_options
-    )
+    if schema is not None:
+        snowpark_options["inferschema"] = False
 
-    # Convert paths from StagePathStr to plain str, needed for UDTF-based XML reader
-    paths = [str(p) for p in paths]
-    paths = [p[1:-1] if p.startswith("'") and p.endswith("'") else p for p in paths]
+    apply_metadata_exclusion_pattern(snowpark_options)
+
+    # if there are dir in the paths, extend them to list of file
+    paths = _get_all_xml_file_paths(paths, session)
+
+    effective_schema = schema
+    has_multi_files = len(paths) > 1
+
+    def _read_xml_file(
+        path: str,
+    ) -> tuple[snowpark.DataFrame, StructType | None]:
+        """Each thread gets its own DataFrameReader so that
+        _xml_inferred_schema is never clobbered by another thread."""
+        local_reader = add_filename_metadata_to_reader(
+            session.read.options(snowpark_options), raw_options
+        )
+        file_df = local_reader.xml(path)
+        return file_df, local_reader._xml_inferred_schema
 
     try:
-        df = reader.xml(paths[0])
-        for p in paths[1:]:
-            df = df.union_all_by_name(reader.xml(p), allow_missing_columns=True)
+        # Read XML paths in parallel, then union all results by column name.
+        max_workers = min(len(paths), XML_READ_MAX_PARALLEL)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            results = list(executor.map(_read_xml_file, paths))
+
+        df = None
+        for file_df, inferred_schema in results:
+            if schema is None and inferred_schema is not None:
+                if effective_schema is None:
+                    effective_schema = inferred_schema
+                else:
+                    effective_schema = merge_struct_types(
+                        effective_schema, inferred_schema
+                    )
+
+            if has_multi_files:
+                file_df = _cast_all_to_variant(file_df)
+            df = (
+                file_df
+                if df is None
+                else df.union_all_by_name(file_df, allow_missing_columns=True)
+            )
 
         # [SPARK PARITY] Transform data to match user schema and case sensitivity
-        df = _apply_user_schema(df, schema)
+        if df is not None and effective_schema is not None:
+            df = _apply_xml_schema(df, effective_schema)
 
     except SnowparkDataframeReaderException as e:
         # [SPARK PARITY] Return empty DataFrame if rowTag not found
@@ -144,15 +174,23 @@ def map_read_xml(
             logger.info(
                 f"XML reader: rowTag '{row_tag}' not found, returning empty DataFrame"
             )
-            df = _create_empty_dataframe_with_schema(schema, session)
+            empty_schema = effective_schema or StructType([])
+            df = _create_empty_dataframe_with_schema(empty_schema, session)
         else:
             raise
+
+    if df is None:
+        empty_schema = effective_schema or StructType([])
+        df = _create_empty_dataframe_with_schema(empty_schema, session)
 
     spark_column_names = get_spark_column_names_from_snowpark_columns(df.columns)
     renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
         df, rel.common.plan_id
     )
-    snowpark_column_types = [emulate_integral_types(f.datatype) for f in schema.fields]
+    fields = (
+        effective_schema.fields if effective_schema is not None else df.schema.fields
+    )
+    snowpark_column_types = [emulate_integral_types(f.datatype) for f in fields]
 
     return DataFrameContainer.create_with_column_mapping(
         dataframe=renamed_df,
@@ -225,30 +263,30 @@ def _validate_xml_options(options: XmlReaderConfig) -> None:
         raise exception
 
 
-def _apply_user_schema(
+def _apply_xml_schema(
     snowpark_df: snowpark.DataFrame,
-    user_schema: StructType,
+    schema: StructType,
 ) -> snowpark.DataFrame:
     """
-    Cast Snowpark XML output to match user-provided Spark schema:
-    - Maps Snowpark column names to user schema field names
+    Cast Snowpark XML output to match the given schema:
+    - Maps Snowpark column names to user or inferredschema field names
     - Applies case-sensitive matching where missing columns become NULL
     - Normalizes single-element arrays
     """
     snowpark_columns = set(snowpark_df.columns)
     select_exprs = []
 
-    for field in user_schema.fields:
-        field_name = unquote_if_quoted(field.name)
-        snowpark_col = f"\"'{field_name}'\""
+    for field in schema.fields:
+        field_name = field._name
+        snowpark_col = _resolve_column_name(field_name, snowpark_columns)
 
         # [SPARK PARITY] Case-sensitive matching - return NULL if column doesn't exist
-        if snowpark_col not in snowpark_columns:
+        if snowpark_col is None:
             sf_type = convert_sp_to_sf_type(field.datatype)
             select_exprs.append(sql_expr(f"NULL::{sf_type}").alias(f'"{field_name}"'))
             continue
 
-        normalized = _normalize_single_element_arrays(snowpark_col, field.datatype)
+        normalized = _normalize_nested_schema(snowpark_col, field.datatype)
         sf_type = convert_sp_to_sf_type(field.datatype)
         select_exprs.append(
             sql_expr(f"({normalized})::{sf_type}").alias(f'"{field_name}"')
@@ -257,10 +295,9 @@ def _apply_user_schema(
     return snowpark_df.select(*select_exprs)
 
 
-def _normalize_single_element_arrays(col_path: str, datatype: DataType) -> str:
+def _normalize_nested_schema(col_path: str, datatype: DataType) -> str:
     """
-    This function wraps single-element objects in ARRAY_CONSTRUCT where schema expects arrays.
-    Uses recursive descent to handle nested structures.
+    Recursively normalize VARIANT data so it can cast to the expected structured type.
 
     Args:
         col_path: SQL path to column (e.g., 'reviews' or 'reviews:review')
@@ -270,19 +307,26 @@ def _normalize_single_element_arrays(col_path: str, datatype: DataType) -> str:
         SQL expression string with array normalization applied where needed
 
     Note:
+    - ArrayType: wrap single-element objects in ARRAY_CONSTRUCT; use TRANSFORM to
+      recurse into each element so nested structs/arrays are also normalized.
     - OBJECT_CONSTRUCT returns OBJECT type, which CANNOT cast to structured OBJECT(...)
     - OBJECT_CONSTRUCT_KEEP_NULL(...)::VARIANT returns VARIANT, which CAN cast to structured types
     """
     if isinstance(datatype, ArrayType):
-        return f"IFF(IS_ARRAY({col_path}), {col_path}, ARRAY_CONSTRUCT({col_path}))"
+        arr_expr = f"IFF(IS_ARRAY({col_path}), {col_path}, ARRAY_CONSTRUCT({col_path}))"
+        element_type = datatype.element_type
+        if isinstance(element_type, (StructType, ArrayType)):
+            inner = _normalize_nested_schema("__e", element_type)
+            return f"TRANSFORM({arr_expr}, __e -> {inner})"
+        return arr_expr
 
     elif isinstance(datatype, StructType):
         # Rebuild struct with OBJECT_CONSTRUCT_KEEP_NULL for proper casting
         field_exprs = []
         for field in datatype.fields:
-            field_name = unquote_if_quoted(field.name)
+            field_name = field._name
             nested_path = f"{col_path}['{field_name}']"
-            normalized = _normalize_single_element_arrays(nested_path, field.datatype)
+            normalized = _normalize_nested_schema(nested_path, field.datatype)
             field_exprs.append(f"'{field_name}', {normalized}")
         # ::VARIANT suffix is KEY - allows casting to structured OBJECT(...)
         reconstructed = f"OBJECT_CONSTRUCT_KEEP_NULL({', '.join(field_exprs)})::VARIANT"
@@ -320,7 +364,7 @@ def _quote_top_level_schema_fields(schema: StructType) -> StructType:
     return StructType(
         [
             StructField(
-                f'"{unquote_if_quoted(field.name)}"',
+                f'"{field._name}"',
                 field.datatype,
                 field.nullable,
             )
@@ -328,3 +372,41 @@ def _quote_top_level_schema_fields(schema: StructType) -> StructType:
         ],
         structured=schema.structured,
     )
+
+
+def _get_all_xml_file_paths(paths: list[str], session: snowpark.Session) -> list[str]:
+    paths = [str(p) for p in paths]
+    paths = [p[1:-1] if p.startswith("'") and p.endswith("'") else p for p in paths]
+    new_path = []
+
+    # each path in the list could be a dir, we need to ls each one of them
+    for path in paths:
+        stage_files = session.sql(f"LS {path}")
+        try:
+            res = [f"@{res[0]}" for res in stage_files.collect()]
+            if res:
+                new_path.extend(res)
+            else:
+                new_path.append(path)
+        except Exception:
+            new_path.append(path)
+
+    return new_path
+
+
+def _cast_all_to_variant(df: snowpark.DataFrame) -> snowpark.DataFrame:
+    return df.select([df[c].cast("VARIANT").alias(c) for c in df.columns])
+
+
+def _resolve_column_name(field_name: str, snowpark_columns: set[str]) -> str | None:
+    # inferSchema=False produces "'field_name'"
+    candidate = f"\"'{field_name}'\""
+    if candidate in snowpark_columns:
+        return candidate
+
+    # inferSchema=True produces '"field_name"'
+    candidate = f'"{field_name}"'
+    if candidate in snowpark_columns:
+        return candidate
+
+    return None
