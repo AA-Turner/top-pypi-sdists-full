@@ -194,7 +194,8 @@ def dev(
     """Run world + agents on VMs with rsync hot reload."""
     from rich.logging import RichHandler
 
-    from plato.cli.chronos.dev import Config, DevRunner
+    from plato.cli.chronos.config import Config
+    from plato.cli.chronos.dev.runner import DevRunner
 
     # Set up log file in /tmp
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -689,7 +690,14 @@ def download(
             # First get refs to find the step name if not provided
             refs = client.get_workspace_refs(session_id, repo_name=repo_name)
             if not refs:
-                console.print(f"[red]No workspace refs found for repo '{repo_name}'[/red]")
+                # Show available repos to help the user
+                all_refs = client.get_workspace_refs(session_id)
+                available = sorted({r.get("repo_name", "") for r in all_refs}) if all_refs else []
+                if available:
+                    console.print(f"[red]No workspace refs for repo '{repo_name}'[/red]")
+                    console.print(f"[yellow]Available repos: {', '.join(available)}[/yellow]")
+                else:
+                    console.print(f"[red]No workspace refs found for session {session_id}[/red]")
                 raise typer.Exit(1)
 
             if step_name is None:

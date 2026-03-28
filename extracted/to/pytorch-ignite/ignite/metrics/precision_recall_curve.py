@@ -1,4 +1,5 @@
-from typing import Any, Callable, cast, Tuple, Union
+from collections.abc import Callable
+from typing import Any, cast
 
 import torch
 
@@ -7,7 +8,7 @@ from ignite.exceptions import NotComputableError
 from ignite.metrics.epoch_metric import EpochMetric
 
 
-def precision_recall_curve_compute_fn(y_preds: torch.Tensor, y_targets: torch.Tensor) -> Tuple[Any, Any, Any]:
+def precision_recall_curve_compute_fn(y_preds: torch.Tensor, y_targets: torch.Tensor) -> tuple[Any, Any, Any]:
     from sklearn.metrics import precision_recall_curve
 
     y_true = y_targets.cpu().numpy()
@@ -31,7 +32,7 @@ class PrecisionRecallCurve(EpochMetric):
             #sklearn.metrics.precision_recall_curve>`_ is run on the first batch of data to ensure there are
             no issues. User will be warned in case there are any issues computing the function.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Note:
@@ -77,7 +78,7 @@ class PrecisionRecallCurve(EpochMetric):
         self,
         output_transform: Callable = lambda x: x,
         check_compute_fn: bool = False,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ) -> None:
         try:
@@ -85,7 +86,7 @@ class PrecisionRecallCurve(EpochMetric):
         except ImportError:
             raise ModuleNotFoundError("This module requires scikit-learn to be installed.")
 
-        super(PrecisionRecallCurve, self).__init__(
+        super().__init__(
             precision_recall_curve_compute_fn,  # type: ignore[arg-type]
             output_transform=output_transform,
             check_compute_fn=check_compute_fn,
@@ -93,7 +94,7 @@ class PrecisionRecallCurve(EpochMetric):
             skip_unrolling=skip_unrolling,
         )
 
-    def compute(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:  # type: ignore[override]
+    def compute(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:  # type: ignore[override]
         if len(self._predictions) < 1 or len(self._targets) < 1:
             raise NotComputableError("PrecisionRecallCurve must have at least one example before it can be computed.")
 
@@ -109,7 +110,7 @@ class PrecisionRecallCurve(EpochMetric):
 
             if idist.get_rank() == 0:
                 # Run compute_fn on zero rank only
-                precision, recall, thresholds = cast(Tuple, self.compute_fn(_prediction_tensor, _target_tensor))
+                precision, recall, thresholds = cast(tuple, self.compute_fn(_prediction_tensor, _target_tensor))
                 precision = torch.tensor(precision, device=_prediction_tensor.device, dtype=self._double_dtype)
                 recall = torch.tensor(recall, device=_prediction_tensor.device, dtype=self._double_dtype)
                 # thresholds can have negative strides, not compatible with torch tensors
@@ -126,4 +127,4 @@ class PrecisionRecallCurve(EpochMetric):
 
             self._result = (precision, recall, thresholds)  # type: ignore[assignment]
 
-        return cast(Tuple[torch.Tensor, torch.Tensor, torch.Tensor], self._result)
+        return cast(tuple[torch.Tensor, torch.Tensor, torch.Tensor], self._result)

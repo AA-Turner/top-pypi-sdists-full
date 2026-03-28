@@ -10,6 +10,7 @@ Implements Stage 1 of the three-stage sync algorithm:
 
 import json
 import logging
+import os
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -250,6 +251,10 @@ class GitSourceSyncService:
         # Setup HTTP session with connection pooling
         self.session = requests.Session()
         self.session.headers["Accept"] = "text/plain"
+        # Inject GitHub token for private repo access
+        _token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+        if _token:
+            self.session.headers["Authorization"] = f"token {_token}"
 
         # Initialize SQLite state tracking (NEW)
         self.sync_state = AgentSyncState()
@@ -474,7 +479,8 @@ class GitSourceSyncService:
 
                 if status == 200:
                     # New content downloaded - save and track
-                    self._save_to_cache(agent_filename, content)
+                    if content is not None:
+                        self._save_to_cache(agent_filename, content)
 
                     # Track file with content hash in SQLite
                     cache_file = self.cache_dir / agent_filename
@@ -485,7 +491,9 @@ class GitSourceSyncService:
                             file_path=agent_filename,
                             content_sha=content_sha,
                             local_path=str(cache_file),
-                            file_size=len(content.encode("utf-8")),
+                            file_size=len(content.encode("utf-8"))
+                            if content is not None
+                            else 0,
                         )
 
                     results["synced"].append(agent_filename)
@@ -678,7 +686,8 @@ class GitSourceSyncService:
             content, status = self._fetch_with_etag(url)
 
             if status == 200:
-                self._save_to_cache(filename, content)
+                if content is not None:
+                    self._save_to_cache(filename, content)
                 return content
             if status == 304:
                 # Load from cache
@@ -946,16 +955,28 @@ class GitSourceSyncService:
         )
         logger.debug(f"Fetching commit SHA from {refs_url}")
 
-        refs_response = self.session.get(
-            refs_url, headers={"Accept": "application/vnd.github+json"}, timeout=30
-        )
+        api_headers: dict[str, str] = {"Accept": "application/vnd.github+json"}
+        _token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+        if _token:
+            api_headers["Authorization"] = f"token {_token}"
 
-        if refs_response.status_code == 403:
-            logger.warning(
-                "GitHub API rate limit exceeded (HTTP 403). "
-                "Consider setting GITHUB_TOKEN environment variable."
+        refs_response = self.session.get(refs_url, headers=api_headers, timeout=30)
+
+        if refs_response.status_code in (401, 403):
+            token_hint = (
+                ""
+                if _token
+                else " Set GITHUB_TOKEN environment variable for private repos."
             )
-            raise requests.RequestException("Rate limit exceeded")
+            logger.warning(
+                "GitHub API returned %d for %s.%s",
+                refs_response.status_code,
+                refs_url,
+                token_hint,
+            )
+            raise requests.RequestException(
+                f"GitHub API error {refs_response.status_code}"
+            )
 
         refs_response.raise_for_status()
         commit_sha = refs_response.json()["object"]["sha"]
@@ -968,7 +989,7 @@ class GitSourceSyncService:
         logger.debug(f"Fetching recursive tree from {tree_url}")
         tree_response = self.session.get(
             tree_url,
-            headers={"Accept": "application/vnd.github+json"},
+            headers=api_headers,
             params=params,
             timeout=30,
         )

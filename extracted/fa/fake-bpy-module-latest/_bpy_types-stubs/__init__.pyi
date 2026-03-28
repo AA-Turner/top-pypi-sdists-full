@@ -1382,6 +1382,7 @@ class Menu(_GenericUI):
         add_operator=None,
         add_operator_props=None,
         translate=True,
+        recursive_paths=False,
     ) -> None:
         """Populate a menu from a list of paths.
 
@@ -1397,6 +1398,7 @@ class Menu(_GenericUI):
                 :param add_operator:
                 :param add_operator_props:
                 :param translate:
+                :param recursive_paths:
         """
 
 class Panel(_GenericUI):

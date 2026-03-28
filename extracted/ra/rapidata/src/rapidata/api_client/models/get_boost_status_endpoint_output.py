@@ -19,7 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List
-from rapidata.api_client.models.boost_mode_model import BoostModeModel
+from rapidata.api_client.models.boost_mode import BoostMode
 from rapidata.api_client.models.boost_status_model import BoostStatusModel
 from typing import Optional, Set
 from typing_extensions import Self
@@ -29,7 +29,7 @@ class GetBoostStatusEndpointOutput(BaseModel):
     GetBoostStatusEndpointOutput
     """ # noqa: E501
     status: BoostStatusModel
-    mode: BoostModeModel
+    mode: BoostMode
     active_campaigns: List[StrictStr] = Field(alias="activeCampaigns")
     inactive_campaigns: List[StrictStr] = Field(alias="inactiveCampaigns")
     unknown_campaigns: List[StrictInt] = Field(alias="unknownCampaigns")

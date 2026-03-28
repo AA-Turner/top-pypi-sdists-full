@@ -252,17 +252,14 @@ class MilvusClient(BaseMilvusClient):
 
         conn = self._get_connection()
         # Insert into the collection.
-        try:
-            res = conn.insert_rows(
-                collection_name,
-                data,
-                partition_name=partition_name,
-                timeout=timeout,
-                context=self._generate_call_context(**kwargs),
-                **kwargs,
-            )
-        except Exception as ex:
-            raise ex from ex
+        res = conn.insert_rows(
+            collection_name,
+            data,
+            partition_name=partition_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
         return OmitZeroDict(
             {
                 "insert_count": res.insert_count,
@@ -316,17 +313,14 @@ class MilvusClient(BaseMilvusClient):
 
         conn = self._get_connection()
         # Upsert into the collection.
-        try:
-            res = conn.upsert_rows(
-                collection_name,
-                data,
-                partition_name=partition_name,
-                timeout=timeout,
-                context=self._generate_call_context(**kwargs),
-                **kwargs,
-            )
-        except Exception as ex:
-            raise ex from ex
+        res = conn.upsert_rows(
+            collection_name,
+            data,
+            partition_name=partition_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
         return OmitZeroDict(
             {
@@ -970,6 +964,8 @@ class MilvusClient(BaseMilvusClient):
 
     def _get_connection(self):
         """Return the handler for this client."""
+        if self._handler is None:
+            raise MilvusException(message="should create connection first")
         return self._handler
 
     def close(self):
@@ -1009,16 +1005,13 @@ class MilvusClient(BaseMilvusClient):
         partition_names = None
         if partition_name:
             partition_names = [partition_name]
-        try:
-            state = conn.get_load_state(
-                collection_name,
-                partition_names,
-                timeout=timeout,
-                context=self._generate_call_context(**kwargs),
-                **kwargs,
-            )
-        except Exception as ex:
-            raise ex from ex
+        state = conn.get_load_state(
+            collection_name,
+            partition_names,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
 
         ret = {"state": state}
         if state == LoadState.Loading:
@@ -1447,16 +1440,13 @@ class MilvusClient(BaseMilvusClient):
 
     def describe_user(self, user_name: str, timeout: Optional[float] = None, **kwargs):
         conn = self._get_connection()
-        try:
-            res = conn.select_one_user(
-                user_name,
-                True,
-                timeout=timeout,
-                context=self._generate_call_context(**kwargs),
-                **kwargs,
-            )
-        except Exception as ex:
-            raise ex from ex
+        res = conn.select_one_user(
+            user_name,
+            True,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
         if res.groups:
             item = res.groups[0]
             return {"user_name": user_name, "roles": item.roles}
@@ -1505,16 +1495,13 @@ class MilvusClient(BaseMilvusClient):
     def describe_role(self, role_name: str, timeout: Optional[float] = None, **kwargs) -> Dict:
         conn = self._get_connection()
         db_name = kwargs.pop("db_name", "")
-        try:
-            res = conn.select_grant_for_one_role(
-                role_name,
-                db_name,
-                timeout=timeout,
-                context=self._generate_call_context(**kwargs),
-                **kwargs,
-            )
-        except Exception as ex:
-            raise ex from ex
+        res = conn.select_grant_for_one_role(
+            role_name,
+            db_name,
+            timeout=timeout,
+            context=self._generate_call_context(**kwargs),
+            **kwargs,
+        )
         ret = {}
         ret["role"] = role_name
         ret["privileges"] = [dict(i) for i in res.groups]
@@ -1522,12 +1509,9 @@ class MilvusClient(BaseMilvusClient):
 
     def list_roles(self, timeout: Optional[float] = None, **kwargs):
         conn = self._get_connection()
-        try:
-            res = conn.select_all_role(
-                False, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
-            )
-        except Exception as ex:
-            raise ex from ex
+        res = conn.select_all_role(
+            False, timeout=timeout, context=self._generate_call_context(**kwargs), **kwargs
+        )
 
         groups = res.groups
         return [g.role_name for g in groups]
@@ -2174,8 +2158,9 @@ class MilvusClient(BaseMilvusClient):
 
     def update_replicate_configuration(
         self,
-        clusters: Optional[List[Dict]] = None,
+        clusters: List[Dict],
         cross_cluster_topology: Optional[List[Dict]] = None,
+        force_promote: bool = False,
         timeout: Optional[float] = None,
         **kwargs,
     ):
@@ -2183,7 +2168,7 @@ class MilvusClient(BaseMilvusClient):
         Update replication configuration across Milvus clusters.
 
         Args:
-            clusters (List[Dict], optional): List of cluster configurations.
+            clusters (List[Dict]): List of cluster configurations.
             Each dict should contain:
                 - cluster_id (str): Unique identifier for the cluster
                 - connection_param (Dict): Connection parameters with 'uri' and 'token'
@@ -2194,10 +2179,8 @@ class MilvusClient(BaseMilvusClient):
                 - source_cluster_id (str): ID of the source cluster
                 - target_cluster_id (str): ID of the target cluster
 
-            cross_cluster_topology (List[Dict], optional): List of replication relationships.
-            Each dict should contain:
-                - source_cluster_id (str): ID of the source cluster
-                - target_cluster_id (str): ID of the target cluster
+            force_promote (bool, optional): If true, force promote the current secondary cluster
+                to standalone primary. Used for disaster recovery when the primary is unavailable.
 
             timeout (float, optional): An optional duration of time in seconds to allow for the RPC
             **kwargs: Additional arguments
@@ -2206,7 +2189,7 @@ class MilvusClient(BaseMilvusClient):
             Status: The status of the operation
 
         Raises:
-            ParamError: If neither clusters nor cross_cluster_topology is provided
+            ParamError: If clusters is not provided
             MilvusException: If the operation fails
 
         Examples:
@@ -2241,6 +2224,7 @@ class MilvusClient(BaseMilvusClient):
         return self._get_connection().update_replicate_configuration(
             clusters=clusters,
             cross_cluster_topology=cross_cluster_topology,
+            force_promote=force_promote,
             timeout=timeout,
             context=self._generate_call_context(**kwargs),
             **kwargs,
@@ -2295,15 +2279,19 @@ class MilvusClient(BaseMilvusClient):
         )
         return [
             LoadedSegmentInfo(
-                info.segmentID,
-                info.collectionID,
-                collection_name,
-                info.num_rows,
-                info.is_sorted,
-                info.state,
-                info.level,
-                info.storage_version,
-                info.mem_size,
+                segment_id=info.segmentID,
+                collection_id=info.collectionID,
+                collection_name=collection_name,
+                num_rows=info.num_rows,
+                is_sorted=info.is_sorted,
+                state=info.state,
+                level=info.level,
+                storage_version=info.storage_version,
+                partition_id=info.partitionID,
+                index_name=info.index_name,
+                index_id=info.indexID,
+                node_ids=list(info.nodeIds),
+                mem_size=info.mem_size,
             )
             for info in infos
         ]

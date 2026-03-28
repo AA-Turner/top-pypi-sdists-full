@@ -1,10 +1,10 @@
 import numbers
 import warnings
 import weakref
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from enum import Enum
 from types import DynamicClassAttribute
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, TYPE_CHECKING, Union
+from typing import Any, TYPE_CHECKING
 
 from torch.utils.data import DataLoader
 
@@ -28,7 +28,7 @@ class CallableEventWithFilter:
         name: The enum-name of the current object. Only needed for internal use. Do not touch!
     """
 
-    def __init__(self, value: str, event_filter: Optional[Callable] = None, name: Optional[str] = None) -> None:
+    def __init__(self, value: str, event_filter: Callable | None = None, name: str | None = None) -> None:
         self.filter = event_filter
 
         if not hasattr(self, "_value_"):
@@ -50,11 +50,11 @@ class CallableEventWithFilter:
 
     def __call__(
         self,
-        event_filter: Optional[Callable] = None,
-        every: Optional[int] = None,
-        once: Optional[Union[int, List]] = None,
-        before: Optional[int] = None,
-        after: Optional[int] = None,
+        event_filter: Callable | None = None,
+        every: int | None = None,
+        once: int | list | None = None,
+        before: int | None = None,
+        after: int | None = None,
     ) -> "CallableEventWithFilter":
         """
         Makes the event class callable and accepts either an arbitrary callable as filter
@@ -91,7 +91,7 @@ class CallableEventWithFilter:
             raise ValueError("Argument every should be integer and greater than zero")
 
         if once is not None:
-            c1 = isinstance(once, numbers.Integral) and once > 0
+            c1 = isinstance(once, int) and once > 0
             c2 = isinstance(once, Sequence) and len(once) > 0 and all(isinstance(e, int) and e > 0 for e in once)
             if not (c1 or c2):
                 raise ValueError(
@@ -138,7 +138,7 @@ class CallableEventWithFilter:
         return wrapper
 
     @staticmethod
-    def once_event_filter(once: List) -> Callable:
+    def once_event_filter(once: list) -> Callable:
         """A wrapper for once event filter."""
 
         def wrapper(engine: "Engine", event: int) -> bool:
@@ -149,9 +149,9 @@ class CallableEventWithFilter:
         return wrapper
 
     @staticmethod
-    def before_and_after_event_filter(before: Optional[int] = None, after: Optional[int] = None) -> Callable:
+    def before_and_after_event_filter(before: int | None = None, after: int | None = None) -> Callable:
         """A wrapper for before and after event filter."""
-        before_: Union[int, float] = float("inf") if before is None else before
+        before_: int | float = float("inf") if before is None else before
         after_: int = 0 if after is None else after
 
         def wrapper(engine: "Engine", event: int) -> bool:
@@ -163,10 +163,10 @@ class CallableEventWithFilter:
 
     @staticmethod
     def every_before_and_after_event_filter(
-        every: int, before: Optional[int] = None, after: Optional[int] = None
+        every: int, before: int | None = None, after: int | None = None
     ) -> Callable:
         """A wrapper which triggers for every `every` iterations after `after` and before `before`."""
-        before_: Union[int, float] = float("inf") if before is None else before
+        before_: int | float = float("inf") if before is None else before
         after_: int = 0 if after is None else after
 
         def wrapper(engine: "Engine", event: int) -> bool:
@@ -240,6 +240,7 @@ class EventEnum(CallableEventWithFilter, Enum):
     def __new__(cls, value: str) -> "EventEnum":
         obj = CallableEventWithFilter.__new__(cls)
         obj._value_ = value
+        # pyrefly: ignore [bad-return]
         return obj
 
 
@@ -427,23 +428,23 @@ class EventsList:
     """
 
     def __init__(self) -> None:
-        self._events: List[Union[Events, CallableEventWithFilter]] = []
+        self._events: list[Events | CallableEventWithFilter] = []
 
-    def _append(self, event: Union[Events, CallableEventWithFilter]) -> None:
+    def _append(self, event: Events | CallableEventWithFilter) -> None:
         if not isinstance(event, (Events, CallableEventWithFilter)):
             raise TypeError(f"Argument event should be Events or CallableEventWithFilter, got: {type(event)}")
         self._events.append(event)
 
-    def __getitem__(self, item: int) -> Union[Events, CallableEventWithFilter]:
+    def __getitem__(self, item: int) -> Events | CallableEventWithFilter:
         return self._events[item]
 
-    def __iter__(self) -> Iterator[Union[Events, CallableEventWithFilter]]:
+    def __iter__(self) -> Iterator[Events | CallableEventWithFilter]:
         return iter(self._events)
 
     def __len__(self) -> int:
         return len(self._events)
 
-    def __or__(self, other: Union[Events, CallableEventWithFilter]) -> "EventsList":
+    def __or__(self, other: Events | CallableEventWithFilter) -> "EventsList":
         self._append(event=other)
         return self
 
@@ -470,7 +471,7 @@ class State:
         kwargs: keyword arguments to be defined as State attributes.
     """
 
-    event_to_attr: Dict[Union[str, "Events", "CallableEventWithFilter"], str] = {
+    event_to_attr: dict[str | Events | CallableEventWithFilter, str] = {
         Events.GET_BATCH_STARTED: "iteration",
         Events.GET_BATCH_COMPLETED: "iteration",
         Events.ITERATION_STARTED: "iteration",
@@ -484,14 +485,14 @@ class State:
     def __init__(self, **kwargs: Any) -> None:
         self.iteration = 0
         self.epoch = 0
-        self.epoch_length: Optional[int] = None
-        self.max_epochs: Optional[int] = None
-        self.output: Optional[int] = None
-        self.batch: Optional[int] = None
-        self.metrics: Dict[str, Any] = {}
-        self.dataloader: Optional[Union[DataLoader, Iterable[Any]]] = None
-        self.seed: Optional[int] = None
-        self.times: Dict[str, Optional[float]] = {
+        self.epoch_length: int | None = None
+        self.max_epochs: int | None = None
+        self.output: int | None = None
+        self.batch: int | None = None
+        self.metrics: dict[str, Any] = {}
+        self.dataloader: DataLoader | Iterable[Any] | None = None
+        self.seed: int | None = None
+        self.times: dict[str, float | None] = {
             Events.EPOCH_COMPLETED.name: None,
             Events.COMPLETED.name: None,
         }
@@ -506,7 +507,7 @@ class State:
             if not hasattr(self, value):
                 setattr(self, value, 0)
 
-    def get_event_attrib_value(self, event_name: Union[str, Events, CallableEventWithFilter]) -> int:
+    def get_event_attrib_value(self, event_name: str | Events | CallableEventWithFilter) -> int:
         """Get the value of Event attribute with given `event_name`."""
         if event_name not in State.event_to_attr:
             raise RuntimeError(f"Unknown event name '{event_name}'")
@@ -550,7 +551,7 @@ class RemovableEventHandle:
     """
 
     def __init__(
-        self, event_name: Union[CallableEventWithFilter, Enum, EventsList, Events], handler: Callable, engine: "Engine"
+        self, event_name: CallableEventWithFilter | Enum | EventsList | Events, handler: Callable, engine: "Engine"
     ) -> None:
         self.event_name = event_name
         self.handler = weakref.ref(handler)

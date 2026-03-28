@@ -5605,6 +5605,30 @@ https://docs.chalk.ai/cli/apply
 
         return CreateModelTrainingJobResponse(success=True)
 
+    def trigger_aggregate_backfill(
+        self,
+        features: list[str],
+        lower_bound: datetime | None = None,
+        upper_bound: datetime | None = None,
+        resolver: str | None = None,
+        query_tags: list[str] | None = None,
+    ):
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+        return client_grpc.trigger_aggregate_backfill(
+            features=features,
+            lower_bound=lower_bound,
+            upper_bound=upper_bound,
+            resolver=resolver,
+            query_tags=query_tags,
+        )
+
 
 def _check_exclusive_options(options: dict[str, Any | None]):
     filled_options = {k: v for k, v in options.items() if v is not None}

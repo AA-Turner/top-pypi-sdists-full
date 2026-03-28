@@ -1,19 +1,19 @@
 """
- MNIST example with training and validation monitoring using Weights & Biases
+MNIST example with training and validation monitoring using Weights & Biases
 
- Requirements:
-    Weights & Biases: `pip install wandb`
+Requirements:
+   Weights & Biases: `pip install wandb`
 
- Usage:
+Usage:
 
-    Make sure you are logged into Weights & Biases (use the `wandb` command).
+   Make sure you are logged into Weights & Biases (use the `wandb` command).
 
-    Run the example:
-    ```bash
-    python mnist_with_wandb_logger.py
-    ```
+   Run the example:
+   ```bash
+   python mnist_with_wandb_logger.py
+   ```
 
-    Go to https://wandb.com and explore your experiment.
+   Go to https://wandb.com and explore your experiment.
 """
 
 from argparse import ArgumentParser
@@ -36,7 +36,7 @@ from ignite.utils import setup_logger
 
 class Net(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
         self.conv2_drop = nn.Dropout2d()

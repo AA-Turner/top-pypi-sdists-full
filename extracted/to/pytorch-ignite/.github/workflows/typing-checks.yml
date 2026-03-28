@@ -11,7 +11,7 @@ on:
       - "tests/ignite/**"
       - "requirements-dev.txt"
       - "pyproject.toml"
-      - "mypy.ini"
+      - "pyrefly.toml"
       - ".github/workflows/typing-checks.yml"
   pull_request:
     paths:
@@ -20,9 +20,10 @@ on:
       - "tests/ignite/**"
       - "requirements-dev.txt"
       - "pyproject.toml"
-      - "mypy.ini"
+      - "pyrefly.toml"
       - ".github/workflows/typing-checks.yml"
   workflow_dispatch:
+  merge_group:
 
 concurrency:
   # <workflow_name>-<branch_name>-<true || commit_sha (if branch is protected)>
@@ -30,7 +31,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  mypy:
+  pyrefly:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -38,14 +39,14 @@ jobs:
         pytorch-channel: [pytorch]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Get year & week number
         id: get-date
         run: |
           echo "date=$(/bin/date "+%Y-%U")" >> $GITHUB_OUTPUT
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
           python-version: ${{ matrix.python-version }}
@@ -60,10 +61,7 @@ jobs:
         run: uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
       - name: Install dependencies
-        run: |
-          uv pip install -r requirements-dev.txt
-          uv pip install .
-          uv pip install mypy
+        run: uv pip install -r requirements-dev.txt
 
-      - name: Run MyPy type checking
-        run: mypy
+      - name: Run Pyrefly type checking
+        run: pyrefly check

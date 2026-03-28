@@ -3005,13 +3005,13 @@ class CfnReplicationGroup(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param replication_group_description: A user-created description for the replication group.
-        :param at_rest_encryption_enabled: A flag that enables encryption at rest when set to ``true`` . *Required:* Only available when creating a replication group in an Amazon VPC using Redis OSS version ``3.2.6`` or ``4.x`` onward. Default: ``false``
+        :param at_rest_encryption_enabled: A flag that enables encryption at rest when set to ``true`` . *Required:* Only available when creating a replication group in an Amazon VPC using Redis OSS version ``3.2.6`` or ``4.x`` onward. Default: ``false`` Default: - false
         :param auth_token: *Reserved parameter.* The password used to access a password protected server. ``AuthToken`` can be specified only on replication groups where ``TransitEncryptionEnabled`` is ``true`` . For more information, see `Authenticating Valkey or Redis OSS users with the AUTH Command <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/auth.html>`_ . .. epigraph:: For HIPAA compliance, you must specify ``TransitEncryptionEnabled`` as ``true`` , an ``AuthToken`` , and a ``CacheSubnetGroup`` . Password constraints: - Must be only printable ASCII characters. - Must be at least 16 characters and no more than 128 characters in length. - Nonalphanumeric characters are restricted to (!, &, #, $, ^, <, >, -, ). For more information, see `AUTH password <https://docs.aws.amazon.com/http://redis.io/commands/AUTH>`_ at http://redis.io/commands/AUTH. .. epigraph:: If ADDING the AuthToken, update requires `Replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
-        :param automatic_failover_enabled: Specifies whether a read-only replica is automatically promoted to read/write primary if the existing primary fails. ``AutomaticFailoverEnabled`` must be enabled for Valkey or Redis OSS (cluster mode enabled) replication groups. Default: false
+        :param automatic_failover_enabled: Specifies whether a read-only replica is automatically promoted to read/write primary if the existing primary fails. ``AutomaticFailoverEnabled`` must be enabled for Valkey or Redis OSS (cluster mode enabled) replication groups. Default: false Default: - false
         :param auto_minor_version_upgrade: If you are running Valkey 7.2 or later, or Redis OSS 6.0 or later, set this parameter to yes if you want to opt-in to the next minor version upgrade campaign. This parameter is disabled for previous versions.
         :param cache_node_type: The compute and memory capacity of the nodes in the node group (shard). The following node types are supported by ElastiCache. Generally speaking, the current generation types provide more memory and computational power at lower cost when compared to their equivalent previous generation counterparts. - General purpose: - Current generation: *M6g node types:* ``cache.m6g.large`` , ``cache.m6g.xlarge`` , ``cache.m6g.2xlarge`` , ``cache.m6g.4xlarge`` , ``cache.m6g.12xlarge`` , ``cache.m6g.24xlarge`` *M5 node types:* ``cache.m5.large`` , ``cache.m5.xlarge`` , ``cache.m5.2xlarge`` , ``cache.m5.4xlarge`` , ``cache.m5.12xlarge`` , ``cache.m5.24xlarge`` *M4 node types:* ``cache.m4.large`` , ``cache.m4.xlarge`` , ``cache.m4.2xlarge`` , ``cache.m4.4xlarge`` , ``cache.m4.10xlarge`` *T4g node types:* ``cache.t4g.micro`` , ``cache.t4g.small`` , ``cache.t4g.medium`` *T3 node types:* ``cache.t3.micro`` , ``cache.t3.small`` , ``cache.t3.medium`` *T2 node types:* ``cache.t2.micro`` , ``cache.t2.small`` , ``cache.t2.medium`` - Previous generation: (not recommended) *T1 node types:* ``cache.t1.micro`` *M1 node types:* ``cache.m1.small`` , ``cache.m1.medium`` , ``cache.m1.large`` , ``cache.m1.xlarge`` *M3 node types:* ``cache.m3.medium`` , ``cache.m3.large`` , ``cache.m3.xlarge`` , ``cache.m3.2xlarge`` - Compute optimized: - Previous generation: (not recommended) *C1 node types:* ``cache.c1.xlarge`` - Memory optimized: - Current generation: *R6gd node types:* ``cache.r6gd.xlarge`` , ``cache.r6gd.2xlarge`` , ``cache.r6gd.4xlarge`` , ``cache.r6gd.8xlarge`` , ``cache.r6gd.12xlarge`` , ``cache.r6gd.16xlarge`` .. epigraph:: The ``r6gd`` family is available in the following regions: ``us-east-2`` , ``us-east-1`` , ``us-west-2`` , ``us-west-1`` , ``eu-west-1`` , ``eu-central-1`` , ``ap-northeast-1`` , ``ap-southeast-1`` , ``ap-southeast-2`` . *R6g node types:* ``cache.r6g.large`` , ``cache.r6g.xlarge`` , ``cache.r6g.2xlarge`` , ``cache.r6g.4xlarge`` , ``cache.r6g.12xlarge`` , ``cache.r6g.24xlarge`` *R5 node types:* ``cache.r5.large`` , ``cache.r5.xlarge`` , ``cache.r5.2xlarge`` , ``cache.r5.4xlarge`` , ``cache.r5.12xlarge`` , ``cache.r5.24xlarge`` *R4 node types:* ``cache.r4.large`` , ``cache.r4.xlarge`` , ``cache.r4.2xlarge`` , ``cache.r4.4xlarge`` , ``cache.r4.8xlarge`` , ``cache.r4.16xlarge`` - Previous generation: (not recommended) *M2 node types:* ``cache.m2.xlarge`` , ``cache.m2.2xlarge`` , ``cache.m2.4xlarge`` *R3 node types:* ``cache.r3.large`` , ``cache.r3.xlarge`` , ``cache.r3.2xlarge`` , ``cache.r3.4xlarge`` , ``cache.r3.8xlarge`` For region availability, see `Supported Node Types by Amazon Region <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/CacheNodes.SupportedTypes.html#CacheNodes.SupportedTypesByRegion>`_
         :param cache_parameter_group_name: The name of the parameter group to associate with this replication group. If this argument is omitted, the default cache parameter group for the specified engine is used. If you are running Valkey or Redis OSS version 3.2.4 or later, only one node group (shard), and want to use a default parameter group, we recommend that you specify the parameter group by name. - To create a Valkey or Redis OSS (cluster mode disabled) replication group, use ``CacheParameterGroupName=default.redis3.2`` . - To create a Valkey or Redis OSS (cluster mode enabled) replication group, use ``CacheParameterGroupName=default.redis3.2.cluster.on`` .
-        :param cache_security_group_names: A list of cache security group names to associate with this replication group.
+        :param cache_security_group_names: (deprecated) A list of cache security group names to associate with this replication group.
         :param cache_subnet_group_name: The name of the cache subnet group to be used for the replication group. .. epigraph:: If you're going to launch your cluster in an Amazon VPC, you need to create a subnet group before you start creating a cluster. For more information, see `AWS::ElastiCache::SubnetGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-subnetgroup.html>`_ .
         :param cluster_mode: The mode can be enabled or disabled. To change the cluster mode from disabled to enabled, you must first set the cluster mode to compatible. The compatible mode allows your Valkey or Redis OSS clients to connect using both cluster mode enabled and cluster mode disabled. After you migrate all Valkey or Redis OSS clients to use cluster mode enabled, you can then complete cluster mode configuration and set the cluster mode to enabled. For more information, see `Modify cluster mode <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/modify-cluster-mode.html>`_ .
         :param data_tiering_enabled: Enables data tiering. Data tiering is only supported for replication groups using the r6gd node type. This parameter must be set to true when using r6gd nodes. For more information, see `Data tiering <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/data-tiering.html>`_ .
@@ -3026,7 +3026,7 @@ class CfnReplicationGroup(
         :param node_group_configuration: ``NodeGroupConfiguration`` is a property of the ``AWS::ElastiCache::ReplicationGroup`` resource that configures an Amazon ElastiCache (ElastiCache) Valkey or Redis OSS cluster node group. If you set `UseOnlineResharding <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-useonlineresharding>`_ to ``true`` , you can update ``NodeGroupConfiguration`` without interruption. When ``UseOnlineResharding`` is set to ``false`` , or is not specified, updating ``NodeGroupConfiguration`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
         :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon Simple Notification Service (SNS) topic to which notifications are sent. .. epigraph:: The Amazon SNS topic owner must be the same as the cluster owner.
         :param num_cache_clusters: The number of clusters this replication group initially has. This parameter is not used if there is more than one node group (shard). You should use ``ReplicasPerNodeGroup`` instead. If ``AutomaticFailoverEnabled`` is ``true`` , the value of this parameter must be at least 2. If ``AutomaticFailoverEnabled`` is ``false`` you can omit this parameter (it will default to 1), or you can explicitly set it to a value between 2 and 6. The maximum permitted value for ``NumCacheClusters`` is 6 (1 primary plus 5 replicas).
-        :param num_node_groups: An optional parameter that specifies the number of node groups (shards) for this Valkey or Redis OSS (cluster mode enabled) replication group. For Valkey or Redis OSS (cluster mode disabled) either omit this parameter or set it to 1. If you set `UseOnlineResharding <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-useonlineresharding>`_ to ``true`` , you can update ``NumNodeGroups`` without interruption. When ``UseOnlineResharding`` is set to ``false`` , or is not specified, updating ``NumNodeGroups`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ . Default: 1
+        :param num_node_groups: An optional parameter that specifies the number of node groups (shards) for this Valkey or Redis OSS (cluster mode enabled) replication group. For Valkey or Redis OSS (cluster mode disabled) either omit this parameter or set it to 1. If you set `UseOnlineResharding <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-useonlineresharding>`_ to ``true`` , you can update ``NumNodeGroups`` without interruption. When ``UseOnlineResharding`` is set to ``false`` , or is not specified, updating ``NumNodeGroups`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ . Default: 1 Default: - 1
         :param port: The port number on which each member of the replication group accepts connections.
         :param preferred_cache_cluster_a_zs: A list of EC2 Availability Zones in which the replication group's clusters are created. The order of the Availability Zones in the list is the order in which clusters are allocated. The primary cluster is created in the first AZ in the list. This parameter is not used if there is more than one node group (shard). You should use ``NodeGroupConfiguration`` instead. .. epigraph:: If you are creating your replication group in an Amazon VPC (recommended), you can only locate clusters in Availability Zones associated with the subnets in the selected subnet group. The number of Availability Zones listed must equal the value of ``NumCacheClusters`` . Default: system chosen Availability Zones.
         :param preferred_maintenance_window: Specifies the weekly time range during which maintenance on the cluster is performed. It is specified as a range in the format ddd:hh24:mi-ddd:hh24:mi (24H Clock UTC). The minimum maintenance window is a 60 minute period. Valid values for ``ddd`` are: - ``sun`` - ``mon`` - ``tue`` - ``wed`` - ``thu`` - ``fri`` - ``sat`` Example: ``sun:23:00-mon:01:30``
@@ -3036,11 +3036,11 @@ class CfnReplicationGroup(
         :param security_group_ids: One or more Amazon VPC security groups associated with this replication group. Use this parameter only when you are creating a replication group in an Amazon Virtual Private Cloud (Amazon VPC).
         :param snapshot_arns: A list of Amazon Resource Names (ARN) that uniquely identify the Valkey or Redis OSS RDB snapshot files stored in Amazon S3. The snapshot files are used to populate the new replication group. The Amazon S3 object name in the ARN cannot contain any commas. The new replication group will have the number of node groups (console: shards) specified by the parameter *NumNodeGroups* or the number of node groups configured by *NodeGroupConfiguration* regardless of the number of ARNs specified here. Example of an Amazon S3 ARN: ``arn:aws:s3:::my_bucket/snapshot1.rdb``
         :param snapshot_name: The name of a snapshot from which to restore data into the new replication group. The snapshot status changes to ``restoring`` while the new replication group is being created.
-        :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic snapshots before deleting them. For example, if you set ``SnapshotRetentionLimit`` to 5, a snapshot that was taken today is retained for 5 days before being deleted. Default: 0 (i.e., automatic backups are disabled for this cluster).
+        :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic snapshots before deleting them. For example, if you set ``SnapshotRetentionLimit`` to 5, a snapshot that was taken today is retained for 5 days before being deleted. Default: 0 (i.e., automatic backups are disabled for this cluster). Default: - 0
         :param snapshotting_cluster_id: The cluster ID that is used as the daily snapshot source for the replication group. This parameter cannot be set for Valkey or Redis OSS (cluster mode enabled) replication groups.
         :param snapshot_window: The daily time range (in UTC) during which ElastiCache begins taking a daily snapshot of your node group (shard). Example: ``05:00-09:00`` If you do not specify this parameter, ElastiCache automatically chooses an appropriate time range.
         :param tags: A list of tags to be added to this resource. Tags are comma-separated key,value pairs (e.g. Key= ``myKey`` , Value= ``myKeyValue`` . You can include multiple tags as shown following: Key= ``myKey`` , Value= ``myKeyValue`` Key= ``mySecondKey`` , Value= ``mySecondKeyValue`` . Tags on replication groups will be replicated to all nodes.
-        :param transit_encryption_enabled: A flag that enables in-transit encryption when set to ``true`` . This parameter is only available when creating a replication group in an Amazon VPC using Valkey version ``7.2`` and above, Redis OSS version ``3.2.6`` , or Redis OSS version ``4.x`` and above, and the cluster is being created in an Amazon VPC. If you enable in-transit encryption, you must also specify a value for ``CacheSubnetGroup`` . .. epigraph:: TransitEncryptionEnabled is required when creating a new valkey replication group. Default: ``false`` .. epigraph:: For HIPAA compliance, you must specify ``TransitEncryptionEnabled`` as ``true`` , an ``AuthToken`` , and a ``CacheSubnetGroup`` .
+        :param transit_encryption_enabled: A flag that enables in-transit encryption when set to ``true`` . This parameter is only available when creating a replication group in an Amazon VPC using Valkey version ``7.2`` and above, Redis OSS version ``3.2.6`` , or Redis OSS version ``4.x`` and above, and the cluster is being created in an Amazon VPC. If you enable in-transit encryption, you must also specify a value for ``CacheSubnetGroup`` . .. epigraph:: TransitEncryptionEnabled is required when creating a new valkey replication group. Default: ``false`` .. epigraph:: For HIPAA compliance, you must specify ``TransitEncryptionEnabled`` as ``true`` , an ``AuthToken`` , and a ``CacheSubnetGroup`` . Default: - false
         :param transit_encryption_mode: A setting that allows you to migrate your clients to use in-transit encryption, with no downtime. When setting ``TransitEncryptionEnabled`` to ``true`` , you can set your ``TransitEncryptionMode`` to ``preferred`` in the same request, to allow both encrypted and unencrypted connections at the same time. Once you migrate all your Valkey or Redis OSS clients to use encrypted connections you can modify the value to ``required`` to allow encrypted connections only. Setting ``TransitEncryptionMode`` to ``required`` is a two-step process that requires you to first set the ``TransitEncryptionMode`` to ``preferred`` , after that you can set ``TransitEncryptionMode`` to ``required`` . This process will not trigger the replacement of the replication group.
         :param user_group_ids: The ID of user group to associate with the replication group.
         '''
@@ -3170,6 +3170,14 @@ class CfnReplicationGroup(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrConfigurationEndPoint")
+    def attr_configuration_end_point(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: ConfigurationEndPoint
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrConfigurationEndPoint"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrConfigurationEndPointAddress")
     def attr_configuration_end_point_address(self) -> builtins.str:
         '''The DNS hostname of the cache node.
@@ -3192,6 +3200,14 @@ class CfnReplicationGroup(
         return typing.cast(builtins.str, jsii.get(self, "attrConfigurationEndPointPort"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrPrimaryEndPoint")
+    def attr_primary_end_point(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: PrimaryEndPoint
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrPrimaryEndPoint"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrPrimaryEndPointAddress")
     def attr_primary_end_point_address(self) -> builtins.str:
         '''The DNS address of the primary read-write cache node.
@@ -3210,6 +3226,14 @@ class CfnReplicationGroup(
         return typing.cast(builtins.str, jsii.get(self, "attrPrimaryEndPointPort"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrReadEndPoint")
+    def attr_read_end_point(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: ReadEndPoint
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrReadEndPoint"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrReadEndPointAddresses")
     def attr_read_end_point_addresses(self) -> builtins.str:
         '''A string with a list of endpoints for the primary and read-only replicas.
@@ -3223,11 +3247,11 @@ class CfnReplicationGroup(
     @builtins.property
     @jsii.member(jsii_name="attrReadEndPointAddressesList")
     def attr_read_end_point_addresses_list(self) -> typing.List[builtins.str]:
-        '''A string with a list of endpoints for the read-only replicas.
+        '''A list of endpoints for the read-only replicas.
 
-        The order of the addresses maps to the order of the ports from the ``ReadEndPoint.Ports`` attribute.
+        The order of the addresses maps to the order of the ports from the ReadEndPoint.Ports attribute.
 
-        :cloudformationAttribute: ReadEndPoint.Addresses.List
+        :cloudformationAttribute: ReadEndPoint.AddressesList
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "attrReadEndPointAddressesList"))
 
@@ -3245,13 +3269,21 @@ class CfnReplicationGroup(
     @builtins.property
     @jsii.member(jsii_name="attrReadEndPointPortsList")
     def attr_read_end_point_ports_list(self) -> typing.List[builtins.str]:
-        '''A string with a list of ports for the read-only replicas.
+        '''A list of ports for the read-only replicas.
 
         The order of the ports maps to the order of the addresses from the ReadEndPoint.Addresses attribute.
 
-        :cloudformationAttribute: ReadEndPoint.Ports.List
+        :cloudformationAttribute: ReadEndPoint.PortsList
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "attrReadEndPointPortsList"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReaderEndPoint")
+    def attr_reader_end_point(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: ReaderEndPoint
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrReaderEndPoint"))
 
     @builtins.property
     @jsii.member(jsii_name="attrReaderEndPointAddress")
@@ -3397,7 +3429,12 @@ class CfnReplicationGroup(
     @builtins.property
     @jsii.member(jsii_name="cacheSecurityGroupNames")
     def cache_security_group_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of cache security group names to associate with this replication group.'''
+        '''(deprecated) A list of cache security group names to associate with this replication group.
+
+        :deprecated: this property has been deprecated
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "cacheSecurityGroupNames"))
 
     @cache_security_group_names.setter
@@ -3992,6 +4029,75 @@ class CfnReplicationGroup(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticache.CfnReplicationGroup.EndpointProperty",
+        jsii_struct_bases=[],
+        name_mapping={"address": "address", "port": "port"},
+    )
+    class EndpointProperty:
+        def __init__(
+            self,
+            *,
+            address: typing.Optional[builtins.str] = None,
+            port: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param address: The DNS hostname of the cache node.
+            :param port: The port number that the cache engine is listening on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-replicationgroup-endpoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticache as elasticache
+                
+                endpoint_property = elasticache.CfnReplicationGroup.EndpointProperty(
+                    address="address",
+                    port="port"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b2aee70eb2e0121f3f02e2d9e44000abf724516080b1148d7fe6ba4a416395da)
+                check_type(argname="argument address", value=address, expected_type=type_hints["address"])
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if address is not None:
+                self._values["address"] = address
+            if port is not None:
+                self._values["port"] = port
+
+        @builtins.property
+        def address(self) -> typing.Optional[builtins.str]:
+            '''The DNS hostname of the cache node.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-replicationgroup-endpoint.html#cfn-elasticache-replicationgroup-endpoint-address
+            '''
+            result = self._values.get("address")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def port(self) -> typing.Optional[builtins.str]:
+            '''The port number that the cache engine is listening on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-replicationgroup-endpoint.html#cfn-elasticache-replicationgroup-endpoint-port
+            '''
+            result = self._values.get("port")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EndpointProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_elasticache.CfnReplicationGroup.KinesisFirehoseDestinationDetailsProperty",
         jsii_struct_bases=[],
         name_mapping={"delivery_stream": "deliveryStream"},
@@ -4293,6 +4399,114 @@ class CfnReplicationGroup(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticache.CfnReplicationGroup.ReadEndPointProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "addresses": "addresses",
+            "addresses_list": "addressesList",
+            "ports": "ports",
+            "ports_list": "portsList",
+        },
+    )
+    class ReadEndPointProperty:
+        def __init__(
+            self,
+            *,
+            addresses: typing.Optional[builtins.str] = None,
+            addresses_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+            ports: typing.Optional[builtins.str] = None,
+            ports_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param addresses: A string containing a comma-separated list of endpoints for the primary and read-only replicas, formatted as [address1, address2, ...]. The order of the addresses maps to the order of the ports from the ReadEndPoint.Ports attribute.
+            :param addresses_list: A list of endpoints for the read-only replicas. The order of the addresses maps to the order of the ports from the ReadEndPoint.Ports attribute.
+            :param ports: A string containing a comma-separated list of ports for the read-only replicas, formatted as [port1, port2, ...]. The order of the ports maps to the order of the addresses from the ReadEndPoint.Addresses attribute.
+            :param ports_list: A list of ports for the read-only replicas. The order of the ports maps to the order of the addresses from the ReadEndPoint.Addresses attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-replicationgroup-readendpoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticache as elasticache
+                
+                read_end_point_property = elasticache.CfnReplicationGroup.ReadEndPointProperty(
+                    addresses="addresses",
+                    addresses_list=["addressesList"],
+                    ports="ports",
+                    ports_list=["portsList"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1ff53f956f8f98279976e7f50fa15429cf60fdcba8ffe8ecf9f2567da15d91f9)
+                check_type(argname="argument addresses", value=addresses, expected_type=type_hints["addresses"])
+                check_type(argname="argument addresses_list", value=addresses_list, expected_type=type_hints["addresses_list"])
+                check_type(argname="argument ports", value=ports, expected_type=type_hints["ports"])
+                check_type(argname="argument ports_list", value=ports_list, expected_type=type_hints["ports_list"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if addresses is not None:
+                self._values["addresses"] = addresses
+            if addresses_list is not None:
+                self._values["addresses_list"] = addresses_list
+            if ports is not None:
+                self._values["ports"] = ports
+            if ports_list is not None:
+                self._values["ports_list"] = ports_list
+
+        @builtins.property
+        def addresses(self) -> typing.Optional[builtins.str]:
+            '''A string containing a comma-separated list of endpoints for the primary and read-only replicas, formatted as [address1, address2, ...]. The order of the addresses maps to the order of the ports from the ReadEndPoint.Ports attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-replicationgroup-readendpoint.html#cfn-elasticache-replicationgroup-readendpoint-addresses
+            '''
+            result = self._values.get("addresses")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def addresses_list(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of endpoints for the read-only replicas.
+
+            The order of the addresses maps to the order of the ports from the ReadEndPoint.Ports attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-replicationgroup-readendpoint.html#cfn-elasticache-replicationgroup-readendpoint-addresseslist
+            '''
+            result = self._values.get("addresses_list")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def ports(self) -> typing.Optional[builtins.str]:
+            '''A string containing a comma-separated list of ports for the read-only replicas, formatted as [port1, port2, ...]. The order of the ports maps to the order of the addresses from the ReadEndPoint.Addresses attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-replicationgroup-readendpoint.html#cfn-elasticache-replicationgroup-readendpoint-ports
+            '''
+            result = self._values.get("ports")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ports_list(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of ports for the read-only replicas.
+
+            The order of the ports maps to the order of the addresses from the ReadEndPoint.Addresses attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-replicationgroup-readendpoint.html#cfn-elasticache-replicationgroup-readendpoint-portslist
+            '''
+            result = self._values.get("ports_list")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReadEndPointProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_elasticache.CfnReplicationGroupProps",
@@ -4386,13 +4600,13 @@ class CfnReplicationGroupProps:
         '''Properties for defining a ``CfnReplicationGroup``.
 
         :param replication_group_description: A user-created description for the replication group.
-        :param at_rest_encryption_enabled: A flag that enables encryption at rest when set to ``true`` . *Required:* Only available when creating a replication group in an Amazon VPC using Redis OSS version ``3.2.6`` or ``4.x`` onward. Default: ``false``
+        :param at_rest_encryption_enabled: A flag that enables encryption at rest when set to ``true`` . *Required:* Only available when creating a replication group in an Amazon VPC using Redis OSS version ``3.2.6`` or ``4.x`` onward. Default: ``false`` Default: - false
         :param auth_token: *Reserved parameter.* The password used to access a password protected server. ``AuthToken`` can be specified only on replication groups where ``TransitEncryptionEnabled`` is ``true`` . For more information, see `Authenticating Valkey or Redis OSS users with the AUTH Command <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/auth.html>`_ . .. epigraph:: For HIPAA compliance, you must specify ``TransitEncryptionEnabled`` as ``true`` , an ``AuthToken`` , and a ``CacheSubnetGroup`` . Password constraints: - Must be only printable ASCII characters. - Must be at least 16 characters and no more than 128 characters in length. - Nonalphanumeric characters are restricted to (!, &, #, $, ^, <, >, -, ). For more information, see `AUTH password <https://docs.aws.amazon.com/http://redis.io/commands/AUTH>`_ at http://redis.io/commands/AUTH. .. epigraph:: If ADDING the AuthToken, update requires `Replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
-        :param automatic_failover_enabled: Specifies whether a read-only replica is automatically promoted to read/write primary if the existing primary fails. ``AutomaticFailoverEnabled`` must be enabled for Valkey or Redis OSS (cluster mode enabled) replication groups. Default: false
+        :param automatic_failover_enabled: Specifies whether a read-only replica is automatically promoted to read/write primary if the existing primary fails. ``AutomaticFailoverEnabled`` must be enabled for Valkey or Redis OSS (cluster mode enabled) replication groups. Default: false Default: - false
         :param auto_minor_version_upgrade: If you are running Valkey 7.2 or later, or Redis OSS 6.0 or later, set this parameter to yes if you want to opt-in to the next minor version upgrade campaign. This parameter is disabled for previous versions.
         :param cache_node_type: The compute and memory capacity of the nodes in the node group (shard). The following node types are supported by ElastiCache. Generally speaking, the current generation types provide more memory and computational power at lower cost when compared to their equivalent previous generation counterparts. - General purpose: - Current generation: *M6g node types:* ``cache.m6g.large`` , ``cache.m6g.xlarge`` , ``cache.m6g.2xlarge`` , ``cache.m6g.4xlarge`` , ``cache.m6g.12xlarge`` , ``cache.m6g.24xlarge`` *M5 node types:* ``cache.m5.large`` , ``cache.m5.xlarge`` , ``cache.m5.2xlarge`` , ``cache.m5.4xlarge`` , ``cache.m5.12xlarge`` , ``cache.m5.24xlarge`` *M4 node types:* ``cache.m4.large`` , ``cache.m4.xlarge`` , ``cache.m4.2xlarge`` , ``cache.m4.4xlarge`` , ``cache.m4.10xlarge`` *T4g node types:* ``cache.t4g.micro`` , ``cache.t4g.small`` , ``cache.t4g.medium`` *T3 node types:* ``cache.t3.micro`` , ``cache.t3.small`` , ``cache.t3.medium`` *T2 node types:* ``cache.t2.micro`` , ``cache.t2.small`` , ``cache.t2.medium`` - Previous generation: (not recommended) *T1 node types:* ``cache.t1.micro`` *M1 node types:* ``cache.m1.small`` , ``cache.m1.medium`` , ``cache.m1.large`` , ``cache.m1.xlarge`` *M3 node types:* ``cache.m3.medium`` , ``cache.m3.large`` , ``cache.m3.xlarge`` , ``cache.m3.2xlarge`` - Compute optimized: - Previous generation: (not recommended) *C1 node types:* ``cache.c1.xlarge`` - Memory optimized: - Current generation: *R6gd node types:* ``cache.r6gd.xlarge`` , ``cache.r6gd.2xlarge`` , ``cache.r6gd.4xlarge`` , ``cache.r6gd.8xlarge`` , ``cache.r6gd.12xlarge`` , ``cache.r6gd.16xlarge`` .. epigraph:: The ``r6gd`` family is available in the following regions: ``us-east-2`` , ``us-east-1`` , ``us-west-2`` , ``us-west-1`` , ``eu-west-1`` , ``eu-central-1`` , ``ap-northeast-1`` , ``ap-southeast-1`` , ``ap-southeast-2`` . *R6g node types:* ``cache.r6g.large`` , ``cache.r6g.xlarge`` , ``cache.r6g.2xlarge`` , ``cache.r6g.4xlarge`` , ``cache.r6g.12xlarge`` , ``cache.r6g.24xlarge`` *R5 node types:* ``cache.r5.large`` , ``cache.r5.xlarge`` , ``cache.r5.2xlarge`` , ``cache.r5.4xlarge`` , ``cache.r5.12xlarge`` , ``cache.r5.24xlarge`` *R4 node types:* ``cache.r4.large`` , ``cache.r4.xlarge`` , ``cache.r4.2xlarge`` , ``cache.r4.4xlarge`` , ``cache.r4.8xlarge`` , ``cache.r4.16xlarge`` - Previous generation: (not recommended) *M2 node types:* ``cache.m2.xlarge`` , ``cache.m2.2xlarge`` , ``cache.m2.4xlarge`` *R3 node types:* ``cache.r3.large`` , ``cache.r3.xlarge`` , ``cache.r3.2xlarge`` , ``cache.r3.4xlarge`` , ``cache.r3.8xlarge`` For region availability, see `Supported Node Types by Amazon Region <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/CacheNodes.SupportedTypes.html#CacheNodes.SupportedTypesByRegion>`_
         :param cache_parameter_group_name: The name of the parameter group to associate with this replication group. If this argument is omitted, the default cache parameter group for the specified engine is used. If you are running Valkey or Redis OSS version 3.2.4 or later, only one node group (shard), and want to use a default parameter group, we recommend that you specify the parameter group by name. - To create a Valkey or Redis OSS (cluster mode disabled) replication group, use ``CacheParameterGroupName=default.redis3.2`` . - To create a Valkey or Redis OSS (cluster mode enabled) replication group, use ``CacheParameterGroupName=default.redis3.2.cluster.on`` .
-        :param cache_security_group_names: A list of cache security group names to associate with this replication group.
+        :param cache_security_group_names: (deprecated) A list of cache security group names to associate with this replication group.
         :param cache_subnet_group_name: The name of the cache subnet group to be used for the replication group. .. epigraph:: If you're going to launch your cluster in an Amazon VPC, you need to create a subnet group before you start creating a cluster. For more information, see `AWS::ElastiCache::SubnetGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-subnetgroup.html>`_ .
         :param cluster_mode: The mode can be enabled or disabled. To change the cluster mode from disabled to enabled, you must first set the cluster mode to compatible. The compatible mode allows your Valkey or Redis OSS clients to connect using both cluster mode enabled and cluster mode disabled. After you migrate all Valkey or Redis OSS clients to use cluster mode enabled, you can then complete cluster mode configuration and set the cluster mode to enabled. For more information, see `Modify cluster mode <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/modify-cluster-mode.html>`_ .
         :param data_tiering_enabled: Enables data tiering. Data tiering is only supported for replication groups using the r6gd node type. This parameter must be set to true when using r6gd nodes. For more information, see `Data tiering <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/data-tiering.html>`_ .
@@ -4407,7 +4621,7 @@ class CfnReplicationGroupProps:
         :param node_group_configuration: ``NodeGroupConfiguration`` is a property of the ``AWS::ElastiCache::ReplicationGroup`` resource that configures an Amazon ElastiCache (ElastiCache) Valkey or Redis OSS cluster node group. If you set `UseOnlineResharding <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-useonlineresharding>`_ to ``true`` , you can update ``NodeGroupConfiguration`` without interruption. When ``UseOnlineResharding`` is set to ``false`` , or is not specified, updating ``NodeGroupConfiguration`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
         :param notification_topic_arn: The Amazon Resource Name (ARN) of the Amazon Simple Notification Service (SNS) topic to which notifications are sent. .. epigraph:: The Amazon SNS topic owner must be the same as the cluster owner.
         :param num_cache_clusters: The number of clusters this replication group initially has. This parameter is not used if there is more than one node group (shard). You should use ``ReplicasPerNodeGroup`` instead. If ``AutomaticFailoverEnabled`` is ``true`` , the value of this parameter must be at least 2. If ``AutomaticFailoverEnabled`` is ``false`` you can omit this parameter (it will default to 1), or you can explicitly set it to a value between 2 and 6. The maximum permitted value for ``NumCacheClusters`` is 6 (1 primary plus 5 replicas).
-        :param num_node_groups: An optional parameter that specifies the number of node groups (shards) for this Valkey or Redis OSS (cluster mode enabled) replication group. For Valkey or Redis OSS (cluster mode disabled) either omit this parameter or set it to 1. If you set `UseOnlineResharding <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-useonlineresharding>`_ to ``true`` , you can update ``NumNodeGroups`` without interruption. When ``UseOnlineResharding`` is set to ``false`` , or is not specified, updating ``NumNodeGroups`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ . Default: 1
+        :param num_node_groups: An optional parameter that specifies the number of node groups (shards) for this Valkey or Redis OSS (cluster mode enabled) replication group. For Valkey or Redis OSS (cluster mode disabled) either omit this parameter or set it to 1. If you set `UseOnlineResharding <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-useonlineresharding>`_ to ``true`` , you can update ``NumNodeGroups`` without interruption. When ``UseOnlineResharding`` is set to ``false`` , or is not specified, updating ``NumNodeGroups`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ . Default: 1 Default: - 1
         :param port: The port number on which each member of the replication group accepts connections.
         :param preferred_cache_cluster_a_zs: A list of EC2 Availability Zones in which the replication group's clusters are created. The order of the Availability Zones in the list is the order in which clusters are allocated. The primary cluster is created in the first AZ in the list. This parameter is not used if there is more than one node group (shard). You should use ``NodeGroupConfiguration`` instead. .. epigraph:: If you are creating your replication group in an Amazon VPC (recommended), you can only locate clusters in Availability Zones associated with the subnets in the selected subnet group. The number of Availability Zones listed must equal the value of ``NumCacheClusters`` . Default: system chosen Availability Zones.
         :param preferred_maintenance_window: Specifies the weekly time range during which maintenance on the cluster is performed. It is specified as a range in the format ddd:hh24:mi-ddd:hh24:mi (24H Clock UTC). The minimum maintenance window is a 60 minute period. Valid values for ``ddd`` are: - ``sun`` - ``mon`` - ``tue`` - ``wed`` - ``thu`` - ``fri`` - ``sat`` Example: ``sun:23:00-mon:01:30``
@@ -4417,11 +4631,11 @@ class CfnReplicationGroupProps:
         :param security_group_ids: One or more Amazon VPC security groups associated with this replication group. Use this parameter only when you are creating a replication group in an Amazon Virtual Private Cloud (Amazon VPC).
         :param snapshot_arns: A list of Amazon Resource Names (ARN) that uniquely identify the Valkey or Redis OSS RDB snapshot files stored in Amazon S3. The snapshot files are used to populate the new replication group. The Amazon S3 object name in the ARN cannot contain any commas. The new replication group will have the number of node groups (console: shards) specified by the parameter *NumNodeGroups* or the number of node groups configured by *NodeGroupConfiguration* regardless of the number of ARNs specified here. Example of an Amazon S3 ARN: ``arn:aws:s3:::my_bucket/snapshot1.rdb``
         :param snapshot_name: The name of a snapshot from which to restore data into the new replication group. The snapshot status changes to ``restoring`` while the new replication group is being created.
-        :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic snapshots before deleting them. For example, if you set ``SnapshotRetentionLimit`` to 5, a snapshot that was taken today is retained for 5 days before being deleted. Default: 0 (i.e., automatic backups are disabled for this cluster).
+        :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic snapshots before deleting them. For example, if you set ``SnapshotRetentionLimit`` to 5, a snapshot that was taken today is retained for 5 days before being deleted. Default: 0 (i.e., automatic backups are disabled for this cluster). Default: - 0
         :param snapshotting_cluster_id: The cluster ID that is used as the daily snapshot source for the replication group. This parameter cannot be set for Valkey or Redis OSS (cluster mode enabled) replication groups.
         :param snapshot_window: The daily time range (in UTC) during which ElastiCache begins taking a daily snapshot of your node group (shard). Example: ``05:00-09:00`` If you do not specify this parameter, ElastiCache automatically chooses an appropriate time range.
         :param tags: A list of tags to be added to this resource. Tags are comma-separated key,value pairs (e.g. Key= ``myKey`` , Value= ``myKeyValue`` . You can include multiple tags as shown following: Key= ``myKey`` , Value= ``myKeyValue`` Key= ``mySecondKey`` , Value= ``mySecondKeyValue`` . Tags on replication groups will be replicated to all nodes.
-        :param transit_encryption_enabled: A flag that enables in-transit encryption when set to ``true`` . This parameter is only available when creating a replication group in an Amazon VPC using Valkey version ``7.2`` and above, Redis OSS version ``3.2.6`` , or Redis OSS version ``4.x`` and above, and the cluster is being created in an Amazon VPC. If you enable in-transit encryption, you must also specify a value for ``CacheSubnetGroup`` . .. epigraph:: TransitEncryptionEnabled is required when creating a new valkey replication group. Default: ``false`` .. epigraph:: For HIPAA compliance, you must specify ``TransitEncryptionEnabled`` as ``true`` , an ``AuthToken`` , and a ``CacheSubnetGroup`` .
+        :param transit_encryption_enabled: A flag that enables in-transit encryption when set to ``true`` . This parameter is only available when creating a replication group in an Amazon VPC using Valkey version ``7.2`` and above, Redis OSS version ``3.2.6`` , or Redis OSS version ``4.x`` and above, and the cluster is being created in an Amazon VPC. If you enable in-transit encryption, you must also specify a value for ``CacheSubnetGroup`` . .. epigraph:: TransitEncryptionEnabled is required when creating a new valkey replication group. Default: ``false`` .. epigraph:: For HIPAA compliance, you must specify ``TransitEncryptionEnabled`` as ``true`` , an ``AuthToken`` , and a ``CacheSubnetGroup`` . Default: - false
         :param transit_encryption_mode: A setting that allows you to migrate your clients to use in-transit encryption, with no downtime. When setting ``TransitEncryptionEnabled`` to ``true`` , you can set your ``TransitEncryptionMode`` to ``preferred`` in the same request, to allow both encrypted and unencrypted connections at the same time. Once you migrate all your Valkey or Redis OSS clients to use encrypted connections you can modify the value to ``required`` to allow encrypted connections only. Setting ``TransitEncryptionMode`` to ``required`` is a two-step process that requires you to first set the ``TransitEncryptionMode`` to ``preferred`` , after that you can set ``TransitEncryptionMode`` to ``required`` . This process will not trigger the replacement of the replication group.
         :param user_group_ids: The ID of user group to associate with the replication group.
 
@@ -4641,6 +4855,8 @@ class CfnReplicationGroupProps:
 
         Default: ``false``
 
+        :default: - false
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-atrestencryptionenabled
         '''
         result = self._values.get("at_rest_encryption_enabled")
@@ -4680,6 +4896,8 @@ class CfnReplicationGroupProps:
         ``AutomaticFailoverEnabled`` must be enabled for Valkey or Redis OSS (cluster mode enabled) replication groups.
 
         Default: false
+
+        :default: - false
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-automaticfailoverenabled
         '''
@@ -4776,9 +4994,12 @@ class CfnReplicationGroupProps:
 
     @builtins.property
     def cache_security_group_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of cache security group names to associate with this replication group.
+        '''(deprecated) A list of cache security group names to associate with this replication group.
+
+        :deprecated: this property has been deprecated
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-cachesecuritygroupnames
+        :stability: deprecated
         '''
         result = self._values.get("cache_security_group_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4962,6 +5183,8 @@ class CfnReplicationGroupProps:
 
         Default: 1
 
+        :default: - 1
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-numnodegroups
         '''
         result = self._values.get("num_node_groups")
@@ -5103,6 +5326,8 @@ class CfnReplicationGroupProps:
 
         Default: 0 (i.e., automatic backups are disabled for this cluster).
 
+        :default: - 0
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-snapshotretentionlimit
         '''
         result = self._values.get("snapshot_retention_limit")
@@ -5160,6 +5385,8 @@ class CfnReplicationGroupProps:
         .. epigraph::
 
            For HIPAA compliance, you must specify ``TransitEncryptionEnabled`` as ``true`` , an ``AuthToken`` , and a ``CacheSubnetGroup`` .
+
+        :default: - false
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-transitencryptionenabled
         '''
@@ -7414,6 +7641,22 @@ class CfnUser(
         return typing.cast("_UserReference_7ff80ad9", jsii.get(self, "userRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="authenticationMode")
+    def authentication_mode(self) -> typing.Any:
+        '''Specifies the authentication mode to use.
+
+        Below is an example of the possible JSON values:.
+        '''
+        return typing.cast(typing.Any, jsii.get(self, "authenticationMode"))
+
+    @authentication_mode.setter
+    def authentication_mode(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08a67425ea4c8dcb1628c0ebb391eb9d3ca8fd07b5c6306f039cb531a05565d4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "authenticationMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="engine")
     def engine(self) -> builtins.str:
         '''The current supported values are valkey and redis.'''
@@ -7464,22 +7707,6 @@ class CfnUser(
             type_hints = typing.get_type_hints(_typecheckingstub__eb7549e3e6dbe94afa410bffc87623817e4cb26f90efb581b9a8d6dfcea71b64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessString", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="authenticationMode")
-    def authentication_mode(self) -> typing.Any:
-        '''Specifies the authentication mode to use.
-
-        Below is an example of the possible JSON values:.
-        '''
-        return typing.cast(typing.Any, jsii.get(self, "authenticationMode"))
-
-    @authentication_mode.setter
-    def authentication_mode(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08a67425ea4c8dcb1628c0ebb391eb9d3ca8fd07b5c6306f039cb531a05565d4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "authenticationMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="noPasswordRequired")
@@ -8997,6 +9224,14 @@ def _typecheckingstub__6393b162360e08ba34e1e81372da9a50f39c9a0cc3e234d4de5535a2b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b2aee70eb2e0121f3f02e2d9e44000abf724516080b1148d7fe6ba4a416395da(
+    *,
+    address: typing.Optional[builtins.str] = None,
+    port: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fdcf378b5d4262b2df61cdeb35e6e804ff747472fc30e69109cb47a8aed0fbad(
     *,
     delivery_stream: builtins.str,
@@ -9021,6 +9256,16 @@ def _typecheckingstub__b71a634ea38148f00c55a6a55d2a07c87ecfd6d6fbdd46f7603a23c08
     replica_availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
     replica_count: typing.Optional[jsii.Number] = None,
     slots: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ff53f956f8f98279976e7f50fa15429cf60fdcba8ffe8ecf9f2567da15d91f9(
+    *,
+    addresses: typing.Optional[builtins.str] = None,
+    addresses_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ports: typing.Optional[builtins.str] = None,
+    ports_list: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9507,6 +9752,12 @@ def _typecheckingstub__0d2c24ac7e99a31a4e0d4135ea5447976f3d5233d9d0e77c498d74df4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__08a67425ea4c8dcb1628c0ebb391eb9d3ca8fd07b5c6306f039cb531a05565d4(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__74df73fc62abe9fa1155cea79085975215d2cc3a30983f4b784d74b2d8dafec0(
     value: builtins.str,
 ) -> None:
@@ -9527,12 +9778,6 @@ def _typecheckingstub__82b6eed2d66e57932003ce447ee4a3219513ca0c8161fae47c096809d
 
 def _typecheckingstub__eb7549e3e6dbe94afa410bffc87623817e4cb26f90efb581b9a8d6dfcea71b64(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__08a67425ea4c8dcb1628c0ebb391eb9d3ca8fd07b5c6306f039cb531a05565d4(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

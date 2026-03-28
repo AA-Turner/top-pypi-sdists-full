@@ -5948,6 +5948,22 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AIDEV_OPS_AGENT_READ_ONLY_ACCESS = "AIDEV_OPS_AGENT_READ_ONLY_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AIDEV_OPS_AGENT_ACCESS_POLICY = "AIDEV_OPS_AGENT_ACCESS_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AIDEV_OPS_OPERATOR_APP_ACCESS_POLICY = "AIDEV_OPS_OPERATOR_APP_ACCESS_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AIDEV_OPS_AGENT_FULL_ACCESS = "AIDEV_OPS_AGENT_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

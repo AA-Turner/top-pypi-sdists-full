@@ -193,6 +193,7 @@ class WindowConfigResolved:
     backfill_start_time: datetime | None
     continuous_resolver: str | None
     continuous_buffer_duration_seconds: int | None
+    backfill_tags: list[list[str]] | None = None
 
 
 class Feature(Generic[_TPrim, _TRich]):

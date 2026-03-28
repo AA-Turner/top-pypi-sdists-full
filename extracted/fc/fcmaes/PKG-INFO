@@ -1,0 +1,46 @@
+Metadata-Version: 2.2
+Name: fcmaes
+Version: 2.0.1
+Summary: A Python 3 gradient-free optimization library.
+Keywords: optimization,multi-objective,parallel
+Author-Email: Dietmar Wolz <drdietmarwolz@yahoo.de>
+License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: Intended Audience :: Healthcare Industry
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Manufacturing
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Office/Business :: Financial
+Classifier: Topic :: Office/Business :: Scheduling
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Project-URL: Homepage, https://github.com/dietmarwo/fast-cma-es
+Project-URL: Repository, https://github.com/dietmarwo/fast-cma-es
+Requires-Python: >=3.10
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: scikit-learn
+Requires-Dist: threadpoolctl
+Requires-Dist: loguru
+Provides-Extra: jit
+Requires-Dist: numba; extra == "jit"
+Description-Content-Type: text/markdown
+
+# fcmaes
+A Python 3 gradient-free optimization library.
+
+- [README](https://github.com/dietmarwo/fast-cma-es/blob/master/README.adoc)
+- [Tutorials](https://github.com/dietmarwo/fast-cma-es/blob/master/tutorials/Tutorials.adoc)
+
+
+
+
+

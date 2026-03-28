@@ -1,4 +1,4 @@
-#![allow(missing_docs, clippy::float_cmp, clippy::items_after_statements)]
+#![allow(missing_docs, clippy::float_cmp, clippy::items_after_statements, deprecated)]
 
 //! hOCR 1.2 compliance integration tests
 //!

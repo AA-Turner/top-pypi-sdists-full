@@ -559,6 +559,7 @@ class ExtractionConfig:
     cache_namespace: str | None
     cache_ttl_secs: int | None
     extraction_timeout_secs: int | None
+    max_archive_depth: int
 
     def __init__(
         self,
@@ -589,6 +590,7 @@ class ExtractionConfig:
         cache_namespace: str | None = ...,
         cache_ttl_secs: int | None = ...,
         extraction_timeout_secs: int | None = ...,
+        max_archive_depth: int = ...,
     ) -> None: ...
     @staticmethod
     def from_file(path: str | Path) -> ExtractionConfig: ...
@@ -861,6 +863,23 @@ class ChunkingConfig:
             settings if provided). Use list_embedding_presets() to see available presets.
             Default: None
 
+        chunker_type (str): Type of chunker to use. Supported values:
+            "text" (default), "markdown", "yaml". Default: "text"
+
+        sizing_type (str): How chunk size is measured. "characters" (default)
+            or "tokenizer" for token-based sizing. Default: "characters"
+
+        sizing_model (str | None): HuggingFace model ID for tokenizer-based sizing.
+            Only used when sizing_type is "tokenizer". Example: "Xenova/gpt-4o".
+            Default: None
+
+        sizing_cache_dir (str | None): Optional cache directory for tokenizer files.
+            Only used when sizing_type is "tokenizer". Default: None
+
+        prepend_heading_context (bool): When True and chunker_type is "markdown",
+            prepends the heading hierarchy path to each chunk's content for
+            improved retrieval context. Default: False
+
     Example:
         Basic chunking with defaults:
             >>> from kreuzberg import ExtractionConfig, ChunkingConfig
@@ -883,9 +902,11 @@ class ChunkingConfig:
     max_overlap: int
     embedding: EmbeddingConfig | None
     preset: str | None
-    chunker_type: str | None
+    chunker_type: str
     sizing_type: str
     sizing_model: str | None
+    sizing_cache_dir: str | None
+    prepend_heading_context: bool
 
     def __init__(
         self,
@@ -898,6 +919,7 @@ class ChunkingConfig:
         sizing_type: str | None = None,
         sizing_model: str | None = None,
         sizing_cache_dir: str | None = None,
+        prepend_heading_context: bool | None = None,
     ) -> None: ...
 
 class ImageExtractionConfig:

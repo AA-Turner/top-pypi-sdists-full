@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-lib",
-    "version": "2.244.0",
+    "version": "2.245.0",
     "description": "Version 2 of the AWS Cloud Development Kit library",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -138,6 +138,7 @@ kwargs = json.loads(
         "aws_cdk.aws_elasticloadbalancingv2_actions",
         "aws_cdk.aws_elasticloadbalancingv2_targets",
         "aws_cdk.aws_elasticsearch",
+        "aws_cdk.aws_elementalinference",
         "aws_cdk.aws_emr",
         "aws_cdk.aws_emrcontainers",
         "aws_cdk.aws_emrserverless",
@@ -268,6 +269,7 @@ kwargs = json.loads(
         "aws_cdk.aws_route53",
         "aws_cdk.aws_route53_patterns",
         "aws_cdk.aws_route53_targets",
+        "aws_cdk.aws_route53globalresolver",
         "aws_cdk.aws_route53profiles",
         "aws_cdk.aws_route53recoverycontrol",
         "aws_cdk.aws_route53recoveryreadiness",
@@ -433,6 +435,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_elasticloadbalancing",
         "aws_cdk.interfaces.aws_elasticloadbalancingv2",
         "aws_cdk.interfaces.aws_elasticsearch",
+        "aws_cdk.interfaces.aws_elementalinference",
         "aws_cdk.interfaces.aws_emr",
         "aws_cdk.interfaces.aws_emrcontainers",
         "aws_cdk.interfaces.aws_emrserverless",
@@ -555,6 +558,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_robomaker",
         "aws_cdk.interfaces.aws_rolesanywhere",
         "aws_cdk.interfaces.aws_route53",
+        "aws_cdk.interfaces.aws_route53globalresolver",
         "aws_cdk.interfaces.aws_route53profiles",
         "aws_cdk.interfaces.aws_route53recoverycontrol",
         "aws_cdk.interfaces.aws_route53recoveryreadiness",
@@ -616,7 +620,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk._jsii": [
-            "aws-cdk-lib@2.244.0.jsii.tgz"
+            "aws-cdk-lib@2.245.0.jsii.tgz"
         ],
         "aws_cdk": [
             "py.typed"
@@ -626,7 +630,7 @@ kwargs = json.loads(
     "install_requires": [
         "aws-cdk.asset-awscli-v1==2.2.263",
         "aws-cdk.asset-node-proxy-agent-v6>=2.1.1, <3.0.0",
-        "aws-cdk.cloud-assembly-schema>=52.1.0, <53.0.0",
+        "aws-cdk.cloud-assembly-schema>=53.0.0, <54.0.0",
         "constructs>=10.5.0, <11.0.0",
         "jsii>=1.127.0, <2.0.0",
         "publication>=0.0.3",

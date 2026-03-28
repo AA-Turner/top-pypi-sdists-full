@@ -2619,6 +2619,7 @@ from ..aws_autoscaling import (
     HealthCheck as _HealthCheck_03a4bd5a,
     HealthChecks as _HealthChecks_b8757873,
     IAutoScalingGroup as _IAutoScalingGroup_360f1cde,
+    InstanceLifecyclePolicy as _InstanceLifecyclePolicy_af241466,
     Monitoring as _Monitoring_50020f91,
     NotificationConfiguration as _NotificationConfiguration_d5911670,
     Signals as _Signals_69fbeb6e,
@@ -2852,6 +2853,7 @@ class AddAutoScalingGroupCapacityOptions:
         "health_check": "healthCheck",
         "health_checks": "healthChecks",
         "ignore_unmodified_size_properties": "ignoreUnmodifiedSizeProperties",
+        "instance_lifecycle_policy": "instanceLifecyclePolicy",
         "instance_monitoring": "instanceMonitoring",
         "key_name": "keyName",
         "key_pair": "keyPair",
@@ -2895,6 +2897,7 @@ class AddCapacityOptions(
         health_check: typing.Optional["_HealthCheck_03a4bd5a"] = None,
         health_checks: typing.Optional["_HealthChecks_b8757873"] = None,
         ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
+        instance_lifecycle_policy: typing.Optional[typing.Union["_InstanceLifecyclePolicy_af241466", typing.Dict[builtins.str, typing.Any]]] = None,
         instance_monitoring: typing.Optional["_Monitoring_50020f91"] = None,
         key_name: typing.Optional[builtins.str] = None,
         key_pair: typing.Optional["_IKeyPair_bc344eda"] = None,
@@ -2932,6 +2935,7 @@ class AddCapacityOptions(
         :param health_check: (deprecated) Configuration for health checks. Default: - HealthCheck.ec2 with no grace period
         :param health_checks: Configuration for EC2 or additional health checks. Even when using ``HealthChecks.withAdditionalChecks()``, the EC2 type is implicitly included. Default: - EC2 type with no grace period
         :param ignore_unmodified_size_properties: If the ASG has scheduled actions, don't reset unchanged group sizes. Only used if the ASG has scheduled actions (which may scale your ASG up or down regardless of cdk deployments). If true, the size of the group will only be reset if it has been changed in the CDK app. If false, the sizes will always be changed back to what they were in the CDK app on deployment. Default: true
+        :param instance_lifecycle_policy: An instance lifecycle policy that defines how instances should be handled during lifecycle events, particularly when lifecycle hooks are abandoned or fail. Default: None
         :param instance_monitoring: Controls whether instances in this group are launched with detailed or basic monitoring. When detailed monitoring is enabled, Amazon CloudWatch generates metrics every minute and your account is charged a fee. When you disable detailed monitoring, CloudWatch generates metrics every 5 minutes. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified Default: - Monitoring.DETAILED
         :param key_name: (deprecated) Name of SSH keypair to grant access to instances. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param key_pair: The SSH keypair to grant access to the instance. Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified. You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
@@ -2963,6 +2967,8 @@ class AddCapacityOptions(
                 machine_image=ecs.EcsOptimizedImage.amazon_linux2(ecs.AmiHardwareType.ARM)
             )
         '''
+        if isinstance(instance_lifecycle_policy, dict):
+            instance_lifecycle_policy = _InstanceLifecyclePolicy_af241466(**instance_lifecycle_policy)
         if isinstance(vpc_subnets, dict):
             vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
         if __debug__:
@@ -2984,6 +2990,7 @@ class AddCapacityOptions(
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
             check_type(argname="argument health_checks", value=health_checks, expected_type=type_hints["health_checks"])
             check_type(argname="argument ignore_unmodified_size_properties", value=ignore_unmodified_size_properties, expected_type=type_hints["ignore_unmodified_size_properties"])
+            check_type(argname="argument instance_lifecycle_policy", value=instance_lifecycle_policy, expected_type=type_hints["instance_lifecycle_policy"])
             check_type(argname="argument instance_monitoring", value=instance_monitoring, expected_type=type_hints["instance_monitoring"])
             check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
             check_type(argname="argument key_pair", value=key_pair, expected_type=type_hints["key_pair"])
@@ -3038,6 +3045,8 @@ class AddCapacityOptions(
             self._values["health_checks"] = health_checks
         if ignore_unmodified_size_properties is not None:
             self._values["ignore_unmodified_size_properties"] = ignore_unmodified_size_properties
+        if instance_lifecycle_policy is not None:
+            self._values["instance_lifecycle_policy"] = instance_lifecycle_policy
         if instance_monitoring is not None:
             self._values["instance_monitoring"] = instance_monitoring
         if key_name is not None:
@@ -3289,6 +3298,19 @@ class AddCapacityOptions(
         '''
         result = self._values.get("ignore_unmodified_size_properties")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def instance_lifecycle_policy(
+        self,
+    ) -> typing.Optional["_InstanceLifecyclePolicy_af241466"]:
+        '''An instance lifecycle policy that defines how instances should be handled during lifecycle events, particularly when lifecycle hooks are abandoned or fail.
+
+        :default: None
+
+        :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/instance-lifecycle-policy.html
+        '''
+        result = self._values.get("instance_lifecycle_policy")
+        return typing.cast(typing.Optional["_InstanceLifecyclePolicy_af241466"], result)
 
     @builtins.property
     def instance_monitoring(self) -> typing.Optional["_Monitoring_50020f91"]:
@@ -4671,6 +4693,7 @@ class AsgCapacityProviderProps(AddAutoScalingGroupCapacityOptions):
         "extra_hash": "extraHash",
         "asset_name": "assetName",
         "build_args": "buildArgs",
+        "build_contexts": "buildContexts",
         "build_secrets": "buildSecrets",
         "build_ssh": "buildSsh",
         "cache_disabled": "cacheDisabled",
@@ -4695,6 +4718,7 @@ class AssetImageProps(_DockerImageAssetOptions_9580cd76):
         extra_hash: typing.Optional[builtins.str] = None,
         asset_name: typing.Optional[builtins.str] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
@@ -4716,6 +4740,7 @@ class AssetImageProps(_DockerImageAssetOptions_9580cd76):
         :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
         :param asset_name: Unique identifier of the docker image asset and its potential revisions. Required if using AppScopedStagingSynthesizer. Default: - no asset name
         :param build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no build args are passed
+        :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Since Docker build contexts are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no additional build contexts
         :param build_secrets: Build secrets. Docker BuildKit must be enabled to use build secrets. Default: - no build secrets
         :param build_ssh: SSH agent socket or keys to pass to the ``docker build`` command. Docker BuildKit must be enabled to use the ssh flag Default: - no --ssh flag
         :param cache_disabled: Disable the cache and pass ``--no-cache`` to the ``docker build`` command. Default: - cache is used
@@ -4747,6 +4772,9 @@ class AssetImageProps(_DockerImageAssetOptions_9580cd76):
                 build_args={
                     "build_args_key": "buildArgs"
                 },
+                build_contexts={
+                    "build_contexts_key": "buildContexts"
+                },
                 build_secrets={
                     "build_secrets_key": "buildSecrets"
                 },
@@ -4776,6 +4804,7 @@ class AssetImageProps(_DockerImageAssetOptions_9580cd76):
                 ignore_mode=cdk.IgnoreMode.GLOB,
                 invalidation=ecr_assets.DockerImageAssetInvalidationOptions(
                     build_args=False,
+                    build_contexts=False,
                     build_secrets=False,
                     build_ssh=False,
                     extra_hash=False,
@@ -4804,6 +4833,7 @@ class AssetImageProps(_DockerImageAssetOptions_9580cd76):
             check_type(argname="argument extra_hash", value=extra_hash, expected_type=type_hints["extra_hash"])
             check_type(argname="argument asset_name", value=asset_name, expected_type=type_hints["asset_name"])
             check_type(argname="argument build_args", value=build_args, expected_type=type_hints["build_args"])
+            check_type(argname="argument build_contexts", value=build_contexts, expected_type=type_hints["build_contexts"])
             check_type(argname="argument build_secrets", value=build_secrets, expected_type=type_hints["build_secrets"])
             check_type(argname="argument build_ssh", value=build_ssh, expected_type=type_hints["build_ssh"])
             check_type(argname="argument cache_disabled", value=cache_disabled, expected_type=type_hints["cache_disabled"])
@@ -4829,6 +4859,8 @@ class AssetImageProps(_DockerImageAssetOptions_9580cd76):
             self._values["asset_name"] = asset_name
         if build_args is not None:
             self._values["build_args"] = build_args
+        if build_contexts is not None:
+            self._values["build_contexts"] = build_contexts
         if build_secrets is not None:
             self._values["build_secrets"] = build_secrets
         if build_ssh is not None:
@@ -4915,6 +4947,27 @@ class AssetImageProps(_DockerImageAssetOptions_9580cd76):
         :default: - no build args are passed
         '''
         result = self._values.get("build_args")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def build_contexts(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Build contexts to pass to the ``docker build`` command.
+
+        Build contexts can be used to specify additional directories or images
+        to use during the build. Each entry specifies a named build context
+        and its source (a directory path, a URL, or a docker image).
+
+        Since Docker build contexts are resolved before deployment, keys and
+        values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or
+        ``queue.queueUrl``).
+
+        :default: - no additional build contexts
+
+        :see: https://docs.docker.com/build/building/context/#additional-build-contexts
+        '''
+        result = self._values.get("build_contexts")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
@@ -29648,6 +29701,7 @@ class ContainerImage(
         *,
         asset_name: typing.Optional[builtins.str] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
@@ -29673,6 +29727,7 @@ class ContainerImage(
         :param directory: The directory containing the Dockerfile.
         :param asset_name: Unique identifier of the docker image asset and its potential revisions. Required if using AppScopedStagingSynthesizer. Default: - no asset name
         :param build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no build args are passed
+        :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Since Docker build contexts are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no additional build contexts
         :param build_secrets: Build secrets. Docker BuildKit must be enabled to use build secrets. Default: - no build secrets
         :param build_ssh: SSH agent socket or keys to pass to the ``docker build`` command. Docker BuildKit must be enabled to use the ssh flag Default: - no --ssh flag
         :param cache_disabled: Disable the cache and pass ``--no-cache`` to the ``docker build`` command. Default: - cache is used
@@ -29696,6 +29751,7 @@ class ContainerImage(
         props = AssetImageProps(
             asset_name=asset_name,
             build_args=build_args,
+            build_contexts=build_contexts,
             build_secrets=build_secrets,
             build_ssh=build_ssh,
             cache_disabled=cache_disabled,
@@ -47958,6 +48014,9 @@ class AssetImage(
             build_args={
                 "build_args_key": "buildArgs"
             },
+            build_contexts={
+                "build_contexts_key": "buildContexts"
+            },
             build_secrets={
                 "build_secrets_key": "buildSecrets"
             },
@@ -47987,6 +48046,7 @@ class AssetImage(
             ignore_mode=cdk.IgnoreMode.GLOB,
             invalidation=ecr_assets.DockerImageAssetInvalidationOptions(
                 build_args=False,
+                build_contexts=False,
                 build_secrets=False,
                 build_ssh=False,
                 extra_hash=False,
@@ -48010,6 +48070,7 @@ class AssetImage(
         *,
         asset_name: typing.Optional[builtins.str] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
@@ -48032,6 +48093,7 @@ class AssetImage(
         :param directory: The directory containing the Dockerfile.
         :param asset_name: Unique identifier of the docker image asset and its potential revisions. Required if using AppScopedStagingSynthesizer. Default: - no asset name
         :param build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no build args are passed
+        :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Since Docker build contexts are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no additional build contexts
         :param build_secrets: Build secrets. Docker BuildKit must be enabled to use build secrets. Default: - no build secrets
         :param build_ssh: SSH agent socket or keys to pass to the ``docker build`` command. Docker BuildKit must be enabled to use the ssh flag Default: - no --ssh flag
         :param cache_disabled: Disable the cache and pass ``--no-cache`` to the ``docker build`` command. Default: - cache is used
@@ -48055,6 +48117,7 @@ class AssetImage(
         props = AssetImageProps(
             asset_name=asset_name,
             build_args=build_args,
+            build_contexts=build_contexts,
             build_secrets=build_secrets,
             build_ssh=build_ssh,
             cache_disabled=cache_disabled,
@@ -48433,6 +48496,7 @@ class Cluster(
         health_check: typing.Optional["_HealthCheck_03a4bd5a"] = None,
         health_checks: typing.Optional["_HealthChecks_b8757873"] = None,
         ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
+        instance_lifecycle_policy: typing.Optional[typing.Union["_InstanceLifecyclePolicy_af241466", typing.Dict[builtins.str, typing.Any]]] = None,
         instance_monitoring: typing.Optional["_Monitoring_50020f91"] = None,
         key_name: typing.Optional[builtins.str] = None,
         key_pair: typing.Optional["_IKeyPair_bc344eda"] = None,
@@ -48475,6 +48539,7 @@ class Cluster(
         :param health_check: (deprecated) Configuration for health checks. Default: - HealthCheck.ec2 with no grace period
         :param health_checks: Configuration for EC2 or additional health checks. Even when using ``HealthChecks.withAdditionalChecks()``, the EC2 type is implicitly included. Default: - EC2 type with no grace period
         :param ignore_unmodified_size_properties: If the ASG has scheduled actions, don't reset unchanged group sizes. Only used if the ASG has scheduled actions (which may scale your ASG up or down regardless of cdk deployments). If true, the size of the group will only be reset if it has been changed in the CDK app. If false, the sizes will always be changed back to what they were in the CDK app on deployment. Default: true
+        :param instance_lifecycle_policy: An instance lifecycle policy that defines how instances should be handled during lifecycle events, particularly when lifecycle hooks are abandoned or fail. Default: None
         :param instance_monitoring: Controls whether instances in this group are launched with detailed or basic monitoring. When detailed monitoring is enabled, Amazon CloudWatch generates metrics every minute and your account is charged a fee. When you disable detailed monitoring, CloudWatch generates metrics every 5 minutes. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified Default: - Monitoring.DETAILED
         :param key_name: (deprecated) Name of SSH keypair to grant access to instances. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param key_pair: The SSH keypair to grant access to the instance. Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified. You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
@@ -48514,6 +48579,7 @@ class Cluster(
             health_check=health_check,
             health_checks=health_checks,
             ignore_unmodified_size_properties=ignore_unmodified_size_properties,
+            instance_lifecycle_policy=instance_lifecycle_policy,
             instance_monitoring=instance_monitoring,
             key_name=key_name,
             key_pair=key_pair,
@@ -52125,6 +52191,7 @@ def _typecheckingstub__64f2d9b3495e3be78346f77d5ad90928968c8ce230e670b6279dc67ad
     health_check: typing.Optional[_HealthCheck_03a4bd5a] = None,
     health_checks: typing.Optional[_HealthChecks_b8757873] = None,
     ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
+    instance_lifecycle_policy: typing.Optional[typing.Union[_InstanceLifecyclePolicy_af241466, typing.Dict[builtins.str, typing.Any]]] = None,
     instance_monitoring: typing.Optional[_Monitoring_50020f91] = None,
     key_name: typing.Optional[builtins.str] = None,
     key_pair: typing.Optional[_IKeyPair_bc344eda] = None,
@@ -52265,6 +52332,7 @@ def _typecheckingstub__6e2e094929b9952c79f2d2f10cac8da6c1f6dad2f0e50e17e639ed016
     extra_hash: typing.Optional[builtins.str] = None,
     asset_name: typing.Optional[builtins.str] = None,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_ssh: typing.Optional[builtins.str] = None,
     cache_disabled: typing.Optional[builtins.bool] = None,
@@ -54781,6 +54849,7 @@ def _typecheckingstub__a3b74ad5b0ef573de8f4998ac2c10294ecc205320b367ba59d13b865f
     *,
     asset_name: typing.Optional[builtins.str] = None,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_ssh: typing.Optional[builtins.str] = None,
     cache_disabled: typing.Optional[builtins.bool] = None,
@@ -56588,6 +56657,7 @@ def _typecheckingstub__4d3698baaf6e6b1c9fc983c7a139e8426df4d121c2e7cd948722f7942
     *,
     asset_name: typing.Optional[builtins.str] = None,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_ssh: typing.Optional[builtins.str] = None,
     cache_disabled: typing.Optional[builtins.bool] = None,
@@ -56707,6 +56777,7 @@ def _typecheckingstub__63e98e008463515927d4aee3c938d64639e34ce8a2c09fa766883be6a
     health_check: typing.Optional[_HealthCheck_03a4bd5a] = None,
     health_checks: typing.Optional[_HealthChecks_b8757873] = None,
     ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
+    instance_lifecycle_policy: typing.Optional[typing.Union[_InstanceLifecyclePolicy_af241466, typing.Dict[builtins.str, typing.Any]]] = None,
     instance_monitoring: typing.Optional[_Monitoring_50020f91] = None,
     key_name: typing.Optional[builtins.str] = None,
     key_pair: typing.Optional[_IKeyPair_bc344eda] = None,

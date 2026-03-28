@@ -47,11 +47,11 @@ def _get_hook_class():
 
 
 # ---------------------------------------------------------------------------
-# _find_world_file
+# _find_world_files
 # ---------------------------------------------------------------------------
 
 
-class TestFindWorldFile:
+class TestFindWorldFiles:
     def test_finds_file_with_register_world(self, tmp_path):
         pkg = tmp_path / "my_world"
         pkg.mkdir()
@@ -60,9 +60,9 @@ class TestFindWorldFile:
         (pkg / "utils.py").write_text("# no decorator here\n")
 
         cls = _get_hook_class()
-        result = cls._find_world_file(pkg)
-        assert result is not None
-        assert result.name == "world.py"
+        result = cls._find_world_files(pkg)
+        assert len(result) == 1
+        assert result[0].name == "world.py"
 
     def test_skips_init_py(self, tmp_path):
         pkg = tmp_path / "my_world"
@@ -70,23 +70,23 @@ class TestFindWorldFile:
         (pkg / "__init__.py").write_text('@register_world("x")\nclass X: pass\n')
 
         cls = _get_hook_class()
-        result = cls._find_world_file(pkg)
-        assert result is None
+        result = cls._find_world_files(pkg)
+        assert result == []
 
-    def test_returns_none_when_no_decorator(self, tmp_path):
+    def test_returns_empty_when_no_decorator(self, tmp_path):
         pkg = tmp_path / "my_world"
         pkg.mkdir()
         (pkg / "__init__.py").write_text("")
         (pkg / "world.py").write_text("class MyWorld: pass\n")
 
         cls = _get_hook_class()
-        result = cls._find_world_file(pkg)
-        assert result is None
+        result = cls._find_world_files(pkg)
+        assert result == []
 
-    def test_returns_none_for_missing_dir(self, tmp_path):
+    def test_returns_empty_for_missing_dir(self, tmp_path):
         cls = _get_hook_class()
-        result = cls._find_world_file(tmp_path / "nonexistent")
-        assert result is None
+        result = cls._find_world_files(tmp_path / "nonexistent")
+        assert result == []
 
 
 # ---------------------------------------------------------------------------

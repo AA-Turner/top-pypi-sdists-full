@@ -2500,6 +2500,31 @@ class ChalkClient:
         """
         ...
 
+    def trigger_aggregate_backfill(
+        self,
+        features: list[str],
+        lower_bound: datetime | None = None,
+        upper_bound: datetime | None = None,
+        resolver: str | None = None,
+        query_tags: list[str] | None = None,
+    ) -> Any:
+        """Trigger an aggregate backfill job.
+
+        Parameters
+        ----------
+        features : list[str]
+            The fully-qualified names of the aggregate features to backfill.
+        lower_bound : datetime, optional
+            The lower bound of the time range to backfill.
+        upper_bound : datetime, optional
+            The upper bound of the time range to backfill.
+        resolver : str, optional
+            The resolver to use for the backfill.
+        query_tags : list[str], optional
+            Resolver tags to prefer when running the backfill.
+        """
+        ...
+
     def __new__(cls, *args: Any, **kwargs: Any):
         from chalk.client.client_impl import ChalkAPIClientImpl
 

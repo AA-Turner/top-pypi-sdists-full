@@ -349,6 +349,8 @@ if TYPE_CHECKING:
         ListModelsUserSecurityTypedDict,
     )
     from .listproviders import (
+        Datacenter,
+        Headquarters,
         ListProvidersData,
         ListProvidersDataTypedDict,
         ListProvidersGlobals,
@@ -503,6 +505,7 @@ __all__ = [
     "CreateResponsesResponseBody",
     "CreateResponsesResponseBodyTypedDict",
     "CreateResponsesResponseTypedDict",
+    "Datacenter",
     "DeleteGuardrailGlobals",
     "DeleteGuardrailGlobalsTypedDict",
     "DeleteGuardrailRequest",
@@ -578,6 +581,7 @@ __all__ = [
     "GetUserActivityRequestTypedDict",
     "GetUserActivityResponse",
     "GetUserActivityResponseTypedDict",
+    "Headquarters",
     "ImageURL",
     "ImageURLTypedDict",
     "Input",
@@ -999,6 +1003,8 @@ _dynamic_imports: dict[str, str] = {
     "ListModelsUserRequestTypedDict": ".listmodelsuser",
     "ListModelsUserSecurity": ".listmodelsuser",
     "ListModelsUserSecurityTypedDict": ".listmodelsuser",
+    "Datacenter": ".listproviders",
+    "Headquarters": ".listproviders",
     "ListProvidersData": ".listproviders",
     "ListProvidersDataTypedDict": ".listproviders",
     "ListProvidersGlobals": ".listproviders",

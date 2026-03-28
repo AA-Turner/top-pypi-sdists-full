@@ -105,6 +105,7 @@ class UpsertWindowMaterializationGQL:
     backfillLookbackDuration: Optional[float] = None
     backfillStartTime: Optional[datetime] = None
     backfillSchedule: Optional[str] = None
+    backfillTags: Optional[List[List[str]]] = None
     continuousResolver: Optional[str] = None
     continuousBufferDuration: Optional[float] = None
 
@@ -282,6 +283,7 @@ class UpsertCronQueryGQL:
     completionDeadline: Optional[str] = None
     numShards: Optional[int] = None
     numWorkers: Optional[int] = None
+    inputSql: Optional[str] = None
 
 
 @dataclasses_json.dataclass_json

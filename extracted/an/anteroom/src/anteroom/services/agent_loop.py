@@ -581,8 +581,12 @@ async def run_agent_loop(
             if message_queue is not None:
                 try:
                     queued_msg = message_queue.get_nowait()
+                    queue_depth = message_queue.qsize()
                     messages.append(queued_msg)
-                    yield AgentEvent(kind="queued_message", data=queued_msg)
+                    yield AgentEvent(
+                        kind="queued_message",
+                        data={**queued_msg, "position": 1, "queue_depth": queue_depth},
+                    )
                     continue
                 except asyncio.QueueEmpty:
                     pass

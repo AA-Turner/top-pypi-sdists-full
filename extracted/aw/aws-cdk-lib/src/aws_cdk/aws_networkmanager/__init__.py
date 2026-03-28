@@ -2088,19 +2088,6 @@ class CfnCoreNetwork(
         jsii.set(self, "globalNetworkId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of a core network.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd943ed85c9a7352421e16d77f69b1d40ca95e68eac8600af543194df8d324f7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="policyDocument")
     def policy_document(self) -> typing.Any:
         '''Describes a core network policy.
@@ -2115,6 +2102,19 @@ class CfnCoreNetwork(
             type_hints = typing.get_type_hints(_typecheckingstub__95fd0d184423074af0fbb9e444ffac5c0adbdbe161eb0520bbbd67705f54b4d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of a core network.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd943ed85c9a7352421e16d77f69b1d40ca95e68eac8600af543194df8d324f7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -9519,14 +9519,14 @@ def _typecheckingstub__86408588b749b814a7197fcea933176b0c59fa27af364e497dd8c35db
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__fd943ed85c9a7352421e16d77f69b1d40ca95e68eac8600af543194df8d324f7(
-    value: typing.Optional[builtins.str],
+def _typecheckingstub__95fd0d184423074af0fbb9e444ffac5c0adbdbe161eb0520bbbd67705f54b4d2(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__95fd0d184423074af0fbb9e444ffac5c0adbdbe161eb0520bbbd67705f54b4d2(
-    value: typing.Any,
+def _typecheckingstub__fd943ed85c9a7352421e16d77f69b1d40ca95e68eac8600af543194df8d324f7(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass

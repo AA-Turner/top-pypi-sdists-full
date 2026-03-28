@@ -499,12 +499,11 @@ def approximate_predict_scores(clusterer, points_to_predict):
     for parent in np.unique(tree['parent']):
         max_lambdas[parent] = tree[tree['parent'] == parent]['lambda_val'].max()
 
-    for n in np.argsort(parent_array):
-        cluster = tree['child'][n]
-        if cluster < tree_root:
-            break
-
+    for n in range(tree.shape[0] - 1, -1, -1):
         parent = parent_array[n]
+        cluster = tree['child'][n]
+        if cluster not in max_lambdas:
+            continue
         if max_lambdas[cluster] > max_lambdas[parent]:
             max_lambdas[parent] = max_lambdas[cluster]
 

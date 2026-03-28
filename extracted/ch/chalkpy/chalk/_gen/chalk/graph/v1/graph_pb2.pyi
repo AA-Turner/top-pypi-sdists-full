@@ -797,6 +797,7 @@ class WindowAggregation(_message.Message):
         "backfill_schedule",
         "bucket_start",
         "approx_top_k_arg_k",
+        "backfill_tag_sets",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
@@ -813,6 +814,7 @@ class WindowAggregation(_message.Message):
     BACKFILL_SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     BUCKET_START_FIELD_NUMBER: _ClassVar[int]
     APPROX_TOP_K_ARG_K_FIELD_NUMBER: _ClassVar[int]
+    BACKFILL_TAG_SETS_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     group_by: _containers.RepeatedCompositeFieldContainer[FeatureReference]
     bucket_duration: _duration_pb2.Duration
@@ -828,6 +830,7 @@ class WindowAggregation(_message.Message):
     backfill_schedule: str
     bucket_start: _timestamp_pb2.Timestamp
     approx_top_k_arg_k: int
+    backfill_tag_sets: _containers.RepeatedCompositeFieldContainer[BackfillTagSet]
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -845,7 +848,14 @@ class WindowAggregation(_message.Message):
         backfill_schedule: _Optional[str] = ...,
         bucket_start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         approx_top_k_arg_k: _Optional[int] = ...,
+        backfill_tag_sets: _Optional[_Iterable[_Union[BackfillTagSet, _Mapping]]] = ...,
     ) -> None: ...
+
+class BackfillTagSet(_message.Message):
+    __slots__ = ("tags",)
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    tags: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, tags: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class WindowInfo(_message.Message):
     __slots__ = ("duration", "aggregation")

@@ -9,16 +9,20 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from docutils.nodes import Text
+from sphinx.util import logging
 
 
 if TYPE_CHECKING:
+    from typing import Final
+
     from docutils.nodes import TextElement, reference
     from sphinx.addnodes import pending_xref
     from sphinx.application import Sphinx
     from sphinx.environment import BuildEnvironment
 
 
-HERE = Path(__file__).parent
+HERE: Final = Path(__file__).parent
+LOGGER: Final = logging.getLogger("fast_array_utils")
 
 
 # -- General configuration ------------------------------------------------
@@ -39,8 +43,6 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
-    # "scanpydoc.definition_list_typed_field",
-    "scanpydoc.elegant_typehints",
     "sphinx_autofixture",
 ]
 
@@ -69,6 +71,8 @@ intersphinx_mapping = dict(
     zarr=("https://zarr.readthedocs.io/en/stable/", None),
 )
 nitpick_ignore = [
+    ("py:class", "P"),
+    ("py:class", "R"),
     ("py:class", "Arr"),
     ("py:class", "Array"),
     ("py:class", "ToDType"),
@@ -134,7 +138,8 @@ def resolve_type_aliases(app: Sphinx, env: BuildEnvironment, node: pending_xref,
         ref = resolve_reference_any_inventory(env=env, honor_disabled_refs=False, node=node, contnode=contnode)
     if ref is None:
         msg = f"Could not resolve {typ} {target} (from {node['reftarget']})"
-        raise AssertionError(msg)
+        LOGGER.warning(msg, type="ref")
+        return ref
     if name:
         ref.children[:] = [Text(name)]
     return ref

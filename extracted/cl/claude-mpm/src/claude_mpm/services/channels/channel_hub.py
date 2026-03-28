@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .channel_config import load_channels_config
+from .permissions import PermissionManager
 from .session_registry import SessionRegistry
 from .session_worker import SessionWorker
 from .terminal_adapter import TerminalAdapter
@@ -49,7 +50,9 @@ class ChannelHub:
         self.registry = SessionRegistry()
         self._workers: dict[str, SessionWorker] = {}
         self._adapters: list[Any] = []
+        self._perm_mgr = PermissionManager()
         self._running = False
+        self._stop_event = asyncio.Event()
         self._started_at: float = 0.0
         try:
             from claude_mpm.services.github.identity_manager import (
@@ -110,12 +113,37 @@ class ChannelHub:
         terminal = TerminalAdapter(self)
         self._adapters.append(terminal)
         await terminal.start()
+        # GitHub adapter (optional, enabled via config)
+        if self.config.github.enabled:
+            from .github_adapter import GitHubAdapter
+
+            github_adapter = GitHubAdapter(hub=self, config=self.config.github)
+            self._adapters.append(github_adapter)
+            await github_adapter.start()
+            logger.info("GitHub channel adapter started")
+        # Telegram adapter (optional, enabled via config)
+        if self.config.telegram.enabled:
+            from .telegram_adapter import TelegramAdapter
+
+            telegram_adapter = TelegramAdapter(hub=self, config=self.config.telegram)
+            self._adapters.append(telegram_adapter)
+            await telegram_adapter.start()
+            logger.info("Telegram channel adapter started")
+        # Slack adapter (optional, enabled via config)
+        if self.config.slack.enabled:
+            from .slack_adapter import SlackAdapter
+
+            slack_adapter = SlackAdapter(hub=self, config=self.config.slack)
+            self._adapters.append(slack_adapter)
+            await slack_adapter.start()
+            logger.info("Slack channel adapter started")
         self._write_hub_state()
         logger.info("ChannelHub started")
 
     async def stop(self) -> None:
         """Gracefully stop all workers and adapters."""
         self._running = False
+        self._stop_event.set()
         for adapter in self._adapters:
             try:
                 await adapter.stop()
@@ -138,7 +166,51 @@ class ChannelHub:
         user_id: str,
         user_display: str = "",
     ) -> ChannelSession:
-        """Create a new named session and start its worker."""
+        """Create a new named session and start its worker.
+
+        Performs permission, rate-limit, and git-requirements checks
+        before proceeding.  If no bot-permissions.yaml files exist,
+        all checks pass (default = allow all).
+        """
+        from .git_requirements import GitRequirementsChecker
+
+        # ── Permission gate ──────────────────────────────────────────
+        # Reload config each call (picks up file changes) but reuse the
+        # singleton so rate/concurrent trackers persist across sessions.
+        self._perm_mgr.load(project_root=Path(cwd) if cwd else None)
+
+        allowed, reason = self._perm_mgr.check(
+            platform=channel, identity=user_id, project_root=cwd
+        )
+        if not allowed:
+            raise PermissionError(
+                f"Permission denied for {channel}:{user_id}: {reason}"
+            )
+
+        allowed, reason = self._perm_mgr.check_rate_limit(
+            platform=channel, identity=user_id
+        )
+        if not allowed:
+            raise PermissionError(
+                f"Rate limit exceeded for {channel}:{user_id}: {reason}"
+            )
+
+        # Git requirements (only when the permission entry defines them)
+        role_perm = self._perm_mgr._find_permission(channel, user_id)
+        if role_perm and role_perm.git and cwd:
+            checker = GitRequirementsChecker()
+            allowed, reason = await checker.check(
+                project_root=cwd,
+                branch_pattern=role_perm.git.branch_pattern,
+                require_clean=role_perm.git.require_clean,
+            )
+            if not allowed:
+                raise PermissionError(f"Git requirements not met: {reason}")
+
+        # Record session start for rate limiting
+        self._perm_mgr.record_session_start(platform=channel, identity=user_id)
+
+        # ── Original session-creation logic ──────────────────────────
         session = await self.registry.create(
             name=name,
             cwd=cwd,
@@ -194,6 +266,21 @@ class ChannelHub:
         self._write_hub_state()
         return session
 
+    async def stop_session(self, name: str) -> bool:
+        """Stop a session's worker. Returns True if stopped, False if not found."""
+        worker = self._workers.get(name)
+        if worker is None:
+            return False
+        try:
+            await worker.stop()
+        except Exception:
+            logger.warning("Error stopping worker '%s'", name, exc_info=True)
+        return True
+
+    async def get_session(self, name: str) -> ChannelSession | None:
+        """Get session info by name. Returns None if not found."""
+        return await self.registry.get(name)
+
     async def join_session(
         self,
         name: str,
@@ -218,5 +305,4 @@ class ChannelHub:
 
     async def run_until_stopped(self) -> None:
         """Block until hub is stopped."""
-        while self._running:
-            await asyncio.sleep(0.1)
+        await self._stop_event.wait()

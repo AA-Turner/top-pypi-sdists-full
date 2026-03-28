@@ -59,6 +59,11 @@ def _hex_to_ansi_rgb(hex_color: str) -> str:
 
 
 @pytest.fixture(autouse=True)
+def _clear_no_color(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def restore_midnight_theme() -> None:  # type: ignore[return]
     """Reset to midnight after every test so state doesn't leak."""
     yield

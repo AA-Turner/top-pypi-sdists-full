@@ -41,25 +41,6 @@ create_exception!(primp, DecodeError, PrimpError);
 create_exception!(primp, UpgradeError, PrimpError);
 
 // =============================================================================
-// PrimpPyError - Simple wrapper for ::primp::Error conversion
-// =============================================================================
-
-/// Simple wrapper struct for converting ::primp::Error to Python exceptions.
-pub(crate) struct PrimpPyError(pub ::primp::Error);
-
-impl From<::primp::Error> for PrimpPyError {
-    fn from(err: ::primp::Error) -> Self {
-        PrimpPyError(err)
-    }
-}
-
-impl From<PrimpPyError> for PyErr {
-    fn from(err: PrimpPyError) -> PyErr {
-        convert_reqwest_error(err.0)
-    }
-}
-
-// =============================================================================
 // PrimpErrorEnum (for internal error handling)
 // =============================================================================
 

@@ -1,7 +1,7 @@
 
 
 
-__all__ = ['Decoder', 'DeepAR']
+__all__ = ['DeepAR']
 
 
 from typing import Optional
@@ -10,45 +10,8 @@ import torch
 import torch.nn as nn
 
 from ..common._base_model import BaseModel
+from ..common._modules import MLP
 from ..losses.pytorch import MAE, DistributionLoss
-
-
-class Decoder(nn.Module):
-    """Multi-Layer Perceptron Decoder
-
-    Args:
-        in_features (int): dimension of input.
-        out_features (int): dimension of output.
-        hidden_size (int): dimension of hidden layers.
-        hidden_layers (int): number of hidden layers.
-    """
-
-    def __init__(self, in_features, out_features, hidden_size, hidden_layers):
-        super().__init__()
-
-        if hidden_layers == 0:
-            # Input layer
-            layers = [nn.Linear(in_features=in_features, out_features=out_features)]
-        else:
-            # Input layer
-            layers = [
-                nn.Linear(in_features=in_features, out_features=hidden_size),
-                nn.ReLU(),
-            ]
-            # Hidden layers
-            for i in range(hidden_layers - 2):
-                layers += [
-                    nn.Linear(in_features=hidden_size, out_features=hidden_size),
-                    nn.ReLU(),
-                ]
-            # Output layer
-            layers += [nn.Linear(in_features=hidden_size, out_features=out_features)]
-
-        # Store in layers as ModuleList
-        self.layers = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.layers(x)
 
 
 class DeepAR(BaseModel):
@@ -68,12 +31,13 @@ class DeepAR(BaseModel):
         hist_exog_list (str list): historic exogenous columns.
         futr_exog_list (str list): future exogenous columns.
         exclude_insample_y (bool): the model skips the autoregressive features y[t-input_size:t] if True.
-        loss (PyTorch module): instantiated train loss class from [losses collection](./losses.pytorch).
-        valid_loss (PyTorch module): instantiated valid loss class from [losses collection](./losses.pytorch).
+        loss (PyTorch module): instantiated train loss class from [losses collection](./losses.pytorch.html).
+        valid_loss (PyTorch module): instantiated valid loss class from [losses collection](./losses.pytorch.html).
         max_steps (int): maximum number of training steps.
         learning_rate (float): Learning rate between (0, 1).
         num_lr_decays (int): Number of learning rate decays, evenly distributed across max_steps.
         early_stop_patience_steps (int): Number of validation iterations before early stopping.
+        val_monitor (str): metric to monitor for early stopping. Valid options: "ptl/val_loss", "valid_loss", "train_loss". Default: "ptl/val_loss".
         val_check_steps (int): Number of training steps between every validation loss check.
         batch_size (int): number of different series in each batch.
         valid_batch_size (int): number of different series in each validation and test batch, if None uses batch_size.
@@ -129,6 +93,7 @@ class DeepAR(BaseModel):
         learning_rate: float = 1e-3,
         num_lr_decays: int = 3,
         early_stop_patience_steps: int = -1,
+        val_monitor: str = "ptl/val_loss",
         val_check_steps: int = 100,
         batch_size: int = 32,
         valid_batch_size: Optional[int] = None,
@@ -167,6 +132,7 @@ class DeepAR(BaseModel):
             learning_rate=learning_rate,
             num_lr_decays=num_lr_decays,
             early_stop_patience_steps=early_stop_patience_steps,
+            val_monitor=val_monitor,
             val_check_steps=val_check_steps,
             batch_size=batch_size,
             valid_batch_size=valid_batch_size,
@@ -209,11 +175,13 @@ class DeepAR(BaseModel):
         )
 
         # Decoder MLP
-        self.decoder = Decoder(
+        self.decoder = MLP(
             in_features=lstm_hidden_size,
             out_features=self.loss.outputsize_multiplier,
             hidden_size=decoder_hidden_size,
-            hidden_layers=decoder_hidden_layers,
+            num_layers=decoder_hidden_layers + 1,
+            activation="ReLU",
+            dropout=0.0,
         )
 
     def forward(self, windows_batch):

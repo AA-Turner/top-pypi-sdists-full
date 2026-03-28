@@ -286,6 +286,7 @@ pub fn is_inline_element(tag_name: &str) -> bool {
 }
 
 /// Handle hOCR document conversion, returning true if handled, false if not hOCR.
+#[allow(deprecated)]
 pub fn handle_hocr_document(
     dom: &tl::VDom<'_>,
     parser: &tl::Parser<'_>,

@@ -404,7 +404,10 @@ class CfnCollection(
                 key="key",
                 value="value"
             )],
-            type="type"
+            type="type",
+            vector_options=opensearchserverless.CfnCollection.VectorOptionsProperty(
+                serverless_vector_acceleration="serverlessVectorAcceleration"
+            )
         )
     '''
 
@@ -420,6 +423,7 @@ class CfnCollection(
         standby_replicas: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
+        vector_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollection.VectorOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::OpenSearchServerless::Collection``.
 
@@ -432,6 +436,7 @@ class CfnCollection(
         :param standby_replicas: Indicates whether to use standby replicas for the collection. You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
         :param tags: An arbitrary set of tags (key–value pairs) to associate with the collection. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         :param type: The type of collection. Possible values are ``SEARCH`` , ``TIMESERIES`` , and ``VECTORSEARCH`` . For more information, see `Choosing a collection type <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-overview.html#serverless-usecase>`_ .
+        :param vector_options: Vector search configuration options for the collection.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14f72b773d506ce15b59731aeb24f2f4a877a32d31af6ebf57a32ce707e0cb16)
@@ -445,6 +450,7 @@ class CfnCollection(
             standby_replicas=standby_replicas,
             tags=tags,
             type=type,
+            vector_options=vector_options,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -710,6 +716,24 @@ class CfnCollection(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="vectorOptions")
+    def vector_options(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollection.VectorOptionsProperty"]]:
+        '''Vector search configuration options for the collection.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollection.VectorOptionsProperty"]], jsii.get(self, "vectorOptions"))
+
+    @vector_options.setter
+    def vector_options(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollection.VectorOptionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0330c59dd743bbcc4ec7fe5714f5db066c978749de6a5d6cf925c88f7eb431e4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vectorOptions", value) # pyright: ignore[reportArgumentType]
+
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnCollection.EncryptionConfigProperty",
         jsii_struct_bases=[],
@@ -779,6 +803,63 @@ class CfnCollection(
 
         def __repr__(self) -> str:
             return "EncryptionConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnCollection.VectorOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "serverless_vector_acceleration": "serverlessVectorAcceleration",
+        },
+    )
+    class VectorOptionsProperty:
+        def __init__(
+            self,
+            *,
+            serverless_vector_acceleration: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Vector search configuration options for the collection.
+
+            :param serverless_vector_acceleration: Indicates whether GPU acceleration is enabled for vector indexing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collection-vectoroptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_opensearchserverless as opensearchserverless
+                
+                vector_options_property = opensearchserverless.CfnCollection.VectorOptionsProperty(
+                    serverless_vector_acceleration="serverlessVectorAcceleration"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6fbd592703d7d9ff049dae209bad31de3ff738fdc0d0cc048f30fd45e6762202)
+                check_type(argname="argument serverless_vector_acceleration", value=serverless_vector_acceleration, expected_type=type_hints["serverless_vector_acceleration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if serverless_vector_acceleration is not None:
+                self._values["serverless_vector_acceleration"] = serverless_vector_acceleration
+
+        @builtins.property
+        def serverless_vector_acceleration(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether GPU acceleration is enabled for vector indexing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collection-vectoroptions.html#cfn-opensearchserverless-collection-vectoroptions-serverlessvectoracceleration
+            '''
+            result = self._values.get("serverless_vector_acceleration")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VectorOptionsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1309,6 +1390,7 @@ class CfnCollectionGroupProps:
         "standby_replicas": "standbyReplicas",
         "tags": "tags",
         "type": "type",
+        "vector_options": "vectorOptions",
     },
 )
 class CfnCollectionProps:
@@ -1322,6 +1404,7 @@ class CfnCollectionProps:
         standby_replicas: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
+        vector_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollection.VectorOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCollection``.
 
@@ -1332,6 +1415,7 @@ class CfnCollectionProps:
         :param standby_replicas: Indicates whether to use standby replicas for the collection. You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
         :param tags: An arbitrary set of tags (key–value pairs) to associate with the collection. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         :param type: The type of collection. Possible values are ``SEARCH`` , ``TIMESERIES`` , and ``VECTORSEARCH`` . For more information, see `Choosing a collection type <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-overview.html#serverless-usecase>`_ .
+        :param vector_options: Vector search configuration options for the collection.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html
         :exampleMetadata: fixture=_generated
@@ -1358,7 +1442,10 @@ class CfnCollectionProps:
                     key="key",
                     value="value"
                 )],
-                type="type"
+                type="type",
+                vector_options=opensearchserverless.CfnCollection.VectorOptionsProperty(
+                    serverless_vector_acceleration="serverlessVectorAcceleration"
+                )
             )
         '''
         if __debug__:
@@ -1370,6 +1457,7 @@ class CfnCollectionProps:
             check_type(argname="argument standby_replicas", value=standby_replicas, expected_type=type_hints["standby_replicas"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument vector_options", value=vector_options, expected_type=type_hints["vector_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
         }
@@ -1385,6 +1473,8 @@ class CfnCollectionProps:
             self._values["tags"] = tags
         if type is not None:
             self._values["type"] = type
+        if vector_options is not None:
+            self._values["vector_options"] = vector_options
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -1464,6 +1554,17 @@ class CfnCollectionProps:
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vector_options(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollection.VectorOptionsProperty"]]:
+        '''Vector search configuration options for the collection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-vectoroptions
+        '''
+        result = self._values.get("vector_options")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollection.VectorOptionsProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4153,6 +4254,7 @@ def _typecheckingstub__14f72b773d506ce15b59731aeb24f2f4a877a32d31af6ebf57a32ce70
     standby_replicas: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
+    vector_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollection.VectorOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4239,10 +4341,23 @@ def _typecheckingstub__f407bc0eeb99c42f4a9d1d97573b8b10069685ea3e596d162939418b9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0330c59dd743bbcc4ec7fe5714f5db066c978749de6a5d6cf925c88f7eb431e4(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCollection.VectorOptionsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__834b94cc298846a5bf61134fb27e603dd476782999349d69ca2c27cb80fa3bc1(
     *,
     aws_owned_key: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6fbd592703d7d9ff049dae209bad31de3ff738fdc0d0cc048f30fd45e6762202(
+    *,
+    serverless_vector_acceleration: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4360,6 +4475,7 @@ def _typecheckingstub__dc3a9fff4dd66b4fe4e69ca639823a978df78a02743764020419d9b37
     standby_replicas: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
+    vector_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollection.VectorOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

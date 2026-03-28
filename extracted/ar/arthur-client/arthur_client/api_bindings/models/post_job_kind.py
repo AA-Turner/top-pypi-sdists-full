@@ -33,6 +33,7 @@ class PostJobKind(str, Enum):
     ALERT_CHECK = 'alert_check'
     SCHEDULE_JOBS = 'schedule_jobs'
     DISCOVER_AGENTS = 'discover_agents'
+    COMPLIANCE_POLICY_CHECK = 'compliance_policy_check'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

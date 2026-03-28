@@ -1829,6 +1829,9 @@ class CfnDomain(
                 role_arn="roleArn",
                 user_pool_id="userPoolId"
             ),
+            deployment_strategy_options=opensearchservice.CfnDomain.DeploymentStrategyOptionsProperty(
+                deployment_strategy="deploymentStrategy"
+            ),
             domain_arn="domainArn",
             domain_endpoint_options=opensearchservice.CfnDomain.DomainEndpointOptionsProperty(
                 custom_endpoint="customEndpoint",
@@ -1906,6 +1909,7 @@ class CfnDomain(
         aiml_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AIMLOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cluster_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cognito_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment_strategy_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DeploymentStrategyOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_arn: typing.Optional[builtins.str] = None,
         domain_endpoint_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DomainEndpointOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_name: typing.Optional[builtins.str] = None,
@@ -1933,6 +1937,7 @@ class CfnDomain(
         :param aiml_options: Container for parameters required to enable all machine learning features.
         :param cluster_config: Container for the cluster configuration of a domain.
         :param cognito_options: Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
+        :param deployment_strategy_options: 
         :param domain_arn: 
         :param domain_endpoint_options: Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
         :param domain_name: A name for the OpenSearch Service domain. The name must have a minimum length of 3 and a maximum length of 28. If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the domain name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . Required when creating a new domain. .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
@@ -1961,6 +1966,7 @@ class CfnDomain(
             aiml_options=aiml_options,
             cluster_config=cluster_config,
             cognito_options=cognito_options,
+            deployment_strategy_options=deployment_strategy_options,
             domain_arn=domain_arn,
             domain_endpoint_options=domain_endpoint_options,
             domain_name=domain_name,
@@ -2350,6 +2356,23 @@ class CfnDomain(
             type_hints = typing.get_type_hints(_typecheckingstub__ba3653fa5c99276b72d7f6127ab8c7a58e79d65fa1bb3870a642aae948411169)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cognitoOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentStrategyOptions")
+    def deployment_strategy_options(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DeploymentStrategyOptionsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DeploymentStrategyOptionsProperty"]], jsii.get(self, "deploymentStrategyOptions"))
+
+    @deployment_strategy_options.setter
+    def deployment_strategy_options(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DeploymentStrategyOptionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1925734e443422328c7e1339f3d058c20d78014eefe9f5aeb8153c79db653256)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deploymentStrategyOptions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="domainArn")
@@ -3366,6 +3389,59 @@ class CfnDomain(
 
         def __repr__(self) -> str:
             return "ColdStorageOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomain.DeploymentStrategyOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"deployment_strategy": "deploymentStrategy"},
+    )
+    class DeploymentStrategyOptionsProperty:
+        def __init__(
+            self,
+            *,
+            deployment_strategy: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param deployment_strategy: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-deploymentstrategyoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_opensearchservice as opensearchservice
+                
+                deployment_strategy_options_property = opensearchservice.CfnDomain.DeploymentStrategyOptionsProperty(
+                    deployment_strategy="deploymentStrategy"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__468c5510df6f7dfbc342238c860d47fa571718119ec0c3a92c761bdbdb6da339)
+                check_type(argname="argument deployment_strategy", value=deployment_strategy, expected_type=type_hints["deployment_strategy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if deployment_strategy is not None:
+                self._values["deployment_strategy"] = deployment_strategy
+
+        @builtins.property
+        def deployment_strategy(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-deploymentstrategyoptions.html#cfn-opensearchservice-domain-deploymentstrategyoptions-deploymentstrategy
+            '''
+            result = self._values.get("deployment_strategy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeploymentStrategyOptionsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5465,6 +5541,7 @@ class CfnDomain(
         "aiml_options": "aimlOptions",
         "cluster_config": "clusterConfig",
         "cognito_options": "cognitoOptions",
+        "deployment_strategy_options": "deploymentStrategyOptions",
         "domain_arn": "domainArn",
         "domain_endpoint_options": "domainEndpointOptions",
         "domain_name": "domainName",
@@ -5493,6 +5570,7 @@ class CfnDomainProps:
         aiml_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AIMLOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cluster_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ClusterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cognito_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.CognitoOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        deployment_strategy_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DeploymentStrategyOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_arn: typing.Optional[builtins.str] = None,
         domain_endpoint_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DomainEndpointOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         domain_name: typing.Optional[builtins.str] = None,
@@ -5518,6 +5596,7 @@ class CfnDomainProps:
         :param aiml_options: Container for parameters required to enable all machine learning features.
         :param cluster_config: Container for the cluster configuration of a domain.
         :param cognito_options: Configures OpenSearch Service to use Amazon Cognito authentication for OpenSearch Dashboards.
+        :param deployment_strategy_options: 
         :param domain_arn: 
         :param domain_endpoint_options: Specifies additional options for the domain endpoint, such as whether to require HTTPS for all traffic or whether to use a custom endpoint rather than the default endpoint.
         :param domain_name: A name for the OpenSearch Service domain. The name must have a minimum length of 3 and a maximum length of 28. If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the domain name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . Required when creating a new domain. .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
@@ -5626,6 +5705,9 @@ class CfnDomainProps:
                     role_arn="roleArn",
                     user_pool_id="userPoolId"
                 ),
+                deployment_strategy_options=opensearchservice.CfnDomain.DeploymentStrategyOptionsProperty(
+                    deployment_strategy="deploymentStrategy"
+                ),
                 domain_arn="domainArn",
                 domain_endpoint_options=opensearchservice.CfnDomain.DomainEndpointOptionsProperty(
                     custom_endpoint="customEndpoint",
@@ -5699,6 +5781,7 @@ class CfnDomainProps:
             check_type(argname="argument aiml_options", value=aiml_options, expected_type=type_hints["aiml_options"])
             check_type(argname="argument cluster_config", value=cluster_config, expected_type=type_hints["cluster_config"])
             check_type(argname="argument cognito_options", value=cognito_options, expected_type=type_hints["cognito_options"])
+            check_type(argname="argument deployment_strategy_options", value=deployment_strategy_options, expected_type=type_hints["deployment_strategy_options"])
             check_type(argname="argument domain_arn", value=domain_arn, expected_type=type_hints["domain_arn"])
             check_type(argname="argument domain_endpoint_options", value=domain_endpoint_options, expected_type=type_hints["domain_endpoint_options"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
@@ -5728,6 +5811,8 @@ class CfnDomainProps:
             self._values["cluster_config"] = cluster_config
         if cognito_options is not None:
             self._values["cognito_options"] = cognito_options
+        if deployment_strategy_options is not None:
+            self._values["deployment_strategy_options"] = deployment_strategy_options
         if domain_arn is not None:
             self._values["domain_arn"] = domain_arn
         if domain_endpoint_options is not None:
@@ -5830,6 +5915,16 @@ class CfnDomainProps:
         '''
         result = self._values.get("cognito_options")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.CognitoOptionsProperty"]], result)
+
+    @builtins.property
+    def deployment_strategy_options(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DeploymentStrategyOptionsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-deploymentstrategyoptions
+        '''
+        result = self._values.get("deployment_strategy_options")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DeploymentStrategyOptionsProperty"]], result)
 
     @builtins.property
     def domain_arn(self) -> typing.Optional[builtins.str]:
@@ -11343,6 +11438,7 @@ def _typecheckingstub__6fcd2545392b3f48f314c640881e38e167b5936f1165d2eb1ce21766d
     aiml_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AIMLOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment_strategy_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DeploymentStrategyOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_arn: typing.Optional[builtins.str] = None,
     domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEndpointOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_name: typing.Optional[builtins.str] = None,
@@ -11435,6 +11531,12 @@ def _typecheckingstub__fa86e4bef09a3455a33af8fe1a0310646154d89f5113370b517cfbe52
 
 def _typecheckingstub__ba3653fa5c99276b72d7f6127ab8c7a58e79d65fa1bb3870a642aae948411169(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.CognitoOptionsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1925734e443422328c7e1339f3d058c20d78014eefe9f5aeb8153c79db653256(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.DeploymentStrategyOptionsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11589,6 +11691,13 @@ def _typecheckingstub__e167c0d00635fad84f1646761ab6a47124b645d9a98a38bc74beb3d2e
 def _typecheckingstub__c3864a36f4132782987b173c24fdcbec6040683b2f632146b11bb53578fc274f(
     *,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__468c5510df6f7dfbc342238c860d47fa571718119ec0c3a92c761bdbdb6da339(
+    *,
+    deployment_strategy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11804,6 +11913,7 @@ def _typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d6
     aiml_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.AIMLOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cluster_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ClusterConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cognito_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.CognitoOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    deployment_strategy_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DeploymentStrategyOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_arn: typing.Optional[builtins.str] = None,
     domain_endpoint_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DomainEndpointOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     domain_name: typing.Optional[builtins.str] = None,

@@ -6,7 +6,8 @@ import warnings
 from collections import defaultdict
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, DefaultDict, List, Mapping, Optional, Tuple, Type, Union
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from torch.optim import Optimizer
 
@@ -325,16 +326,14 @@ class OutputHandler(BaseOutputHandler):
     def __init__(
         self,
         tag: str,
-        metric_names: Optional[List[str]] = None,
-        output_transform: Optional[Callable] = None,
-        global_step_transform: Optional[Callable[[Engine, Union[str, Events]], int]] = None,
-        state_attributes: Optional[List[str]] = None,
+        metric_names: list[str] | str | None = None,
+        output_transform: Callable | None = None,
+        global_step_transform: Callable[[Engine, str | Events], int] | None = None,
+        state_attributes: list[str] | None = None,
     ):
-        super(OutputHandler, self).__init__(
-            tag, metric_names, output_transform, global_step_transform, state_attributes
-        )
+        super().__init__(tag, metric_names, output_transform, global_step_transform, state_attributes)
 
-    def __call__(self, engine: Engine, logger: ClearMLLogger, event_name: Union[str, Events]) -> None:
+    def __call__(self, engine: Engine, logger: ClearMLLogger, event_name: str | Events) -> None:
         if not isinstance(logger, ClearMLLogger):
             raise RuntimeError("Handler OutputHandler works only with ClearMLLogger")
 
@@ -344,8 +343,7 @@ class OutputHandler(BaseOutputHandler):
 
         if not isinstance(global_step, int):
             raise TypeError(
-                f"global_step must be int, got {type(global_step)}."
-                " Please check the output of global_step_transform."
+                f"global_step must be int, got {type(global_step)}. Please check the output of global_step_transform."
             )
 
         for key, value in metrics.items():
@@ -393,10 +391,10 @@ class OptimizerParamsHandler(BaseOptimizerParamsHandler):
             )
     """
 
-    def __init__(self, optimizer: Optimizer, param_name: str = "lr", tag: Optional[str] = None):
-        super(OptimizerParamsHandler, self).__init__(optimizer, param_name, tag)
+    def __init__(self, optimizer: Optimizer, param_name: str = "lr", tag: str | None = None):
+        super().__init__(optimizer, param_name, tag)
 
-    def __call__(self, engine: Engine, logger: ClearMLLogger, event_name: Union[str, Events]) -> None:
+    def __call__(self, engine: Engine, logger: ClearMLLogger, event_name: str | Events) -> None:
         if not isinstance(logger, ClearMLLogger):
             raise RuntimeError("Handler OptimizerParamsHandler works only with ClearMLLogger")
 
@@ -490,7 +488,7 @@ class WeightsScalarHandler(BaseWeightsScalarHandler):
         optional argument `whitelist` added.
     """
 
-    def __call__(self, engine: Engine, logger: ClearMLLogger, event_name: Union[str, Events]) -> None:
+    def __call__(self, engine: Engine, logger: ClearMLLogger, event_name: str | Events) -> None:
         if not isinstance(logger, ClearMLLogger):
             raise RuntimeError("Handler WeightsScalarHandler works only with ClearMLLogger")
 
@@ -580,7 +578,7 @@ class WeightsHistHandler(BaseWeightsHandler):
         optional argument `whitelist` added.
     """
 
-    def __call__(self, engine: Engine, logger: ClearMLLogger, event_name: Union[str, Events]) -> None:
+    def __call__(self, engine: Engine, logger: ClearMLLogger, event_name: str | Events) -> None:
         if not isinstance(logger, ClearMLLogger):
             raise RuntimeError("Handler 'WeightsHistHandler' works only with ClearMLLogger")
 
@@ -676,7 +674,7 @@ class GradsScalarHandler(BaseWeightsScalarHandler):
         optional argument `whitelist` added.
     """
 
-    def __call__(self, engine: Engine, logger: ClearMLLogger, event_name: Union[str, Events]) -> None:
+    def __call__(self, engine: Engine, logger: ClearMLLogger, event_name: str | Events) -> None:
         if not isinstance(logger, ClearMLLogger):
             raise RuntimeError("Handler GradsScalarHandler works only with ClearMLLogger")
 
@@ -766,7 +764,7 @@ class GradsHistHandler(BaseWeightsHandler):
             optional argument `whitelist` added.
     """
 
-    def __call__(self, engine: Engine, logger: ClearMLLogger, event_name: Union[str, Events]) -> None:
+    def __call__(self, engine: Engine, logger: ClearMLLogger, event_name: str | Events) -> None:
         if not isinstance(logger, ClearMLLogger):
             raise RuntimeError("Handler 'GradsHistHandler' works only with ClearMLLogger")
 
@@ -829,9 +827,9 @@ class ClearMLSaver(DiskSaver):
 
     def __init__(
         self,
-        logger: Optional[ClearMLLogger] = None,
-        output_uri: Optional[str] = None,
-        dirname: Optional[str] = None,
+        logger: ClearMLLogger | None = None,
+        output_uri: str | None = None,
+        dirname: str | None = None,
         *args: Any,
         **kwargs: Any,
     ):
@@ -851,9 +849,9 @@ class ClearMLSaver(DiskSaver):
         if "atomic" not in kwargs:
             kwargs["atomic"] = False
 
-        self._checkpoint_slots: DefaultDict[Union[str, Tuple[str, str]], List[Any]] = defaultdict(list)
+        self._checkpoint_slots: defaultdict[str | tuple[str, str], list[Any]] = defaultdict(list)
 
-        super(ClearMLSaver, self).__init__(dirname=dirname, *args, **kwargs)  # type: ignore[misc]
+        super().__init__(dirname=dirname, *args, **kwargs)  # type: ignore[misc]
 
     @idist.one_rank_only()
     def _setup_check_clearml(self, logger: ClearMLLogger, output_uri: str) -> None:
@@ -862,7 +860,7 @@ class ClearMLSaver(DiskSaver):
         except ImportError:
             try:
                 # Backwards-compatibility for legacy Trains SDK
-                from trains import Task  # type: ignore[no-redef]
+                from trains import Task
             except ImportError:
                 raise ModuleNotFoundError(
                     "This contrib module requires clearml to be installed. "
@@ -885,12 +883,12 @@ class ClearMLSaver(DiskSaver):
     class _CallbacksContext:
         def __init__(
             self,
-            callback_type: Type[Enum],
-            slots: List,
+            callback_type: type[Enum],
+            slots: list,
             checkpoint_key: str,
             filename: str,
             basename: str,
-            metadata: Optional[Mapping] = None,
+            metadata: Mapping | None = None,
         ) -> None:
             self._callback_type = callback_type
             self._slots = slots
@@ -931,13 +929,13 @@ class ClearMLSaver(DiskSaver):
 
             return model_info
 
-    def __call__(self, checkpoint: Mapping, filename: str, metadata: Optional[Mapping] = None) -> None:
+    def __call__(self, checkpoint: Mapping, filename: str, metadata: Mapping | None = None) -> None:
         try:
             from clearml.binding.frameworks import WeightsFileHandler
         except ImportError:
             try:
                 # Backwards-compatibility for legacy Trains SDK
-                from trains.binding.frameworks import WeightsFileHandler  # type: ignore[no-redef]
+                from trains.binding.frameworks import WeightsFileHandler
             except ImportError:
                 raise ModuleNotFoundError(
                     "This contrib module requires clearml to be installed. "
@@ -971,7 +969,7 @@ class ClearMLSaver(DiskSaver):
             WeightsFileHandler.remove_post_callback(post_cb_id)
 
     @idist.one_rank_only()
-    def get_local_copy(self, filename: str) -> Optional[str]:
+    def get_local_copy(self, filename: str) -> str | None:
         """Get artifact local copy.
 
         .. warning::

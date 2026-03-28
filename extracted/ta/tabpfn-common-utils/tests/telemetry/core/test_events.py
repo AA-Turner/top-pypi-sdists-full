@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from tabpfn_common_utils.telemetry.core.events import (
     BaseTelemetryEvent,
     DatasetEvent,
+    ExtensionEntryEvent,
     FitEvent,
     ModelLoadEvent,
     PingEvent,
@@ -420,6 +421,51 @@ class TestModelLoadEvent:
         assert "python_version" in props
         assert "tabpfn_version" in props
         assert "install_id" in props
+
+
+class TestExtensionEntryEvent:
+    """Test ExtensionEntryEvent class"""
+
+    def test_extension_entry_event_initialization(self):
+        """Test ExtensionEntryEvent initialization with extension name"""
+        event = ExtensionEntryEvent(extension_name="post_hoc_ensembles")
+
+        assert event.extension_name == "post_hoc_ensembles"
+        assert event.name == "extension_entry"
+
+    def test_extension_entry_event_default_extension_name(self):
+        """Test ExtensionEntryEvent default extension_name is empty string"""
+        event = ExtensionEntryEvent()
+
+        assert event.extension_name == ""
+        assert event.name == "extension_entry"
+
+    def test_extension_entry_event_inherits_base_properties(self):
+        """Test that ExtensionEntryEvent inherits base telemetry properties"""
+        event = ExtensionEntryEvent(extension_name="rf_pfn")
+
+        assert isinstance(event.python_version, str)
+        assert isinstance(event.tabpfn_version, str)
+        assert isinstance(event.timestamp, datetime)
+        assert event.source == "sdk"
+
+    def test_extension_entry_event_properties_method(self):
+        """Test ExtensionEntryEvent properties method"""
+        event = ExtensionEntryEvent(extension_name="interpretability")
+
+        props = event.properties
+
+        assert "name" not in props
+        assert props["extension_name"] == "interpretability"
+        assert "python_version" in props
+        assert "tabpfn_version" in props
+
+    def test_extension_entry_event_with_colon_separated_name(self):
+        """Test ExtensionEntryEvent with sub-extension names like unsupervised:impute"""
+        event = ExtensionEntryEvent(extension_name="unsupervised:impute")
+
+        assert event.extension_name == "unsupervised:impute"
+        assert event.name == "extension_entry"
 
 
 class TestEventIntegration:

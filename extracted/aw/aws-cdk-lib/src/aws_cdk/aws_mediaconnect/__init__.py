@@ -2620,7 +2620,7 @@ class CfnBridgeSourceProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFlowRef_c5e8f48d)
+@jsii.implements(_IInspectable_c2943556, _IFlowRef_c5e8f48d, _ITaggableV2_4e6798f8)
 class CfnFlow(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2636,6 +2636,7 @@ class CfnFlow(
 
     Example::
 
+        from aws_cdk import CfnTag, CfnTag, CfnTag, CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_mediaconnect as mediaconnect
@@ -2687,6 +2688,9 @@ class CfnFlow(
                 )],
                 min_latency=123,
                 name="name",
+                ndi_source_settings=mediaconnect.CfnFlow.NdiSourceSettingsProperty(
+                    source_name="sourceName"
+                ),
                 protocol="protocol",
                 router_integration_state="routerIntegrationState",
                 router_integration_transit_decryption=mediaconnect.CfnFlow.FlowTransitEncryptionProperty(
@@ -2708,12 +2712,20 @@ class CfnFlow(
                 source_listener_address="sourceListenerAddress",
                 source_listener_port=123,
                 stream_id="streamId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 vpc_interface_name="vpcInterfaceName",
                 whitelist_cidr="whitelistCidr"
             ),
         
             # the properties below are optional
             availability_zone="availabilityZone",
+            encoding_config=mediaconnect.CfnFlow.EncodingConfigProperty(
+                encoding_profile="encodingProfile",
+                video_max_bitrate=123
+            ),
             flow_size="flowSize",
             maintenance=mediaconnect.CfnFlow.MaintenanceProperty(
                 maintenance_day="maintenanceDay",
@@ -2740,6 +2752,10 @@ class CfnFlow(
                 clock_rate=123,
                 description="description",
                 fmt=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 video_format="videoFormat"
             )],
             ndi_config=mediaconnect.CfnFlow.NdiConfigProperty(
@@ -2781,6 +2797,10 @@ class CfnFlow(
                     )
                 )]
             ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             vpc_interfaces=[mediaconnect.CfnFlow.VpcInterfaceProperty(
                 name="name",
                 role_arn="roleArn",
@@ -2789,7 +2809,11 @@ class CfnFlow(
         
                 # the properties below are optional
                 network_interface_ids=["networkInterfaceIds"],
-                network_interface_type="networkInterfaceType"
+                network_interface_type="networkInterfaceType",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )]
         )
     '''
@@ -2802,12 +2826,14 @@ class CfnFlow(
         name: builtins.str,
         source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
         availability_zone: typing.Optional[builtins.str] = None,
+        encoding_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.EncodingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         flow_size: typing.Optional[builtins.str] = None,
         maintenance: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MaintenanceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         media_streams: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MediaStreamProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ndi_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.NdiConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         source_failover_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         source_monitoring_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SourceMonitoringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_interfaces: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.VpcInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::Flow``.
@@ -2817,12 +2843,14 @@ class CfnFlow(
         :param name: The name of the flow.
         :param source: The settings for the source that you want to use for the new flow.
         :param availability_zone: The Availability Zone that you want to create the flow in. These options are limited to the Availability Zones within the current AWS Region.
+        :param encoding_config: 
         :param flow_size: Determines the processing capacity and feature set of the flow. Set this optional parameter to LARGE if you want to enable NDI outputs on the flow.
         :param maintenance: The maintenance settings you want to use for the flow.
         :param media_streams: The media streams that are associated with the flow. After you associate a media stream with a source, you can also associate it with outputs on the flow.
         :param ndi_config: Specifies the configuration settings for NDI outputs. Required when the flow includes NDI outputs.
         :param source_failover_config: The settings for source failover.
         :param source_monitoring_config: The settings for source monitoring.
+        :param tags: Key-value pairs that can be used to tag this flow.
         :param vpc_interfaces: The VPC Interfaces for this flow.
         '''
         if __debug__:
@@ -2833,12 +2861,14 @@ class CfnFlow(
             name=name,
             source=source,
             availability_zone=availability_zone,
+            encoding_config=encoding_config,
             flow_size=flow_size,
             maintenance=maintenance,
             media_streams=media_streams,
             ndi_config=ndi_config,
             source_failover_config=source_failover_config,
             source_monitoring_config=source_monitoring_config,
+            tags=tags,
             vpc_interfaces=vpc_interfaces,
         )
 
@@ -2967,6 +2997,12 @@ class CfnFlow(
         return typing.cast(builtins.str, jsii.get(self, "attrSourceSourceIngestPort"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -3018,6 +3054,23 @@ class CfnFlow(
             type_hints = typing.get_type_hints(_typecheckingstub__843065332a6d7586586605a6ec8a2bd932a36dd6774052d60e5f9fd8e52c280c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encodingConfig")
+    def encoding_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EncodingConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EncodingConfigProperty"]], jsii.get(self, "encodingConfig"))
+
+    @encoding_config.setter
+    def encoding_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EncodingConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6f0f1e2278d1da874874f4b7eca0ae2a0516f56f52b61b0f4fa2fc76cb67385)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encodingConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="flowSize")
@@ -3121,6 +3174,19 @@ class CfnFlow(
             type_hints = typing.get_type_hints(_typecheckingstub__03a0a0b12b76b8e0b7700d38b27d7f2ca928ad701fe5600b9bad475822621b98)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceMonitoringConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs that can be used to tag this flow.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc43d55c7dfcbfb5ed25f67e80b4290708d63e4d7268175df8c3e2c4c048e0d4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vpcInterfaces")
@@ -3267,6 +3333,82 @@ class CfnFlow(
 
         def __repr__(self) -> str:
             return "BlackFramesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlow.EncodingConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "encoding_profile": "encodingProfile",
+            "video_max_bitrate": "videoMaxBitrate",
+        },
+    )
+    class EncodingConfigProperty:
+        def __init__(
+            self,
+            *,
+            encoding_profile: typing.Optional[builtins.str] = None,
+            video_max_bitrate: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param encoding_profile: The encoding profile to use when transcoding the NDI source to a Transport Stream. You can change this value while a flow is running.
+            :param video_max_bitrate: The maximum video bitrate to use when transcoding the NDI source to a Transport Stream. This parameter enables you to override the default video bitrate within the encoding profile's supported range. The supported range is 10,000,000 - 50,000,000 bits per second (bps). If you do not specify a value, MediaConnect uses the default value of 20,000,000 bps.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-encodingconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                encoding_config_property = mediaconnect.CfnFlow.EncodingConfigProperty(
+                    encoding_profile="encodingProfile",
+                    video_max_bitrate=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__911d27170bc266c5f96a54e26bdcfaf57f7eda7c80e52e6e083d90805aced3cf)
+                check_type(argname="argument encoding_profile", value=encoding_profile, expected_type=type_hints["encoding_profile"])
+                check_type(argname="argument video_max_bitrate", value=video_max_bitrate, expected_type=type_hints["video_max_bitrate"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if encoding_profile is not None:
+                self._values["encoding_profile"] = encoding_profile
+            if video_max_bitrate is not None:
+                self._values["video_max_bitrate"] = video_max_bitrate
+
+        @builtins.property
+        def encoding_profile(self) -> typing.Optional[builtins.str]:
+            '''The encoding profile to use when transcoding the NDI source to a Transport Stream.
+
+            You can change this value while a flow is running.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-encodingconfig.html#cfn-mediaconnect-flow-encodingconfig-encodingprofile
+            '''
+            result = self._values.get("encoding_profile")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def video_max_bitrate(self) -> typing.Optional[jsii.Number]:
+            '''The maximum video bitrate to use when transcoding the NDI source to a Transport Stream.
+
+            This parameter enables you to override the default video bitrate within the encoding profile's supported range. The supported range is 10,000,000 - 50,000,000 bits per second (bps). If you do not specify a value, MediaConnect uses the default value of 20,000,000 bps.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-encodingconfig.html#cfn-mediaconnect-flow-encodingconfig-videomaxbitrate
+            '''
+            result = self._values.get("video_max_bitrate")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncodingConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4353,6 +4495,7 @@ class CfnFlow(
             "clock_rate": "clockRate",
             "description": "description",
             "fmt": "fmt",
+            "tags": "tags",
             "video_format": "videoFormat",
         },
     )
@@ -4367,6 +4510,7 @@ class CfnFlow(
             clock_rate: typing.Optional[jsii.Number] = None,
             description: typing.Optional[builtins.str] = None,
             fmt: typing.Optional[jsii.Number] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
             video_format: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A media stream represents one component of your content, such as video, audio, or ancillary data.
@@ -4380,6 +4524,7 @@ class CfnFlow(
             :param clock_rate: The sample rate for the stream. This value is measured in Hz.
             :param description: A description that can help you quickly identify what your media stream is used for.
             :param fmt: The format type number (sometimes referred to as RTP payload type) of the media stream. MediaConnect assigns this value to the media stream. For ST 2110 JPEG XS outputs, you need to provide this value to the receiver.
+            :param tags: Key-value pairs that can be used to tag this media stream.
             :param video_format: The resolution of the video.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-mediastream.html
@@ -4387,6 +4532,7 @@ class CfnFlow(
 
             Example::
 
+                from aws_cdk import CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_mediaconnect as mediaconnect
@@ -4412,6 +4558,10 @@ class CfnFlow(
                     clock_rate=123,
                     description="description",
                     fmt=123,
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
                     video_format="videoFormat"
                 )
             '''
@@ -4424,6 +4574,7 @@ class CfnFlow(
                 check_type(argname="argument clock_rate", value=clock_rate, expected_type=type_hints["clock_rate"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument fmt", value=fmt, expected_type=type_hints["fmt"])
+                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
                 check_type(argname="argument video_format", value=video_format, expected_type=type_hints["video_format"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "media_stream_id": media_stream_id,
@@ -4438,6 +4589,8 @@ class CfnFlow(
                 self._values["description"] = description
             if fmt is not None:
                 self._values["fmt"] = fmt
+            if tags is not None:
+                self._values["tags"] = tags
             if video_format is not None:
                 self._values["video_format"] = video_format
 
@@ -4512,6 +4665,15 @@ class CfnFlow(
             '''
             result = self._values.get("fmt")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+            '''Key-value pairs that can be used to tag this media stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-mediastream.html#cfn-mediaconnect-flow-mediastream-tags
+            '''
+            result = self._values.get("tags")
+            return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
         @builtins.property
         def video_format(self) -> typing.Optional[builtins.str]:
@@ -4832,6 +4994,59 @@ class CfnFlow(
 
         def __repr__(self) -> str:
             return "NdiDiscoveryServerConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlow.NdiSourceSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source_name": "sourceName"},
+    )
+    class NdiSourceSettingsProperty:
+        def __init__(
+            self,
+            *,
+            source_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param source_name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-ndisourcesettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                ndi_source_settings_property = mediaconnect.CfnFlow.NdiSourceSettingsProperty(
+                    source_name="sourceName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8496286cb23af6ad3ef222839457ac264adb6da1e797e1b27442a67dc3e6a40d)
+                check_type(argname="argument source_name", value=source_name, expected_type=type_hints["source_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if source_name is not None:
+                self._values["source_name"] = source_name
+
+        @builtins.property
+        def source_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-ndisourcesettings.html#cfn-mediaconnect-flow-ndisourcesettings-sourcename
+            '''
+            result = self._values.get("source_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NdiSourceSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5167,6 +5382,7 @@ class CfnFlow(
             "media_stream_source_configurations": "mediaStreamSourceConfigurations",
             "min_latency": "minLatency",
             "name": "name",
+            "ndi_source_settings": "ndiSourceSettings",
             "protocol": "protocol",
             "router_integration_state": "routerIntegrationState",
             "router_integration_transit_decryption": "routerIntegrationTransitDecryption",
@@ -5177,6 +5393,7 @@ class CfnFlow(
             "source_listener_address": "sourceListenerAddress",
             "source_listener_port": "sourceListenerPort",
             "stream_id": "streamId",
+            "tags": "tags",
             "vpc_interface_name": "vpcInterfaceName",
             "whitelist_cidr": "whitelistCidr",
         },
@@ -5197,6 +5414,7 @@ class CfnFlow(
             media_stream_source_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MediaStreamSourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             min_latency: typing.Optional[jsii.Number] = None,
             name: typing.Optional[builtins.str] = None,
+            ndi_source_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.NdiSourceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             protocol: typing.Optional[builtins.str] = None,
             router_integration_state: typing.Optional[builtins.str] = None,
             router_integration_transit_decryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5207,6 +5425,7 @@ class CfnFlow(
             source_listener_address: typing.Optional[builtins.str] = None,
             source_listener_port: typing.Optional[jsii.Number] = None,
             stream_id: typing.Optional[builtins.str] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
             vpc_interface_name: typing.Optional[builtins.str] = None,
             whitelist_cidr: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -5230,6 +5449,7 @@ class CfnFlow(
             :param media_stream_source_configurations: The media streams that are associated with the source, and the parameters for those associations.
             :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
             :param name: The name of the source.
+            :param ndi_source_settings: 
             :param protocol: The protocol that is used by the source. AWS CloudFormation does not currently support CDI or ST 2110 JPEG XS source protocols. .. epigraph:: AWS Elemental MediaConnect no longer supports the Fujitsu QoS protocol. This reference is maintained for legacy purposes only.
             :param router_integration_state: Indicates if router integration is enabled or disabled on the flow source.
             :param router_integration_transit_decryption: The decryption configuration for the flow source when router integration is enabled.
@@ -5240,6 +5460,7 @@ class CfnFlow(
             :param source_listener_address: Source IP or domain name for SRT-caller protocol.
             :param source_listener_port: Source port for SRT-caller protocol.
             :param stream_id: The stream ID that you want to use for the transport. This parameter applies only to Zixi-based streams.
+            :param tags: Key-value pairs that can be used to tag this source.
             :param vpc_interface_name: The name of the VPC interface that is used for this source.
             :param whitelist_cidr: The range of IP addresses that should be allowed to contribute content to your source. These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
 
@@ -5248,6 +5469,7 @@ class CfnFlow(
 
             Example::
 
+                from aws_cdk import CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_mediaconnect as mediaconnect
@@ -5297,6 +5519,9 @@ class CfnFlow(
                     )],
                     min_latency=123,
                     name="name",
+                    ndi_source_settings=mediaconnect.CfnFlow.NdiSourceSettingsProperty(
+                        source_name="sourceName"
+                    ),
                     protocol="protocol",
                     router_integration_state="routerIntegrationState",
                     router_integration_transit_decryption=mediaconnect.CfnFlow.FlowTransitEncryptionProperty(
@@ -5318,6 +5543,10 @@ class CfnFlow(
                     source_listener_address="sourceListenerAddress",
                     source_listener_port=123,
                     stream_id="streamId",
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
                     vpc_interface_name="vpcInterfaceName",
                     whitelist_cidr="whitelistCidr"
                 )
@@ -5336,6 +5565,7 @@ class CfnFlow(
                 check_type(argname="argument media_stream_source_configurations", value=media_stream_source_configurations, expected_type=type_hints["media_stream_source_configurations"])
                 check_type(argname="argument min_latency", value=min_latency, expected_type=type_hints["min_latency"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument ndi_source_settings", value=ndi_source_settings, expected_type=type_hints["ndi_source_settings"])
                 check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
                 check_type(argname="argument router_integration_state", value=router_integration_state, expected_type=type_hints["router_integration_state"])
                 check_type(argname="argument router_integration_transit_decryption", value=router_integration_transit_decryption, expected_type=type_hints["router_integration_transit_decryption"])
@@ -5346,6 +5576,7 @@ class CfnFlow(
                 check_type(argname="argument source_listener_address", value=source_listener_address, expected_type=type_hints["source_listener_address"])
                 check_type(argname="argument source_listener_port", value=source_listener_port, expected_type=type_hints["source_listener_port"])
                 check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
+                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
                 check_type(argname="argument vpc_interface_name", value=vpc_interface_name, expected_type=type_hints["vpc_interface_name"])
                 check_type(argname="argument whitelist_cidr", value=whitelist_cidr, expected_type=type_hints["whitelist_cidr"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5373,6 +5604,8 @@ class CfnFlow(
                 self._values["min_latency"] = min_latency
             if name is not None:
                 self._values["name"] = name
+            if ndi_source_settings is not None:
+                self._values["ndi_source_settings"] = ndi_source_settings
             if protocol is not None:
                 self._values["protocol"] = protocol
             if router_integration_state is not None:
@@ -5393,6 +5626,8 @@ class CfnFlow(
                 self._values["source_listener_port"] = source_listener_port
             if stream_id is not None:
                 self._values["stream_id"] = stream_id
+            if tags is not None:
+                self._values["tags"] = tags
             if vpc_interface_name is not None:
                 self._values["vpc_interface_name"] = vpc_interface_name
             if whitelist_cidr is not None:
@@ -5519,6 +5754,16 @@ class CfnFlow(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def ndi_source_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.NdiSourceSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-source.html#cfn-mediaconnect-flow-source-ndisourcesettings
+            '''
+            result = self._values.get("ndi_source_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.NdiSourceSettingsProperty"]], result)
+
+        @builtins.property
         def protocol(self) -> typing.Optional[builtins.str]:
             '''The protocol that is used by the source.
 
@@ -5618,6 +5863,15 @@ class CfnFlow(
             '''
             result = self._values.get("stream_id")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+            '''Key-value pairs that can be used to tag this source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-source.html#cfn-mediaconnect-flow-source-tags
+            '''
+            result = self._values.get("tags")
+            return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
         @builtins.property
         def vpc_interface_name(self) -> typing.Optional[builtins.str]:
@@ -5795,6 +6049,7 @@ class CfnFlow(
             "subnet_id": "subnetId",
             "network_interface_ids": "networkInterfaceIds",
             "network_interface_type": "networkInterfaceType",
+            "tags": "tags",
         },
     )
     class VpcInterfaceProperty:
@@ -5807,6 +6062,7 @@ class CfnFlow(
             subnet_id: builtins.str,
             network_interface_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             network_interface_type: typing.Optional[builtins.str] = None,
+            tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The details of a VPC interface.
 
@@ -5825,12 +6081,14 @@ class CfnFlow(
             :param subnet_id: Subnet must be in the AZ of the Flow.
             :param network_interface_ids: IDs of the network interfaces created in customer's account by MediaConnect .
             :param network_interface_type: The type of network interface.
+            :param tags: Key-value pairs that can be used to tag this VPC interface.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-vpcinterface.html
             :exampleMetadata: fixture=_generated
 
             Example::
 
+                from aws_cdk import CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_mediaconnect as mediaconnect
@@ -5843,7 +6101,11 @@ class CfnFlow(
                 
                     # the properties below are optional
                     network_interface_ids=["networkInterfaceIds"],
-                    network_interface_type="networkInterfaceType"
+                    network_interface_type="networkInterfaceType",
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
                 )
             '''
             if __debug__:
@@ -5854,6 +6116,7 @@ class CfnFlow(
                 check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
                 check_type(argname="argument network_interface_ids", value=network_interface_ids, expected_type=type_hints["network_interface_ids"])
                 check_type(argname="argument network_interface_type", value=network_interface_type, expected_type=type_hints["network_interface_type"])
+                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "name": name,
                 "role_arn": role_arn,
@@ -5864,6 +6127,8 @@ class CfnFlow(
                 self._values["network_interface_ids"] = network_interface_ids
             if network_interface_type is not None:
                 self._values["network_interface_type"] = network_interface_type
+            if tags is not None:
+                self._values["tags"] = tags
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -5923,6 +6188,15 @@ class CfnFlow(
             result = self._values.get("network_interface_type")
             return typing.cast(typing.Optional[builtins.str], result)
 
+        @builtins.property
+        def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+            '''Key-value pairs that can be used to tag this VPC interface.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-vpcinterface.html#cfn-mediaconnect-flow-vpcinterface-tags
+            '''
+            result = self._values.get("tags")
+            return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -5935,7 +6209,7 @@ class CfnFlow(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFlowEntitlementRef_83db35bc)
+@jsii.implements(_IInspectable_c2943556, _IFlowEntitlementRef_83db35bc, _ITaggableV2_4e6798f8)
 class CfnFlowEntitlement(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5951,6 +6225,7 @@ class CfnFlowEntitlement(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_mediaconnect as mediaconnect
@@ -5976,7 +6251,11 @@ class CfnFlowEntitlement(
                 secret_arn="secretArn",
                 url="url"
             ),
-            entitlement_status="entitlementStatus"
+            entitlement_status="entitlementStatus",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -5992,6 +6271,7 @@ class CfnFlowEntitlement(
         data_transfer_subscriber_fee_percent: typing.Optional[jsii.Number] = None,
         encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowEntitlement.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         entitlement_status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::FlowEntitlement``.
 
@@ -6004,6 +6284,7 @@ class CfnFlowEntitlement(
         :param data_transfer_subscriber_fee_percent: The percentage of the entitlement data transfer fee that you want the subscriber to be responsible for. Default: - 0
         :param encryption: Encryption information.
         :param entitlement_status: An indication of whether the new entitlement should be enabled or disabled as soon as it is created. If you don’t specify the entitlementStatus field in your request, MediaConnect sets it to ENABLED.
+        :param tags: Key-value pairs that can be used to tag and organize this flow entitlement.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__17ecd85086df3a96cb74577c3e3a831ea91a89b617bcd18f7684fd357569ebd4)
@@ -6017,6 +6298,7 @@ class CfnFlowEntitlement(
             data_transfer_subscriber_fee_percent=data_transfer_subscriber_fee_percent,
             encryption=encryption,
             entitlement_status=entitlement_status,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -6071,6 +6353,12 @@ class CfnFlowEntitlement(
         :cloudformationAttribute: EntitlementArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrEntitlementArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6181,6 +6469,19 @@ class CfnFlowEntitlement(
             type_hints = typing.get_type_hints(_typecheckingstub__bdf1b9a179db4ad86ff23860586d83012068ae1abfca84e5defe29f68556a89a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "entitlementStatus", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs that can be used to tag and organize this flow entitlement.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__046a3a7bbf8b12a3ae8b1d3791ef890b1cd918834a046ea73797b9a101f632c8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowEntitlement.EncryptionProperty",
@@ -6400,6 +6701,7 @@ class CfnFlowEntitlement(
         "data_transfer_subscriber_fee_percent": "dataTransferSubscriberFeePercent",
         "encryption": "encryption",
         "entitlement_status": "entitlementStatus",
+        "tags": "tags",
     },
 )
 class CfnFlowEntitlementProps:
@@ -6413,6 +6715,7 @@ class CfnFlowEntitlementProps:
         data_transfer_subscriber_fee_percent: typing.Optional[jsii.Number] = None,
         encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowEntitlement.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         entitlement_status: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFlowEntitlement``.
 
@@ -6423,12 +6726,14 @@ class CfnFlowEntitlementProps:
         :param data_transfer_subscriber_fee_percent: The percentage of the entitlement data transfer fee that you want the subscriber to be responsible for. Default: - 0
         :param encryption: Encryption information.
         :param entitlement_status: An indication of whether the new entitlement should be enabled or disabled as soon as it is created. If you don’t specify the entitlementStatus field in your request, MediaConnect sets it to ENABLED.
+        :param tags: Key-value pairs that can be used to tag and organize this flow entitlement.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_mediaconnect as mediaconnect
@@ -6454,7 +6759,11 @@ class CfnFlowEntitlementProps:
                     secret_arn="secretArn",
                     url="url"
                 ),
-                entitlement_status="entitlementStatus"
+                entitlement_status="entitlementStatus",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -6466,6 +6775,7 @@ class CfnFlowEntitlementProps:
             check_type(argname="argument data_transfer_subscriber_fee_percent", value=data_transfer_subscriber_fee_percent, expected_type=type_hints["data_transfer_subscriber_fee_percent"])
             check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
             check_type(argname="argument entitlement_status", value=entitlement_status, expected_type=type_hints["entitlement_status"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "description": description,
             "flow_arn": flow_arn,
@@ -6478,6 +6788,8 @@ class CfnFlowEntitlementProps:
             self._values["encryption"] = encryption
         if entitlement_status is not None:
             self._values["entitlement_status"] = entitlement_status
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def description(self) -> builtins.str:
@@ -6558,6 +6870,15 @@ class CfnFlowEntitlementProps:
         result = self._values.get("entitlement_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs that can be used to tag and organize this flow entitlement.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowentitlement.html#cfn-mediaconnect-flowentitlement-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -6570,7 +6891,7 @@ class CfnFlowEntitlementProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFlowOutputRef_be0a9d75)
+@jsii.implements(_IInspectable_c2943556, _IFlowOutputRef_be0a9d75, _ITaggableV2_4e6798f8)
 class CfnFlowOutput(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6586,6 +6907,7 @@ class CfnFlowOutput(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_mediaconnect as mediaconnect
@@ -6650,6 +6972,10 @@ class CfnFlowOutput(
             ),
             smoothing_latency=123,
             stream_id="streamId",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             vpc_interface_attachment=mediaconnect.CfnFlowOutput.VpcInterfaceAttachmentProperty(
                 vpc_interface_name="vpcInterfaceName"
             )
@@ -6680,6 +7006,7 @@ class CfnFlowOutput(
         router_integration_transit_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         smoothing_latency: typing.Optional[jsii.Number] = None,
         stream_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_interface_attachment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::MediaConnect::FlowOutput``.
@@ -6705,6 +7032,7 @@ class CfnFlowOutput(
         :param router_integration_transit_encryption: Encryption information.
         :param smoothing_latency: The smoothing latency in milliseconds for RIST, RTP, and RTP-FEC streams.
         :param stream_id: The stream ID that you want to use for this transport. This parameter applies only to Zixi and SRT caller-based streams.
+        :param tags: Key-value pairs that can be used to tag and organize this flow output.
         :param vpc_interface_attachment: The name of the VPC interface attachment to use for this output.
         '''
         if __debug__:
@@ -6731,6 +7059,7 @@ class CfnFlowOutput(
             router_integration_transit_encryption=router_integration_transit_encryption,
             smoothing_latency=smoothing_latency,
             stream_id=stream_id,
+            tags=tags,
             vpc_interface_attachment=vpc_interface_attachment,
         )
 
@@ -6786,6 +7115,12 @@ class CfnFlowOutput(
         :cloudformationAttribute: OutputArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrOutputArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7061,6 +7396,19 @@ class CfnFlowOutput(
             type_hints = typing.get_type_hints(_typecheckingstub__dadac9d58702681fe997f284efaad53e6d5af9dac998dd803277c6ed1ee2a381)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "streamId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs that can be used to tag and organize this flow output.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78e728eea1e11ebb731f2d9209f349e83749891383b7b5539cb5de02353fb172)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vpcInterfaceAttachment")
@@ -7857,6 +8205,7 @@ class CfnFlowOutput(
         "router_integration_transit_encryption": "routerIntegrationTransitEncryption",
         "smoothing_latency": "smoothingLatency",
         "stream_id": "streamId",
+        "tags": "tags",
         "vpc_interface_attachment": "vpcInterfaceAttachment",
     },
 )
@@ -7883,6 +8232,7 @@ class CfnFlowOutputProps:
         router_integration_transit_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.FlowTransitEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         smoothing_latency: typing.Optional[jsii.Number] = None,
         stream_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_interface_attachment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.VpcInterfaceAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFlowOutput``.
@@ -7906,6 +8256,7 @@ class CfnFlowOutputProps:
         :param router_integration_transit_encryption: Encryption information.
         :param smoothing_latency: The smoothing latency in milliseconds for RIST, RTP, and RTP-FEC streams.
         :param stream_id: The stream ID that you want to use for this transport. This parameter applies only to Zixi and SRT caller-based streams.
+        :param tags: Key-value pairs that can be used to tag and organize this flow output.
         :param vpc_interface_attachment: The name of the VPC interface attachment to use for this output.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html
@@ -7913,6 +8264,7 @@ class CfnFlowOutputProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_mediaconnect as mediaconnect
@@ -7977,6 +8329,10 @@ class CfnFlowOutputProps:
                 ),
                 smoothing_latency=123,
                 stream_id="streamId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 vpc_interface_attachment=mediaconnect.CfnFlowOutput.VpcInterfaceAttachmentProperty(
                     vpc_interface_name="vpcInterfaceName"
                 )
@@ -8003,6 +8359,7 @@ class CfnFlowOutputProps:
             check_type(argname="argument router_integration_transit_encryption", value=router_integration_transit_encryption, expected_type=type_hints["router_integration_transit_encryption"])
             check_type(argname="argument smoothing_latency", value=smoothing_latency, expected_type=type_hints["smoothing_latency"])
             check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vpc_interface_attachment", value=vpc_interface_attachment, expected_type=type_hints["vpc_interface_attachment"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "flow_arn": flow_arn,
@@ -8043,6 +8400,8 @@ class CfnFlowOutputProps:
             self._values["smoothing_latency"] = smoothing_latency
         if stream_id is not None:
             self._values["stream_id"] = stream_id
+        if tags is not None:
+            self._values["tags"] = tags
         if vpc_interface_attachment is not None:
             self._values["vpc_interface_attachment"] = vpc_interface_attachment
 
@@ -8242,6 +8601,15 @@ class CfnFlowOutputProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs that can be used to tag and organize this flow output.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
     def vpc_interface_attachment(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlowOutput.VpcInterfaceAttachmentProperty"]]:
@@ -8271,12 +8639,14 @@ class CfnFlowOutputProps:
         "name": "name",
         "source": "source",
         "availability_zone": "availabilityZone",
+        "encoding_config": "encodingConfig",
         "flow_size": "flowSize",
         "maintenance": "maintenance",
         "media_streams": "mediaStreams",
         "ndi_config": "ndiConfig",
         "source_failover_config": "sourceFailoverConfig",
         "source_monitoring_config": "sourceMonitoringConfig",
+        "tags": "tags",
         "vpc_interfaces": "vpcInterfaces",
     },
 )
@@ -8287,12 +8657,14 @@ class CfnFlowProps:
         name: builtins.str,
         source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SourceProperty", typing.Dict[builtins.str, typing.Any]]],
         availability_zone: typing.Optional[builtins.str] = None,
+        encoding_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.EncodingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         flow_size: typing.Optional[builtins.str] = None,
         maintenance: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MaintenanceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         media_streams: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.MediaStreamProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ndi_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.NdiConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         source_failover_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.FailoverConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         source_monitoring_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.SourceMonitoringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_interfaces: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlow.VpcInterfaceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFlow``.
@@ -8300,12 +8672,14 @@ class CfnFlowProps:
         :param name: The name of the flow.
         :param source: The settings for the source that you want to use for the new flow.
         :param availability_zone: The Availability Zone that you want to create the flow in. These options are limited to the Availability Zones within the current AWS Region.
+        :param encoding_config: 
         :param flow_size: Determines the processing capacity and feature set of the flow. Set this optional parameter to LARGE if you want to enable NDI outputs on the flow.
         :param maintenance: The maintenance settings you want to use for the flow.
         :param media_streams: The media streams that are associated with the flow. After you associate a media stream with a source, you can also associate it with outputs on the flow.
         :param ndi_config: Specifies the configuration settings for NDI outputs. Required when the flow includes NDI outputs.
         :param source_failover_config: The settings for source failover.
         :param source_monitoring_config: The settings for source monitoring.
+        :param tags: Key-value pairs that can be used to tag this flow.
         :param vpc_interfaces: The VPC Interfaces for this flow.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html
@@ -8313,6 +8687,7 @@ class CfnFlowProps:
 
         Example::
 
+            from aws_cdk import CfnTag, CfnTag, CfnTag, CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_mediaconnect as mediaconnect
@@ -8364,6 +8739,9 @@ class CfnFlowProps:
                     )],
                     min_latency=123,
                     name="name",
+                    ndi_source_settings=mediaconnect.CfnFlow.NdiSourceSettingsProperty(
+                        source_name="sourceName"
+                    ),
                     protocol="protocol",
                     router_integration_state="routerIntegrationState",
                     router_integration_transit_decryption=mediaconnect.CfnFlow.FlowTransitEncryptionProperty(
@@ -8385,12 +8763,20 @@ class CfnFlowProps:
                     source_listener_address="sourceListenerAddress",
                     source_listener_port=123,
                     stream_id="streamId",
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
                     vpc_interface_name="vpcInterfaceName",
                     whitelist_cidr="whitelistCidr"
                 ),
             
                 # the properties below are optional
                 availability_zone="availabilityZone",
+                encoding_config=mediaconnect.CfnFlow.EncodingConfigProperty(
+                    encoding_profile="encodingProfile",
+                    video_max_bitrate=123
+                ),
                 flow_size="flowSize",
                 maintenance=mediaconnect.CfnFlow.MaintenanceProperty(
                     maintenance_day="maintenanceDay",
@@ -8417,6 +8803,10 @@ class CfnFlowProps:
                     clock_rate=123,
                     description="description",
                     fmt=123,
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
                     video_format="videoFormat"
                 )],
                 ndi_config=mediaconnect.CfnFlow.NdiConfigProperty(
@@ -8458,6 +8848,10 @@ class CfnFlowProps:
                         )
                     )]
                 ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 vpc_interfaces=[mediaconnect.CfnFlow.VpcInterfaceProperty(
                     name="name",
                     role_arn="roleArn",
@@ -8466,7 +8860,11 @@ class CfnFlowProps:
             
                     # the properties below are optional
                     network_interface_ids=["networkInterfaceIds"],
-                    network_interface_type="networkInterfaceType"
+                    network_interface_type="networkInterfaceType",
+                    tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )]
                 )]
             )
         '''
@@ -8475,12 +8873,14 @@ class CfnFlowProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument encoding_config", value=encoding_config, expected_type=type_hints["encoding_config"])
             check_type(argname="argument flow_size", value=flow_size, expected_type=type_hints["flow_size"])
             check_type(argname="argument maintenance", value=maintenance, expected_type=type_hints["maintenance"])
             check_type(argname="argument media_streams", value=media_streams, expected_type=type_hints["media_streams"])
             check_type(argname="argument ndi_config", value=ndi_config, expected_type=type_hints["ndi_config"])
             check_type(argname="argument source_failover_config", value=source_failover_config, expected_type=type_hints["source_failover_config"])
             check_type(argname="argument source_monitoring_config", value=source_monitoring_config, expected_type=type_hints["source_monitoring_config"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vpc_interfaces", value=vpc_interfaces, expected_type=type_hints["vpc_interfaces"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -8488,6 +8888,8 @@ class CfnFlowProps:
         }
         if availability_zone is not None:
             self._values["availability_zone"] = availability_zone
+        if encoding_config is not None:
+            self._values["encoding_config"] = encoding_config
         if flow_size is not None:
             self._values["flow_size"] = flow_size
         if maintenance is not None:
@@ -8500,6 +8902,8 @@ class CfnFlowProps:
             self._values["source_failover_config"] = source_failover_config
         if source_monitoring_config is not None:
             self._values["source_monitoring_config"] = source_monitoring_config
+        if tags is not None:
+            self._values["tags"] = tags
         if vpc_interfaces is not None:
             self._values["vpc_interfaces"] = vpc_interfaces
 
@@ -8533,6 +8937,16 @@ class CfnFlowProps:
         '''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encoding_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EncodingConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-encodingconfig
+        '''
+        result = self._values.get("encoding_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.EncodingConfigProperty"]], result)
 
     @builtins.property
     def flow_size(self) -> typing.Optional[builtins.str]:
@@ -8605,6 +9019,15 @@ class CfnFlowProps:
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFlow.SourceMonitoringConfigProperty"]], result)
 
     @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs that can be used to tag this flow.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flow.html#cfn-mediaconnect-flow-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
     def vpc_interfaces(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFlow.VpcInterfaceProperty"]]]]:
@@ -8627,7 +9050,7 @@ class CfnFlowProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IFlowSourceRef_b94a8321)
+@jsii.implements(_IInspectable_c2943556, _IFlowSourceRef_b94a8321, _ITaggableV2_4e6798f8)
 class CfnFlowSource(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8643,12 +9066,14 @@ class CfnFlowSource(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_mediaconnect as mediaconnect
         
         cfn_flow_source = mediaconnect.CfnFlowSource(self, "MyCfnFlowSource",
             description="description",
+            flow_arn="flowArn",
             name="name",
         
             # the properties below are optional
@@ -8666,7 +9091,6 @@ class CfnFlowSource(
                 url="url"
             ),
             entitlement_arn="entitlementArn",
-            flow_arn="flowArn",
             gateway_bridge_source=mediaconnect.CfnFlowSource.GatewayBridgeSourceProperty(
                 bridge_arn="bridgeArn",
         
@@ -8685,6 +9109,10 @@ class CfnFlowSource(
             source_listener_address="sourceListenerAddress",
             source_listener_port=123,
             stream_id="streamId",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             vpc_interface_name="vpcInterfaceName",
             whitelist_cidr="whitelistCidr"
         )
@@ -8696,10 +9124,10 @@ class CfnFlowSource(
         id: builtins.str,
         *,
         description: builtins.str,
+        flow_arn: builtins.str,
         name: builtins.str,
         decryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowSource.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         entitlement_arn: typing.Optional[builtins.str] = None,
-        flow_arn: typing.Optional[builtins.str] = None,
         gateway_bridge_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowSource.GatewayBridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ingest_port: typing.Optional[jsii.Number] = None,
         max_bitrate: typing.Optional[jsii.Number] = None,
@@ -8711,6 +9139,7 @@ class CfnFlowSource(
         source_listener_address: typing.Optional[builtins.str] = None,
         source_listener_port: typing.Optional[jsii.Number] = None,
         stream_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_interface_name: typing.Optional[builtins.str] = None,
         whitelist_cidr: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -8719,21 +9148,22 @@ class CfnFlowSource(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param description: A description for the source. This value is not used or seen outside of the current MediaConnect account.
+        :param flow_arn: The Amazon Resource Name (ARN) of the flow this source is connected to. The flow must have Failover enabled to add an additional source.
         :param name: The name of the source.
         :param decryption: The type of encryption that is used on the content ingested from this source. Allowable encryption types: static-key.
-        :param entitlement_arn: The ARN of the entitlement that allows you to subscribe to this flow. The entitlement is set by the flow originator, and the ARN is generated as part of the originator's flow.
-        :param flow_arn: The Amazon Resource Name (ARN) of the flow this source is connected to. The flow must have Failover enabled to add an additional source.
+        :param entitlement_arn: (deprecated) The ARN of the entitlement that allows you to subscribe to this flow. The entitlement is set by the flow originator, and the ARN is generated as part of the originator's flow.
         :param gateway_bridge_source: The bridge's source.
         :param ingest_port: The port that the flow listens on for incoming content. If the protocol of the source is Zixi, the port must be set to 2088.
         :param max_bitrate: The smoothing max bitrate (in bps) for RIST, RTP, and RTP-FEC streams.
         :param max_latency: The maximum latency in milliseconds. This parameter applies only to RIST-based and Zixi-based streams.
         :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
         :param protocol: The protocol that the source uses to deliver the content to MediaConnect. Adding additional sources to an existing flow requires Failover to be enabled. When you enable Failover, the additional source must use the same protocol as the existing source. Only the following protocols support failover: Zixi-push, RTP-FEC, RTP, RIST and SRT protocols. If you use failover with SRT caller or listener, the ``FailoverMode`` property must be set to ``FAILOVER`` . The ``FailoverMode`` property is found in the ``FailoverConfig`` resource of the same flow ARN you used for the source's ``FlowArn`` property. SRT caller/listener does not support merge mode failover.
-        :param sender_control_port: The port that the flow uses to send outbound requests to initiate connection with the sender.
-        :param sender_ip_address: The IP address that the flow communicates with to initiate connection with the sender.
+        :param sender_control_port: (deprecated) The port that the flow uses to send outbound requests to initiate connection with the sender.
+        :param sender_ip_address: (deprecated) The IP address that the flow communicates with to initiate connection with the sender.
         :param source_listener_address: Source IP or domain name for SRT-caller protocol.
         :param source_listener_port: Source port for SRT-caller protocol.
         :param stream_id: The stream ID that you want to use for this transport. This parameter applies only to Zixi and SRT caller-based streams.
+        :param tags: Key-value pairs that can be used to tag and organize this flow source.
         :param vpc_interface_name: The name of the VPC interface to use for this source.
         :param whitelist_cidr: The range of IP addresses that should be allowed to contribute content to your source. These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
         '''
@@ -8743,10 +9173,10 @@ class CfnFlowSource(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFlowSourceProps(
             description=description,
+            flow_arn=flow_arn,
             name=name,
             decryption=decryption,
             entitlement_arn=entitlement_arn,
-            flow_arn=flow_arn,
             gateway_bridge_source=gateway_bridge_source,
             ingest_port=ingest_port,
             max_bitrate=max_bitrate,
@@ -8758,6 +9188,7 @@ class CfnFlowSource(
             source_listener_address=source_listener_address,
             source_listener_port=source_listener_port,
             stream_id=stream_id,
+            tags=tags,
             vpc_interface_name=vpc_interface_name,
             whitelist_cidr=whitelist_cidr,
         )
@@ -8836,6 +9267,12 @@ class CfnFlowSource(
         return typing.cast(builtins.str, jsii.get(self, "attrSourceIngestPort"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -8858,6 +9295,19 @@ class CfnFlowSource(
             type_hints = typing.get_type_hints(_typecheckingstub__169574c8d258397d0753838843606fa3a6f2792dbfbe9f805a3263cc2ce8bf99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="flowArn")
+    def flow_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the flow this source is connected to.'''
+        return typing.cast(builtins.str, jsii.get(self, "flowArn"))
+
+    @flow_arn.setter
+    def flow_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a393333c9ad7ce002f047c125d9ee3348efa283a66d9def5950529184e3be294)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -8893,7 +9343,12 @@ class CfnFlowSource(
     @builtins.property
     @jsii.member(jsii_name="entitlementArn")
     def entitlement_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the entitlement that allows you to subscribe to this flow.'''
+        '''(deprecated) The ARN of the entitlement that allows you to subscribe to this flow.
+
+        :deprecated: this property has been deprecated
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "entitlementArn"))
 
     @entitlement_arn.setter
@@ -8902,19 +9357,6 @@ class CfnFlowSource(
             type_hints = typing.get_type_hints(_typecheckingstub__93ba0fab964dfcf99d0e38ef04172e971ea1753fa1d98e88458675e4386302dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "entitlementArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="flowArn")
-    def flow_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the flow this source is connected to.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "flowArn"))
-
-    @flow_arn.setter
-    def flow_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a393333c9ad7ce002f047c125d9ee3348efa283a66d9def5950529184e3be294)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="gatewayBridgeSource")
@@ -9002,7 +9444,12 @@ class CfnFlowSource(
     @builtins.property
     @jsii.member(jsii_name="senderControlPort")
     def sender_control_port(self) -> typing.Optional[jsii.Number]:
-        '''The port that the flow uses to send outbound requests to initiate connection with the sender.'''
+        '''(deprecated) The port that the flow uses to send outbound requests to initiate connection with the sender.
+
+        :deprecated: this property has been deprecated
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "senderControlPort"))
 
     @sender_control_port.setter
@@ -9015,7 +9462,12 @@ class CfnFlowSource(
     @builtins.property
     @jsii.member(jsii_name="senderIpAddress")
     def sender_ip_address(self) -> typing.Optional[builtins.str]:
-        '''The IP address that the flow communicates with to initiate connection with the sender.'''
+        '''(deprecated) The IP address that the flow communicates with to initiate connection with the sender.
+
+        :deprecated: this property has been deprecated
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "senderIpAddress"))
 
     @sender_ip_address.setter
@@ -9063,6 +9515,19 @@ class CfnFlowSource(
             type_hints = typing.get_type_hints(_typecheckingstub__2f3b58b86420e937edcb73256eccae2a94f77b56863e967c6b79430f30f5ae00)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "streamId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs that can be used to tag and organize this flow source.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e9946d61de71a38c1122339d8a4258432efc90270d33bdde17c7686513d4306)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vpcInterfaceName")
@@ -9437,10 +9902,10 @@ class CfnFlowSource(
     jsii_struct_bases=[],
     name_mapping={
         "description": "description",
+        "flow_arn": "flowArn",
         "name": "name",
         "decryption": "decryption",
         "entitlement_arn": "entitlementArn",
-        "flow_arn": "flowArn",
         "gateway_bridge_source": "gatewayBridgeSource",
         "ingest_port": "ingestPort",
         "max_bitrate": "maxBitrate",
@@ -9452,6 +9917,7 @@ class CfnFlowSource(
         "source_listener_address": "sourceListenerAddress",
         "source_listener_port": "sourceListenerPort",
         "stream_id": "streamId",
+        "tags": "tags",
         "vpc_interface_name": "vpcInterfaceName",
         "whitelist_cidr": "whitelistCidr",
     },
@@ -9461,10 +9927,10 @@ class CfnFlowSourceProps:
         self,
         *,
         description: builtins.str,
+        flow_arn: builtins.str,
         name: builtins.str,
         decryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowSource.EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         entitlement_arn: typing.Optional[builtins.str] = None,
-        flow_arn: typing.Optional[builtins.str] = None,
         gateway_bridge_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowSource.GatewayBridgeSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ingest_port: typing.Optional[jsii.Number] = None,
         max_bitrate: typing.Optional[jsii.Number] = None,
@@ -9476,27 +9942,29 @@ class CfnFlowSourceProps:
         source_listener_address: typing.Optional[builtins.str] = None,
         source_listener_port: typing.Optional[jsii.Number] = None,
         stream_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_interface_name: typing.Optional[builtins.str] = None,
         whitelist_cidr: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnFlowSource``.
 
         :param description: A description for the source. This value is not used or seen outside of the current MediaConnect account.
+        :param flow_arn: The Amazon Resource Name (ARN) of the flow this source is connected to. The flow must have Failover enabled to add an additional source.
         :param name: The name of the source.
         :param decryption: The type of encryption that is used on the content ingested from this source. Allowable encryption types: static-key.
-        :param entitlement_arn: The ARN of the entitlement that allows you to subscribe to this flow. The entitlement is set by the flow originator, and the ARN is generated as part of the originator's flow.
-        :param flow_arn: The Amazon Resource Name (ARN) of the flow this source is connected to. The flow must have Failover enabled to add an additional source.
+        :param entitlement_arn: (deprecated) The ARN of the entitlement that allows you to subscribe to this flow. The entitlement is set by the flow originator, and the ARN is generated as part of the originator's flow.
         :param gateway_bridge_source: The bridge's source.
         :param ingest_port: The port that the flow listens on for incoming content. If the protocol of the source is Zixi, the port must be set to 2088.
         :param max_bitrate: The smoothing max bitrate (in bps) for RIST, RTP, and RTP-FEC streams.
         :param max_latency: The maximum latency in milliseconds. This parameter applies only to RIST-based and Zixi-based streams.
         :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
         :param protocol: The protocol that the source uses to deliver the content to MediaConnect. Adding additional sources to an existing flow requires Failover to be enabled. When you enable Failover, the additional source must use the same protocol as the existing source. Only the following protocols support failover: Zixi-push, RTP-FEC, RTP, RIST and SRT protocols. If you use failover with SRT caller or listener, the ``FailoverMode`` property must be set to ``FAILOVER`` . The ``FailoverMode`` property is found in the ``FailoverConfig`` resource of the same flow ARN you used for the source's ``FlowArn`` property. SRT caller/listener does not support merge mode failover.
-        :param sender_control_port: The port that the flow uses to send outbound requests to initiate connection with the sender.
-        :param sender_ip_address: The IP address that the flow communicates with to initiate connection with the sender.
+        :param sender_control_port: (deprecated) The port that the flow uses to send outbound requests to initiate connection with the sender.
+        :param sender_ip_address: (deprecated) The IP address that the flow communicates with to initiate connection with the sender.
         :param source_listener_address: Source IP or domain name for SRT-caller protocol.
         :param source_listener_port: Source port for SRT-caller protocol.
         :param stream_id: The stream ID that you want to use for this transport. This parameter applies only to Zixi and SRT caller-based streams.
+        :param tags: Key-value pairs that can be used to tag and organize this flow source.
         :param vpc_interface_name: The name of the VPC interface to use for this source.
         :param whitelist_cidr: The range of IP addresses that should be allowed to contribute content to your source. These IP addresses should be in the form of a Classless Inter-Domain Routing (CIDR) block; for example, 10.0.0.0/16.
 
@@ -9505,12 +9973,14 @@ class CfnFlowSourceProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_mediaconnect as mediaconnect
             
             cfn_flow_source_props = mediaconnect.CfnFlowSourceProps(
                 description="description",
+                flow_arn="flowArn",
                 name="name",
             
                 # the properties below are optional
@@ -9528,7 +9998,6 @@ class CfnFlowSourceProps:
                     url="url"
                 ),
                 entitlement_arn="entitlementArn",
-                flow_arn="flowArn",
                 gateway_bridge_source=mediaconnect.CfnFlowSource.GatewayBridgeSourceProperty(
                     bridge_arn="bridgeArn",
             
@@ -9547,6 +10016,10 @@ class CfnFlowSourceProps:
                 source_listener_address="sourceListenerAddress",
                 source_listener_port=123,
                 stream_id="streamId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 vpc_interface_name="vpcInterfaceName",
                 whitelist_cidr="whitelistCidr"
             )
@@ -9554,10 +10027,10 @@ class CfnFlowSourceProps:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3dd2a850713cccb402475afd88e4c523840081ad6429c6abf35e564ea3f27ca1)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument decryption", value=decryption, expected_type=type_hints["decryption"])
             check_type(argname="argument entitlement_arn", value=entitlement_arn, expected_type=type_hints["entitlement_arn"])
-            check_type(argname="argument flow_arn", value=flow_arn, expected_type=type_hints["flow_arn"])
             check_type(argname="argument gateway_bridge_source", value=gateway_bridge_source, expected_type=type_hints["gateway_bridge_source"])
             check_type(argname="argument ingest_port", value=ingest_port, expected_type=type_hints["ingest_port"])
             check_type(argname="argument max_bitrate", value=max_bitrate, expected_type=type_hints["max_bitrate"])
@@ -9569,18 +10042,18 @@ class CfnFlowSourceProps:
             check_type(argname="argument source_listener_address", value=source_listener_address, expected_type=type_hints["source_listener_address"])
             check_type(argname="argument source_listener_port", value=source_listener_port, expected_type=type_hints["source_listener_port"])
             check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vpc_interface_name", value=vpc_interface_name, expected_type=type_hints["vpc_interface_name"])
             check_type(argname="argument whitelist_cidr", value=whitelist_cidr, expected_type=type_hints["whitelist_cidr"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "description": description,
+            "flow_arn": flow_arn,
             "name": name,
         }
         if decryption is not None:
             self._values["decryption"] = decryption
         if entitlement_arn is not None:
             self._values["entitlement_arn"] = entitlement_arn
-        if flow_arn is not None:
-            self._values["flow_arn"] = flow_arn
         if gateway_bridge_source is not None:
             self._values["gateway_bridge_source"] = gateway_bridge_source
         if ingest_port is not None:
@@ -9603,6 +10076,8 @@ class CfnFlowSourceProps:
             self._values["source_listener_port"] = source_listener_port
         if stream_id is not None:
             self._values["stream_id"] = stream_id
+        if tags is not None:
+            self._values["tags"] = tags
         if vpc_interface_name is not None:
             self._values["vpc_interface_name"] = vpc_interface_name
         if whitelist_cidr is not None:
@@ -9618,6 +10093,18 @@ class CfnFlowSourceProps:
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def flow_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the flow this source is connected to.
+
+        The flow must have Failover enabled to add an additional source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-flowarn
+        '''
+        result = self._values.get("flow_arn")
+        assert result is not None, "Required property 'flow_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
@@ -9645,24 +10132,16 @@ class CfnFlowSourceProps:
 
     @builtins.property
     def entitlement_arn(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the entitlement that allows you to subscribe to this flow.
+        '''(deprecated) The ARN of the entitlement that allows you to subscribe to this flow.
 
         The entitlement is set by the flow originator, and the ARN is generated as part of the originator's flow.
 
+        :deprecated: this property has been deprecated
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-entitlementarn
+        :stability: deprecated
         '''
         result = self._values.get("entitlement_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def flow_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the flow this source is connected to.
-
-        The flow must have Failover enabled to add an additional source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-flowarn
-        '''
-        result = self._values.get("flow_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -9733,18 +10212,24 @@ class CfnFlowSourceProps:
 
     @builtins.property
     def sender_control_port(self) -> typing.Optional[jsii.Number]:
-        '''The port that the flow uses to send outbound requests to initiate connection with the sender.
+        '''(deprecated) The port that the flow uses to send outbound requests to initiate connection with the sender.
+
+        :deprecated: this property has been deprecated
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-sendercontrolport
+        :stability: deprecated
         '''
         result = self._values.get("sender_control_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def sender_ip_address(self) -> typing.Optional[builtins.str]:
-        '''The IP address that the flow communicates with to initiate connection with the sender.
+        '''(deprecated) The IP address that the flow communicates with to initiate connection with the sender.
+
+        :deprecated: this property has been deprecated
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-senderipaddress
+        :stability: deprecated
         '''
         result = self._values.get("sender_ip_address")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9777,6 +10262,15 @@ class CfnFlowSourceProps:
         '''
         result = self._values.get("stream_id")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs that can be used to tag and organize this flow source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowsource.html#cfn-mediaconnect-flowsource-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def vpc_interface_name(self) -> typing.Optional[builtins.str]:
@@ -16900,12 +17394,14 @@ def _typecheckingstub__3568a95be2a886825b3db731f10e2fdea8be142c554d1e2055d7e22f5
     name: builtins.str,
     source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
     availability_zone: typing.Optional[builtins.str] = None,
+    encoding_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.EncodingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     flow_size: typing.Optional[builtins.str] = None,
     maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MaintenanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     media_streams: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MediaStreamProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ndi_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.NdiConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source_monitoring_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceMonitoringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VpcInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16953,6 +17449,12 @@ def _typecheckingstub__843065332a6d7586586605a6ec8a2bd932a36dd6774052d60e5f9fd8e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d6f0f1e2278d1da874874f4b7eca0ae2a0516f56f52b61b0f4fa2fc76cb67385(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlow.EncodingConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__18797920a62f69ac5303a95d3356fc95d49473634b7f27d9e7ef811a4ad6cb34(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -16989,6 +17491,12 @@ def _typecheckingstub__03a0a0b12b76b8e0b7700d38b27d7f2ca928ad701fe5600b9bad47582
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cc43d55c7dfcbfb5ed25f67e80b4290708d63e4d7268175df8c3e2c4c048e0d4(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7e75424871a1b67422fa8fe727bf0720abe8ea217c131244844ca71d14e25f4d(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnFlow.VpcInterfaceProperty]]]],
 ) -> None:
@@ -17006,6 +17514,14 @@ def _typecheckingstub__b8eed2a01102ad4205f67e0e6efdd3aaeca33633021098b7b3d1d7305
     *,
     state: typing.Optional[builtins.str] = None,
     threshold_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__911d27170bc266c5f96a54e26bdcfaf57f7eda7c80e52e6e083d90805aced3cf(
+    *,
+    encoding_profile: typing.Optional[builtins.str] = None,
+    video_max_bitrate: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17120,6 +17636,7 @@ def _typecheckingstub__bc935e241ba7a00b3f70633b9ca54a5bca516c17065e6c6d8eeb7ab25
     clock_rate: typing.Optional[jsii.Number] = None,
     description: typing.Optional[builtins.str] = None,
     fmt: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     video_format: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17148,6 +17665,13 @@ def _typecheckingstub__cbd4bce903dd6a95ae93f0b2ca90f98d0d48bb24eebe475acf326160c
     discovery_server_address: builtins.str,
     vpc_interface_adapter: builtins.str,
     discovery_server_port: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8496286cb23af6ad3ef222839457ac264adb6da1e797e1b27442a67dc3e6a40d(
+    *,
+    source_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17199,6 +17723,7 @@ def _typecheckingstub__0c35ebd36bb52715c021bc299f222a377254ec8a3bd90d9c933fbefca
     media_stream_source_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MediaStreamSourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     min_latency: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
+    ndi_source_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.NdiSourceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     protocol: typing.Optional[builtins.str] = None,
     router_integration_state: typing.Optional[builtins.str] = None,
     router_integration_transit_decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -17209,6 +17734,7 @@ def _typecheckingstub__0c35ebd36bb52715c021bc299f222a377254ec8a3bd90d9c933fbefca
     source_listener_address: typing.Optional[builtins.str] = None,
     source_listener_port: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_interface_name: typing.Optional[builtins.str] = None,
     whitelist_cidr: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17238,6 +17764,7 @@ def _typecheckingstub__d976d1dab1b395c0026dcc2152c4dd635ae54d817a1f10c4d8f2725ac
     subnet_id: builtins.str,
     network_interface_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     network_interface_type: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17253,6 +17780,7 @@ def _typecheckingstub__17ecd85086df3a96cb74577c3e3a831ea91a89b617bcd18f7684fd357
     data_transfer_subscriber_fee_percent: typing.Optional[jsii.Number] = None,
     encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowEntitlement.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     entitlement_status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17317,6 +17845,12 @@ def _typecheckingstub__bdf1b9a179db4ad86ff23860586d83012068ae1abfca84e5defe29f68
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__046a3a7bbf8b12a3ae8b1d3791ef890b1cd918834a046ea73797b9a101f632c8(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a86c4f896040118c2a4fab234e2a7101cc609c650cf5a8c91892db664909f050(
     *,
     algorithm: builtins.str,
@@ -17341,6 +17875,7 @@ def _typecheckingstub__d7f5911f6dc55c43d6c5bdd5da77a5eb8fb59e8f8418ae5a951a5e0f0
     data_transfer_subscriber_fee_percent: typing.Optional[jsii.Number] = None,
     encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowEntitlement.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     entitlement_status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17368,6 +17903,7 @@ def _typecheckingstub__50a855342b002f2aaf180af2a85e45ce23346b4a5b582c00ee1a8474e
     router_integration_transit_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     smoothing_latency: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_interface_attachment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17505,6 +18041,12 @@ def _typecheckingstub__dadac9d58702681fe997f284efaad53e6d5af9dac998dd803277c6ed1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__78e728eea1e11ebb731f2d9209f349e83749891383b7b5539cb5de02353fb172(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__65a3e058407bcf8bd6fa065c9fd3cd66a1c54e7edb3b48af25c7893fd72db21d(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFlowOutput.VpcInterfaceAttachmentProperty]],
 ) -> None:
@@ -17607,6 +18149,7 @@ def _typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda525
     router_integration_transit_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.FlowTransitEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     smoothing_latency: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_interface_attachment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.VpcInterfaceAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17617,12 +18160,14 @@ def _typecheckingstub__32a16a7697723a7ef816aaa9d297ca08cd44085f922995184f8bfdfde
     name: builtins.str,
     source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceProperty, typing.Dict[builtins.str, typing.Any]]],
     availability_zone: typing.Optional[builtins.str] = None,
+    encoding_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.EncodingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     flow_size: typing.Optional[builtins.str] = None,
     maintenance: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MaintenanceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     media_streams: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MediaStreamProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ndi_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.NdiConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source_failover_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FailoverConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source_monitoring_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.SourceMonitoringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_interfaces: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VpcInterfaceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17633,10 +18178,10 @@ def _typecheckingstub__f14359cee01f3506467d65b7510ab8dfc45bad9d560a39ede9f196eb1
     id: builtins.str,
     *,
     description: builtins.str,
+    flow_arn: builtins.str,
     name: builtins.str,
     decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     entitlement_arn: typing.Optional[builtins.str] = None,
-    flow_arn: typing.Optional[builtins.str] = None,
     gateway_bridge_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.GatewayBridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ingest_port: typing.Optional[jsii.Number] = None,
     max_bitrate: typing.Optional[jsii.Number] = None,
@@ -17648,6 +18193,7 @@ def _typecheckingstub__f14359cee01f3506467d65b7510ab8dfc45bad9d560a39ede9f196eb1
     source_listener_address: typing.Optional[builtins.str] = None,
     source_listener_port: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_interface_name: typing.Optional[builtins.str] = None,
     whitelist_cidr: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -17678,6 +18224,12 @@ def _typecheckingstub__169574c8d258397d0753838843606fa3a6f2792dbfbe9f805a3263cc2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a393333c9ad7ce002f047c125d9ee3348efa283a66d9def5950529184e3be294(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__56248647932d6154f5cc0ea3f1df2a2bb25f298ef25872b32e9b4dd6f8e0ff07(
     value: builtins.str,
 ) -> None:
@@ -17691,12 +18243,6 @@ def _typecheckingstub__713d2beba8d5285adfd07ee3f7ca737392fb89294806031a6cc288bb7
     pass
 
 def _typecheckingstub__93ba0fab964dfcf99d0e38ef04172e971ea1753fa1d98e88458675e4386302dc(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a393333c9ad7ce002f047c125d9ee3348efa283a66d9def5950529184e3be294(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -17768,6 +18314,12 @@ def _typecheckingstub__2f3b58b86420e937edcb73256eccae2a94f77b56863e967c6b79430f3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2e9946d61de71a38c1122339d8a4258432efc90270d33bdde17c7686513d4306(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__aaca9be06dd26e302844cbceb849d87c083af662bbe659afe5a1819fd6ac9f7b(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -17813,10 +18365,10 @@ def _typecheckingstub__91f29aa73d1270b98bef9297507fc5368a6213455c4fab06ce8231754
 def _typecheckingstub__3dd2a850713cccb402475afd88e4c523840081ad6429c6abf35e564ea3f27ca1(
     *,
     description: builtins.str,
+    flow_arn: builtins.str,
     name: builtins.str,
     decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.EncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     entitlement_arn: typing.Optional[builtins.str] = None,
-    flow_arn: typing.Optional[builtins.str] = None,
     gateway_bridge_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowSource.GatewayBridgeSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ingest_port: typing.Optional[jsii.Number] = None,
     max_bitrate: typing.Optional[jsii.Number] = None,
@@ -17828,6 +18380,7 @@ def _typecheckingstub__3dd2a850713cccb402475afd88e4c523840081ad6429c6abf35e564ea
     source_listener_address: typing.Optional[builtins.str] = None,
     source_listener_port: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_interface_name: typing.Optional[builtins.str] = None,
     whitelist_cidr: typing.Optional[builtins.str] = None,
 ) -> None:

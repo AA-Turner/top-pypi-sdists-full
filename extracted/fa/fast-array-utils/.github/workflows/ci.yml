@@ -18,7 +18,7 @@ jobs:
       envs: ${{ steps.get-envs.outputs.envs }}
       pythons: ${{ steps.get-pythons.outputs.pythons }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with: { fetch-depth: 0, filter: "blob:none" }
       - uses: astral-sh/setup-uv@v7
       - name: Get test environments
@@ -46,11 +46,11 @@ jobs:
         os: [ubuntu-latest]
         include:
           - env:
-              name: hatch-test.py3.13-full
-              python: "3.13"
+              name: hatch-test.py3.14-full
+              python: "3.14"
             os: macos-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with: { fetch-depth: 0, filter: "blob:none" }
       - uses: astral-sh/setup-uv@v7
         with:
@@ -73,13 +73,13 @@ jobs:
     name: CPU Benchmarks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with: { fetch-depth: 0, filter: "blob:none" }
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.14'
       - uses: astral-sh/setup-uv@v7
-      - run: uv pip install --system -e .[test,full]
+      - run: uv pip install --system --group=test -e .[full]
       - uses: CodSpeedHQ/action@v3
         with:
           run: pytest -m benchmark --codspeed -n auto
@@ -88,11 +88,11 @@ jobs:
     name: Import Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with: { fetch-depth: 0, filter: "blob:none" }
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.14'
       - uses: astral-sh/setup-uv@v7
       - run: uv pip install --system -e .
       - run: python -c 'import fast_array_utils as fau; print(fau.__all__)'
@@ -100,20 +100,15 @@ jobs:
       - run: python -c 'import testing.fast_array_utils as tfau; print(tfau.ArrayType("numpy", "ndarray"))'
   check:
     name: Static Checks
-    needs: get-environments
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ${{ fromJSON(needs.get-environments.outputs.pythons) }}
     env:
       SKIP: no-commit-to-branch  # this CI runs on the main branch
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with: { fetch-depth: 0, filter: "blob:none" }
-      - uses: actions/setup-python@v5
+      - uses: j178/prek-action@v1
         with:
-          python-version: ${{ matrix.python-version }}
-      - uses: pre-commit/action@v3.0.1
+          working-directory: ${{ github.workspace }}
   pass:
     name: All Checks
     if: always()

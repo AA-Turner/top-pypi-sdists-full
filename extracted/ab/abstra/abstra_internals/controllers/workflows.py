@@ -19,7 +19,6 @@ from abstra_internals.repositories.project.project import (
     WorkflowTransition,
 )
 from abstra_internals.settings import Settings
-from abstra_internals.utils.physics import simulate_layout
 
 
 class StageDTO(TypedDict):
@@ -663,31 +662,3 @@ class WorkflowController:
         self.repos.project.save(project)
 
         return self.get_workflow_settings()
-
-    def fix_positions_with_autolayout(self, stage_ids: list[str] | None = None):
-        """
-        Fix the positions of the workflow stages in the graph.
-        This method ensures that all stages have valid positions, either by
-        assigning new positions or by resetting them to default values.
-
-        Args:
-            ids (List[str]): Optional list of stage IDs to fix. If None, all stages are fixed.
-
-        Returns:
-            Dict: The updated workflow configuration with fixed positions.
-
-        Copywritings:
-            Fix the positions of the workflow stages in the graph
-            Fixing the positions of the workflow stages in the graph...
-        """
-
-        # Get current workflow configuration
-        project = self.repos.project.load()
-        stages = [
-            s for s in project.workflow_stages if stage_ids is None or s.id in stage_ids
-        ]
-
-        # Run physics simulation to calculate optimal positions
-        simulate_layout(stages, iterations=100)
-
-        self.repos.project.save(project)

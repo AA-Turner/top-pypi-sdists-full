@@ -1490,7 +1490,22 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         if self.config.e2e_test_dir:
             from plato.worlds.testing import run_e2e_tests
 
-            await run_e2e_tests(self, tracer)
+            try:
+                await run_e2e_tests(self, tracer)
+            finally:
+                # Always checkpoint workspaces after e2e tests so results
+                # are downloadable via `plato chronos download <session-id>`.
+                try:
+                    await self.checkpoint("e2e_tests")
+                    tracked = [n for n, ws in self._workspaces.items() if ws.tracked]
+                    if tracked:
+                        self.logger.info(
+                            "Checkpointed workspaces: %s (use `plato chronos workspace-refs <session-id>` to list, "
+                            "`plato chronos download <session-id> --repo <name>` to download)",
+                            ", ".join(tracked),
+                        )
+                except Exception:
+                    self.logger.warning("Failed to checkpoint after e2e tests", exc_info=True)
             return
 
         while True:

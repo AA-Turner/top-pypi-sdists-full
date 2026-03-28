@@ -30,6 +30,8 @@ from chalk._gen.chalk.server.v1.auth_pb2 import (
     GetUserByIdResponse,
     LinkAccountRequest,
     LinkAccountResponse,
+    SelfServiceCreateTeamRequest,
+    SelfServiceCreateTeamResponse,
     UpdateLinkSessionRequest,
     UpdateLinkSessionResponse,
     UpdateSessionRequest,
@@ -128,6 +130,10 @@ class AuthServiceStub:
     UpsertUserByEmail: UnaryUnaryMultiCallable[
         UpsertUserByEmailRequest,
         UpsertUserByEmailResponse,
+    ]
+    SelfServiceCreateTeam: UnaryUnaryMultiCallable[
+        SelfServiceCreateTeamRequest,
+        SelfServiceCreateTeamResponse,
     ]
 
 class AuthServiceServicer(metaclass=ABCMeta):
@@ -240,5 +246,11 @@ class AuthServiceServicer(metaclass=ABCMeta):
         request: UpsertUserByEmailRequest,
         context: ServicerContext,
     ) -> UpsertUserByEmailResponse: ...
+    @abstractmethod
+    def SelfServiceCreateTeam(
+        self,
+        request: SelfServiceCreateTeamRequest,
+        context: ServicerContext,
+    ) -> SelfServiceCreateTeamResponse: ...
 
 def add_AuthServiceServicer_to_server(servicer: AuthServiceServicer, server: Server) -> None: ...

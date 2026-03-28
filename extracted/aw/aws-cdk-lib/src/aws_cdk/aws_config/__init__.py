@@ -870,6 +870,19 @@ class CfnConfigRule(
         return typing.cast("_ConfigRuleReference_f33c4531", jsii.get(self, "configRuleRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="inputParameters")
+    def input_parameters(self) -> typing.Any:
+        '''A string, in JSON format, that is passed to the AWS Config rule Lambda function.'''
+        return typing.cast(typing.Any, jsii.get(self, "inputParameters"))
+
+    @input_parameters.setter
+    def input_parameters(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d61437c3cdab85e8dc7a25b710d93b6aaaa2a833466cfb80eb3d13340c62da3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "inputParameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="source")
     def source(
         self,
@@ -948,19 +961,6 @@ class CfnConfigRule(
             type_hints = typing.get_type_hints(_typecheckingstub__3563e34d09c0fb5a803e72a8cee06c0ed65b4c596390bf75303600bfd5df9f44)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "evaluationModes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="inputParameters")
-    def input_parameters(self) -> typing.Any:
-        '''A string, in JSON format, that is passed to the AWS Config rule Lambda function.'''
-        return typing.cast(typing.Any, jsii.get(self, "inputParameters"))
-
-    @input_parameters.setter
-    def input_parameters(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d61437c3cdab85e8dc7a25b710d93b6aaaa2a833466cfb80eb3d13340c62da3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "inputParameters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="maximumExecutionFrequency")
@@ -3479,6 +3479,19 @@ class CfnConformancePack(
         jsii.set(self, "conformancePackName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="templateSsmDocumentDetails")
+    def template_ssm_document_details(self) -> typing.Any:
+        '''An object that contains the name or Amazon Resource Name (ARN) of the AWS Systems Manager document (SSM document) and the version of the SSM document that is used to create a conformance pack.'''
+        return typing.cast(typing.Any, jsii.get(self, "templateSsmDocumentDetails"))
+
+    @template_ssm_document_details.setter
+    def template_ssm_document_details(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6f6517778467c160ab2997b6792fb457789ecbb58da9204e3c4a9e8d1b789ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "templateSsmDocumentDetails", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="conformancePackInputParameters")
     def conformance_pack_input_parameters(
         self,
@@ -3547,19 +3560,6 @@ class CfnConformancePack(
             type_hints = typing.get_type_hints(_typecheckingstub__b029ab96d5271df83bfd4de01aeaa0b8d0647c023edcc97787666ca457aa18a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "templateS3Uri", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="templateSsmDocumentDetails")
-    def template_ssm_document_details(self) -> typing.Any:
-        '''An object that contains the name or Amazon Resource Name (ARN) of the AWS Systems Manager document (SSM document) and the version of the SSM document that is used to create a conformance pack.'''
-        return typing.cast(typing.Any, jsii.get(self, "templateSsmDocumentDetails"))
-
-    @template_ssm_document_details.setter
-    def template_ssm_document_details(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6f6517778467c160ab2997b6792fb457789ecbb58da9204e3c4a9e8d1b789ed)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateSsmDocumentDetails", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnConformancePack.ConformancePackInputParameterProperty",
@@ -6033,41 +6033,6 @@ class CfnRemediationConfiguration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="arnForRemediationConfiguration")
-    @builtins.classmethod
-    def arn_for_remediation_configuration(
-        cls,
-        resource: "_IRemediationConfigurationRef_520713b3",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da91e8fb8c70f77ed5f7673cfe2acccad4203b1fc3b7b21eba2fb3c4a10b7702)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRemediationConfiguration", [resource]))
-
-    @jsii.member(jsii_name="fromRemediationConfigurationId")
-    @builtins.classmethod
-    def from_remediation_configuration_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        remediation_configuration_id: builtins.str,
-    ) -> "_IRemediationConfigurationRef_520713b3":
-        '''Creates a new IRemediationConfigurationRef from a remediationConfigurationId.
-
-        :param scope: -
-        :param id: -
-        :param remediation_configuration_id: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d8ea5c20df565d1c985e68590e4f86ff5021fdfb98b248775d3388a5b00711aa)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument remediation_configuration_id", value=remediation_configuration_id, expected_type=type_hints["remediation_configuration_id"])
-        return typing.cast("_IRemediationConfigurationRef_520713b3", jsii.sinvoke(cls, "fromRemediationConfigurationId", [scope, id, remediation_configuration_id]))
-
     @jsii.member(jsii_name="isCfnRemediationConfiguration")
     @builtins.classmethod
     def is_cfn_remediation_configuration(cls, x: typing.Any) -> builtins.bool:
@@ -6111,14 +6076,6 @@ class CfnRemediationConfiguration(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -6143,6 +6100,22 @@ class CfnRemediationConfiguration(
             type_hints = typing.get_type_hints(_typecheckingstub__aec925175a5fdb6367c84a01b084043a639caa8c4046c1a46694ae861ddbfeec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "configRuleName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(self) -> typing.Any:
+        '''An object of the RemediationParameterValue.
+
+        For more information, see `RemediationParameterValue <https://docs.aws.amazon.com/config/latest/APIReference/API_RemediationParameterValue.html>`_ .
+        '''
+        return typing.cast(typing.Any, jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__791d50036178abe388db7c3245e225f2e7ae9d06d20e7b2503c60ea3460eb769)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="targetId")
@@ -6221,22 +6194,6 @@ class CfnRemediationConfiguration(
             type_hints = typing.get_type_hints(_typecheckingstub__5714155a99562d59349d9e442fb9b95dde4b3edc8e0c0c6ed79babb5d6067731)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "maximumAutomaticAttempts", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(self) -> typing.Any:
-        '''An object of the RemediationParameterValue.
-
-        For more information, see `RemediationParameterValue <https://docs.aws.amazon.com/config/latest/APIReference/API_RemediationParameterValue.html>`_ .
-        '''
-        return typing.cast(typing.Any, jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__791d50036178abe388db7c3245e225f2e7ae9d06d20e7b2503c60ea3460eb769)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="resourceType")
@@ -6376,7 +6333,6 @@ class CfnRemediationConfiguration(
                         value="value"
                     ),
                     static_value=config.CfnRemediationConfiguration.StaticValueProperty(
-                        value=["value"],
                         values=["values"]
                     )
                 )
@@ -6553,17 +6509,15 @@ class CfnRemediationConfiguration(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnRemediationConfiguration.StaticValueProperty",
         jsii_struct_bases=[],
-        name_mapping={"value": "value", "values": "values"},
+        name_mapping={"values": "values"},
     )
     class StaticValueProperty:
         def __init__(
             self,
             *,
-            value: typing.Optional[typing.Sequence[builtins.str]] = None,
             values: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''
-            :param value: 
             :param values: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-remediationconfiguration-staticvalue.html
@@ -6576,27 +6530,15 @@ class CfnRemediationConfiguration(
                 from aws_cdk import aws_config as config
                 
                 static_value_property = config.CfnRemediationConfiguration.StaticValueProperty(
-                    value=["value"],
                     values=["values"]
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__40ba6e78a4bc7257e8360741f44912082b2a4d686ec43d8c0869c777777223a0)
-                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if value is not None:
-                self._values["value"] = value
             if values is not None:
                 self._values["values"] = values
-
-        @builtins.property
-        def value(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-remediationconfiguration-staticvalue.html#cfn-config-remediationconfiguration-staticvalue-value
-            '''
-            result = self._values.get("value")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
         def values(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -15039,6 +14981,12 @@ def _typecheckingstub__e2026b4300b4bc12decf81d1ef0dc9858c81f4dff9157afd07ab04e95
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7d61437c3cdab85e8dc7a25b710d93b6aaaa2a833466cfb80eb3d13340c62da3(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a30b5901e0068cf18be7f15f8558e224eb62559802cd26646f648c0dbf5f3680(
     value: typing.Union[_IResolvable_da3f097b, CfnConfigRule.SourceProperty],
 ) -> None:
@@ -15065,12 +15013,6 @@ def _typecheckingstub__446b3dad0fdf8c8a9449d165e2fed6fa45c11495397d8cfdaf24ac136
 
 def _typecheckingstub__3563e34d09c0fb5a803e72a8cee06c0ed65b4c596390bf75303600bfd5df9f44(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConfigRule.EvaluationModeConfigurationProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7d61437c3cdab85e8dc7a25b710d93b6aaaa2a833466cfb80eb3d13340c62da3(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15386,6 +15328,12 @@ def _typecheckingstub__017266c6d2336c47dd9ced678b7f1432f1d8c14f7d6c1fa5d4e1b853e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d6f6517778467c160ab2997b6792fb457789ecbb58da9204e3c4a9e8d1b789ed(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__66a3c1376d21fbc61cfccda9673dabefb2864004881e13f61c2450d58f726d02(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnConformancePack.ConformancePackInputParameterProperty]]]],
 ) -> None:
@@ -15412,12 +15360,6 @@ def _typecheckingstub__6e35eeba4feaded039ed05fa15d28eda7714d806f9cc117a1a4e2a9b4
 
 def _typecheckingstub__b029ab96d5271df83bfd4de01aeaa0b8d0647c023edcc97787666ca457aa18a9(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d6f6517778467c160ab2997b6792fb457789ecbb58da9204e3c4a9e8d1b789ed(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15784,20 +15726,6 @@ def _typecheckingstub__7d77d8d51b1a809acec3ca2be829980e6b8f99140bb4eb3ce00b9209c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__da91e8fb8c70f77ed5f7673cfe2acccad4203b1fc3b7b21eba2fb3c4a10b7702(
-    resource: _IRemediationConfigurationRef_520713b3,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d8ea5c20df565d1c985e68590e4f86ff5021fdfb98b248775d3388a5b00711aa(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    remediation_configuration_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9fae21c193e5fc3caded69ecb744c24908822bee071575cb2002975ea34c343b(
     x: typing.Any,
 ) -> None:
@@ -15818,6 +15746,12 @@ def _typecheckingstub__0981270ccb35fe1ed87d60ce8737ba6f99a474a8edb4981354a5adf2e
 
 def _typecheckingstub__aec925175a5fdb6367c84a01b084043a639caa8c4046c1a46694ae861ddbfeec(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__791d50036178abe388db7c3245e225f2e7ae9d06d20e7b2503c60ea3460eb769(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15848,12 +15782,6 @@ def _typecheckingstub__923c16d43d84ed6ed11e372e8cd76942cbebbe48641cade38fc40a0c5
 
 def _typecheckingstub__5714155a99562d59349d9e442fb9b95dde4b3edc8e0c0c6ed79babb5d6067731(
     value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__791d50036178abe388db7c3245e225f2e7ae9d06d20e7b2503c60ea3460eb769(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15908,7 +15836,6 @@ def _typecheckingstub__0c78a12657b478ea0405bceec564d4064e3d948aa0c923a6c35381350
 
 def _typecheckingstub__40ba6e78a4bc7257e8360741f44912082b2a4d686ec43d8c0869c777777223a0(
     *,
-    value: typing.Optional[typing.Sequence[builtins.str]] = None,
     values: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

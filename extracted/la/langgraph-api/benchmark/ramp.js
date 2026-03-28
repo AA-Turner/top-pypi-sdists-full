@@ -1,7 +1,7 @@
 import { sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
 import { randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
-import { Benchmarks } from './benchmark-runners/benchmarks.js';
+import { Benchmarks } from './benchmark-runners/dist/benchmarks.js';
 
 // Custom metrics
 const runDuration = new Trend('run_duration');

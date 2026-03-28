@@ -5,20 +5,22 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
+    BatchEncoding,
     PretrainedConfig,
 )
 
 from pyrit.common import default_values
 from pyrit.common.download_hf_model import download_specific_files
 from pyrit.exceptions import EmptyResponseException, pyrit_target_retry
-from pyrit.identifiers import TargetIdentifier
+from pyrit.identifiers import ComponentIdentifier
 from pyrit.models import Message, construct_response_from_request
 from pyrit.prompt_target.common.prompt_chat_target import PromptChatTarget
+from pyrit.prompt_target.common.target_capabilities import TargetCapabilities
 from pyrit.prompt_target.common.utils import limit_requests_per_minute
 
 logger = logging.getLogger(__name__)
@@ -32,6 +34,10 @@ class HuggingFaceChatTarget(PromptChatTarget):
     The HuggingFaceChatTarget interacts with HuggingFace models, specifically for conducting red teaming activities.
     Inherits from PromptTarget to comply with the current design standards.
     """
+
+    _DEFAULT_CAPABILITIES: TargetCapabilities = TargetCapabilities(
+        supports_multi_turn=True, supports_editable_history=True
+    )
 
     # Class-level cache for model and tokenizer
     _cached_model = None
@@ -62,6 +68,7 @@ class HuggingFaceChatTarget(PromptChatTarget):
         torch_dtype: Optional["torch.dtype"] = None,
         attn_implementation: Optional[str] = None,
         max_requests_per_minute: Optional[int] = None,
+        custom_capabilities: Optional[TargetCapabilities] = None,
     ) -> None:
         """
         Initialize the HuggingFaceChatTarget.
@@ -82,6 +89,8 @@ class HuggingFaceChatTarget(PromptChatTarget):
             torch_dtype (Optional[torch.dtype]): Torch data type for model weights.
             attn_implementation (Optional[str]): Attention implementation type.
             max_requests_per_minute (Optional[int]): The maximum number of requests per minute. Defaults to None.
+            custom_capabilities (Optional[TargetCapabilities]): Override the default capabilities for this target
+            instance. Defaults to None
 
         Raises:
             ValueError: If neither or both of `model_id` and `model_path` are provided.
@@ -89,7 +98,11 @@ class HuggingFaceChatTarget(PromptChatTarget):
         """
         model_name = model_id if model_id else model_path if model_path else ""
 
-        super().__init__(max_requests_per_minute=max_requests_per_minute, model_name=model_name)
+        super().__init__(
+            max_requests_per_minute=max_requests_per_minute,
+            model_name=model_name,
+            custom_capabilities=custom_capabilities,
+        )
 
         if not model_id and not model_path:
             raise ValueError("Either `model_id` or `model_path` must be provided.")
@@ -136,17 +149,17 @@ class HuggingFaceChatTarget(PromptChatTarget):
 
         self.load_model_and_tokenizer_task = asyncio.create_task(self.load_model_and_tokenizer())
 
-    def _build_identifier(self) -> TargetIdentifier:
+    def _build_identifier(self) -> ComponentIdentifier:
         """
         Build the identifier with HuggingFace chat-specific parameters.
 
         Returns:
-            TargetIdentifier: The identifier for this target instance.
+            ComponentIdentifier: The identifier for this target instance.
         """
         return self._create_identifier(
-            temperature=self._temperature,
-            top_p=self._top_p,
-            target_specific_params={
+            params={
+                "temperature": self._temperature,
+                "top_p": self._top_p,
                 "max_new_tokens": self.max_new_tokens,
                 "skip_special_tokens": self.skip_special_tokens,
                 "use_cuda": self.use_cuda,
@@ -167,7 +180,7 @@ class HuggingFaceChatTarget(PromptChatTarget):
             **kwargs: Additional keyword arguments to pass to the model loader.
         """
         logger.info(f"Loading model and tokenizer from path: {path}...")
-        self.tokenizer = AutoTokenizer.from_pretrained(  # type: ignore[no-untyped-call]
+        self.tokenizer = AutoTokenizer.from_pretrained(  # type: ignore[no-untyped-call, unused-ignore]
             path, trust_remote_code=self.trust_remote_code
         )
         self.model = AutoModelForCausalLM.from_pretrained(path, trust_remote_code=self.trust_remote_code, **kwargs)
@@ -245,7 +258,7 @@ class HuggingFaceChatTarget(PromptChatTarget):
 
                 # Load the tokenizer and model from the specified directory
                 logger.info(f"Loading model {self.model_id} from cache path: {cache_dir}...")
-                self.tokenizer = AutoTokenizer.from_pretrained(  # type: ignore[no-untyped-call]
+                self.tokenizer = AutoTokenizer.from_pretrained(  # type: ignore[no-untyped-call, unused-ignore]
                     self.model_id, cache_dir=cache_dir, trust_remote_code=self.trust_remote_code
                 )
                 self.model = AutoModelForCausalLM.from_pretrained(
@@ -329,12 +342,13 @@ class HuggingFaceChatTarget(PromptChatTarget):
             generated_tokens = generated_ids[0][input_length:]
 
             # Decode the assistant's response from the generated token IDs
-            assistant_response = self.tokenizer.decode(
-                generated_tokens, skip_special_tokens=self.skip_special_tokens
+            assistant_response = cast(
+                "str",
+                self.tokenizer.decode(generated_tokens, skip_special_tokens=self.skip_special_tokens),
             ).strip()
 
             if not assistant_response:
-                raise EmptyResponseException()
+                raise EmptyResponseException
 
             logger.info(f"Assistant's response: {assistant_response}")
 
@@ -369,40 +383,22 @@ class HuggingFaceChatTarget(PromptChatTarget):
             logger.info("Tokenizer has a chat template. Applying it to the input messages.")
 
             # Apply the chat template to format and tokenize the messages
-            tokenized_chat = self.tokenizer.apply_chat_template(
-                messages,
-                tokenize=True,
-                add_generation_prompt=True,
-                return_tensors=self.tensor_format,
-                return_dict=True,
+            return cast(
+                "BatchEncoding",
+                self.tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=True,
+                    add_generation_prompt=True,
+                    return_tensors=self.tensor_format,
+                    return_dict=True,
+                ),
             ).to(self.device)
-            return tokenized_chat
-        else:
-            error_message = (
-                "Tokenizer does not have a chat template. "
-                "This model is not supported, as we only support instruct models with a chat template."
-            )
-            logger.error(error_message)
-            raise ValueError(error_message)
-
-    def _validate_request(self, *, message: Message) -> None:
-        """
-        Validate the provided message.
-
-        Args:
-            message: The message to validate.
-
-        Raises:
-            ValueError: If the message does not contain exactly one text piece.
-            ValueError: If the message piece is not of type text.
-        """
-        n_pieces = len(message.message_pieces)
-        if n_pieces != 1:
-            raise ValueError(f"This target only supports a single message piece. Received: {n_pieces} pieces.")
-
-        piece_type = message.message_pieces[0].converted_value_data_type
-        if piece_type != "text":
-            raise ValueError(f"This target only supports text prompt input. Received: {piece_type}.")
+        error_message = (
+            "Tokenizer does not have a chat template. "
+            "This model is not supported, as we only support instruct models with a chat template."
+        )
+        logger.error(error_message)
+        raise ValueError(error_message)
 
     def is_json_response_supported(self) -> bool:
         """
@@ -411,7 +407,7 @@ class HuggingFaceChatTarget(PromptChatTarget):
         Returns:
             bool: True if JSON response is supported, False otherwise.
         """
-        return False
+        return self.capabilities.supports_json_output
 
     @classmethod
     def enable_cache(cls) -> None:

@@ -147,6 +147,16 @@ def apply_middleware(
     return middleware_routes
 
 
+def validate_router_lifespan_hooks(router: typing.Any) -> None:
+    on_startup = getattr(router, "on_startup", None)
+    on_shutdown = getattr(router, "on_shutdown", None)
+    if on_startup or on_shutdown:
+        raise ValueError(
+            "Cannot merge lifespans with on_startup or on_shutdown: "
+            f"{on_startup} {on_shutdown}"
+        )
+
+
 custom_middleware = (
     user_router.user_middleware if user_router and user_router.user_middleware else []
 )
@@ -222,11 +232,7 @@ if user_router:
 
     # Merge lifespans (base + user)
     user_lifespan = app.router.lifespan_context
-    if app.router.on_startup or app.router.on_shutdown:
-        raise ValueError(
-            f"Cannot merge lifespans with on_startup or on_shutdown: {app.router.on_startup} {app.router.on_shutdown}"
-        )
-
+    validate_router_lifespan_hooks(app.router)
     app.router.lifespan_context = timing.combine_lifespans(lifespan, user_lifespan)
 
     # Merge exception handlers (base + user)

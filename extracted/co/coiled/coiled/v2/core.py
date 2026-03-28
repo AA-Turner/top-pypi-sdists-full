@@ -1198,12 +1198,11 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
 
         self._get_cluster_states_declarative_last_request = time.monotonic()
 
-        # if we get 403 on this endpoint, most likely it's temporary,
-        # unless we've never gotten 403 or it's been too long since we got a good response from the endpoint
-        if (
-            response.status == 403
-            and time.monotonic() - getattr(self, "_get_cluster_states_declarative_last_good_response", 0) < 60
-        ):
+        # if we get 403 or 5xx on this endpoint, most likely it's temporary,
+        # unless we've never gotten good response, or it's been too long since we got a good response from the endpoint
+        if (response.status == 403 or response.status >= 500) and time.monotonic() - getattr(
+            self, "_get_cluster_states_declarative_last_good_response", 0
+        ) < 60:
             return {}
         elif response.status >= 400:
             await handle_api_exception(response)

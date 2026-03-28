@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pinecone-plugin-assistant"
-version = "3.0.2"
+version = "3.0.3"
 packages = [
     { include = "pinecone_plugins", from = "." },
 ]
@@ -19,7 +19,6 @@ classifiers=[
 [tool.poetry.dependencies]
 python = "^3.10"
 requests = "^2.32.3"
-packaging = "^24.2"
 
 [tool.poetry.group.dev.dependencies]
 pinecone = "^8.0.0"

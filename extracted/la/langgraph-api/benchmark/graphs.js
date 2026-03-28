@@ -1,8 +1,11 @@
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
-const QuickChart = require('quickchart-js');
-const { plot } = require('nodeplotlib');
+import fs from 'fs';
+import path from 'path';
+import readline from 'readline';
+import { fileURLToPath } from 'url';
+import QuickChart from 'quickchart-js';
+import { plot } from 'nodeplotlib';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Function to save chart using Quickchart
 async function saveChartWithQuickchart(chartData, chartLayout, filename) {
@@ -53,7 +56,7 @@ async function saveChartWithQuickchart(chartData, chartLayout, filename) {
  * Staging: https://beta.smith.langchain.com/o/8f32dc68-61a1-439c-81d3-33511ef55527/host/deployments/8ced7b1a-275f-48f3-88bf-ae08fdc4b414?tab=2
  * Prod: https://smith.langchain.com/o/ebbaf2eb-769b-4505-aca2-d11de10372a4/host/deployments/a23f03ff-6d4d-4efd-8149-bb5a7f3b95cf?tab=2&paginationModel=%7B%22pageIndex%22%3A0%2C%22pageSize%22%3A10%7D#
  */
-async function generateCharts(rawDataFile, displayInBrowser = false) {
+export async function generateCharts(rawDataFile, displayInBrowser = false) {
     console.log("Generating charts for", rawDataFile);
     const aggregatedData = {};
 
@@ -220,7 +223,8 @@ async function generateCharts(rawDataFile, displayInBrowser = false) {
 }
 
 // CLI usage
-if (require.main === module) {
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain) {
   const [,, rawDataFile, displayInBrowser] = process.argv;
 
   if (!rawDataFile) {
@@ -234,5 +238,3 @@ if (require.main === module) {
       process.exit(1);
     });
 }
-
-module.exports = { generateCharts };

@@ -35,7 +35,7 @@ class TestJobSpec(unittest.TestCase):
         model = JobSpec()
         if include_optional:
             return JobSpec(
-                job_type = 'discover_agents',
+                job_type = 'compliance_policy_check',
                 dataset_id = '',
                 available_dataset_id = '',
                 start_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
@@ -102,7 +102,8 @@ class TestJobSpec(unittest.TestCase):
                 workspace_id = '',
                 data_plane_id = '',
                 project_id = '',
-                lookback_hours = 56
+                lookback_hours = 56,
+                policy_assignment_id = ''
             )
         else:
             return JobSpec(

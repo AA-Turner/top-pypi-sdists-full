@@ -50,6 +50,8 @@ class ModelTypedDict(TypedDict):
     r"""Hugging Face model identifier, if applicable"""
     description: NotRequired[str]
     r"""Description of the model"""
+    knowledge_cutoff: NotRequired[Nullable[str]]
+    r"""The date up to which the model was trained on data. ISO 8601 date string (YYYY-MM-DD) or null if unknown."""
     expiration_date: NotRequired[Nullable[str]]
     r"""The date after which the model may be removed. ISO 8601 date string (YYYY-MM-DD) or null if no expiration."""
 
@@ -98,17 +100,26 @@ class Model(BaseModel):
     description: Optional[str] = None
     r"""Description of the model"""
 
+    knowledge_cutoff: OptionalNullable[str] = UNSET
+    r"""The date up to which the model was trained on data. ISO 8601 date string (YYYY-MM-DD) or null if unknown."""
+
     expiration_date: OptionalNullable[str] = UNSET
     r"""The date after which the model may be removed. ISO 8601 date string (YYYY-MM-DD) or null if no expiration."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = ["hugging_face_id", "description", "expiration_date"]
+        optional_fields = [
+            "hugging_face_id",
+            "description",
+            "knowledge_cutoff",
+            "expiration_date",
+        ]
         nullable_fields = [
             "hugging_face_id",
             "context_length",
             "per_request_limits",
             "default_parameters",
+            "knowledge_cutoff",
             "expiration_date",
         ]
         null_default_fields = []

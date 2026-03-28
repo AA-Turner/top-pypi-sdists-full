@@ -1222,7 +1222,7 @@ class DatabaseMutationListenerConfig(BaseModel):
     """
     Database name or file path (sqlite)
     """
-    schema_: Annotated[str | None, Field(alias="schema", title="Schema")] = "public"
+    db_schema: Annotated[str | None, Field(title="Db Schema")] = "public"
     """
     Database schema (for PostgreSQL)
     """

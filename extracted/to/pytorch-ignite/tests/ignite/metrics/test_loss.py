@@ -1,5 +1,4 @@
 import os
-from typing import Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -185,16 +184,16 @@ def _test_distrib_accumulator_device(device, y_test_1):
     for metric_device in metric_devices:
         loss = Loss(nll_loss, device=metric_device)
         assert loss._device == metric_device
-        assert (
-            loss._sum.device == metric_device
-        ), f"{type(loss._sum.device)}:{loss._sum.device} vs {type(metric_device)}:{metric_device}"
+        assert loss._sum.device == metric_device, (
+            f"{type(loss._sum.device)}:{loss._sum.device} vs {type(metric_device)}:{metric_device}"
+        )
 
         y_pred, y, _ = y_test_1
         loss.update((y_pred, y))
 
-        assert (
-            loss._sum.device == metric_device
-        ), f"{type(loss._sum.device)}:{loss._sum.device} vs {type(metric_device)}:{metric_device}"
+        assert loss._sum.device == metric_device, (
+            f"{type(loss._sum.device)}:{loss._sum.device} vs {type(metric_device)}:{metric_device}"
+        )
 
 
 def test_sum_detached():
@@ -325,7 +324,7 @@ class CustomMultiMSELoss(nn.Module):
         super().__init__()
 
     def forward(
-        self, y_pred: Tuple[torch.Tensor, torch.Tensor], y_true: Tuple[torch.Tensor, torch.Tensor]
+        self, y_pred: tuple[torch.Tensor, torch.Tensor], y_true: tuple[torch.Tensor, torch.Tensor]
     ) -> torch.Tensor:
         a_true, b_true = y_true
         a_pred, b_pred = y_pred

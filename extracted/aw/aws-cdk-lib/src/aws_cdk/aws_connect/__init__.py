@@ -14515,6 +14515,9 @@ class CfnQueue(
             name="name",
         
             # the properties below are optional
+            additional_email_addresses=[connect.CfnQueue.EmailAddressProperty(
+                email_address_arn="emailAddressArn"
+            )],
             description="description",
             max_contacts=123,
             outbound_caller_config=connect.CfnQueue.OutboundCallerConfigProperty(
@@ -14542,6 +14545,7 @@ class CfnQueue(
         hours_of_operation_arn: builtins.str,
         instance_arn: typing.Union[builtins.str, "_IInstanceRef_b6835093"],
         name: builtins.str,
+        additional_email_addresses: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.EmailAddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         max_contacts: typing.Optional[jsii.Number] = None,
         outbound_caller_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.OutboundCallerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -14557,6 +14561,7 @@ class CfnQueue(
         :param hours_of_operation_arn: The Amazon Resource Name (ARN) of the hours of operation.
         :param instance_arn: The identifier of the Amazon Connect instance.
         :param name: The name of the queue.
+        :param additional_email_addresses: The email addresses that agents can use when replying to or initiating email contacts.
         :param description: The description of the queue.
         :param max_contacts: The maximum number of contacts that can be in the queue before it is considered full.
         :param outbound_caller_config: The outbound caller ID name, number, and outbound whisper flow.
@@ -14573,6 +14578,7 @@ class CfnQueue(
             hours_of_operation_arn=hours_of_operation_arn,
             instance_arn=instance_arn,
             name=name,
+            additional_email_addresses=additional_email_addresses,
             description=description,
             max_contacts=max_contacts,
             outbound_caller_config=outbound_caller_config,
@@ -14712,6 +14718,24 @@ class CfnQueue(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="additionalEmailAddresses")
+    def additional_email_addresses(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQueue.EmailAddressProperty"]]]]:
+        '''The email addresses that agents can use when replying to or initiating email contacts.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQueue.EmailAddressProperty"]]]], jsii.get(self, "additionalEmailAddresses"))
+
+    @additional_email_addresses.setter
+    def additional_email_addresses(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQueue.EmailAddressProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__242cc54ba529ff8e4f9422a36e7f93f4215fa2651d08b4752c693a53a1f8312f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "additionalEmailAddresses", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the queue.'''
@@ -14814,6 +14838,58 @@ class CfnQueue(
             type_hints = typing.get_type_hints(_typecheckingstub__4404046d9df0429c6f43ab2ee542dc80ea4102b8e0802875f2dc57d2dd561b4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnQueue.EmailAddressProperty",
+        jsii_struct_bases=[],
+        name_mapping={"email_address_arn": "emailAddressArn"},
+    )
+    class EmailAddressProperty:
+        def __init__(self, *, email_address_arn: builtins.str) -> None:
+            '''An email address configuration for the queue.
+
+            :param email_address_arn: The Amazon Resource Name (ARN) of the email address.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-queue-emailaddress.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                email_address_property = connect.CfnQueue.EmailAddressProperty(
+                    email_address_arn="emailAddressArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8b9ef716df091059e745d8dd81b5ac0d5a6d5211d83a08541b7f03d5de0d4662)
+                check_type(argname="argument email_address_arn", value=email_address_arn, expected_type=type_hints["email_address_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "email_address_arn": email_address_arn,
+            }
+
+        @builtins.property
+        def email_address_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the email address.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-queue-emailaddress.html#cfn-connect-queue-emailaddress-emailaddressarn
+            '''
+            result = self._values.get("email_address_arn")
+            assert result is not None, "Required property 'email_address_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EmailAddressProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_connect.CfnQueue.OutboundCallerConfigProperty",
@@ -14971,6 +15047,7 @@ class CfnQueue(
         "hours_of_operation_arn": "hoursOfOperationArn",
         "instance_arn": "instanceArn",
         "name": "name",
+        "additional_email_addresses": "additionalEmailAddresses",
         "description": "description",
         "max_contacts": "maxContacts",
         "outbound_caller_config": "outboundCallerConfig",
@@ -14987,6 +15064,7 @@ class CfnQueueProps:
         hours_of_operation_arn: builtins.str,
         instance_arn: typing.Union[builtins.str, "_IInstanceRef_b6835093"],
         name: builtins.str,
+        additional_email_addresses: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.EmailAddressProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         max_contacts: typing.Optional[jsii.Number] = None,
         outbound_caller_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnQueue.OutboundCallerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -15000,6 +15078,7 @@ class CfnQueueProps:
         :param hours_of_operation_arn: The Amazon Resource Name (ARN) of the hours of operation.
         :param instance_arn: The identifier of the Amazon Connect instance.
         :param name: The name of the queue.
+        :param additional_email_addresses: The email addresses that agents can use when replying to or initiating email contacts.
         :param description: The description of the queue.
         :param max_contacts: The maximum number of contacts that can be in the queue before it is considered full.
         :param outbound_caller_config: The outbound caller ID name, number, and outbound whisper flow.
@@ -15024,6 +15103,9 @@ class CfnQueueProps:
                 name="name",
             
                 # the properties below are optional
+                additional_email_addresses=[connect.CfnQueue.EmailAddressProperty(
+                    email_address_arn="emailAddressArn"
+                )],
                 description="description",
                 max_contacts=123,
                 outbound_caller_config=connect.CfnQueue.OutboundCallerConfigProperty(
@@ -15047,6 +15129,7 @@ class CfnQueueProps:
             check_type(argname="argument hours_of_operation_arn", value=hours_of_operation_arn, expected_type=type_hints["hours_of_operation_arn"])
             check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument additional_email_addresses", value=additional_email_addresses, expected_type=type_hints["additional_email_addresses"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument max_contacts", value=max_contacts, expected_type=type_hints["max_contacts"])
             check_type(argname="argument outbound_caller_config", value=outbound_caller_config, expected_type=type_hints["outbound_caller_config"])
@@ -15059,6 +15142,8 @@ class CfnQueueProps:
             "instance_arn": instance_arn,
             "name": name,
         }
+        if additional_email_addresses is not None:
+            self._values["additional_email_addresses"] = additional_email_addresses
         if description is not None:
             self._values["description"] = description
         if max_contacts is not None:
@@ -15103,6 +15188,17 @@ class CfnQueueProps:
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def additional_email_addresses(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQueue.EmailAddressProperty"]]]]:
+        '''The email addresses that agents can use when replying to or initiating email contacts.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-queue.html#cfn-connect-queue-additionalemailaddresses
+        '''
+        result = self._values.get("additional_email_addresses")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnQueue.EmailAddressProperty"]]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -20111,6 +20207,19 @@ class CfnTaskTemplate(
         return typing.cast("_TaskTemplateReference_4cba3964", jsii.get(self, "taskTemplateRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="constraints")
+    def constraints(self) -> typing.Any:
+        '''Constraints that are applicable to the fields listed.'''
+        return typing.cast(typing.Any, jsii.get(self, "constraints"))
+
+    @constraints.setter
+    def constraints(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a898069ebffaab98fcbaee0053da25444060ad49ffcbfe6f0368eff95f5b200)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "constraints", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the Amazon Connect instance.'''
@@ -20135,19 +20244,6 @@ class CfnTaskTemplate(
             type_hints = typing.get_type_hints(_typecheckingstub__2bbd2064bc52aa0f530521bac3bae9c5f12656b7d845175af66583e2c4478aff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientToken", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="constraints")
-    def constraints(self) -> typing.Any:
-        '''Constraints that are applicable to the fields listed.'''
-        return typing.cast(typing.Any, jsii.get(self, "constraints"))
-
-    @constraints.setter
-    def constraints(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a898069ebffaab98fcbaee0053da25444060ad49ffcbfe6f0368eff95f5b200)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "constraints", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="contactFlowArn")
@@ -29077,6 +29173,7 @@ def _typecheckingstub__305bba43cd31a2f9d719dec6a726b64cb46f6b33b3b631880aa85047c
     hours_of_operation_arn: builtins.str,
     instance_arn: typing.Union[builtins.str, _IInstanceRef_b6835093],
     name: builtins.str,
+    additional_email_addresses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.EmailAddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     max_contacts: typing.Optional[jsii.Number] = None,
     outbound_caller_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.OutboundCallerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -29130,6 +29227,12 @@ def _typecheckingstub__27bc5019f6be77ed53ba7b862aca0ea738158dec243027976b99cd8fd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__242cc54ba529ff8e4f9422a36e7f93f4215fa2651d08b4752c693a53a1f8312f(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnQueue.EmailAddressProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__01334cc773db27a1a528393f9dae2d25072dea3e9175e44003dc6d7b729dc1ee(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -29172,6 +29275,13 @@ def _typecheckingstub__4404046d9df0429c6f43ab2ee542dc80ea4102b8e0802875f2dc57d2d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8b9ef716df091059e745d8dd81b5ac0d5a6d5211d83a08541b7f03d5de0d4662(
+    *,
+    email_address_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d2f8c0fdd30542f9e64ba3ad4c32832636467651ad5236b756c53590ecabed33(
     *,
     outbound_caller_id_name: typing.Optional[builtins.str] = None,
@@ -29193,6 +29303,7 @@ def _typecheckingstub__baa26a31f9cdaa2c1ff32bcd44e00a08477582db0c01e27c9e1a60c3e
     hours_of_operation_arn: builtins.str,
     instance_arn: typing.Union[builtins.str, _IInstanceRef_b6835093],
     name: builtins.str,
+    additional_email_addresses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.EmailAddressProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     max_contacts: typing.Optional[jsii.Number] = None,
     outbound_caller_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnQueue.OutboundCallerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -29937,6 +30048,12 @@ def _typecheckingstub__a527f307b10d7d5baa2def0fbd31d398ac1b585ebbd7f3a9ba7d38d25
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4a898069ebffaab98fcbaee0053da25444060ad49ffcbfe6f0368eff95f5b200(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9540278151bed9f69d9f399c73f9a40e63e164ba823222a94733e2f75af92d07(
     value: builtins.str,
 ) -> None:
@@ -29945,12 +30062,6 @@ def _typecheckingstub__9540278151bed9f69d9f399c73f9a40e63e164ba823222a94733e2f75
 
 def _typecheckingstub__2bbd2064bc52aa0f530521bac3bae9c5f12656b7d845175af66583e2c4478aff(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4a898069ebffaab98fcbaee0053da25444060ad49ffcbfe6f0368eff95f5b200(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

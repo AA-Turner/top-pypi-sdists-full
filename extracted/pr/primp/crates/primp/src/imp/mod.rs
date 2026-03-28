@@ -10,11 +10,15 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     // Specific version
 //!     let client = Client::builder()
-//!         .impersonate(Impersonate::ChromeV144)
+//!         .impersonate(Impersonate::ChromeV146)
 //!         .build()?;
 //!
-//!     //let response = client.get("https://example.com").send().await?;
+//!     // Or pick a random version from Chrome family
+//!     let client = Client::builder()
+//!         .impersonate(Impersonate::Chrome)
+//!         .build()?;
 //!
 //!     Ok(())
 //! }
@@ -23,136 +27,18 @@
 use http::HeaderMap;
 use rand::prelude::*;
 use rustls::client::BrowserEmulator;
-use rustls::CipherSuite;
-use rustls::SignatureScheme;
-use rustls::NamedGroup;
-use std::sync::Arc;
-
-/// Emulation profile containing cipher suites and signature algorithms for browser impersonation.
-///
-/// This struct holds the TLS fingerprinting parameters needed to emulate various browsers.
-/// Uses `Arc<Vec<T>>` for cheap reference counting instead of deep cloning.
-#[derive(Clone, Debug)]
-pub struct EmulationProfile {
-    /// Cipher suites to use (Arc for cheap cloning)
-    pub cipher_suites: Arc<Vec<CipherSuite>>,
-    /// Signature algorithms to use (Arc for cheap cloning)
-    pub signature_algorithms: Arc<Vec<SignatureScheme>>,
-    /// Named groups to use (Arc for cheap cloning)
-    pub named_groups: Arc<Vec<NamedGroup>>,
-    /// Extension order seed
-    pub extension_order_seed: u16,
-}
-
-impl EmulationProfile {
-    /// Chrome emulation profile (cached)
-    pub fn chrome() -> Self {
-        use std::sync::OnceLock;
-        static CHROME_PROFILE: OnceLock<EmulationProfile> = OnceLock::new();
-        CHROME_PROFILE
-            .get_or_init(|| EmulationProfile {
-                cipher_suites: Arc::new(rustls::crypto::emulation::cipher_suites::CHROME.to_vec()),
-                signature_algorithms: Arc::new(rustls::crypto::emulation::signature_algorithms::CHROME.to_vec()),
-                named_groups: Arc::new(rustls::crypto::emulation::named_groups::CHROME.to_vec()),
-                extension_order_seed: rustls::crypto::emulation::extension_order::CHROME,
-            })
-            .clone()
-    }
-
-    /// Edge emulation profile (same as Chrome, cached)
-    pub fn edge() -> Self {
-        use std::sync::OnceLock;
-        static EDGE_PROFILE: OnceLock<EmulationProfile> = OnceLock::new();
-        EDGE_PROFILE
-            .get_or_init(|| EmulationProfile {
-                cipher_suites: Arc::new(rustls::crypto::emulation::cipher_suites::EDGE.to_vec()),
-                signature_algorithms: Arc::new(rustls::crypto::emulation::signature_algorithms::EDGE.to_vec()),
-                named_groups: Arc::new(rustls::crypto::emulation::named_groups::EDGE.to_vec()),
-                extension_order_seed: rustls::crypto::emulation::extension_order::EDGE,
-            })
-            .clone()
-    }
-
-    /// Safari emulation profile (cached)
-    pub fn safari() -> Self {
-        use std::sync::OnceLock;
-        static SAFARI_PROFILE: OnceLock<EmulationProfile> = OnceLock::new();
-        SAFARI_PROFILE
-            .get_or_init(|| EmulationProfile {
-                cipher_suites: Arc::new(rustls::crypto::emulation::cipher_suites::SAFARI.to_vec()),
-                signature_algorithms: Arc::new(rustls::crypto::emulation::signature_algorithms::SAFARI.to_vec()),
-                named_groups: Arc::new(rustls::crypto::emulation::named_groups::SAFARI.to_vec()),
-                extension_order_seed: rustls::crypto::emulation::extension_order::SAFARI,
-            })
-            .clone()
-    }
-
-    /// Firefox emulation profile (cached)
-    pub fn firefox() -> Self {
-        use std::sync::OnceLock;
-        static FIREFOX_PROFILE: OnceLock<EmulationProfile> = OnceLock::new();
-        FIREFOX_PROFILE
-            .get_or_init(|| EmulationProfile {
-                cipher_suites: Arc::new(rustls::crypto::emulation::cipher_suites::FIREFOX.to_vec()),
-                signature_algorithms: Arc::new(rustls::crypto::emulation::signature_algorithms::FIREFOX.to_vec()),
-                named_groups: Arc::new(rustls::crypto::emulation::named_groups::FIREFOX.to_vec()),
-                extension_order_seed: rustls::crypto::emulation::extension_order::FIREFOX,
-            })
-            .clone()
-    }
-
-    /// Safari 18.5 emulation profile (cached)
-    pub fn safari_v18_5() -> Self {
-        use std::sync::OnceLock;
-        static SAFARI_18_5_PROFILE: OnceLock<EmulationProfile> = OnceLock::new();
-        SAFARI_18_5_PROFILE
-            .get_or_init(|| EmulationProfile {
-                cipher_suites: Arc::new(rustls::crypto::emulation::cipher_suites::SAFARI.to_vec()),
-                signature_algorithms: Arc::new(rustls::crypto::emulation::signature_algorithms::SAFARI.to_vec()),
-                named_groups: Arc::new(rustls::crypto::emulation::named_groups::SAFARI.to_vec()),
-                extension_order_seed: rustls::crypto::emulation::extension_order::SAFARI_18_5,
-            })
-            .clone()
-    }
-
-    /// Safari 26 emulation profile (cached)
-    pub fn safari_v26() -> Self {
-        use std::sync::OnceLock;
-        static SAFARI_26_PROFILE: OnceLock<EmulationProfile> = OnceLock::new();
-        SAFARI_26_PROFILE
-            .get_or_init(|| EmulationProfile {
-                cipher_suites: Arc::new(rustls::crypto::emulation::cipher_suites::SAFARI.to_vec()),
-                signature_algorithms: Arc::new(rustls::crypto::emulation::signature_algorithms::SAFARI.to_vec()),
-                named_groups: Arc::new(rustls::crypto::emulation::named_groups::SAFARI.to_vec()),
-                extension_order_seed: rustls::crypto::emulation::extension_order::SAFARI_26,
-            })
-            .clone()
-    }
-}
 
 // Re-export h2 types for HTTP/2 fingerprinting when http2 feature is enabled
 #[cfg(feature = "http2")]
-pub use h2::frame::{SettingsOrder, SettingsOrderBuilder, SettingId, PseudoOrder, PseudoOrderBuilder, PseudoId, StreamDependency, Priorities, PrioritiesBuilder};
+pub use h2::frame::{
+    PseudoId, PseudoOrder, PseudoOrderBuilder, SettingId, SettingsOrder, SettingsOrderBuilder,
+};
 
-#[cfg(feature = "impersonate")]
-pub use chrome::configure_impersonate;
-
-#[cfg(feature = "impersonate")]
-mod chrome;
-
-#[cfg(feature = "impersonate")]
+pub mod chrome;
 pub mod edge;
-
-#[cfg(feature = "impersonate")]
-pub mod opera;
-
-#[cfg(feature = "impersonate")]
-pub mod safari;
-
-#[cfg(feature = "impersonate")]
 pub mod firefox;
-
-pub mod cert_compressor;
+pub mod opera;
+pub mod safari;
 
 /// Browser TLS and HTTP/2 configuration settings.
 ///
@@ -162,11 +48,7 @@ pub mod cert_compressor;
 #[derive(Clone)]
 pub struct BrowserSettings {
     /// Rustls browser emulator configuration
-    #[doc(hidden)]
-    pub browser_emulator: BrowserEmulator,
-    /// Emulation profile for cipher suites and signature algorithms
-    #[doc(hidden)]
-    pub emulation_profile: EmulationProfile,
+    pub(crate) browser_emulator: BrowserEmulator,
     /// HTTP/2 configuration data
     pub http2: Http2Data,
     /// Default headers to include with requests
@@ -183,7 +65,6 @@ impl std::fmt::Debug for BrowserSettings {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BrowserSettings")
             .field("browser_emulator", &self.browser_emulator)
-            .field("emulation_profile", &"<EmulationProfile>")
             .field("http2", &self.http2)
             .field("headers", &self.headers)
             .field("gzip", &self.gzip)
@@ -243,14 +124,24 @@ pub struct Http2Data {
     ///
     /// Controls the order of pseudo-headers in HEADERS frames for fingerprinting.
     pub headers_pseudo_order: Option<h2::frame::PseudoOrder>,
-    /// HTTP/2 header stream dependency
+    /// Whether to include PRIORITY flag in HEADERS frames
     ///
-    /// Controls the stream dependency information for HEADERS frames.
-    pub headers_stream_dependency: Option<h2::frame::StreamDependency>,
-    /// HTTP/2 PRIORITY frames
+    /// When true, HEADERS frames include priority data (weight=0, stream_dependency=0,
+    /// exclusive=1) matching Chrome's HTTP/2 fingerprint behavior.
+    /// Whether to include PRIORITY flag in HEADERS frames and its parameters (weight, dep, exclusive)
     ///
-    /// Controls PRIORITY frames sent during connection setup.
-    pub priorities: Option<h2::frame::Priorities>,
+    /// None = no PRIORITY flag, Some((w,d,e)) = PRIORITY with those values.
+    /// Chrome: Some((0, 0, true)), Firefox: Some((42, 0, false))
+    pub headers_priority: Option<(u8, u32, bool)>,
+    /// Optional ordering for HTTP/2 regular headers
+    ///
+    /// When set, headers are encoded in the specified order instead of hash-based order.
+    pub headers_order: Option<Vec<http::HeaderName>>,
+    /// Optional initial stream ID for HTTP/2 (odd number for client-initiated streams)
+    ///
+    /// Default: 1 (standard HTTP/2 behavior)
+    /// Firefox uses 3 (skips stream 1)
+    pub initial_stream_id: Option<u32>,
 }
 
 impl Default for Http2Data {
@@ -267,8 +158,9 @@ impl Default for Http2Data {
             no_rfc7540_priorities: Some(false),
             settings_order: None,
             headers_pseudo_order: None,
-            headers_stream_dependency: None,
-            priorities: None,
+            headers_priority: None,
+            headers_order: None,
+            initial_stream_id: None,
         }
     }
 }
@@ -289,18 +181,37 @@ pub enum Impersonate {
     // Chrome variants
     ChromeV144,
     ChromeV145,
+    ChromeV146,
+    /// Random Chrome version
+    Chrome,
     // Edge variants
     EdgeV144,
     EdgeV145,
+    EdgeV146,
+    /// Random Edge version
+    Edge,
     // Opera variants
     OperaV126,
     OperaV127,
+    OperaV128,
+    OperaV129,
+    /// Random Opera version
+    Opera,
     // Safari variants
     SafariV18_5,
     SafariV26,
+    SafariV26_3,
+    /// Random Safari version
+    Safari,
     // Firefox variants
     FirefoxV140,
     FirefoxV146,
+    FirefoxV147,
+    FirefoxV148,
+    /// Random Firefox version
+    Firefox,
+    /// Random browser and version
+    Random,
 }
 
 /// Operating system platforms for browser impersonation.
@@ -320,6 +231,8 @@ pub enum ImpersonateOS {
     Android,
     /// iOS mobile operating system
     IOS,
+    /// Random OS selection
+    Random,
 }
 
 /// Randomly selects a browser version for impersonation.
@@ -335,17 +248,75 @@ pub fn random_impersonate() -> Impersonate {
     const IMPERSONATE_VARIANTS: &[Impersonate] = &[
         Impersonate::ChromeV144,
         Impersonate::ChromeV145,
+        Impersonate::ChromeV146,
         Impersonate::EdgeV144,
         Impersonate::EdgeV145,
+        Impersonate::EdgeV146,
         Impersonate::OperaV126,
         Impersonate::OperaV127,
+        Impersonate::OperaV128,
+        Impersonate::OperaV129,
         Impersonate::SafariV26,
+        Impersonate::SafariV26_3,
         Impersonate::SafariV18_5,
         Impersonate::FirefoxV140,
         Impersonate::FirefoxV146,
+        Impersonate::FirefoxV147,
+        Impersonate::FirefoxV148,
     ];
 
     *IMPERSONATE_VARIANTS.choose(&mut rand::rng()).unwrap()
+}
+
+/// Resolves an unnumbered `Impersonate` variant to a random specific version.
+#[cfg(feature = "impersonate")]
+pub fn resolve_impersonate(version: Impersonate) -> Impersonate {
+    match version {
+        Impersonate::Chrome => {
+            const CHROME: &[Impersonate] = &[
+                Impersonate::ChromeV144,
+                Impersonate::ChromeV145,
+                Impersonate::ChromeV146,
+            ];
+            *CHROME.choose(&mut rand::rng()).unwrap()
+        }
+        Impersonate::Edge => {
+            const EDGE: &[Impersonate] = &[
+                Impersonate::EdgeV144,
+                Impersonate::EdgeV145,
+                Impersonate::EdgeV146,
+            ];
+            *EDGE.choose(&mut rand::rng()).unwrap()
+        }
+        Impersonate::Opera => {
+            const OPERA: &[Impersonate] = &[
+                Impersonate::OperaV126,
+                Impersonate::OperaV127,
+                Impersonate::OperaV128,
+                Impersonate::OperaV129,
+            ];
+            *OPERA.choose(&mut rand::rng()).unwrap()
+        }
+        Impersonate::Safari => {
+            const SAFARI: &[Impersonate] = &[
+                Impersonate::SafariV18_5,
+                Impersonate::SafariV26,
+                Impersonate::SafariV26_3,
+            ];
+            *SAFARI.choose(&mut rand::rng()).unwrap()
+        }
+        Impersonate::Firefox => {
+            const FIREFOX: &[Impersonate] = &[
+                Impersonate::FirefoxV140,
+                Impersonate::FirefoxV146,
+                Impersonate::FirefoxV147,
+                Impersonate::FirefoxV148,
+            ];
+            *FIREFOX.choose(&mut rand::rng()).unwrap()
+        }
+        Impersonate::Random => random_impersonate(),
+        other => other,
+    }
 }
 
 /// Randomly selects an operating system for impersonation.
@@ -365,26 +336,41 @@ pub fn random_impersonate_os() -> ImpersonateOS {
     *OS_VARIANTS.choose(&mut rand::rng()).unwrap()
 }
 
-/// Resolves impersonation configuration with optional random fallback.
-///
-/// If either `chrome` or `os_type` is `None`, this function will randomly
-/// select a value for the missing parameter.
+/// Gets browser settings for impersonation.
 ///
 /// # Arguments
 ///
-/// * `chrome` - Optional Chrome version to impersonate
-/// * `os_type` - Optional OS platform to mimic
+/// * `version` - The browser version to impersonate
+/// * `os_type` - Optional OS to impersonate
 ///
 /// # Returns
 ///
-/// A tuple of `(Impersonate, ImpersonateOS)` with resolved values.
-#[inline]
-pub(crate) fn get_random_impersonate_config(
-    chrome: Option<Impersonate>,
+/// BrowserSettings with TLS, HTTP/2, and header configuration
+pub fn get_browser_settings(
+    version: Impersonate,
     os_type: Option<ImpersonateOS>,
-) -> (Impersonate, ImpersonateOS) {
-    let final_chrome = chrome.unwrap_or_else(random_impersonate);
-    let final_os = os_type.unwrap_or_else(random_impersonate_os);
+) -> BrowserSettings {
+    let version = resolve_impersonate(version);
+    let os_type = os_type.unwrap_or_default();
 
-    (final_chrome, final_os)
+    match version {
+        Impersonate::ChromeV144 | Impersonate::ChromeV145 | Impersonate::ChromeV146 => {
+            chrome::build_chrome_settings(version, os_type)
+        }
+        Impersonate::EdgeV144 | Impersonate::EdgeV145 | Impersonate::EdgeV146 => {
+            edge::build_edge_settings(version, os_type)
+        }
+        Impersonate::OperaV126
+        | Impersonate::OperaV127
+        | Impersonate::OperaV128
+        | Impersonate::OperaV129 => opera::build_opera_settings(version, os_type),
+        Impersonate::SafariV26 | Impersonate::SafariV26_3 | Impersonate::SafariV18_5 => {
+            safari::build_safari_settings(version, os_type)
+        }
+        Impersonate::FirefoxV140
+        | Impersonate::FirefoxV146
+        | Impersonate::FirefoxV147
+        | Impersonate::FirefoxV148 => firefox::build_firefox_settings(version, os_type),
+        _ => unreachable!(),
+    }
 }

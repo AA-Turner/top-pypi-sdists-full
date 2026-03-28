@@ -35,7 +35,7 @@ dependencies = [
     "email-validator>=2.0.0",
     # For agents (Gemini)
     "google-genai>=1.0.0",
-    "cryptography>=43.0.0",
+    "cryptography>=46.0.6",
     # For LLM calls (multi-provider)
     "litellm>=1.40.0",
     "blake3>=0.3.0",
@@ -47,6 +47,7 @@ dependencies = [
     "opentelemetry-instrumentation-system-metrics>=0.50b0",
     "boto3",
     "fastmcp>=3.0.0",
+    "pathspec>=0.12.1",
 ]
 
 [project.scripts]

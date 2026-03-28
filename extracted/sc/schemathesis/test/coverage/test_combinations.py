@@ -196,6 +196,26 @@ def test_query_unexpected_parameters_control(ctx_factory, allow_extra_parameters
         assert CoverageScenario.OBJECT_UNEXPECTED_PROPERTIES not in scenarios
 
 
+@pytest.mark.parametrize("allow_extra_parameters", [True, False])
+def test_body_unexpected_parameters_control(ctx_factory, allow_extra_parameters):
+    schema = {
+        "type": "object",
+        "properties": {"token": {"type": "string"}},
+        "required": ["token"],
+        "additionalProperties": False,
+    }
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.NEGATIVE],
+        allow_extra_parameters=allow_extra_parameters,
+    )
+    scenarios = {value.scenario for value in cover_schema_iter(ctx, schema) if isinstance(value, GeneratedValue)}
+    if allow_extra_parameters:
+        assert CoverageScenario.OBJECT_UNEXPECTED_PROPERTIES in scenarios
+    else:
+        assert CoverageScenario.OBJECT_UNEXPECTED_PROPERTIES not in scenarios
+
+
 @pytest.mark.parametrize(
     ("schema", "lengths"),
     [
@@ -1107,6 +1127,19 @@ def test_positive_pattern(pctx):
     covered = cover_schema(pctx, schema)
     assert covered == ["0000-0000", "00-0000", "00-00000", "0000-000000000000000", "000-000000000000000"]
     assert_unique(covered)
+    assert_conform(covered, schema)
+
+
+def test_positive_pattern_with_wildcard_prefix_and_digit_limit(pctx):
+    # Regression: https://github.com/schemathesis/schemathesis/issues/3154
+    # Pattern with `.*` prefix and bounded digit quantifier `{1,10}`.
+    # st.from_regex(pattern) without fullmatch=True allowed strings with a trailing \n
+    # (Python's `$` matches before \n; JSON Schema / ECMAScript `$` does not),
+    # producing values that fail the schema but passed the Python-side filter,
+    # causing the hook to see a schema-conformant value while the URL carried an
+    # invalid one.
+    schema = {"type": "string", "pattern": r"^.*Id,([0-9]{1,10})$"}
+    covered = cover_schema(pctx, schema)
     assert_conform(covered, schema)
 
 

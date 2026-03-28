@@ -2,10 +2,9 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use ::primp::{
-    header, multipart, Body, Client as PrimpClient, Method, Proxy, Response as PrimpResponse, Url,
+    multipart, Body, Client as PrimpClient, Method, Proxy, Response as PrimpResponse, Url,
 };
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
 use pythonize::depythonize;
 use serde_json::Value;
 use tokio::fs::File;
@@ -13,9 +12,10 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::client_builder::{
     configure_client_builder, cookies_to_header_values, headers_without_cookie,
-    parse_cookies_from_header, IndexMapSSR,
+    parse_cookies_from_header, parse_url_or_domain, IndexMapSSR,
 };
 use crate::error::{PrimpErrorEnum, PrimpResult};
+use crate::extract_cookies_to_indexmap;
 use crate::traits::{HeaderMapExt, HeadersTraits};
 use crate::utils::extract_encoding;
 
@@ -155,7 +155,8 @@ impl AsyncClient {
 
     #[pyo3(signature = (url, cookies))]
     fn set_cookies(&self, url: &str, cookies: Option<IndexMapSSR>) -> PrimpResult<()> {
-        let url = Url::parse(url).map_err(|e| PrimpErrorEnum::InvalidURL(e.to_string()))?;
+        let url =
+            parse_url_or_domain(url).map_err(|e| PrimpErrorEnum::InvalidURL(e.to_string()))?;
         if let Some(cookies) = cookies {
             let header_values = cookies_to_header_values(&cookies);
             let client = self.client.read().expect("client lock was poisoned");
@@ -221,8 +222,8 @@ impl AsyncClient {
             let mut request_builder = client.request(method, &url_owned);
 
             // Params
-            if let Some(params) = params {
-                request_builder = request_builder.query(&params);
+            if let Some(p) = &params {
+                request_builder = request_builder.query(p);
             }
 
             // Headers
@@ -287,58 +288,18 @@ impl AsyncClient {
                 match future.await {
                     Ok((resp, url, status_code)) => {
                         // Extract headers, cookies, encoding for StreamResponse
-                        let headers_map: std::collections::HashMap<String, String> = {
-                            let mut h = std::collections::HashMap::new();
-                            for (key, value) in resp.headers() {
-                                h.insert(key.to_string(), value.to_str().unwrap_or("").to_string());
-                            }
-                            h
-                        };
-                        let cookies_map: std::collections::HashMap<String, String> = {
-                            let mut c = std::collections::HashMap::new();
-                            let set_cookie_header = resp.headers().get_all(header::SET_COOKIE);
-                            for cookie_header in set_cookie_header.iter() {
-                                if let Ok(cookie_str) = cookie_header.to_str() {
-                                    if let Some((name, value)) = cookie_str.split_once('=') {
-                                        c.insert(
-                                            name.trim().to_string(),
-                                            value
-                                                .split(';')
-                                                .next()
-                                                .unwrap_or("")
-                                                .trim()
-                                                .to_string(),
-                                        );
-                                    }
-                                }
-                            }
-                            c
-                        };
+                        let headers: IndexMapSSR = resp.headers().to_indexmap();
+                        let cookies: IndexMapSSR = extract_cookies_to_indexmap(resp.headers());
                         let encoding = extract_encoding(resp.headers()).name().to_string();
 
-                        // Need to create PyDict in Python context
-                        Python::attach(|py| {
-                            let headers = PyDict::new(py);
-                            for (key, value) in headers_map {
-                                headers.set_item(key, value)?;
-                            }
-
-                            let cookies = PyDict::new(py);
-                            for (key, value) in cookies_map {
-                                cookies.set_item(key, value)?;
-                            }
-
-                            Ok::<crate::r#async::response::AsyncStreamResponse, PyErr>(
-                                crate::r#async::response::AsyncStreamResponse::new(
-                                    resp,
-                                    url,
-                                    status_code,
-                                    encoding,
-                                    headers.unbind(),
-                                    cookies.unbind(),
-                                ),
-                            )
-                        })
+                        Ok(crate::r#async::response::AsyncStreamResponse::new(
+                            resp,
+                            url,
+                            status_code,
+                            encoding,
+                            headers,
+                            cookies,
+                        ))
                     }
                     Err(e) => Err(e.into()),
                 }
@@ -603,7 +564,7 @@ impl AsyncClient {
     }
 
     /// Support for async context manager protocol.
-    fn __aenter__<'py>(slf: Py<Self>, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+    fn __aenter__(slf: Py<Self>, py: Python<'_>) -> PyResult<Bound<'_, PyAny>> {
         use pyo3_async_runtimes::tokio::future_into_py;
         future_into_py(py, async move { Ok(slf) })
     }

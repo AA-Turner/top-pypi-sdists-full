@@ -1,26 +1,42 @@
 import click
 
 from schemathesis.cli.commands.run.handlers.base import EventHandler
-from schemathesis.cli.commands.run.handlers.cassettes import CassetteWriter
+from schemathesis.cli.commands.run.handlers.har import HarHandler
 from schemathesis.cli.commands.run.handlers.junitxml import JunitXMLHandler
-from schemathesis.cli.commands.run.handlers.ndjson import NdjsonWriter
+from schemathesis.cli.commands.run.handlers.ndjson import NdjsonHandler
 from schemathesis.cli.commands.run.handlers.output import OutputHandler
+from schemathesis.cli.commands.run.handlers.vcr import VcrHandler
 from schemathesis.cli.constants import EXTENSIONS_DOCUMENTATION_URL, ISSUE_TRACKER_URL
 from schemathesis.core.errors import format_exception
 
 __all__ = [
     "EventHandler",
-    "CassetteWriter",
+    "VcrHandler",
+    "HarHandler",
     "JunitXMLHandler",
-    "NdjsonWriter",
+    "NdjsonHandler",
     "OutputHandler",
     "display_handler_error",
 ]
 
 
+try:
+    from schemathesis.cli.commands.run.handlers.allure import AllureHandler
+
+    _BUILT_IN_HANDLERS: tuple[type[EventHandler], ...] = (
+        VcrHandler,
+        HarHandler,
+        JunitXMLHandler,
+        NdjsonHandler,
+        OutputHandler,
+        AllureHandler,
+    )
+except ImportError:
+    _BUILT_IN_HANDLERS = (VcrHandler, HarHandler, JunitXMLHandler, NdjsonHandler, OutputHandler)
+
+
 def is_built_in_handler(handler: EventHandler) -> bool:
-    # Look for exact instances, not subclasses
-    return any(type(handler) is class_ for class_ in (CassetteWriter, JunitXMLHandler, NdjsonWriter, OutputHandler))
+    return type(handler) in _BUILT_IN_HANDLERS
 
 
 def display_handler_error(handler: EventHandler, exc: Exception) -> None:

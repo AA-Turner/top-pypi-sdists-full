@@ -1617,11 +1617,123 @@ async def _handle_spec_command(
         _all_parts = user_input.split()
         _is_bugfix = "--bugfix" in _all_parts
         _is_design_first = "--design-first" in _all_parts
+        _is_prompt = "--prompt" in _all_parts
+        _is_from_issue = "--from-issue" in _all_parts
         _non_flag_parts = [p for p in _all_parts if not p.startswith("--")]
+
+        # --prompt and --from-issue flows need: <flag-value> <ns> <name>
+        if _is_prompt or _is_from_issue:
+            import os
+            import subprocess as _sp_mod
+            import tempfile
+
+            # Extract the flag value (prompt text or issue number)
+            _flag_name = "--prompt" if _is_prompt else "--from-issue"
+            _flag_idx = _all_parts.index(_flag_name)
+            _flag_val = _all_parts[_flag_idx + 1] if _flag_idx + 1 < len(_all_parts) else ""
+
+            # Build positional parts: tokens after "/spec create" excluding
+            # the flag, its value, and any other flags.  For --prompt the
+            # value may span multiple tokens so we collect everything between
+            # the flag value and the final two positionals (ns, name).
+            _positionals: list[str] = []
+            _skip_next = False
+            for _tk in _all_parts[2:]:  # skip "/spec" and "create"
+                if _skip_next:
+                    _skip_next = False
+                    continue
+                if _tk.startswith("--"):
+                    _skip_next = True  # skip the flag's value token
+                    continue
+                _positionals.append(_tk)
+
+            # Last two positionals are namespace and name
+            _ns = _positionals[-2].strip() if len(_positionals) >= 2 else ""
+            _name = _positionals[-1].strip() if len(_positionals) >= 2 else ""
+            if not _flag_val or not _ns or not _name:
+                _usage = f"[{CHROME}]Usage: /spec create {_flag_name} <value> <namespace> <name>[/{CHROME}]\n"
+                renderer.console.print(_usage)
+                return
+
+            # Build the prompt text — may include multiple words after --prompt
+            if _is_prompt:
+                # Collect all tokens between --prompt and the ns/name positionals
+                _prompt_tokens = []
+                _collecting = False
+                for _tk in _all_parts:
+                    if _tk == "--prompt":
+                        _collecting = True
+                        continue
+                    if _collecting:
+                        if _tk == _ns:
+                            break
+                        _prompt_tokens.append(_tk)
+                _prompt_text = " ".join(_prompt_tokens) if _prompt_tokens else _flag_val
+            else:
+                _prompt_text = ""
+
+            from ..services.ai_service import create_ai_service as _create_ai
+
+            if config is None:
+                renderer.console.print(f"[{_ERROR}]AI config not available.[/{_ERROR}]\n")
+                return
+            _ai_svc = _create_ai(config.ai)
+
+            from ..services.spec_generator import generate_spec_from_issue as _gen_issue
+            from ..services.spec_generator import generate_spec_from_prompt as _gen_prompt
+            from ..services.spec_schema import CREATION_FLOW_FROM_ISSUE, CREATION_FLOW_PROMPT
+
+            try:
+                if _is_prompt:
+                    _content = await _gen_prompt(_prompt_text, ai_service=_ai_svc, namespace=_ns, name=_name)
+                    _creation_flow = CREATION_FLOW_PROMPT
+                else:
+                    _content = await _gen_issue(int(_flag_val), ai_service=_ai_svc, namespace=_ns, name=_name)
+                    _creation_flow = CREATION_FLOW_FROM_ISSUE
+            except (ValueError, Exception) as _e:
+                renderer.console.print(f"[{_ERROR}]{_e}[/{_ERROR}]\n")
+                return
+
+            from rich.syntax import Syntax as _Syntax
+
+            renderer.console.print("\n[bold]Generated spec:[/bold]")
+            renderer.console.print(_Syntax(_content, "yaml", theme="monokai"))
+            renderer.console.print()
+
+            _editor = os.environ.get("EDITOR", os.environ.get("VISUAL", "vi"))
+            try:
+                with tempfile.NamedTemporaryFile(suffix=".yaml", mode="w", delete=False) as _tf:
+                    _tf.write(_content)
+                    _tf_path = _tf.name
+                _sp_mod.run([_editor, _tf_path], check=True)
+                with open(_tf_path) as _f:
+                    _content = _f.read()
+                os.unlink(_tf_path)
+            except Exception as _e:
+                renderer.console.print(f"[{_ERROR}]Editor failed: {_e}[/{_ERROR}]\n")
+                return
+
+            if not _content.strip():
+                renderer.console.print(f"[{CHROME}]Spec creation cancelled.[/{CHROME}]\n")
+                return
+
+            from ..services.spec_service import create_spec as _cs_gen
+
+            try:
+                _new = _cs_gen(db, _ns, _name, _content, creation_flow=_creation_flow)
+                renderer.console.print(f"[{_SUCCESS}]Created[/{_SUCCESS}] {_new['fqn']}\n")
+            except Exception as _e:
+                renderer.console.print(f"[{_ERROR}]{_e}[/{_ERROR}]\n")
+            return
+
         _ns = _non_flag_parts[2].strip() if len(_non_flag_parts) >= 3 else ""
         _name = _non_flag_parts[3].strip() if len(_non_flag_parts) >= 4 else ""
         if not _ns or not _name:
-            _msg = f"[{CHROME}]Usage: /spec create [--bugfix|--design-first] <namespace> <name>[/{CHROME}]\n"
+            _msg = (
+                f"[{CHROME}]Usage: /spec create "
+                f"[--bugfix|--design-first|--prompt <text>|--from-issue <N>] "
+                f"<namespace> <name>[/{CHROME}]\n"
+            )
             renderer.console.print(_msg)
             return
         import os
@@ -6391,7 +6503,11 @@ async def _run_repl(
                             renderer.render_newline()
                             # Show styled separator for the queued user message
                             queued_content = event.data.get("content", "")
-                            renderer.console.print(f"\n[{GOLD}]> {escape(queued_content[:200])}[/{GOLD}]")
+                            q_preview = queued_content[:200] + ("\u2026" if len(queued_content) > 200 else "")
+                            q_pos = event.data.get("position", "")
+                            q_depth = event.data.get("queue_depth", 0)
+                            q_meta = f" [{q_pos}/{q_pos + q_depth}]" if isinstance(q_pos, int) else ""
+                            renderer.console.print(f"\n[{GOLD}]>{q_meta} {escape(q_preview)}[/{GOLD}]")
                             renderer.render_newline()
                             renderer.clear_turn_history()
                             response_token_count = 0
@@ -6532,9 +6648,11 @@ async def _run_repl(
 
             if agent_busy.is_set():
                 if input_queue.full():
-                    renderer.console.print("[yellow]Queue full (max 10 messages)[/yellow]")
+                    renderer.console.print("[yellow]Queue full \u2014 wait for current work to finish[/yellow]")
                     continue
-                renderer.console.print(f"[{CHROME}]Message queued[/{CHROME}]")
+                position = input_queue.qsize() + 1
+                preview = text[:80] + ("\u2026" if len(text) > 80 else "")
+                renderer.console.print(f"[{CHROME}]Message queued [{position}]: {escape(preview)}[/{CHROME}]")
 
             await input_queue.put(text)
             agent_busy.set()

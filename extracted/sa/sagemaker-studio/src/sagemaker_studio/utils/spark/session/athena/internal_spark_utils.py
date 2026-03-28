@@ -10,7 +10,6 @@ region = _utils._get_domain_region()
 stage = _utils._get_datazone_stage()
 
 logger = logging.getLogger("SparkConnect")
-proj = Project()
 
 DEFAULT_SPARK_PROPS = {
     "hive.metastore.client.factory.class": "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory",
@@ -41,6 +40,7 @@ def _generate_spark_catalog_spark_configs(account_id):
 
 
 def _generate_s3tables_spark_configs():
+    proj = Project()
     catalogs = proj.connection().catalogs
     conf = {}
     catalog_count = 0

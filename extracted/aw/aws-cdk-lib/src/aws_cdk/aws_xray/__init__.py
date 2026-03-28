@@ -783,6 +783,10 @@ class CfnSamplingRule(
                 },
                 rule_arn="ruleArn",
                 rule_name="ruleName",
+                sampling_rate_boost=xray.CfnSamplingRule.SamplingRateBoostProperty(
+                    cooldown_window_minutes=123,
+                    max_rate=123
+                ),
                 version=123
             ),
             sampling_rule_record=xray.CfnSamplingRule.SamplingRuleRecordProperty(
@@ -805,6 +809,10 @@ class CfnSamplingRule(
                     },
                     rule_arn="ruleArn",
                     rule_name="ruleName",
+                    sampling_rate_boost=xray.CfnSamplingRule.SamplingRateBoostProperty(
+                        cooldown_window_minutes=123,
+                        max_rate=123
+                    ),
                     version=123
                 )
             ),
@@ -820,6 +828,10 @@ class CfnSamplingRule(
                 resource_arn="resourceArn",
                 rule_arn="ruleArn",
                 rule_name="ruleName",
+                sampling_rate_boost=xray.CfnSamplingRule.SamplingRateBoostProperty(
+                    cooldown_window_minutes=123,
+                    max_rate=123
+                ),
                 service_name="serviceName",
                 service_type="serviceType",
                 url_path="urlPath"
@@ -1028,6 +1040,83 @@ class CfnSamplingRule(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_xray.CfnSamplingRule.SamplingRateBoostProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "cooldown_window_minutes": "cooldownWindowMinutes",
+            "max_rate": "maxRate",
+        },
+    )
+    class SamplingRateBoostProperty:
+        def __init__(
+            self,
+            *,
+            cooldown_window_minutes: jsii.Number,
+            max_rate: jsii.Number,
+        ) -> None:
+            '''
+            :param cooldown_window_minutes: Time window (in minutes) in which only one sampling rate boost can be triggered. After a boost occurs, no further boosts are allowed until the next window.
+            :param max_rate: The maximum sampling rate X-Ray will apply when it detects anomalies. X-Ray determines the appropriate rate between your baseline and the maximum, depending on anomaly activity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-xray-samplingrule-samplingrateboost.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_xray as xray
+                
+                sampling_rate_boost_property = xray.CfnSamplingRule.SamplingRateBoostProperty(
+                    cooldown_window_minutes=123,
+                    max_rate=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__695811bff8ab96293de8f9db09a88e9f2001d41a6f85ea98bd3fe1cb4b72f807)
+                check_type(argname="argument cooldown_window_minutes", value=cooldown_window_minutes, expected_type=type_hints["cooldown_window_minutes"])
+                check_type(argname="argument max_rate", value=max_rate, expected_type=type_hints["max_rate"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cooldown_window_minutes": cooldown_window_minutes,
+                "max_rate": max_rate,
+            }
+
+        @builtins.property
+        def cooldown_window_minutes(self) -> jsii.Number:
+            '''Time window (in minutes) in which only one sampling rate boost can be triggered.
+
+            After a boost occurs, no further boosts are allowed until the next window.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-xray-samplingrule-samplingrateboost.html#cfn-xray-samplingrule-samplingrateboost-cooldownwindowminutes
+            '''
+            result = self._values.get("cooldown_window_minutes")
+            assert result is not None, "Required property 'cooldown_window_minutes' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def max_rate(self) -> jsii.Number:
+            '''The maximum sampling rate X-Ray will apply when it detects anomalies.
+
+            X-Ray determines the appropriate rate between your baseline and the maximum, depending on anomaly activity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-xray-samplingrule-samplingrateboost.html#cfn-xray-samplingrule-samplingrateboost-maxrate
+            '''
+            result = self._values.get("max_rate")
+            assert result is not None, "Required property 'max_rate' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SamplingRateBoostProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_xray.CfnSamplingRule.SamplingRuleProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -1043,6 +1132,7 @@ class CfnSamplingRule(
             "attributes": "attributes",
             "rule_arn": "ruleArn",
             "rule_name": "ruleName",
+            "sampling_rate_boost": "samplingRateBoost",
             "version": "version",
         },
     )
@@ -1062,6 +1152,7 @@ class CfnSamplingRule(
             attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
             rule_arn: typing.Optional[builtins.str] = None,
             rule_name: typing.Optional[builtins.str] = None,
+            sampling_rate_boost: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSamplingRule.SamplingRateBoostProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             version: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''A sampling rule that services use to decide whether to instrument a request.
@@ -1080,6 +1171,7 @@ class CfnSamplingRule(
             :param attributes: Matches attributes derived from the request. *Map Entries:* Maximum number of 5 items. *Key Length Constraints:* Minimum length of 1. Maximum length of 32. *Value Length Constraints:* Minimum length of 1. Maximum length of 32.
             :param rule_arn: The ARN of the sampling rule. Specify a rule by either name or ARN, but not both. .. epigraph:: Specifying a sampling rule by name is recommended, as specifying by ARN will be deprecated in future.
             :param rule_name: The name of the sampling rule. Specify a rule by either name or ARN, but not both.
+            :param sampling_rate_boost: 
             :param version: The version of the sampling rule. ``Version`` can only be set when creating a new sampling rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-xray-samplingrule-samplingrule.html
@@ -1108,6 +1200,10 @@ class CfnSamplingRule(
                     },
                     rule_arn="ruleArn",
                     rule_name="ruleName",
+                    sampling_rate_boost=xray.CfnSamplingRule.SamplingRateBoostProperty(
+                        cooldown_window_minutes=123,
+                        max_rate=123
+                    ),
                     version=123
                 )
             '''
@@ -1125,6 +1221,7 @@ class CfnSamplingRule(
                 check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
                 check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
                 check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+                check_type(argname="argument sampling_rate_boost", value=sampling_rate_boost, expected_type=type_hints["sampling_rate_boost"])
                 check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "fixed_rate": fixed_rate,
@@ -1143,6 +1240,8 @@ class CfnSamplingRule(
                 self._values["rule_arn"] = rule_arn
             if rule_name is not None:
                 self._values["rule_name"] = rule_name
+            if sampling_rate_boost is not None:
+                self._values["sampling_rate_boost"] = sampling_rate_boost
             if version is not None:
                 self._values["version"] = version
 
@@ -1280,6 +1379,16 @@ class CfnSamplingRule(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def sampling_rate_boost(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSamplingRule.SamplingRateBoostProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-xray-samplingrule-samplingrule.html#cfn-xray-samplingrule-samplingrule-samplingrateboost
+            '''
+            result = self._values.get("sampling_rate_boost")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSamplingRule.SamplingRateBoostProperty"]], result)
+
+        @builtins.property
         def version(self) -> typing.Optional[jsii.Number]:
             '''The version of the sampling rule.
 
@@ -1352,6 +1461,10 @@ class CfnSamplingRule(
                         },
                         rule_arn="ruleArn",
                         rule_name="ruleName",
+                        sampling_rate_boost=xray.CfnSamplingRule.SamplingRateBoostProperty(
+                            cooldown_window_minutes=123,
+                            max_rate=123
+                        ),
                         version=123
                     )
                 )
@@ -1421,6 +1534,7 @@ class CfnSamplingRule(
             "resource_arn": "resourceArn",
             "rule_arn": "ruleArn",
             "rule_name": "ruleName",
+            "sampling_rate_boost": "samplingRateBoost",
             "service_name": "serviceName",
             "service_type": "serviceType",
             "url_path": "urlPath",
@@ -1439,6 +1553,7 @@ class CfnSamplingRule(
             resource_arn: typing.Optional[builtins.str] = None,
             rule_arn: typing.Optional[builtins.str] = None,
             rule_name: typing.Optional[builtins.str] = None,
+            sampling_rate_boost: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSamplingRule.SamplingRateBoostProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             service_name: typing.Optional[builtins.str] = None,
             service_type: typing.Optional[builtins.str] = None,
             url_path: typing.Optional[builtins.str] = None,
@@ -1453,6 +1568,7 @@ class CfnSamplingRule(
             :param resource_arn: Matches the ARN of the AWS resource on which the service runs.
             :param rule_arn: The ARN of the sampling rule. Specify a rule by either name or ARN, but not both.
             :param rule_name: The ARN of the sampling rule. Specify a rule by either name or ARN, but not both.
+            :param sampling_rate_boost: 
             :param service_name: Matches the name that the service uses to identify itself in segments.
             :param service_type: Matches the origin that the service uses to identify its type in segments.
             :param url_path: Matches the path from a request URL.
@@ -1478,6 +1594,10 @@ class CfnSamplingRule(
                     resource_arn="resourceArn",
                     rule_arn="ruleArn",
                     rule_name="ruleName",
+                    sampling_rate_boost=xray.CfnSamplingRule.SamplingRateBoostProperty(
+                        cooldown_window_minutes=123,
+                        max_rate=123
+                    ),
                     service_name="serviceName",
                     service_type="serviceType",
                     url_path="urlPath"
@@ -1494,6 +1614,7 @@ class CfnSamplingRule(
                 check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
                 check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
                 check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
+                check_type(argname="argument sampling_rate_boost", value=sampling_rate_boost, expected_type=type_hints["sampling_rate_boost"])
                 check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
                 check_type(argname="argument service_type", value=service_type, expected_type=type_hints["service_type"])
                 check_type(argname="argument url_path", value=url_path, expected_type=type_hints["url_path"])
@@ -1516,6 +1637,8 @@ class CfnSamplingRule(
                 self._values["rule_arn"] = rule_arn
             if rule_name is not None:
                 self._values["rule_name"] = rule_name
+            if sampling_rate_boost is not None:
+                self._values["sampling_rate_boost"] = sampling_rate_boost
             if service_name is not None:
                 self._values["service_name"] = service_name
             if service_type is not None:
@@ -1611,6 +1734,16 @@ class CfnSamplingRule(
             '''
             result = self._values.get("rule_name")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def sampling_rate_boost(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSamplingRule.SamplingRateBoostProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-xray-samplingrule-samplingruleupdate.html#cfn-xray-samplingrule-samplingruleupdate-samplingrateboost
+            '''
+            result = self._values.get("sampling_rate_boost")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSamplingRule.SamplingRateBoostProperty"]], result)
 
         @builtins.property
         def service_name(self) -> typing.Optional[builtins.str]:
@@ -1709,6 +1842,10 @@ class CfnSamplingRuleProps:
                     },
                     rule_arn="ruleArn",
                     rule_name="ruleName",
+                    sampling_rate_boost=xray.CfnSamplingRule.SamplingRateBoostProperty(
+                        cooldown_window_minutes=123,
+                        max_rate=123
+                    ),
                     version=123
                 ),
                 sampling_rule_record=xray.CfnSamplingRule.SamplingRuleRecordProperty(
@@ -1731,6 +1868,10 @@ class CfnSamplingRuleProps:
                         },
                         rule_arn="ruleArn",
                         rule_name="ruleName",
+                        sampling_rate_boost=xray.CfnSamplingRule.SamplingRateBoostProperty(
+                            cooldown_window_minutes=123,
+                            max_rate=123
+                        ),
                         version=123
                     )
                 ),
@@ -1746,6 +1887,10 @@ class CfnSamplingRuleProps:
                     resource_arn="resourceArn",
                     rule_arn="ruleArn",
                     rule_name="ruleName",
+                    sampling_rate_boost=xray.CfnSamplingRule.SamplingRateBoostProperty(
+                        cooldown_window_minutes=123,
+                        max_rate=123
+                    ),
                     service_name="serviceName",
                     service_type="serviceType",
                     url_path="urlPath"
@@ -2235,6 +2380,14 @@ def _typecheckingstub__6a1929852408087d2571046ee7f325eff12f76e0d9beeee0f80585316
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__695811bff8ab96293de8f9db09a88e9f2001d41a6f85ea98bd3fe1cb4b72f807(
+    *,
+    cooldown_window_minutes: jsii.Number,
+    max_rate: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__43bc9b1caf3053b699ff280f7b010b90f9d18aa1854cf7169b6066bf2887c3d9(
     *,
     fixed_rate: jsii.Number,
@@ -2249,6 +2402,7 @@ def _typecheckingstub__43bc9b1caf3053b699ff280f7b010b90f9d18aa1854cf7169b6066bf2
     attributes: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
     rule_arn: typing.Optional[builtins.str] = None,
     rule_name: typing.Optional[builtins.str] = None,
+    sampling_rate_boost: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSamplingRule.SamplingRateBoostProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     version: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -2274,6 +2428,7 @@ def _typecheckingstub__75a672db5b7c76b4aaf3fd52ee6a4e3a911cc745d1728fa77059a1fca
     resource_arn: typing.Optional[builtins.str] = None,
     rule_arn: typing.Optional[builtins.str] = None,
     rule_name: typing.Optional[builtins.str] = None,
+    sampling_rate_boost: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSamplingRule.SamplingRateBoostProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_name: typing.Optional[builtins.str] = None,
     service_type: typing.Optional[builtins.str] = None,
     url_path: typing.Optional[builtins.str] = None,

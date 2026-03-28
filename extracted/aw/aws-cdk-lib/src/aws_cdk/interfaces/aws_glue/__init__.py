@@ -35,6 +35,55 @@ from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_glue.CatalogReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_arn": "resourceArn"},
+)
+class CatalogReference:
+    def __init__(self, *, resource_arn: builtins.str) -> None:
+        '''A reference to a Catalog resource.
+
+        :param resource_arn: The ResourceArn of the Catalog resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_glue as interfaces_glue
+            
+            catalog_reference = interfaces_glue.CatalogReference(
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f73a6ea26762ecbddcfac7ae43b16414e1d43933b3ed36504fa0600d7b87e382)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The ResourceArn of the Catalog resource.'''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CatalogReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.ClassifierReference",
     jsii_struct_bases=[],
     name_mapping={"classifier_id": "classifierId"},
@@ -426,6 +475,51 @@ class DevEndpointReference:
         return "DevEndpointReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_glue.ICatalogRef")
+class ICatalogRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Catalog.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogRef")
+    def catalog_ref(self) -> "CatalogReference":
+        '''(experimental) A reference to a Catalog resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICatalogRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Catalog.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_glue.ICatalogRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogRef")
+    def catalog_ref(self) -> "CatalogReference":
+        '''(experimental) A reference to a Catalog resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("CatalogReference", jsii.get(self, "catalogRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICatalogRef).__jsii_proxy_class__ = lambda : _ICatalogRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_glue.IClassifierRef")
@@ -2381,6 +2475,7 @@ class WorkflowReference:
 
 
 __all__ = [
+    "CatalogReference",
     "ClassifierReference",
     "ConnectionReference",
     "CrawlerReference",
@@ -2389,6 +2484,7 @@ __all__ = [
     "DataQualityRulesetReference",
     "DatabaseReference",
     "DevEndpointReference",
+    "ICatalogRef",
     "IClassifierRef",
     "IConnectionRef",
     "ICrawlerRef",
@@ -2432,6 +2528,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__f73a6ea26762ecbddcfac7ae43b16414e1d43933b3ed36504fa0600d7b87e382(
+    *,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__153075acc355fb8c67c2595f86bb736959d7a3490470e1496c4634652a073e55(
     *,
@@ -2605,5 +2708,5 @@ def _typecheckingstub__05490662a534e7ac737a01a3e54258abf2c5d6dd3a563391b841bd656
     """Type checking stubs"""
     pass
 
-for cls in [IClassifierRef, IConnectionRef, ICrawlerRef, ICustomEntityTypeRef, IDataCatalogEncryptionSettingsRef, IDataQualityRulesetRef, IDatabaseRef, IDevEndpointRef, IIdentityCenterConfigurationRef, IIntegrationRef, IIntegrationResourcePropertyRef, IJobRef, IMLTransformRef, IPartitionRef, IRegistryRef, ISchemaRef, ISchemaVersionMetadataRef, ISchemaVersionRef, ISecurityConfigurationRef, ITableOptimizerRef, ITableRef, ITriggerRef, IUsageProfileRef, IWorkflowRef]:
+for cls in [ICatalogRef, IClassifierRef, IConnectionRef, ICrawlerRef, ICustomEntityTypeRef, IDataCatalogEncryptionSettingsRef, IDataQualityRulesetRef, IDatabaseRef, IDevEndpointRef, IIdentityCenterConfigurationRef, IIntegrationRef, IIntegrationResourcePropertyRef, IJobRef, IMLTransformRef, IPartitionRef, IRegistryRef, ISchemaRef, ISchemaVersionMetadataRef, ISchemaVersionRef, ISecurityConfigurationRef, ITableOptimizerRef, ITableRef, ITriggerRef, IUsageProfileRef, IWorkflowRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

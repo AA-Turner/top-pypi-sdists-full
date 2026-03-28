@@ -15,10 +15,13 @@ from schemathesis.core.transport import Response
 from schemathesis.filters import FilterSet, attach_filter_chain
 
 if TYPE_CHECKING:
+    import requests
     from hypothesis import strategies as st
 
+    from schemathesis.checks import CheckResult
     from schemathesis.generation.case import Case
     from schemathesis.schemas import APIOperation, BaseSchema
+
 
 HookDispatcherMark = Mark["HookDispatcher"](attr_name="hook_dispatcher")
 
@@ -214,6 +217,10 @@ class HookDispatcher:
         """Get a list of hooks registered for a name."""
         return self._hooks.get(name, [])
 
+    def defines(self, name: str) -> bool:
+        """Return True if any hooks are registered under the given name."""
+        return bool(self._hooks.get(name))
+
     def get_all(self) -> dict[str, list[Callable]]:
         return self._hooks
 
@@ -240,7 +247,7 @@ class HookDispatcher:
             if _should_skip_hook(hook, context):
                 continue
             hook = partial(hook, context)
-            hook = _wrap_hook_for_generated_value(hook)
+            hook = _wrap_flatmap_hook_for_generated_value(hook)
             strategy = strategy.flatmap(hook)
         return strategy
 
@@ -298,6 +305,25 @@ def _wrap_hook_for_generated_value(hook: Callable) -> Callable:
         if isinstance(value, GeneratedValue):
             result = hook(value.value)
             return GeneratedValue(value=result, meta=value.meta)
+        return hook(value)
+
+    return wrapper
+
+
+def _wrap_flatmap_hook_for_generated_value(hook: Callable) -> Callable:
+    """Wrap a flatmap hook to handle GeneratedValue transparently.
+
+    Unlike map hooks, flatmap hooks return a SearchStrategy — not a value.
+    In NEGATIVE mode the input is a GeneratedValue wrapper, so we unwrap it,
+    call the hook to get a SearchStrategy, then re-wrap each drawn result so
+    the GeneratedValue metadata is preserved through the flatmap.
+    """
+    from schemathesis.specs.openapi.negative import GeneratedValue
+
+    def wrapper(value: Any) -> st.SearchStrategy:
+        if isinstance(value, GeneratedValue):
+            meta = value.meta
+            return hook(value.value).map(lambda v: GeneratedValue(value=v, meta=meta))
         return hook(value)
 
     return wrapper
@@ -427,7 +453,7 @@ def before_call(context: HookContext, case: Case, kwargs: dict[str, Any]) -> Non
     """
 
 
-@HookDispatcher.register_spec([HookScope.GLOBAL])
+@HookDispatcher.register_spec([HookScope.GLOBAL, HookScope.SCHEMA])
 def after_call(context: HookContext, case: Case, response: Response) -> None:
     """Called after every network call in CLI tests.
 
@@ -439,9 +465,36 @@ def after_call(context: HookContext, case: Case, response: Response) -> None:
     """
 
 
+@HookDispatcher.register_spec([HookScope.GLOBAL, HookScope.SCHEMA])
+def after_network_error(context: HookContext, case: Case, request: requests.PreparedRequest) -> None:
+    """Called when a network-level error (timeout, connection failure) occurs during case.call().
+
+    The prepared request that was attempted is available for logging or recording.
+
+    Use cases:
+     - Recording failed network interactions alongside successful ones.
+     - Logging connection failures.
+    """
+
+
+@all_scopes
+def after_validate(context: HookContext, case: Case, response: Response, results: list[CheckResult]) -> None:
+    """Called after all validation checks run on a response.
+
+    `results` contains one entry per check that was executed — `status` is
+    `Status.SUCCESS` when the check passed, `Status.FAILURE` with `failure`
+    populated when it did not.
+
+    Use cases:
+     - Recording check outcomes for cassette/report writers.
+     - Custom observability / logging of validation results.
+    """
+
+
 GLOBAL_HOOK_DISPATCHER = HookDispatcher(scope=HookScope.GLOBAL)
 dispatch = GLOBAL_HOOK_DISPATCHER.dispatch
 get_all_by_name = GLOBAL_HOOK_DISPATCHER.get_all_by_name
+defines = GLOBAL_HOOK_DISPATCHER.defines
 unregister = GLOBAL_HOOK_DISPATCHER.unregister
 unregister_all = GLOBAL_HOOK_DISPATCHER.unregister_all
 

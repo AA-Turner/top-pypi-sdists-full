@@ -21465,6 +21465,21 @@ class SslPolicy(enum.Enum):
     '''The recommended security policy for TLS listeners. This is the default policy for listeners created using the AWS Management Console.
 
     This policy includes TLS 1.3, and is backwards compatible with TLS 1.2
+
+    When feature flag
+
+    :aws-cdk:
+
+    /aws-elasticloadbalancingv2:usePostQuantumTlsPolicy is enabled,
+    listeners automatically use the post-quantum policy instead.
+    '''
+    TLS13_12_PQ = "TLS13_12_PQ"
+    '''TLS 1.3 and 1.2 with post-quantum hybrid key exchange using ML-KEM.
+
+    This uses the non-restricted variant (without -Res-) to maintain AES-CBC cipher support
+    for TLS 1.2 clients, ensuring backward compatibility.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
     '''
     RECOMMENDED = "RECOMMENDED"
     '''The recommended policy for http listeners.
@@ -21483,6 +21498,38 @@ class SslPolicy(enum.Enum):
     '''TLS1.1 through 1.3 with all ciphers.'''
     TLS13_13 = "TLS13_13"
     '''TLS1.3 only.'''
+    TLS13_13_PQ = "TLS13_13_PQ"
+    '''TLS 1.3 only with post-quantum hybrid key exchange using ML-KEM.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
+    '''
+    TLS13_12_RES_PQ = "TLS13_12_RES_PQ"
+    '''TLS 1.2 and 1.3 with post-quantum hybrid key exchange using ML-KEM.
+
+    Restricted cipher suite for enhanced security with quantum resistance.
+    Removes AES-CBC algorithms. AWS Console default policy for post-quantum cryptography.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
+    '''
+    TLS13_12_EXT1_PQ = "TLS13_12_EXT1_PQ"
+    '''TLS 1.2 and 1.3 with post-quantum hybrid key exchange using ML-KEM.
+
+    Extended cipher suite 1 with quantum resistance.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
+    '''
+    TLS13_12_EXT2_PQ = "TLS13_12_EXT2_PQ"
+    '''TLS 1.2 and 1.3 with post-quantum hybrid key exchange using ML-KEM.
+
+    Extended cipher suite 2 with quantum resistance.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
+    '''
+    TLS13_10_PQ = "TLS13_10_PQ"
+    '''TLS 1.0 through 1.3 with post-quantum hybrid key exchange using ML-KEM.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html
+    '''
     FIPS_TLS13_13 = "FIPS_TLS13_13"
     '''TLS 1.3 only with AES 128 and 256 GCM SHA ciphers.'''
     FIPS_TLS13_12_RES = "FIPS_TLS13_12_RES"
@@ -21499,6 +21546,56 @@ class SslPolicy(enum.Enum):
     '''TLS1.1 through 1.3 with all ciphers.'''
     FIPS_TLS13_10 = "FIPS_TLS13_10"
     '''TLS1.0 through 1.3 with all ciphers.'''
+    FIPS_TLS13_13_PQ = "FIPS_TLS13_13_PQ"
+    '''TLS 1.3 only with post-quantum hybrid key exchange using ML-KEM.
+
+    FIPS-compliant with quantum resistance.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#fips-security-policies
+    '''
+    FIPS_TLS13_12_PQ = "FIPS_TLS13_12_PQ"
+    '''TLS 1.2 and 1.3 with post-quantum hybrid key exchange using ML-KEM.
+
+    FIPS-compliant with quantum resistance.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#fips-security-policies
+    '''
+    FIPS_TLS13_12_RES_PQ = "FIPS_TLS13_12_RES_PQ"
+    '''TLS 1.2 and 1.3 with post-quantum hybrid key exchange using ML-KEM.
+
+    Restricted cipher suite for enhanced security with quantum resistance.
+    FIPS-compliant. AWS recommended policy for post-quantum cryptography with FIPS.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#fips-security-policies
+    '''
+    FIPS_TLS13_12_EXT0_PQ = "FIPS_TLS13_12_EXT0_PQ"
+    '''TLS 1.2 and 1.3 with post-quantum hybrid key exchange using ML-KEM.
+
+    Extended cipher suite 0 with quantum resistance. FIPS-compliant.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#fips-security-policies
+    '''
+    FIPS_TLS13_12_EXT1_PQ = "FIPS_TLS13_12_EXT1_PQ"
+    '''TLS 1.2 and 1.3 with post-quantum hybrid key exchange using ML-KEM.
+
+    Extended cipher suite 1 with quantum resistance. FIPS-compliant.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#fips-security-policies
+    '''
+    FIPS_TLS13_12_EXT2_PQ = "FIPS_TLS13_12_EXT2_PQ"
+    '''TLS 1.2 and 1.3 with post-quantum hybrid key exchange using ML-KEM.
+
+    Extended cipher suite 2 with quantum resistance. FIPS-compliant.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#fips-security-policies
+    '''
+    FIPS_TLS13_10_PQ = "FIPS_TLS13_10_PQ"
+    '''TLS 1.0 through 1.3 with post-quantum hybrid key exchange using ML-KEM.
+
+    FIPS-compliant with quantum resistance.
+
+    :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html#fips-security-policies
+    '''
     FORWARD_SECRECY_TLS12_RES_GCM = "FORWARD_SECRECY_TLS12_RES_GCM"
     '''Strong foward secrecy ciphers and TLV1.2 only (2020 edition). Same as FORWARD_SECRECY_TLS12_RES, but only supports GCM versions of the TLS ciphers.'''
     FORWARD_SECRECY_TLS12_RES = "FORWARD_SECRECY_TLS12_RES"

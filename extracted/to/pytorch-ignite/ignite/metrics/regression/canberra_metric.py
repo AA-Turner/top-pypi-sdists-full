@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import torch
 
 from ignite.metrics.metric import reinit__is_reduced, sync_all_reduce
@@ -36,7 +34,7 @@ class CanberraMetric(_BaseRegression):
             non-blocking. By default, CPU.
 
     .. _`Botchkarev 2018`:
-        https://arxiv.org/ftp/arxiv/papers/1809/1809.03006.pdf
+        https://arxiv.org/abs/1809.03006
 
     Examples:
         To use with ``Engine`` and ``process_function``, simply attach the metric instance to the engine.
@@ -71,7 +69,7 @@ class CanberraMetric(_BaseRegression):
     def reset(self) -> None:
         self._sum_of_errors = torch.tensor(0.0, device=self._device)
 
-    def _update(self, output: Tuple[torch.Tensor, torch.Tensor]) -> None:
+    def _update(self, output: tuple[torch.Tensor, torch.Tensor]) -> None:
         y_pred, y = output[0].detach(), output[1].detach()
         errors = torch.abs(y - y_pred) / (torch.abs(y_pred) + torch.abs(y) + 1e-15)
         self._sum_of_errors += torch.sum(errors).to(self._device)

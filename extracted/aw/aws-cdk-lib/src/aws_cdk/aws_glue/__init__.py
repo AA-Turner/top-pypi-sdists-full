@@ -74,6 +74,7 @@ from .. import (
     TreeInspector as _TreeInspector_488e0dd5,
 )
 from ..interfaces.aws_glue import (
+    CatalogReference as _CatalogReference_7a82da42,
     ClassifierReference as _ClassifierReference_26aea84f,
     ConnectionReference as _ConnectionReference_f88c2093,
     CrawlerReference as _CrawlerReference_143309bb,
@@ -82,6 +83,7 @@ from ..interfaces.aws_glue import (
     DataQualityRulesetReference as _DataQualityRulesetReference_4d6e4e83,
     DatabaseReference as _DatabaseReference_37094586,
     DevEndpointReference as _DevEndpointReference_e8b61e51,
+    ICatalogRef as _ICatalogRef_b7d85f3c,
     IClassifierRef as _IClassifierRef_580996de,
     IConnectionRef as _IConnectionRef_a16488ae,
     ICrawlerRef as _ICrawlerRef_51dfa641,
@@ -125,6 +127,1230 @@ from ..interfaces.aws_glue import (
 )
 from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
 from ..interfaces.aws_s3 import IBucketRef as _IBucketRef_3debe44e
+
+
+@jsii.implements(_IInspectable_c2943556, _ICatalogRef_b7d85f3c, _ITaggableV2_4e6798f8)
+class CfnCatalog(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_glue.CfnCatalog",
+):
+    '''Creates a catalog in the Glue Data Catalog.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html
+    :cloudformationResource: AWS::Glue::Catalog
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_glue as glue
+        
+        cfn_catalog = glue.CfnCatalog(self, "MyCfnCatalog",
+            name="name",
+        
+            # the properties below are optional
+            allow_full_table_external_data_access="allowFullTableExternalDataAccess",
+            catalog_properties=glue.CfnCatalog.CatalogPropertiesProperty(
+                custom_properties={
+                    "custom_properties_key": "customProperties"
+                },
+                data_lake_access_properties=glue.CfnCatalog.DataLakeAccessPropertiesProperty(
+                    allow_full_table_external_data_access="allowFullTableExternalDataAccess",
+                    catalog_type="catalogType",
+                    data_lake_access=False,
+                    data_transfer_role="dataTransferRole",
+                    kms_key="kmsKey",
+                    managed_workgroup_name="managedWorkgroupName",
+                    managed_workgroup_status="managedWorkgroupStatus",
+                    redshift_database_name="redshiftDatabaseName"
+                )
+            ),
+            create_database_default_permissions=[glue.CfnCatalog.PrincipalPermissionsProperty(
+                permissions=["permissions"],
+                principal=glue.CfnCatalog.DataLakePrincipalProperty(
+                    data_lake_principal_identifier="dataLakePrincipalIdentifier"
+                )
+            )],
+            create_table_default_permissions=[glue.CfnCatalog.PrincipalPermissionsProperty(
+                permissions=["permissions"],
+                principal=glue.CfnCatalog.DataLakePrincipalProperty(
+                    data_lake_principal_identifier="dataLakePrincipalIdentifier"
+                )
+            )],
+            description="description",
+            federated_catalog=glue.CfnCatalog.FederatedCatalogProperty(
+                connection_name="connectionName",
+                identifier="identifier"
+            ),
+            overwrite_child_resource_permissions_with_default="overwriteChildResourcePermissionsWithDefault",
+            parameters={
+                "parameters_key": "parameters"
+            },
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            target_redshift_catalog=glue.CfnCatalog.TargetRedshiftCatalogProperty(
+                catalog_arn="catalogArn"
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        allow_full_table_external_data_access: typing.Optional[builtins.str] = None,
+        catalog_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.CatalogPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        create_database_default_permissions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        create_table_default_permissions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        federated_catalog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.FederatedCatalogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        overwrite_child_resource_permissions_with_default: typing.Optional[builtins.str] = None,
+        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_redshift_catalog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.TargetRedshiftCatalogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Glue::Catalog``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the catalog to create.
+        :param allow_full_table_external_data_access: Allows third-party engines to access data in Amazon S3 locations that are registered with Lake Formation.
+        :param catalog_properties: A structure that specifies data lake access properties and other custom properties.
+        :param create_database_default_permissions: An array of PrincipalPermissions objects for default database permissions.
+        :param create_table_default_permissions: An array of PrincipalPermissions objects for default table permissions.
+        :param description: A description of the catalog.
+        :param federated_catalog: A FederatedCatalog structure that references an entity outside the Glue Data Catalog.
+        :param overwrite_child_resource_permissions_with_default: Specifies whether to overwrite child resource permissions with the default permissions.
+        :param parameters: A map of key-value pairs that define parameters and properties of the catalog.
+        :param tags: An array of key-value pairs to apply to this resource.
+        :param target_redshift_catalog: A structure that describes a target catalog for resource linking.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a07ee451a608fb42438c018b7cb6e276511be6d53068500e35383ffc0e0b653)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCatalogProps(
+            name=name,
+            allow_full_table_external_data_access=allow_full_table_external_data_access,
+            catalog_properties=catalog_properties,
+            create_database_default_permissions=create_database_default_permissions,
+            create_table_default_permissions=create_table_default_permissions,
+            description=description,
+            federated_catalog=federated_catalog,
+            overwrite_child_resource_permissions_with_default=overwrite_child_resource_permissions_with_default,
+            parameters=parameters,
+            tags=tags,
+            target_redshift_catalog=target_redshift_catalog,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnCatalog")
+    @builtins.classmethod
+    def is_cfn_catalog(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCatalog.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24b245b92f327ac6e52af26b9bbcb4dd85be3fe9f0e1870a58e9d322d2d93b60)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCatalog", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1fcd1c4e5dac6c89954d2319dac011c9e6c7c71ff8f35d79b5b6f480e5b0b86)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6afaff9b0502f4aeabafb225cc81d69e0bcacfe0826b53b099473f3326d3545a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCatalogId")
+    def attr_catalog_id(self) -> builtins.str:
+        '''The ID of the catalog.
+
+        :cloudformationAttribute: CatalogId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCatalogId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCatalogPropertiesCustomProperties")
+    def attr_catalog_properties_custom_properties(self) -> "_IResolvable_da3f097b":
+        '''Additional key-value properties for the catalog.
+
+        :cloudformationAttribute: CatalogProperties.CustomProperties
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrCatalogPropertiesCustomProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCatalogPropertiesDataLakeAccessPropertiesManagedWorkgroupName")
+    def attr_catalog_properties_data_lake_access_properties_managed_workgroup_name(
+        self,
+    ) -> builtins.str:
+        '''The name of the managed workgroup associated with the catalog.
+
+        :cloudformationAttribute: CatalogProperties.DataLakeAccessProperties.ManagedWorkgroupName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCatalogPropertiesDataLakeAccessPropertiesManagedWorkgroupName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCatalogPropertiesDataLakeAccessPropertiesManagedWorkgroupStatus")
+    def attr_catalog_properties_data_lake_access_properties_managed_workgroup_status(
+        self,
+    ) -> builtins.str:
+        '''The status of the managed workgroup.
+
+        :cloudformationAttribute: CatalogProperties.DataLakeAccessProperties.ManagedWorkgroupStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCatalogPropertiesDataLakeAccessPropertiesManagedWorkgroupStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCatalogPropertiesDataLakeAccessPropertiesRedshiftDatabaseName")
+    def attr_catalog_properties_data_lake_access_properties_redshift_database_name(
+        self,
+    ) -> builtins.str:
+        '''The name of the Redshift database.
+
+        :cloudformationAttribute: CatalogProperties.DataLakeAccessProperties.RedshiftDatabaseName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCatalogPropertiesDataLakeAccessPropertiesRedshiftDatabaseName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreateTime")
+    def attr_create_time(self) -> jsii.Number:
+        '''The time at which the catalog was created.
+
+        :cloudformationAttribute: CreateTime
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceArn")
+    def attr_resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the catalog.
+
+        :cloudformationAttribute: ResourceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdateTime")
+    def attr_update_time(self) -> jsii.Number:
+        '''The time at which the catalog was last updated.
+
+        :cloudformationAttribute: UpdateTime
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrUpdateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogRef")
+    def catalog_ref(self) -> "_CatalogReference_7a82da42":
+        '''A reference to a Catalog resource.'''
+        return typing.cast("_CatalogReference_7a82da42", jsii.get(self, "catalogRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the catalog to create.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__894516d454f622be891d766a80be7ea5ccaa9276b160baa185820b97aa0ef10b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="allowFullTableExternalDataAccess")
+    def allow_full_table_external_data_access(self) -> typing.Optional[builtins.str]:
+        '''Allows third-party engines to access data in Amazon S3 locations that are registered with Lake Formation.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "allowFullTableExternalDataAccess"))
+
+    @allow_full_table_external_data_access.setter
+    def allow_full_table_external_data_access(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3162943134ed4f982a21e08612ba767164138d898208032797ce8d690335787d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "allowFullTableExternalDataAccess", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogProperties")
+    def catalog_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.CatalogPropertiesProperty"]]:
+        '''A structure that specifies data lake access properties and other custom properties.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.CatalogPropertiesProperty"]], jsii.get(self, "catalogProperties"))
+
+    @catalog_properties.setter
+    def catalog_properties(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.CatalogPropertiesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7dac3530370982d7f627c183e1833848d015f8fc27575fcf99c61975dce601cf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "catalogProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="createDatabaseDefaultPermissions")
+    def create_database_default_permissions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCatalog.PrincipalPermissionsProperty"]]]]:
+        '''An array of PrincipalPermissions objects for default database permissions.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCatalog.PrincipalPermissionsProperty"]]]], jsii.get(self, "createDatabaseDefaultPermissions"))
+
+    @create_database_default_permissions.setter
+    def create_database_default_permissions(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCatalog.PrincipalPermissionsProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5950f44104e9c012f80477d757082b171020f4872097577274c346be077853f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "createDatabaseDefaultPermissions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="createTableDefaultPermissions")
+    def create_table_default_permissions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCatalog.PrincipalPermissionsProperty"]]]]:
+        '''An array of PrincipalPermissions objects for default table permissions.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCatalog.PrincipalPermissionsProperty"]]]], jsii.get(self, "createTableDefaultPermissions"))
+
+    @create_table_default_permissions.setter
+    def create_table_default_permissions(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCatalog.PrincipalPermissionsProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a17155e0b162e341002ecf28bce2861b5016753a223bdb96866c209788ca0f3c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "createTableDefaultPermissions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the catalog.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7a8b498fc6da53360a668b442e82607d2c1898833f116cb05a5d5034bec48728)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="federatedCatalog")
+    def federated_catalog(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.FederatedCatalogProperty"]]:
+        '''A FederatedCatalog structure that references an entity outside the Glue Data Catalog.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.FederatedCatalogProperty"]], jsii.get(self, "federatedCatalog"))
+
+    @federated_catalog.setter
+    def federated_catalog(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.FederatedCatalogProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03db44b4e4fa42b45536588761bb99ef3760e3080feea3076c7caa5199f4c7f5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "federatedCatalog", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="overwriteChildResourcePermissionsWithDefault")
+    def overwrite_child_resource_permissions_with_default(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        '''Specifies whether to overwrite child resource permissions with the default permissions.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "overwriteChildResourcePermissionsWithDefault"))
+
+    @overwrite_child_resource_permissions_with_default.setter
+    def overwrite_child_resource_permissions_with_default(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__626017bd17ccefc302a109575366777d47e9609a4e3f948a97b9bedfd1ab7ba0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "overwriteChildResourcePermissionsWithDefault", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        '''A map of key-value pairs that define parameters and properties of the catalog.'''
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(
+        self,
+        value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c559b5bb8c3dc9cdc70c7e9cb29321d8e9ab35cea80bb2bcfa859a88b009d9b1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b85a5b261f92e05293b5fea8086454813f04f4e3c1b0a9f86ce54925a3abe595)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetRedshiftCatalog")
+    def target_redshift_catalog(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.TargetRedshiftCatalogProperty"]]:
+        '''A structure that describes a target catalog for resource linking.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.TargetRedshiftCatalogProperty"]], jsii.get(self, "targetRedshiftCatalog"))
+
+    @target_redshift_catalog.setter
+    def target_redshift_catalog(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.TargetRedshiftCatalogProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1aee129aade4bae8d3a17027eaa2fe32e792bfe017f53562174644e635be92b1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetRedshiftCatalog", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.CatalogPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "custom_properties": "customProperties",
+            "data_lake_access_properties": "dataLakeAccessProperties",
+        },
+    )
+    class CatalogPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            custom_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            data_lake_access_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.DataLakeAccessPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''A structure that specifies data lake access properties and other custom properties.
+
+            :param custom_properties: Additional key-value properties for the catalog.
+            :param data_lake_access_properties: Data lake access properties for the catalog.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-catalogproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                catalog_properties_property = glue.CfnCatalog.CatalogPropertiesProperty(
+                    custom_properties={
+                        "custom_properties_key": "customProperties"
+                    },
+                    data_lake_access_properties=glue.CfnCatalog.DataLakeAccessPropertiesProperty(
+                        allow_full_table_external_data_access="allowFullTableExternalDataAccess",
+                        catalog_type="catalogType",
+                        data_lake_access=False,
+                        data_transfer_role="dataTransferRole",
+                        kms_key="kmsKey",
+                        managed_workgroup_name="managedWorkgroupName",
+                        managed_workgroup_status="managedWorkgroupStatus",
+                        redshift_database_name="redshiftDatabaseName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d531233ad58ced5460b464cc7ab8e253dc2303c1374f04f6a76f70745759bf2d)
+                check_type(argname="argument custom_properties", value=custom_properties, expected_type=type_hints["custom_properties"])
+                check_type(argname="argument data_lake_access_properties", value=data_lake_access_properties, expected_type=type_hints["data_lake_access_properties"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if custom_properties is not None:
+                self._values["custom_properties"] = custom_properties
+            if data_lake_access_properties is not None:
+                self._values["data_lake_access_properties"] = data_lake_access_properties
+
+        @builtins.property
+        def custom_properties(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+            '''Additional key-value properties for the catalog.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-catalogproperties.html#cfn-glue-catalog-catalogproperties-customproperties
+            '''
+            result = self._values.get("custom_properties")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def data_lake_access_properties(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.DataLakeAccessPropertiesProperty"]]:
+            '''Data lake access properties for the catalog.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-catalogproperties.html#cfn-glue-catalog-catalogproperties-datalakeaccessproperties
+            '''
+            result = self._values.get("data_lake_access_properties")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.DataLakeAccessPropertiesProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CatalogPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.DataLakeAccessPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "allow_full_table_external_data_access": "allowFullTableExternalDataAccess",
+            "catalog_type": "catalogType",
+            "data_lake_access": "dataLakeAccess",
+            "data_transfer_role": "dataTransferRole",
+            "kms_key": "kmsKey",
+            "managed_workgroup_name": "managedWorkgroupName",
+            "managed_workgroup_status": "managedWorkgroupStatus",
+            "redshift_database_name": "redshiftDatabaseName",
+        },
+    )
+    class DataLakeAccessPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            allow_full_table_external_data_access: typing.Optional[builtins.str] = None,
+            catalog_type: typing.Optional[builtins.str] = None,
+            data_lake_access: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            data_transfer_role: typing.Optional[builtins.str] = None,
+            kms_key: typing.Optional[builtins.str] = None,
+            managed_workgroup_name: typing.Optional[builtins.str] = None,
+            managed_workgroup_status: typing.Optional[builtins.str] = None,
+            redshift_database_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Data lake access properties for the catalog.
+
+            :param allow_full_table_external_data_access: Allows third-party engines to access data in Amazon S3 locations that are registered with Lake Formation.
+            :param catalog_type: Specifies a federated catalog type for the native catalog resource.
+            :param data_lake_access: Turns on or off data lake access for Apache Spark applications that access Amazon Redshift databases in the Data Catalog from any non-Redshift engine.
+            :param data_transfer_role: A role that will be assumed by Glue for transferring data into/out of the staging bucket during a query.
+            :param kms_key: An encryption key that will be used for the staging bucket that will be created along with the catalog.
+            :param managed_workgroup_name: The name of the managed workgroup associated with the catalog.
+            :param managed_workgroup_status: The status of the managed workgroup.
+            :param redshift_database_name: The name of the Redshift database.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeaccessproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                data_lake_access_properties_property = glue.CfnCatalog.DataLakeAccessPropertiesProperty(
+                    allow_full_table_external_data_access="allowFullTableExternalDataAccess",
+                    catalog_type="catalogType",
+                    data_lake_access=False,
+                    data_transfer_role="dataTransferRole",
+                    kms_key="kmsKey",
+                    managed_workgroup_name="managedWorkgroupName",
+                    managed_workgroup_status="managedWorkgroupStatus",
+                    redshift_database_name="redshiftDatabaseName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3d4d955f6645ef3b1c8233565ef606c3384aa1a486078b01fbf693c35756ad00)
+                check_type(argname="argument allow_full_table_external_data_access", value=allow_full_table_external_data_access, expected_type=type_hints["allow_full_table_external_data_access"])
+                check_type(argname="argument catalog_type", value=catalog_type, expected_type=type_hints["catalog_type"])
+                check_type(argname="argument data_lake_access", value=data_lake_access, expected_type=type_hints["data_lake_access"])
+                check_type(argname="argument data_transfer_role", value=data_transfer_role, expected_type=type_hints["data_transfer_role"])
+                check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+                check_type(argname="argument managed_workgroup_name", value=managed_workgroup_name, expected_type=type_hints["managed_workgroup_name"])
+                check_type(argname="argument managed_workgroup_status", value=managed_workgroup_status, expected_type=type_hints["managed_workgroup_status"])
+                check_type(argname="argument redshift_database_name", value=redshift_database_name, expected_type=type_hints["redshift_database_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if allow_full_table_external_data_access is not None:
+                self._values["allow_full_table_external_data_access"] = allow_full_table_external_data_access
+            if catalog_type is not None:
+                self._values["catalog_type"] = catalog_type
+            if data_lake_access is not None:
+                self._values["data_lake_access"] = data_lake_access
+            if data_transfer_role is not None:
+                self._values["data_transfer_role"] = data_transfer_role
+            if kms_key is not None:
+                self._values["kms_key"] = kms_key
+            if managed_workgroup_name is not None:
+                self._values["managed_workgroup_name"] = managed_workgroup_name
+            if managed_workgroup_status is not None:
+                self._values["managed_workgroup_status"] = managed_workgroup_status
+            if redshift_database_name is not None:
+                self._values["redshift_database_name"] = redshift_database_name
+
+        @builtins.property
+        def allow_full_table_external_data_access(
+            self,
+        ) -> typing.Optional[builtins.str]:
+            '''Allows third-party engines to access data in Amazon S3 locations that are registered with Lake Formation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeaccessproperties.html#cfn-glue-catalog-datalakeaccessproperties-allowfulltableexternaldataaccess
+            '''
+            result = self._values.get("allow_full_table_external_data_access")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def catalog_type(self) -> typing.Optional[builtins.str]:
+            '''Specifies a federated catalog type for the native catalog resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeaccessproperties.html#cfn-glue-catalog-datalakeaccessproperties-catalogtype
+            '''
+            result = self._values.get("catalog_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def data_lake_access(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Turns on or off data lake access for Apache Spark applications that access Amazon Redshift databases in the Data Catalog from any non-Redshift engine.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeaccessproperties.html#cfn-glue-catalog-datalakeaccessproperties-datalakeaccess
+            '''
+            result = self._values.get("data_lake_access")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def data_transfer_role(self) -> typing.Optional[builtins.str]:
+            '''A role that will be assumed by Glue for transferring data into/out of the staging bucket during a query.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeaccessproperties.html#cfn-glue-catalog-datalakeaccessproperties-datatransferrole
+            '''
+            result = self._values.get("data_transfer_role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def kms_key(self) -> typing.Optional[builtins.str]:
+            '''An encryption key that will be used for the staging bucket that will be created along with the catalog.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeaccessproperties.html#cfn-glue-catalog-datalakeaccessproperties-kmskey
+            '''
+            result = self._values.get("kms_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def managed_workgroup_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the managed workgroup associated with the catalog.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeaccessproperties.html#cfn-glue-catalog-datalakeaccessproperties-managedworkgroupname
+            '''
+            result = self._values.get("managed_workgroup_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def managed_workgroup_status(self) -> typing.Optional[builtins.str]:
+            '''The status of the managed workgroup.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeaccessproperties.html#cfn-glue-catalog-datalakeaccessproperties-managedworkgroupstatus
+            '''
+            result = self._values.get("managed_workgroup_status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def redshift_database_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the Redshift database.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeaccessproperties.html#cfn-glue-catalog-datalakeaccessproperties-redshiftdatabasename
+            '''
+            result = self._values.get("redshift_database_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DataLakeAccessPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.DataLakePrincipalProperty",
+        jsii_struct_bases=[],
+        name_mapping={"data_lake_principal_identifier": "dataLakePrincipalIdentifier"},
+    )
+    class DataLakePrincipalProperty:
+        def __init__(
+            self,
+            *,
+            data_lake_principal_identifier: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The Lake Formation principal.
+
+            :param data_lake_principal_identifier: An identifier for the Lake Formation principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeprincipal.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                data_lake_principal_property = glue.CfnCatalog.DataLakePrincipalProperty(
+                    data_lake_principal_identifier="dataLakePrincipalIdentifier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__04f27444eb3e319b74141e97b0a2b83583bf1c7e1ec771db4cbbda259d2f9b01)
+                check_type(argname="argument data_lake_principal_identifier", value=data_lake_principal_identifier, expected_type=type_hints["data_lake_principal_identifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if data_lake_principal_identifier is not None:
+                self._values["data_lake_principal_identifier"] = data_lake_principal_identifier
+
+        @builtins.property
+        def data_lake_principal_identifier(self) -> typing.Optional[builtins.str]:
+            '''An identifier for the Lake Formation principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeprincipal.html#cfn-glue-catalog-datalakeprincipal-datalakeprincipalidentifier
+            '''
+            result = self._values.get("data_lake_principal_identifier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DataLakePrincipalProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.FederatedCatalogProperty",
+        jsii_struct_bases=[],
+        name_mapping={"connection_name": "connectionName", "identifier": "identifier"},
+    )
+    class FederatedCatalogProperty:
+        def __init__(
+            self,
+            *,
+            connection_name: typing.Optional[builtins.str] = None,
+            identifier: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A FederatedCatalog structure that references an entity outside the Glue Data Catalog.
+
+            :param connection_name: The name of the connection to an external data source.
+            :param identifier: A unique identifier for the federated catalog.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-federatedcatalog.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                federated_catalog_property = glue.CfnCatalog.FederatedCatalogProperty(
+                    connection_name="connectionName",
+                    identifier="identifier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__03baae6c06200e09ab4dc98e13d427826fc12865c1a956b5e5e2723ba0d5becb)
+                check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
+                check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if connection_name is not None:
+                self._values["connection_name"] = connection_name
+            if identifier is not None:
+                self._values["identifier"] = identifier
+
+        @builtins.property
+        def connection_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the connection to an external data source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-federatedcatalog.html#cfn-glue-catalog-federatedcatalog-connectionname
+            '''
+            result = self._values.get("connection_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def identifier(self) -> typing.Optional[builtins.str]:
+            '''A unique identifier for the federated catalog.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-federatedcatalog.html#cfn-glue-catalog-federatedcatalog-identifier
+            '''
+            result = self._values.get("identifier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FederatedCatalogProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.PrincipalPermissionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"permissions": "permissions", "principal": "principal"},
+    )
+    class PrincipalPermissionsProperty:
+        def __init__(
+            self,
+            *,
+            permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
+            principal: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Permissions granted to a principal.
+
+            :param permissions: The permissions that are granted to the principal.
+            :param principal: The Lake Formation principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-principalpermissions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                principal_permissions_property = glue.CfnCatalog.PrincipalPermissionsProperty(
+                    permissions=["permissions"],
+                    principal=glue.CfnCatalog.DataLakePrincipalProperty(
+                        data_lake_principal_identifier="dataLakePrincipalIdentifier"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__07c163ffde6b71f2fba479412a0d6fed281493ac7393fe113c63fe33de8ef023)
+                check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
+                check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if permissions is not None:
+                self._values["permissions"] = permissions
+            if principal is not None:
+                self._values["principal"] = principal
+
+        @builtins.property
+        def permissions(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The permissions that are granted to the principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-principalpermissions.html#cfn-glue-catalog-principalpermissions-permissions
+            '''
+            result = self._values.get("permissions")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def principal(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.DataLakePrincipalProperty"]]:
+            '''The Lake Formation principal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-principalpermissions.html#cfn-glue-catalog-principalpermissions-principal
+            '''
+            result = self._values.get("principal")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.DataLakePrincipalProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PrincipalPermissionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnCatalog.TargetRedshiftCatalogProperty",
+        jsii_struct_bases=[],
+        name_mapping={"catalog_arn": "catalogArn"},
+    )
+    class TargetRedshiftCatalogProperty:
+        def __init__(self, *, catalog_arn: builtins.str) -> None:
+            '''A structure that describes a target catalog for resource linking.
+
+            :param catalog_arn: The Amazon Resource Name (ARN) of the catalog resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-targetredshiftcatalog.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                target_redshift_catalog_property = glue.CfnCatalog.TargetRedshiftCatalogProperty(
+                    catalog_arn="catalogArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9cf3cf31f1a0ec98d2f109fbf7f3c099d4f07b139d3c33d9085e182843b72edd)
+                check_type(argname="argument catalog_arn", value=catalog_arn, expected_type=type_hints["catalog_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "catalog_arn": catalog_arn,
+            }
+
+        @builtins.property
+        def catalog_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the catalog resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-targetredshiftcatalog.html#cfn-glue-catalog-targetredshiftcatalog-catalogarn
+            '''
+            result = self._values.get("catalog_arn")
+            assert result is not None, "Required property 'catalog_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TargetRedshiftCatalogProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_glue.CfnCatalogProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "allow_full_table_external_data_access": "allowFullTableExternalDataAccess",
+        "catalog_properties": "catalogProperties",
+        "create_database_default_permissions": "createDatabaseDefaultPermissions",
+        "create_table_default_permissions": "createTableDefaultPermissions",
+        "description": "description",
+        "federated_catalog": "federatedCatalog",
+        "overwrite_child_resource_permissions_with_default": "overwriteChildResourcePermissionsWithDefault",
+        "parameters": "parameters",
+        "tags": "tags",
+        "target_redshift_catalog": "targetRedshiftCatalog",
+    },
+)
+class CfnCatalogProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        allow_full_table_external_data_access: typing.Optional[builtins.str] = None,
+        catalog_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.CatalogPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        create_database_default_permissions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        create_table_default_permissions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.PrincipalPermissionsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        federated_catalog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.FederatedCatalogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        overwrite_child_resource_permissions_with_default: typing.Optional[builtins.str] = None,
+        parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_redshift_catalog: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCatalog.TargetRedshiftCatalogProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCatalog``.
+
+        :param name: The name of the catalog to create.
+        :param allow_full_table_external_data_access: Allows third-party engines to access data in Amazon S3 locations that are registered with Lake Formation.
+        :param catalog_properties: A structure that specifies data lake access properties and other custom properties.
+        :param create_database_default_permissions: An array of PrincipalPermissions objects for default database permissions.
+        :param create_table_default_permissions: An array of PrincipalPermissions objects for default table permissions.
+        :param description: A description of the catalog.
+        :param federated_catalog: A FederatedCatalog structure that references an entity outside the Glue Data Catalog.
+        :param overwrite_child_resource_permissions_with_default: Specifies whether to overwrite child resource permissions with the default permissions.
+        :param parameters: A map of key-value pairs that define parameters and properties of the catalog.
+        :param tags: An array of key-value pairs to apply to this resource.
+        :param target_redshift_catalog: A structure that describes a target catalog for resource linking.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_glue as glue
+            
+            cfn_catalog_props = glue.CfnCatalogProps(
+                name="name",
+            
+                # the properties below are optional
+                allow_full_table_external_data_access="allowFullTableExternalDataAccess",
+                catalog_properties=glue.CfnCatalog.CatalogPropertiesProperty(
+                    custom_properties={
+                        "custom_properties_key": "customProperties"
+                    },
+                    data_lake_access_properties=glue.CfnCatalog.DataLakeAccessPropertiesProperty(
+                        allow_full_table_external_data_access="allowFullTableExternalDataAccess",
+                        catalog_type="catalogType",
+                        data_lake_access=False,
+                        data_transfer_role="dataTransferRole",
+                        kms_key="kmsKey",
+                        managed_workgroup_name="managedWorkgroupName",
+                        managed_workgroup_status="managedWorkgroupStatus",
+                        redshift_database_name="redshiftDatabaseName"
+                    )
+                ),
+                create_database_default_permissions=[glue.CfnCatalog.PrincipalPermissionsProperty(
+                    permissions=["permissions"],
+                    principal=glue.CfnCatalog.DataLakePrincipalProperty(
+                        data_lake_principal_identifier="dataLakePrincipalIdentifier"
+                    )
+                )],
+                create_table_default_permissions=[glue.CfnCatalog.PrincipalPermissionsProperty(
+                    permissions=["permissions"],
+                    principal=glue.CfnCatalog.DataLakePrincipalProperty(
+                        data_lake_principal_identifier="dataLakePrincipalIdentifier"
+                    )
+                )],
+                description="description",
+                federated_catalog=glue.CfnCatalog.FederatedCatalogProperty(
+                    connection_name="connectionName",
+                    identifier="identifier"
+                ),
+                overwrite_child_resource_permissions_with_default="overwriteChildResourcePermissionsWithDefault",
+                parameters={
+                    "parameters_key": "parameters"
+                },
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                target_redshift_catalog=glue.CfnCatalog.TargetRedshiftCatalogProperty(
+                    catalog_arn="catalogArn"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ee7a7e009eccc26625e09e1177cd1257b2f0a950cd9987da2e77fbbbe8b8ed7)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument allow_full_table_external_data_access", value=allow_full_table_external_data_access, expected_type=type_hints["allow_full_table_external_data_access"])
+            check_type(argname="argument catalog_properties", value=catalog_properties, expected_type=type_hints["catalog_properties"])
+            check_type(argname="argument create_database_default_permissions", value=create_database_default_permissions, expected_type=type_hints["create_database_default_permissions"])
+            check_type(argname="argument create_table_default_permissions", value=create_table_default_permissions, expected_type=type_hints["create_table_default_permissions"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument federated_catalog", value=federated_catalog, expected_type=type_hints["federated_catalog"])
+            check_type(argname="argument overwrite_child_resource_permissions_with_default", value=overwrite_child_resource_permissions_with_default, expected_type=type_hints["overwrite_child_resource_permissions_with_default"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_redshift_catalog", value=target_redshift_catalog, expected_type=type_hints["target_redshift_catalog"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if allow_full_table_external_data_access is not None:
+            self._values["allow_full_table_external_data_access"] = allow_full_table_external_data_access
+        if catalog_properties is not None:
+            self._values["catalog_properties"] = catalog_properties
+        if create_database_default_permissions is not None:
+            self._values["create_database_default_permissions"] = create_database_default_permissions
+        if create_table_default_permissions is not None:
+            self._values["create_table_default_permissions"] = create_table_default_permissions
+        if description is not None:
+            self._values["description"] = description
+        if federated_catalog is not None:
+            self._values["federated_catalog"] = federated_catalog
+        if overwrite_child_resource_permissions_with_default is not None:
+            self._values["overwrite_child_resource_permissions_with_default"] = overwrite_child_resource_permissions_with_default
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if tags is not None:
+            self._values["tags"] = tags
+        if target_redshift_catalog is not None:
+            self._values["target_redshift_catalog"] = target_redshift_catalog
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the catalog to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html#cfn-glue-catalog-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def allow_full_table_external_data_access(self) -> typing.Optional[builtins.str]:
+        '''Allows third-party engines to access data in Amazon S3 locations that are registered with Lake Formation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html#cfn-glue-catalog-allowfulltableexternaldataaccess
+        '''
+        result = self._values.get("allow_full_table_external_data_access")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def catalog_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.CatalogPropertiesProperty"]]:
+        '''A structure that specifies data lake access properties and other custom properties.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html#cfn-glue-catalog-catalogproperties
+        '''
+        result = self._values.get("catalog_properties")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.CatalogPropertiesProperty"]], result)
+
+    @builtins.property
+    def create_database_default_permissions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCatalog.PrincipalPermissionsProperty"]]]]:
+        '''An array of PrincipalPermissions objects for default database permissions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html#cfn-glue-catalog-createdatabasedefaultpermissions
+        '''
+        result = self._values.get("create_database_default_permissions")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCatalog.PrincipalPermissionsProperty"]]]], result)
+
+    @builtins.property
+    def create_table_default_permissions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCatalog.PrincipalPermissionsProperty"]]]]:
+        '''An array of PrincipalPermissions objects for default table permissions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html#cfn-glue-catalog-createtabledefaultpermissions
+        '''
+        result = self._values.get("create_table_default_permissions")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCatalog.PrincipalPermissionsProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the catalog.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html#cfn-glue-catalog-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def federated_catalog(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.FederatedCatalogProperty"]]:
+        '''A FederatedCatalog structure that references an entity outside the Glue Data Catalog.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html#cfn-glue-catalog-federatedcatalog
+        '''
+        result = self._values.get("federated_catalog")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.FederatedCatalogProperty"]], result)
+
+    @builtins.property
+    def overwrite_child_resource_permissions_with_default(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        '''Specifies whether to overwrite child resource permissions with the default permissions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html#cfn-glue-catalog-overwritechildresourcepermissionswithdefault
+        '''
+        result = self._values.get("overwrite_child_resource_permissions_with_default")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+        '''A map of key-value pairs that define parameters and properties of the catalog.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html#cfn-glue-catalog-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html#cfn-glue-catalog-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def target_redshift_catalog(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.TargetRedshiftCatalogProperty"]]:
+        '''A structure that describes a target catalog for resource linking.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-catalog.html#cfn-glue-catalog-targetredshiftcatalog
+        '''
+        result = self._values.get("target_redshift_catalog")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCatalog.TargetRedshiftCatalogProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCatalogProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.implements(_IInspectable_c2943556, _IClassifierRef_580996de)
@@ -2660,6 +3886,19 @@ class CfnCrawler(
         jsii.set(self, "role", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''The tags to use with this crawler.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43760f25278105b8154c121bf9dd9dcaa617159cbb1a2a43fedb1312640eb5a0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="targets")
     def targets(
         self,
@@ -2842,19 +4081,6 @@ class CfnCrawler(
             type_hints = typing.get_type_hints(_typecheckingstub__49ba3e782c84d62bea6d1f3c7f0c9468d3b13099042cf162e2e35456bf59a264)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tablePrefix", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''The tags to use with this crawler.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43760f25278105b8154c121bf9dd9dcaa617159cbb1a2a43fedb1312640eb5a0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_glue.CfnCrawler.CatalogTargetProperty",
@@ -4758,6 +5984,19 @@ class CfnCustomEntityType(
         return typing.cast("_CustomEntityTypeReference_151d55a9", jsii.get(self, "customEntityTypeRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Any:
+        '''AWS tags that contain a key value pair and may be searched by console, command line, or API.'''
+        return typing.cast(typing.Any, jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__004ded3c6afee7c54be15b960f2dfa901eda8ff5ffd11f03dc0ad21cd665d3e9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="contextWords")
     def context_words(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of context words.'''
@@ -4795,19 +6034,6 @@ class CfnCustomEntityType(
             type_hints = typing.get_type_hints(_typecheckingstub__258029d677ed510f6e111f28b88a3fd5ca710364677c254b86f15149c3939f01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "regexString", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Any:
-        '''AWS tags that contain a key value pair and may be searched by console, command line, or API.'''
-        return typing.cast(typing.Any, jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__004ded3c6afee7c54be15b960f2dfa901eda8ff5ffd11f03dc0ad21cd665d3e9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -5569,6 +6795,19 @@ class CfnDataQualityRuleset(
         return typing.cast("_DataQualityRulesetReference_4d6e4e83", jsii.get(self, "dataQualityRulesetRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Any:
+        '''A list of tags applied to the data quality ruleset.'''
+        return typing.cast(typing.Any, jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__809d4010b3349232ca0d6023603914d402aeeedd96245959f582ca639b97209d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="clientToken")
     def client_token(self) -> typing.Optional[builtins.str]:
         '''Used for idempotency and is recommended to be set to a random ID (such as a UUID) to avoid creating or starting multiple instances of the same resource.'''
@@ -5619,19 +6858,6 @@ class CfnDataQualityRuleset(
             type_hints = typing.get_type_hints(_typecheckingstub__f89426cd75d9e88eba122cc29f0542dfceb62cfb21e07d8b912deed58918f8db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ruleset", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Any:
-        '''A list of tags applied to the data quality ruleset.'''
-        return typing.cast(typing.Any, jsii.get(self, "tags"))
-
-    @tags.setter
-    def tags(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__809d4010b3349232ca0d6023603914d402aeeedd96245959f582ca639b97209d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="targetTable")
@@ -6842,6 +8068,19 @@ class CfnDevEndpoint(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="arguments")
+    def arguments(self) -> typing.Any:
+        '''A map of arguments used to configure the ``DevEndpoint`` .'''
+        return typing.cast(typing.Any, jsii.get(self, "arguments"))
+
+    @arguments.setter
+    def arguments(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f7cd2d66e90d13b73d70f0cea82d85557e58e9448ea913c041c3bb9890fac7e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "arguments", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="roleArn")
     def role_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the IAM role used in this ``DevEndpoint`` .'''
@@ -6855,17 +8094,17 @@ class CfnDevEndpoint(
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="arguments")
-    def arguments(self) -> typing.Any:
-        '''A map of arguments used to configure the ``DevEndpoint`` .'''
-        return typing.cast(typing.Any, jsii.get(self, "arguments"))
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''The tags to use with this DevEndpoint.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
 
-    @arguments.setter
-    def arguments(self, value: typing.Any) -> None:
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f7cd2d66e90d13b73d70f0cea82d85557e58e9448ea913c041c3bb9890fac7e)
+            type_hints = typing.get_type_hints(_typecheckingstub__03002f2a13cc3cbf7cf9bb6d6a81931afcc4646ea26bd164b4b95dcd73f6fa3f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "arguments", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="endpointName")
@@ -7012,19 +8251,6 @@ class CfnDevEndpoint(
             type_hints = typing.get_type_hints(_typecheckingstub__a1fd805ade2dd824f981ba7d8026f5d5425fb676f266db5338e748229fe33c40)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''The tags to use with this DevEndpoint.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03002f2a13cc3cbf7cf9bb6d6a81931afcc4646ea26bd164b4b95dcd73f6fa3f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="workerType")
@@ -9033,6 +10259,32 @@ class CfnJob(
         jsii.set(self, "command", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="defaultArguments")
+    def default_arguments(self) -> typing.Any:
+        '''The default arguments for this job, specified as name-value pairs.'''
+        return typing.cast(typing.Any, jsii.get(self, "defaultArguments"))
+
+    @default_arguments.setter
+    def default_arguments(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e02555d63017f6d2d384ad19fac040a7af8d997186aa0f5944d58f0edeb3d405)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "defaultArguments", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nonOverridableArguments")
+    def non_overridable_arguments(self) -> typing.Any:
+        '''Non-overridable arguments for this job, specified as name-value pairs.'''
+        return typing.cast(typing.Any, jsii.get(self, "nonOverridableArguments"))
+
+    @non_overridable_arguments.setter
+    def non_overridable_arguments(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__68288520cd14059f70bcdca01796f4f53b90b28bd9200d4a3771f70a8977093c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nonOverridableArguments", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="role")
     def role(self) -> builtins.str:
         '''The name or Amazon Resource Name (ARN) of the IAM role associated with this job.'''
@@ -9044,6 +10296,19 @@ class CfnJob(
             type_hints = typing.get_type_hints(_typecheckingstub__d6215be83f5dcb82628d4c0f7daff3e6e5a40b7ba8133cbdd559c85f264c8248)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "role", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''The tags to use with this job.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__542d438feaf9522e0e8293fe9c53267730a064a757ebc71e8aa9fd97d002c38c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="allocatedCapacity")
@@ -9078,19 +10343,6 @@ class CfnJob(
             type_hints = typing.get_type_hints(_typecheckingstub__54148ad575a4b3d562b59f1200c3e45bd7838ddba81c25e024f8359b11bcc075)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "connections", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="defaultArguments")
-    def default_arguments(self) -> typing.Any:
-        '''The default arguments for this job, specified as name-value pairs.'''
-        return typing.cast(typing.Any, jsii.get(self, "defaultArguments"))
-
-    @default_arguments.setter
-    def default_arguments(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e02555d63017f6d2d384ad19fac040a7af8d997186aa0f5944d58f0edeb3d405)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultArguments", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -9249,19 +10501,6 @@ class CfnJob(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="nonOverridableArguments")
-    def non_overridable_arguments(self) -> typing.Any:
-        '''Non-overridable arguments for this job, specified as name-value pairs.'''
-        return typing.cast(typing.Any, jsii.get(self, "nonOverridableArguments"))
-
-    @non_overridable_arguments.setter
-    def non_overridable_arguments(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68288520cd14059f70bcdca01796f4f53b90b28bd9200d4a3771f70a8977093c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "nonOverridableArguments", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="notificationProperty")
     def notification_property(
         self,
@@ -9304,19 +10543,6 @@ class CfnJob(
             type_hints = typing.get_type_hints(_typecheckingstub__686551f876de8c0263f876f1f95fa84db57247f0bfd43e39fd7e27705da22d75)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''The tags to use with this job.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__542d438feaf9522e0e8293fe9c53267730a064a757ebc71e8aa9fd97d002c38c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="timeout")
@@ -10352,6 +11578,19 @@ class CfnMLTransform(
         jsii.set(self, "role", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''The tags to use with this machine learning transform.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7bcba5ebc0f231f7604a777a23c7985de7effc5b17647f8eb4388c48526da0ea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="transformParameters")
     def transform_parameters(
         self,
@@ -10449,19 +11688,6 @@ class CfnMLTransform(
             type_hints = typing.get_type_hints(_typecheckingstub__2c04ef8b7c306add821bddff56dbf5750b8115ac7dcd8c9ef30267c9df9f57ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "numberOfWorkers", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''The tags to use with this machine learning transform.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bcba5ebc0f231f7604a777a23c7985de7effc5b17647f8eb4388c48526da0ea)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="timeout")
@@ -17644,6 +18870,19 @@ class CfnTrigger(
         jsii.set(self, "actions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''The tags to use with this trigger.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b0b45c89e6532f144a9dfed7dc674b60a42cbe0a87f33d0c9422d7ae3603da7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="type")
     def type(self) -> builtins.str:
         '''The type of trigger that this is.'''
@@ -17748,19 +18987,6 @@ class CfnTrigger(
             type_hints = typing.get_type_hints(_typecheckingstub__68315158d369a16e86c793787be78f9303c715936ab11872da4b50150509337c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startOnCreation", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''The tags to use with this trigger.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b0b45c89e6532f144a9dfed7dc674b60a42cbe0a87f33d0c9422d7ae3603da7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="workflowName")
@@ -19215,6 +20441,19 @@ class CfnWorkflow(
         jsii.set(self, "defaultRunProperties", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''The tags to use with this workflow.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__588bdefa1fb0e0005b05a203dd64a0a1b8395bced0853eefec4b1943820f9259)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the workflow.'''
@@ -19252,19 +20491,6 @@ class CfnWorkflow(
             type_hints = typing.get_type_hints(_typecheckingstub__7e19cad13834aa6cc47e532030a314d08f3c215dfcce008b2e0227db3d71718e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''The tags to use with this workflow.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__588bdefa1fb0e0005b05a203dd64a0a1b8395bced0853eefec4b1943820f9259)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -19395,6 +20621,8 @@ class CfnWorkflowProps:
 
 
 __all__ = [
+    "CfnCatalog",
+    "CfnCatalogProps",
     "CfnClassifier",
     "CfnClassifierProps",
     "CfnConnection",
@@ -19446,6 +20674,178 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__0a07ee451a608fb42438c018b7cb6e276511be6d53068500e35383ffc0e0b653(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    allow_full_table_external_data_access: typing.Optional[builtins.str] = None,
+    catalog_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.CatalogPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    create_database_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    create_table_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    federated_catalog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.FederatedCatalogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    overwrite_child_resource_permissions_with_default: typing.Optional[builtins.str] = None,
+    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_redshift_catalog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.TargetRedshiftCatalogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24b245b92f327ac6e52af26b9bbcb4dd85be3fe9f0e1870a58e9d322d2d93b60(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1fcd1c4e5dac6c89954d2319dac011c9e6c7c71ff8f35d79b5b6f480e5b0b86(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6afaff9b0502f4aeabafb225cc81d69e0bcacfe0826b53b099473f3326d3545a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__894516d454f622be891d766a80be7ea5ccaa9276b160baa185820b97aa0ef10b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3162943134ed4f982a21e08612ba767164138d898208032797ce8d690335787d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7dac3530370982d7f627c183e1833848d015f8fc27575fcf99c61975dce601cf(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCatalog.CatalogPropertiesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5950f44104e9c012f80477d757082b171020f4872097577274c346be077853f(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCatalog.PrincipalPermissionsProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a17155e0b162e341002ecf28bce2861b5016753a223bdb96866c209788ca0f3c(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCatalog.PrincipalPermissionsProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a8b498fc6da53360a668b442e82607d2c1898833f116cb05a5d5034bec48728(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03db44b4e4fa42b45536588761bb99ef3760e3080feea3076c7caa5199f4c7f5(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCatalog.FederatedCatalogProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__626017bd17ccefc302a109575366777d47e9609a4e3f948a97b9bedfd1ab7ba0(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c559b5bb8c3dc9cdc70c7e9cb29321d8e9ab35cea80bb2bcfa859a88b009d9b1(
+    value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b85a5b261f92e05293b5fea8086454813f04f4e3c1b0a9f86ce54925a3abe595(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1aee129aade4bae8d3a17027eaa2fe32e792bfe017f53562174644e635be92b1(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCatalog.TargetRedshiftCatalogProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d531233ad58ced5460b464cc7ab8e253dc2303c1374f04f6a76f70745759bf2d(
+    *,
+    custom_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    data_lake_access_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.DataLakeAccessPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d4d955f6645ef3b1c8233565ef606c3384aa1a486078b01fbf693c35756ad00(
+    *,
+    allow_full_table_external_data_access: typing.Optional[builtins.str] = None,
+    catalog_type: typing.Optional[builtins.str] = None,
+    data_lake_access: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    data_transfer_role: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[builtins.str] = None,
+    managed_workgroup_name: typing.Optional[builtins.str] = None,
+    managed_workgroup_status: typing.Optional[builtins.str] = None,
+    redshift_database_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04f27444eb3e319b74141e97b0a2b83583bf1c7e1ec771db4cbbda259d2f9b01(
+    *,
+    data_lake_principal_identifier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03baae6c06200e09ab4dc98e13d427826fc12865c1a956b5e5e2723ba0d5becb(
+    *,
+    connection_name: typing.Optional[builtins.str] = None,
+    identifier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07c163ffde6b71f2fba479412a0d6fed281493ac7393fe113c63fe33de8ef023(
+    *,
+    permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    principal: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9cf3cf31f1a0ec98d2f109fbf7f3c099d4f07b139d3c33d9085e182843b72edd(
+    *,
+    catalog_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ee7a7e009eccc26625e09e1177cd1257b2f0a950cd9987da2e77fbbbe8b8ed7(
+    *,
+    name: builtins.str,
+    allow_full_table_external_data_access: typing.Optional[builtins.str] = None,
+    catalog_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.CatalogPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    create_database_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    create_table_default_permissions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.PrincipalPermissionsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    federated_catalog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.FederatedCatalogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    overwrite_child_resource_permissions_with_default: typing.Optional[builtins.str] = None,
+    parameters: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_redshift_catalog: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCatalog.TargetRedshiftCatalogProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__c31bd9435d221f14c31ca91edbb76c0650b44f88a5a16431a384ce5854e7dcad(
     scope: _constructs_77d1e7e8.Construct,
@@ -19746,6 +21146,12 @@ def _typecheckingstub__2d0f4795e30bdf52af75380422e6956fe78ac8cabb8c11c0f4d1f4c6e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__43760f25278105b8154c121bf9dd9dcaa617159cbb1a2a43fedb1312640eb5a0(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a8f17e8d0442485526676f5689364bcd775336febf0f27ff8adca3138ea4323d(
     value: typing.Union[_IResolvable_da3f097b, CfnCrawler.TargetsProperty],
 ) -> None:
@@ -19814,12 +21220,6 @@ def _typecheckingstub__14e3cba92ee30f03751c9fb3a0546500940820fefc42b0c7c3c2bc17b
 
 def _typecheckingstub__49ba3e782c84d62bea6d1f3c7f0c9468d3b13099042cf162e2e35456bf59a264(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__43760f25278105b8154c121bf9dd9dcaa617159cbb1a2a43fedb1312640eb5a0(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20012,6 +21412,12 @@ def _typecheckingstub__5a44dbad5acfb5d1ab1a4900296aa7aa8dd3f89c6979168443c7cc1d4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__004ded3c6afee7c54be15b960f2dfa901eda8ff5ffd11f03dc0ad21cd665d3e9(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d9a1b7db0046368ee993569d7df3e7fd0804b6e98a87f04e557ae064873f7978(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -20026,12 +21432,6 @@ def _typecheckingstub__d11901df483ca1c3600c4415a97269b90d2adfe324a4327071f30bddc
 
 def _typecheckingstub__258029d677ed510f6e111f28b88a3fd5ca710364677c254b86f15149c3939f01(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__004ded3c6afee7c54be15b960f2dfa901eda8ff5ffd11f03dc0ad21cd665d3e9(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20151,6 +21551,12 @@ def _typecheckingstub__2adc51e0237315dfdb93e5fccd4fccd0705f44e751c4ac91b448d6d8f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__809d4010b3349232ca0d6023603914d402aeeedd96245959f582ca639b97209d(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cb7412aa32bb9c0fa23c3df7527a57c842aabf5ffa622d5ab6cd6540caa2e57a(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -20171,12 +21577,6 @@ def _typecheckingstub__9c19fdaeabb94e016ab468e10db4486c501c8a4f296c51d5fd475d3ea
 
 def _typecheckingstub__f89426cd75d9e88eba122cc29f0542dfceb62cfb21e07d8b912deed58918f8db(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__809d4010b3349232ca0d6023603914d402aeeedd96245959f582ca639b97209d(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20363,13 +21763,19 @@ def _typecheckingstub__70743942c06388357f2f720c4ada83418cff43d779d1a2cadbeff13e0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1f7cd2d66e90d13b73d70f0cea82d85557e58e9448ea913c041c3bb9890fac7e(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f3ba742e80db6ba15b810adbf5224257106f26a45069b05aa0962cf9d1acae18(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1f7cd2d66e90d13b73d70f0cea82d85557e58e9448ea913c041c3bb9890fac7e(
+def _typecheckingstub__03002f2a13cc3cbf7cf9bb6d6a81931afcc4646ea26bd164b4b95dcd73f6fa3f(
     value: typing.Any,
 ) -> None:
     """Type checking stubs"""
@@ -20437,12 +21843,6 @@ def _typecheckingstub__bc83e99874e70b5e3e40d0d86646d5472a372806976261bd02f95cbed
 
 def _typecheckingstub__a1fd805ade2dd824f981ba7d8026f5d5425fb676f266db5338e748229fe33c40(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__03002f2a13cc3cbf7cf9bb6d6a81931afcc4646ea26bd164b4b95dcd73f6fa3f(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20799,8 +22199,26 @@ def _typecheckingstub__92e6559d7b7e4750985b75f86ff0ead213e6dcf804f0f9d87d12c5dd1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e02555d63017f6d2d384ad19fac040a7af8d997186aa0f5944d58f0edeb3d405(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68288520cd14059f70bcdca01796f4f53b90b28bd9200d4a3771f70a8977093c(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d6215be83f5dcb82628d4c0f7daff3e6e5a40b7ba8133cbdd559c85f264c8248(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__542d438feaf9522e0e8293fe9c53267730a064a757ebc71e8aa9fd97d002c38c(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20813,12 +22231,6 @@ def _typecheckingstub__5e8f0c1f38624103ad14795e648b3d5168a0409e14719e26793922054
 
 def _typecheckingstub__54148ad575a4b3d562b59f1200c3e45bd7838ddba81c25e024f8359b11bcc075(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJob.ConnectionsListProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e02555d63017f6d2d384ad19fac040a7af8d997186aa0f5944d58f0edeb3d405(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20889,12 +22301,6 @@ def _typecheckingstub__34834931355b72bf0842139ae8010d5c3e556cc67c00f907c4e39b829
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__68288520cd14059f70bcdca01796f4f53b90b28bd9200d4a3771f70a8977093c(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__886cabf7d73da58088c752153f330c0b15d55d0334b2e6e1429c361c244fa40b(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJob.NotificationPropertyProperty]],
 ) -> None:
@@ -20909,12 +22315,6 @@ def _typecheckingstub__3dd8b61874c785b7e401c38c72a26b663aafa165c05e223526a1b0421
 
 def _typecheckingstub__686551f876de8c0263f876f1f95fa84db57247f0bfd43e39fd7e27705da22d75(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__542d438feaf9522e0e8293fe9c53267730a064a757ebc71e8aa9fd97d002c38c(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21042,6 +22442,12 @@ def _typecheckingstub__ee501d5b7fc7fb085aeae9cabacd68b8b8d9f9866700a8a370252e40d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7bcba5ebc0f231f7604a777a23c7985de7effc5b17647f8eb4388c48526da0ea(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__32022d812fa908378c1d2e724a2377474b2ce1f4f966dddbf71ad1f1c9d13dff(
     value: typing.Union[_IResolvable_da3f097b, CfnMLTransform.TransformParametersProperty],
 ) -> None:
@@ -21080,12 +22486,6 @@ def _typecheckingstub__97cb29ae8ccb30f3ace545620215abebebb628b2c7d82e15cb1e9519b
 
 def _typecheckingstub__2c04ef8b7c306add821bddff56dbf5750b8115ac7dcd8c9ef30267c9df9f57ce(
     value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7bcba5ebc0f231f7604a777a23c7985de7effc5b17647f8eb4388c48526da0ea(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22052,6 +23452,12 @@ def _typecheckingstub__53d40032b3434d3f5e99c83dacf150ee68e626c8b767443757082d57b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6b0b45c89e6532f144a9dfed7dc674b60a42cbe0a87f33d0c9422d7ae3603da7(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0c40487beec9ee28746c40fb85d90ed73d85349d2b1310591566c8a389d11491(
     value: builtins.str,
 ) -> None:
@@ -22090,12 +23496,6 @@ def _typecheckingstub__619711c62d98e25126265055c5714cbf3e2603579cec35909c8ddac5c
 
 def _typecheckingstub__68315158d369a16e86c793787be78f9303c715936ab11872da4b50150509337c(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6b0b45c89e6532f144a9dfed7dc674b60a42cbe0a87f33d0c9422d7ae3603da7(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22301,6 +23701,12 @@ def _typecheckingstub__44dfd2cb43609bdf14cd367fdb19e4b1ca604d3264c983f445f606fe9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__588bdefa1fb0e0005b05a203dd64a0a1b8395bced0853eefec4b1943820f9259(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__111cdaa83ed7e77873f89337e876aecddb9e6d748ce7b22cd537261bb2c0040e(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -22315,12 +23721,6 @@ def _typecheckingstub__41a06b4a8c873f8b95edfbe239c7699899e5c1a8a74755383d7c6c587
 
 def _typecheckingstub__7e19cad13834aa6cc47e532030a314d08f3c215dfcce008b2e0227db3d71718e(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__588bdefa1fb0e0005b05a203dd64a0a1b8395bced0853eefec4b1943820f9259(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

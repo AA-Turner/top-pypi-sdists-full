@@ -89,25 +89,28 @@ class CfnLifecyclePolicy(
 
     Example::
 
-        from aws_cdk import CfnTag, CfnTag, CfnTag, CfnTag, CfnTag
+        from aws_cdk import CfnTag, CfnTag, CfnTag, CfnTag, CfnTag, CfnTag, CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dlm as dlm
         
-        # cross_region_copy_targets: Any
-        # exclude_tags: Any
         # exclude_volume_types: Any
         
         cfn_lifecycle_policy = dlm.CfnLifecyclePolicy(self, "MyCfnLifecyclePolicy",
             copy_tags=False,
             create_interval=123,
-            cross_region_copy_targets=cross_region_copy_targets,
+            cross_region_copy_targets=[dlm.CfnLifecyclePolicy.CrossRegionCopyTargetProperty(
+                target_region="targetRegion"
+            )],
             default_policy="defaultPolicy",
             description="description",
             exclusions=dlm.CfnLifecyclePolicy.ExclusionsProperty(
                 exclude_boot_volumes=False,
-                exclude_tags=exclude_tags,
-                exclude_volume_types=exclude_volume_types
+                exclude_tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                exclude_volume_types=[exclude_volume_types]
             ),
             execution_role_arn="executionRoleArn",
             extend_deletion=False,
@@ -132,7 +135,9 @@ class CfnLifecyclePolicy(
                 )],
                 copy_tags=False,
                 create_interval=123,
-                cross_region_copy_targets=cross_region_copy_targets,
+                cross_region_copy_targets=[dlm.CfnLifecyclePolicy.CrossRegionCopyTargetProperty(
+                    target_region="targetRegion"
+                )],
                 event_source=dlm.CfnLifecyclePolicy.EventSourceProperty(
                     type="type",
         
@@ -147,8 +152,11 @@ class CfnLifecyclePolicy(
                 ),
                 exclusions=dlm.CfnLifecyclePolicy.ExclusionsProperty(
                     exclude_boot_volumes=False,
-                    exclude_tags=exclude_tags,
-                    exclude_volume_types=exclude_volume_types
+                    exclude_tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
+                    exclude_volume_types=[exclude_volume_types]
                 ),
                 extend_deletion=False,
                 parameters=dlm.CfnLifecyclePolicy.ParametersProperty(
@@ -260,7 +268,7 @@ class CfnLifecyclePolicy(
         *,
         copy_tags: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         create_interval: typing.Optional[jsii.Number] = None,
-        cross_region_copy_targets: typing.Any = None,
+        cross_region_copy_targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLifecyclePolicy.CrossRegionCopyTargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         default_policy: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         exclusions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLifecyclePolicy.ExclusionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -432,12 +440,17 @@ class CfnLifecyclePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="crossRegionCopyTargets")
-    def cross_region_copy_targets(self) -> typing.Any:
+    def cross_region_copy_targets(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLifecyclePolicy.CrossRegionCopyTargetProperty"]]]]:
         '''*[Default policies only]* Specifies destination Regions for snapshot or AMI copies.'''
-        return typing.cast(typing.Any, jsii.get(self, "crossRegionCopyTargets"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLifecyclePolicy.CrossRegionCopyTargetProperty"]]]], jsii.get(self, "crossRegionCopyTargets"))
 
     @cross_region_copy_targets.setter
-    def cross_region_copy_targets(self, value: typing.Any) -> None:
+    def cross_region_copy_targets(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLifecyclePolicy.CrossRegionCopyTargetProperty"]]]],
+    ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c77534ad651e2a8d67574cbcffaf68110be041f8971255d26c52491b23fdc32f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1414,6 +1427,59 @@ class CfnLifecyclePolicy(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dlm.CfnLifecyclePolicy.CrossRegionCopyTargetProperty",
+        jsii_struct_bases=[],
+        name_mapping={"target_region": "targetRegion"},
+    )
+    class CrossRegionCopyTargetProperty:
+        def __init__(
+            self,
+            *,
+            target_region: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param target_region: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dlm-lifecyclepolicy-crossregioncopytarget.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dlm as dlm
+                
+                cross_region_copy_target_property = dlm.CfnLifecyclePolicy.CrossRegionCopyTargetProperty(
+                    target_region="targetRegion"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8448a4ebb1bb167ba36b17b1583ac3597a5d616753330b26d77ce34495c5548f)
+                check_type(argname="argument target_region", value=target_region, expected_type=type_hints["target_region"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if target_region is not None:
+                self._values["target_region"] = target_region
+
+        @builtins.property
+        def target_region(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dlm-lifecyclepolicy-crossregioncopytarget.html#cfn-dlm-lifecyclepolicy-crossregioncopytarget-targetregion
+            '''
+            result = self._values.get("target_region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CrossRegionCopyTargetProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dlm.CfnLifecyclePolicy.DeprecateRuleProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -1782,8 +1848,8 @@ class CfnLifecyclePolicy(
             self,
             *,
             exclude_boot_volumes: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            exclude_tags: typing.Any = None,
-            exclude_volume_types: typing.Any = None,
+            exclude_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            exclude_volume_types: typing.Optional[typing.Union[typing.Sequence[typing.Any], "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''*[Default policies only]* Specifies exclusion parameters for volumes or instances for which you do not want to create snapshots or AMIs.
 
@@ -1798,17 +1864,20 @@ class CfnLifecyclePolicy(
 
             Example::
 
+                from aws_cdk import CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_dlm as dlm
                 
-                # exclude_tags: Any
                 # exclude_volume_types: Any
                 
                 exclusions_property = dlm.CfnLifecyclePolicy.ExclusionsProperty(
                     exclude_boot_volumes=False,
-                    exclude_tags=exclude_tags,
-                    exclude_volume_types=exclude_volume_types
+                    exclude_tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
+                    exclude_volume_types=[exclude_volume_types]
                 )
             '''
             if __debug__:
@@ -1838,16 +1907,20 @@ class CfnLifecyclePolicy(
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
-        def exclude_tags(self) -> typing.Any:
+        def exclude_tags(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]]:
             '''*[Default policies for EBS-backed AMIs only]* Specifies whether to exclude volumes that have specific tags.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dlm-lifecyclepolicy-exclusions.html#cfn-dlm-lifecyclepolicy-exclusions-excludetags
             '''
             result = self._values.get("exclude_tags")
-            return typing.cast(typing.Any, result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]], result)
 
         @builtins.property
-        def exclude_volume_types(self) -> typing.Any:
+        def exclude_volume_types(
+            self,
+        ) -> typing.Optional[typing.Union[typing.List[typing.Any], "_IResolvable_da3f097b"]]:
             '''*[Default policies for EBS snapshots only]* Specifies the volume types to exclude.
 
             Volumes of the specified types will not be targeted by the policy.
@@ -1855,7 +1928,7 @@ class CfnLifecyclePolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dlm-lifecyclepolicy-exclusions.html#cfn-dlm-lifecyclepolicy-exclusions-excludevolumetypes
             '''
             result = self._values.get("exclude_volume_types")
-            return typing.cast(typing.Any, result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[typing.Any], "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2115,7 +2188,7 @@ class CfnLifecyclePolicy(
             actions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLifecyclePolicy.ActionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             copy_tags: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             create_interval: typing.Optional[jsii.Number] = None,
-            cross_region_copy_targets: typing.Any = None,
+            cross_region_copy_targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLifecyclePolicy.CrossRegionCopyTargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             event_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLifecyclePolicy.EventSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             exclusions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLifecyclePolicy.ExclusionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             extend_deletion: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
@@ -2153,13 +2226,11 @@ class CfnLifecyclePolicy(
 
             Example::
 
-                from aws_cdk import CfnTag, CfnTag, CfnTag, CfnTag
+                from aws_cdk import CfnTag, CfnTag, CfnTag, CfnTag, CfnTag
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_dlm as dlm
                 
-                # cross_region_copy_targets: Any
-                # exclude_tags: Any
                 # exclude_volume_types: Any
                 
                 policy_details_property = dlm.CfnLifecyclePolicy.PolicyDetailsProperty(
@@ -2183,7 +2254,9 @@ class CfnLifecyclePolicy(
                     )],
                     copy_tags=False,
                     create_interval=123,
-                    cross_region_copy_targets=cross_region_copy_targets,
+                    cross_region_copy_targets=[dlm.CfnLifecyclePolicy.CrossRegionCopyTargetProperty(
+                        target_region="targetRegion"
+                    )],
                     event_source=dlm.CfnLifecyclePolicy.EventSourceProperty(
                         type="type",
                 
@@ -2198,8 +2271,11 @@ class CfnLifecyclePolicy(
                     ),
                     exclusions=dlm.CfnLifecyclePolicy.ExclusionsProperty(
                         exclude_boot_volumes=False,
-                        exclude_tags=exclude_tags,
-                        exclude_volume_types=exclude_volume_types
+                        exclude_tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )],
+                        exclude_volume_types=[exclude_volume_types]
                     ),
                     extend_deletion=False,
                     parameters=dlm.CfnLifecyclePolicy.ParametersProperty(
@@ -2390,7 +2466,9 @@ class CfnLifecyclePolicy(
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
-        def cross_region_copy_targets(self) -> typing.Any:
+        def cross_region_copy_targets(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLifecyclePolicy.CrossRegionCopyTargetProperty"]]]]:
             '''*[Default policies only]* Specifies destination Regions for snapshot or AMI copies.
 
             You can specify up to 3 destination Regions. If you do not want to create cross-Region copies, omit this parameter.
@@ -2398,7 +2476,7 @@ class CfnLifecyclePolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dlm-lifecyclepolicy-policydetails.html#cfn-dlm-lifecyclepolicy-policydetails-crossregioncopytargets
             '''
             result = self._values.get("cross_region_copy_targets")
-            return typing.cast(typing.Any, result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLifecyclePolicy.CrossRegionCopyTargetProperty"]]]], result)
 
         @builtins.property
         def event_source(
@@ -3390,7 +3468,7 @@ class CfnLifecyclePolicyProps:
         *,
         copy_tags: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         create_interval: typing.Optional[jsii.Number] = None,
-        cross_region_copy_targets: typing.Any = None,
+        cross_region_copy_targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLifecyclePolicy.CrossRegionCopyTargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         default_policy: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         exclusions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLifecyclePolicy.ExclusionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3421,25 +3499,28 @@ class CfnLifecyclePolicyProps:
 
         Example::
 
-            from aws_cdk import CfnTag, CfnTag, CfnTag, CfnTag, CfnTag
+            from aws_cdk import CfnTag, CfnTag, CfnTag, CfnTag, CfnTag, CfnTag, CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_dlm as dlm
             
-            # cross_region_copy_targets: Any
-            # exclude_tags: Any
             # exclude_volume_types: Any
             
             cfn_lifecycle_policy_props = dlm.CfnLifecyclePolicyProps(
                 copy_tags=False,
                 create_interval=123,
-                cross_region_copy_targets=cross_region_copy_targets,
+                cross_region_copy_targets=[dlm.CfnLifecyclePolicy.CrossRegionCopyTargetProperty(
+                    target_region="targetRegion"
+                )],
                 default_policy="defaultPolicy",
                 description="description",
                 exclusions=dlm.CfnLifecyclePolicy.ExclusionsProperty(
                     exclude_boot_volumes=False,
-                    exclude_tags=exclude_tags,
-                    exclude_volume_types=exclude_volume_types
+                    exclude_tags=[CfnTag(
+                        key="key",
+                        value="value"
+                    )],
+                    exclude_volume_types=[exclude_volume_types]
                 ),
                 execution_role_arn="executionRoleArn",
                 extend_deletion=False,
@@ -3464,7 +3545,9 @@ class CfnLifecyclePolicyProps:
                     )],
                     copy_tags=False,
                     create_interval=123,
-                    cross_region_copy_targets=cross_region_copy_targets,
+                    cross_region_copy_targets=[dlm.CfnLifecyclePolicy.CrossRegionCopyTargetProperty(
+                        target_region="targetRegion"
+                    )],
                     event_source=dlm.CfnLifecyclePolicy.EventSourceProperty(
                         type="type",
             
@@ -3479,8 +3562,11 @@ class CfnLifecyclePolicyProps:
                     ),
                     exclusions=dlm.CfnLifecyclePolicy.ExclusionsProperty(
                         exclude_boot_volumes=False,
-                        exclude_tags=exclude_tags,
-                        exclude_volume_types=exclude_volume_types
+                        exclude_tags=[CfnTag(
+                            key="key",
+                            value="value"
+                        )],
+                        exclude_volume_types=[exclude_volume_types]
                     ),
                     extend_deletion=False,
                     parameters=dlm.CfnLifecyclePolicy.ParametersProperty(
@@ -3653,7 +3739,9 @@ class CfnLifecyclePolicyProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def cross_region_copy_targets(self) -> typing.Any:
+    def cross_region_copy_targets(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLifecyclePolicy.CrossRegionCopyTargetProperty"]]]]:
         '''*[Default policies only]* Specifies destination Regions for snapshot or AMI copies.
 
         You can specify up to 3 destination Regions. If you do not want to create cross-Region copies, omit this parameter.
@@ -3661,7 +3749,7 @@ class CfnLifecyclePolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dlm-lifecyclepolicy.html#cfn-dlm-lifecyclepolicy-crossregioncopytargets
         '''
         result = self._values.get("cross_region_copy_targets")
-        return typing.cast(typing.Any, result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLifecyclePolicy.CrossRegionCopyTargetProperty"]]]], result)
 
     @builtins.property
     def default_policy(self) -> typing.Optional[builtins.str]:
@@ -3801,7 +3889,7 @@ def _typecheckingstub__2602533fbe79433bf8a3cb4984e0ec983ab5d121243f4d319dfc6038c
     *,
     copy_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     create_interval: typing.Optional[jsii.Number] = None,
-    cross_region_copy_targets: typing.Any = None,
+    cross_region_copy_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.CrossRegionCopyTargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     default_policy: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     exclusions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.ExclusionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3852,7 +3940,7 @@ def _typecheckingstub__1e355d2d56ace5cc54090484cdfafed2a85a9b48fa91a8df756bb89f4
     pass
 
 def _typecheckingstub__c77534ad651e2a8d67574cbcffaf68110be041f8971255d26c52491b23fdc32f(
-    value: typing.Any,
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnLifecyclePolicy.CrossRegionCopyTargetProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3983,6 +4071,13 @@ def _typecheckingstub__43d1308154968094810a1e971a8121cb2c821bd4deca38281f7b51fde
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8448a4ebb1bb167ba36b17b1583ac3597a5d616753330b26d77ce34495c5548f(
+    *,
+    target_region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__df13b895e1f0fe3ab1717df947409da20e475efc7de490ec9a5646ed329ef27a(
     *,
     count: typing.Optional[jsii.Number] = None,
@@ -4020,8 +4115,8 @@ def _typecheckingstub__3f5f81a0abf746f322239a01132f42ce76e2468d95f09b5832596d946
 def _typecheckingstub__5692b64ab6dee50c1d5309ad0a3d609805882baacd6ea4c1c2d0733bc12c7502(
     *,
     exclude_boot_volumes: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    exclude_tags: typing.Any = None,
-    exclude_volume_types: typing.Any = None,
+    exclude_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    exclude_volume_types: typing.Optional[typing.Union[typing.Sequence[typing.Any], _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4050,7 +4145,7 @@ def _typecheckingstub__64a970d220e1b895bd71825b15385fe27ec0bc3bb778dbb76043312a4
     actions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.ActionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     copy_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     create_interval: typing.Optional[jsii.Number] = None,
-    cross_region_copy_targets: typing.Any = None,
+    cross_region_copy_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.CrossRegionCopyTargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     event_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.EventSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     exclusions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.ExclusionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     extend_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -4127,7 +4222,7 @@ def _typecheckingstub__1414bd7f3e80e837a7b73bfb6d11bcc9e29191c357de74fe96a8efcfd
     *,
     copy_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     create_interval: typing.Optional[jsii.Number] = None,
-    cross_region_copy_targets: typing.Any = None,
+    cross_region_copy_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.CrossRegionCopyTargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     default_policy: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     exclusions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLifecyclePolicy.ExclusionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

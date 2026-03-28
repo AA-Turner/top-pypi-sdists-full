@@ -20,7 +20,7 @@ from dateutil.tz import tzutc
 import botocore
 import s3fs.core
 from s3fs.core import MAX_UPLOAD_PARTS, S3FileSystem, calculate_chunksize
-from s3fs.utils import ignoring, SSEParams
+from s3fs.utils import ignoring, SSEParams, FileExpired
 from botocore.exceptions import NoCredentialsError
 from fsspec.asyn import sync
 from fsspec.callbacks import Callback
@@ -146,14 +146,6 @@ def s3(s3_base):
     s3 = S3FileSystem(anon=False, client_kwargs={"endpoint_url": endpoint_uri})
     s3.invalidate_cache()
     yield s3
-
-
-@contextmanager
-def expect_errno(expected_errno):
-    """Expect an OSError and validate its errno code."""
-    with pytest.raises(OSError) as error:
-        yield
-    assert error.value.errno == expected_errno, "OSError has wrong error code."
 
 
 def test_simple(s3):
@@ -1010,6 +1002,43 @@ def test_get_file_with_kwargs(s3, tmpdir):
 
 
 @pytest.mark.parametrize("size", [2**10, 10 * 2**20])
+def test_get_file_parallel_callback(s3, tmpdir, size):
+    data = os.urandom(size)
+    s3.pipe(test_bucket_name + "/parallel_test", data)
+
+    test_file = str(tmpdir.join("parallel_test"))
+    cb = Callback()
+    s3.get_file(
+        test_bucket_name + "/parallel_test",
+        test_file,
+        callback=cb,
+        max_concurrency=4,
+        chunksize=5 * 2**20,
+    )
+    with open(test_file, "rb") as f:
+        assert f.read() == data
+    assert cb.size == len(data)
+    assert cb.value == cb.size
+
+
+@pytest.mark.parametrize("factor", [1, 5, 6])
+def test_get_file_parallel_integrity(s3, tmpdir, factor):
+    chunksize = 5 * 2**20
+    data = os.urandom(chunksize * factor)
+    s3.pipe(test_bucket_name + "/parallel_integrity", data)
+
+    test_file = str(tmpdir.join("parallel_integrity"))
+    s3.get_file(
+        test_bucket_name + "/parallel_integrity",
+        test_file,
+        max_concurrency=5,
+        chunksize=chunksize,
+    )
+    with open(test_file, "rb") as f:
+        assert f.read() == data
+
+
+@pytest.mark.parametrize("size", [2**10, 10 * 2**20])
 def test_put_file_with_callback(s3, tmpdir, size):
     test_file = str(tmpdir.join("test.json"))
     with open(test_file, "wb") as f:
@@ -1044,6 +1073,20 @@ def test_pipe_cat_big(s3, size):
     data = b"1234567890A" * size
     s3.pipe(test_bucket_name + "/bigfile", data)
     assert s3.cat(test_bucket_name + "/bigfile") == data
+
+
+@pytest.mark.parametrize("factor", [1, 5, 6])
+def test_cat_file_parallel(s3, factor):
+    chunksize = 5 * 2**20
+    data = os.urandom(chunksize * factor)
+    s3.pipe(test_bucket_name + "/cat_parallel", data)
+
+    result = s3.cat_file(
+        test_bucket_name + "/cat_parallel",
+        max_concurrency=5,
+        chunksize=chunksize,
+    )
+    assert result == data
 
 
 def test_errors(s3):
@@ -1104,6 +1147,19 @@ def test_errors_cause_preservings(monkeypatch, s3):
         s3.info("test/a.txt")
 
     assert exc.value.__cause__ is None
+
+
+def test_local_expiry_check(s3):
+    s3 = S3FileSystem(
+        local_expiry_check=True,
+        anon=False,
+        client_kwargs={"endpoint_url": endpoint_uri},
+    )
+    path = test_bucket_name + "/test/accounts.1.json"
+
+    with s3.open(path, "r") as f:
+        f.read(10)
+        f.read(10)
 
 
 def test_read_small(s3):
@@ -2381,7 +2437,13 @@ def test_get_file_info_with_selector(s3):
     condition=version.parse(moto.__version__) <= version.parse("1.3.16"),
     reason="Moto 1.3.16 is not supporting pre-conditions.",
 )
-def test_raise_exception_when_file_has_changed_during_reading(s3):
+@pytest.mark.parametrize("local_check", [False, True])
+def test_raise_exception_when_file_has_changed_during_reading(s3, local_check):
+    s3 = S3FileSystem(
+        local_expiry_check=local_check,
+        anon=False,
+        client_kwargs={"endpoint_url": endpoint_uri},
+    )
     test_file_name = "file1"
     test_file = "s3://" + test_bucket_name + "/" + test_file_name
     content1 = b"123"
@@ -2402,7 +2464,7 @@ def test_raise_exception_when_file_has_changed_during_reading(s3):
 
     with s3.open(test_file, "rb") as f:
         create_file(content2)
-        with expect_errno(errno.EBUSY):
+        with pytest.raises(FileExpired):
             f.read()
 
 
@@ -2561,6 +2623,46 @@ def test_find_with_prefix(s3):
     assert s3.find(test_bucket_name + "/prefixes/") == s3.find(
         test_bucket_name + "/prefixes/", prefix=None
     )
+
+
+def test_find_with_prefix_and_withdirs(s3):
+    # Issue #1013: prefix must be combinable with withdirs (used by _glob internally)
+    for cursor in range(10):
+        s3.touch(test_bucket_name + f"/wdpfx/sub/file_{cursor}")
+
+    # withdirs=True + prefix should work and include synthesised directory entries
+    result = s3.find(test_bucket_name, prefix="wdpfx", withdirs=True)
+    assert test_bucket_name + "/wdpfx/sub" in result
+    assert all(
+        r.startswith(test_bucket_name + "/wdpfx") for r in result
+    ), "prefix filter must be respected"
+    assert len([r for r in result if "file_" in r]) == 10
+
+    # prefix alone (withdirs=False default) must still work
+    files_only = s3.find(test_bucket_name + "/wdpfx/sub/", prefix="file_")
+    assert len(files_only) == 10
+
+
+def test_find_with_prefix_and_maxdepth(s3):
+    # Issue #1013: prefix must be combinable with maxdepth
+    for cursor in range(5):
+        s3.touch(test_bucket_name + f"/mxpfx/sub/file_{cursor}")
+    s3.touch(test_bucket_name + "/mxpfx_top")
+
+    # maxdepth=1 from test_bucket_name: only direct children (depth 1) are returned
+    # test_bucket_name/mxpfx_top is at depth 1, test_bucket_name/mxpfx/sub/file_* are at depth 3
+    result = s3.find(test_bucket_name, prefix="mxpfx", maxdepth=1)
+    assert test_bucket_name + "/mxpfx_top" in result
+    assert not any("file_" in r for r in result), "depth-2+ files must be excluded"
+
+    # maxdepth=2: picks up test_bucket_name/mxpfx/sub (depth 2 dir) but not files inside
+    result2 = s3.find(test_bucket_name, prefix="mxpfx", maxdepth=2, withdirs=True)
+    assert test_bucket_name + "/mxpfx/sub" in result2
+    assert not any("file_" in r for r in result2), "depth-3 files must be excluded"
+
+    # maxdepth=3: all files now reachable
+    result3 = s3.find(test_bucket_name, prefix="mxpfx", maxdepth=3)
+    assert len([r for r in result3 if "file_" in r]) == 5
 
 
 def test_list_after_find(s3):

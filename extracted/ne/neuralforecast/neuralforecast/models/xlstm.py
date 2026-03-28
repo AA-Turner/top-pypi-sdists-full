@@ -46,12 +46,13 @@ class xLSTM(BaseModel):
         stat_exog_list (list): static exogenous columns.
         exclude_insample_y (bool): whether to exclude the target variable from the input.
         recurrent (bool): whether to produce forecasts recursively (True) or direct (False).
-        loss (nn.Module): instantiated train loss class from [losses collection](./losses.pytorch).
-        valid_loss (nn.Module): instantiated valid loss class from [losses collection](./losses.pytorch).
+        loss (nn.Module): instantiated train loss class from [losses collection](./losses.pytorch.html).
+        valid_loss (nn.Module): instantiated valid loss class from [losses collection](./losses.pytorch.html).
         max_steps (int): maximum number of training steps.
         learning_rate (float): Learning rate between (0, 1).
         num_lr_decays (int): Number of learning rate decays, evenly distributed across max_steps.
         early_stop_patience_steps (int): Number of validation iterations before early stopping.
+        val_monitor (str): metric to monitor for early stopping. Valid options: "ptl/val_loss", "valid_loss", "train_loss". Default: "ptl/val_loss".
         val_check_steps (int): Number of training steps between every validation loss check.
         batch_size (int): number of differentseries in each batch.
         valid_batch_size (int): number of different series in each validation and test batch.
@@ -96,7 +97,7 @@ class xLSTM(BaseModel):
         encoder_bias: bool = True,
         encoder_dropout: float = 0.1,
         decoder_hidden_size: int = 128,
-        decoder_layers: int = 1,
+        decoder_layers: int = 2,
         decoder_dropout: float = 0.0,
         decoder_activation: str = "GELU",
         backbone: str = "mLSTM",
@@ -111,6 +112,7 @@ class xLSTM(BaseModel):
         learning_rate: float = 1e-3,
         num_lr_decays: int = -1,
         early_stop_patience_steps: int = -1,
+        val_monitor: str = "ptl/val_loss",
         val_check_steps: int = 100,
         batch_size=32,
         valid_batch_size: Optional[int] = None,
@@ -152,6 +154,7 @@ class xLSTM(BaseModel):
             learning_rate=learning_rate,
             num_lr_decays=num_lr_decays,
             early_stop_patience_steps=early_stop_patience_steps,
+            val_monitor=val_monitor,
             val_check_steps=val_check_steps,
             batch_size=batch_size,
             valid_batch_size=valid_batch_size,

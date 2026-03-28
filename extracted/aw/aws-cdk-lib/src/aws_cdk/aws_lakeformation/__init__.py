@@ -809,7 +809,7 @@ class CfnDataLakeSettings(
         external_data_filtering_allow_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         mutation_type: typing.Optional[builtins.str] = None,
         parameters: typing.Any = None,
-        read_only_admins: typing.Any = None,
+        read_only_admins: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::LakeFormation::DataLakeSettings``.
@@ -908,6 +908,19 @@ class CfnDataLakeSettings(
     def data_lake_settings_ref(self) -> "_DataLakeSettingsReference_5b5097ba":
         '''A reference to a DataLakeSettings resource.'''
         return typing.cast("_DataLakeSettingsReference_5b5097ba", jsii.get(self, "dataLakeSettingsRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(self) -> typing.Any:
+        '''A key-value map that provides an additional configuration on your data lake.'''
+        return typing.cast(typing.Any, jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d1151418341)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="admins")
@@ -1049,25 +1062,17 @@ class CfnDataLakeSettings(
         jsii.set(self, "mutationType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(self) -> typing.Any:
-        '''A key-value map that provides an additional configuration on your data lake.'''
-        return typing.cast(typing.Any, jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d1151418341)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="readOnlyAdmins")
-    def read_only_admins(self) -> typing.Any:
-        return typing.cast(typing.Any, jsii.get(self, "readOnlyAdmins"))
+    def read_only_admins(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], jsii.get(self, "readOnlyAdmins"))
 
     @read_only_admins.setter
-    def read_only_admins(self, value: typing.Any) -> None:
+    def read_only_admins(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]],
+    ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__96372dbbf1b8d27bf02f12216956eed437c5cc030db0064f219c54947065469f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1247,7 +1252,7 @@ class CfnDataLakeSettingsProps:
         external_data_filtering_allow_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         mutation_type: typing.Optional[builtins.str] = None,
         parameters: typing.Any = None,
-        read_only_admins: typing.Any = None,
+        read_only_admins: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataLakeSettings.DataLakePrincipalProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDataLakeSettings``.
@@ -1503,12 +1508,14 @@ class CfnDataLakeSettingsProps:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def read_only_admins(self) -> typing.Any:
+    def read_only_admins(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lakeformation-datalakesettings.html#cfn-lakeformation-datalakesettings-readonlyadmins
         '''
         result = self._values.get("read_only_admins")
-        return typing.cast(typing.Any, result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataLakeSettings.DataLakePrincipalProperty"]]]], result)
 
     @builtins.property
     def trusted_resource_owners(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5935,7 +5942,7 @@ def _typecheckingstub__f70f29826d8a7fc5611588cb6eeb3680ada51f8de62dc227827dff9f5
     external_data_filtering_allow_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     mutation_type: typing.Optional[builtins.str] = None,
     parameters: typing.Any = None,
-    read_only_admins: typing.Any = None,
+    read_only_admins: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5955,6 +5962,12 @@ def _typecheckingstub__45022e2f75497dc5031de0534471b774f37d3e0163dd1cf0944a87995
 
 def _typecheckingstub__638c6babf62b74da5a2cf7141e8d1f010dd75138406d16700684bff77834fdb5(
     props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d1151418341(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6007,14 +6020,8 @@ def _typecheckingstub__1a7d231d96d63616ca09fb105108729ac0d77e1aff98a33073fafd84d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d1151418341(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__96372dbbf1b8d27bf02f12216956eed437c5cc030db0064f219c54947065469f(
-    value: typing.Any,
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataLakeSettings.DataLakePrincipalProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6051,7 +6058,7 @@ def _typecheckingstub__dce55f2e750b8b606563ee8be454eb95ace369e90671114b454db63f0
     external_data_filtering_allow_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     mutation_type: typing.Optional[builtins.str] = None,
     parameters: typing.Any = None,
-    read_only_admins: typing.Any = None,
+    read_only_admins: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataLakeSettings.DataLakePrincipalProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     trusted_resource_owners: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

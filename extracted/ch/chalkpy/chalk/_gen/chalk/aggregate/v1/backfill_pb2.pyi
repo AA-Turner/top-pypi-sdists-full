@@ -59,19 +59,21 @@ class AggregateBackfillCostEstimate(_message.Message):
     ) -> None: ...
 
 class AggregateBackfillUserParams(_message.Message):
-    __slots__ = ("features", "resolver", "timestamp_column_name", "lower_bound", "upper_bound", "exact")
+    __slots__ = ("features", "resolver", "timestamp_column_name", "lower_bound", "upper_bound", "exact", "tags")
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     RESOLVER_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_COLUMN_NAME_FIELD_NUMBER: _ClassVar[int]
     LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
     EXACT_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
     features: _containers.RepeatedScalarFieldContainer[str]
     resolver: str
     timestamp_column_name: str
     lower_bound: _timestamp_pb2.Timestamp
     upper_bound: _timestamp_pb2.Timestamp
     exact: bool
+    tags: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         features: _Optional[_Iterable[str]] = ...,
@@ -80,6 +82,7 @@ class AggregateBackfillUserParams(_message.Message):
         lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         exact: bool = ...,
+        tags: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class AggregateBackfill(_message.Message):
@@ -151,6 +154,7 @@ class AggregateBackfillJob(_message.Message):
         "cron_aggregate_backfill_id",
         "plan_hash",
         "status",
+        "query_tags",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -164,6 +168,7 @@ class AggregateBackfillJob(_message.Message):
     CRON_AGGREGATE_BACKFILL_ID_FIELD_NUMBER: _ClassVar[int]
     PLAN_HASH_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
+    QUERY_TAGS_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     resolver: str
@@ -176,6 +181,7 @@ class AggregateBackfillJob(_message.Message):
     cron_aggregate_backfill_id: str
     plan_hash: str
     status: AggregateBackfillStatus
+    query_tags: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -190,6 +196,7 @@ class AggregateBackfillJob(_message.Message):
         cron_aggregate_backfill_id: _Optional[str] = ...,
         plan_hash: _Optional[str] = ...,
         status: _Optional[_Union[AggregateBackfillStatus, str]] = ...,
+        query_tags: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class CronAggregateBackfill(_message.Message):
@@ -203,6 +210,7 @@ class CronAggregateBackfill(_message.Message):
         "resolvers",
         "created_at",
         "updated_at",
+        "query_tags",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -213,6 +221,7 @@ class CronAggregateBackfill(_message.Message):
     RESOLVERS_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_TAGS_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     deployment_id: str
@@ -222,6 +231,7 @@ class CronAggregateBackfill(_message.Message):
     resolvers: _containers.RepeatedScalarFieldContainer[str]
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
+    query_tags: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -233,4 +243,5 @@ class CronAggregateBackfill(_message.Message):
         resolvers: _Optional[_Iterable[str]] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        query_tags: _Optional[_Iterable[str]] = ...,
     ) -> None: ...

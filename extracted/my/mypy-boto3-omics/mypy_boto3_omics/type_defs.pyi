@@ -27,12 +27,14 @@ from .literals import (
     AnnotationTypeType,
     BatchStatusType,
     CacheBehaviorType,
+    ConfigurationStatusType,
     CreationTypeType,
     ETagAlgorithmFamilyType,
     ETagAlgorithmType,
     FileTypeType,
     FormatToHeaderKeyType,
     JobStatusType,
+    NetworkingModeType,
     ReadSetActivationJobItemStatusType,
     ReadSetActivationJobStatusType,
     ReadSetExportJobItemStatusType,
@@ -98,6 +100,8 @@ __all__ = (
     "CompleteMultipartReadSetUploadRequestTypeDef",
     "CompleteMultipartReadSetUploadResponseTypeDef",
     "CompleteReadSetUploadPartListItemTypeDef",
+    "ConfigurationDetailsTypeDef",
+    "ConfigurationListItemTypeDef",
     "ContainerRegistryMapOutputTypeDef",
     "ContainerRegistryMapTypeDef",
     "ContainerRegistryMapUnionTypeDef",
@@ -105,6 +109,8 @@ __all__ = (
     "CreateAnnotationStoreResponseTypeDef",
     "CreateAnnotationStoreVersionRequestTypeDef",
     "CreateAnnotationStoreVersionResponseTypeDef",
+    "CreateConfigurationRequestTypeDef",
+    "CreateConfigurationResponseTypeDef",
     "CreateMultipartReadSetUploadRequestTypeDef",
     "CreateMultipartReadSetUploadResponseTypeDef",
     "CreateReferenceStoreRequestTypeDef",
@@ -133,6 +139,7 @@ __all__ = (
     "DeleteAnnotationStoreVersionsRequestTypeDef",
     "DeleteAnnotationStoreVersionsResponseTypeDef",
     "DeleteBatchRequestTypeDef",
+    "DeleteConfigurationRequestTypeDef",
     "DeleteReferenceRequestTypeDef",
     "DeleteReferenceStoreRequestTypeDef",
     "DeleteRunBatchRequestTypeDef",
@@ -169,6 +176,8 @@ __all__ = (
     "GetAnnotationStoreVersionResponseTypeDef",
     "GetBatchRequestTypeDef",
     "GetBatchResponseTypeDef",
+    "GetConfigurationRequestTypeDef",
+    "GetConfigurationResponseTypeDef",
     "GetReadSetActivationJobRequestTypeDef",
     "GetReadSetActivationJobRequestWaitTypeDef",
     "GetReadSetActivationJobResponseTypeDef",
@@ -246,6 +255,9 @@ __all__ = (
     "ListBatchRequestPaginateTypeDef",
     "ListBatchRequestTypeDef",
     "ListBatchResponseTypeDef",
+    "ListConfigurationsRequestPaginateTypeDef",
+    "ListConfigurationsRequestTypeDef",
+    "ListConfigurationsResponseTypeDef",
     "ListMultipartReadSetUploadsRequestPaginateTypeDef",
     "ListMultipartReadSetUploadsRequestTypeDef",
     "ListMultipartReadSetUploadsResponseTypeDef",
@@ -332,6 +344,8 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "RunBatchListItemTypeDef",
     "RunCacheListItemTypeDef",
+    "RunConfigurationsResponseTypeDef",
+    "RunConfigurationsTypeDef",
     "RunGroupListItemTypeDef",
     "RunListItemTypeDef",
     "RunLogLocationTypeDef",
@@ -400,6 +414,8 @@ __all__ = (
     "VersionOptionsOutputTypeDef",
     "VersionOptionsTypeDef",
     "VersionOptionsUnionTypeDef",
+    "VpcConfigResponseTypeDef",
+    "VpcConfigTypeDef",
     "WaiterConfigTypeDef",
     "WorkflowListItemTypeDef",
     "WorkflowParameterTypeDef",
@@ -543,6 +559,18 @@ class CompleteReadSetUploadPartListItemTypeDef(TypedDict):
     partSource: ReadSetPartSourceType
     checksum: str
 
+class ConfigurationDetailsTypeDef(TypedDict):
+    name: NotRequired[str]
+    arn: NotRequired[str]
+    uuid: NotRequired[str]
+
+class ConfigurationListItemTypeDef(TypedDict):
+    arn: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    status: NotRequired[ConfigurationStatusType]
+    creationTime: NotRequired[datetime]
+
 class ImageMappingTypeDef(TypedDict):
     sourceImage: NotRequired[str]
     destinationImage: NotRequired[str]
@@ -663,6 +691,9 @@ class VersionDeleteErrorTypeDef(TypedDict):
 
 class DeleteBatchRequestTypeDef(TypedDict):
     batchId: str
+
+class DeleteConfigurationRequestTypeDef(TypedDict):
+    name: str
 
 DeleteReferenceRequestTypeDef = TypedDict(
     "DeleteReferenceRequestTypeDef",
@@ -808,6 +839,9 @@ class SubmissionSummaryTypeDef(TypedDict):
     successfulDeleteSubmissionCount: NotRequired[int]
     failedDeleteSubmissionCount: NotRequired[int]
 
+class GetConfigurationRequestTypeDef(TypedDict):
+    name: str
+
 GetReadSetActivationJobRequestTypeDef = TypedDict(
     "GetReadSetActivationJobRequestTypeDef",
     {
@@ -915,6 +949,11 @@ GetRunRequestTypeDef = TypedDict(
 class RunLogLocationTypeDef(TypedDict):
     engineLogStream: NotRequired[str]
     runLogStream: NotRequired[str]
+
+class VpcConfigResponseTypeDef(TypedDict):
+    securityGroupIds: NotRequired[list[str]]
+    subnetIds: NotRequired[list[str]]
+    vpcId: NotRequired[str]
 
 GetRunTaskRequestTypeDef = TypedDict(
     "GetRunTaskRequestTypeDef",
@@ -1033,6 +1072,10 @@ class ListBatchRequestTypeDef(TypedDict):
     status: NotRequired[BatchStatusType]
     name: NotRequired[str]
     runGroupId: NotRequired[str]
+
+class ListConfigurationsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    startingToken: NotRequired[str]
 
 class ListMultipartReadSetUploadsRequestTypeDef(TypedDict):
     sequenceStoreId: str
@@ -1265,6 +1308,10 @@ class ReadOptionsTypeDef(TypedDict):
     header: NotRequired[bool]
     lineSep: NotRequired[str]
 
+class VpcConfigTypeDef(TypedDict):
+    securityGroupIds: NotRequired[Sequence[str]]
+    subnetIds: NotRequired[Sequence[str]]
+
 class StartReadSetActivationJobSourceItemTypeDef(TypedDict):
     readSetId: str
 
@@ -1294,6 +1341,8 @@ class StartRunRequestTypeDef(TypedDict):
     storageType: NotRequired[StorageTypeType]
     workflowOwnerId: NotRequired[str]
     workflowVersionName: NotRequired[str]
+    networkingMode: NotRequired[NetworkingModeType]
+    configurationName: NotRequired[str]
 
 class VariantImportItemSourceTypeDef(TypedDict):
     source: str
@@ -1580,18 +1629,6 @@ StartRunBatchResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-StartRunResponseTypeDef = TypedDict(
-    "StartRunResponseTypeDef",
-    {
-        "arn": str,
-        "id": str,
-        "status": RunStatusType,
-        "tags": dict[str, str],
-        "uuid": str,
-        "runOutputUri": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
 
 class StartVariantImportResponseTypeDef(TypedDict):
     jobId: str
@@ -1866,6 +1903,26 @@ class CompleteMultipartReadSetUploadRequestTypeDef(TypedDict):
     sequenceStoreId: str
     uploadId: str
     parts: Sequence[CompleteReadSetUploadPartListItemTypeDef]
+
+StartRunResponseTypeDef = TypedDict(
+    "StartRunResponseTypeDef",
+    {
+        "arn": str,
+        "id": str,
+        "status": RunStatusType,
+        "tags": dict[str, str],
+        "uuid": str,
+        "runOutputUri": str,
+        "configuration": ConfigurationDetailsTypeDef,
+        "networkingMode": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+class ListConfigurationsResponseTypeDef(TypedDict):
+    items: list[ConfigurationListItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ContainerRegistryMapOutputTypeDef(TypedDict):
     registryMappings: NotRequired[list[RegistryMappingTypeDef]]
@@ -2231,9 +2288,15 @@ GetRunResponseTypeDef = TypedDict(
         "workflowOwnerId": str,
         "workflowVersionName": str,
         "workflowUuid": str,
+        "networkingMode": NetworkingModeType,
+        "configuration": ConfigurationDetailsTypeDef,
+        "vpcConfig": VpcConfigResponseTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+class RunConfigurationsResponseTypeDef(TypedDict):
+    vpcConfig: NotRequired[VpcConfigResponseTypeDef]
 
 class GetRunTaskResponseTypeDef(TypedDict):
     taskId: str
@@ -2338,6 +2401,9 @@ class ListBatchRequestPaginateTypeDef(TypedDict):
     status: NotRequired[BatchStatusType]
     name: NotRequired[str]
     runGroupId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListConfigurationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMultipartReadSetUploadsRequestPaginateTypeDef(TypedDict):
@@ -2527,6 +2593,9 @@ class ListWorkflowsResponseTypeDef(TypedDict):
 
 class TsvOptionsTypeDef(TypedDict):
     readOptions: NotRequired[ReadOptionsTypeDef]
+
+class RunConfigurationsTypeDef(TypedDict):
+    vpcConfig: NotRequired[VpcConfigTypeDef]
 
 class StartReadSetActivationJobRequestTypeDef(TypedDict):
     sequenceStoreId: str
@@ -2817,6 +2886,28 @@ class ListReadSetsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class CreateConfigurationResponseTypeDef(TypedDict):
+    arn: str
+    uuid: str
+    name: str
+    description: str
+    runConfigurations: RunConfigurationsResponseTypeDef
+    status: ConfigurationStatusType
+    creationTime: datetime
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetConfigurationResponseTypeDef(TypedDict):
+    arn: str
+    uuid: str
+    name: str
+    description: str
+    runConfigurations: RunConfigurationsResponseTypeDef
+    status: ConfigurationStatusType
+    creationTime: datetime
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 GetReadSetImportJobResponseTypeDef = TypedDict(
     "GetReadSetImportJobResponseTypeDef",
     {
@@ -2841,6 +2932,13 @@ class StartReadSetImportJobRequestTypeDef(TypedDict):
 class FormatOptionsTypeDef(TypedDict):
     tsvOptions: NotRequired[TsvOptionsTypeDef]
     vcfOptions: NotRequired[VcfOptionsTypeDef]
+
+class CreateConfigurationRequestTypeDef(TypedDict):
+    name: str
+    runConfigurations: RunConfigurationsTypeDef
+    requestId: str
+    description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 CreateAnnotationStoreResponseTypeDef = TypedDict(
     "CreateAnnotationStoreResponseTypeDef",

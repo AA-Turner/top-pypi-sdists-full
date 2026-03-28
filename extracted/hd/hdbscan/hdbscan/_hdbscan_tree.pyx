@@ -560,15 +560,10 @@ cpdef np.ndarray[np.double_t, ndim=1] outlier_scores(np.ndarray tree):
     root_cluster = parent_array.min()
     result = np.zeros(root_cluster, dtype=np.double)
 
-    topological_sort_order = np.argsort(parent_array)
-    # topologically_sorted_tree = tree[topological_sort_order]
-
-    for n in topological_sort_order:
+    for n in range(tree.shape[0] - 1, -1, -1):
         cluster = child_array[n]
-        if cluster < root_cluster:
-            break
-
         parent = parent_array[n]
+        
         if deaths[cluster] > deaths[parent]:
             deaths[parent] = deaths[cluster]
 

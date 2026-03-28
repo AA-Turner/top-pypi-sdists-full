@@ -4,9 +4,15 @@ import sys
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal
 
-from typing_extensions import NotRequired
+if sys.version_info >= (3, 11):
+    from typing import NotRequired, TypedDict
+else:
+    # PEP 655: stdlib TypedDict on 3.10 doesn't process NotRequired, so
+    # __required_keys__ would include NotRequired fields. typing_extensions
+    # backports the correct behavior.
+    from typing_extensions import NotRequired, TypedDict
 
 if TYPE_CHECKING:
     from mcp.server import Server as McpServer
@@ -15,7 +21,9 @@ else:
     McpServer = Any
 
 # Permission modes
-PermissionMode = Literal["default", "acceptEdits", "plan", "bypassPermissions"]
+PermissionMode = Literal[
+    "default", "acceptEdits", "plan", "bypassPermissions", "dontAsk"
+]
 
 # SDK Beta features - see https://docs.anthropic.com/en/api/beta-headers
 SdkBeta = Literal["context-1m-2025-08-07"]
@@ -32,6 +40,25 @@ class SystemPromptPreset(TypedDict):
     append: NotRequired[str]
 
 
+class SystemPromptFile(TypedDict):
+    """System prompt file configuration."""
+
+    type: Literal["file"]
+    path: str
+
+
+class TaskBudget(TypedDict):
+    """API-side task budget in tokens.
+
+    When set, the model is made aware of its remaining token budget so it can
+    pace tool use and wrap up before the limit. Sent as
+    ``output_config.task_budget`` with the ``task-budgets-2026-03-13`` beta
+    header.
+    """
+
+    total: int
+
+
 class ToolsPreset(TypedDict):
     """Tools preset configuration."""
 
@@ -46,11 +73,15 @@ class AgentDefinition:
     description: str
     prompt: str
     tools: list[str] | None = None
-    model: Literal["sonnet", "opus", "haiku", "inherit"] | None = None
+    disallowedTools: list[str] | None = None  # noqa: N815
+    # Model alias ("sonnet", "opus", "haiku", "inherit") or a full model ID.
+    model: str | None = None
     skills: list[str] | None = None
     memory: Literal["user", "project", "local"] | None = None
     # Each entry is a server name (str) or an inline {name: config} dict.
     mcpServers: list[str | dict[str, Any]] | None = None  # noqa: N815
+    initialPrompt: str | None = None  # noqa: N815
+    maxTurns: int | None = None  # noqa: N815
 
 
 # Permission Update types (matching TypeScript SDK)
@@ -797,6 +828,10 @@ class AssistantMessage:
     parent_tool_use_id: str | None = None
     error: AssistantMessageError | None = None
     usage: dict[str, Any] | None = None
+    message_id: str | None = None
+    stop_reason: str | None = None
+    session_id: str | None = None
+    uuid: str | None = None
 
 
 @dataclass
@@ -888,6 +923,10 @@ class ResultMessage:
     usage: dict[str, Any] | None = None
     result: str | None = None
     structured_output: Any = None
+    model_usage: dict[str, Any] | None = None
+    permission_denials: list[Any] | None = None
+    errors: list[str] | None = None
+    uuid: str | None = None
 
 
 @dataclass
@@ -1044,7 +1083,7 @@ class ClaudeAgentOptions:
 
     tools: list[str] | ToolsPreset | None = None
     allowed_tools: list[str] = field(default_factory=list)
-    system_prompt: str | SystemPromptPreset | None = None
+    system_prompt: str | SystemPromptPreset | SystemPromptFile | None = None
     mcp_servers: dict[str, McpServerConfig] | str | Path = field(default_factory=dict)
     permission_mode: PermissionMode | None = None
     continue_conversation: bool = False
@@ -1108,6 +1147,10 @@ class ClaudeAgentOptions:
     # When enabled, files can be rewound to their state at any user message
     # using `ClaudeSDKClient.rewind_files()`.
     enable_file_checkpointing: bool = False
+    # API-side task budget in tokens. When set, the model is made aware of
+    # its remaining token budget so it can pace tool use and wrap up before
+    # the limit.
+    task_budget: TaskBudget | None = None
 
 
 # SDK Control Protocol
@@ -1132,8 +1175,7 @@ class SDKControlInitializeRequest(TypedDict):
 
 class SDKControlSetPermissionModeRequest(TypedDict):
     subtype: Literal["set_permission_mode"]
-    # TODO: Add PermissionMode
-    mode: str
+    mode: PermissionMode
 
 
 class SDKHookCallbackRequest(TypedDict):

@@ -50,6 +50,7 @@ from .formatters import (COLORS,
                          split_compound,
                          resolve_attribute,
                          resolve_capability)
+from .cursor_shape import CursorShape as _CursorShape
 from ._capabilities import (CAPABILITY_DATABASE,
                             CAPABILITIES_ADDITIVES,
                             CAPABILITIES_RAW_MIXIN,
@@ -64,8 +65,8 @@ from ._capabilities import (CAPABILITY_DATABASE,
 HAS_TTY = True  # pylint: disable=invalid-name
 if platform.system() == 'Windows':
     IS_WINDOWS = True
-    import jinxed as curses  # pylint: disable=import-error
-    from jinxed.win32 import get_console_input_encoding  # pylint: disable=import-error
+    import jinxed as curses
+    from jinxed.win32 import get_console_input_encoding
 else:
     IS_WINDOWS = False
     import curses
@@ -87,9 +88,9 @@ else:
 
 _CUR_TERM = None  # See comments at end of file
 RE_GET_FGCOLOR_RESPONSE = re.compile(
-    '\x1b]10;rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)\x07')
+    '\x1b]10;rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)(?:\x07|\x1b\\\\)')
 RE_GET_BGCOLOR_RESPONSE = re.compile(
-    '\x1b]11;rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)\x07')
+    '\x1b]11;rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)(?:\x07|\x1b\\\\)')
 # XTSMGRAPHICS - Query sixel graphics geometry: ESC[?2;0;<width>;<height>S
 _RE_XTSMGRAPHICS_RESPONSE = re.compile(r'\x1b\[\?2;0;(\d+);(\d+)S')
 # XTSMGRAPHICS - Query sixel color registers: ESC[?1;0;<colors>S
@@ -163,6 +164,9 @@ class Terminal():
         'terminal_enquire': 'u9',
         'change_scroll_region': 'csr',
     }
+
+    #: DECSCUSR cursor shape constants accessible via Terminal.CursorShape or term.CursorShape
+    CursorShape = _CursorShape
 
     #: DEC Private Mode constants accessible via Terminal.DecPrivateMode or term.DecPrivateMode
     DecPrivateMode = _DecPrivateMode
@@ -2453,6 +2457,41 @@ class Terminal():
         finally:
             self.stream.write(self.normal_cursor)
             self.stream.flush()
+
+    @contextlib.contextmanager
+    def cursor_shape(self, style: Union[int, str] = _CursorShape.STEADY_BLOCK
+                     ) -> Generator[None, None, None]:
+        """
+        Context manager that sets cursor shape, restoring default on exit.
+
+        :arg style: A :class:`CursorShape` constant or string name
+            (e.g. ``'blinking_bar'``).
+
+        Uses DECSCUSR (DEC Set Cursor Style) escape sequences::
+
+            with term.cursor_shape(term.CursorShape.BLINKING_BAR):
+                main()
+
+        String names are also accepted::
+
+            with term.cursor_shape('steady_underline'):
+                main()
+
+        On exit, the cursor is reset to the terminal default (DECSCUSR 0).
+
+        .. note:: DECSCUSR is supported by most modern terminals including
+            xterm, VTE-based terminals, iTerm2, Windows Terminal, kitty,
+            ghostty, alacritty, and WezTerm.
+        """
+        if self.does_styling:
+            self.stream.write(_CursorShape.sequence(style))
+            self.stream.flush()
+        try:
+            yield
+        finally:
+            if self.does_styling:
+                self.stream.write(_CursorShape.sequence(_CursorShape.DEFAULT))
+                self.stream.flush()
 
     @contextlib.contextmanager
     def no_line_wrap(self) -> Generator[None, None, None]:

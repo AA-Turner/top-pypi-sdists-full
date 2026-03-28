@@ -144,7 +144,7 @@ class DatabaseMutationListenerConfig(SimConfigListener):
     db_user: str = Field(description="Database user")
     db_password: str = Field(description="Database password")
     db_database: str = Field(description="Database name")
-    schema: str | None = Field(default="public", description="Database schema (for PostgreSQL)")
+    db_schema: str | None = Field(default="public", description="Database schema (for PostgreSQL)")
     seed_data_paths: list[str] | None = Field(default=None, description="Seed data paths")
     truncate_tables: bool | None = Field(default=None, description="Truncate tables before seed restore")
     audit_ignore_tables: list[str | dict[str, Any]] | None = Field(

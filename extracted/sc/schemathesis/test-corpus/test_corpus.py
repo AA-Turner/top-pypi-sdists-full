@@ -12,11 +12,11 @@ import schemathesis
 import schemathesis.graphql as _graphql
 from schemathesis.checks import CHECKS
 from schemathesis.cli.commands.run.context import ExecutionContext
-from schemathesis.cli.commands.run.handlers.cassettes import CassetteWriter
+from schemathesis.cli.commands.run.handlers.har import HarHandler
 from schemathesis.cli.commands.run.handlers.junitxml import JunitXMLHandler
-from schemathesis.cli.commands.run.handlers.ndjson import NdjsonWriter
+from schemathesis.cli.commands.run.handlers.ndjson import NdjsonHandler
+from schemathesis.cli.commands.run.handlers.vcr import VcrHandler
 from schemathesis.config import HealthCheck
-from schemathesis.config._report import ReportFormat
 from schemathesis.core.compat import RefResolutionError
 from schemathesis.core.errors import (
     IncorrectUsage,
@@ -377,9 +377,9 @@ def test_default(corpus, filename):
 
     handlers = [
         JunitXMLHandler(output=StringIO()),
-        CassetteWriter(format=ReportFormat.VCR, output=StringIO(), config=schema.config),
-        CassetteWriter(format=ReportFormat.HAR, output=StringIO(), config=schema.config),
-        NdjsonWriter(output=StringIO(), config=schema.config),
+        VcrHandler(output=StringIO(), config=schema.config),
+        HarHandler(output=StringIO(), config=schema.config),
+        NdjsonHandler(output=StringIO(), config=schema.config),
     ]
     ctx = ExecutionContext(schema.config)
 
@@ -402,13 +402,16 @@ def test_coverage_phase(corpus, filename, mode):
     schema = _load_schema(corpus, filename)
     for operation in schema.get_all_operations():
         if isinstance(operation, Ok):
-            for _ in _iter_coverage_cases(
-                operation=operation.ok(),
-                generation_modes=[mode],
-                generate_duplicate_query_parameters=False,
-                unexpected_methods=set(),
-                generation_config=schema.config.generation,
-            ):
+            try:
+                for _ in _iter_coverage_cases(
+                    operation=operation.ok(),
+                    generation_modes=[mode],
+                    generate_duplicate_query_parameters=False,
+                    unexpected_methods=set(),
+                    generation_config=schema.config.generation,
+                ):
+                    pass
+            except InvalidSchema:
                 pass
 
 
@@ -556,9 +559,9 @@ def test_graphql(filename):
 
     handlers = [
         JunitXMLHandler(output=StringIO()),
-        CassetteWriter(format=ReportFormat.VCR, output=StringIO(), config=schema.config),
-        CassetteWriter(format=ReportFormat.HAR, output=StringIO(), config=schema.config),
-        NdjsonWriter(output=StringIO(), config=schema.config),
+        VcrHandler(output=StringIO(), config=schema.config),
+        HarHandler(output=StringIO(), config=schema.config),
+        NdjsonHandler(output=StringIO(), config=schema.config),
     ]
     ctx = ExecutionContext(schema.config)
 

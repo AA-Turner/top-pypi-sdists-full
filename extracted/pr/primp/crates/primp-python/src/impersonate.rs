@@ -1,22 +1,8 @@
 use std::sync::Once;
 
-pub use ::primp::imp::{Impersonate, ImpersonateOS};
 use anyhow::{anyhow, Result};
+pub use primp::imp::{Impersonate, ImpersonateOS};
 use rand::prelude::*;
-
-/// Available browser impersonation options.
-pub const IMPERSONATE_LIST: &[Impersonate] = &[
-    Impersonate::ChromeV144,
-    Impersonate::ChromeV145,
-    Impersonate::EdgeV144,
-    Impersonate::EdgeV145,
-    Impersonate::OperaV126,
-    Impersonate::OperaV127,
-    Impersonate::SafariV18_5,
-    Impersonate::SafariV26,
-    Impersonate::FirefoxV140,
-    Impersonate::FirefoxV146,
-];
 
 /// Available OS impersonation options.
 pub const IMPERSONATEOS_LIST: &[ImpersonateOS] = &[
@@ -40,22 +26,34 @@ pub fn get_random_element<T>(slice: &[T]) -> &T {
 pub fn parse_impersonate(s: &str) -> Result<Impersonate> {
     match s {
         // Chrome variants
-        "chrome_144" | "chrome" => Ok(Impersonate::ChromeV144),
+        "chrome_144" => Ok(Impersonate::ChromeV144),
         "chrome_145" => Ok(Impersonate::ChromeV145),
+        "chrome_146" => Ok(Impersonate::ChromeV146),
+        "chrome" => Ok(Impersonate::Chrome),
         // Edge variants
-        "edge_144" | "edge" => Ok(Impersonate::EdgeV144),
+        "edge_144" => Ok(Impersonate::EdgeV144),
         "edge_145" => Ok(Impersonate::EdgeV145),
+        "edge_146" => Ok(Impersonate::EdgeV146),
+        "edge" => Ok(Impersonate::Edge),
         // Opera variants
-        "opera_126" | "opera" => Ok(Impersonate::OperaV126),
+        "opera_126" => Ok(Impersonate::OperaV126),
         "opera_127" => Ok(Impersonate::OperaV127),
+        "opera_128" => Ok(Impersonate::OperaV128),
+        "opera_129" => Ok(Impersonate::OperaV129),
+        "opera" => Ok(Impersonate::Opera),
         // Safari variants
         "safari_18.5" => Ok(Impersonate::SafariV18_5),
-        "safari_26" | "safari" => Ok(Impersonate::SafariV26),
+        "safari_26" => Ok(Impersonate::SafariV26),
+        "safari_26.3" => Ok(Impersonate::SafariV26_3),
+        "safari" => Ok(Impersonate::Safari),
         // Firefox variants
         "firefox_140" => Ok(Impersonate::FirefoxV140),
-        "firefox_146" | "firefox" => Ok(Impersonate::FirefoxV146),
+        "firefox_146" => Ok(Impersonate::FirefoxV146),
+        "firefox_147" => Ok(Impersonate::FirefoxV147),
+        "firefox_148" => Ok(Impersonate::FirefoxV148),
+        "firefox" => Ok(Impersonate::Firefox),
         // Random selection
-        "random" => Ok(*get_random_element(IMPERSONATE_LIST)),
+        "random" => Ok(Impersonate::Random),
         _ => Err(anyhow!("Invalid impersonate: {:?}", s)),
     }
 }
@@ -80,7 +78,7 @@ pub fn parse_impersonate_with_fallback(s: &str) -> Impersonate {
         IMPERSONATE_WARNING.call_once(|| {
             tracing::warn!("Impersonate '{}' does not exist, using 'random'", s);
         });
-        *get_random_element(IMPERSONATE_LIST)
+        Impersonate::Random
     })
 }
 

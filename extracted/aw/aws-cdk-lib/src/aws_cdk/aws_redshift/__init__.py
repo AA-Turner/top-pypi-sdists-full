@@ -533,6 +533,19 @@ class CfnCluster(
         jsii.set(self, "masterUsername", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="namespaceResourcePolicy")
+    def namespace_resource_policy(self) -> typing.Any:
+        '''The policy that is attached to a resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "namespaceResourcePolicy"))
+
+    @namespace_resource_policy.setter
+    def namespace_resource_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5431251482e82a3c7a9d17e22a4cb6824e051b833670ac56c609436771ba3037)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "namespaceResourcePolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="nodeType")
     def node_type(self) -> builtins.str:
         '''The node type to be provisioned for the cluster.'''
@@ -1037,19 +1050,6 @@ class CfnCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__0db0b21e9462c7db4bfbc5794a72cfec5dad80450cd1acb8174563927b06fa69)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "multiAz", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="namespaceResourcePolicy")
-    def namespace_resource_policy(self) -> typing.Any:
-        '''The policy that is attached to a resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "namespaceResourcePolicy"))
-
-    @namespace_resource_policy.setter
-    def namespace_resource_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5431251482e82a3c7a9d17e22a4cb6824e051b833670ac56c609436771ba3037)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "namespaceResourcePolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="numberOfNodes")
@@ -6733,6 +6733,12 @@ def _typecheckingstub__d32dd6d1faa4bf4d38fbc9173d77c54548a2fb5386ec97451b20f4a4e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5431251482e82a3c7a9d17e22a4cb6824e051b833670ac56c609436771ba3037(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fd39ef012e3b964f5c72dcc3385a8861f7af2aed9a450ea99e69c540c77b2af3(
     value: builtins.str,
 ) -> None:
@@ -6927,12 +6933,6 @@ def _typecheckingstub__15113bc0292eb3a900fcad9d620cd08c320a19dfce07db8d055112a35
 
 def _typecheckingstub__0db0b21e9462c7db4bfbc5794a72cfec5dad80450cd1acb8174563927b06fa69(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5431251482e82a3c7a9d17e22a4cb6824e051b833670ac56c609436771ba3037(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

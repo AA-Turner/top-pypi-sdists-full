@@ -31,7 +31,7 @@ from ignite.handlers import DiskSaver, TerminateOnNan
 
 class DummyModel(nn.Module):
     def __init__(self):
-        super(DummyModel, self).__init__()
+        super().__init__()
         self.net = nn.Linear(1, 1)
 
     def forward(self, x):
@@ -126,9 +126,9 @@ def _test_setup_common_training_handlers(
             assert any([v in c for c in checkpoints])
 
     # Check LR scheduling
-    assert optimizer.param_groups[0]["lr"] <= lr * gamma ** (
-        (num_iters * num_epochs - 1) // step_size
-    ), f"{optimizer.param_groups[0]['lr']} vs {lr * gamma ** ((num_iters * num_epochs - 1) // step_size)}"
+    assert optimizer.param_groups[0]["lr"] <= lr * gamma ** ((num_iters * num_epochs - 1) // step_size), (
+        f"{optimizer.param_groups[0]['lr']} vs {lr * gamma ** ((num_iters * num_epochs - 1) // step_size)}"
+    )
 
 
 def test_asserts_setup_common_training_handlers():
@@ -505,6 +505,7 @@ def test_setup_tb_logging(dirname):
 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Skip on Windows")
+@pytest.mark.skip(reason="Visdom is unmaintained and cannot be installed with modern packages")
 def test_setup_visdom_logging(visdom_offline_logfile):
     vis_logger = _test_setup_logging(
         setup_logging_fn=setup_visdom_logging,

@@ -1648,6 +1648,19 @@ class CfnArchive(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
+    @jsii.member(jsii_name="eventPattern")
+    def event_pattern(self) -> typing.Any:
+        '''An event pattern to use to filter events sent to the archive.'''
+        return typing.cast(typing.Any, jsii.get(self, "eventPattern"))
+
+    @event_pattern.setter
+    def event_pattern(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__229e944ea16e6854933c9a20124a27cfd106abe05b88911fd42e7be41237635a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventPattern", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="sourceArn")
     def source_arn(self) -> builtins.str:
         '''The ARN of the event bus that sends events to the archive.'''
@@ -1685,19 +1698,6 @@ class CfnArchive(
             type_hints = typing.get_type_hints(_typecheckingstub__0eb43ac52b3d40eb1509bca31a08a934da9ef0435ded07988c14a5998badc898)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="eventPattern")
-    def event_pattern(self) -> typing.Any:
-        '''An event pattern to use to filter events sent to the archive.'''
-        return typing.cast(typing.Any, jsii.get(self, "eventPattern"))
-
-    @event_pattern.setter
-    def event_pattern(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__229e944ea16e6854933c9a20124a27cfd106abe05b88911fd42e7be41237635a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventPattern", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyIdentifier")
@@ -4584,6 +4584,19 @@ class CfnEventBus(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> typing.Any:
+        '''The permissions policy of the event bus, describing which other AWS accounts can write events to this event bus.'''
+        return typing.cast(typing.Any, jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6069dbf8a749c1a9a0cd15c07c6efbd2f70dbd4c7e3a6e98efd29bdb8c7acb24)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="deadLetterConfig")
     def dead_letter_config(
         self,
@@ -4657,19 +4670,6 @@ class CfnEventBus(
             type_hints = typing.get_type_hints(_typecheckingstub__51db51bf8f1ebc8d9c19cdf02644ddeaaef6bd2b5c86607383cd85b5fa2030c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policy")
-    def policy(self) -> typing.Any:
-        '''The permissions policy of the event bus, describing which other AWS accounts can write events to this event bus.'''
-        return typing.cast(typing.Any, jsii.get(self, "policy"))
-
-    @policy.setter
-    def policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6069dbf8a749c1a9a0cd15c07c6efbd2f70dbd4c7e3a6e98efd29bdb8c7acb24)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4954,6 +4954,19 @@ class CfnEventBusPolicy(
         return typing.cast("_EventBusPolicyReference_9bb2c85f", jsii.get(self, "eventBusPolicyRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="statement")
+    def statement(self) -> typing.Any:
+        '''A JSON string that describes the permission policy statement.'''
+        return typing.cast(typing.Any, jsii.get(self, "statement"))
+
+    @statement.setter
+    def statement(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce9f3d0fb5a52ca78f178865302dc5b7ec405d1d1456613269819c46aee1c741)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "statement", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="statementId")
     def statement_id(self) -> builtins.str:
         '''An identifier string for the external account that you are granting permissions to.'''
@@ -5037,19 +5050,6 @@ class CfnEventBusPolicy(
             type_hints = typing.get_type_hints(_typecheckingstub__ca0d24eece87fe806a8007f31944754f32102b12c8bb0f010a3e7283a54b4fef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "principal", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="statement")
-    def statement(self) -> typing.Any:
-        '''A JSON string that describes the permission policy statement.'''
-        return typing.cast(typing.Any, jsii.get(self, "statement"))
-
-    @statement.setter
-    def statement(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce9f3d0fb5a52ca78f178865302dc5b7ec405d1d1456613269819c46aee1c741)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "statement", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_events.CfnEventBusPolicy.ConditionProperty",
@@ -5738,6 +5738,19 @@ class CfnRule(
         return typing.cast("_RuleReference_38eeaae2", jsii.get(self, "ruleRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="eventPattern")
+    def event_pattern(self) -> typing.Any:
+        '''The event pattern of the rule.'''
+        return typing.cast(typing.Any, jsii.get(self, "eventPattern"))
+
+    @event_pattern.setter
+    def event_pattern(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d96bc0e13933a70f6aabf04ee888cfea3f4a33c1056e813209d63277b971925)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventPattern", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the rule.'''
@@ -5762,19 +5775,6 @@ class CfnRule(
             type_hints = typing.get_type_hints(_typecheckingstub__1cbc6e93f4327ab36adfdd83f38be0cbf8eb345b53d9651e8cf282ed0e0b9af9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "eventBusName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="eventPattern")
-    def event_pattern(self) -> typing.Any:
-        '''The event pattern of the rule.'''
-        return typing.cast(typing.Any, jsii.get(self, "eventPattern"))
-
-    @event_pattern.setter
-    def event_pattern(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d96bc0e13933a70f6aabf04ee888cfea3f4a33c1056e813209d63277b971925)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventPattern", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -13401,6 +13401,12 @@ def _typecheckingstub__7b70dabfc4299a157456f9345f439a1627afc2b7ffb0bb20c33e1a1bc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__229e944ea16e6854933c9a20124a27cfd106abe05b88911fd42e7be41237635a(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2f400bdbd4fcd20b44476556f9ef5225de9092a59cb55cbedae0a7f07ba71e1a(
     value: builtins.str,
 ) -> None:
@@ -13415,12 +13421,6 @@ def _typecheckingstub__7757fdbaf1d2ce3f07d1aac83abcdb1f4659013282005e66b7d1b79b7
 
 def _typecheckingstub__0eb43ac52b3d40eb1509bca31a08a934da9ef0435ded07988c14a5998badc898(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__229e944ea16e6854933c9a20124a27cfd106abe05b88911fd42e7be41237635a(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13843,6 +13843,12 @@ def _typecheckingstub__2680ef109a97ceadd954f8fe5661198157b1e148558350afc66483501
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6069dbf8a749c1a9a0cd15c07c6efbd2f70dbd4c7e3a6e98efd29bdb8c7acb24(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fc97dfb9dbc0d381febd2f96730220d379dd42692f2f5998d93180f615e3faf2(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBus.DeadLetterConfigProperty]],
 ) -> None:
@@ -13869,12 +13875,6 @@ def _typecheckingstub__1899d0d8378d7d8ade574708aa2d0221794e2fcd5f946287a6f238e59
 
 def _typecheckingstub__51db51bf8f1ebc8d9c19cdf02644ddeaaef6bd2b5c86607383cd85b5fa2030c1(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnEventBus.LogConfigProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6069dbf8a749c1a9a0cd15c07c6efbd2f70dbd4c7e3a6e98efd29bdb8c7acb24(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13932,6 +13932,12 @@ def _typecheckingstub__73a509ce8b222cb1fd2cc6812fed309aab3ba25bb6b34bfc063e77a98
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ce9f3d0fb5a52ca78f178865302dc5b7ec405d1d1456613269819c46aee1c741(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3b244b9d43796ba0505af03623e41837e277b422489856009f2b06955c3a8158(
     value: builtins.str,
 ) -> None:
@@ -13958,12 +13964,6 @@ def _typecheckingstub__f51ad0dea4c6d9f35b7bad0fc73f95da63a16eb1cd3116e7c281f7703
 
 def _typecheckingstub__ca0d24eece87fe806a8007f31944754f32102b12c8bb0f010a3e7283a54b4fef(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ce9f3d0fb5a52ca78f178865302dc5b7ec405d1d1456613269819c46aee1c741(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14052,6 +14052,12 @@ def _typecheckingstub__2e5b9584b8a11a53f3da48aa655dc3c5f1e732686ca98a767a38dccd1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5d96bc0e13933a70f6aabf04ee888cfea3f4a33c1056e813209d63277b971925(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e78457ec7631c0e3dc885fab0f0951e6dd59c773d0711961b0bc9340abbad081(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -14060,12 +14066,6 @@ def _typecheckingstub__e78457ec7631c0e3dc885fab0f0951e6dd59c773d0711961b0bc9340a
 
 def _typecheckingstub__1cbc6e93f4327ab36adfdd83f38be0cbf8eb345b53d9651e8cf282ed0e0b9af9(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5d96bc0e13933a70f6aabf04ee888cfea3f4a33c1056e813209d63277b971925(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,5 +1,5 @@
 import numbers
-from typing import Callable, Tuple, Union
+from collections.abc import Callable
 
 import torch
 
@@ -35,7 +35,7 @@ class VariableAccumulation(Metric):
             device to be the same as your ``update`` arguments ensures the ``update`` method is non-blocking. By
             default, CPU.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     .. versionchanged:: 0.5.1
@@ -49,7 +49,7 @@ class VariableAccumulation(Metric):
         self,
         op: Callable,
         output_transform: Callable = lambda x: x,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ):
         if not callable(op):
@@ -57,21 +57,19 @@ class VariableAccumulation(Metric):
 
         self._op = op
 
-        super(VariableAccumulation, self).__init__(
-            output_transform=output_transform, device=device, skip_unrolling=skip_unrolling
-        )
+        super().__init__(output_transform=output_transform, device=device, skip_unrolling=skip_unrolling)
 
     @reinit__is_reduced
     def reset(self) -> None:
         self.accumulator = torch.tensor(0.0, dtype=self._double_dtype, device=self._device)
         self.num_examples = 0
 
-    def _check_output_type(self, output: Union[float, torch.Tensor]) -> None:
+    def _check_output_type(self, output: float | torch.Tensor) -> None:
         if not isinstance(output, (numbers.Number, torch.Tensor)):
             raise TypeError(f"Output should be a number or torch.Tensor, but given {type(output)}")
 
     @reinit__is_reduced
-    def update(self, output: Union[float, torch.Tensor]) -> None:
+    def update(self, output: float | torch.Tensor) -> None:
         self._check_output_type(output)
 
         if isinstance(output, torch.Tensor):
@@ -87,7 +85,7 @@ class VariableAccumulation(Metric):
             self.num_examples += 1
 
     @sync_all_reduce("accumulator", "num_examples")
-    def compute(self) -> Tuple[torch.Tensor, int]:
+    def compute(self) -> tuple[torch.Tensor, int]:
         return self.accumulator, self.num_examples
 
 
@@ -119,7 +117,7 @@ class Average(VariableAccumulation):
             device to be the same as your ``update`` arguments ensures the ``update`` method is non-blocking. By
             default, CPU.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Examples:
@@ -183,20 +181,18 @@ class Average(VariableAccumulation):
     def __init__(
         self,
         output_transform: Callable = lambda x: x,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ):
-        def _mean_op(a: Union[float, torch.Tensor], x: Union[float, torch.Tensor]) -> Union[float, torch.Tensor]:
+        def _mean_op(a: float | torch.Tensor, x: float | torch.Tensor) -> float | torch.Tensor:
             if isinstance(x, torch.Tensor) and x.ndim > 1:
                 x = x.sum(dim=0)
             return a + x
 
-        super(Average, self).__init__(
-            op=_mean_op, output_transform=output_transform, device=device, skip_unrolling=skip_unrolling
-        )
+        super().__init__(op=_mean_op, output_transform=output_transform, device=device, skip_unrolling=skip_unrolling)
 
     @sync_all_reduce("accumulator", "num_examples")
-    def compute(self) -> Union[float, torch.Tensor]:
+    def compute(self) -> float | torch.Tensor:
         if self.num_examples < 1:
             raise NotComputableError(
                 f"{self.__class__.__name__} must have at least one example before it can be computed."
@@ -220,7 +216,7 @@ class GeometricAverage(VariableAccumulation):
             device to be the same as your ``update`` arguments ensures the ``update`` method is non-blocking. By
             default, CPU.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Note:
@@ -297,10 +293,10 @@ class GeometricAverage(VariableAccumulation):
     def __init__(
         self,
         output_transform: Callable = lambda x: x,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ):
-        def _geom_op(a: torch.Tensor, x: Union[float, torch.Tensor]) -> torch.Tensor:
+        def _geom_op(a: torch.Tensor, x: float | torch.Tensor) -> torch.Tensor:
             if not isinstance(x, torch.Tensor):
                 x = torch.tensor(x)
             x = torch.log(x)
@@ -308,12 +304,10 @@ class GeometricAverage(VariableAccumulation):
                 x = x.sum(dim=0)
             return a + x
 
-        super(GeometricAverage, self).__init__(
-            op=_geom_op, output_transform=output_transform, device=device, skip_unrolling=skip_unrolling
-        )
+        super().__init__(op=_geom_op, output_transform=output_transform, device=device, skip_unrolling=skip_unrolling)
 
     @sync_all_reduce("accumulator", "num_examples")
-    def compute(self) -> Union[float, torch.Tensor]:
+    def compute(self) -> float | torch.Tensor:
         if self.num_examples < 1:
             raise NotComputableError(
                 f"{self.__class__.__name__} must have at least one example before it can be computed."

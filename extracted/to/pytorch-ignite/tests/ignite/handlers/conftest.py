@@ -5,13 +5,15 @@ from unittest.mock import Mock
 
 import pytest
 import torch
-from visdom import Visdom
-from visdom.server.build import download_scripts
 
 
 @pytest.fixture(scope="session")
 def visdom_server():
     # Start Visdom server once and stop it with visdom_server_stop
+
+    from visdom import Visdom
+    from visdom.server.build import download_scripts
+
     vd_hostname = "localhost"
     if not (Path.home() / ".visdom").exists():
         (Path.home() / ".visdom").mkdir(exist_ok=True)
@@ -72,7 +74,7 @@ def norm_mock():
 def dummy_model_factory():
     class DummyModel(torch.nn.Module):
         def __init__(self):
-            super(DummyModel, self).__init__()
+            super().__init__()
             self.fc1 = torch.nn.Linear(10, 10)
             self.fc2 = torch.nn.Linear(12, 12)
             self.fc1.weight.data.zero_()

@@ -239,7 +239,9 @@ class TestRunWithoutContinuation:
         assert call_order == ["audit", "post-hook"]
 
     @pytest.mark.asyncio
-    async def test_post_run_hooks_do_not_execute_on_error(self):
+    async def test_post_run_hooks_execute_even_on_error(self):
+        """Post-run hooks must fire even when the agent crashes, so callers
+        can run diagnostics on the still-alive VM."""
         agent_cfg = _make_agent_config()
         runtime = FakeRuntime()
 
@@ -254,7 +256,8 @@ class TestRunWithoutContinuation:
         with pytest.raises(RuntimeError, match="boom"):
             await runner.run("do something")
 
-        post_hook.assert_not_awaited()
+        post_hook.assert_awaited_once()
+        # The original agent error should still propagate (not swallowed by hook)
         assert runtime.cleanup_calls == [("test-agent", True)]
 
     @pytest.mark.asyncio
@@ -269,6 +272,29 @@ class TestRunWithoutContinuation:
         runner.on_post_run(failing_post_hook)
 
         with pytest.raises(RuntimeError, match="hook failed"):
+            await runner.run("do something")
+
+        assert runtime.cleanup_calls == [("test-agent", True)]
+
+    @pytest.mark.asyncio
+    async def test_agent_error_preserved_when_post_run_hook_also_fails(self):
+        """When both agent and post-run hook fail, the original agent error
+        must be the one that propagates — not the hook error."""
+        agent_cfg = _make_agent_config()
+        runtime = FakeRuntime()
+
+        async def failing_execute(prepared, ctx):
+            raise RuntimeError("agent crashed")
+
+        runtime.execute = failing_execute
+        runner = AgentRunner(agent_cfg, runtime)
+
+        async def failing_post_hook(prepared):
+            raise RuntimeError("hook also failed")
+
+        runner.on_post_run(failing_post_hook)
+
+        with pytest.raises(RuntimeError, match="agent crashed"):
             await runner.run("do something")
 
         assert runtime.cleanup_calls == [("test-agent", True)]

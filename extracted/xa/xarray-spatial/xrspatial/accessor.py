@@ -21,6 +21,59 @@ class XrsSpatialDataArrayAccessor:
     def __init__(self, obj):
         self._obj = obj
 
+    # ---- Plot ----
+
+    def plot(self, **kwargs):
+        """Plot the DataArray with helpful defaults.
+
+        Computes dask arrays, applies embedded GeoTIFF colormaps,
+        and sets equal aspect ratio.
+
+        Parameters
+        ----------
+        **kwargs
+            Passed to ``da.plot()``.  Common extras: ``cmap``,
+            ``figsize``, ``ax``, ``add_colorbar``.
+
+        Returns
+        -------
+        matplotlib artist (from ``da.plot()``)
+        """
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        da = self._obj
+
+        # Materialise dask arrays so matplotlib can render them.
+        try:
+            da = da.compute()
+        except (AttributeError, TypeError):
+            pass
+
+        # Use embedded GeoTIFF colormap when present.
+        cmap = da.attrs.get('cmap')
+        if cmap is not None and 'cmap' not in kwargs:
+            from matplotlib.colors import BoundaryNorm
+            n_colors = len(cmap.colors)
+            boundaries = np.arange(n_colors + 1) - 0.5
+            kwargs.setdefault('cmap', cmap)
+            kwargs.setdefault('norm', BoundaryNorm(boundaries, n_colors))
+            kwargs.setdefault('add_colorbar', True)
+
+        # Create a figure with sensible size if none provided.
+        if 'ax' not in kwargs:
+            fig, ax = plt.subplots(
+                figsize=kwargs.get('figsize', (8, 6)),
+            )
+            kwargs.pop('figsize', None)
+            kwargs['ax'] = ax
+
+        result = da.plot(**kwargs)
+
+        kwargs['ax'].set_aspect('equal')
+        plt.tight_layout()
+        return result
+
     # ---- Surface ----
 
     def slope(self, **kwargs):
@@ -141,6 +194,20 @@ class XrsSpatialDataArrayAccessor:
         from .flood import travel_time
         return travel_time(self._obj, slope_agg, mannings_n, **kwargs)
 
+    def vegetation_roughness(self, **kwargs):
+        from .flood import vegetation_roughness
+        return vegetation_roughness(self._obj, **kwargs)
+
+    def vegetation_curve_number(self, soil_group_agg, **kwargs):
+        from .flood import vegetation_curve_number
+        return vegetation_curve_number(self._obj, soil_group_agg, **kwargs)
+
+    def flood_depth_vegetation(self, slope_agg, mannings_n,
+                               unit_discharge, **kwargs):
+        from .flood import flood_depth_vegetation
+        return flood_depth_vegetation(self._obj, slope_agg, mannings_n,
+                                      unit_discharge, **kwargs)
+
     def viewshed(self, x, y, **kwargs):
         from .viewshed import viewshed
         return viewshed(self._obj, x, y, **kwargs)
@@ -188,6 +255,28 @@ class XrsSpatialDataArrayAccessor:
     def glcm_texture(self, **kwargs):
         from .glcm import glcm_texture
         return glcm_texture(self._obj, **kwargs)
+
+    # ---- Edge Detection ----
+
+    def sobel_x(self, **kwargs):
+        from .edge_detection import sobel_x
+        return sobel_x(self._obj, **kwargs)
+
+    def sobel_y(self, **kwargs):
+        from .edge_detection import sobel_y
+        return sobel_y(self._obj, **kwargs)
+
+    def laplacian(self, **kwargs):
+        from .edge_detection import laplacian
+        return laplacian(self._obj, **kwargs)
+
+    def prewitt_x(self, **kwargs):
+        from .edge_detection import prewitt_x
+        return prewitt_x(self._obj, **kwargs)
+
+    def prewitt_y(self, **kwargs):
+        from .edge_detection import prewitt_y
+        return prewitt_y(self._obj, **kwargs)
 
     # ---- Morphological ----
 
@@ -321,6 +410,22 @@ class XrsSpatialDataArrayAccessor:
         from .preview import preview
         return preview(self._obj, **kwargs)
 
+    # ---- Normalization ----
+
+    def rescale(self, **kwargs):
+        from .normalize import rescale
+        return rescale(self._obj, **kwargs)
+
+    def standardize(self, **kwargs):
+        from .normalize import standardize
+        return standardize(self._obj, **kwargs)
+
+    # ---- Reproject ----
+
+    def reproject(self, target_crs, **kwargs):
+        from .reproject import reproject
+        return reproject(self._obj, target_crs, **kwargs)
+
     # ---- Raster to vector ----
 
     def polygonize(self, **kwargs):
@@ -403,6 +508,32 @@ class XrsSpatialDataArrayAccessor:
         from .rasterize import rasterize
         return rasterize(geometries, like=self._obj, **kwargs)
 
+    # ---- GeoTIFF I/O ----
+
+    def to_geotiff(self, path, **kwargs):
+        """Write this DataArray as a GeoTIFF.
+
+        Equivalent to ``to_geotiff(da, path, **kwargs)``.
+
+        See :func:`xrspatial.geotiff.to_geotiff` for full parameter docs.
+        """
+        from .geotiff import to_geotiff
+        return to_geotiff(self._obj, path, **kwargs)
+
+    # ---- Chunking ----
+
+    def rechunk_no_shuffle(self, **kwargs):
+        from .utils import rechunk_no_shuffle
+        return rechunk_no_shuffle(self._obj, **kwargs)
+
+    def fused_overlap(self, *stages, **kwargs):
+        from .utils import fused_overlap
+        return fused_overlap(self._obj, *stages, **kwargs)
+
+    def multi_overlap(self, func, n_outputs, **kwargs):
+        from .utils import multi_overlap
+        return multi_overlap(self._obj, func, n_outputs, **kwargs)
+
 
 @xr.register_dataset_accessor("xrs")
 class XrsSpatialDatasetAccessor:
@@ -416,6 +547,86 @@ class XrsSpatialDatasetAccessor:
 
     def __init__(self, obj):
         self._obj = obj
+
+    # ---- Plot ----
+
+    def plot(self, vars=None, cols=3, **kwargs):
+        """Plot 2D data variables as a grid of subplots.
+
+        Parameters
+        ----------
+        vars : list of str, optional
+            Variable names to plot.  If None, plots all 2D variables.
+        cols : int, default 3
+            Maximum number of columns in the subplot grid.
+        **kwargs
+            Passed to each subplot's ``da.plot()``.  Common extras:
+            ``cmap``, ``figsize``, ``add_colorbar``.
+
+        Returns
+        -------
+        numpy.ndarray of matplotlib.axes.Axes
+        """
+        import math
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from matplotlib.colors import BoundaryNorm
+
+        ds = self._obj
+
+        # Collect 2D variables to plot.
+        if vars is not None:
+            names = [v for v in vars if v in ds.data_vars]
+        else:
+            names = [
+                v for v in ds.data_vars
+                if ds[v].ndim == 2
+            ]
+
+        if not names:
+            raise ValueError("No 2D variables found to plot")
+
+        n = len(names)
+        ncols = min(n, cols)
+        nrows = math.ceil(n / ncols)
+
+        fig, axes = plt.subplots(
+            nrows, ncols,
+            figsize=kwargs.pop('figsize', (5 * ncols, 4 * nrows)),
+            squeeze=False,
+        )
+
+        for idx, name in enumerate(names):
+            ax = axes[idx // ncols][idx % ncols]
+            da = ds[name]
+
+            # Materialise dask arrays so matplotlib can render them.
+            try:
+                da = da.compute()
+            except (AttributeError, TypeError):
+                pass
+
+            # Use embedded GeoTIFF colormap when present.
+            cmap = da.attrs.get('cmap')
+            kw = dict(kwargs)
+            if cmap is not None and 'cmap' not in kw:
+                n_colors = len(cmap.colors)
+                boundaries = np.arange(n_colors + 1) - 0.5
+                kw.setdefault('cmap', cmap)
+                kw.setdefault('norm', BoundaryNorm(boundaries, n_colors))
+                kw.setdefault('add_colorbar', True)
+
+            kw.setdefault('ax', ax)
+            da.plot(**kw)
+            ax.set_title(name)
+            ax.set_aspect('equal')
+
+        # Hide unused axes.
+        for idx in range(n, nrows * ncols):
+            axes[idx // ncols][idx % ncols].set_visible(False)
+
+        plt.tight_layout()
+        return axes
 
     # ---- Surface ----
 
@@ -537,6 +748,20 @@ class XrsSpatialDatasetAccessor:
         from .flood import travel_time
         return travel_time(self._obj, slope_agg, mannings_n, **kwargs)
 
+    def vegetation_roughness(self, **kwargs):
+        from .flood import vegetation_roughness
+        return vegetation_roughness(self._obj, **kwargs)
+
+    def vegetation_curve_number(self, soil_group_agg, **kwargs):
+        from .flood import vegetation_curve_number
+        return vegetation_curve_number(self._obj, soil_group_agg, **kwargs)
+
+    def flood_depth_vegetation(self, slope_agg, mannings_n,
+                               unit_discharge, **kwargs):
+        from .flood import flood_depth_vegetation
+        return flood_depth_vegetation(self._obj, slope_agg, mannings_n,
+                                      unit_discharge, **kwargs)
+
     # ---- Classification ----
 
     def natural_breaks(self, **kwargs):
@@ -576,6 +801,28 @@ class XrsSpatialDatasetAccessor:
     def glcm_texture(self, **kwargs):
         from .glcm import glcm_texture
         return glcm_texture(self._obj, **kwargs)
+
+    # ---- Edge Detection ----
+
+    def sobel_x(self, **kwargs):
+        from .edge_detection import sobel_x
+        return sobel_x(self._obj, **kwargs)
+
+    def sobel_y(self, **kwargs):
+        from .edge_detection import sobel_y
+        return sobel_y(self._obj, **kwargs)
+
+    def laplacian(self, **kwargs):
+        from .edge_detection import laplacian
+        return laplacian(self._obj, **kwargs)
+
+    def prewitt_x(self, **kwargs):
+        from .edge_detection import prewitt_x
+        return prewitt_x(self._obj, **kwargs)
+
+    def prewitt_y(self, **kwargs):
+        from .edge_detection import prewitt_y
+        return prewitt_y(self._obj, **kwargs)
 
     # ---- Morphological ----
 
@@ -637,6 +884,16 @@ class XrsSpatialDatasetAccessor:
         from .preview import preview
         return preview(self._obj, **kwargs)
 
+    # ---- Normalization ----
+
+    def rescale(self, **kwargs):
+        from .normalize import rescale
+        return rescale(self._obj, **kwargs)
+
+    def standardize(self, **kwargs):
+        from .normalize import standardize
+        return standardize(self._obj, **kwargs)
+
     # ---- Fire ----
 
     def burn_severity_class(self, **kwargs):
@@ -695,3 +952,81 @@ class XrsSpatialDatasetAccessor:
             "Dataset has no 2D variable with 'y' and 'x' dimensions "
             "to use as rasterize template"
         )
+
+    # ---- GeoTIFF I/O ----
+
+    def to_geotiff(self, path, var=None, **kwargs):
+        """Write a Dataset variable as a GeoTIFF.
+
+        Parameters
+        ----------
+        path : str
+            Output file path.
+        var : str or None
+            Variable name to write.  If None, uses the first 2D variable
+            with y/x dimensions.
+        **kwargs
+            Passed to :func:`xrspatial.geotiff.to_geotiff`.
+        """
+        from .geotiff import to_geotiff
+        ds = self._obj
+        if var is not None:
+            return to_geotiff(ds[var], path, **kwargs)
+        for v in ds.data_vars:
+            da = ds[v]
+            if da.ndim >= 2 and 'y' in da.dims and 'x' in da.dims:
+                return to_geotiff(da, path, **kwargs)
+        raise ValueError(
+            "Dataset has no variable with 'y' and 'x' dimensions to write"
+        )
+
+    def open_geotiff(self, source, **kwargs):
+        """Read a GeoTIFF windowed to this Dataset's spatial extent.
+
+        Uses the Dataset's y/x coordinates to compute a pixel window,
+        then reads only that region from the file.
+
+        Parameters
+        ----------
+        source : str
+            File path to the GeoTIFF.
+        **kwargs
+            Passed to :func:`xrspatial.geotiff.open_geotiff` (except
+            ``window``, which is computed automatically).
+
+        Returns
+        -------
+        xr.DataArray
+            The windowed portion of the GeoTIFF.
+        """
+        from .geotiff import open_geotiff, _read_geo_info, _extent_to_window
+        ds = self._obj
+        if 'y' not in ds.coords or 'x' not in ds.coords:
+            raise ValueError(
+                "Dataset must have 'y' and 'x' coordinates to compute "
+                "a spatial window"
+            )
+        y = ds.coords['y'].values
+        x = ds.coords['x'].values
+        y_min, y_max = float(y.min()), float(y.max())
+        x_min, x_max = float(x.min()), float(x.max())
+
+        geo_info, file_h, file_w = _read_geo_info(source)
+        t = geo_info.transform
+
+        # Expand extent by half a pixel so we capture edge pixels
+        y_min -= abs(t.pixel_height) * 0.5
+        y_max += abs(t.pixel_height) * 0.5
+        x_min -= abs(t.pixel_width) * 0.5
+        x_max += abs(t.pixel_width) * 0.5
+
+        window = _extent_to_window(t, file_h, file_w,
+                                   y_min, y_max, x_min, x_max)
+        kwargs.pop('window', None)
+        return open_geotiff(source, window=window, **kwargs)
+
+    # ---- Chunking ----
+
+    def rechunk_no_shuffle(self, **kwargs):
+        from .utils import rechunk_no_shuffle
+        return rechunk_no_shuffle(self._obj, **kwargs)

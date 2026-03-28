@@ -1,21 +1,21 @@
 """
- MNIST example with training and validation monitoring using Visdom.
+MNIST example with training and validation monitoring using Visdom.
 
- Requirements:
-    Visdom (https://github.com/facebookresearch/visdom.git):
-    `pip install git+https://github.com/facebookresearch/visdom.git`
+Requirements:
+   Visdom (https://github.com/facebookresearch/visdom.git):
+   `pip install git+https://github.com/facebookresearch/visdom.git`
 
- Usage:
+Usage:
 
-    Start visdom server:
-    ```bash
-    visdom -logging_level 30
-    ```
+   Start visdom server:
+   ```bash
+   visdom -logging_level 30
+   ```
 
-    Run the example:
-    ```bash
-    python mnist_with_visdom_logger.py
-    ```
+   Run the example:
+   ```bash
+   python mnist_with_visdom_logger.py
+   ```
 """
 
 from argparse import ArgumentParser
@@ -43,7 +43,7 @@ from ignite.utils import setup_logger
 
 class Net(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
         self.conv2_drop = nn.Dropout2d()

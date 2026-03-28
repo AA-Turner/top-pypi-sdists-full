@@ -147,6 +147,7 @@ class CreateAggregateBackfillJobRequest(_message.Message):
         "enable_profiling",
         "aggregate_backfill_id",
         "resource_group",
+        "query_tags",
     )
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
@@ -156,6 +157,7 @@ class CreateAggregateBackfillJobRequest(_message.Message):
     ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
     AGGREGATE_BACKFILL_ID_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    QUERY_TAGS_FIELD_NUMBER: _ClassVar[int]
     features: _containers.RepeatedScalarFieldContainer[str]
     lower_bound: _timestamp_pb2.Timestamp
     upper_bound: _timestamp_pb2.Timestamp
@@ -164,6 +166,7 @@ class CreateAggregateBackfillJobRequest(_message.Message):
     enable_profiling: bool
     aggregate_backfill_id: str
     resource_group: str
+    query_tags: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         features: _Optional[_Iterable[str]] = ...,
@@ -174,6 +177,7 @@ class CreateAggregateBackfillJobRequest(_message.Message):
         enable_profiling: bool = ...,
         aggregate_backfill_id: _Optional[str] = ...,
         resource_group: _Optional[str] = ...,
+        query_tags: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class CreateAggregateBackfillJobResponse(_message.Message):

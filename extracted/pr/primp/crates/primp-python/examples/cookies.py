@@ -3,7 +3,7 @@
 import primp
 
 # Persistent cookie store (default)
-client = primp.Client(cookie_store=True, impersonate="chrome_145")
+client = primp.Client(cookie_store=True, impersonate="chrome_146")
 
 # Set cookies for a specific domain
 client.set_cookies(

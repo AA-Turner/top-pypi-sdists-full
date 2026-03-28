@@ -1,7 +1,9 @@
-from systemrdl.node import AddressableNode, AddrmapNode, Node
+from typing import Union
+
+from systemrdl.node import AddressableNode, AddrmapNode, Node, MemNode, RegfileNode
 from .design_state import DesignState
 
-def get_node_prefix(ds: DesignState, root_node: AddrmapNode, node: AddressableNode) -> str:
+def get_node_prefix(ds: DesignState, root_node: Union[AddrmapNode, MemNode, RegfileNode], node: AddressableNode) -> str:
     if ds.reuse_typedefs:
         prefix = node.get_global_type_name("__")
         if prefix is None:
@@ -23,8 +25,8 @@ def get_node_prefix(ds: DesignState, root_node: AddrmapNode, node: AddressableNo
     return prefix
 
 
-def get_struct_name(ds: DesignState, root_node: AddrmapNode, node: AddressableNode) -> str:
-    if node.is_array and node.array_stride > node.size:
+def get_struct_name(ds: DesignState, root_node: Union[AddrmapNode, MemNode, RegfileNode], node: AddressableNode) -> str:
+    if node.is_array and node.array_stride > node.size: # type: ignore # is_array implies array_stride is not none
         # Stride is larger than size of actual element.
         # Struct will be padded up, and therefore needs a unique name
         pad_suffix = f"__stride{node.array_stride:x}"
@@ -34,7 +36,7 @@ def get_struct_name(ds: DesignState, root_node: AddrmapNode, node: AddressableNo
     return get_node_prefix(ds, root_node, node) + pad_suffix + "_t"
 
 
-def get_friendly_name(ds: DesignState, root_node: AddrmapNode, node: Node) -> str:
+def get_friendly_name(ds: DesignState, root_node: Union[AddrmapNode, MemNode, RegfileNode], node: Node) -> str:
     """
     Returns a useful string that helps identify the typedef in
     a comment
@@ -48,7 +50,7 @@ def get_friendly_name(ds: DesignState, root_node: AddrmapNode, node: Node) -> st
     else:
         friendly_name = node.get_rel_path(root_node.parent)
 
-    return type(node.inst).__name__ + " - " + friendly_name
+    return node.component_type_name + " - " + friendly_name
 
 def roundup_pow2(x: int) -> int:
     return 1<<(x-1).bit_length()

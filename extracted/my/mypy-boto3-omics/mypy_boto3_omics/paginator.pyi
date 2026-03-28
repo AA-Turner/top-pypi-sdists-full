@@ -16,6 +16,7 @@ Usage::
         ListAnnotationStoreVersionsPaginator,
         ListAnnotationStoresPaginator,
         ListBatchPaginator,
+        ListConfigurationsPaginator,
         ListMultipartReadSetUploadsPaginator,
         ListReadSetActivationJobsPaginator,
         ListReadSetExportJobsPaginator,
@@ -45,6 +46,7 @@ Usage::
     list_annotation_store_versions_paginator: ListAnnotationStoreVersionsPaginator = client.get_paginator("list_annotation_store_versions")
     list_annotation_stores_paginator: ListAnnotationStoresPaginator = client.get_paginator("list_annotation_stores")
     list_batch_paginator: ListBatchPaginator = client.get_paginator("list_batch")
+    list_configurations_paginator: ListConfigurationsPaginator = client.get_paginator("list_configurations")
     list_multipart_read_set_uploads_paginator: ListMultipartReadSetUploadsPaginator = client.get_paginator("list_multipart_read_set_uploads")
     list_read_set_activation_jobs_paginator: ListReadSetActivationJobsPaginator = client.get_paginator("list_read_set_activation_jobs")
     list_read_set_export_jobs_paginator: ListReadSetExportJobsPaginator = client.get_paginator("list_read_set_export_jobs")
@@ -84,6 +86,8 @@ from .type_defs import (
     ListAnnotationStoreVersionsResponseTypeDef,
     ListBatchRequestPaginateTypeDef,
     ListBatchResponseTypeDef,
+    ListConfigurationsRequestPaginateTypeDef,
+    ListConfigurationsResponseTypeDef,
     ListMultipartReadSetUploadsRequestPaginateTypeDef,
     ListMultipartReadSetUploadsResponseTypeDef,
     ListReadSetActivationJobsRequestPaginateTypeDef,
@@ -136,6 +140,7 @@ __all__ = (
     "ListAnnotationStoreVersionsPaginator",
     "ListAnnotationStoresPaginator",
     "ListBatchPaginator",
+    "ListConfigurationsPaginator",
     "ListMultipartReadSetUploadsPaginator",
     "ListReadSetActivationJobsPaginator",
     "ListReadSetExportJobsPaginator",
@@ -230,6 +235,24 @@ class ListBatchPaginator(_ListBatchPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/paginator/ListBatch.html#Omics.Paginator.ListBatch.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/paginators/#listbatchpaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListConfigurationsPaginatorBase = Paginator[ListConfigurationsResponseTypeDef]
+else:
+    _ListConfigurationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListConfigurationsPaginator(_ListConfigurationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/paginator/ListConfigurations.html#Omics.Paginator.ListConfigurations)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/paginators/#listconfigurationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListConfigurationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListConfigurationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/paginator/ListConfigurations.html#Omics.Paginator.ListConfigurations.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/paginators/#listconfigurationspaginator)
         """
 
 if TYPE_CHECKING:

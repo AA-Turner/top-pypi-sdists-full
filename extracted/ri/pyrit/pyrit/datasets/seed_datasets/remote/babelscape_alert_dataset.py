@@ -20,7 +20,7 @@ class _BabelscapeAlertDataset(_RemoteDatasetLoader):
     - 'alert': 15k red teaming prompts
     - 'alert_adversarial': 30k adversarial red teaming prompts
 
-    Reference: https://huggingface.co/datasets/Babelscape/ALERT
+    Reference: [@tedeschi2024alert]
     """
 
     def __init__(
@@ -64,10 +64,7 @@ class _BabelscapeAlertDataset(_RemoteDatasetLoader):
         logger.info(f"Loading Babelscape ALERT dataset from {self.source}")
 
         # Determine which categories to load
-        if self.category is None:
-            data_categories = ["alert_adversarial", "alert"]
-        else:
-            data_categories = [self.category]
+        data_categories = ["alert_adversarial", "alert"] if self.category is None else [self.category]
 
         prompts: list[str] = []
         for category_name in data_categories:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "workspace-mcp"
-version = "1.15.0"
+version = "1.16.0"
 description = "Comprehensive, highly performant Google Workspace Streamable HTTP & SSE MCP Server for Calendar, Gmail, Docs, Sheets, Slides & Drive"
 readme = "README.md"
 keywords = [ "mcp", "google", "workspace", "llm", "ai", "claude", "model", "context", "protocol", "server"]
@@ -56,6 +56,7 @@ Changelog = "https://github.com/taylorwilsdon/google_workspace_mcp/releases"
 
 [project.scripts]
 workspace-mcp = "main:main"
+workspace-cli = "core.cli:main"
 
 [project.optional-dependencies]
 disk = [

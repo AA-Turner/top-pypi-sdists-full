@@ -873,41 +873,6 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_advanced(View3DPanel, _bpy_types.Pa
         :param context:
         """
 
-class VIEW3D_PT_tools_grease_pencil_v3_brush_eraser(View3DPanel, _bpy_types.Panel):
-    bl_category: typing.Any
-    bl_context: typing.Any
-    bl_label: typing.Any
-    bl_options: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-    @classmethod
-    def poll(cls, context) -> None:
-        """
-
-        :param context:
-        """
-
 class VIEW3D_PT_tools_grease_pencil_v3_brush_fill_advanced(
     View3DPanel, _bpy_types.Panel
 ):

@@ -204,16 +204,18 @@ const Chat = (() => {
                         if (result.status === 'queued') {
                             const badge = document.createElement('span');
                             badge.className = 'queued-badge';
-                            badge.textContent = 'queued';
+                            badge.textContent = `queued (${result.position || '?'})`;
                             msgEl.querySelector('.message-role').appendChild(badge);
                         }
                         return;
                     }
                 } else {
-                    let detail = `Queue failed (${response.status})`;
+                    let detail = response.status === 429
+                        ? 'Queue full \u2014 wait for current work to finish'
+                        : `Queue failed (${response.status})`;
                     try {
                         const err = await response.json();
-                        if (err.detail) detail = err.detail;
+                        if (err.detail && response.status !== 429) detail = err.detail;
                     } catch (_) { /* ignore parse errors */ }
                     // Queue failed — the server stream is likely dead.
                     // Reset streaming state so the user can send messages normally.
@@ -384,8 +386,11 @@ const Chat = (() => {
             case 'queued_message':
                 finalizeAssistant();
                 currentAssistantContent = '';
+                document.querySelectorAll('.queued-badge').forEach(b => {
+                    b.classList.add('promoting');
+                    setTimeout(() => b.remove(), 300);
+                });
                 currentAssistantEl = appendMessage('assistant', '');
-                document.querySelectorAll('.queued-badge').forEach(b => b.remove());
                 break;
             case 'subagent_event':
                 renderSubagentEvent(data);

@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import torch
 
 from ignite.exceptions import NotComputableError
@@ -21,7 +19,7 @@ class MeanAbsoluteRelativeError(_BaseRegression):
     - ``update`` must receive output of the form ``(y_pred, y)`` or ``{'y_pred': y_pred, 'y': y}``.
     - `y` and `y_pred` must be of same shape `(N, )` or `(N, 1)`.
 
-    __ https://arxiv.org/ftp/arxiv/papers/1809/1809.03006.pdf
+    __ https://arxiv.org/abs/1809.03006
 
     Parameters are inherited from ``Metric.__init__``.
 
@@ -67,7 +65,7 @@ class MeanAbsoluteRelativeError(_BaseRegression):
         self._sum_of_absolute_relative_errors = torch.tensor(0.0, device=self._device)
         self._num_samples = 0
 
-    def _update(self, output: Tuple[torch.Tensor, torch.Tensor]) -> None:
+    def _update(self, output: tuple[torch.Tensor, torch.Tensor]) -> None:
         y_pred, y = output[0].detach(), output[1].detach()
         if (y == 0).any():
             raise NotComputableError("The ground truth has 0.")

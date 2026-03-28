@@ -31,6 +31,7 @@ __all__ = (
     "CommandExecutionStatusType",
     "ContentBlockTypeType",
     "ExtractionJobStatusType",
+    "LanguageRuntimeType",
     "ListActorsPaginatorName",
     "ListEventsPaginatorName",
     "ListMemoryExtractionJobsPaginatorName",
@@ -60,6 +61,7 @@ CodeInterpreterSessionStatusType = Literal["READY", "TERMINATED"]
 CommandExecutionStatusType = Literal["COMPLETED", "TIMED_OUT"]
 ContentBlockTypeType = Literal["image", "resource", "resource_link", "text"]
 ExtractionJobStatusType = Literal["FAILED"]
+LanguageRuntimeType = Literal["deno", "nodejs", "python"]
 ListActorsPaginatorName = Literal["list_actors"]
 ListEventsPaginatorName = Literal["list_events"]
 ListMemoryExtractionJobsPaginatorName = Literal["list_memory_extraction_jobs"]

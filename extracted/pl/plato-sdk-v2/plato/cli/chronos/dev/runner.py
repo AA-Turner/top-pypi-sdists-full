@@ -31,8 +31,10 @@ from plato.cli.chronos.dev.paths import get_sdk_root
 from plato.cli.chronos.dev.profiling import StartupProfiler
 from plato.cli.chronos.dev.ssh import SSHKeyPair
 from plato.cli.chronos.dev.sync import SyncManager
+from plato.cli.chronos.provision import provision_vm
 from plato.cli.chronos.registry import get_world_schema, parse_package_string
 from plato.cli.chronos.settings import get_settings
+from plato.utils.pypi_index import plato_token_simple_index
 
 if TYPE_CHECKING:
     from plato.v2 import AsyncPlato
@@ -253,6 +255,7 @@ class DevRunner:
                 if not isinstance(world_runtime, VMRuntimeConfig):
                     raise ValueError("World must use VM runtime config")
 
+                # 3. Create VM + provision (network, SSH, gateway probe)
                 with self._startup_profiler.time("setup.vm.create"):
                     with console.status("  Creating VM...", spinner="dots") as status:
                         env = Env.resource(
@@ -270,41 +273,24 @@ class DevRunner:
                         self.session = await self.plato.sessions.create(
                             envs=[env],
                             timeout=world_runtime.vm.timeout or 7200,
-                            connect_network=True,
                         )
                         if not self.session:
                             raise RuntimeError("Failed to create session")
                         status.update("  Starting heartbeat...")
                         await self.session.start_heartbeat()
-                        self.world_env = self.session.envs[0]
-                        if not self.world_env:
-                            raise RuntimeError("Failed to get world environment")
-                        world_env = self.world_env
-                _step(f"VM [bold]{self.world_env.job_id}[/bold]")
+                _step(f"Session [bold]{self.session.session_id}[/bold]")
 
-                # 4. Setup SSH
-                with self._startup_profiler.time("setup.ssh.total"):
-                    with console.status("  Generating SSH keys...", spinner="dots") as status:
-                        with self._startup_profiler.time("setup.ssh.generate_keys"):
-                            self.ssh_key = SSHKeyPair.generate()
-                        status.update("  Adding SSH key to VM...")
-                        with self._startup_profiler.time("setup.ssh.add_key"):
-                            ssh_response = await self.session.add_ssh_key(self.ssh_key.public_key)
-                        if not ssh_response.success:
-                            raise RuntimeError(f"SSH key setup failed: {ssh_response}")
-                        status.update("  Installing rsync & copying SSH key...")
-
-                        async def _ensure_rsync() -> None:
-                            with self._startup_profiler.time("setup.ssh.ensure_rsync"):
-                                await world_env.execute(
-                                    "which rsync || apt-get update && apt-get install -y rsync", timeout=60
-                                )
-
-                        async def _copy_agent_key() -> None:
-                            with self._startup_profiler.time("setup.ssh.copy_agent_key"):
-                                await self._copy_ssh_key_to_vm()
-
-                        await asyncio.gather(_ensure_rsync(), _copy_agent_key())
+                # 4. Provision: connect network → SSH → gateway probe
+                with self._startup_profiler.time("setup.provision"):
+                    with console.status("  Provisioning VM...", spinner="dots"):
+                        result = await provision_vm(
+                            session=self.session,
+                            copy_ssh_key_to_vm=True,
+                            ensure_rsync=True,
+                            verbose=self.verbose,
+                        )
+                        self.world_env = result.env
+                        self.ssh_key = result.ssh_key
                         self.config = self.config.model_copy(
                             update={
                                 "dev": self.config.dev.model_copy(
@@ -315,7 +301,7 @@ class DevRunner:
                                 ),
                             }
                         )
-                _step("SSH configured")
+                _step(f"VM [bold]{self.world_env.job_id}[/bold] provisioned")
 
                 # 5. Sync code
                 with self._startup_profiler.time("setup.sync.total"):
@@ -522,23 +508,6 @@ class DevRunner:
         except Exception:
             pass
 
-    async def _copy_ssh_key_to_vm(self) -> None:
-        """Copy SSH key pair to world VM."""
-        if not self.ssh_key or not self.world_env:
-            return
-
-        private_key = self.ssh_key.private_key_path.read_text()
-        public_key = self.ssh_key.public_key
-
-        escaped_private = private_key.replace("'", "'\\''")
-        escaped_public = public_key.replace("'", "'\\''")
-        await self.world_env.execute(
-            f"mkdir -p /root/.ssh && "
-            f"echo '{escaped_private}' > /root/.ssh/agent_key && chmod 600 /root/.ssh/agent_key && "
-            f"echo '{escaped_public}' > /root/.ssh/agent_key.pub && chmod 644 /root/.ssh/agent_key.pub",
-            timeout=30,
-        )
-
     async def _setup_sync_targets(self) -> None:
         """Setup sync targets for world and agents."""
         if not self.sync_manager or not self.world_env:
@@ -649,8 +618,12 @@ class DevRunner:
             return
 
         editables = " ".join(f"-e {p}" for p in editable_paths)
+        pypi_store_idx = plato_token_simple_index("pypi-store", api_key=self.api_key)
         with self._startup_profiler.time("setup.env.packages.editable_install"):
-            result = await self.world_env.execute(f"uv pip install --system {editables}", timeout=300)
+            result = await self.world_env.execute(
+                f"uv pip install --system --index-url {shlex.quote(pypi_store_idx)} {editables}",
+                timeout=300,
+            )
         if result.exit_code != 0:
             raise RuntimeError(f"Package install failed: {result.stderr}")
 
@@ -816,6 +789,7 @@ class DevRunner:
             raise RuntimeError("sync_manager must be initialized")
 
         world_name, _ = parse_package_string(self.config.world.package)
+        pypi_store_idx = plato_token_simple_index("pypi-store", api_key=self.api_key)
 
         # Start file watcher
         watch_task = asyncio.create_task(self.sync_manager.watch())
@@ -883,12 +857,17 @@ class DevRunner:
                         reinstall_parts.append("-e /world")
                     if reinstall_parts:
                         editables = " ".join(reinstall_parts)
-                        reinstall_cmd = f"uv pip install --system --no-deps {editables} -q 2>/dev/null; "
+                        reinstall_cmd = (
+                            f"uv pip install --system --no-deps "
+                            f"--index-url {shlex.quote(pypi_store_idx)} {editables} -q 2>/dev/null; "
+                        )
 
                 # Run the world
                 runner_cmd = f"plato-world-runner run --world {world_name} --config /tmp/config.json"
                 if self.memray:
-                    reinstall_cmd += "uv pip install --system memray -q 2>/dev/null; "
+                    reinstall_cmd += (
+                        f"uv pip install --system --index-url {shlex.quote(pypi_store_idx)} memray -q 2>/dev/null; "
+                    )
                     runner_cmd = f"memray run --output /tmp/memray.bin --force -m plato.worlds.runner -- run --world {world_name} --config /tmp/config.json"
                 debug_env = self._forwarded_debug_env_assignments()
                 debug_prefix = f"{debug_env} " if debug_env else ""

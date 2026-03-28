@@ -128,6 +128,7 @@ class CfnFarm(
             display_name="displayName",
         
             # the properties below are optional
+            cost_scale_factor=123,
             description="description",
             kms_key_arn="kmsKeyArn",
             tags=[CfnTag(
@@ -143,6 +144,7 @@ class CfnFarm(
         id: builtins.str,
         *,
         display_name: builtins.str,
+        cost_scale_factor: typing.Optional[jsii.Number] = None,
         description: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -152,6 +154,7 @@ class CfnFarm(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param display_name: The display name of the farm. .. epigraph:: This field can store any content. Escape or encode this content before displaying it on a webpage or any other system that might interpret the content of this field.
+        :param cost_scale_factor: Default: - 1
         :param description: A description of the farm that helps identify what the farm is used for. .. epigraph:: This field can store any content. Escape or encode this content before displaying it on a webpage or any other system that might interpret the content of this field. Default: - ""
         :param kms_key_arn: The ARN for the KMS key.
         :param tags: The tags to add to your farm. Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
@@ -162,6 +165,7 @@ class CfnFarm(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFarmProps(
             display_name=display_name,
+            cost_scale_factor=cost_scale_factor,
             description=description,
             kms_key_arn=kms_key_arn,
             tags=tags,
@@ -271,6 +275,18 @@ class CfnFarm(
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="costScaleFactor")
+    def cost_scale_factor(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "costScaleFactor"))
+
+    @cost_scale_factor.setter
+    def cost_scale_factor(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__483c2d48f77fab886719507154111caa635654c8e3afd289a37eadc0a9e52ac0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "costScaleFactor", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the farm that helps identify what the farm is used for.'''
@@ -315,6 +331,7 @@ class CfnFarm(
     jsii_struct_bases=[],
     name_mapping={
         "display_name": "displayName",
+        "cost_scale_factor": "costScaleFactor",
         "description": "description",
         "kms_key_arn": "kmsKeyArn",
         "tags": "tags",
@@ -325,6 +342,7 @@ class CfnFarmProps:
         self,
         *,
         display_name: builtins.str,
+        cost_scale_factor: typing.Optional[jsii.Number] = None,
         description: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -332,6 +350,7 @@ class CfnFarmProps:
         '''Properties for defining a ``CfnFarm``.
 
         :param display_name: The display name of the farm. .. epigraph:: This field can store any content. Escape or encode this content before displaying it on a webpage or any other system that might interpret the content of this field.
+        :param cost_scale_factor: Default: - 1
         :param description: A description of the farm that helps identify what the farm is used for. .. epigraph:: This field can store any content. Escape or encode this content before displaying it on a webpage or any other system that might interpret the content of this field. Default: - ""
         :param kms_key_arn: The ARN for the KMS key.
         :param tags: The tags to add to your farm. Each tag consists of a tag key and a tag value. Tag keys and values are both required, but tag values can be empty strings.
@@ -350,6 +369,7 @@ class CfnFarmProps:
                 display_name="displayName",
             
                 # the properties below are optional
+                cost_scale_factor=123,
                 description="description",
                 kms_key_arn="kmsKeyArn",
                 tags=[CfnTag(
@@ -361,12 +381,15 @@ class CfnFarmProps:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85eb8ab8e233d51550c535a34f621e657ea5dfc47e9b977b5a9b73c3be4b9b4f)
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument cost_scale_factor", value=cost_scale_factor, expected_type=type_hints["cost_scale_factor"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "display_name": display_name,
         }
+        if cost_scale_factor is not None:
+            self._values["cost_scale_factor"] = cost_scale_factor
         if description is not None:
             self._values["description"] = description
         if kms_key_arn is not None:
@@ -387,6 +410,16 @@ class CfnFarmProps:
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cost_scale_factor(self) -> typing.Optional[jsii.Number]:
+        '''
+        :default: - 1
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-deadline-farm.html#cfn-deadline-farm-costscalefactor
+        '''
+        result = self._values.get("cost_scale_factor")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -6681,6 +6714,7 @@ def _typecheckingstub__c8cfafb7690986cd3ddb4ba2de814f300f2faab0827e01a86f2f528af
     id: builtins.str,
     *,
     display_name: builtins.str,
+    cost_scale_factor: typing.Optional[jsii.Number] = None,
     description: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6718,6 +6752,12 @@ def _typecheckingstub__7e3487107fca3fbd8f0f2e3e65063da63a41a523cd6d5ffd0aef63e8e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__483c2d48f77fab886719507154111caa635654c8e3afd289a37eadc0a9e52ac0(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__225609e046f467aa1cff6857451a01a60bf944d05094eaea191c40155a7b5ee4(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -6739,6 +6779,7 @@ def _typecheckingstub__0e0688a8dc8cdc7f618bc0975895ced63b43e9c85cd1b97a6a84272f1
 def _typecheckingstub__85eb8ab8e233d51550c535a34f621e657ea5dfc47e9b977b5a9b73c3be4b9b4f(
     *,
     display_name: builtins.str,
+    cost_scale_factor: typing.Optional[jsii.Number] = None,
     description: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,

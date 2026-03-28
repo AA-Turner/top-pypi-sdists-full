@@ -293,6 +293,7 @@ __all__ = [
     "aws_elasticloadbalancing",
     "aws_elasticloadbalancingv2",
     "aws_elasticsearch",
+    "aws_elementalinference",
     "aws_emr",
     "aws_emrcontainers",
     "aws_emrserverless",
@@ -415,6 +416,7 @@ __all__ = [
     "aws_robomaker",
     "aws_rolesanywhere",
     "aws_route53",
+    "aws_route53globalresolver",
     "aws_route53profiles",
     "aws_route53recoverycontrol",
     "aws_route53recoveryreadiness",
@@ -572,6 +574,7 @@ from . import aws_elasticbeanstalk
 from . import aws_elasticloadbalancing
 from . import aws_elasticloadbalancingv2
 from . import aws_elasticsearch
+from . import aws_elementalinference
 from . import aws_emr
 from . import aws_emrcontainers
 from . import aws_emrserverless
@@ -694,6 +697,7 @@ from . import aws_resourcegroups
 from . import aws_robomaker
 from . import aws_rolesanywhere
 from . import aws_route53
+from . import aws_route53globalresolver
 from . import aws_route53profiles
 from . import aws_route53recoverycontrol
 from . import aws_route53recoveryreadiness

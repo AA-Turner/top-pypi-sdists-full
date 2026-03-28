@@ -41,6 +41,7 @@ class JobKind(str, Enum):
     REGENERATE_TASK_VALIDATION_KEY = 'regenerate_task_validation_key'
     TEST_CUSTOM_AGGREGATION = 'test_custom_aggregation'
     DISCOVER_AGENTS = 'discover_agents'
+    COMPLIANCE_POLICY_CHECK = 'compliance_policy_check'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

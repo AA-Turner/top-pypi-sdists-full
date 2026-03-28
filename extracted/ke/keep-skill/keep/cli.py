@@ -9,6 +9,7 @@ Usage:
 import importlib.metadata
 import importlib.resources
 import json
+import logging
 import os
 import platform
 import re
@@ -25,17 +26,8 @@ from typing import Any, Optional
 import typer
 from typing_extensions import Annotated
 
-# Pattern for version identifier suffix: @V{N} where N may be signed.
-# Public semantics:
-#   N >= 0: offset from current
-#   N < 0: ordinal from oldest archived (-1 oldest, -2 second-oldest, ...)
-VERSION_SUFFIX_PATTERN = re.compile(r'@V\{(-?\d+)\}$')
+logger = logging.getLogger(__name__)
 
-# Pattern for part identifier suffix: @P{N} where N is digits only
-PART_SUFFIX_PATTERN = re.compile(r'@P\{(\d+)\}$')
-
-# URI scheme pattern per RFC 3986: scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
-# Used to distinguish URIs from plain text in the update command
 _URI_SCHEME_PATTERN = re.compile(r'^[a-zA-Z][a-zA-Z0-9+.-]*://')
 
 from .api import Keeper
@@ -72,7 +64,7 @@ def _is_filesystem_path(source: str) -> Optional[Path]:
     return None
 
 
-from .utils import _git_visible_files, _list_directory_files  # noqa: E402
+from .utils import _list_directory_files  # noqa: E402
 
 
 def _output_width() -> int:
@@ -124,91 +116,6 @@ def _has_stdin_data() -> bool:
 # Stdin JSON template expansion
 # ---------------------------------------------------------------------------
 # Hooks (e.g. Claude Code) pipe JSON on stdin.  Instead of requiring jq,
-# keep can expand ${.field} and ${.field:N} (truncate to N chars) directly.
-
-_STDIN_JSON_SENTINEL = object()
-_stdin_json_cache: Any = _STDIN_JSON_SENTINEL
-
-_TEMPLATE_RE = re.compile(r'\$\{\.([A-Za-z_][A-Za-z0-9_]*)(?::(\d+))?\}')
-
-
-def _read_stdin_json() -> dict:
-    """Read and cache JSON object from stdin.  Returns {} on failure."""
-    global _stdin_json_cache
-    if _stdin_json_cache is not _STDIN_JSON_SENTINEL:
-        return _stdin_json_cache  # type: ignore[return-value]
-    _stdin_json_cache = {}
-    if _has_stdin_data():
-        try:
-            raw = sys.stdin.read()
-            obj = json.loads(raw)
-            if isinstance(obj, dict):
-                _stdin_json_cache = obj
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            pass
-    return _stdin_json_cache
-
-
-def _has_templates(s: str | None) -> bool:
-    return s is not None and '${.' in s
-
-
-def _expand_template(s: str, data: dict) -> str:
-    """Expand ${.field} and ${.field:N} in *s* from *data*."""
-    def _replace(m: re.Match) -> str:
-        key, limit = m.group(1), m.group(2)
-        val = data.get(key)
-        if val is None:
-            return ''
-        result = str(val)
-        if limit:
-            result = result[:int(limit)]
-        return result
-    return _TEMPLATE_RE.sub(_replace, s)
-
-
-def _expand_stdin_templates(
-    *strings: str | None,
-) -> tuple[str | None, ...]:
-    """Expand ${.field} templates in one or more strings from stdin JSON.
-
-    Only reads stdin when at least one string contains a template.
-    Returns the strings unchanged when no templates are present.
-    """
-    if not any(_has_templates(s) for s in strings):
-        return strings
-    data = _read_stdin_json()
-    return tuple(
-        _expand_template(s, data) if _has_templates(s) else s
-        for s in strings
-    )
-
-
-def _expand_stdin_tag_list(
-    tags: list[str] | None,
-    data: dict | None = None,
-) -> list[str] | None:
-    """Expand templates in a tag list.  Returns None if input is None."""
-    if not tags:
-        return tags
-    if not any(_has_templates(t) for t in tags):
-        return tags
-    if data is None:
-        data = _read_stdin_json()
-    return [_expand_template(t, data) if _has_templates(t) else t for t in tags]
-
-
-def _parse_json_arg(source: str) -> dict:
-    """Parse JSON from inline string, @file, or stdin (-)."""
-    if source == "-":
-        raw = sys.stdin.read()
-        return json.loads(raw)
-    if source.startswith("@"):
-        path = Path(source[1:])
-        if not path.exists():
-            raise ValueError(f"JSON file not found: {path}")
-        return json.loads(path.read_text(encoding="utf-8"))
-    return json.loads(source)
 
 
 def _tag_display_value(value) -> str:
@@ -1130,30 +1037,8 @@ def main_callback(
         is_eager=True,
     )] = None,
 ):
-    """Reflective memory with semantic search."""
-    # If no subcommand provided, show the current intentions (now)
-    if ctx.invoked_subcommand is None:
-        # On first run, the wizard handles everything — exit after setup
-        from .paths import get_config_dir
-        from .setup_wizard import needs_wizard
-        override = _get_store_override()
-        if os.environ.get("KEEP_CONFIG"):
-            config_dir = get_config_dir()
-        elif override:
-            config_dir = Path(override).resolve()
-        else:
-            config_dir = get_config_dir()
-        if needs_wizard(config_dir):
-            _get_keeper(None)  # triggers wizard
-            return
-
-        from .api import NOWDOC_ID
-        kp = _get_keeper(None)
-        ctx_item = kp.get_context(NOWDOC_ID, similar_limit=3, meta_limit=3)
-        if ctx_item is None:
-            kp.get_now()  # force-create nowdoc
-            ctx_item = kp.get_context(NOWDOC_ID, similar_limit=3, meta_limit=3)
-        typer.echo(render_context(ctx_item, as_json=_get_json_output()))
+    """Reflective memory with semantic search (delegated commands)."""
+    pass
 
 
 # -----------------------------------------------------------------------------
@@ -1169,60 +1054,6 @@ StoreOption = Annotated[
     )
 ]
 
-
-LimitOption = Annotated[
-    int,
-    typer.Option(
-        "--limit", "-n",
-        help="Maximum results to return"
-    )
-]
-
-
-SinceOption = Annotated[
-    Optional[str],
-    typer.Option(
-        "--since",
-        help="Only notes updated since (ISO duration: P3D, P1W, PT1H; or date: 2026-01-15)"
-    )
-]
-
-UntilOption = Annotated[
-    Optional[str],
-    typer.Option(
-        "--until",
-        help="Only notes updated before (ISO duration: P3D, P1W, PT1H; or date: 2026-01-15)"
-    )
-]
-
-
-
-def _versions_to_items(doc_id: str, current: Item | None, versions: list) -> list[Item]:
-    """Convert current item + previous VersionInfo list into Items for _format_items."""
-    items: list[Item] = []
-    if current:
-        items.append(current)
-    for i, v in enumerate(versions, start=1):
-        tags = dict(v.tags)
-        tags["_version"] = str(i)
-        tags["_updated"] = v.created_at or ""
-        tags["_updated_date"] = (v.created_at or "")[:10]
-        items.append(Item(id=doc_id, summary=v.summary, tags=tags))
-    return items
-
-
-def _parts_to_items(doc_id: str, current: Item | None, parts: list) -> list[Item]:
-    """Convert current item + PartInfo list into Items for _format_items."""
-    items: list[Item] = []
-    if current:
-        items.append(current)
-    for p in parts:
-        tags = dict(p.tags)
-        tags["_part_num"] = str(p.part_num)
-        tags["_base_id"] = doc_id
-        tags["_updated"] = p.created_at or ""
-        items.append(Item(id=doc_id, summary=p.summary, tags=tags))
-    return items
 
 
 def _format_items(items: list[Item], as_json: bool = False, keeper=None, show_tags: bool = False) -> str:
@@ -1335,18 +1166,22 @@ See: https://github.com/keepnotes-ai/keep#installation
 """
 
 
-def _get_keeper(store: Optional[Path]) -> Keeper:
+def _get_keeper(store: Optional[Path], *, _force_local: bool = False) -> Keeper:
     """Initialize memory, handling errors gracefully.
 
-    Returns a local Keeper or RemoteKeeper depending on config.
-    Both satisfy the same protocol — the CLI doesn't distinguish.
+    Returns a local Keeper or RemoteKeeper (cloud) depending on config.
+    Local daemon commands (put directory, pending, etc.)
+    always use a local Keeper — the thin CLI handles the daemon HTTP path.
+
+    When ``_force_local`` is True, skips the remote backend check
+    (used by ``keep pending`` which manages the daemon itself).
     """
     import atexit
 
     # Check for remote backend config (env vars or TOML [remote] section)
     api_url = os.environ.get("KEEPNOTES_API_URL", "https://api.keepnotes.ai")
     api_key = os.environ.get("KEEPNOTES_API_KEY")
-    if api_url and api_key:
+    if api_url and api_key and not _force_local:
         from .config import get_config_dir, load_or_create_config
         from .remote import RemoteKeeper
         try:
@@ -1458,34 +1293,6 @@ def _parse_tags(tags: Optional[list[str]]) -> dict:
     return parsed
 
 
-def _filter_by_tags(items: list, tags: list[str]) -> list:
-    """Filter items by tag specifications (AND logic).
-
-    Each tag can be:
-    - "key" - item must have this tag key (any value)
-    - "key=value" - item must have this exact tag
-    """
-    if not tags:
-        return items
-
-    result = items
-    for t in tags:
-        if "=" in t:
-            key, value = t.split("=", 1)
-            key = key.casefold()
-            result = [item for item in result
-                      if value in tag_values(item.tags, key)]
-        elif ":" in t:
-            # Colon separator — treat as key=value (common mistake)
-            key, value = t.split(":", 1)
-            key = key.casefold()
-            result = [item for item in result
-                      if value in tag_values(item.tags, key)]
-        else:
-            # Key only - check if key exists
-            result = [item for item in result if t.casefold() in item.tags]
-    return result
-
 
 def _parse_frontmatter(text: str) -> tuple[str, dict[str, str]]:
     """Parse YAML frontmatter from text, return (content, tags).
@@ -1501,358 +1308,6 @@ def _parse_frontmatter(text: str) -> tuple[str, dict[str, str]]:
 # -----------------------------------------------------------------------------
 # Commands
 # -----------------------------------------------------------------------------
-
-@app.command()
-def find(
-    query: Annotated[Optional[str], typer.Argument(help="Search query text")] = None,
-    id: Annotated[Optional[str], typer.Option(
-        "--id",
-        help="Find notes similar to this ID (instead of text search)"
-    )] = None,
-    include_self: Annotated[bool, typer.Option(
-        help="Include the queried note (only with --id)"
-    )] = False,
-    tag: Annotated[Optional[list[str]], typer.Option(
-        "--tag", "-t",
-        help="Filter by tag (key or key=value, repeatable)"
-    )] = None,
-    store: StoreOption = None,
-    limit: LimitOption = 10,
-    since: SinceOption = None,
-    until: UntilOption = None,
-    history: Annotated[bool, typer.Option(
-        "--history", "-H",
-        help="Include versions of matching notes"
-    )] = False,
-    deep: Annotated[bool, typer.Option(
-        "--deep", "-D",
-        help="Follow tags from results to discover related items"
-    )] = False,
-    show_tags: Annotated[bool, typer.Option(
-        "--tags",
-        help="Show non-system tags for each result"
-    )] = False,
-    show_all: Annotated[bool, typer.Option(
-        "--all", "-a",
-        help="Include hidden system notes (IDs starting with '.')"
-    )] = False,
-    scope: Annotated[Optional[str], typer.Option(
-        "--scope", "-S",
-        help="ID glob to constrain results (e.g. 'file:///path/to/dir*')"
-    )] = None,
-    token_budget: Annotated[Optional[int], typer.Option(
-        "--tokens",
-        help="Token budget for rich context output (includes parts and versions)"
-    )] = None,
-):
-    """Find notes by hybrid search (semantic + full-text) or similarity.
-
-    \b
-    Examples:
-        keep find "authentication"              # Hybrid search
-        keep find --id file:///path/to/doc.md   # Find similar notes
-        keep find "auth" -t project=myapp       # Search + filter by tag
-        keep find "auth" --history              # Include versions
-    """
-    if id and query:
-        typer.echo("Error: Specify either a query or --id, not both", err=True)
-        raise typer.Exit(1)
-    if not id and not query:
-        typer.echo("Error: Specify a query or --id", err=True)
-        raise typer.Exit(1)
-
-    kp = _get_keeper(store)
-
-    # --deep is incompatible with --history (versions replace deep groups)
-    if history and deep:
-        deep = False
-
-    # Search with higher limit if filtering, then post-filter
-    search_limit = limit * 5 if tag else limit
-
-    if id:
-        results = kp.find(similar_to=id, limit=search_limit, since=since, until=until, include_self=include_self, include_hidden=show_all, deep=deep, scope=scope)
-    else:
-        results = kp.find(query, limit=search_limit, since=since, until=until, include_hidden=show_all, deep=deep, scope=scope)
-
-    # Post-filter by tags if specified
-    deep_groups = getattr(results, "deep_groups", {})
-    if tag:
-        results = _filter_by_tags(results, tag)
-
-    from .api import FindResults
-    results = FindResults(results[:limit], deep_groups=deep_groups)
-
-    # Expand with versions if requested (--deep is not supported with --history)
-    if history:
-        expanded: list[Item] = []
-        for item in results:
-            versions = kp.list_versions(item.id, limit=limit)
-            expanded.extend(_versions_to_items(item.id, item, versions))
-        results = FindResults(expanded, deep_groups={})
-
-    if _get_json_output():
-        typer.echo(_format_items(results, as_json=True, keeper=kp, show_tags=show_tags))
-    elif token_budget is not None:
-        # When deep is active, cap primaries to leave budget for deep items
-        cap = 3 if deep else None
-        typer.echo(render_find_context(results, keeper=kp, token_budget=token_budget, show_tags=show_tags, deep_primary_cap=cap))
-    else:
-        typer.echo(_format_items(results, keeper=kp, show_tags=show_tags))
-
-
-@app.command("list")
-def list_recent(
-    store: StoreOption = None,
-    limit: LimitOption = 10,
-    prefix: Annotated[Optional[str], typer.Argument(
-        help="ID filter — prefix (e.g. '.tag') or glob (e.g. 'session-*', '*auth*')"
-    )] = None,
-    tag: Annotated[Optional[list[str]], typer.Option(
-        "--tag", "-t",
-        help="Filter by tag (key or key=value, repeatable)"
-    )] = None,
-    tags: Annotated[Optional[str], typer.Option(
-        "--tags", "-T",
-        help="List tag keys (--tags=), or values for KEY (--tags=KEY)"
-    )] = None,
-    sort: Annotated[str, typer.Option(
-        "--sort",
-        help="Sort order: 'updated' (default), 'accessed', 'created', or 'id'"
-    )] = "updated",
-    since: SinceOption = None,
-    until: UntilOption = None,
-    history: Annotated[bool, typer.Option(
-        "--history", "-H",
-        help="Include versions in output"
-    )] = False,
-    parts: Annotated[bool, typer.Option(
-        "--parts", "-P",
-        help="Include structural parts (from analyze)"
-    )] = False,
-    with_parts: Annotated[bool, typer.Option(
-        "--with-parts",
-        help="Only show notes that have been analyzed into parts"
-    )] = False,
-    ids_only: Annotated[bool, typer.Option(
-        "--ids", "-I",
-        help="Output only IDs (for piping to xargs)",
-        callback=_ids_callback,
-        is_eager=True,
-    )] = False,
-    show_all: Annotated[bool, typer.Option(
-        "--all", "-a",
-        help="Include hidden system notes (IDs starting with '.')"
-    )] = False,
-):
-    """List recent notes, filter by tags, or list tag keys/values.
-
-    \b
-    Examples:
-        keep list                      # Recent notes (by update time)
-        keep list .tag                 # All .tag/* system docs
-        keep list .meta                # All .meta/* system docs
-        keep list session-*            # All session-* items (glob)
-        keep list *auth*               # Items with 'auth' anywhere in ID
-        keep list --sort accessed      # Recent notes (by access time)
-        keep list --sort created       # Sort by creation time
-        keep list --sort id            # Sort alphabetically by ID
-        keep list --tag foo            # Notes with tag 'foo' (any value)
-        keep list --tag foo=bar        # Notes with tag foo=bar
-        keep list --tag foo --tag bar  # Notes with both tags
-        keep list --tags=              # List all tag keys
-        keep list --tags=foo           # List values for tag 'foo'
-        keep list --since P3D          # Notes updated in last 3 days
-        keep list --until 2026-01-15   # Notes updated before date
-        keep list --history            # Include versions
-        keep list --parts              # Include analyzed parts
-    """
-    kp = _get_keeper(store)
-
-    # --tags mode: list keys or values
-    if tags is not None:
-        # Empty string means list all keys, otherwise list values for key
-        key = tags if tags else None
-        values = kp.list_tags(key)
-        if _get_json_output():
-            typer.echo(json.dumps(values))
-        else:
-            if not values:
-                if key:
-                    typer.echo(f"No values for tag '{key}'.")
-                else:
-                    typer.echo("No tags found.")
-            else:
-                for v in values:
-                    typer.echo(v)
-        return
-
-    # Build unified filter kwargs
-    kwargs: dict = {
-        "limit": limit, "order_by": sort,
-        "since": since, "until": until,
-        "include_hidden": show_all, "include_history": history,
-    }
-
-    if prefix is not None:
-        kwargs["prefix"] = prefix
-        kwargs["include_hidden"] = True  # prefix queries always include hidden
-
-    if tag:
-        tag_dict: dict[str, str] = {}
-        tag_key_list: list[str] = []
-        for t in tag:
-            if "=" in t:
-                k, v = t.split("=", 1)
-                tag_dict[k] = v
-            else:
-                tag_key_list.append(t)
-        if tag_dict:
-            kwargs["tags"] = tag_dict
-        if tag_key_list:
-            kwargs["tag_keys"] = tag_key_list
-
-    results = kp.list_items(**kwargs)
-
-    # Filter to only items with parts
-    if with_parts:
-        doc_coll = kp._resolve_doc_collection()
-        results = [item for item in results
-                   if kp._document_store.part_count(doc_coll, item.id) > 0]
-
-    # Expand with parts if requested
-    if parts:
-        expanded: list[Item] = []
-        for item in results:
-            part_list = kp.list_parts(item.id)
-            if part_list:
-                expanded.extend(_parts_to_items(item.id, item, part_list))
-            else:
-                expanded.append(item)
-        results = expanded
-
-    typer.echo(_format_items(results, as_json=_get_json_output()))
-
-
-@app.command("tag")
-def tag(
-    ids: Annotated[list[str], typer.Argument(default=..., help="Note IDs to tag")],
-    tags: Annotated[Optional[list[str]], typer.Option(
-        "--tag", "-t",
-        help="Tag to add/update as key=value"
-    )] = None,
-    remove: Annotated[Optional[list[str]], typer.Option(
-        "--remove", "-r",
-        help="Tag keys to remove"
-    )] = None,
-    remove_values: Annotated[Optional[list[str]], typer.Option(
-        "--remove-value", "-R",
-        help="Tag values to remove as key=value"
-    )] = None,
-    store: StoreOption = None,
-):
-    """Add, update, or remove tags on existing notes.
-
-    Does not re-process the note - only updates tags.
-
-    \b
-    Examples:
-        keep tag doc:1 --tag project=myapp
-        keep tag doc:1 doc:2 --tag status=reviewed
-        keep tag doc:1 --remove obsolete_tag
-        keep tag doc:1 --remove-value speaker=Bob
-    """
-    kp = _get_keeper(store)
-
-    # Parse tags from key=value format
-    tag_changes = _parse_tags(tags)
-    remove_value_changes = _parse_tags(remove_values)
-
-    # Explicit deletion path: --remove for keys, --remove-value for values.
-    # Keep --tag key= for backwards compatibility, but steer callers to --remove.
-    for key in tag_changes:
-        if "" in tag_values(tag_changes, key):
-            typer.echo(
-                f"Error: Empty --tag value for '{key}'. Use --remove {key} instead.",
-                err=True,
-            )
-            raise typer.Exit(1)
-    for key in remove_value_changes:
-        if "" in tag_values(remove_value_changes, key):
-            typer.echo(
-                f"Error: Empty --remove-value for '{key}'. Use --remove {key} instead.",
-                err=True,
-            )
-            raise typer.Exit(1)
-
-    if not tag_changes and not remove and not remove_value_changes:
-        typer.echo("Error: Specify at least one --tag, --remove, or --remove-value", err=True)
-        raise typer.Exit(1)
-
-    # Process each document (route parts to tag_part)
-    results = []
-    for doc_id in ids:
-        match = PART_SUFFIX_PATTERN.search(doc_id)
-        try:
-            if match:
-                part_num = int(match.group(1))
-                base_id = doc_id[:match.start()]
-                part = kp.tag_part(
-                    base_id,
-                    part_num,
-                    tags=tag_changes or None,
-                    remove=remove,
-                    remove_values=remove_value_changes or None,
-                )
-                if part is None:
-                    typer.echo(f"Part not found: {doc_id}", err=True)
-                else:
-                    typer.echo(f"Updated {doc_id}")
-            else:
-                item = kp.tag(
-                    doc_id,
-                    tags=tag_changes or None,
-                    remove=remove,
-                    remove_values=remove_value_changes or None,
-                )
-                if item is None:
-                    typer.echo(f"Not found: {doc_id}", err=True)
-                else:
-                    results.append(item)
-        except ValueError as e:
-            typer.echo(f"Error: {e}", err=True)
-            raise typer.Exit(1)
-
-    if results:
-        typer.echo(_format_items(results, as_json=_get_json_output()))
-
-
-@app.command("tag-update", hidden=True)
-def tag_update(
-    ids: Annotated[list[str], typer.Argument(default=..., help="Note IDs to tag")],
-    tags: Annotated[Optional[list[str]], typer.Option(
-        "--tag", "-t",
-        help="Tag to add/update as key=value"
-    )] = None,
-    remove: Annotated[Optional[list[str]], typer.Option(
-        "--remove", "-r",
-        help="Tag keys to remove"
-    )] = None,
-    remove_values: Annotated[Optional[list[str]], typer.Option(
-        "--remove-value", "-R",
-        help="Tag values to remove as key=value"
-    )] = None,
-    store: StoreOption = None,
-):
-    """Hidden compatibility alias for 'tag'."""
-    tag(
-        ids=ids,
-        tags=tags,
-        remove=remove,
-        remove_values=remove_values,
-        store=store,
-    )
-
 
 def _handle_watch(
     kp: "Keeper",
@@ -1934,7 +1389,11 @@ def _put_store(
             typer.echo("Error: --id cannot be used with directory mode", err=True)
             raise typer.Exit(1)
         from .ignore import merge_excludes
-        combined_exclude = merge_excludes(kp._load_ignore_patterns(), exclude)
+        try:
+            ignore_patterns = kp._load_ignore_patterns()
+        except AttributeError:
+            ignore_patterns = []
+        combined_exclude = merge_excludes(ignore_patterns, exclude)
         files = _list_directory_files(resolved_path, recurse=recurse, exclude=combined_exclude or None)
         if not files:
             typer.echo(f"Error: no eligible files in {resolved_path}/", err=True)
@@ -1980,20 +1439,21 @@ def _put_store(
             typer.echo(_format_items(results, as_json=_get_json_output()))
 
         # Git changelog ingest: find all git repos in the tree
-        from .git_ingest import discover_git_roots
-        git_roots = discover_git_roots(files)
-        for root_str in sorted(git_roots):
-            try:
-                kp._get_work_queue().enqueue(
-                    "ingest_git",
-                    {"item_id": f"file://{root_str}", "directory": root_str},
-                    supersede_key=f"git:{root_str}",
-                    priority=1,
-                )
-            except Exception as e:
-                logger.warning("Failed to queue git ingest for %s: %s", root_str, e)
-        if git_roots:
-            typer.echo(f"git: {len(git_roots)} repo(s) queued for changelog ingest", err=True)
+        if hasattr(kp, "_get_work_queue"):
+            from .git_ingest import discover_git_roots
+            git_roots = discover_git_roots(files)
+            for root_str in sorted(git_roots):
+                try:
+                    kp._get_work_queue().enqueue(
+                        "ingest_git",
+                        {"item_id": f"file://{root_str}", "directory": root_str},
+                        supersede_key=f"git:{root_str}",
+                        priority=1,
+                    )
+                except Exception as e:
+                    logger.warning("Failed to queue git ingest for %s: %s", root_str, e)
+            if git_roots:
+                typer.echo(f"git: {len(git_roots)} repo(s) queued for changelog ingest", err=True)
 
         _handle_watch(kp, watch, unwatch, str(resolved_path), "directory",
                       parsed_tags, recurse=recurse, exclude=exclude, interval=interval)
@@ -2041,10 +1501,6 @@ def put(
         "--summary",
         help="User-provided summary (skips auto-summarization)"
     )] = None,
-    suggest_tags: Annotated[bool, typer.Option(
-        "--suggest-tags",
-        help="Show tag suggestions from similar notes"
-    )] = False,
     recurse: Annotated[bool, typer.Option(
         "--recurse", "-r",
         help="Recurse into subdirectories (directory mode)"
@@ -2130,251 +1586,12 @@ def put(
         return  # directory mode already printed output
 
     # Surface similar items (occasion for reflection)
-    suggest_limit = 10 if suggest_tags else 3
     ctx = kp.get_context(
-        item.id, similar_limit=min(suggest_limit, 3),
+        item.id, similar_limit=3,
         include_meta=False, include_parts=False, include_versions=False,
     )
     typer.echo(render_context(ctx, as_json=_get_json_output()))
 
-    # Show tag suggestions from similar items (needs more than 3)
-    if suggest_tags:
-        similar_items = kp.get_similar_for_display(item.id, limit=suggest_limit) if suggest_limit > 3 else []
-        tag_counts: dict[str, int] = {}
-        for si in similar_items:
-            for k, v in si.tags.items():
-                if k.startswith("_"):
-                    continue
-                tag = f"{k}={v}" if v else k
-                tag_counts[tag] = tag_counts.get(tag, 0) + 1
-        if tag_counts:
-            # Sort by frequency (descending), then alphabetically
-            sorted_tags = sorted(tag_counts.items(), key=lambda x: (-x[1], x[0]))
-            typer.echo("\nsuggested tags:")
-            for tag, count in sorted_tags:
-                typer.echo(f"  -t {tag}  ({count})")
-            typer.echo(f"\napply with: keep tag {_shell_quote_id(item.id)} -t TAG")
-
-
-@app.command("update", hidden=True)
-def update(
-    source: Annotated[Optional[str], typer.Argument(help="URI to fetch, text content, or '-' for stdin")] = None,
-    id: Annotated[Optional[str], typer.Option("--id", "-i")] = None,
-    store: StoreOption = None,
-    tags: Annotated[Optional[list[str]], typer.Option("--tag", "-t")] = None,
-    summary: Annotated[Optional[str], typer.Option("--summary")] = None,
-):
-    """Add or update a note (alias for 'put')."""
-    put(source=source, id=id, store=store, tags=tags, summary=summary)
-
-
-@app.command("add", hidden=True)
-def add(
-    source: Annotated[Optional[str], typer.Argument(help="URI to fetch, text content, or '-' for stdin")] = None,
-    id: Annotated[Optional[str], typer.Option("--id", "-i")] = None,
-    store: StoreOption = None,
-    tags: Annotated[Optional[list[str]], typer.Option("--tag", "-t")] = None,
-    summary: Annotated[Optional[str], typer.Option("--summary")] = None,
-):
-    """Add a note (alias for 'put')."""
-    put(source=source, id=id, store=store, tags=tags, summary=summary)
-
-
-@app.command()
-def now(
-    content: Annotated[Optional[str], typer.Argument(
-        help="Content to set (omit to show current)"
-    )] = None,
-    reset: Annotated[bool, typer.Option(
-        "--reset",
-        help="Reset to default from system"
-    )] = False,
-    version: Annotated[Optional[int], typer.Option(
-        "--version", "-V",
-        help="Version selector (>=0 from current, <0 from oldest: -1 oldest)"
-    )] = None,
-    history: Annotated[bool, typer.Option(
-        "--history", "-H",
-        help="List all versions"
-    )] = False,
-    scope: Annotated[Optional[str], typer.Option(
-        "--scope",
-        help="Scope for multi-user isolation (e.g. user ID)"
-    )] = None,
-    store: StoreOption = None,
-    tags: Annotated[Optional[list[str]], typer.Option(
-        "--tag", "-t",
-        help="Set tag (with content) or filter (without content)"
-    )] = None,
-    limit: Annotated[int, typer.Option(
-        "--limit", "-n",
-        help="Max items per section: similar, meta, edges (default 3)"
-    )] = 3,
-):
-    """Get or set the current working intentions.
-
-    With no arguments, displays the current intentions.
-    With content, replaces it.
-
-    \b
-    Tags behave differently based on mode:
-    - With content: -t sets tags on the update
-    - Without content: -t filters version history
-
-    \b
-    Examples:
-        keep now                         # Show current intentions
-        keep now "What's important now"  # Update intentions
-        keep now "Auth work" -t project=myapp  # Update with tag
-        keep now -t project=myapp        # Find version with tag
-        keep now -n 10                   # Show with more similar/meta items
-        keep now --reset                 # Reset to default from system
-        keep now -V 1                    # Previous version
-        keep now --history               # List all versions
-    """
-    from .api import NOWDOC_ID
-
-    # Expand ${.field} templates from stdin JSON (hooks support)
-    has_tpl = _has_templates(content) or (tags and any(_has_templates(t) for t in tags))
-    if has_tpl:
-        (content,) = _expand_stdin_templates(content)
-        tags = _expand_stdin_tag_list(tags)
-
-    kp = _get_keeper(store)
-    doc_id = f"now:{scope}" if scope else NOWDOC_ID
-
-    # Handle history listing
-    if history:
-        # --ids: flat list for piping
-        if _get_ids_output():
-            versions = kp.list_versions(doc_id, limit=limit)
-            current = kp.get(doc_id)
-            items = _versions_to_items(doc_id, current, versions)
-            typer.echo(_format_items(items))
-            return
-        # Default: expanded frontmatter with all versions
-        ctx = kp.get_context(doc_id)
-        if ctx is None:
-            typer.echo("Not found", err=True)
-            raise typer.Exit(1)
-        all_versions = kp.list_versions(doc_id, limit=limit)
-        ctx.prev = [
-            VersionRef(
-                offset=i + 1,
-                date=local_date(v.tags.get("_created") or v.created_at or ""),
-                summary=v.summary,
-            )
-            for i, v in enumerate(all_versions)
-        ]
-        ctx.next = []
-        typer.echo(render_context(ctx, as_json=_get_json_output()))
-        return
-
-    # Handle version retrieval
-    if version is not None:
-        ctx = kp.get_context(
-            doc_id, version=version,
-            include_similar=False, include_meta=False, include_parts=False,
-        )
-        if ctx is None:
-            typer.echo(f"Version not found: {doc_id}@V{{{version}}}", err=True)
-            raise typer.Exit(1)
-        typer.echo(render_context(ctx, as_json=_get_json_output()))
-        return
-
-    # Read from stdin if piped and no content argument
-    if content is None and not reset and _has_stdin_data():
-        try:
-            content = sys.stdin.read().strip() or None
-        except UnicodeDecodeError:
-            typer.echo("Error: stdin contains binary data (not valid UTF-8)", err=True)
-            raise typer.Exit(1)
-
-    # Determine if we're getting or setting
-    setting = content is not None or reset
-
-    if setting:
-        if reset:
-            # Reset to default from system (delete first to clear old tags)
-            from .system_docs import _load_frontmatter, SYSTEM_DOC_DIR
-            kp.delete(doc_id)
-            try:
-                new_content, default_tags = _load_frontmatter(SYSTEM_DOC_DIR / "now.md")
-                parsed_tags = default_tags
-            except FileNotFoundError:
-                typer.echo("Error: Builtin now.md not found", err=True)
-                raise typer.Exit(1)
-        else:
-            new_content = content
-            parsed_tags = {}
-
-        # Parse user-provided tags (merge with default if reset)
-        parsed_tags.update(_parse_tags(tags))
-
-        kp.set_now(new_content, scope=scope, tags=parsed_tags or None)
-
-        # Surface context (occasion for reflection)
-        ctx = kp.get_context(doc_id, similar_limit=limit, meta_limit=limit, edges_limit=limit)
-        typer.echo(render_context(ctx, as_json=_get_json_output()))
-    else:
-        # Get current intentions (or search version history if tags specified)
-        if tags:
-            # Search version history for most recent version with matching tags
-            item = _find_now_version_by_tags(kp, tags, scope=scope)
-            if item is None:
-                typer.echo("No version found matching tags", err=True)
-                raise typer.Exit(1)
-            # No version nav or similar items for filtered results
-            typer.echo(render_context(ItemContext(item=item), as_json=_get_json_output()))
-        else:
-            # Standard: get current with version navigation and similar items
-            ctx = kp.get_context(doc_id, similar_limit=limit, meta_limit=limit, edges_limit=limit)
-            if ctx is None:
-                kp.get_now(scope=scope)  # force-create
-                ctx = kp.get_context(doc_id, similar_limit=limit, meta_limit=limit, edges_limit=limit)
-            typer.echo(render_context(ctx, as_json=_get_json_output()))
-
-
-def _find_now_version_by_tags(kp, tags: list[str], *, scope: Optional[str] = None):
-    """Search nowdoc version history for most recent version matching all tags.
-
-    Checks current version first, then scans previous versions.
-    """
-    from .api import NOWDOC_ID
-    doc_id = f"now:{scope}" if scope else NOWDOC_ID
-
-    # Parse tag filters
-    tag_filters = []
-    for t in tags:
-        if "=" in t:
-            key, value = t.split("=", 1)
-            tag_filters.append((key, value))
-        else:
-            tag_filters.append((t, None))  # Key only
-
-    def matches_tags(item_tags: dict) -> bool:
-        for key, value in tag_filters:
-            if value is not None:
-                if value not in tag_values(item_tags, key):
-                    return False
-            else:
-                if key not in item_tags:
-                    return False
-        return True
-
-    # Check current version first
-    current = kp.get_now(scope=scope)
-    if current and matches_tags(current.tags):
-        return current
-
-    # Scan previous versions (newest first)
-    versions = kp.list_versions(doc_id, limit=100)
-    for i, v in enumerate(versions):
-        if matches_tags(v.tags):
-            # Found match - get full item at this version offset
-            return kp.get_version(doc_id, i + 1)
-
-    return None
 
 
 def _render_binding(name: str, binding: dict, kp=None, token_budget: int = 4000) -> str:
@@ -2492,753 +1709,6 @@ def expand_prompt(result: "PromptResult", kp=None) -> str:
         output = output.replace("\n\n\n", "\n\n")
 
     return output.strip()
-
-
-@app.command()
-def prompt(
-    name: Annotated[str, typer.Argument(
-        help="Prompt name (e.g. 'reflect')"
-    )] = "",
-    text: Annotated[Optional[str], typer.Argument(
-        help="Optional text for context search"
-    )] = None,
-    list_prompts: Annotated[bool, typer.Option(
-        "--list", "-l",
-        help="List available agent prompts"
-    )] = False,
-    id: Annotated[Optional[str], typer.Option(
-        "--id",
-        help="Item ID for {get} context (default: 'now')"
-    )] = None,
-    tag: Annotated[Optional[list[str]], typer.Option(
-        "--tag", "-t",
-        help="Filter context by tag (key=value, repeatable)"
-    )] = None,
-    since: SinceOption = None,
-    until: UntilOption = None,
-    deep: Annotated[bool, typer.Option(
-        "--deep", "-D",
-        help="Follow tags from results to discover related items"
-    )] = False,
-    scope: Annotated[Optional[str], typer.Option(
-        "--scope", "-S",
-        help="ID glob to constrain search results (e.g. 'file:///path/to/dir*')"
-    )] = None,
-    token_budget: Annotated[Optional[int], typer.Option(
-        "--tokens",
-        help="Token budget for {find} context (template default if not set)"
-    )] = None,
-    store: StoreOption = None,
-):
-    """Render an agent prompt with injected context.
-
-    \b
-    The prompt doc may contain {get} and {find} placeholders:
-      {get}  — expanded with context for --id (default: now)
-      {find} — expanded with search results for the text argument
-
-    \b
-    Examples:
-        keep prompt --list                        # List available prompts
-        keep prompt reflect                       # Reflect on current work
-        keep prompt reflect "auth flow"           # Reflect with search context
-        keep prompt reflect --id %abc123          # Context from specific item
-        keep prompt reflect --since P7D           # Recent context only
-        keep prompt reflect --tag project=myapp   # Scoped to project
-    """
-    # Expand ${.field} templates from stdin JSON (hooks support)
-    tag = _expand_stdin_tag_list(tag)
-
-    kp = _get_keeper(store)
-
-    if list_prompts or not name:
-        prompts = kp.list_prompts()
-        if not prompts:
-            typer.echo("No agent prompts available.", err=True)
-            raise typer.Exit(1)
-        for p in prompts:
-            typer.echo(f"{p.name:20s} {p.summary}")
-        return
-
-    tags_dict = _parse_tags(tag) if tag else None
-    result = kp.render_prompt(
-        name, text, id=id, since=since, until=until, tags=tags_dict,
-        deep=deep, scope=scope, token_budget=token_budget,
-    )
-    if result is None:
-        typer.echo(f"Prompt not found: {name}", err=True)
-        raise typer.Exit(1)
-
-    if _get_json_output():
-        items = result.search_results or []
-        out = {
-            "prompt": expand_prompt(result, kp),
-            "context": result.context.to_dict() if result.context else None,
-            "results": [
-                {
-                    "id": item.id,
-                    "summary": item.summary,
-                    "tags": _filter_display_tags(item.tags),
-                    "score": item.score,
-                    "created": item.created,
-                    "updated": item.updated,
-                }
-                for item in items
-            ],
-        }
-        typer.echo(json.dumps(out, indent=2))
-    else:
-        typer.echo(expand_prompt(result, kp))
-
-
-@app.command(hidden=True)
-def reflect(
-    text: Annotated[Optional[str], typer.Argument(
-        help="Optional text for context search"
-    )] = None,
-    id: Annotated[Optional[str], typer.Option(
-        "--id",
-        help="Item ID for {get} context (default: 'now')"
-    )] = None,
-    store: StoreOption = None,
-):
-    """Reflect on current actions (alias for 'keep prompt reflect')."""
-    kp = _get_keeper(store)
-    result = kp.render_prompt("reflect", text, id=id)
-    if result is None:
-        typer.echo("Prompt 'reflect' not found. Is the store initialized?", err=True)
-        raise typer.Exit(1)
-
-    typer.echo(expand_prompt(result, kp))
-
-
-@app.command()
-def move(
-    name: Annotated[str, typer.Argument(help="Target note name")],
-    tags: Annotated[Optional[list[str]], typer.Option(
-        "--tag", "-t",
-        help="Only extract versions matching these tags (key=value)"
-    )] = None,
-    from_source: Annotated[Optional[str], typer.Option(
-        "--from",
-        help="Source note to extract from (default: now)"
-    )] = None,
-    only: Annotated[bool, typer.Option(
-        "--only",
-        help="Move only the current (tip) version"
-    )] = False,
-    _analyze: Annotated[bool, typer.Option(
-        "--analyze", hidden=True, help="(deprecated, no-op)"
-    )] = False,
-    store: StoreOption = None,
-):
-    """Move versions from now (or another item) into a named item.
-
-    Requires either -t (tag filter) or --only (tip only).
-    With -t, matching versions are extracted from the source.
-    With --only, just the current version is moved.
-    With --from, extract from a specific item instead of now.
-    """
-    # Expand ${.field} templates from stdin JSON (hooks support)
-    (name,) = _expand_stdin_templates(name)
-    tags = _expand_stdin_tag_list(tags)
-
-    if not tags and not only:
-        typer.echo(
-            "Error: use -t to filter by tags, or --only to move just the current version",
-            err=True,
-        )
-        raise typer.Exit(1)
-
-    kp = _get_keeper(store)
-    tag_filter = _parse_tags(tags) if tags else None
-    source_id = from_source if from_source else None
-
-    try:
-        kwargs: dict = {"tags": tag_filter, "only_current": only}
-        if source_id:
-            kwargs["source_id"] = source_id
-        saved = kp.move(name, **kwargs)
-    except ValueError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
-
-    as_json = _get_json_output()
-    versions = kp.list_versions(name, limit=100)
-    items = _versions_to_items(name, saved, versions)
-    typer.echo(_format_items(items, as_json=as_json))
-
-
-@app.command()
-def get(
-    id: Annotated[list[str], typer.Argument(help="URI(s) of note(s) (append @V{N} for version)")],
-    version: Annotated[Optional[int], typer.Option(
-        "--version", "-V",
-        help="Version selector (>=0 from current, <0 from oldest: -1 oldest)"
-    )] = None,
-    history: Annotated[bool, typer.Option(
-        "--history", "-H",
-        help="List all versions"
-    )] = False,
-    similar: Annotated[bool, typer.Option(
-        "--similar", "-S",
-        help="List similar notes"
-    )] = False,
-    meta: Annotated[bool, typer.Option(
-        "--meta", "-M",
-        help="List meta notes"
-    )] = False,
-    resolve: Annotated[Optional[list[str]], typer.Option(
-        "--resolve", "-R",
-        help="Inline meta query (metadoc syntax, repeatable)"
-    )] = None,
-    parts: Annotated[bool, typer.Option(
-        "--parts", "-P",
-        help="List structural parts (from analyze)"
-    )] = False,
-    tag: Annotated[Optional[list[str]], typer.Option(
-        "--tag", "-t",
-        help="Require tag (key or key=value, repeatable)"
-    )] = None,
-    limit: Annotated[int, typer.Option(
-        "--limit", "-n",
-        help="Max items per section: similar, meta, edges, parts, versions (default: 10)"
-    )] = 10,
-    store: StoreOption = None,
-):
-    """Retrieve note(s) by ID.
-
-    Accepts one or more IDs. Version identifiers: Append @V{N} to get a specific version.
-    N>=0 selects from current; N<0 selects from oldest archived (-1 oldest).
-    Part identifiers: Append @P{N} to get a specific part.
-
-    \b
-    Examples:
-        keep get doc:1                  # Current version with similar notes
-        keep get doc:1 doc:2 doc:3      # Multiple notes
-        keep get doc:1 -V 1             # Previous version with prev/next nav
-        keep get doc:1 -V -1            # Oldest archived version
-        keep get "doc:1@V{1}"           # Same as -V 1
-        keep get "doc:1@V{-1}"          # Same as -V -1
-        keep get "doc:1@P{1}"           # Part 1 of analyzed note
-        keep get doc:1 --history        # List all versions
-        keep get doc:1 --parts          # List structural parts
-        keep get doc:1 --similar        # List similar items
-        keep get doc:1 --meta           # List meta items
-        keep get doc:1 -t project=myapp # Only if tag matches
-    """
-    kp = _get_keeper(store)
-    outputs = []
-    errors = []
-
-    for one_id in id:
-        result = _get_one(kp, one_id, version, history, similar, meta, resolve, tag, limit, parts)
-        if result is None:
-            errors.append(one_id)
-        else:
-            outputs.append(result)
-
-    if outputs:
-        separator = "\n" if _get_ids_output() else "\n---\n" if len(outputs) > 1 else ""
-        typer.echo(separator.join(outputs))
-
-    if errors:
-        raise typer.Exit(1)
-
-
-def _get_part_direct(kp: Keeper, actual_id: str, part_num: int) -> Optional[str]:
-    """Get a single part by ID@P{N} and return formatted output."""
-    item = kp.get_part(actual_id, part_num)
-    if item is None:
-        typer.echo(f"Part not found: {actual_id}@P{{{part_num}}}", err=True)
-        return None
-
-    if _get_ids_output():
-        return f"{_shell_quote_id(actual_id)}@P{{{part_num}}}"
-    if _get_json_output():
-        return json.dumps({
-            "id": actual_id,
-            "part": part_num,
-            "total_parts": int(item.tags.get("_total_parts", 0)),
-            "summary": item.summary,
-            "tags": _filter_display_tags(item.tags),
-        }, indent=2)
-
-    total = int(item.tags.get("_total_parts", 0))
-    lines = ["---", f"id: {_shell_quote_id(actual_id)}@P{{{part_num}}}"]
-    display_tags = _filter_display_tags(item.tags)
-    lines.extend(_render_tags_frontmatter(display_tags))
-    if part_num > 1:
-        lines.append("prev:")
-        lines.append(f"  - @P{{{part_num - 1}}}")
-    if part_num < total:
-        lines.append("next:")
-        lines.append(f"  - @P{{{part_num + 1}}}")
-    lines.append("---")
-    lines.append(item.summary)
-    return "\n".join(lines)
-
-
-def _get_parts_list(kp: Keeper, actual_id: str) -> str:
-    """List all parts of a document (same format as 'keep list')."""
-    part_list = kp.list_parts(actual_id)
-    if not part_list:
-        return f"No parts for {actual_id}. Use 'keep analyze {actual_id}' to create parts."
-    items = _parts_to_items(actual_id, None, part_list)
-    return _format_items(items, as_json=_get_json_output())
-
-
-def _get_similar_list(kp: Keeper, actual_id: str, limit: int) -> str:
-    """List similar items for a document."""
-    similar_items = kp.get_similar_for_display(actual_id, limit=limit)
-    similar_offsets = {s.id: kp.get_version_offset(s) for s in similar_items}
-
-    if _get_ids_output():
-        lines = []
-        for item in similar_items:
-            base_id = item.tags.get("_base_id", item.id)
-            offset = similar_offsets.get(item.id, 0)
-            lines.append(f"{base_id}@V{{{offset}}}")
-        return "\n".join(lines)
-    if _get_json_output():
-        result = {
-            "id": actual_id,
-            "similar": [
-                {
-                    "id": f"{item.tags.get('_base_id', item.id)}@V{{{similar_offsets.get(item.id, 0)}}}",
-                    "score": item.score,
-                    "date": local_date(item.tags.get("_updated") or item.tags.get("_created", "")),
-                    "summary": item.summary[:60],
-                }
-                for item in similar_items
-            ],
-        }
-        return json.dumps(result, indent=2)
-    lines = [f"Similar to {actual_id}:"]
-    if similar_items:
-        for item in similar_items:
-            base_id = item.tags.get("_base_id", item.id)
-            offset = similar_offsets.get(item.id, 0)
-            score_str = f"({item.score:.2f})" if item.score else ""
-            date_part = local_date(item.tags.get("_updated") or item.tags.get("_created", ""))
-            summary_preview = item.summary[:50].replace("\n", " ")
-            if len(item.summary) > 50:
-                summary_preview += "..."
-            lines.append(f"  {base_id}@V{{{offset}}} {score_str} {date_part} {summary_preview}")
-    else:
-        lines.append("  No similar notes found.")
-    return "\n".join(lines)
-
-
-def _get_meta_list(kp: Keeper, actual_id: str, limit: int) -> str:
-    """List meta items for a document."""
-    meta_sections = kp.resolve_meta(actual_id, limit_per_doc=limit)
-    if _get_ids_output():
-        lines = []
-        for name, items in meta_sections.items():
-            for item in items:
-                lines.append(_shell_quote_id(item.id))
-        return "\n".join(lines)
-    if _get_json_output():
-        result = {
-            "id": actual_id,
-            "meta": {
-                name: [{"id": item.id, "summary": item.summary[:60]} for item in items]
-                for name, items in meta_sections.items()
-            },
-        }
-        return json.dumps(result, indent=2)
-    lines = [f"Meta for {actual_id}:"]
-    for name, items in meta_sections.items():
-        lines.append(f"  {name}:")
-        for item in items:
-            summary_preview = item.summary[:50].replace("\n", " ")
-            if len(item.summary) > 50:
-                summary_preview += "..."
-            lines.append(f"    {_shell_quote_id(item.id)}  {summary_preview}")
-    if len(lines) == 1:
-        lines.append("  No meta notes found.")
-    return "\n".join(lines)
-
-
-def _get_resolve_list(kp: Keeper, actual_id: str, resolve: list[str], limit: int) -> str:
-    """Resolve inline meta-doc syntax strings."""
-    from .utils import _parse_meta_doc
-    all_queries: list[dict[str, str]] = []
-    all_context: list[str] = []
-    all_prereqs: list[str] = []
-    for r in resolve:
-        q, c, p = _parse_meta_doc(r)
-        all_queries.extend(q)
-        all_context.extend(c)
-        all_prereqs.extend(p)
-    all_context = list(dict.fromkeys(all_context))
-    all_prereqs = list(dict.fromkeys(all_prereqs))
-    items = kp.resolve_inline_meta(
-        actual_id, all_queries, all_context, all_prereqs, limit=limit,
-    )
-    if _get_ids_output():
-        return "\n".join(_shell_quote_id(item.id) for item in items)
-    if _get_json_output():
-        result = {
-            "id": actual_id,
-            "resolve": [{"id": item.id, "summary": item.summary[:60]} for item in items],
-        }
-        return json.dumps(result, indent=2)
-    lines = [f"Resolve for {actual_id}:"]
-    for item in items:
-        summary_preview = item.summary[:50].replace("\n", " ")
-        if len(item.summary) > 50:
-            summary_preview += "..."
-        lines.append(f"  {_shell_quote_id(item.id)}  {summary_preview}")
-    if len(lines) == 1:
-        lines.append("  No matching notes found.")
-    return "\n".join(lines)
-
-
-def _get_one(
-    kp: Keeper,
-    one_id: str,
-    version: Optional[int],
-    history: bool,
-    similar: bool,
-    meta: bool,
-    resolve: Optional[list[str]],
-    tag: Optional[list[str]],
-    limit: int,
-    show_parts: bool = False,
-    focus_part: Optional[int] = None,
-) -> Optional[str]:
-    """Get a single item and return its formatted output, or None on error."""
-    # Parse @V{N} (signed) or @P{N} identifier from ID (security: check literal first)
-    actual_id = one_id
-    version_from_id = None
-    part_from_id = None
-
-    if kp.exists(one_id):
-        actual_id = one_id
-    else:
-        match = PART_SUFFIX_PATTERN.search(one_id)
-        if match:
-            part_from_id = int(match.group(1))
-            actual_id = one_id[:match.start()]
-        else:
-            match = VERSION_SUFFIX_PATTERN.search(one_id)
-            if match:
-                version_from_id = int(match.group(1))
-                actual_id = one_id[:match.start()]
-
-    effective_version = version
-    if version is None and version_from_id is not None:
-        effective_version = version_from_id
-
-    # Dispatch to sub-mode handlers
-    if part_from_id is not None:
-        return _get_part_direct(kp, actual_id, part_from_id)
-
-    # --history / --parts with --ids: flat list for piping
-    if _get_ids_output() and history:
-        versions = kp.list_versions(actual_id, limit=limit)
-        current = kp.get(actual_id)
-        return _format_items(_versions_to_items(actual_id, current, versions))
-    if _get_ids_output() and show_parts:
-        part_list = kp.list_parts(actual_id)
-        if not part_list:
-            return f"No parts for {actual_id}. Use 'keep analyze {actual_id}' to create parts."
-        return _format_items(_parts_to_items(actual_id, None, part_list))
-
-    if similar:
-        return _get_similar_list(kp, actual_id, limit)
-    if meta:
-        return _get_meta_list(kp, actual_id, limit)
-    if resolve:
-        return _get_resolve_list(kp, actual_id, resolve, limit)
-
-    # Default + --history + --parts: frontmatter with expanded sections
-    selector = effective_version if effective_version is not None else None
-    ctx = kp.get_context(
-        actual_id, version=selector,
-        similar_limit=limit, meta_limit=limit, edges_limit=limit,
-        parts_limit=limit, versions_limit=min(limit, 5),
-    )
-    if ctx is None:
-        if selector is not None:
-            typer.echo(f"Version not found: {actual_id}@V{{{selector}}}", err=True)
-        else:
-            typer.echo(f"Not found: {actual_id}", err=True)
-        return None
-
-    # Expand parts section: show all parts without windowing
-    if show_parts:
-        all_parts = kp.list_parts(actual_id)
-        if not all_parts:
-            typer.echo(f"No parts for {actual_id}. Use 'keep analyze {actual_id}' to create parts.", err=True)
-            return None
-        ctx.parts = [PartRef(part_num=p.part_num, summary=p.summary, tags=dict(p.tags)) for p in all_parts]
-        ctx.expand_parts = True
-
-    # Expand history: show all versions in prev section
-    if history:
-        all_versions = kp.list_versions(actual_id, limit=limit)
-        ctx.prev = [
-            VersionRef(
-                offset=i + 1,
-                date=local_date(v.tags.get("_created") or v.created_at or ""),
-                summary=v.summary,
-            )
-            for i, v in enumerate(all_versions)
-        ]
-        ctx.next = []  # full history replaces navigation
-
-    if tag:
-        filtered = _filter_by_tags([ctx.item], tag)
-        if not filtered:
-            typer.echo(f"Tag filter not matched: {actual_id}", err=True)
-            return None
-
-    if _get_ids_output():
-        return _format_versioned_id(ctx.item)
-    return render_context(ctx, as_json=_get_json_output())
-
-
-@app.command("edit")
-def edit_cmd(
-    id: Annotated[str, typer.Argument(help="ID of note to edit")],
-    store: StoreOption = None,
-):
-    """Edit a note's content in $EDITOR.
-
-    Opens the current content in your editor. On save, updates the note
-    if the content changed. Useful for editing prompts, .ignore, and
-    other system docs.
-
-    \b
-    Examples:
-        keep edit .ignore                    # Edit global ignore patterns
-        keep edit .prompt/agent/reflect      # Edit a prompt template
-        keep edit now                        # Edit current intentions
-        EDITOR=code keep edit .ignore        # Use VS Code
-    """
-    kp = _get_keeper(store)
-    item = kp.get(id)
-    if item is None:
-        typer.echo(f"Not found: {id}", err=True)
-        raise typer.Exit(1)
-
-    import tempfile
-    import subprocess
-    editor = os.environ.get("EDITOR") or os.environ.get("VISUAL") or "vi"
-
-    suffix = ".md" if not id.endswith((".py", ".js", ".ts", ".json", ".yaml", ".yml", ".toml")) else ""
-    with tempfile.NamedTemporaryFile(suffix=suffix or Path(id).suffix, mode="w", delete=False, prefix="keep-edit-") as f:
-        f.write(item.summary)
-        tmp = f.name
-
-    try:
-        subprocess.run([editor, tmp], check=True)
-        new_content = Path(tmp).read_text()
-    except (subprocess.CalledProcessError, KeyboardInterrupt):
-        typer.echo("Editor exited abnormally, no changes saved", err=True)
-        Path(tmp).unlink(missing_ok=True)
-        raise typer.Exit(1)
-    finally:
-        Path(tmp).unlink(missing_ok=True)
-
-    if new_content == item.summary:
-        typer.echo("No changes", err=True)
-        return
-
-    result = kp.put(new_content, id=id)
-    typer.echo(f"Updated {id}", err=True)
-    if _get_json_output():
-        typer.echo(_format_items([result], as_json=True))
-
-
-@app.command("del")
-def del_cmd(
-    id: Annotated[list[str], typer.Argument(help="ID(s) of note(s) to delete")],
-    store: StoreOption = None,
-):
-    """Delete the current version of note(s), or a specific version.
-
-    Without @V{N}: reverts to the previous version (or fully deletes if no history).
-    With @V{N}: deletes that specific archived version; other versions remain.
-      N>=0 selects by offset from current; N<0 selects by oldest-ordinal.
-
-    \b
-    Examples:
-        keep del %abc123def456        # Remove a text note
-        keep del %abc123 %def456      # Remove multiple notes
-        keep del now                  # Revert now to previous
-        keep del 'now@V{3}'          # Delete version 3 only
-    """
-    kp = _get_keeper(store)
-    had_errors = False
-
-    for one_id in id:
-        # Parts cannot be individually deleted
-        if PART_SUFFIX_PATTERN.search(one_id):
-            typer.echo(f"Error: cannot delete individual parts. Re-analyze or delete the parent.", err=True)
-            had_errors = True
-            continue
-
-        # Parse @V{N} suffix (signed selectors allowed)
-        version_offset = None
-        actual_id = one_id
-        match = VERSION_SUFFIX_PATTERN.search(one_id)
-        if match:
-            version_offset = int(match.group(1))
-            actual_id = one_id[:match.start()]
-
-        if version_offset is not None:
-            if version_offset == 0:
-                typer.echo(
-                    f"Error: @V{{0}} is current. Use 'keep del {_shell_quote_id(actual_id)}' to revert.",
-                    err=True,
-                )
-                had_errors = True
-                continue
-            # Delete a specific archived version (offset or oldest-ordinal selector)
-            # Fetch the version before deleting so we can show what was removed
-            version_item = kp.get_version(actual_id, version_offset)
-            deleted = kp.delete_version(actual_id, version_offset)
-            if not deleted:
-                typer.echo(f"Version not found: {one_id}", err=True)
-                had_errors = True
-            elif version_item:
-                from .types import ItemContext
-                typer.echo(render_context(ItemContext(item=version_item), as_json=_get_json_output()))
-        else:
-            # Original behavior: revert current (or delete if no history)
-            item = kp.get(actual_id)
-            if item is None:
-                typer.echo(f"Not found: {actual_id}", err=True)
-                had_errors = True
-                continue
-
-            # Show the deleted version (fetched above before deletion)
-            ctx = kp.get_context(
-                actual_id, include_meta=False, include_parts=False,
-                include_similar=False,
-            )
-            restored = kp.revert(actual_id)
-
-            if ctx:
-                typer.echo(render_context(ctx, as_json=_get_json_output()))
-            else:
-                typer.echo(_format_summary_line(item))
-
-    if had_errors:
-        raise typer.Exit(1)
-
-
-@app.command("delete", hidden=True)
-def delete(
-    id: Annotated[list[str], typer.Argument(help="ID(s) of note(s) to delete")],
-    store: StoreOption = None,
-):
-    """Delete the current version of note(s) (alias for 'del')."""
-    del_cmd(id=id, store=store)
-
-
-@app.command()
-def analyze(
-    id: Annotated[str, typer.Argument(help="ID of note to analyze into parts")],
-    tag: Annotated[Optional[list[str]], typer.Option(
-        "--tag", "-t",
-        help="Guidance tag keys for decomposition (e.g., -t topic -t type)",
-    )] = None,
-    foreground: Annotated[bool, typer.Option(
-        "--foreground", "--fg",
-        help="Run in foreground (default: background)"
-    )] = False,
-    force: Annotated[bool, typer.Option(
-        "--force",
-        help="Re-analyze even if parts are already current"
-    )] = False,
-    store: StoreOption = None,
-):
-    """Decompose a note or string into meaningful parts.
-
-    For documents (URI sources): decomposes content structurally.
-    For inline notes (strings): assembles version history and decomposes
-    the temporal sequence into episodic parts.
-
-    Uses an LLM to identify sections, each with its own summary, tags,
-    and embedding. Parts appear in 'find' results and can be accessed
-    with @P{N} syntax.
-
-    Skips analysis if parts are already current (content unchanged since
-    last analysis). Use --force to re-analyze regardless.
-
-    Runs in the background by default (serialized with other ML work);
-    use --fg to wait for results.
-    """
-    kp = _get_keeper(store)
-
-    # Background mode (default): enqueue for serial processing
-    if not foreground:
-        try:
-            enqueued = kp.enqueue_analyze(id, tags=tag, force=force)
-        except ValueError as e:
-            typer.echo(str(e), err=True)
-            raise typer.Exit(1)
-
-        if not enqueued:
-            if _get_json_output():
-                typer.echo(json.dumps({"id": id, "status": "skipped"}))
-            else:
-                typer.echo(f"Already analyzed, skipping {id}.", err=True)
-            kp.close()
-            return
-
-        if _get_json_output():
-            typer.echo(json.dumps({"id": id, "status": "queued"}))
-        else:
-            typer.echo(f"Queued {id} for background analysis.", err=True)
-        kp.close()
-        return
-
-    try:
-        parts = kp.analyze(id, tags=tag, force=force)
-    except ValueError as e:
-        typer.echo(str(e), err=True)
-        raise typer.Exit(1)
-    except Exception as e:
-        typer.echo(f"Analysis failed: {e}", err=True)
-        raise typer.Exit(1)
-
-    if not parts:
-        if _get_json_output():
-            typer.echo(json.dumps({"id": id, "parts": []}))
-        else:
-            typer.echo(f"Content not decomposable into multiple parts: {id}")
-        return
-
-    if _get_json_output():
-        result = {
-            "id": id,
-            "parts": [
-                {
-                    "part": p.part_num,
-                    "pid": f"{id}@P{{{p.part_num}}}",
-                    "summary": p.summary[:100],
-                    "tags": {k: v for k, v in p.tags.items() if not k.startswith("_")},
-                }
-                for p in parts
-            ],
-        }
-        typer.echo(json.dumps(result, indent=2))
-    else:
-        typer.echo(f"Analyzed {id} into {len(parts)} parts:")
-        for p in parts:
-            summary_preview = p.summary[:60].replace("\n", " ")
-            if len(p.summary) > 60:
-                summary_preview += "..."
-            typer.echo(f"  @P{{{p.part_num}}} {summary_preview}")
-
-
-
 
 
 def _get_config_value(cfg, store_path: Path, path: str):
@@ -3411,135 +1881,15 @@ def _format_config_with_defaults(cfg, store_path: Path) -> str:
     return "\n".join(lines)
 
 
-@app.command(hidden=True, deprecated=True)
-def validate(
-    id: Annotated[Optional[list[str]], typer.Argument(
-        help="System doc ID(s) to validate (e.g. '.tag/act', '.meta/related')"
-    )] = None,
-    all_docs: Annotated[bool, typer.Option(
-        "--all", "-a",
-        help="Validate all system docs"
-    )] = False,
-    diagram: Annotated[bool, typer.Option(
-        "--diagram",
-        help="Print Mermaid state-transition diagram for .state/* docs"
-    )] = False,
-    store: StoreOption = None,
-):
-    """Validate system documents with parser-based semantics.
-
-    Checks .tag/*, .meta/*, .prompt/*, and .state/* documents for
-    structural correctness. Reports errors (will cause runtime failures)
-    and warnings (may cause unexpected behavior).
-
-    \b
-    Examples:
-        keep validate .tag/act               # Validate one doc
-        keep validate .tag/act .meta/related  # Validate several
-        keep validate --all                   # Validate all system docs
-        keep validate --diagram              # Mermaid state diagram
-    """
-    from .validate import validate_system_doc
-
-    if diagram:
-        from .validate import state_doc_diagram
-        from .system_docs import SYSTEM_DOC_DIR, _filename_to_id, _load_frontmatter
-        state_docs: dict[str, str] = {}
-        # Load from store if available, else from disk
-        try:
-            kp = _get_keeper(store)
-            doc_coll = kp._resolve_doc_collection()
-            for rec in kp._document_store.query_by_id_prefix(doc_coll, ".state/"):
-                name = str(getattr(rec, "id", "")).removeprefix(".state/")
-                body = str(getattr(rec, "summary", "") or "").strip()
-                if name and body:
-                    state_docs[name] = body
-        except Exception:
-            pass
-        # Fall back to / supplement with bundled files
-        if not state_docs:
-            for path in sorted(SYSTEM_DOC_DIR.glob("state-*.md")):
-                doc_id = _filename_to_id(path.name)
-                name = doc_id.removeprefix(".state/")
-                content, _ = _load_frontmatter(path)
-                if content.strip():
-                    state_docs[name] = content
-        typer.echo(state_doc_diagram(state_docs))
-        return
-
-    kp = _get_keeper(store)
-
-    # Collect docs to validate: either from --all prefix scan or explicit IDs.
-    # The prefix scan returns full records (id, summary, tags) — use them
-    # directly to avoid N redundant kp.get() calls and accessed_at writes.
-    docs_by_id: dict[str, tuple[str, dict]] = {}  # id -> (summary, tags)
-    if all_docs:
-        doc_coll = kp._resolve_doc_collection()
-        for prefix in (".tag/", ".meta/", ".prompt/", ".state/"):
-            for rec in kp._document_store.query_by_id_prefix(doc_coll, prefix):
-                doc_id = str(getattr(rec, "id", ""))
-                if doc_id:
-                    summary = str(getattr(rec, "summary", "") or "")
-                    raw_tags = getattr(rec, "tags", None)
-                    tags = dict(raw_tags) if isinstance(raw_tags, dict) else {}
-                    docs_by_id[doc_id] = (summary, tags)
-    elif id:
-        for doc_id in id:
-            item = kp.get(doc_id)
-            if item is None:
-                typer.echo(f"{doc_id}: not found", err=True)
-                continue
-            summary = str(getattr(item, "summary", "") or "")
-            raw_tags = getattr(item, "tags", None)
-            tags = dict(raw_tags) if isinstance(raw_tags, dict) else {}
-            docs_by_id[doc_id] = (summary, tags)
-    else:
-        typer.echo("Provide doc IDs or use --all. See: keep validate --help", err=True)
-        raise typer.Exit(1)
-
-    if not docs_by_id:
-        typer.echo("No system docs found.")
-        return
-
-    total_errors = 0
-    total_warnings = 0
-    for doc_id in sorted(docs_by_id):
-        content, tags = docs_by_id[doc_id]
-        result = validate_system_doc(doc_id, content, tags)
-
-        if result.diagnostics:
-            for d in result.diagnostics:
-                typer.echo(f"{doc_id}: {d}")
-            total_errors += len(result.errors)
-            total_warnings += len(result.warnings)
-        else:
-            typer.echo(f"{doc_id}: ok")
-
-    if total_errors:
-        typer.echo(f"\n{total_errors} error(s), {total_warnings} warning(s)")
-        raise typer.Exit(1)
-    elif total_warnings:
-        typer.echo(f"\n{total_warnings} warning(s)")
-    else:
-        typer.echo(f"\n{len(docs_by_id)} doc(s) ok")
-
 
 @app.command()
 def config(
     path: Annotated[Optional[str], typer.Argument(
         help="Config path to get (e.g., 'file', 'tool', 'store', 'providers.embedding')"
     )] = None,
-    reset_system_docs: Annotated[bool, typer.Option(
-        "--reset-system-docs",
-        help="Force reload system documents from bundled content (overwrites modifications)"
-    )] = False,
     setup: Annotated[bool, typer.Option(
         "--setup",
         help="Run interactive setup wizard (provider and tool selection)"
-    )] = False,
-    state_diagram: Annotated[bool, typer.Option(
-        "--state-diagram",
-        help="Print Mermaid state-transition diagram for .state/* docs"
     )] = False,
     store: StoreOption = None,
 ):
@@ -3557,8 +1907,6 @@ def config(
         keep config providers    # All provider config
         keep config providers.embedding  # Embedding provider name
         keep config --setup      # Re-run interactive setup wizard
-        keep config --reset-system-docs  # Reset bundled system docs
-        keep config --state-diagram  # Mermaid state-transition diagram
     """
     # Handle setup wizard
     if setup:
@@ -3573,40 +1921,6 @@ def config(
             config_dir = get_config_dir()
         store_path = Path(actual_store).resolve() if actual_store else None
         run_wizard(config_dir, store_path, restart_command="keep config --setup")
-        return
-
-    # Handle state diagram
-    if state_diagram:
-        from .validate import state_doc_diagram
-        from .system_docs import SYSTEM_DOC_DIR, _filename_to_id, _load_frontmatter
-        state_docs: dict[str, str] = {}
-        # Load from store if available, else from disk
-        try:
-            kp = _get_keeper(store)
-            doc_coll = kp._resolve_doc_collection()
-            for rec in kp._document_store.query_by_id_prefix(doc_coll, ".state/"):
-                name = str(getattr(rec, "id", "")).removeprefix(".state/")
-                body = str(getattr(rec, "summary", "") or "").strip()
-                if name and body:
-                    state_docs[name] = body
-        except Exception:
-            pass
-        # Fall back to / supplement with bundled files
-        if not state_docs:
-            for p in sorted(SYSTEM_DOC_DIR.glob("state-*.md")):
-                doc_id = _filename_to_id(p.name)
-                name = doc_id.removeprefix(".state/")
-                content, _ = _load_frontmatter(p)
-                if content.strip():
-                    state_docs[name] = content
-        typer.echo(state_doc_diagram(state_docs))
-        return
-
-    # Handle system docs reset - requires full Keeper initialization
-    if reset_system_docs:
-        kp = _get_keeper(store)
-        stats = kp.reset_system_documents()
-        typer.echo(f"Reset {stats['reset']} system documents")
         return
 
     # For config display, use lightweight path (no API calls)
@@ -3663,23 +1977,427 @@ def config(
         typer.echo(_format_config_with_defaults(cfg, store_path))
 
 
-@app.command("help")
-def help_cmd(
-    topic: Annotated[Optional[str], typer.Argument(
-        help="Documentation topic (e.g. 'quickstart', 'keep-put', 'tagging'). Omit for index."
-    )] = None,
-):
-    """Browse keep documentation.
+def run_pending_daemon(kp) -> None:
+    """Run the background processing daemon loop.
 
-    \b
-    Examples:
-        keep help              # Documentation index
-        keep help quickstart   # CLI Quick Start guide
-        keep help keep-put     # keep put reference
-        keep help tagging      # Tagging guide
+    Manages HTTP server, signal handlers, work processing, watches,
+    timer events, and version-aware restart.  Called from the CLI
+    ``pending --daemon`` path.
     """
-    from .help import get_help_topic
-    typer.echo(get_help_topic(topic or "index", link_style="cli"))
+    import logging
+    from .model_lock import ModelLock
+
+    _daemon_logger = logging.getLogger("keep.cli.daemon")
+    pid_path = kp._processor_pid_path
+    processor_lock = ModelLock(kp._store_path / ".processor.lock")
+    flow_worker_id = f"pending-daemon:{os.getpid()}"
+    shutdown_requested = False
+
+    if not processor_lock.acquire(blocking=False):
+        _daemon_logger.info("Daemon: another processor already running, exiting")
+        kp.close()
+        return
+
+    try:
+        from importlib.metadata import version as _pkg_version
+        _ver = _pkg_version("keep-skill")
+    except Exception:
+        _ver = "unknown"
+    _daemon_logger.info(
+        "Daemon started (pid=%d) keep-skill=%s python=%s store=%s",
+        os.getpid(), _ver, sys.executable, kp._store_path,
+    )
+    try:
+        (kp._store_path / ".processor.version").write_text(_ver)
+    except Exception:
+        pass
+    wq = kp._get_work_queue()
+    released = wq.release_stale_leases(flow_worker_id)
+    if released:
+        _daemon_logger.info("Released %d stale leases from previous daemon", released)
+
+    _daemon_logger.info(
+        "Queue: %d pending, %d flow, %d failed",
+        kp._pending_queue.count(),
+        kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0,
+        0,
+    )
+    _daemon_logger.info(
+        "Embedding: %s/%s",
+        kp._config.embedding.name if kp._config.embedding else "none",
+        kp._config.embedding.params.get("model", "") if kp._config.embedding else "",
+    )
+
+    from .daemon_server import DaemonServer, DEFAULT_PORT
+    _daemon_port = int(os.environ.get("KEEP_DAEMON_PORT", "0")) or DEFAULT_PORT
+    _daemon_server = DaemonServer(kp, port=_daemon_port)
+    _actual_port = _daemon_server.start()
+    _port_path = kp._store_path / ".daemon.port"
+    _token_path = kp._store_path / ".daemon.token"
+    _port_path.write_text(str(_actual_port))
+    _token_path.write_text(_daemon_server.auth_token)
+    _daemon_logger.info("Query server on 127.0.0.1:%d", _actual_port)
+
+    def handle_signal(signum, frame):
+        nonlocal shutdown_requested
+        shutdown_requested = True
+        _daemon_logger.info("Received signal %d, shutting down after current item", signum)
+
+    def _is_shutdown():
+        return shutdown_requested
+
+    signal.signal(signal.SIGTERM, handle_signal)
+    signal.signal(signal.SIGINT, handle_signal)
+
+    _last_cleanup_ts = 0.0
+    _CLEANUP_INTERVAL = 86400
+    _CLEANUP_MAX_AGE = 86400
+    _REPLENISH_INTERVAL = 1800
+
+    try:
+        from .timer_state import read_timer_state
+        _saved_timers = read_timer_state(kp._store_path)
+        _last_replenish_ts = _saved_timers.get("supernode-replenish", {}).get("last_run", 0.0)
+    except Exception:
+        _last_replenish_ts = 0.0
+
+    def _replenish_supernodes():
+        nonlocal _last_replenish_ts
+        now = time.time()
+        if now - _last_replenish_ts < _REPLENISH_INTERVAL:
+            return
+        _last_replenish_ts = now
+        try:
+            enqueued = kp.replenish_supernode_queue()
+            detail = f"{enqueued} enqueued" if enqueued else "no candidates"
+            if enqueued > 0:
+                _daemon_logger.info("Replenished %d supernode review(s)", enqueued)
+        except Exception as exc:
+            detail = f"error: {exc}"
+            _daemon_logger.debug("Supernode replenishment error: %s", exc)
+        try:
+            from .timer_state import write_timer_event
+            write_timer_event(
+                kp._store_path, "supernode-replenish",
+                interval=_REPLENISH_INTERVAL, detail=detail,
+            )
+        except Exception as _te:
+            _daemon_logger.warning("Failed to write timer state: %s", _te)
+
+    def _cleanup_temp_files():
+        nonlocal _last_cleanup_ts
+        now = time.time()
+        if now - _last_cleanup_ts < _CLEANUP_INTERVAL:
+            return
+        _last_cleanup_ts = now
+        cache_dirs = [Path.home() / ".cache" / "keep" / "email-att"]
+        total_removed = 0
+        for cache_dir in cache_dirs:
+            if not cache_dir.is_dir():
+                continue
+            for entry in cache_dir.iterdir():
+                if not entry.is_dir():
+                    continue
+                try:
+                    age = now - entry.stat().st_mtime
+                    if age > _CLEANUP_MAX_AGE:
+                        shutil.rmtree(entry)
+                        total_removed += 1
+                except OSError:
+                    pass
+        if total_removed:
+            _daemon_logger.info("Cleaned up %d temp directories", total_removed)
+
+    _version_file = kp._store_path / ".processor.version"
+
+    def _check_version_restart():
+        try:
+            if not _version_file.exists():
+                return
+            requested = _version_file.read_text().strip()
+            if requested and requested != _ver:
+                _daemon_logger.info("Version changed (%s → %s), restarting daemon", _ver, requested)
+                try:
+                    kp.close()
+                except Exception:
+                    pass
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+        except Exception as e:
+            _daemon_logger.debug("Version check failed: %s", e)
+
+    try:
+        pid_path.write_text(str(os.getpid()))
+        while not shutdown_requested:
+            _check_version_restart()
+            flow_result = kp.process_pending_work(
+                limit=1, worker_id=flow_worker_id,
+                lease_seconds=180, shutdown_check=_is_shutdown,
+            )
+            if shutdown_requested:
+                break
+            result = kp.process_pending(limit=1, shutdown_check=_is_shutdown)
+            delegated = result.get("delegated", 0)
+
+            from .watches import poll_watches as _poll_watches, has_active_watches, next_check_delay, load_watches
+            watch_result = _poll_watches(kp)
+            if watch_result["checked"] > 0:
+                _daemon_logger.info(
+                    "Watches: checked=%d changed=%d stale=%d errors=%d",
+                    watch_result["checked"], watch_result["changed"],
+                    watch_result["stale"], watch_result["errors"],
+                )
+
+            _cleanup_temp_files()
+            _replenish_supernodes()
+
+            _daemon_logger.info(
+                "Daemon batch: processed=%d failed=%d delegated=%d flow_processed=%d flow_failed=%d",
+                result["processed"], result["failed"], delegated,
+                int(flow_result.get("processed", 0)),
+                int(flow_result.get("failed", 0)) + int(flow_result.get("dead_lettered", 0)),
+            )
+            flow_activity = (
+                int(flow_result.get("claimed", 0)) > 0
+                or int(flow_result.get("processed", 0)) > 0
+                or int(flow_result.get("failed", 0)) > 0
+                or int(flow_result.get("dead_lettered", 0)) > 0
+            )
+            if result["processed"] == 0 and result["failed"] == 0 and delegated == 0 and not flow_activity:
+                delegated_remaining = kp._pending_queue.count_delegated() if hasattr(kp._pending_queue, "count_delegated") else 0
+                flow_remaining = kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0
+                pending_remaining = kp._pending_queue.count()
+                if delegated_remaining > 0:
+                    _daemon_logger.info("Waiting for %d delegated tasks", delegated_remaining)
+                    time.sleep(5)
+                    continue
+                if flow_remaining > 0:
+                    _daemon_logger.info("Waiting for %d flow work items", flow_remaining)
+                    time.sleep(1)
+                    continue
+                if pending_remaining > 0:
+                    _daemon_logger.info("Waiting for %d pending items (retry backoff)", pending_remaining)
+                    time.sleep(5)
+                    continue
+
+                _has_timers = has_active_watches(kp)
+                if not _has_timers:
+                    _has_timers = (
+                        _last_replenish_ts == 0
+                        or (time.time() - _last_replenish_ts) < _REPLENISH_INTERVAL
+                    )
+
+                if _has_timers:
+                    if has_active_watches(kp):
+                        delay = next_check_delay(load_watches(kp))
+                    else:
+                        _time_to_replenish = max(0, _REPLENISH_INTERVAL - (time.time() - _last_replenish_ts))
+                        delay = min(_time_to_replenish, 60.0)
+                    delay = max(1.0, min(delay, 60.0))
+                    _daemon_logger.debug("Sleeping %.1fs (timer events pending)", delay)
+                    time.sleep(delay)
+                    continue
+
+                time.sleep(1)
+                if shutdown_requested:
+                    break
+                flow_result = kp.process_pending_work(
+                    limit=1, worker_id=flow_worker_id,
+                    lease_seconds=180, shutdown_check=_is_shutdown,
+                )
+                result = kp.process_pending(limit=1, shutdown_check=_is_shutdown)
+                flow_activity = (
+                    int(flow_result.get("claimed", 0)) > 0
+                    or int(flow_result.get("processed", 0)) > 0
+                    or int(flow_result.get("failed", 0)) > 0
+                    or int(flow_result.get("dead_lettered", 0)) > 0
+                )
+                if (
+                    result["processed"] == 0
+                    and result["failed"] == 0
+                    and result.get("delegated", 0) == 0
+                    and not flow_activity
+                ):
+                    break
+                _daemon_logger.info(
+                    "Daemon batch (drain): processed=%d failed=%d flow_processed=%d flow_failed=%d",
+                    result["processed"], result["failed"],
+                    int(flow_result.get("processed", 0)),
+                    int(flow_result.get("failed", 0)) + int(flow_result.get("dead_lettered", 0)),
+                )
+    finally:
+        _daemon_logger.info("Daemon shutting down")
+        try:
+            _daemon_server.stop()
+        except Exception:
+            pass
+        for p in (_port_path, _token_path, pid_path):
+            try:
+                p.unlink()
+            except OSError:
+                pass
+        kp.close()
+        processor_lock.release()
+
+
+def print_pending_list(kp) -> None:
+    """Print pending work items, failed items, watches, and timer events."""
+    items = kp._pending_queue.list_pending()
+    failed = kp._pending_queue.list_failed()
+    try:
+        wq = kp._get_work_queue()
+        flow_items = wq.list_pending(limit=-1)
+    except Exception:
+        flow_items = []
+    try:
+        from .watches import list_watches
+        watches = list_watches(kp)
+    except Exception:
+        watches = []
+
+    if not items and not failed and not flow_items and not watches:
+        typer.echo("Nothing pending.")
+    else:
+        if items:
+            for item in items:
+                retry_str = f" (retry after {item['retry_after']})" if item.get("retry_after") else ""
+                typer.echo(f"  {item['task_type']:15s} {item['supersede_key'] or item['work_id']}{retry_str}")
+        if flow_items:
+            if items:
+                typer.echo()
+            wq = kp._get_work_queue()
+            by_kind = wq.count_by_kind()
+            for kind, count in by_kind.items():
+                if kind != "flow":
+                    typer.echo(f"  {kind:20s} {count}")
+            flow_by_state: dict[str, list] = {}
+            for fi in flow_items:
+                if fi.get("kind") != "flow":
+                    continue
+                inp = fi.get("input") or {}
+                state = inp.get("state", "unknown")
+                flow_by_state.setdefault(state, []).append(fi)
+            for state, state_items in sorted(flow_by_state.items()):
+                if len(state_items) <= 3:
+                    for si in state_items:
+                        inp = si.get("input") or {}
+                        target = inp.get("item_id") or inp.get("params", {}).get("item_id", "")
+                        if target:
+                            typer.echo(f"  flow:{state:16s} {target}")
+                        else:
+                            typer.echo(f"  flow:{state}")
+                else:
+                    typer.echo(f"  flow:{state:16s} ({len(state_items)} items)")
+        if failed:
+            typer.echo(f"\nFailed ({len(failed)}):")
+            for item in failed[:10]:
+                error = item.get("last_error", "unknown")
+                typer.echo(f"  {item['task_type']:15s} {item['id']}: {error}")
+
+    # Timer events
+    try:
+        from .watches import list_watches
+        watches = list_watches(kp)
+    except Exception:
+        watches = []
+    try:
+        from .timer_state import format_timer_events, KNOWN_TIMERS
+    except Exception:
+        format_timer_events = None
+        KNOWN_TIMERS = {}
+    has_timer_info = watches or KNOWN_TIMERS
+    if has_timer_info:
+        typer.echo("\nTimer events:")
+        if watches:
+            from .timer_state import _format_ago, _format_until
+            from datetime import datetime, timezone
+            _now_ts = time.time()
+            for w in watches:
+                suffix = " [stale]" if w.stale else ""
+                name = f"watch:{w.kind}"
+                ago_str = "never"
+                next_str = ""
+                if w.last_checked:
+                    try:
+                        _lc = datetime.fromisoformat(w.last_checked)
+                        _lc_ts = _lc.replace(tzinfo=timezone.utc).timestamp()
+                        ago_str = _format_ago(_now_ts - _lc_ts)
+                        from .watches import parse_duration
+                        _dur = parse_duration(w.interval)
+                        _next_ts = _lc_ts + _dur.total_seconds() - _now_ts
+                        next_str = _format_until(_next_ts)
+                    except Exception:
+                        pass
+                source = w.source
+                if len(source) > 40:
+                    source = "..." + source[-37:]
+                parts_line = f"  {name:24s} last: {ago_str:>8s}"
+                if next_str:
+                    parts_line += f"  next: {next_str}"
+                parts_line += f"  {source}{suffix}"
+                typer.echo(parts_line)
+        if format_timer_events:
+            try:
+                lines = format_timer_events(kp._store_path)
+                for line in lines:
+                    typer.echo(line)
+            except Exception:
+                pass
+
+
+def print_pending_interactive(kp) -> None:
+    """Show pending status, ensure daemon running, tail log."""
+    pending_count = kp.pending_count()
+    flow_pending_count = kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0
+    queue_stats = kp._pending_queue.stats()
+    failed_count = queue_stats.get("failed", 0)
+    processing_count = queue_stats.get("processing", 0)
+
+    _has_timer_events = False
+    try:
+        from .watches import has_active_watches
+        _has_timer_events = has_active_watches(kp)
+    except Exception:
+        pass
+    if not _has_timer_events:
+        try:
+            from .timer_state import KNOWN_TIMERS, read_timer_state
+            _timer_state = read_timer_state(kp._store_path)
+            for name, info in KNOWN_TIMERS.items():
+                saved = _timer_state.get(name, {})
+                last_run = saved.get("last_run", 0)
+                interval = info.get("interval", 0)
+                if interval and (time.time() - last_run) >= interval:
+                    _has_timer_events = True
+                    break
+        except Exception:
+            pass
+
+    if pending_count == 0 and processing_count == 0 and flow_pending_count == 0 and not _has_timer_events:
+        if failed_count:
+            typer.echo(f"Nothing pending. {failed_count} failed (use --retry to requeue).", err=True)
+            failed_items = kp._pending_queue.list_failed()
+            for item in failed_items[:5]:
+                error = item.get("last_error", "unknown")
+                typer.echo(f"  {item['id']} ({item['task_type']}): {error}", err=True)
+            if len(failed_items) > 5:
+                typer.echo(f"  ... and {len(failed_items) - 5} more", err=True)
+        else:
+            typer.echo("Nothing pending.")
+        return
+
+    if pending_count > 0 or processing_count > 0 or flow_pending_count > 0:
+        typer.echo(_queue_status_line(kp, queue_stats), err=True)
+    elif _has_timer_events:
+        typer.echo("No work queued, but timer events need servicing.", err=True)
+
+    if not kp._is_processor_running():
+        kp._spawn_processor()
+        typer.echo("Started background processor.", err=True)
+    else:
+        typer.echo("Background processor already running.", err=True)
+
+    log_path = kp._store_path / "keep-ops.log"
+    _tail_ops_log(log_path, kp)
 
 
 @app.command("pending")
@@ -3720,18 +2438,8 @@ def pending_cmd(
     # --stop: send SIGTERM to the daemon (lightweight — no Keeper needed)
     if stop:
         from .model_lock import ModelLock
-        from .paths import get_default_store_path, get_config_dir
-        from .config import load_or_create_config
-        if store is not None:
-            store_path = Path(store).resolve()
-        else:
-            override = _get_store_override()
-            if override is not None:
-                store_path = Path(override).resolve()
-            else:
-                config_dir = get_config_dir()
-                cfg = load_or_create_config(config_dir)
-                store_path = get_default_store_path(cfg)
+        from ._daemon_client import resolve_store_path
+        store_path = resolve_store_path(str(store) if store else None)
         pid_path = store_path / "processor.pid"
         lock = ModelLock(store_path / ".processor.lock")
         if not lock.is_locked():
@@ -3748,288 +2456,17 @@ def pending_cmd(
                 pid_path.unlink(missing_ok=True)
         else:
             typer.echo("Processor running but no PID file found.", err=True)
+        # Clean up stale port file
+        (store_path / ".daemon.port").unlink(missing_ok=True)
         return
 
-    kp = _get_keeper(store)
+    # pending always needs a local Keeper (manages daemon, queues, etc.)
+    kp = _get_keeper(store, _force_local=True)
 
-    # --daemon: run as the actual background processor
     if daemon:
-        import logging
-        from .model_lock import ModelLock
-
-        _daemon_logger = logging.getLogger("keep.cli.daemon")
-        pid_path = kp._processor_pid_path
-        processor_lock = ModelLock(kp._store_path / ".processor.lock")
-        flow_worker_id = f"pending-daemon:{os.getpid()}"
-        shutdown_requested = False
-
-        if not processor_lock.acquire(blocking=False):
-            _daemon_logger.info("Daemon: another processor already running, exiting")
-            kp.close()
-            return
-
-        # Startup banner: version, paths, queue depth
-        try:
-            from importlib.metadata import version as _pkg_version
-            _ver = _pkg_version("keep-skill")
-        except Exception:
-            _ver = "unknown"
-        _daemon_logger.info(
-            "Daemon started (pid=%d) keep-skill=%s python=%s store=%s",
-            os.getpid(), _ver, sys.executable, kp._store_path,
-        )
-        # Write version file so future callers can compare
-        try:
-            (kp._store_path / ".processor.version").write_text(_ver)
-        except Exception:
-            pass
-        # Release leases held by previous daemon instances that exited
-        # without completing their work items.
-        wq = kp._get_work_queue()
-        released = wq.release_stale_leases(flow_worker_id)
-        if released:
-            _daemon_logger.info("Released %d stale leases from previous daemon", released)
-
-        _daemon_logger.info(
-            "Queue: %d pending, %d flow, %d failed",
-            kp._pending_queue.count(),
-            kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0,
-            0,  # failed count not cheaply available
-        )
-        _daemon_logger.info(
-            "Embedding: %s/%s",
-            kp._config.embedding.name if kp._config.embedding else "none",
-            kp._config.embedding.params.get("model", "") if kp._config.embedding else "",
-        )
-
-        def handle_signal(signum, frame):
-            nonlocal shutdown_requested
-            shutdown_requested = True
-            _daemon_logger.info("Received signal %d, shutting down after current item", signum)
-
-        def _is_shutdown():
-            return shutdown_requested
-
-        signal.signal(signal.SIGTERM, handle_signal)
-        signal.signal(signal.SIGINT, handle_signal)
-
-        # TTL cleanup for temp files (email attachments, etc.)
-        _last_cleanup_ts = 0.0
-        _CLEANUP_INTERVAL = 86400  # 24 hours
-        _CLEANUP_MAX_AGE = 86400   # delete files older than 24 hours
-
-        _REPLENISH_INTERVAL = 1800  # 30 minutes
-
-        # Initialize timer timestamps from persisted state so the daemon
-        # resumes schedules after restart instead of starting from zero.
-        try:
-            from .timer_state import read_timer_state
-            _saved_timers = read_timer_state(kp._store_path)
-            _last_replenish_ts = _saved_timers.get("supernode-replenish", {}).get("last_run", 0.0)
-        except Exception:
-            _last_replenish_ts = 0.0
-
-        def _replenish_supernodes():
-            nonlocal _last_replenish_ts
-            now = time.time()
-            if now - _last_replenish_ts < _REPLENISH_INTERVAL:
-                return
-            _last_replenish_ts = now
-            try:
-                enqueued = kp.replenish_supernode_queue()
-                detail = f"{enqueued} enqueued" if enqueued else "no candidates"
-                if enqueued > 0:
-                    _daemon_logger.info("Replenished %d supernode review(s)", enqueued)
-            except Exception as exc:
-                detail = f"error: {exc}"
-                _daemon_logger.debug("Supernode replenishment error: %s", exc)
-            try:
-                from .timer_state import write_timer_event
-                write_timer_event(
-                    kp._store_path, "supernode-replenish",
-                    interval=_REPLENISH_INTERVAL, detail=detail,
-                )
-            except Exception as _te:
-                _daemon_logger.warning("Failed to write timer state: %s", _te)
-
-        def _cleanup_temp_files():
-            nonlocal _last_cleanup_ts
-            now = time.time()
-            if now - _last_cleanup_ts < _CLEANUP_INTERVAL:
-                return
-            _last_cleanup_ts = now
-            cache_dirs = [
-                Path.home() / ".cache" / "keep" / "email-att",
-            ]
-            total_removed = 0
-            for cache_dir in cache_dirs:
-                if not cache_dir.is_dir():
-                    continue
-                for entry in cache_dir.iterdir():
-                    if not entry.is_dir():
-                        continue
-                    try:
-                        age = now - entry.stat().st_mtime
-                        if age > _CLEANUP_MAX_AGE:
-                            shutil.rmtree(entry)
-                            total_removed += 1
-                    except OSError:
-                        pass
-            if total_removed:
-                _daemon_logger.info("Cleaned up %d temp directories", total_removed)
-
-        # Version-aware restart: if a newer version of keep-skill wrote
-        # .processor.version, exec-restart to pick up new code.
-        _version_file = kp._store_path / ".processor.version"
-
-        def _check_version_restart():
-            """Exec-restart if a newer version is expected."""
-            try:
-                if not _version_file.exists():
-                    return
-                requested = _version_file.read_text().strip()
-                if requested and requested != _ver:
-                    _daemon_logger.info(
-                        "Version changed (%s → %s), restarting daemon",
-                        _ver, requested,
-                    )
-                    # Clean up before exec
-                    try:
-                        kp.close()
-                    except Exception:
-                        pass
-                    os.execv(sys.executable, [sys.executable] + sys.argv)
-            except Exception as e:
-                _daemon_logger.debug("Version check failed: %s", e)
-
-        try:
-            pid_path.write_text(str(os.getpid()))
-            while not shutdown_requested:
-                _check_version_restart()
-                flow_result = kp.process_pending_work(
-                    limit=1,
-                    worker_id=flow_worker_id,
-                    lease_seconds=180,
-                    shutdown_check=_is_shutdown,
-                )
-                if shutdown_requested:
-                    break
-                result = kp.process_pending(limit=1, shutdown_check=_is_shutdown)
-                delegated = result.get("delegated", 0)
-
-                # Poll watched sources for changes
-                from .watches import poll_watches as _poll_watches, has_active_watches, next_check_delay, load_watches
-                watch_result = _poll_watches(kp)
-                if watch_result["checked"] > 0:
-                    _daemon_logger.info(
-                        "Watches: checked=%d changed=%d stale=%d errors=%d",
-                        watch_result["checked"], watch_result["changed"],
-                        watch_result["stale"], watch_result["errors"],
-                    )
-
-                # TTL cleanup (self-throttled to once per day)
-                _cleanup_temp_files()
-
-                # Supernode queue replenishment (self-throttled)
-                _replenish_supernodes()
-
-                _daemon_logger.info(
-                    "Daemon batch: processed=%d failed=%d delegated=%d flow_processed=%d flow_failed=%d",
-                    result["processed"], result["failed"], delegated,
-                    int(flow_result.get("processed", 0)),
-                    int(flow_result.get("failed", 0)) + int(flow_result.get("dead_lettered", 0)),
-                )
-                flow_activity = (
-                    int(flow_result.get("claimed", 0)) > 0
-                    or int(flow_result.get("processed", 0)) > 0
-                    or int(flow_result.get("failed", 0)) > 0
-                    or int(flow_result.get("dead_lettered", 0)) > 0
-                )
-                if result["processed"] == 0 and result["failed"] == 0 and delegated == 0 and not flow_activity:
-                    # Check for outstanding delegated tasks before exiting
-                    delegated_remaining = kp._pending_queue.count_delegated() if hasattr(kp._pending_queue, "count_delegated") else 0
-                    flow_remaining = kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0
-                    pending_remaining = kp._pending_queue.count()
-                    if delegated_remaining > 0:
-                        _daemon_logger.info("Waiting for %d delegated tasks", delegated_remaining)
-                        time.sleep(5)
-                        continue
-                    if flow_remaining > 0:
-                        _daemon_logger.info("Waiting for %d flow work items", flow_remaining)
-                        time.sleep(1)
-                        continue
-                    if pending_remaining > 0:
-                        _daemon_logger.info("Waiting for %d pending items (retry backoff)", pending_remaining)
-                        time.sleep(5)
-                        continue
-
-                    # Timer events keep the daemon alive: watches, supernodes, etc.
-                    _has_timers = has_active_watches(kp)
-                    if not _has_timers:
-                        # Keep alive if supernode replenishment hasn't had a chance
-                        # to run yet (never run, or next run is within 2× interval).
-                        # After replenishment runs and finds nothing, it sets detail
-                        # to "no candidates" and the daemon can eventually exit.
-                        _has_timers = (
-                            _last_replenish_ts == 0  # never run — give it a chance
-                            or (time.time() - _last_replenish_ts) < _REPLENISH_INTERVAL
-                        )
-
-                    if _has_timers:
-                        if has_active_watches(kp):
-                            delay = next_check_delay(load_watches(kp))
-                        else:
-                            # Next timer event: check how long until replenish fires
-                            _time_to_replenish = max(0, _REPLENISH_INTERVAL - (time.time() - _last_replenish_ts))
-                            delay = min(_time_to_replenish, 60.0)
-                        delay = max(1.0, min(delay, 60.0))
-                        _daemon_logger.debug("Sleeping %.1fs (timer events pending)", delay)
-                        time.sleep(delay)
-                        continue
-
-                    # Items may have been enqueued after our last dequeue
-                    # (e.g. OCR enqueued while we were processing a summarize).
-                    # Wait briefly and check once more before exiting.
-                    time.sleep(1)
-                    if shutdown_requested:
-                        break
-                    flow_result = kp.process_pending_work(
-                        limit=1,
-                        worker_id=flow_worker_id,
-                        lease_seconds=180,
-                        shutdown_check=_is_shutdown,
-                    )
-                    result = kp.process_pending(limit=1, shutdown_check=_is_shutdown)
-                    flow_activity = (
-                        int(flow_result.get("claimed", 0)) > 0
-                        or int(flow_result.get("processed", 0)) > 0
-                        or int(flow_result.get("failed", 0)) > 0
-                        or int(flow_result.get("dead_lettered", 0)) > 0
-                    )
-                    if (
-                        result["processed"] == 0
-                        and result["failed"] == 0
-                        and result.get("delegated", 0) == 0
-                        and not flow_activity
-                    ):
-                        break
-                    _daemon_logger.info(
-                        "Daemon batch (drain): processed=%d failed=%d flow_processed=%d flow_failed=%d",
-                        result["processed"], result["failed"],
-                        int(flow_result.get("processed", 0)),
-                        int(flow_result.get("failed", 0)) + int(flow_result.get("dead_lettered", 0)),
-                    )
-        finally:
-            _daemon_logger.info("Daemon shutting down")
-            try:
-                pid_path.unlink()
-            except OSError:
-                pass
-            kp.close()
-            processor_lock.release()
+        run_pending_daemon(kp)
         return
 
-    # --purge: delete all pending work items
     if purge:
         wq = kp._get_work_queue()
         n = wq.purge()
@@ -4037,7 +2474,6 @@ def pending_cmd(
         kp.close()
         return
 
-    # --retry: reset failed items back to pending
     if retry:
         n = kp._pending_queue.retry_failed()
         if n:
@@ -4047,7 +2483,6 @@ def pending_cmd(
             kp.close()
             return
 
-    # --reindex: enqueue all items for re-embedding
     if reindex:
         count = kp.count()
         if count == 0:
@@ -4061,180 +2496,12 @@ def pending_cmd(
             err=True,
         )
 
-    # --list: show pending items and exit
     if list_items:
-        items = kp._pending_queue.list_pending()
-        failed = kp._pending_queue.list_failed()
-        # Also query the work queue (flow items)
-        try:
-            wq = kp._get_work_queue()
-            flow_items = wq.list_pending(limit=-1)
-        except Exception:
-            flow_items = []
-        try:
-            from .watches import list_watches as _lw
-            _watches = _lw(kp)
-        except Exception:
-            _watches = []
-        if not items and not failed and not flow_items and not _watches:
-            typer.echo("Nothing pending.")
-        else:
-            if items:
-                for item in items:
-                    retry = f" (retry after {item['retry_after']})" if item.get("retry_after") else ""
-                    typer.echo(f"  {item['task_type']:15s} {item['supersede_key'] or item['work_id']}{retry}")
-            if flow_items:
-                if items:
-                    typer.echo()
-                # Break down flow items by state name for visibility
-                wq = kp._get_work_queue()
-                by_kind = wq.count_by_kind()
-                for kind, count in by_kind.items():
-                    if kind != "flow":
-                        typer.echo(f"  {kind:20s} {count}")
-                # Show flow items grouped by state
-                flow_by_state: dict[str, list] = {}
-                for fi in flow_items:
-                    if fi.get("kind") != "flow":
-                        continue
-                    inp = fi.get("input") or {}
-                    state = inp.get("state", "unknown")
-                    flow_by_state.setdefault(state, []).append(fi)
-                for state, state_items in sorted(flow_by_state.items()):
-                    if len(state_items) <= 3:
-                        for si in state_items:
-                            inp = si.get("input") or {}
-                            target = inp.get("item_id") or inp.get("params", {}).get("item_id", "")
-                            if target:
-                                typer.echo(f"  flow:{state:16s} {target}")
-                            else:
-                                typer.echo(f"  flow:{state}")
-                    else:
-                        typer.echo(f"  flow:{state:16s} ({len(state_items)} items)")
-            if failed:
-                typer.echo(f"\nFailed ({len(failed)}):")
-                for item in failed[:10]:
-                    error = item.get("last_error", "unknown")
-                    typer.echo(f"  {item['task_type']:15s} {item['id']}: {error}")
-        # Show timer events (watchers, replenishment, cleanup)
-        try:
-            from .watches import list_watches
-            watches = list_watches(kp)
-        except Exception:
-            watches = []
-        try:
-            from .timer_state import format_timer_events, read_timer_state
-            timer_state = read_timer_state(kp._store_path)
-        except Exception:
-            timer_state = {}
-        # Also check for known timers (even if never fired)
-        from .timer_state import KNOWN_TIMERS
-        has_timer_info = watches or timer_state or KNOWN_TIMERS
-        if has_timer_info:
-            typer.echo("\nTimer events:")
-            # Show watches with schedule info
-            if watches:
-                from .timer_state import _format_ago, _format_until
-                from datetime import datetime, timezone
-                _now_ts = time.time()
-                for w in watches:
-                    suffix = " [stale]" if w.stale else ""
-                    name = f"watch:{w.kind}"
-                    # Parse last_checked and interval
-                    ago_str = "never"
-                    next_str = ""
-                    if w.last_checked:
-                        try:
-                            _lc = datetime.fromisoformat(w.last_checked)
-                            _lc_ts = _lc.replace(tzinfo=timezone.utc).timestamp()
-                            ago_str = _format_ago(_now_ts - _lc_ts)
-                            # Parse ISO duration for interval
-                            from .watches import parse_duration
-                            _dur = parse_duration(w.interval)
-                            _next_ts = _lc_ts + _dur.total_seconds() - _now_ts
-                            next_str = _format_until(_next_ts)
-                        except Exception:
-                            pass
-                    source = w.source
-                    if len(source) > 40:
-                        source = "..." + source[-37:]
-                    parts_line = f"  {name:24s} last: {ago_str:>8s}"
-                    if next_str:
-                        parts_line += f"  next: {next_str}"
-                    parts_line += f"  {source}{suffix}"
-                    typer.echo(parts_line)
-            # Show persisted + known timer events
-            try:
-                lines = format_timer_events(kp._store_path)
-                for line in lines:
-                    typer.echo(line)
-            except Exception:
-                pass
+        print_pending_list(kp)
         kp.close()
         return
 
-    # Interactive mode: show status, ensure daemon running, tail log
-    pending_count = kp.pending_count()
-    flow_pending_count = kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0
-
-    # Show failed and processing items
-    queue_stats = kp._pending_queue.stats()
-    failed_count = queue_stats.get("failed", 0)
-    processing_count = queue_stats.get("processing", 0)
-
-    # Check for timer events that need a daemon (watches, supernodes)
-    _has_timer_events = False
-    try:
-        from .watches import has_active_watches
-        _has_timer_events = has_active_watches(kp)
-    except Exception:
-        pass
-    if not _has_timer_events:
-        try:
-            from .timer_state import KNOWN_TIMERS, read_timer_state
-            _timer_state = read_timer_state(kp._store_path)
-            # Timer events need a daemon if any haven't run recently
-            import time as _time
-            for name, info in KNOWN_TIMERS.items():
-                saved = _timer_state.get(name, {})
-                last_run = saved.get("last_run", 0)
-                interval = info.get("interval", 0)
-                if interval and (_time.time() - last_run) >= interval:
-                    _has_timer_events = True
-                    break
-        except Exception:
-            pass
-
-    if pending_count == 0 and processing_count == 0 and flow_pending_count == 0 and not _has_timer_events:
-        if failed_count:
-            typer.echo(f"Nothing pending. {failed_count} failed (use --retry to requeue).", err=True)
-            # Show first few failed items
-            failed_items = kp._pending_queue.list_failed()
-            for item in failed_items[:5]:
-                error = item.get("last_error", "unknown")
-                typer.echo(f"  {item['id']} ({item['task_type']}): {error}", err=True)
-            if len(failed_items) > 5:
-                typer.echo(f"  ... and {len(failed_items) - 5} more", err=True)
-        else:
-            typer.echo("Nothing pending.")
-        kp.close()
-        return
-
-    if pending_count > 0 or processing_count > 0 or flow_pending_count > 0:
-        typer.echo(_queue_status_line(kp, queue_stats), err=True)
-    elif _has_timer_events:
-        typer.echo("No work queued, but timer events need servicing.", err=True)
-
-    # Ensure daemon is running
-    if not kp._is_processor_running():
-        kp._spawn_processor()
-        typer.echo("Started background processor.", err=True)
-    else:
-        typer.echo("Background processor already running.", err=True)
-
-    # Tail the ops log until daemon finishes or user Ctrl-C's
-    log_path = kp._store_path / "keep-ops.log"
-    _tail_ops_log(log_path, kp)
+    print_pending_interactive(kp)
     kp.close()
 
 
@@ -4321,109 +2588,6 @@ def _tail_ops_log(log_path: Path, kp) -> None:
             f"\nDetached. Daemon still running. {_queue_status_line(kp, stats)}",
             err=True,
         )
-
-
-@app.command("flow")
-def flow_cmd(
-    state: Annotated[Optional[str], typer.Argument(
-        help="State doc name (e.g. 'after-write', 'query-resolve')",
-    )] = None,
-    target: Annotated[Optional[str], typer.Option(
-        "--target", "-t", help="Target note ID to operate on",
-    )] = None,
-    file: Annotated[Optional[str], typer.Option(
-        "--file", "-f", help="YAML state doc file path, or '-' for stdin",
-    )] = None,
-    budget: Annotated[Optional[int], typer.Option(
-        "--budget", "-b", help="Max ticks for this invocation (default: from config)",
-    )] = None,
-    cursor: Annotated[Optional[str], typer.Option(
-        "--cursor", "-c", help="Cursor from a previous stopped flow to resume",
-    )] = None,
-    param: Annotated[Optional[list[str]], typer.Option(
-        "--param", "-p", help="Flow parameter as key=value",
-    )] = None,
-    store: StoreOption = None,
-):
-    """Run a state-doc flow synchronously.
-
-    \b
-    Examples:
-        keep flow after-write --target %abc123
-        keep flow query-resolve -p query="auth patterns"
-        keep flow --file review.yaml --target myproject
-        echo 'match: all' | keep flow --file - --target myproject
-        keep flow --cursor <token> --budget 5
-    """
-    if state is None and file is None and cursor is None:
-        typer.echo("Error: provide a state name, --file, or --cursor", err=True)
-        raise typer.Exit(1)
-
-    # Parse params
-    flow_params: dict[str, Any] = {}
-    if target:
-        flow_params["id"] = target
-    for p in (param or []):
-        if "=" not in p:
-            typer.echo(f"Error: param must be key=value, got: {p!r}", err=True)
-            raise typer.Exit(1)
-        k, v = p.split("=", 1)
-        # Try to parse as number/bool for convenience
-        try:
-            flow_params[k] = json.loads(v)
-        except (json.JSONDecodeError, ValueError):
-            flow_params[k] = v
-
-    # Load inline state doc YAML if --file provided
-    state_doc_yaml: Optional[str] = None
-    if file is not None:
-        if file == "-":
-            import sys
-            state_doc_yaml = sys.stdin.read()
-        else:
-            try:
-                state_doc_yaml = Path(file).read_text()
-            except FileNotFoundError:
-                typer.echo(f"Error: file not found: {file}", err=True)
-                raise typer.Exit(1)
-        if state is None:
-            state = "inline"
-
-    # When resuming, state comes from the cursor
-    if cursor and state is None:
-        state = "__cursor__"  # placeholder; run_flow uses cursor.state
-
-    kp = _get_keeper(store)
-    try:
-        result = kp.run_flow_command(
-            state,
-            params=flow_params,
-            budget=budget,
-            cursor_token=cursor,
-            state_doc_yaml=state_doc_yaml,
-        )
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        kp.close()
-        raise typer.Exit(1)
-    finally:
-        kp.close()
-
-    output: dict[str, Any] = {
-        "status": result.status,
-        "ticks": result.ticks,
-    }
-    if result.data:
-        output["data"] = result.data
-    if result.cursor:
-        output["cursor"] = result.cursor
-    if result.tried_queries:
-        output["tried_queries"] = result.tried_queries
-
-    if _get_json_output():
-        typer.echo(json.dumps(output, ensure_ascii=False))
-    else:
-        typer.echo(json.dumps(output, ensure_ascii=False, indent=2))
 
 
 # -----------------------------------------------------------------------------
@@ -4891,35 +3055,12 @@ def doctor(
     typer.echo()
 
 
-@app.command()
-def mcp(
-    store: StoreOption = None,
-):
-    """Start MCP stdio server for AI agent integration."""
-    if store is not None:
-        os.environ["KEEP_STORE_PATH"] = str(store)
-    elif _get_store_override() is not None:
-        os.environ["KEEP_STORE_PATH"] = str(_get_store_override())
-    from .mcp import main as mcp_main
-    mcp_main()
-
-
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Entry point (used by daemon subprocess: python -m keep.cli pending --daemon)
+# ---------------------------------------------------------------------------
 
 def main():
-    try:
-        app()
-    except SystemExit:
-        raise  # Let typer handle exit codes
-    except KeyboardInterrupt:
-        raise SystemExit(130)  # Standard exit code for Ctrl+C
-    except Exception as e:
-        # Log full traceback to file, show clean message to user
-        from .errors import log_exception
-        log_path = log_exception(e, context="keep CLI")
-        typer.echo(f"Error: {e}", err=True)
-        typer.echo(f"Details logged to {log_path}", err=True)
-        raise SystemExit(1)
+    app()
 
 
 if __name__ == "__main__":

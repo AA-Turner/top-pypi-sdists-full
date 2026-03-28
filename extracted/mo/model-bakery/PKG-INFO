@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: model-bakery
-Version: 1.23.3
+Version: 1.23.4
 Summary: Smart object creation facility for Django.
 Keywords: django,factory,python,testing
 Author: berin, amureki

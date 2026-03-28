@@ -212,7 +212,7 @@ async def stop_pool() -> None:
     await stop_stream()
 
 
-async def healthcheck() -> None:
+async def healthcheck(*, check_db: bool = True) -> None:
     # What could possibly go wrong?
     pass
 

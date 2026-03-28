@@ -52,6 +52,7 @@ from arthur_client.api_bindings.models.bound_member_kind import BoundMemberKind
 from arthur_client.api_bindings.models.bound_resource import BoundResource
 from arthur_client.api_bindings.models.bound_resource_kind import BoundResourceKind
 from arthur_client.api_bindings.models.bound_role import BoundRole
+from arthur_client.api_bindings.models.compliance_policy_check_job_spec import CompliancePolicyCheckJobSpec
 from arthur_client.api_bindings.models.compliance_status import ComplianceStatus
 from arthur_client.api_bindings.models.config import Config
 from arthur_client.api_bindings.models.conflict_error import ConflictError
@@ -231,6 +232,7 @@ from arthur_client.api_bindings.models.policy_alert_rule import PolicyAlertRule
 from arthur_client.api_bindings.models.policy_assignment import PolicyAssignment
 from arthur_client.api_bindings.models.policy_assignment_detail import PolicyAssignmentDetail
 from arthur_client.api_bindings.models.policy_attestation_rule import PolicyAttestationRule
+from arthur_client.api_bindings.models.policy_sort import PolicySort
 from arthur_client.api_bindings.models.policy_summary import PolicySummary
 from arthur_client.api_bindings.models.post_alert import PostAlert
 from arthur_client.api_bindings.models.post_alert_rule import PostAlertRule

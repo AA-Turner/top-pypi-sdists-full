@@ -61,8 +61,10 @@ def mock_utils_and_project(monkeypatch):
     monkeypatch.setattr(internal_spark_utils, "stage", "prod")
 
     mock_proj = MagicMock()
-    monkeypatch.setattr(internal_spark_utils, "proj", mock_proj)
-    return mock_proj
+    monkeypatch.setattr(
+        "sagemaker_studio.utils.spark.session.athena.internal_spark_utils.Project", mock_proj
+    )
+    return mock_proj.return_value
 
 
 # -------------------------------------------------------------------

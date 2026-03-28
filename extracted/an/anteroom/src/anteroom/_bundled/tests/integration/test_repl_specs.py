@@ -367,3 +367,188 @@ class TestSpecDashboard:
     def test_dashboard_shows_totals(self, db: Any, spec: dict) -> None:
         output = _capture("/spec dashboard", db=db)
         assert "1 specs" in output or "1 spec" in output
+
+
+# ---------------------------------------------------------------------------
+# /spec create --prompt / --from-issue (#1165)
+# ---------------------------------------------------------------------------
+
+
+def _capture_with_config(
+    user_input: str,
+    *,
+    cmd: str = "/spec",
+    db: Any,
+    config: Any = None,
+) -> str:
+    """Run _handle_spec_command with config and capture output."""
+    import asyncio
+
+    buf = io.StringIO()
+    console = __import__("rich.console", fromlist=["Console"]).Console(
+        file=buf, width=120, force_terminal=True, color_system="truecolor"
+    )
+    original = renderer.console
+    renderer.console = console
+    try:
+        asyncio.run(_handle_spec_command(user_input, cmd=cmd, db=db, config=config))
+    finally:
+        renderer.console = original
+    return _ANSI_RE.sub("", buf.getvalue())
+
+
+class TestSpecCreatePrompt:
+    def test_prompt_missing_args(self, db: Any) -> None:
+        output = _capture("/spec create --prompt", db=db)
+        assert "Usage" in output
+
+    def test_prompt_missing_name(self, db: Any) -> None:
+        output = _capture("/spec create --prompt text ns", db=db)
+        assert "Usage" in output
+
+    def test_prompt_no_config(self, db: Any) -> None:
+        output = _capture_with_config("/spec create --prompt text ns feat", db=db, config=None)
+        assert "config not available" in output.lower() or "AI config" in output
+
+    def test_from_issue_missing_args(self, db: Any) -> None:
+        output = _capture("/spec create --from-issue", db=db)
+        assert "Usage" in output
+
+    def test_from_issue_missing_name(self, db: Any) -> None:
+        output = _capture("/spec create --from-issue 42 ns", db=db)
+        assert "Usage" in output
+
+    def test_prompt_happy_path_generate_save(self, db: Any) -> None:
+        """Full generate-review-save flow: AI generates, editor is a no-op, spec is created."""
+        import asyncio
+        import json
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        ai_response = json.dumps(
+            {
+                "requirements": "Must add retry logic.",
+                "design": "Use exponential backoff.",
+                "tasks": [{"id": "t1", "summary": "Implement retry"}],
+            }
+        )
+        mock_config = MagicMock()
+        mock_ai = MagicMock()
+        mock_ai.complete = AsyncMock(return_value=ai_response)
+
+        buf = io.StringIO()
+        console = __import__("rich.console", fromlist=["Console"]).Console(
+            file=buf, width=120, force_terminal=True, color_system="truecolor"
+        )
+        original = renderer.console
+        renderer.console = console
+        try:
+            with (
+                patch("anteroom.cli.repl.create_ai_service", return_value=mock_ai) as _mock_create,
+                patch("subprocess.run"),  # editor no-op
+            ):
+                # Patch create_ai_service at the import site used in repl.py
+                with patch("anteroom.services.ai_service.create_ai_service", return_value=mock_ai):
+                    asyncio.run(
+                        _handle_spec_command(
+                            "/spec create --prompt add-retry ns genfeat",
+                            cmd="/spec",
+                            db=db,
+                            config=mock_config,
+                        )
+                    )
+        finally:
+            renderer.console = original
+        output = _ANSI_RE.sub("", buf.getvalue())
+        assert "Generated spec" in output
+        assert "Created" in output or "genfeat" in output
+
+    def test_from_issue_happy_path_generate_save(self, db: Any) -> None:
+        """Full from-issue flow: fetches issue, AI generates, editor no-op, spec saved."""
+        import asyncio
+        import json
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        issue_json = json.dumps(
+            {
+                "title": "Add retry logic",
+                "body": "We need retry on API calls.",
+                "labels": [{"name": "enhancement"}],
+            }
+        )
+        ai_response = json.dumps(
+            {
+                "requirements": "Must add retry logic.",
+                "design": "Use exponential backoff.",
+                "tasks": [{"id": "t1", "summary": "Implement retry"}],
+            }
+        )
+        mock_config = MagicMock()
+        mock_ai = MagicMock()
+        mock_ai.complete = AsyncMock(return_value=ai_response)
+
+        mock_gh_proc = MagicMock()
+        mock_gh_proc.returncode = 0
+        mock_gh_proc.stdout = issue_json
+
+        def _selective_run(cmd: Any, **kwargs: Any) -> Any:
+            """Route gh calls to mock, editor calls to no-op."""
+            if isinstance(cmd, list) and cmd[0] == "gh":
+                return mock_gh_proc
+            # Editor call — return success
+            return MagicMock(returncode=0)
+
+        buf = io.StringIO()
+        console = __import__("rich.console", fromlist=["Console"]).Console(
+            file=buf, width=120, force_terminal=True, color_system="truecolor"
+        )
+        original = renderer.console
+        renderer.console = console
+        try:
+            with (
+                patch("anteroom.services.ai_service.create_ai_service", return_value=mock_ai),
+                patch("anteroom.services.spec_generator.subprocess.run", side_effect=_selective_run),
+                patch("subprocess.run", side_effect=_selective_run),
+            ):
+                asyncio.run(
+                    _handle_spec_command(
+                        "/spec create --from-issue 42 ns issuefeat",
+                        cmd="/spec",
+                        db=db,
+                        config=mock_config,
+                    )
+                )
+        finally:
+            renderer.console = original
+        output = _ANSI_RE.sub("", buf.getvalue())
+        assert "Generated spec" in output
+        assert "Created" in output or "issuefeat" in output
+
+    def test_prompt_ai_failure_shows_error(self, db: Any) -> None:
+        """AI service raises — error is displayed, no spec created."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_config = MagicMock()
+        mock_ai = MagicMock()
+        mock_ai.complete = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
+
+        buf = io.StringIO()
+        console = __import__("rich.console", fromlist=["Console"]).Console(
+            file=buf, width=120, force_terminal=True, color_system="truecolor"
+        )
+        original = renderer.console
+        renderer.console = console
+        try:
+            with patch("anteroom.services.ai_service.create_ai_service", return_value=mock_ai):
+                asyncio.run(
+                    _handle_spec_command(
+                        "/spec create --prompt fail-test ns errfeat",
+                        cmd="/spec",
+                        db=db,
+                        config=mock_config,
+                    )
+                )
+        finally:
+            renderer.console = original
+        output = _ANSI_RE.sub("", buf.getvalue())
+        assert "LLM unavailable" in output or "error" in output.lower()

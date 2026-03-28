@@ -1,4 +1,4 @@
-from typing import Callable, Sequence, Union
+from collections.abc import Callable, Sequence
 
 import torch
 
@@ -30,7 +30,7 @@ class CosineSimilarity(Metric):
             metric's device to be the same as your ``update`` arguments ensures the ``update`` method is
             non-blocking. By default, CPU.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Examples:
@@ -77,7 +77,7 @@ class CosineSimilarity(Metric):
         self,
         eps: float = 1e-8,
         output_transform: Callable = lambda x: x,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ):
         super().__init__(output_transform, device, skip_unrolling=skip_unrolling)

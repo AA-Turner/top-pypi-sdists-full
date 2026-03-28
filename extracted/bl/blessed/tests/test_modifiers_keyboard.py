@@ -13,7 +13,7 @@ if platform.system() != 'Windows':
     import tty  # pylint: disable=unused-import  # NOQA
     import curses
 else:
-    import jinxed as curses  # pylint: disable=import-error
+    import jinxed as curses
 
 
 def assert_ctrl_alt_modifiers(ks):
@@ -1096,7 +1096,7 @@ def test_getattr_property_getter():
 
 
 def test_get_modified_keycode_name_no_modifiers():
-    """Test modified keycode name returns None when no modifiers present."""
+    """Test modified keycode name resolves for unmodified press events."""
     @as_subprocess
     def child():
         term = TestTerminal(force_styling=True)
@@ -1106,7 +1106,7 @@ def test_get_modified_keycode_name_no_modifiers():
         assert ks._mode == -3
         assert ks.modifiers == 1
         result = ks._get_modified_keycode_name()
-        assert result is None
+        assert result == 'KEY_UP'
 
     child()
 
@@ -1196,20 +1196,6 @@ def test_alphanum_predicate_value_multi_char():
     assert ks.is_alt('a') is False
 
 
-def test_get_alt_only_control_name_csi():
-    """Test _get_alt_only_control_name returns CSI for bracket."""
-    ks = Keystroke('\x1b[')
-    result = ks._get_alt_only_control_name(0x5b)
-    assert result == 'CSI'
-
-
-def test_meta_escape_name_csi_special_case():
-    """Test metaSendsEscape correctly identifies CSI sequence."""
-    ks = Keystroke('\x1b[')
-    result = ks._get_meta_escape_name()
-    assert result == 'CSI'
-
-
 def test_terminal_inkey_csi_sequence():
     """Test term.inkey() returns single CSI keystroke for unmatched sequences."""
     @as_subprocess
@@ -1243,7 +1229,7 @@ def test_legacy_csi_modifiers_no_modifiers_integration():
         assert ks.modifiers == 1
         assert ks.code == curses.KEY_F1
         result = ks._get_modified_keycode_name()
-        assert result is None
+        assert result == 'KEY_F1'
         assert ks._ctrl is False
         assert ks._alt is False
         assert ks._shift is False

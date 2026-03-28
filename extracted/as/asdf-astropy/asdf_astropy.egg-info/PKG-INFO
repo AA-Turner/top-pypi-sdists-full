@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asdf-astropy
-Version: 0.10.1
+Version: 0.11.0
 Summary: ASDF serialization support for astropy
 Author-email: The Astropy Developers <astropy.team@gmail.com>
 Project-URL: documentation, https://asdf-astropy.readthedocs.io/en/latest/
@@ -16,7 +16,7 @@ Requires-Dist: asdf>=3.3.0
 Requires-Dist: asdf-coordinates-schemas>=0.4
 Requires-Dist: asdf-transform-schemas>=0.6
 Requires-Dist: asdf-standard>=1.1.0
-Requires-Dist: astropy>=5.3.0
+Requires-Dist: astropy>=6.0
 Requires-Dist: numpy>=1.26.4
 Requires-Dist: packaging>=19
 Provides-Extra: docs
@@ -30,10 +30,11 @@ Requires-Dist: sphinx-automodapi; extra == "docs"
 Requires-Dist: tomli; extra == "docs"
 Provides-Extra: test
 Requires-Dist: coverage; extra == "test"
+Requires-Dist: gwcs>=0.22; extra == "test"
 Requires-Dist: pytest-astropy; extra == "test"
 Requires-Dist: pytest-asdf-plugin; extra == "test"
 Requires-Dist: pytest; extra == "test"
-Requires-Dist: scipy; extra == "test"
+Requires-Dist: scipy>=1.14.1; extra == "test"
 Dynamic: license-file
 
 ASDF serialization support for astropy

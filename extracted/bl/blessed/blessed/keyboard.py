@@ -28,7 +28,6 @@ _T = TypeVar('_T', bound='Keystroke')
 # isort: off
 # curses
 if platform.system() == 'Windows':
-    # pylint: disable=import-error
     import jinxed as curses
     from jinxed.has_key import _capability_names as capability_names
 else:
@@ -121,7 +120,44 @@ ALT_CONTROL_NAMES = {
     0x7f: 'KEY_ALT_BACKSPACE',  # DEL
     0x0d: 'KEY_ALT_ENTER',      # CR
     0x09: 'KEY_ALT_TAB',        # TAB
-    0x5b: 'CSI'                 # CSI '['
+}
+
+# Human-readable names for ASCII punctuation and symbols, used by kitty
+# keyboard protocol name synthesis to produce names like KEY_LEFT_SQUARE_BRACKET.
+ASCII_SYMBOL_NAMES = {
+    32: 'SPACE',
+    33: 'EXCLAMATION_MARK',
+    34: 'DOUBLE_QUOTE',
+    35: 'HASH',
+    36: 'DOLLAR',
+    37: 'PERCENT',
+    38: 'AMPERSAND',
+    39: 'APOSTROPHE',
+    40: 'LEFT_PARENTHESIS',
+    41: 'RIGHT_PARENTHESIS',
+    42: 'ASTERISK',
+    43: 'PLUS',
+    44: 'COMMA',
+    45: 'MINUS',
+    46: 'PERIOD',
+    47: 'SLASH',
+    58: 'COLON',
+    59: 'SEMICOLON',
+    60: 'LESS_THAN',
+    61: 'EQUALS',
+    62: 'GREATER_THAN',
+    63: 'QUESTION_MARK',
+    64: 'AT',
+    91: 'LEFT_SQUARE_BRACKET',
+    92: 'BACKSLASH',
+    93: 'RIGHT_SQUARE_BRACKET',
+    94: 'CARET',
+    95: 'UNDERSCORE',
+    96: 'GRAVE_ACCENT',
+    123: 'LEFT_CURLY_BRACKET',
+    124: 'PIPE',
+    125: 'RIGHT_CURLY_BRACKET',
+    126: 'TILDE',
 }
 
 
@@ -234,10 +270,10 @@ class Keystroke(str):
 
     def _get_modified_keycode_name(self) -> Optional[str]:
         """
-        Get name for modern/legacy CSI sequence with modifiers.
+        Get base name for modern/legacy CSI sequence with modifiers.
 
-        Returns name like 'KEY_CTRL_ALT_F1' or 'KEY_SHIFT_UP_RELEASED'. Also handles release/repeat
-        events for keys without modifiers.
+        Returns name like 'KEY_CTRL_ALT_F1' or 'KEY_SHIFT_UP' without
+        event-type suffix.  The suffix is applied by :attr:`name`.
         """
         # Check if this is a special keyboard protocol mode
         if not (self.uses_keyboard_protocol and self._code is not None):
@@ -265,32 +301,18 @@ class Keystroke(str):
             if getattr(self, f'_{mod_name}'):        # 'if self._shift'
                 mod_parts.append(mod_name.upper())   # -> 'SHIFT'
 
-        # For press events with no modifiers, check if this is a PUA functional
-        # key or a control character key (Escape, Tab, Enter, Backspace).
-        is_control_char_key = self._code in _KITTY_CONTROL_CHAR_TO_KEYCODE.values()
-        if (not mod_parts
-                and not (self.released or self.repeated)
-                and not _is_kitty_functional_key(self._code)
-                and not is_control_char_key):
-            return None
-
         # Build base result with modifiers (if any)
-        base_result = (f"KEY_{'_'.join(mod_parts)}_{base_name}"
-                       if mod_parts
-                       else f"KEY_{base_name}")
-
-        # Append event type suffix if not a press event
-        if self.repeated:
-            return f"{base_result}_REPEATED"
-        if self.released:
-            return f"{base_result}_RELEASED"
-        return base_result  # pressed (no suffix)
+        return (f"KEY_{'_'.join(mod_parts)}_{base_name}"
+                if mod_parts
+                else f"KEY_{base_name}")
 
     def _get_kitty_protocol_name(self) -> Optional[str]:
         """
-        Get name for Kitty keyboard protocol letter/digit/symbol.
+        Get base name for Kitty keyboard protocol letter/digit/symbol.
 
-        Returns name like 'KEY_CTRL_ALT_A', 'KEY_ALT_SHIFT_5', 'KEY_CTRL_J_RELEASED', etc.
+        Returns name like 'KEY_CTRL_ALT_A', 'KEY_ALT_SHIFT_5',
+        'KEY_LEFT_SQUARE_BRACKET' without event-type suffix.
+        The suffix is applied by :attr:`name`.
         """
         if self._mode != DecPrivateMode.SpecialInternalKitty:
             return None
@@ -299,21 +321,14 @@ class Keystroke(str):
         base_codepoint = (self._match.base_key if self._match.base_key is not None
                           else self._match.unicode_key)
 
-        # Special case: '[' always returns 'CSI' regardless of modifiers
-        if base_codepoint == 91:  # '['
-            return 'CSI'
-
-        # Only proceed if it's an ASCII letter or digit
-        if not ((65 <= base_codepoint <= 90) or   # A-Z
-                (97 <= base_codepoint <= 122) or  # a-z
-                (48 <= base_codepoint <= 57)):    # 0-9
+        # Determine the character name component (ASCII alphanumerics only)
+        if ((65 <= base_codepoint <= 90) or (97 <= base_codepoint <= 122)
+                or (48 <= base_codepoint <= 57)):
+            char = chr(base_codepoint).upper()
+        elif base_codepoint in ASCII_SYMBOL_NAMES:
+            char = ASCII_SYMBOL_NAMES[base_codepoint]
+        else:
             return None
-
-        # For letters: convert to uppercase for consistent naming
-        # For digits: use as-is
-        char = (chr(base_codepoint).upper()
-                if (65 <= base_codepoint <= 90 or 97 <= base_codepoint <= 122)
-                else chr(base_codepoint))
 
         # Build modifier prefix list in order: CTRL, ALT, SHIFT, SUPER, HYPER, META
         mod_parts = []
@@ -321,18 +336,9 @@ class Keystroke(str):
             if getattr(self, f'_{mod_name}'):
                 mod_parts.append(mod_name.upper())
 
-        # Only synthesize name if at least one modifier is present
-        if not mod_parts:
-            return None
-
-        base_result = f"KEY_{'_'.join(mod_parts)}_{char}"
-
-        # Append event type suffix if not a press event
-        if self.repeated:
-            return f"{base_result}_REPEATED"
-        if self.released:
-            return f"{base_result}_RELEASED"
-        return base_result  # pressed (no suffix)
+        return (f"KEY_{'_'.join(mod_parts)}_{char}"
+                if mod_parts
+                else f"KEY_{char}")
 
     def _get_control_char_name(self) -> Optional[str]:
         """
@@ -463,41 +469,19 @@ class Keystroke(str):
             return 'BRACKETED_PASTE'
         return None
 
-    @property
-    def name(self) -> Optional[str]:  # pylint: disable=too-many-return-statements
-        r"""
-        Special application key name.
-
-        This is the best equality attribute to use for special keys, as raw string value of the 'F1'
-        key can be received in many different values.
-
-        The 'name' property will return a reliable constant, eg. ``'KEY_F1'``.
-
-        The name supports "modifiers", such as ``'KEY_CTRL_F1'``,
-        ``'KEY_CTRL_ALT_F1'``, ``'KEY_CTRL_ALT_SHIFT_F1'``
-
-        For mouse events, the name includes the ``'MOUSE_'`` prefix followed by the
-        button/action name, such as ``'MOUSE_LEFT'``, ``'MOUSE_MOTION'``,
-        ``'MOUSE_RIGHT_MOTION'``, ``'MOUSE_LEFT_RELEASED'``.
-
-        For other DEC events:
-        - Focus events: 'FOCUS_IN' or 'FOCUS_OUT'
-        - Bracketed paste: 'BRACKETED_PASTE'
-        - Resize events: 'RESIZE_EVENT'
-
-        When non-None, all phrases begin with either 'KEY', 'MOUSE', 'FOCUS_IN', 'FOCUS_OUT',
-        'BRACKETED_PASTE', or 'RESIZE_EVENT', with one exception: 'CSI' is returned for '\\x1b['
-        to indicate the beginning of a presumed unsupported input sequence. The phrase 'KEY_ALT_['
-        is never returned and unsupported.
-
-        If this value is None, then it can probably be assumed that the value is an unsurprising
-        textual character without any modifiers, like the letter ``'a'``.
+    def _resolve_name(self) -> Optional[str]:
         """
+        Resolve key name without event-type suffix.
+
+        Shared by :attr:`name` and :attr:`key_name`.  The two keyboard
+        protocol helpers (_get_modified_keycode_name, _get_kitty_protocol_name)
+        return the base name only; :attr:`name` appends the suffix.
+        """
+        # pylint: disable=too-many-return-statements
         if self._name is not None:
             return self._name
 
-        # Try each helper method in sequence
-        # DEC events first
+        # DEC events first (never suffixed)
         result = self._get_mouse_event_name()
         if result is not None:
             return result
@@ -510,11 +494,10 @@ class Keystroke(str):
         if result is not None:
             return result
 
-        # Inline resize event check
         if self._mode == DecPrivateMode.IN_BAND_WINDOW_RESIZE:
             return 'RESIZE_EVENT'
 
-        # Keyboard events
+        # Keyboard protocol events (suffix applied by .name)
         result = self._get_modified_keycode_name()
         if result is not None:
             return result
@@ -523,6 +506,7 @@ class Keystroke(str):
         if result is not None:
             return result
 
+        # Legacy events (never suffixed)
         result = self._get_control_char_name()
         if result is not None:
             return result
@@ -532,6 +516,64 @@ class Keystroke(str):
             return result
 
         return self._name
+
+    @property
+    def name(self) -> Optional[str]:
+        r"""
+        Special application key name.
+
+        This is the best equality attribute to use for special keys, as raw string value of the 'F1'
+        key can be received in many different values.
+
+        The 'name' property will return a reliable constant, eg. ``'KEY_F1'``.
+
+        The name supports "modifiers", such as ``'KEY_CTRL_F1'``,
+        ``'KEY_CTRL_ALT_F1'``, ``'KEY_CTRL_ALT_SHIFT_F1'``
+
+        When using a keyboard protocol with event reporting, names include an
+        event-type suffix: ``'KEY_CTRL_J_REPEATED'`` for repeat and
+        ``'KEY_CTRL_J_RELEASED'`` for release events.  Press events have no
+        suffix.  See :attr:`key_name` for the same name without the suffix.
+
+        For mouse events, the name includes the ``'MOUSE_'`` prefix followed by the
+        button/action name, such as ``'MOUSE_LEFT'``, ``'MOUSE_MOTION'``,
+        ``'MOUSE_RIGHT_MOTION'``, ``'MOUSE_LEFT_RELEASED'``.
+
+        For other DEC events:
+        - Focus events: 'FOCUS_IN' or 'FOCUS_OUT'
+        - Bracketed paste: 'BRACKETED_PASTE'
+        - Resize events: 'RESIZE_EVENT'
+
+        When non-None, all phrases begin with either 'KEY', 'MOUSE', 'FOCUS_IN', 'FOCUS_OUT',
+        'BRACKETED_PASTE', or 'RESIZE_EVENT', with one exception: 'CSI' is returned for '\\x1b['
+        in legacy (non-kitty-protocol) mode to indicate the beginning of a presumed unsupported
+        input sequence. In kitty keyboard protocol mode, the '[' key uses the name
+        'KEY_LEFT_SQUARE_BRACKET' (with modifier and event-type suffixes as appropriate).
+
+        If this value is None, then it can probably be assumed that the value is an unsurprising
+        textual character without any modifiers, like the letter ``'a'``.
+        """
+        result = self._resolve_name()
+        if result is not None and self.uses_keyboard_protocol:
+            if self.repeated:
+                return f"{result}_REPEATED"
+            if self.released:
+                return f"{result}_RELEASED"
+        return result
+
+    @property
+    def key_name(self) -> Optional[str]:
+        """
+        Key identity without event-type suffix.
+
+        Like :attr:`name`, but without ``_RELEASED`` and ``_REPEATED``
+        suffixes, so that press, repeat, and release events for the same
+        key all return the same value.  Useful for key-map lookups when
+        tracking press/release pairs.
+
+        :rtype: str or None
+        """
+        return self._resolve_name()
 
     @property
     def code(self) -> Optional[int]:
@@ -1006,6 +1048,26 @@ class Keystroke(str):
         if self.released:
             return ''
 
+        return (self._get_plain_char_value()
+                or self._get_escape_sequence_value()
+                or self._get_ctrl_sequence_value()
+                or self._get_protocol_value()
+                or self._get_ascii_value()
+                or '')
+
+    @property
+    def key_value(self) -> str:
+        r"""
+        Character for this key, even for release events.
+
+        Like :attr:`value`, but does not suppress the character for
+        release events.  For press and repeat events, identical to
+        :attr:`value`.
+
+        :rtype: str
+        """
+        if not self.released:
+            return self.value
         return (self._get_plain_char_value()
                 or self._get_escape_sequence_value()
                 or self._get_ctrl_sequence_value()

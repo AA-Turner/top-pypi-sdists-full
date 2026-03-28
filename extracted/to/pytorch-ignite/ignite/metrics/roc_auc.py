@@ -1,4 +1,5 @@
-from typing import Any, Callable, cast, Tuple, Union
+from collections.abc import Callable
+from typing import Any, cast
 
 import torch
 
@@ -15,7 +16,7 @@ def roc_auc_compute_fn(y_preds: torch.Tensor, y_targets: torch.Tensor) -> float:
     return roc_auc_score(y_true, y_pred)
 
 
-def roc_auc_curve_compute_fn(y_preds: torch.Tensor, y_targets: torch.Tensor) -> Tuple[Any, Any, Any]:
+def roc_auc_curve_compute_fn(y_preds: torch.Tensor, y_targets: torch.Tensor) -> tuple[Any, Any, Any]:
     from sklearn.metrics import roc_curve
 
     y_true = y_targets.cpu().numpy()
@@ -40,7 +41,7 @@ class ROC_AUC(EpochMetric):
             no issues. User will be warned in case there are any issues computing the function.
         device: optional device specification for internal storage.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Note:
@@ -83,7 +84,7 @@ class ROC_AUC(EpochMetric):
         self,
         output_transform: Callable = lambda x: x,
         check_compute_fn: bool = False,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ):
         try:
@@ -91,7 +92,7 @@ class ROC_AUC(EpochMetric):
         except ImportError:
             raise ModuleNotFoundError("This contrib module requires scikit-learn to be installed.")
 
-        super(ROC_AUC, self).__init__(
+        super().__init__(
             roc_auc_compute_fn,
             output_transform=output_transform,
             check_compute_fn=check_compute_fn,
@@ -117,7 +118,7 @@ class RocCurve(EpochMetric):
             no issues. User will be warned in case there are any issues computing the function.
         device: optional device specification for internal storage.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Note:
@@ -166,7 +167,7 @@ class RocCurve(EpochMetric):
         self,
         output_transform: Callable = lambda x: x,
         check_compute_fn: bool = False,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ) -> None:
         try:
@@ -174,7 +175,7 @@ class RocCurve(EpochMetric):
         except ImportError:
             raise ModuleNotFoundError("This contrib module requires scikit-learn to be installed.")
 
-        super(RocCurve, self).__init__(
+        super().__init__(
             roc_auc_curve_compute_fn,  # type: ignore[arg-type]
             output_transform=output_transform,
             check_compute_fn=check_compute_fn,
@@ -182,7 +183,7 @@ class RocCurve(EpochMetric):
             skip_unrolling=skip_unrolling,
         )
 
-    def compute(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:  # type: ignore[override]
+    def compute(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:  # type: ignore[override]
         if len(self._predictions) < 1 or len(self._targets) < 1:
             raise NotComputableError("RocCurve must have at least one example before it can be computed.")
 
@@ -197,7 +198,7 @@ class RocCurve(EpochMetric):
 
         if idist.get_rank() == 0:
             # Run compute_fn on zero rank only
-            fpr, tpr, thresholds = cast(Tuple, self.compute_fn(_prediction_tensor, _target_tensor))
+            fpr, tpr, thresholds = cast(tuple, self.compute_fn(_prediction_tensor, _target_tensor))
             fpr = torch.tensor(fpr, dtype=self._double_dtype, device=_prediction_tensor.device)
             tpr = torch.tensor(tpr, dtype=self._double_dtype, device=_prediction_tensor.device)
             thresholds = torch.tensor(thresholds, dtype=self._double_dtype, device=_prediction_tensor.device)
@@ -210,4 +211,5 @@ class RocCurve(EpochMetric):
             tpr = idist.broadcast(tpr, src=0, safe_mode=True)
             thresholds = idist.broadcast(thresholds, src=0, safe_mode=True)
 
+        # pyrefly: ignore [bad-return]
         return fpr, tpr, thresholds

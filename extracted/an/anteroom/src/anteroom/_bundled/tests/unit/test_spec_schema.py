@@ -5,6 +5,10 @@ from __future__ import annotations
 import pytest
 
 from anteroom.services.spec_schema import (
+    CREATION_FLOW_FROM_ISSUE,
+    CREATION_FLOW_MANUAL,
+    CREATION_FLOW_PROMPT,
+    SPEC_GENERATION_SCHEMA,
     SpecContent,
     SpecPhaseStatus,
     SpecTask,
@@ -14,6 +18,7 @@ from anteroom.services.spec_schema import (
     parse_spec_content,
     serialize_spec_content,
     set_phase_status,
+    topological_sort_tasks,
 )
 
 # ---------------------------------------------------------------------------
@@ -240,3 +245,115 @@ class TestPhaseMetadata:
         meta = default_phase_metadata()
         updated = set_phase_status(meta, "requirements", "approved", approved_by="user")
         assert updated["phases"]["requirements"]["status"] == "approved"
+
+
+# ---------------------------------------------------------------------------
+# Constants (#1165)
+# ---------------------------------------------------------------------------
+
+
+class TestCreationFlowConstants:
+    def test_creation_flow_prompt(self) -> None:
+        assert CREATION_FLOW_PROMPT == "prompt"
+
+    def test_creation_flow_from_issue(self) -> None:
+        assert CREATION_FLOW_FROM_ISSUE == "from_issue"
+
+    def test_creation_flow_manual(self) -> None:
+        assert CREATION_FLOW_MANUAL == "manual"
+
+    def test_spec_generation_schema_has_required_fields(self) -> None:
+        assert "properties" in SPEC_GENERATION_SCHEMA
+        props = SPEC_GENERATION_SCHEMA["properties"]
+        assert "requirements" in props
+        assert "design" in props
+        assert "tasks" in props
+
+
+# ---------------------------------------------------------------------------
+# Topological sort (#1165)
+# ---------------------------------------------------------------------------
+
+
+class TestTopologicalSortTasks:
+    def test_empty_list(self) -> None:
+        assert topological_sort_tasks([]) == []
+
+    def test_single_task(self) -> None:
+        t = SpecTask(id="a", summary="A")
+        result = topological_sort_tasks([t])
+        assert result == [[t]]
+
+    def test_all_independent(self) -> None:
+        a = SpecTask(id="a", summary="A")
+        b = SpecTask(id="b", summary="B")
+        c = SpecTask(id="c", summary="C")
+        result = topological_sort_tasks([a, b, c])
+        assert len(result) == 1
+        assert set(t.id for t in result[0]) == {"a", "b", "c"}
+
+    def test_linear_chain(self) -> None:
+        a = SpecTask(id="a", summary="A")
+        b = SpecTask(id="b", summary="B", depends_on=["a"])
+        c = SpecTask(id="c", summary="C", depends_on=["b"])
+        result = topological_sort_tasks([a, b, c])
+        assert len(result) == 3
+        assert [t.id for t in result[0]] == ["a"]
+        assert [t.id for t in result[1]] == ["b"]
+        assert [t.id for t in result[2]] == ["c"]
+
+    def test_diamond(self) -> None:
+        a = SpecTask(id="a", summary="A")
+        b = SpecTask(id="b", summary="B", depends_on=["a"])
+        c = SpecTask(id="c", summary="C", depends_on=["a"])
+        d = SpecTask(id="d", summary="D", depends_on=["b", "c"])
+        result = topological_sort_tasks([a, b, c, d])
+        assert len(result) == 3
+        assert [t.id for t in result[0]] == ["a"]
+        assert set(t.id for t in result[1]) == {"b", "c"}
+        assert [t.id for t in result[2]] == ["d"]
+
+    def test_complex_dag(self) -> None:
+        a = SpecTask(id="a", summary="A")
+        b = SpecTask(id="b", summary="B")
+        c = SpecTask(id="c", summary="C", depends_on=["a"])
+        d = SpecTask(id="d", summary="D", depends_on=["a", "b"])
+        e = SpecTask(id="e", summary="E", depends_on=["c", "d"])
+        result = topological_sort_tasks([a, b, c, d, e])
+        assert len(result) == 3
+        assert set(t.id for t in result[0]) == {"a", "b"}
+        assert set(t.id for t in result[1]) == {"c", "d"}
+        assert [t.id for t in result[2]] == ["e"]
+
+    def test_preserves_task_objects(self) -> None:
+        a = SpecTask(id="a", summary="A")
+        b = SpecTask(id="b", summary="B", depends_on=["a"])
+        result = topological_sort_tasks([a, b])
+        assert result[0][0] is a
+        assert result[1][0] is b
+
+    def test_two_independent_chains(self) -> None:
+        a = SpecTask(id="a", summary="A")
+        b = SpecTask(id="b", summary="B", depends_on=["a"])
+        c = SpecTask(id="c", summary="C")
+        d = SpecTask(id="d", summary="D", depends_on=["c"])
+        result = topological_sort_tasks([a, b, c, d])
+        assert len(result) == 2
+        assert set(t.id for t in result[0]) == {"a", "c"}
+        assert set(t.id for t in result[1]) == {"b", "d"}
+
+    def test_wide_fan_out(self) -> None:
+        root = SpecTask(id="root", summary="Root")
+        leaves = [SpecTask(id=f"l{i}", summary=f"Leaf {i}", depends_on=["root"]) for i in range(5)]
+        result = topological_sort_tasks([root] + leaves)
+        assert len(result) == 2
+        assert result[0][0].id == "root"
+        assert len(result[1]) == 5
+
+    def test_fan_in(self) -> None:
+        sources = [SpecTask(id=f"s{i}", summary=f"Source {i}") for i in range(3)]
+        sink = SpecTask(id="sink", summary="Sink", depends_on=["s0", "s1", "s2"])
+        result = topological_sort_tasks(sources + [sink])
+        assert len(result) == 2
+        assert len(result[0]) == 3
+        assert result[1][0].id == "sink"

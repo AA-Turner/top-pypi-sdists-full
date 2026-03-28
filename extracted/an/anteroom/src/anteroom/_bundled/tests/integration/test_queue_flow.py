@@ -202,6 +202,59 @@ class TestCleanup:
         assert cid not in _active_streams
         assert cid not in _message_queues
 
+
+# =============================================================================
+# Queue position metadata (#1175)
+# =============================================================================
+
+
+class TestQueuePositionMetadata:
+    def test_queue_position_after_enqueue(self) -> None:
+        """qsize() after put() reflects the correct position for response."""
+        cid = "00000000-0000-0000-0000-000000000020"
+        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        _message_queues[cid] = queue
+
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(queue.put({"role": "user", "content": "msg1"}))
+        # After first enqueue: position=1, queue_depth=1
+        assert queue.qsize() == 1
+
+        loop.run_until_complete(queue.put({"role": "user", "content": "msg2"}))
+        # After second enqueue: position=2, queue_depth=2
+        assert queue.qsize() == 2
+        loop.close()
+
+    def test_queue_depth_decreases_after_dequeue(self) -> None:
+        """queue_depth should decrease as messages are consumed."""
+        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(queue.put({"role": "user", "content": "a"}))
+        loop.run_until_complete(queue.put({"role": "user", "content": "b"}))
+        assert queue.qsize() == 2
+
+        loop.run_until_complete(queue.get())
+        assert queue.qsize() == 1
+
+        loop.run_until_complete(queue.get())
+        assert queue.qsize() == 0
+        loop.close()
+
+    def test_429_at_max_capacity(self) -> None:
+        """Simulates the 429 rejection path when queue is at capacity."""
+        cid = "00000000-0000-0000-0000-000000000021"
+        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        _message_queues[cid] = queue
+
+        loop = asyncio.new_event_loop()
+        for i in range(MAX_QUEUED_MESSAGES):
+            loop.run_until_complete(queue.put({"role": "user", "content": f"msg {i}"}))
+
+        # At capacity — the chat endpoint would return 429
+        assert queue.qsize() >= MAX_QUEUED_MESSAGES
+        loop.close()
+
     def test_full_lifecycle_cleanup(self):
         """Full lifecycle: create state -> cleanup -> verify clean."""
         cid = "00000000-0000-0000-0000-000000000016"

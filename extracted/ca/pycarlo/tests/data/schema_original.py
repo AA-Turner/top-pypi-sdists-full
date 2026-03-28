@@ -29991,6 +29991,56 @@ class MemoryFacetsType(sgqlc.types.Type):
     )
 
 
+class MemoryPipelineStatus(sgqlc.types.Type):
+    """Combined status of the extract → ingest memory pipeline."""
+
+    __schema__ = schema
+    __field_names__ = ("extract", "ingest", "eligible_incident_count")
+    extract = sgqlc.types.Field(
+        sgqlc.types.non_null("MemoryPipelineStepStatus"), graphql_name="extract"
+    )
+    """Status of the extraction step."""
+
+    ingest = sgqlc.types.Field(
+        sgqlc.types.non_null("MemoryPipelineStepStatus"), graphql_name="ingest"
+    )
+    """Status of the ingestion step."""
+
+    eligible_incident_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="eligibleIncidentCount"
+    )
+    """Number of incidents with eligible Slack thread replies available
+    for extraction. Zero means there is no data to extract.
+    """
+
+
+class MemoryPipelineStepStatus(sgqlc.types.Type):
+    """Status of a single step (extract or ingest) in the memory
+    pipeline.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("status", "started_at", "completed_at", "error", "record_count")
+    status = sgqlc.types.Field(String, graphql_name="status")
+    """Current status: 'running', 'success', or 'error'. Null if the step
+    has not been triggered.
+    """
+
+    started_at = sgqlc.types.Field(String, graphql_name="startedAt")
+    """ISO 8601 timestamp of when this step was triggered (UTC)."""
+
+    completed_at = sgqlc.types.Field(String, graphql_name="completedAt")
+    """ISO 8601 timestamp of when this step finished (UTC). Null if still
+    running or not started.
+    """
+
+    error = sgqlc.types.Field(String, graphql_name="error")
+    """Error message if the step failed. Null otherwise."""
+
+    record_count = sgqlc.types.Field(Int, graphql_name="recordCount")
+    """Number of records processed by this step. Null if not available."""
+
+
 class MemoryRecordType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -54609,6 +54659,7 @@ class Query(sgqlc.types.Type):
         "get_data_export_url",
         "get_generate_report_status",
         "get_memory_extraction_status",
+        "get_memory_pipeline_status",
         "evaluate_asset_selection",
         "evaluate_field_pattern_matches",
         "get_account_audit_logs",
@@ -72881,6 +72932,13 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) Get status of memory data extraction for the
     caller's account
+    """
+
+    get_memory_pipeline_status = sgqlc.types.Field(
+        MemoryPipelineStatus, graphql_name="getMemoryPipelineStatus"
+    )
+    """(experimental) Get status of the memory extract → ingest pipeline
+    for the caller's account
     """
 
     evaluate_asset_selection = sgqlc.types.Field(

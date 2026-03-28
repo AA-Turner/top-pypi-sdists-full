@@ -125,7 +125,13 @@ class NodeMenu(_bpy_types.Menu):
 
     @classmethod
     def node_operator_with_searchable_enum(
-        cls, context, layout, node_idname, property_name, search_weight=0.0
+        cls,
+        context,
+        layout,
+        node_idname,
+        property_name,
+        search_weight=0.0,
+        defaults_callback=None,
     ) -> None:
         """Similar to node_operator, but with extra entries based on a enum property while in search.
 
@@ -134,6 +140,7 @@ class NodeMenu(_bpy_types.Menu):
         :param node_idname:
         :param property_name:
         :param search_weight:
+        :param defaults_callback:
         """
 
     @classmethod
@@ -321,3 +328,7 @@ def draw_node_group_add_menu(context, layout) -> None:
 def generate_menu(bl_idname, template, layout_base, pathing_dict=None) -> None: ...
 def generate_menus(menus, template, base_dict) -> None: ...
 def generate_pathing_dict(pathing_dict, menus) -> None: ...
+def set_math_node_default_props(enum_identifier, props) -> None: ...
+def set_socket_default_value(
+    settings, socket_identifier, socket_default_value
+) -> None: ...

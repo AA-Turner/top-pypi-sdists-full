@@ -256,6 +256,13 @@ class SDKAgentRunner(AgentRuntime):
 
     # -- helpers -------------------------------------------------------------
 
+    @staticmethod
+    def _get_output_style_content() -> str | None:
+        """Load the configured output style content for injection into system prompt."""
+        from claude_mpm.core.output_style_manager import get_output_style_for_injection
+
+        return get_output_style_for_injection()
+
     def _build_options(self, **overrides: Any) -> ClaudeAgentOptions:
         """Build a ``ClaudeAgentOptions`` from stored config + overrides."""
         kwargs: dict[str, Any] = {}
@@ -276,6 +283,19 @@ class SDKAgentRunner(AgentRuntime):
         if self.mcp_servers is not None:
             kwargs["mcp_servers"] = self.mcp_servers
         kwargs.update(overrides)
+
+        # Inject output style into system prompt if configured.
+        # SDK sessions don't load user settings, so outputStyle from
+        # ~/.claude/settings.json must be injected manually.
+        system_prompt = kwargs.get("system_prompt", "")
+        style_content = self._get_output_style_content()
+        if style_content:
+            kwargs["system_prompt"] = (
+                f"{style_content}\n\n{system_prompt}"
+                if system_prompt
+                else style_content
+            )
+
         return ClaudeAgentOptions(**kwargs)
 
     @staticmethod

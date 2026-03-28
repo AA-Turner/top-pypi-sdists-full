@@ -1,4 +1,4 @@
-from typing import Callable, Sequence, Union
+from collections.abc import Callable, Sequence
 
 import torch
 
@@ -38,7 +38,7 @@ class MultiLabelConfusionMatrix(Metric):
             default, CPU.
         normalized: whether to normalize confusion matrix by its sum or not.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Example:
@@ -92,7 +92,7 @@ class MultiLabelConfusionMatrix(Metric):
         self,
         num_classes: int,
         output_transform: Callable = lambda x: x,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         normalized: bool = False,
         skip_unrolling: bool = False,
     ):
@@ -102,9 +102,7 @@ class MultiLabelConfusionMatrix(Metric):
         self.num_classes = num_classes
         self._num_examples = 0
         self.normalized = normalized
-        super(MultiLabelConfusionMatrix, self).__init__(
-            output_transform=output_transform, device=device, skip_unrolling=skip_unrolling
-        )
+        super().__init__(output_transform=output_transform, device=device, skip_unrolling=skip_unrolling)
 
     @reinit__is_reduced
     def reset(self) -> None:

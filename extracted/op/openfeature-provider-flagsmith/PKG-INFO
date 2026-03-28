@@ -1,7 +1,8 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: openfeature-provider-flagsmith
-Version: 0.1.5
+Version: 0.1.6
 Summary: Openfeature provider for Flagsmith
+License-File: LICENSE
 Author: Matthew Elwell
 Author-email: matthew.elwell@flagsmith.com>
 Requires-Python: >=3.9,<4.0
@@ -11,7 +12,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: flagsmith (>=3.6.0,<4.0.0)
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: flagsmith (>=3.6.0,<6.0.0)
 Requires-Dist: openfeature-sdk (>=0.6.0,<0.9.0)
 Description-Content-Type: text/markdown
 
@@ -74,7 +76,27 @@ provider = FlagsmithProvider(
 )
 ```
 
-The provider can then be used with the OpenFeature client as per 
+The provider can then be used with the OpenFeature client as per
 [the documentation](https://openfeature.dev/docs/reference/concepts/evaluation-api#setting-a-provider).
+
+### Evaluation Context
+
+The evaluation context supports traits in two ways:
+1. Flat top-level attributes
+2. A nested traits object
+
+The two forms are merged and sent to Flagsmith, with the traits object taking precedence if keys conflict.
+
+```python
+context = EvaluationContext( # Traits are: {"abc":"def", "foo": "bar2"}
+    targeting_key="user",
+    attributes={
+        "foo": "bar", 
+        "abc": "def", 
+        "traits": {"foo": "bar2"}
+    },
+)
+
+```
 
 

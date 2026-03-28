@@ -967,13 +967,11 @@ class OrganizationConformancePackReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_config.RemediationConfigurationReference",
     jsii_struct_bases=[],
-    name_mapping={"remediation_configuration_id": "remediationConfigurationId"},
+    name_mapping={},
 )
 class RemediationConfigurationReference:
-    def __init__(self, *, remediation_configuration_id: builtins.str) -> None:
+    def __init__(self) -> None:
         '''A reference to a RemediationConfiguration resource.
-
-        :param remediation_configuration_id: The Id of the RemediationConfiguration resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -983,23 +981,9 @@ class RemediationConfigurationReference:
             # The values are placeholders you should change.
             from aws_cdk.interfaces import aws_config as interfaces_config
             
-            remediation_configuration_reference = interfaces_config.RemediationConfigurationReference(
-                remediation_configuration_id="remediationConfigurationId"
-            )
+            remediation_configuration_reference = interfaces_config.RemediationConfigurationReference()
         '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3aa8b82b87534836247bd222bc3affa2d1dbc927e8eef996b059f116a6d32def)
-            check_type(argname="argument remediation_configuration_id", value=remediation_configuration_id, expected_type=type_hints["remediation_configuration_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "remediation_configuration_id": remediation_configuration_id,
-        }
-
-    @builtins.property
-    def remediation_configuration_id(self) -> builtins.str:
-        '''The Id of the RemediationConfiguration resource.'''
-        result = self._values.get("remediation_configuration_id")
-        assert result is not None, "Required property 'remediation_configuration_id' is missing"
-        return typing.cast(builtins.str, result)
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1143,13 +1127,6 @@ def _typecheckingstub__cb822d1d5dc6ff37fc69eed1ccccc256efb622e5273788e4c1abbf28a
 def _typecheckingstub__5daef4318559c53f3db81583c1922e04cf23be4f5e212436f0518974f39373fa(
     *,
     organization_conformance_pack_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3aa8b82b87534836247bd222bc3affa2d1dbc927e8eef996b059f116a6d32def(
-    *,
-    remediation_configuration_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

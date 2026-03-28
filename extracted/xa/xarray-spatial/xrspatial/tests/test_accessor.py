@@ -89,6 +89,9 @@ def test_dataarray_accessor_has_expected_methods(elevation):
         'generate_terrain', 'perlin',
         'ndvi', 'evi', 'arvi', 'savi', 'nbr', 'sipi',
         'rasterize',
+        'rechunk_no_shuffle',
+        'fused_overlap',
+        'multi_overlap',
     ]
     for name in expected:
         assert name in names, f"Missing method: {name}"

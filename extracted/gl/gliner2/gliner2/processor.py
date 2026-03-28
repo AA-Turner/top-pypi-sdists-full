@@ -9,7 +9,7 @@ import copy
 import random
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Tuple, Iterator, List
+from typing import Any, Dict, Tuple, Iterator, List, Optional
 import torch
 from transformers import AutoTokenizer
 
@@ -31,6 +31,9 @@ class TransformedRecord:
     end_token_idx: List[int]
     text: str
     schema: Dict[str, Any]
+    # Precomputed routing indices for fast embedding extraction
+    text_word_first_positions: List[int] = field(default_factory=list)
+    schema_special_positions: List[List[int]] = field(default_factory=list)
     num_schemas: int = field(init=False)
 
     def __post_init__(self):
@@ -53,12 +56,26 @@ class PreprocessedBatch:
     end_mappings: List[List[int]]  # Char position end mappings
     original_texts: List[str]  # For result formatting
     original_schemas: List[Dict]  # For result formatting
+    # Precomputed routing indices for fast embedding extraction
+    text_word_indices: torch.Tensor = None  # (batch, max_words) gather indices
+    text_word_counts: List[int] = None  # actual word count per sample
+    schema_special_indices: List[List[List[int]]] = None  # per-sample, per-schema positions
 
-    def to(self, device: torch.device) -> 'PreprocessedBatch':
-        """Move tensors to device."""
+    def to(self, device: torch.device, dtype: torch.dtype = None) -> 'PreprocessedBatch':
+        """Move tensors to device and optionally cast float tensors to dtype.
+
+        Integer tensors (input_ids, text_word_indices) are moved to the device
+        but keep their original dtype regardless of the *dtype* argument.
+        """
+        def _cast(t, is_int=False):
+            t = t.to(device)
+            if dtype is not None and not is_int:
+                t = t.to(dtype)
+            return t
+
         return PreprocessedBatch(
-            input_ids=self.input_ids.to(device),
-            attention_mask=self.attention_mask.to(device),
+            input_ids=_cast(self.input_ids, is_int=True),
+            attention_mask=_cast(self.attention_mask),
             mapped_indices=self.mapped_indices,
             schema_counts=self.schema_counts,
             original_lengths=self.original_lengths,
@@ -70,6 +87,12 @@ class PreprocessedBatch:
             end_mappings=self.end_mappings,
             original_texts=self.original_texts,
             original_schemas=self.original_schemas,
+            text_word_indices=(
+                _cast(self.text_word_indices, is_int=True)
+                if self.text_word_indices is not None else None
+            ),
+            text_word_counts=self.text_word_counts,
+            schema_special_indices=self.schema_special_indices,
         )
 
     def pin_memory(self) -> 'PreprocessedBatch':
@@ -88,6 +111,12 @@ class PreprocessedBatch:
             end_mappings=self.end_mappings,
             original_texts=self.original_texts,
             original_schemas=self.original_schemas,
+            text_word_indices=(
+                self.text_word_indices.pin_memory()
+                if self.text_word_indices is not None else None
+            ),
+            text_word_counts=self.text_word_counts,
+            schema_special_indices=self.schema_special_indices,
         )
 
     def __contains__(self, key: str) -> bool:
@@ -210,6 +239,17 @@ class SchemaTransformer:
             "additional_special_tokens": self.SPECIAL_TOKENS
         })
 
+        # OPT-1: Pre-compute special token IDs for fast lookup in embedding extraction
+        self._special_ids = frozenset(
+            self.tokenizer.convert_tokens_to_ids(t)
+            for t in (self.P_TOKEN, self.C_TOKEN, self.E_TOKEN, self.R_TOKEN, self.L_TOKEN)
+        )
+
+        # OPT-6: Cache tokenized forms of special tokens and common punctuation
+        self._token_cache = {}
+        for tok in self.SPECIAL_TOKENS + ["(", ")", ",", "|"]:
+            self._token_cache[tok] = self.tokenizer.tokenize(tok)
+
     def change_mode(self, is_training: bool):
         """Switch between training and inference mode."""
         self.is_training = is_training
@@ -220,7 +260,8 @@ class SchemaTransformer:
 
     def collate_fn_train(
             self,
-            batch: List[Tuple[str, Dict]]
+            batch: List[Tuple[str, Dict]],
+            max_len: Optional[int] = None,
     ) -> PreprocessedBatch:
         """
         Collate function for training DataLoader.
@@ -236,28 +277,35 @@ class SchemaTransformer:
 
         Args:
             batch: List of (text, schema) tuples from dataset
+            max_len: Maximum number of word tokens per text. Tokens beyond
+                this limit are dropped before encoding. ``None`` means no
+                truncation.
 
         Returns:
             PreprocessedBatch ready for model.forward()
         """
         self.is_training = True
-        return self._collate_batch(batch)
+        return self._collate_batch(batch, max_len=max_len)
 
     def collate_fn_inference(
             self,
-            batch: List[Tuple[str, Any]]
+            batch: List[Tuple[str, Any]],
+            max_len: Optional[int] = None,
     ) -> PreprocessedBatch:
         """
         Collate function for inference DataLoader.
 
         Args:
             batch: List of (text, schema) tuples
+            max_len: Maximum number of word tokens per text. Tokens beyond
+                this limit are dropped before encoding. ``None`` means no
+                truncation.
 
         Returns:
             PreprocessedBatch for batch_extract
         """
         self.is_training = False
-        return self._collate_batch(batch)
+        return self._collate_batch(batch, max_len=max_len)
 
     def transform_and_format(
             self,
@@ -277,7 +325,7 @@ class SchemaTransformer:
         Returns:
             TransformedRecord ready for batching
         """
-        record = {"text": text, "schema": schema}
+        record = {"text": text, "schema": copy.deepcopy(schema)}
         return self._transform_record(record)
 
     # =========================================================================
@@ -286,7 +334,8 @@ class SchemaTransformer:
 
     def _collate_batch(
             self,
-            batch: List[Tuple[str, Any]]
+            batch: List[Tuple[str, Any]],
+            max_len: Optional[int] = None,
     ) -> PreprocessedBatch:
         """Internal collate implementation."""
         transformed_records = []
@@ -307,7 +356,7 @@ class SchemaTransformer:
             record = {"text": text, "schema": copy.deepcopy(schema)}
 
             try:
-                transformed = self._transform_record(record)
+                transformed = self._transform_record(record, max_len=max_len)
                 transformed_records.append(transformed)
             except Exception as e:
                 # Create minimal fallback record
@@ -315,10 +364,19 @@ class SchemaTransformer:
 
         return self._pad_batch(transformed_records)
 
-    def _transform_record(self, record: Dict[str, Any]) -> TransformedRecord:
-        """Transform a single record (internal)."""
-        record_ = copy.deepcopy(record)
-        text, schema = record_["text"], record_["schema"]
+    def _transform_record(self, record: Dict[str, Any], max_len: Optional[int] = None) -> TransformedRecord:
+        """Transform a single record (internal).
+
+        Args:
+            record: Dict with ``text`` and ``schema`` keys.
+            max_len: Maximum number of word tokens to keep. Truncation happens
+                after word-splitting but before schema encoding, so span
+                character positions in the output always point into the
+                original text string. ``None`` means no truncation.
+        """
+        # OPT-4: Caller (_collate_batch) already deepcopies the schema.
+        # Only deepcopy here for direct callers (transform_and_format).
+        text, schema = record["text"], record["schema"]
 
         # Build classification prefix
         prefix = self._build_classification_prefix(schema)
@@ -339,6 +397,11 @@ class SchemaTransformer:
             text_tokens.append(tkn)
             start_idx_map.append(start)
             end_idx_map.append(end)
+
+        if max_len is not None:
+            text_tokens = text_tokens[:max_len]
+            start_idx_map = start_idx_map[:max_len]
+            end_idx_map = end_idx_map[:max_len]
 
         if prefix:
             text_tokens = prefix + text_tokens
@@ -367,6 +430,8 @@ class SchemaTransformer:
             end_token_idx=end_idx_map,
             text=text,
             schema=original_schema,  # Use original schema with choice info preserved
+            text_word_first_positions=format_result["text_word_first_positions"],
+            schema_special_positions=format_result["schema_special_positions"],
         )
 
     def _pad_batch(
@@ -391,6 +456,17 @@ class SchemaTransformer:
             attention_mask[i, :seq_len] = 1
             original_lengths.append(seq_len)
 
+        # Pad text word routing indices
+        text_word_counts = [len(r.text_word_first_positions) for r in records]
+        max_words = max(text_word_counts) if text_word_counts else 0
+        text_word_indices = torch.zeros((batch_size, max_words), dtype=torch.long)
+        for i, rec in enumerate(records):
+            n = text_word_counts[i]
+            if n > 0:
+                text_word_indices[i, :n] = torch.tensor(
+                    rec.text_word_first_positions, dtype=torch.long
+                )
+
         return PreprocessedBatch(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -405,6 +481,9 @@ class SchemaTransformer:
             end_mappings=[r.end_token_idx for r in records],
             original_texts=[r.text for r in records],
             original_schemas=[r.schema for r in records],
+            text_word_indices=text_word_indices,
+            text_word_counts=text_word_counts,
+            schema_special_indices=[r.schema_special_positions for r in records],
         )
 
     def _empty_batch(self) -> PreprocessedBatch:
@@ -941,14 +1020,17 @@ class SchemaTransformer:
         combined.append(self.SEP_TEXT)
         combined.extend(text_tokens)
 
-        # Build subword list and mappings
+        # Build subword list, mappings, and routing indices
         subwords = []
         mappings = []
+        text_word_first_positions = []
+        schema_special_positions = [[] for _ in range(len(schema_tokens_list))]
 
         num_schemas = len(schema_tokens_list)
         text_schema_idx = num_schemas
         current_schema = 0
         found_sep = False
+        last_text_orig = None
 
         for orig_idx, token in enumerate(combined):
             if token == self.SEP_TEXT:
@@ -964,16 +1046,36 @@ class SchemaTransformer:
                 seg_type = "text"
                 schema_idx = text_schema_idx
 
-            sub_tokens = self.tokenizer.tokenize(token)
+            subword_pos = len(subwords)
+
+            # OPT-6: Use cached tokenizations for special tokens and punctuation
+            if token in self._token_cache:
+                sub_tokens = self._token_cache[token]
+            else:
+                sub_tokens = self.tokenizer.tokenize(token)
             subwords.extend(sub_tokens)
             mappings.extend([(seg_type, orig_idx, schema_idx)] * len(sub_tokens))
+
+            # Track routing indices
+            if seg_type == "text" and sub_tokens:
+                if orig_idx != last_text_orig:
+                    # New text word — record position of first subword
+                    text_word_first_positions.append(subword_pos)
+                    last_text_orig = orig_idx
+            elif seg_type == "schema":
+                # Track special token positions for schema embeddings
+                tid = self.tokenizer.convert_tokens_to_ids(sub_tokens[0]) if sub_tokens else None
+                if tid is not None and tid in self._special_ids:
+                    schema_special_positions[schema_idx].append(subword_pos)
 
         input_ids = self.tokenizer.convert_tokens_to_ids(subwords)
 
         return {
             "input_ids": input_ids,
             "mapped_indices": mappings,
-            "subword_list": subwords
+            "subword_list": subwords,
+            "text_word_first_positions": text_word_first_positions,
+            "schema_special_positions": schema_special_positions,
         }
 
     # =========================================================================
@@ -989,6 +1091,10 @@ class SchemaTransformer:
         """
         Extract token and schema embeddings from encoded batch.
 
+        Uses a fast path with precomputed gather indices when available
+        (for "first" pooling mode). Falls back to the loop-based path
+        for "mean"/"max" pooling or when indices are not precomputed.
+
         Args:
             token_embeddings: (batch, seq_len, hidden) from encoder
             input_ids: (batch, seq_len) input token IDs
@@ -998,10 +1104,57 @@ class SchemaTransformer:
             - all_token_embs: List of (text_len, hidden) per sample
             - all_schema_embs: List of schema embeddings per sample
         """
+        if (self.token_pooling == "first"
+                and batch.text_word_indices is not None
+                and batch.schema_special_indices is not None):
+            return self._extract_embeddings_fast(token_embeddings, batch)
+        return self._extract_embeddings_loop(token_embeddings, input_ids, batch)
+
+    def _extract_embeddings_fast(
+            self,
+            token_embeddings: torch.Tensor,
+            batch: PreprocessedBatch
+    ) -> Tuple[List[torch.Tensor], List[List[torch.Tensor]]]:
+        """Fast path: use precomputed gather indices (first pooling only)."""
+        all_token_embs = []
+        all_schema_embs = []
+        hidden = token_embeddings.shape[-1]
+        device = token_embeddings.device
+
+        for i in range(len(batch)):
+            n_words = batch.text_word_counts[i]
+
+            if n_words > 0:
+                indices = batch.text_word_indices[i, :n_words]  # (n_words,)
+                # Single gather for all text word embeddings
+                word_embs = token_embeddings[i, indices]  # (n_words, hidden)
+            else:
+                word_embs = torch.empty(0, hidden, device=device,
+                                        dtype=token_embeddings.dtype)
+
+            all_token_embs.append(word_embs)
+
+            # Schema embeddings — small loop (typically 1-3 schemas, 3-6 tokens each)
+            schema_embs = []
+            for j in range(batch.schema_counts[i]):
+                s_positions = batch.schema_special_indices[i][j]
+                schema_embs.append([token_embeddings[i, pos] for pos in s_positions])
+            all_schema_embs.append(schema_embs)
+
+        return all_token_embs, all_schema_embs
+
+    def _extract_embeddings_loop(
+            self,
+            token_embeddings: torch.Tensor,
+            input_ids: torch.Tensor,
+            batch: PreprocessedBatch
+    ) -> Tuple[List[torch.Tensor], List[List[torch.Tensor]]]:
+        """Loop-based path for mean/max pooling or missing indices."""
         all_token_embs = []
         all_schema_embs = []
 
-        special_set = {self.P_TOKEN, self.C_TOKEN, self.E_TOKEN, self.R_TOKEN, self.L_TOKEN}
+        # OPT-1: Use pre-computed special token IDs instead of string comparison
+        special_ids = self._special_ids
 
         for i in range(len(batch)):
             seq_len = batch.original_lengths[i]
@@ -1020,8 +1173,7 @@ class SchemaTransformer:
                 emb = embs[j]
 
                 if seg_type == "schema":
-                    tok = self.tokenizer.convert_ids_to_tokens(tid)
-                    if tok in special_set:
+                    if tid in special_ids:
                         schema_embs[schema_idx].append(emb)
 
                 elif seg_type == "text":
@@ -1035,7 +1187,7 @@ class SchemaTransformer:
                 word_embs.append(self._aggregate(bucket))
 
             all_token_embs.append(
-                torch.stack(word_embs) if word_embs else torch.empty(0, embs.shape[-1], device=embs.device)
+                torch.stack(word_embs) if word_embs else torch.empty(0, embs.shape[-1], device=embs.device, dtype=embs.dtype)
             )
             all_schema_embs.append(schema_embs)
 
@@ -1043,6 +1195,9 @@ class SchemaTransformer:
 
     def _aggregate(self, pieces: List[torch.Tensor]) -> torch.Tensor:
         """Aggregate subword embeddings."""
+        # OPT-10: Short-circuit for single subword tokens (common case)
+        if len(pieces) == 1:
+            return pieces[0]
         if self.token_pooling == "first":
             return pieces[0]
         stack = torch.stack(pieces)

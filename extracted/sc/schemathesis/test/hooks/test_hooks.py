@@ -5,7 +5,9 @@ from hypothesis import HealthCheck, Phase, given, settings
 from hypothesis import strategies as st
 
 import schemathesis
+from schemathesis.core.failures import FailureGroup
 from schemathesis.core.transport import USER_AGENT
+from schemathesis.engine import Status
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.hooks import HookDispatcher, HookDispatcherMark, HookScope
 from schemathesis.pytest.plugin import SchemaHandleMark
@@ -146,6 +148,32 @@ def replacement(context, query):
 @schema.parametrize()
 @settings(max_examples=5)
 def test_hook_receives_dict(case):
+    pass
+""",
+        schema=simple_openapi,
+        generation_modes=[GenerationMode.NEGATIVE],
+    )
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=1)
+
+
+def test_flatmap_hooks_work_in_negative_mode(testdir, simple_openapi):
+    # See GH-3652
+    testdir.make_test(
+        """
+from hypothesis import strategies as st
+
+@st.composite
+def new_query(draw, query):
+    return {"id": str(draw(st.integers(min_value=1, max_value=100)))}
+
+def replacement(context, query):
+    return new_query(query)
+
+@schema.hooks.apply(replacement, name="flatmap_query")
+@schema.parametrize()
+@settings(max_examples=5)
+def test_hook_works(case):
     pass
 """,
         schema=simple_openapi,
@@ -484,6 +512,39 @@ def test_(case):
     result.stdout.re_match_lines([r".*Error in.*before_init_operation.*hook.*AttributeError.*test hook error.*"])
 
 
+@pytest.mark.hypothesis_nested
+@pytest.mark.operations("success", "failure")
+def test_after_validate_hook(openapi3_schema_url, ctx):
+    api_schema = schemathesis.openapi.from_url(openapi3_schema_url)
+    results = []
+
+    with ctx.restore_hooks():
+
+        @schemathesis.hook
+        def after_validate(context, case, response, check_results):
+            results.extend(check_results)
+
+        @given(case=api_schema["/success"]["GET"].as_strategy())
+        @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
+        def test_success(case):
+            case.call_and_validate(checks=[schemathesis.checks.not_a_server_error])
+
+        test_success()
+
+        @given(case=api_schema["/failure"]["GET"].as_strategy())
+        @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
+        def test_failure(case):
+            with pytest.raises(FailureGroup):
+                case.call_and_validate(checks=[schemathesis.checks.not_a_server_error])
+
+        test_failure()
+
+    assert [(r.name, r.status) for r in results] == [
+        ("not_a_server_error", Status.SUCCESS),
+        ("not_a_server_error", Status.FAILURE),
+    ]
+
+
 def test_graphql_body(graphql_schema):
     @graphql_schema.hook
     def map_body(context, body):
@@ -559,4 +620,53 @@ def test_graphql_query(graphql_schema, graphql_server_host):
         }
         assert_requests_call(case)
 
+
+@pytest.mark.hypothesis_nested
+@pytest.mark.operations("success")
+def test_after_call_fires_for_schema_level_hook(openapi3_schema_url):
+    api_schema = schemathesis.openapi.from_url(openapi3_schema_url)
+    calls = []
+
+    @api_schema.hooks.hook
+    def after_call(context, case, response):
+        calls.append(case.id)
+
+    @given(case=api_schema["/success"]["GET"].as_strategy())
+    @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
+    def test(case):
+        case.call()
+
     test()
+
+    assert len(calls) == 1
+
+
+@pytest.mark.hypothesis_nested
+@pytest.mark.operations("success", "failure")
+def test_after_validate_fires_for_schema_level_hook(openapi3_schema_url):
+    api_schema = schemathesis.openapi.from_url(openapi3_schema_url)
+    results = []
+
+    @api_schema.hooks.hook
+    def after_validate(context, case, response, check_results):
+        results.extend(check_results)
+
+    @given(case=api_schema["/success"]["GET"].as_strategy())
+    @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
+    def test_success(case):
+        case.call_and_validate(checks=[schemathesis.checks.not_a_server_error])
+
+    test_success()
+
+    @given(case=api_schema["/failure"]["GET"].as_strategy())
+    @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
+    def test_failure(case):
+        with pytest.raises(FailureGroup):
+            case.call_and_validate(checks=[schemathesis.checks.not_a_server_error])
+
+    test_failure()
+
+    assert [(r.name, r.status) for r in results] == [
+        ("not_a_server_error", Status.SUCCESS),
+        ("not_a_server_error", Status.FAILURE),
+    ]

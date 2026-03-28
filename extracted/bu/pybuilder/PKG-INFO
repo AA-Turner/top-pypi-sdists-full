@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pybuilder
-Version: 0.13.18
+Version: 0.13.19
 Summary: PyBuilder — an easy-to-use build automation tool for Python.
 Home-page: https://pybuilder.io
 Author: Arcadiy Ivanov, Alexander Metzner, Maximilien Riehl, Michael Gruber, Udo Juettner, Marcel Wolf, Valentin Haenel
@@ -17,7 +17,6 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -33,7 +32,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Dynamic: author
 Dynamic: author-email
@@ -70,7 +69,7 @@ PyBuilder is based on the concept of dependency based programming, but it also
 comes with a powerful plugin mechanism, allowing the construction of build life
 cycles similar to those known from other famous (Java) build tools.
 
-PyBuilder is running on the following versions of Python 3.9, 3.10, 3.11, 3.12, 3.13 and PyPy 3.8, 3.9 and 3.10.
+PyBuilder is running on the following versions of Python 3.10, 3.11, 3.12, 3.13, 3.14 and PyPy 3.10 and 3.11.
 
 See the [GitHub Actions Workflow](https://github.com/pybuilder/pybuilder/actions/workflows/pybuilder.yml) for version specific output.
 

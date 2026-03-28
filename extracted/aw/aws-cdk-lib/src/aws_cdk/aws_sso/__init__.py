@@ -2209,6 +2209,19 @@ class CfnPermissionSet(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="inlinePolicy")
+    def inline_policy(self) -> typing.Any:
+        '''The inline policy that is attached to the permission set.'''
+        return typing.cast(typing.Any, jsii.get(self, "inlinePolicy"))
+
+    @inline_policy.setter
+    def inline_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bfd17901eb138e14f182c4ab844dcd8717832f68c8170268869c64b310c7eb34)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "inlinePolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
         '''The ARN of the  instance under which the operation will be executed.'''
@@ -2264,19 +2277,6 @@ class CfnPermissionSet(
             type_hints = typing.get_type_hints(_typecheckingstub__2e4059542e846ae4c1d4339af76208fc61018d99e88230b62c542d5e0263c56b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="inlinePolicy")
-    def inline_policy(self) -> typing.Any:
-        '''The inline policy that is attached to the permission set.'''
-        return typing.cast(typing.Any, jsii.get(self, "inlinePolicy"))
-
-    @inline_policy.setter
-    def inline_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfd17901eb138e14f182c4ab844dcd8717832f68c8170268869c64b310c7eb34)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "inlinePolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="managedPolicies")
@@ -3192,6 +3192,12 @@ def _typecheckingstub__cacdbbe8633389e9abfb49528d132366b3e7cd1904ca9b9142ff94e94
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bfd17901eb138e14f182c4ab844dcd8717832f68c8170268869c64b310c7eb34(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f097006770b4dc8eb39790dbe3afd4885f8cf745ad922489ed434c6f02ba81cd(
     value: builtins.str,
 ) -> None:
@@ -3212,12 +3218,6 @@ def _typecheckingstub__003c123796d7c694a79f8c7ad67b2fdbcc38205eea6b333607e6795f4
 
 def _typecheckingstub__2e4059542e846ae4c1d4339af76208fc61018d99e88230b62c542d5e0263c56b(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bfd17901eb138e14f182c4ab844dcd8717832f68c8170268869c64b310c7eb34(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

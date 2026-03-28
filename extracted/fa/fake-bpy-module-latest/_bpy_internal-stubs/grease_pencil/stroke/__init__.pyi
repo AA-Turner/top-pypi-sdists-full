@@ -30,7 +30,9 @@ class GreasePencilStroke(AttributeGetterSetter):
     cyclic: typing.Any
     end_cap: typing.Any
     fill_color: typing.Any
+    fill_id: typing.Any
     fill_opacity: typing.Any
+    hide_stroke: typing.Any
     material_index: typing.Any
     points: typing.Any
     select: typing.Any

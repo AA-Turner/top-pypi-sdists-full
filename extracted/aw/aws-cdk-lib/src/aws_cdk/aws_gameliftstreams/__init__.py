@@ -662,7 +662,11 @@ class CfnStreamGroup(
                 always_on_capacity=123,
                 maximum_capacity=123,
                 on_demand_capacity=123,
-                target_idle_capacity=123
+                target_idle_capacity=123,
+                vpc_transit_configuration=gameliftstreams.CfnStreamGroup.VpcTransitConfigurationProperty(
+                    ipv4_cidr_blocks=["ipv4CidrBlocks"],
+                    vpc_id="vpcId"
+                )
             )],
             stream_class="streamClass",
         
@@ -964,6 +968,7 @@ class CfnStreamGroup(
             "maximum_capacity": "maximumCapacity",
             "on_demand_capacity": "onDemandCapacity",
             "target_idle_capacity": "targetIdleCapacity",
+            "vpc_transit_configuration": "vpcTransitConfiguration",
         },
     )
     class LocationConfigurationProperty:
@@ -975,6 +980,7 @@ class CfnStreamGroup(
             maximum_capacity: typing.Optional[jsii.Number] = None,
             on_demand_capacity: typing.Optional[jsii.Number] = None,
             target_idle_capacity: typing.Optional[jsii.Number] = None,
+            vpc_transit_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamGroup.VpcTransitConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration settings that define a stream group's stream capacity for a location.
 
@@ -985,6 +991,7 @@ class CfnStreamGroup(
             :param maximum_capacity: 
             :param on_demand_capacity: This field is deprecated. Use MaximumCapacity instead. This parameter is ignored when MaximumCapacity is specified. The streaming capacity that Amazon GameLift Streams can allocate in response to stream requests, and then de-allocate when the session has terminated. This offers a cost control measure at the expense of a greater startup time (typically under 5 minutes). Default is 0 when you create a stream group or add a location.
             :param target_idle_capacity: 
+            :param vpc_transit_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-locationconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1002,7 +1009,11 @@ class CfnStreamGroup(
                     always_on_capacity=123,
                     maximum_capacity=123,
                     on_demand_capacity=123,
-                    target_idle_capacity=123
+                    target_idle_capacity=123,
+                    vpc_transit_configuration=gameliftstreams.CfnStreamGroup.VpcTransitConfigurationProperty(
+                        ipv4_cidr_blocks=["ipv4CidrBlocks"],
+                        vpc_id="vpcId"
+                    )
                 )
             '''
             if __debug__:
@@ -1012,6 +1023,7 @@ class CfnStreamGroup(
                 check_type(argname="argument maximum_capacity", value=maximum_capacity, expected_type=type_hints["maximum_capacity"])
                 check_type(argname="argument on_demand_capacity", value=on_demand_capacity, expected_type=type_hints["on_demand_capacity"])
                 check_type(argname="argument target_idle_capacity", value=target_idle_capacity, expected_type=type_hints["target_idle_capacity"])
+                check_type(argname="argument vpc_transit_configuration", value=vpc_transit_configuration, expected_type=type_hints["vpc_transit_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "location_name": location_name,
             }
@@ -1023,6 +1035,8 @@ class CfnStreamGroup(
                 self._values["on_demand_capacity"] = on_demand_capacity
             if target_idle_capacity is not None:
                 self._values["target_idle_capacity"] = target_idle_capacity
+            if vpc_transit_configuration is not None:
+                self._values["vpc_transit_configuration"] = vpc_transit_configuration
 
         @builtins.property
         def location_name(self) -> builtins.str:
@@ -1074,6 +1088,16 @@ class CfnStreamGroup(
             result = self._values.get("target_idle_capacity")
             return typing.cast(typing.Optional[jsii.Number], result)
 
+        @builtins.property
+        def vpc_transit_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.VpcTransitConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-locationconfiguration.html#cfn-gameliftstreams-streamgroup-locationconfiguration-vpctransitconfiguration
+            '''
+            result = self._values.get("vpc_transit_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.VpcTransitConfigurationProperty"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -1082,6 +1106,74 @@ class CfnStreamGroup(
 
         def __repr__(self) -> str:
             return "LocationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_gameliftstreams.CfnStreamGroup.VpcTransitConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"ipv4_cidr_blocks": "ipv4CidrBlocks", "vpc_id": "vpcId"},
+    )
+    class VpcTransitConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            ipv4_cidr_blocks: typing.Sequence[builtins.str],
+            vpc_id: builtins.str,
+        ) -> None:
+            '''
+            :param ipv4_cidr_blocks: 
+            :param vpc_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-vpctransitconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_gameliftstreams as gameliftstreams
+                
+                vpc_transit_configuration_property = gameliftstreams.CfnStreamGroup.VpcTransitConfigurationProperty(
+                    ipv4_cidr_blocks=["ipv4CidrBlocks"],
+                    vpc_id="vpcId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a26cfff523fc519d694b3a7a86b56ae8093ceb6a504a08e63d90ebf21ed0782e)
+                check_type(argname="argument ipv4_cidr_blocks", value=ipv4_cidr_blocks, expected_type=type_hints["ipv4_cidr_blocks"])
+                check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "ipv4_cidr_blocks": ipv4_cidr_blocks,
+                "vpc_id": vpc_id,
+            }
+
+        @builtins.property
+        def ipv4_cidr_blocks(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-vpctransitconfiguration.html#cfn-gameliftstreams-streamgroup-vpctransitconfiguration-ipv4cidrblocks
+            '''
+            result = self._values.get("ipv4_cidr_blocks")
+            assert result is not None, "Required property 'ipv4_cidr_blocks' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def vpc_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-vpctransitconfiguration.html#cfn-gameliftstreams-streamgroup-vpctransitconfiguration-vpcid
+            '''
+            result = self._values.get("vpc_id")
+            assert result is not None, "Required property 'vpc_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcTransitConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1133,7 +1225,11 @@ class CfnStreamGroupProps:
                     always_on_capacity=123,
                     maximum_capacity=123,
                     on_demand_capacity=123,
-                    target_idle_capacity=123
+                    target_idle_capacity=123,
+                    vpc_transit_configuration=gameliftstreams.CfnStreamGroup.VpcTransitConfigurationProperty(
+                        ipv4_cidr_blocks=["ipv4CidrBlocks"],
+                        vpc_id="vpcId"
+                    )
                 )],
                 stream_class="streamClass",
             
@@ -1495,6 +1591,15 @@ def _typecheckingstub__4c32e96242e189f6a75d890a7316a655383684ce9337b4906f2e3b49b
     maximum_capacity: typing.Optional[jsii.Number] = None,
     on_demand_capacity: typing.Optional[jsii.Number] = None,
     target_idle_capacity: typing.Optional[jsii.Number] = None,
+    vpc_transit_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamGroup.VpcTransitConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a26cfff523fc519d694b3a7a86b56ae8093ceb6a504a08e63d90ebf21ed0782e(
+    *,
+    ipv4_cidr_blocks: typing.Sequence[builtins.str],
+    vpc_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rust-just
-Version: 1.48.0
+Version: 1.48.1
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -58,7 +58,7 @@ reflects latest master.
 Commands, called recipes, are stored in a file called `justfile` with syntax
 inspired by `make`:
 
-![screenshot](https://raw.githubusercontent.com/casey/just/master/screenshot.png)
+![screenshot](https://raw.githubusercontent.com/casey/just/master/etc/screenshot.png)
 
 You can then run them with `just RECIPE`:
 
@@ -4486,14 +4486,6 @@ parallel:
 For lightning-fast command running, put `alias j=just` in your shell's
 configuration file.
 
-In `bash`, the aliased command may not keep the shell completion functionality
-described in the next section. Add the following line to your `.bashrc` to use
-the same completion function as `just` for your aliased command:
-
-```console
-complete -F _just -o bashdefault -o default j
-```
-
 ### Shell Completion Scripts
 
 Shell completion scripts for Bash, Elvish, Fish, Nushell, PowerShell, and Zsh
@@ -4521,6 +4513,20 @@ your `.bashrc`:
 
 ```bash
 source <(just --completions bash)
+```
+
+If you use an alias like `alias j=just`, you should also save the completion
+script with the name `j` when lazy-loading:
+
+```bash
+just --completions bash > ~/.local/share/bash-completion/completions/j
+```
+
+Or if not lazy-loading, add this line after sourcing the completion script in
+your `.bashrc`:
+
+```bash
+complete -F _clap_complete_just -o bashdefault -o default j
 ```
 
 #### Elvish

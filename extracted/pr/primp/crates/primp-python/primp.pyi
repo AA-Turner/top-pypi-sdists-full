@@ -289,7 +289,7 @@ class Client:
     cookie management, and various authentication methods.
     
     Example:
-        >>> client = Client(impersonate="chrome_144")
+        >>> client = Client(impersonate="chrome_146")
         >>> response = client.get("https://example.com")
         >>> print(response.text)
     """
@@ -481,7 +481,7 @@ class AsyncClient:
     cookie management, and various authentication methods.
     
     Example:
-        >>> async with AsyncClient(impersonate="chrome_144") as client:
+        >>> async with AsyncClient(impersonate="chrome_146") as client:
         ...     response = await client.get("https://example.com")
         ...     print(response.text)
     """
@@ -702,7 +702,7 @@ def get(
         auth: Tuple of (username, password) for basic authentication.
         auth_bearer: Bearer token for authentication.
         timeout: Request timeout in seconds.
-        impersonate: Browser to impersonate (e.g., "chrome_144").
+        impersonate: Browser to impersonate (e.g., "chrome_146").
         impersonate_os: OS to impersonate (e.g., "windows", "macos", "linux").
         verify: Whether to verify SSL certificates.
         ca_cert_file: Path to CA certificate file.
@@ -747,7 +747,7 @@ def head(
         auth: Tuple of (username, password) for basic authentication.
         auth_bearer: Bearer token for authentication.
         timeout: Request timeout in seconds.
-        impersonate: Browser to impersonate (e.g., "chrome_144").
+        impersonate: Browser to impersonate (e.g., "chrome_146").
         impersonate_os: OS to impersonate (e.g., "windows", "macos", "linux").
         verify: Whether to verify SSL certificates.
         ca_cert_file: Path to CA certificate file.
@@ -792,7 +792,7 @@ def options(
         auth: Tuple of (username, password) for basic authentication.
         auth_bearer: Bearer token for authentication.
         timeout: Request timeout in seconds.
-        impersonate: Browser to impersonate (e.g., "chrome_144").
+        impersonate: Browser to impersonate (e.g., "chrome_146").
         impersonate_os: OS to impersonate (e.g., "windows", "macos", "linux").
         verify: Whether to verify SSL certificates.
         ca_cert_file: Path to CA certificate file.
@@ -837,7 +837,7 @@ def delete(
         auth: Tuple of (username, password) for basic authentication.
         auth_bearer: Bearer token for authentication.
         timeout: Request timeout in seconds.
-        impersonate: Browser to impersonate (e.g., "chrome_144").
+        impersonate: Browser to impersonate (e.g., "chrome_146").
         impersonate_os: OS to impersonate (e.g., "windows", "macos", "linux").
         verify: Whether to verify SSL certificates.
         ca_cert_file: Path to CA certificate file.
@@ -882,7 +882,7 @@ def post(
         auth: Tuple of (username, password) for basic authentication.
         auth_bearer: Bearer token for authentication.
         timeout: Request timeout in seconds.
-        impersonate: Browser to impersonate (e.g., "chrome_144").
+        impersonate: Browser to impersonate (e.g., "chrome_146").
         impersonate_os: OS to impersonate (e.g., "windows", "macos", "linux").
         verify: Whether to verify SSL certificates.
         ca_cert_file: Path to CA certificate file.
@@ -927,7 +927,7 @@ def put(
         auth: Tuple of (username, password) for basic authentication.
         auth_bearer: Bearer token for authentication.
         timeout: Request timeout in seconds.
-        impersonate: Browser to impersonate (e.g., "chrome_144").
+        impersonate: Browser to impersonate (e.g., "chrome_146").
         impersonate_os: OS to impersonate (e.g., "windows", "macos", "linux").
         verify: Whether to verify SSL certificates.
         ca_cert_file: Path to CA certificate file.
@@ -972,7 +972,7 @@ def patch(
         auth: Tuple of (username, password) for basic authentication.
         auth_bearer: Bearer token for authentication.
         timeout: Request timeout in seconds.
-        impersonate: Browser to impersonate (e.g., "chrome_144").
+        impersonate: Browser to impersonate (e.g., "chrome_146").
         impersonate_os: OS to impersonate (e.g., "windows", "macos", "linux").
         verify: Whether to verify SSL certificates.
         ca_cert_file: Path to CA certificate file.
@@ -1019,7 +1019,7 @@ def request(
         auth: Tuple of (username, password) for basic authentication.
         auth_bearer: Bearer token for authentication.
         timeout: Request timeout in seconds.
-        impersonate: Browser to impersonate (e.g., "chrome_144").
+        impersonate: Browser to impersonate (e.g., "chrome_146").
         impersonate_os: OS to impersonate (e.g., "windows", "macos", "linux").
         verify: Whether to verify SSL certificates.
         ca_cert_file: Path to CA certificate file.

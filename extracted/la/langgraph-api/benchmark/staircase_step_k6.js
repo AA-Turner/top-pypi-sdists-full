@@ -12,7 +12,7 @@
  */
 
 import { Counter, Trend } from 'k6/metrics';
-import { Benchmarks } from './benchmark-runners/benchmarks.js';
+import { Benchmarks } from './benchmark-runners/dist/benchmarks.js';
 
 const BASE_URL = __ENV.BASE_URL;
 const LANGSMITH_API_KEY = __ENV.LANGSMITH_API_KEY;

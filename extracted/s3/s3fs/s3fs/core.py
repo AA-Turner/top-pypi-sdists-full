@@ -1,4 +1,5 @@
 import asyncio
+import bisect
 import errno
 import io
 import logging
@@ -323,15 +324,21 @@ class S3FileSystem(AsyncFileSystem):
          For example: aiobotocore.session.AioSession(profile='test_user')
     max_concurrency : int (10)
         The maximum number of concurrent transfers to use per file for multipart
-        upload (``put()``) operations. Defaults to 10. When used in
-        conjunction with ``S3FileSystem.put(batch_size=...)`` the maximum number of
-        simultaneous connections is ``max_concurrency * batch_size``. We may extend
-        this parameter to affect ``pipe()``, ``cat()`` and ``get()``. Increasing this
-        value will result in higher memory usage during multipart upload operations (by
-        ``max_concurrency * chunksize`` bytes per file).
+        upload (``put()``, ``pipe()``), download (``get()``) and read
+        (``cat()``) operations. Defaults to 10. When used in conjunction
+        with ``S3FileSystem.put(batch_size=...)`` the maximum number of
+        simultaneous connections is ``max_concurrency * batch_size``.
+        Increasing this value will result in higher
+        memory usage during multipart transfer operations (by
+       ``max_concurrency * chunksize`` bytes per file), and may result in timeouts on slow
+       networks. Set to 1 if you are having connection issues.
     fixed_upload_size : bool (False)
         Use same chunk size for all parts in multipart upload (last part can be smaller).
         Cloudflare R2 storage requires fixed_upload_size=True for multipart uploads.
+    local_expiry_check : bool (False)
+        Perform expiry checks when using range reads locally instead of having the
+        server perform them. VAST S3 requires local_expiry_check=True because
+        it doesn't support the `If-Match` http header used for expiry check on the server.
 
     The following parameters are passed on to fsspec:
 
@@ -381,6 +388,7 @@ class S3FileSystem(AsyncFileSystem):
         loop=None,
         max_concurrency=10,
         fixed_upload_size: bool = False,
+        local_expiry_check: bool = False,
         **kwargs,
     ):
         if key and username:
@@ -419,6 +427,7 @@ class S3FileSystem(AsyncFileSystem):
         self._s3 = None
         self.session = session
         self.fixed_upload_size = fixed_upload_size
+        self.local_expiry_check = local_expiry_check
         if max_concurrency < 1:
             raise ValueError("max_concurrency must be >= 1")
         self.max_concurrency = max_concurrency
@@ -937,25 +946,53 @@ class S3FileSystem(AsyncFileSystem):
             when used by glob, but users usually only want files.
         prefix: str
             Only return files that match ``^{path}/{prefix}`` (if there is an
-            exact match ``filename == {path}/{prefix}``, it also will be included)
+            exact match ``filename == {path}/{prefix}``, it also will be included).
+            Can be combined with ``withdirs`` and ``maxdepth``.
         """
         path = self._strip_protocol(path)
         bucket, key, _ = self.split_path(path)
         if not bucket:
             raise ValueError("Cannot traverse all of S3")
-        if (withdirs or maxdepth) and prefix:
-            # TODO: perhaps propagate these to a glob(f"path/{prefix}*") call
-            raise ValueError(
-                "Can not specify 'prefix' option alongside 'withdirs'/'maxdepth' options."
-            )
         if maxdepth:
-            return await super()._find(
-                bucket + "/" + key,
-                maxdepth=maxdepth,
-                withdirs=withdirs,
-                detail=detail,
-                **kwargs,
+            if not prefix:
+                return await super()._find(
+                    bucket + "/" + key,
+                    maxdepth=maxdepth,
+                    withdirs=withdirs,
+                    detail=detail,
+                    **kwargs,
+                )
+            # maxdepth + prefix: one delimiter-based listing for the first level
+            # (server-side prefix filter), then recurse into matching subdirs
+            # normally — avoids fetching all nested objects up front.
+            first_level = await self._lsdir(
+                path, delimiter="/", prefix=prefix, **kwargs
             )
+            files = [o for o in first_level if o["type"] != "directory"]
+            dirs = [o for o in first_level if o["type"] == "directory"]
+            out = list(files)
+            out_dirs = list(dirs)
+            if maxdepth > 1:
+                for d in dirs:
+                    sub = await self._find(
+                        d["name"],
+                        maxdepth=maxdepth - 1,
+                        withdirs=withdirs,
+                        detail=True,
+                        **kwargs,
+                    )
+                    for name, info in sub.items():
+                        if name == d["name"]:
+                            continue  # root dir already in out_dirs
+                        if info["type"] == "directory":
+                            out_dirs.append(info)
+                        else:
+                            out.append(info)
+            if withdirs:
+                out = sorted(out + out_dirs, key=lambda x: x["name"])
+            if detail:
+                return {o["name"]: o for o in out}
+            return [o["name"] for o in out]
         # TODO: implement find from dircache, if all listings are present
         # if refresh is False:
         #     out = incomplete_tree_dirs(self.dircache, path)
@@ -1008,11 +1045,14 @@ class S3FileSystem(AsyncFileSystem):
         # Explicitly add directories to their parents in the dircache
         for d in dirs:
             par = self._parent(d["name"])
-            # extra condition here (in any()) to deal with directory-marking files
-            if par in thisdircache and not any(
-                _["name"] == d["name"] for _ in thisdircache[par]
-            ):
-                thisdircache[par].append(d)
+            if par in thisdircache:
+                # listing is sorted
+                ind = bisect.bisect_right(
+                    thisdircache[par], d["name"], key=lambda _: _["name"]
+                )
+                if thisdircache[par][ind - 1]["name"] != d["name"]:
+                    # name is not already present
+                    thisdircache[par].insert(ind, d)
 
         if not prefix:
             for k, v in thisdircache.items():
@@ -1233,7 +1273,15 @@ class S3FileSystem(AsyncFileSystem):
 
     touch = sync_wrapper(_touch)
 
-    async def _cat_file(self, path, version_id=None, start=None, end=None):
+    async def _cat_file(
+        self,
+        path,
+        version_id=None,
+        start=None,
+        end=None,
+        chunksize=None,
+        max_concurrency=None,
+    ):
         bucket, key, vers = self.split_path(path)
         if start is not None or end is not None:
             head = {"Range": await self._process_limits(path, start, end)}
@@ -1254,7 +1302,74 @@ class S3FileSystem(AsyncFileSystem):
             finally:
                 resp["Body"].close()
 
+        if (
+            start is None
+            and end is None
+            and (max_concurrency or self.max_concurrency) > 1
+        ):
+            chunksize = chunksize or self.default_block_size
+            resp = await self._call_s3(
+                "get_object",
+                Bucket=bucket,
+                Key=key,
+                **version_id_kw(version_id or vers),
+                **self.req_kw,
+            )
+            content_length = resp.get("ContentLength", None)
+            resp["Body"].close()
+
+            if content_length and content_length > chunksize:
+                return await self._cat_file_concurrent(
+                    bucket,
+                    key,
+                    content_length,
+                    chunksize,
+                    max_concurrency=max_concurrency,
+                    version_id=version_id or vers,
+                )
+
         return await _error_wrapper(_call_and_read, retries=self.retries)
+
+    async def _cat_file_concurrent(
+        self,
+        bucket,
+        key,
+        content_length,
+        chunksize,
+        max_concurrency=None,
+        version_id=None,
+    ):
+        max_concurrency = max_concurrency or self.max_concurrency
+
+        async def _read_chunk(start, end):
+            kw = self.req_kw.copy()
+            kw["Range"] = f"bytes={start}-{end}"
+            resp = await self._call_s3(
+                "get_object",
+                Bucket=bucket,
+                Key=key,
+                **version_id_kw(version_id),
+                **kw,
+            )
+            data = await resp["Body"].read()
+            resp["Body"].close()
+            return start, data
+
+        ranges = list(_get_brange(content_length, chunksize))
+        inds = list(range(0, len(ranges), max_concurrency)) + [len(ranges)]
+
+        buf = bytearray(content_length)
+        for batch_start, batch_stop in zip(inds[:-1], inds[1:]):
+            results = await asyncio.gather(
+                *[
+                    _read_chunk(start, end)
+                    for start, end in ranges[batch_start:batch_stop]
+                ]
+            )
+            for offset, data in results:
+                buf[offset : offset + len(data)] = data
+
+        return bytes(buf)
 
     async def _pipe_file(
         self,
@@ -1444,8 +1559,60 @@ class S3FileSystem(AsyncFileSystem):
             )
         return out
 
+    async def _download_file_part_concurrent(
+        self,
+        bucket,
+        key,
+        lpath,
+        content_length,
+        chunksize,
+        callback=_DEFAULT_CALLBACK,
+        max_concurrency=None,
+        version_id=None,
+    ):
+        max_concurrency = max_concurrency or self.max_concurrency
+
+        async def _download_chunk(start, end):
+            kw = self.req_kw.copy()
+            kw["Range"] = f"bytes={start}-{end}"
+            resp = await self._call_s3(
+                "get_object",
+                Bucket=bucket,
+                Key=key,
+                **version_id_kw(version_id),
+                **kw,
+            )
+            data = await resp["Body"].read()
+            resp["Body"].close()
+            return start, data
+
+        ranges = list(_get_brange(content_length, chunksize))
+        inds = list(range(0, len(ranges), max_concurrency)) + [len(ranges)]
+
+        with open(lpath, "wb") as f0:
+            f0.truncate(content_length)
+
+            for batch_start, batch_stop in zip(inds[:-1], inds[1:]):
+                results = await asyncio.gather(
+                    *[
+                        _download_chunk(start, end)
+                        for start, end in ranges[batch_start:batch_stop]
+                    ]
+                )
+                for offset, data in results:
+                    f0.seek(offset)
+                    f0.write(data)
+                    callback.relative_update(len(data))
+
     async def _get_file(
-        self, rpath, lpath, callback=_DEFAULT_CALLBACK, version_id=None, **kwargs
+        self,
+        rpath,
+        lpath,
+        callback=_DEFAULT_CALLBACK,
+        version_id=None,
+        chunksize=None,
+        max_concurrency=None,
+        **kwargs,
     ):
         if os.path.isdir(lpath):
             return
@@ -1467,6 +1634,26 @@ class S3FileSystem(AsyncFileSystem):
         body, content_length = await _open_file(range=0)
         callback.set_size(content_length)
 
+        chunksize = chunksize or self.default_block_size
+
+        if (
+            content_length
+            and content_length > chunksize
+            and (max_concurrency or self.max_concurrency) > 1
+        ):
+            body.close()
+            return await self._download_file_part_concurrent(
+                bucket,
+                key,
+                lpath,
+                content_length,
+                chunksize,
+                callback=callback,
+                max_concurrency=max_concurrency,
+                version_id=version_id or vers,
+            )
+
+        # Sequential download for small files or concurrency=1
         failed_reads = 0
         bytes_read = 0
 
@@ -2414,7 +2601,12 @@ class S3File(AbstractBufferedFile):
             # Reflect head
             self.s3_additional_kwargs.update(head)
 
-        if "r" in mode and size is None and "ETag" in self.details:
+        if (
+            "r" in mode
+            and size is None
+            and "ETag" in self.details
+            and not s3.local_expiry_check
+        ):
             self.req_kw["IfMatch"] = self.details["ETag"]
 
     def _call_s3(self, method, *kwarglist, **kwargs):
@@ -2495,6 +2687,7 @@ class S3File(AbstractBufferedFile):
                 start,
                 end,
                 req_kw=self.req_kw,
+                details=self.details,
             )
 
         except OSError as ex:
@@ -2643,9 +2836,11 @@ class S3AsyncStreamedFile(AbstractAsyncStreamedFile):
         return out
 
 
-def _fetch_range(fs, bucket, key, version_id, start, end, req_kw=None):
+def _fetch_range(fs, bucket, key, version_id, start, end, req_kw=None, details=None):
     if req_kw is None:
         req_kw = {}
+    if details is None:
+        details = {}
     if start == end:
         logger.debug(
             "skip fetch for negative range - bucket=%s,key=%s,start=%d,end=%d",
@@ -2656,10 +2851,17 @@ def _fetch_range(fs, bucket, key, version_id, start, end, req_kw=None):
         )
         return b""
     logger.debug("Fetch: %s/%s, %s-%s", bucket, key, start, end)
-    return sync(fs.loop, _inner_fetch, fs, bucket, key, version_id, start, end, req_kw)
+    return sync(
+        fs.loop, _inner_fetch, fs, bucket, key, version_id, start, end, req_kw, details
+    )
 
 
-async def _inner_fetch(fs, bucket, key, version_id, start, end, req_kw=None):
+async def _inner_fetch(
+    fs, bucket, key, version_id, start, end, req_kw=None, details=None
+):
+    if details is None:
+        details = {}
+
     async def _call_and_read():
         resp = await fs._call_s3(
             "get_object",
@@ -2669,6 +2871,12 @@ async def _inner_fetch(fs, bucket, key, version_id, start, end, req_kw=None):
             **version_id_kw(version_id),
             **req_kw,
         )
+        if (
+            fs.local_expiry_check
+            and "ETag" in details
+            and details["ETag"] != resp.get("ETag")
+        ):
+            raise FileExpired(filename=details["name"], e_tag=details.get("ETag"))
         try:
             return await resp["Body"].read()
         finally:

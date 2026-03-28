@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eventsourcing
-Version: 9.5.3
+Version: 9.5.4
 Summary: Event sourcing in Python
 License-Expression: BSD-3-Clause
 License-File: AUTHORS
@@ -26,7 +26,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: crypto
 Provides-Extra: cryptography
 Provides-Extra: postgres
-Requires-Dist: cryptography (>=44.0) ; extra == "cryptography"
+Requires-Dist: cryptography (>=46.0.5) ; extra == "cryptography"
 Requires-Dist: psycopg[pool] (>=3.2) ; extra == "postgres"
 Requires-Dist: pycryptodome (>=3.22) ; extra == "crypto"
 Requires-Dist: typing_extensions
@@ -245,8 +245,8 @@ Please register questions, requests and
 [issues on GitHub](https://github.com/pyeventsourcing/eventsourcing/issues),
 or post in the project's Slack channel.
 
-There is a [Slack channel](https://join.slack.com/t/eventsourcinginpython/shared_invite/zt-3hogb36o-LCvKd4Rz8JMALoLSl_pQ8g)
-for this project, which you are [welcome to join](https://join.slack.com/t/eventsourcinginpython/shared_invite/zt-3hogb36o-LCvKd4Rz8JMALoLSl_pQ8g).
+There is a [Slack channel](https://join.slack.com/t/eventsourcinginpython/shared_invite/zt-3h2ip23yr-qCaMXXjmdnamZd7kjlD83w)
+for this project, which you are [welcome to join](https://join.slack.com/t/eventsourcinginpython/shared_invite/zt-3h2ip23yr-qCaMXXjmdnamZd7kjlD83w).
 
 Please refer to the [documentation](https://eventsourcing.readthedocs.io/) for installation and usage guides.
 

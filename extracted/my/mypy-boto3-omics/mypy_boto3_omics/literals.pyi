@@ -31,6 +31,7 @@ __all__ = (
     "AnnotationTypeType",
     "BatchStatusType",
     "CacheBehaviorType",
+    "ConfigurationStatusType",
     "CreationTypeType",
     "ETagAlgorithmFamilyType",
     "ETagAlgorithmType",
@@ -42,6 +43,7 @@ __all__ = (
     "ListAnnotationStoreVersionsPaginatorName",
     "ListAnnotationStoresPaginatorName",
     "ListBatchPaginatorName",
+    "ListConfigurationsPaginatorName",
     "ListMultipartReadSetUploadsPaginatorName",
     "ListReadSetActivationJobsPaginatorName",
     "ListReadSetExportJobsPaginatorName",
@@ -62,6 +64,7 @@ __all__ = (
     "ListVariantStoresPaginatorName",
     "ListWorkflowVersionsPaginatorName",
     "ListWorkflowsPaginatorName",
+    "NetworkingModeType",
     "OmicsServiceName",
     "PaginatorName",
     "ReadSetActivationJobCompletedWaiterName",
@@ -146,6 +149,7 @@ BatchStatusType = Literal[
     "SUBMITTING",
 ]
 CacheBehaviorType = Literal["CACHE_ALWAYS", "CACHE_ON_FAILURE"]
+ConfigurationStatusType = Literal["ACTIVE", "CREATING", "DELETED", "DELETING", "FAILED", "UPDATING"]
 CreationTypeType = Literal["IMPORT", "UPLOAD"]
 ETagAlgorithmFamilyType = Literal["MD5up", "SHA256up", "SHA512up"]
 ETagAlgorithmType = Literal[
@@ -169,6 +173,7 @@ ListAnnotationImportJobsPaginatorName = Literal["list_annotation_import_jobs"]
 ListAnnotationStoreVersionsPaginatorName = Literal["list_annotation_store_versions"]
 ListAnnotationStoresPaginatorName = Literal["list_annotation_stores"]
 ListBatchPaginatorName = Literal["list_batch"]
+ListConfigurationsPaginatorName = Literal["list_configurations"]
 ListMultipartReadSetUploadsPaginatorName = Literal["list_multipart_read_set_uploads"]
 ListReadSetActivationJobsPaginatorName = Literal["list_read_set_activation_jobs"]
 ListReadSetExportJobsPaginatorName = Literal["list_read_set_export_jobs"]
@@ -189,6 +194,7 @@ ListVariantImportJobsPaginatorName = Literal["list_variant_import_jobs"]
 ListVariantStoresPaginatorName = Literal["list_variant_stores"]
 ListWorkflowVersionsPaginatorName = Literal["list_workflow_versions"]
 ListWorkflowsPaginatorName = Literal["list_workflows"]
+NetworkingModeType = Literal["RESTRICTED", "VPC"]
 ReadSetActivationJobCompletedWaiterName = Literal["read_set_activation_job_completed"]
 ReadSetActivationJobItemStatusType = Literal["FAILED", "FINISHED", "IN_PROGRESS", "NOT_STARTED"]
 ReadSetActivationJobStatusType = Literal[
@@ -679,6 +685,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -705,6 +712,7 @@ PaginatorName = Literal[
     "list_annotation_store_versions",
     "list_annotation_stores",
     "list_batch",
+    "list_configurations",
     "list_multipart_read_set_uploads",
     "list_read_set_activation_jobs",
     "list_read_set_export_jobs",

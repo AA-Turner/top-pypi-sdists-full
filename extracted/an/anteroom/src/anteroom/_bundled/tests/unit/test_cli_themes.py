@@ -11,6 +11,11 @@ import pytest
 from anteroom.cli.themes import _BUILTIN_THEMES, CliTheme, _hex_to_ansi_fg, _validate_theme
 
 
+@pytest.fixture(autouse=True)
+def _clear_no_color(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+
 class TestCliThemeLoad:
     def test_load_midnight(self) -> None:
         theme = CliTheme.load("midnight")

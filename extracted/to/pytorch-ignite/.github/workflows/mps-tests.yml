@@ -18,6 +18,7 @@ on:
       - "requirements-dev.txt"
       - ".github/workflows/mps-tests.yml"
   workflow_dispatch:
+  merge_group:
 
 concurrency:
   # <workflow_name>-<branch_name>-<true || commit_sha (if branch is protected)>
@@ -48,14 +49,14 @@ jobs:
           echo "::endgroup::"
 
       - name: Checkout repository (pytorch/test-infra)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # Support the use case where we need to checkout someone's fork
           repository: pytorch/test-infra
           path: test-infra
 
       - name: Checkout repository (${{ github.repository }})
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           # Support the use case where we need to checkout someone's fork
           repository: ${{ github.repository }}

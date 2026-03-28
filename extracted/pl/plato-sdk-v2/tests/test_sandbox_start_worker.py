@@ -37,7 +37,7 @@ PLATO_CONFIG_WITH_MODERN_LISTENERS = dedent(
             db_user: postgres
             db_password: secret
             db_database: trudesk
-            schema: audit
+            db_schema: audit
             audit_ignore_tables:
               - migrations
               - users:
@@ -83,7 +83,7 @@ def test_start_worker_preserves_modern_listener_fields_from_local_config(tmp_pat
 
     db_listener = listeners["db"]
     assert isinstance(db_listener, DatabaseMutationListenerConfig)
-    assert db_listener.schema_ == "audit"
+    assert db_listener.db_schema == "audit"
     assert db_listener.audit_ignore_tables == ["migrations", {"users": ["last_login"]}]
 
     proxy_listener = listeners["proxy"]
@@ -150,7 +150,7 @@ def test_start_worker_preserves_modern_listener_fields_from_api_config(tmp_path,
 
     db_listener = listeners["db"]
     assert isinstance(db_listener, DatabaseMutationListenerConfig)
-    assert db_listener.schema_ == "audit"
+    assert db_listener.db_schema == "audit"
     assert db_listener.audit_ignore_tables == ["migrations", {"users": ["last_login"]}]
 
     proxy_listener = listeners["proxy"]

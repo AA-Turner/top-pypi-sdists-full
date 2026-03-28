@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model2vec
-Version: 0.8.0
+Version: 0.8.1
 Summary: Fast State-of-the-Art Static Embeddings
 Author-email: Stéphan Tulkens <stephantul@gmail.com>, Thomas van Dongen <thomas123@live.nl>
 License: MIT License
@@ -60,7 +60,7 @@ Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Provides-Extra: distill
 Requires-Dist: torch; extra == "distill"
-Requires-Dist: transformers; extra == "distill"
+Requires-Dist: transformers<5.4.0; extra == "distill"
 Requires-Dist: scikit-learn; extra == "distill"
 Requires-Dist: skeletoken>=0.3.2; extra == "distill"
 Provides-Extra: onnx
@@ -74,8 +74,6 @@ Requires-Dist: skops; extra == "train"
 Provides-Extra: inference
 Requires-Dist: scikit-learn; extra == "inference"
 Requires-Dist: skops; extra == "inference"
-Provides-Extra: tokenizer
-Requires-Dist: transformers; extra == "tokenizer"
 Provides-Extra: quantization
 Requires-Dist: scikit-learn; extra == "quantization"
 

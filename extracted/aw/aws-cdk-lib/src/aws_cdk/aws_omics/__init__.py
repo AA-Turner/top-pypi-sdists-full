@@ -2054,6 +2054,19 @@ class CfnSequenceStore(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="s3AccessPolicy")
+    def s3_access_policy(self) -> typing.Any:
+        '''The resource policy that controls S3 access on the store.'''
+        return typing.cast(typing.Any, jsii.get(self, "s3AccessPolicy"))
+
+    @s3_access_policy.setter
+    def s3_access_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__48d38bc4fc98e65bd66719d736641dbe0eef30ad1a6a932a71665c6fd3c7a01c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3AccessPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="accessLogLocation")
     def access_log_location(self) -> typing.Optional[builtins.str]:
         '''Location of the access logs.'''
@@ -2120,19 +2133,6 @@ class CfnSequenceStore(
             type_hints = typing.get_type_hints(_typecheckingstub__94d2835859304a00ff97481068a5f88aa75e5f963a8554869a9bb60a55200b93)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "propagatedSetLevelTags", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="s3AccessPolicy")
-    def s3_access_policy(self) -> typing.Any:
-        '''The resource policy that controls S3 access on the store.'''
-        return typing.cast(typing.Any, jsii.get(self, "s3AccessPolicy"))
-
-    @s3_access_policy.setter
-    def s3_access_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48d38bc4fc98e65bd66719d736641dbe0eef30ad1a6a932a71665c6fd3c7a01c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3AccessPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="sseConfig")
@@ -6250,6 +6250,12 @@ def _typecheckingstub__f8e53b0b20084e7e23dc393ceafe95167d7bce2ef95f48e5bca0556a2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__48d38bc4fc98e65bd66719d736641dbe0eef30ad1a6a932a71665c6fd3c7a01c(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7549c525ad472ac7db5f5282211a0aac7a47906e8ed893e7de2371f8677691f0(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -6276,12 +6282,6 @@ def _typecheckingstub__1f87faaa51a41810707e9283275d0283e54c3ebebf2803e01abef2984
 
 def _typecheckingstub__94d2835859304a00ff97481068a5f88aa75e5f963a8554869a9bb60a55200b93(
     value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__48d38bc4fc98e65bd66719d736641dbe0eef30ad1a6a932a71665c6fd3c7a01c(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

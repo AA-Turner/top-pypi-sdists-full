@@ -1,8 +1,10 @@
+import warnings
+from datetime import date
 from pathlib import Path
 
 import jsonschema_rs
 import pytest
-from hypothesis import Phase, assume, given, settings
+from hypothesis import HealthCheck, Phase, assume, given, settings
 from hypothesis import strategies as st
 from hypothesis.errors import FailedHealthCheck, Unsatisfiable
 from jsonschema_rs import Draft4Validator
@@ -497,6 +499,78 @@ def test_unregister_string_format_valid():
 def test_unregister_string_format_invalid():
     with pytest.raises(ValueError, match="Unknown Open API format: unknown"):
         formats.unregister_string_format("unknown")
+
+
+@pytest.mark.hypothesis_nested
+def test_email_format_passes_jsonschema_rs_validation(ctx):
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/users": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"email": {"type": "string", "format": "email"}},
+                                    "required": ["email"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    operation = schema["/users"]["POST"]
+    validator = Draft4Validator({"type": "string", "format": "email"})
+
+    @given(case=operation.as_strategy())
+    @settings(deadline=None, suppress_health_check=list(HealthCheck))
+    def inner(case):
+        assert validator.is_valid(case.body["email"])
+
+    inner()
+
+
+@pytest.mark.hypothesis_nested
+def test_builtin_format_override(ctx):
+    # See GH-3269
+    # When a built-in format is overridden with a custom strategy
+    today = date.today()
+    schemathesis.openapi.format("date", st.dates(max_value=today).map(str))
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/events": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "start_date",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "string", "format": "date"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    operation = schema["/events"]["GET"]
+
+    @given(case=operation.as_strategy())
+    @settings(max_examples=20, deadline=None)
+    def inner(case):
+        # Then all generated values respect the override
+        assert date.fromisoformat(case.query["start_date"]) <= today
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        inner()
 
 
 @pytest.mark.hypothesis_nested

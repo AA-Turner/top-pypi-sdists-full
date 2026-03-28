@@ -707,7 +707,10 @@ class TestMessageQueue:
 
         qm_events = [e for e in events if e.kind == "queued_message"]
         assert len(qm_events) == 1
-        assert qm_events[0].data == {"role": "user", "content": "my queued msg"}
+        assert qm_events[0].data["role"] == "user"
+        assert qm_events[0].data["content"] == "my queued msg"
+        assert qm_events[0].data["position"] == 1
+        assert qm_events[0].data["queue_depth"] == 0
 
     @pytest.mark.asyncio
     async def test_queue_after_tool_execution(self):

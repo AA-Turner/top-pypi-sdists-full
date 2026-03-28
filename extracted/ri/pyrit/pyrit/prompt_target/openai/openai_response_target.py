@@ -3,17 +3,16 @@
 
 import json
 import logging
+from collections.abc import Awaitable, Callable, MutableSequence
 from enum import Enum
 from typing import (
     Any,
-    Awaitable,
-    Callable,
-    Dict,
-    List,
-    MutableSequence,
+    Literal,
     Optional,
     cast,
 )
+
+from openai.types.shared import ReasoningEffort
 
 from pyrit.common import convert_local_image_to_data_url
 from pyrit.exceptions import (
@@ -21,7 +20,7 @@ from pyrit.exceptions import (
     PyritException,
     pyrit_target_retry,
 )
-from pyrit.identifiers import TargetIdentifier
+from pyrit.identifiers import ComponentIdentifier
 from pyrit.models import (
     Message,
     MessagePiece,
@@ -30,6 +29,7 @@ from pyrit.models import (
 )
 from pyrit.models.json_response_config import _JsonResponseConfig
 from pyrit.prompt_target.common.prompt_chat_target import PromptChatTarget
+from pyrit.prompt_target.common.target_capabilities import TargetCapabilities
 from pyrit.prompt_target.common.utils import limit_requests_per_minute, validate_temperature, validate_top_p
 from pyrit.prompt_target.openai.openai_error_handling import _is_content_filter_error
 from pyrit.prompt_target.openai.openai_target import OpenAITarget
@@ -68,15 +68,34 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
     https://platform.openai.com/docs/api-reference/responses/create
     """
 
+    _DEFAULT_CAPABILITIES: TargetCapabilities = TargetCapabilities(
+        supports_multi_turn=True,
+        supports_json_output=True,
+        supports_multi_message_pieces=True,
+        input_modalities=frozenset(
+            {
+                frozenset(["text"]),
+                frozenset(["text", "image_path"]),
+                frozenset(["function_call"]),
+                frozenset(["tool_call"]),
+                frozenset(["function_call_output"]),
+                frozenset(["reasoning"]),
+            }
+        ),
+    )
+
     def __init__(
         self,
         *,
-        custom_functions: Optional[Dict[str, ToolExecutor]] = None,
+        custom_functions: Optional[dict[str, ToolExecutor]] = None,
         max_output_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
+        reasoning_effort: Optional[ReasoningEffort] = None,
+        reasoning_summary: Optional[Literal["auto", "concise", "detailed"]] = None,
         extra_body_parameters: Optional[dict[str, Any]] = None,
         fail_on_missing_function: bool = False,
+        custom_capabilities: Optional[TargetCapabilities] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -100,6 +119,13 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
                 randomness of the response.
             top_p (float, Optional): The top-p parameter for controlling the diversity of the
                 response.
+            reasoning_effort (ReasoningEffort, Optional): Controls how much reasoning the model
+                performs. Accepts "minimal", "low", "medium", or "high". Lower effort
+                favors speed and lower cost; higher effort favors thoroughness. Defaults to None
+                (uses model default, typically "medium").
+            reasoning_summary (Literal["auto", "concise", "detailed"], Optional): Controls
+                whether a summary of the model's reasoning is included in the response.
+                Defaults to None (no summary).
             is_json_supported (bool, Optional): If True, the target will support formatting responses as JSON by
                 setting the response_format header. Official OpenAI models all support this, but if you are using
                 this target with different models, is_json_supported should be set correctly to avoid issues when
@@ -109,9 +135,12 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
                 an unknown function or does not output a function; if False, return a structured error so we can
                 wrap it as function_call_output and let the model potentially recover
                 (e.g., pick another tool or ask for clarification).
+            custom_capabilities (TargetCapabilities, Optional): Override the default capabilities for
+                this target instance. Defaults to None.
             **kwargs: Additional keyword arguments passed to the parent OpenAITarget class.
-            httpx_client_kwargs (dict, Optional): Additional kwargs to be passed to the ``httpx.AsyncClient()``
+             httpx_client_kwargs (dict, Optional): Additional kwargs to be passed to the ``httpx.AsyncClient()``
                 constructor. For example, to specify a 3 minute timeout: ``httpx_client_kwargs={"timeout": 180}``
+
 
         Raises:
             PyritException: If the temperature or top_p values are out of bounds.
@@ -123,7 +152,7 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
             json.JSONDecodeError: If the response from the target is not valid JSON.
             Exception: If the request fails for any other reason.
         """
-        super().__init__(**kwargs)
+        super().__init__(custom_capabilities=custom_capabilities, **kwargs)
 
         # Validate temperature and top_p
         validate_temperature(temperature)
@@ -133,14 +162,13 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
         self._top_p = top_p
         self._max_output_tokens = max_output_tokens
 
-        # Reasoning parameters are not yet supported by PyRIT.
-        # See https://platform.openai.com/docs/api-reference/responses/create#responses-create-reasoning
-        # for more information.
+        self._reasoning_effort = reasoning_effort
+        self._reasoning_summary = reasoning_summary
 
         self._extra_body_parameters = extra_body_parameters
 
         # Per-instance tool/func registries:
-        self._custom_functions: Dict[str, ToolExecutor] = custom_functions or {}
+        self._custom_functions: dict[str, ToolExecutor] = custom_functions or {}
         self._fail_on_missing_function: bool = fail_on_missing_function
 
         # Extract the grammar 'tool' if one is present
@@ -157,18 +185,21 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
                     logger.debug("Detected grammar tool: %s", tool_name)
                     self._grammar_name = tool_name
 
-    def _build_identifier(self) -> TargetIdentifier:
+    def _build_identifier(self) -> ComponentIdentifier:
         """
         Build the identifier with OpenAI response-specific parameters.
 
         Returns:
-            TargetIdentifier: The identifier for this target instance.
+            ComponentIdentifier: The identifier for this target instance.
         """
         return self._create_identifier(
-            temperature=self._temperature,
-            top_p=self._top_p,
-            target_specific_params={
+            params={
+                "temperature": self._temperature,
+                "top_p": self._top_p,
                 "max_output_tokens": self._max_output_tokens,
+                "reasoning_effort": self._reasoning_effort,
+                "reasoning_summary": self._reasoning_summary,
+                "extra_body_parameters": self._extra_body_parameters,
             },
         )
 
@@ -189,7 +220,7 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
             "api.openai.com": "https://api.openai.com/v1",
         }
 
-    async def _construct_input_item_from_piece(self, piece: MessagePiece) -> Dict[str, Any]:
+    async def _construct_input_item_from_piece(self, piece: MessagePiece) -> dict[str, Any]:
         """
         Convert a single inline piece into a Responses API content item.
 
@@ -213,7 +244,7 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
             return {"type": "input_image", "image_url": {"url": data_url}}
         raise ValueError(f"Unsupported piece type for inline content: {piece.converted_value_data_type}")
 
-    async def _build_input_for_multi_modal_async(self, conversation: MutableSequence[Message]) -> List[Dict[str, Any]]:
+    async def _build_input_for_multi_modal_async(self, conversation: MutableSequence[Message]) -> list[dict[str, Any]]:
         """
         Build the Responses API `input` array.
 
@@ -236,7 +267,7 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
         if not conversation:
             raise ValueError("Conversation cannot be empty")
 
-        input_items: List[Dict[str, Any]] = []
+        input_items: list[dict[str, Any]] = []
 
         for msg_idx, message in enumerate(conversation):
             pieces = message.message_pieces
@@ -247,15 +278,13 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
 
             # System message (remapped to developer)
             if pieces[0].api_role == "system":
-                system_content = []
-                for piece in pieces:
-                    system_content.append({"type": "input_text", "text": piece.converted_value})
+                system_content = [{"type": "input_text", "text": piece.converted_value} for piece in pieces]
                 input_items.append({"role": "developer", "content": system_content})
                 continue
 
             # All pieces in a Message share the same role
             role = pieces[0].api_role
-            content: List[Dict[str, Any]] = []
+            content: list[dict[str, Any]] = []
 
             for piece in pieces:
                 dtype = piece.converted_value_data_type
@@ -360,6 +389,7 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
             "input": input_items,
             # Correct JSON response format per Responses API
             "text": text_format,
+            "reasoning": self._build_reasoning_config(),
         }
 
         if self._extra_body_parameters:
@@ -368,7 +398,24 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
         # Filter out None values
         return {k: v for k, v in body_parameters.items() if v is not None}
 
-    def _build_text_format(self, json_config: _JsonResponseConfig) -> Optional[Dict[str, Any]]:
+    def _build_reasoning_config(self) -> Optional[dict[str, Any]]:
+        """
+        Build the reasoning configuration dict for the Responses API.
+
+        Returns:
+            Optional[Dict[str, Any]]: The reasoning config, or None if neither effort nor summary is set.
+        """
+        if self._reasoning_effort is None and self._reasoning_summary is None:
+            return None
+
+        reasoning: dict[str, Any] = {}
+        if self._reasoning_effort is not None:
+            reasoning["effort"] = self._reasoning_effort
+        if self._reasoning_summary is not None:
+            reasoning["summary"] = self._reasoning_summary
+        return reasoning
+
+    def _build_text_format(self, json_config: _JsonResponseConfig) -> Optional[dict[str, Any]]:
         if not json_config.enabled:
             return None
 
@@ -449,7 +496,7 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
             Message: Constructed message with extracted content from output sections.
         """
         # Extract and parse message pieces from validated output sections
-        extracted_response_pieces: List[MessagePiece] = []
+        extracted_response_pieces: list[MessagePiece] = []
         for section in response.output:
             piece = self._parse_response_output_section(
                 section=section,
@@ -506,7 +553,7 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
 
             # Use unified error handling - automatically detects Response and validates
             result = await self._handle_openai_request(
-                api_call=lambda: self._async_client.responses.create(**body),
+                api_call=lambda body=body: self._async_client.responses.create(**body),
                 request=message,
             )
 
@@ -536,15 +583,6 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
 
         # Return all responses (normalizer will persist all of them to memory)
         return responses_to_return
-
-    def is_json_response_supported(self) -> bool:
-        """
-        Check if the target supports JSON as a response format.
-
-        Returns:
-            bool: True if JSON response is supported, False otherwise.
-        """
-        return True
 
     def _parse_response_output_section(
         self, *, section: Any, message_piece: MessagePiece, error: Optional[PromptResponseError]
@@ -577,13 +615,7 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
         elif section_type == MessagePieceType.REASONING:
             # Store reasoning in memory for debugging/logging, but won't be sent back to API
             piece_value = json.dumps(
-                {
-                    "id": section.id,
-                    "type": section.type,
-                    "summary": section.summary,
-                    "content": section.content,
-                    "encrypted_content": section.encrypted_content,
-                },
+                section.model_dump(),
                 separators=(",", ":"),
             )
             piece_type = "reasoning"
@@ -652,31 +684,6 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
             response_error=error or "none",
         )
 
-    def _validate_request(self, *, message: Message) -> None:
-        """
-        Validate the structure and content of a message for compatibility of this target.
-
-        Args:
-            message (Message): The message object.
-
-        Raises:
-            ValueError: If any of the message pieces have a data type other than supported set.
-        """
-        # Some models may not support all of these; we accept them at the transport layer
-        # so the Responses API can decide. We include reasoning and function_call_output now.
-        allowed_types = {
-            "text",
-            "image_path",
-            "function_call",
-            "tool_call",
-            "function_call_output",
-            "reasoning",
-        }
-        for message_piece in message.message_pieces:
-            if message_piece.converted_value_data_type not in allowed_types:
-                raise ValueError(f"Unsupported data type: {message_piece.converted_value_data_type}")
-        return
-
     # Agentic helpers (module scope)
 
     def _find_last_pending_tool_call(self, reply: Message) -> Optional[dict[str, Any]]:
@@ -691,14 +698,15 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
             The tool-call section dict, or None if not found.
         """
         for piece in reversed(reply.message_pieces):
-            if piece.api_role == "assistant":
+            # Filter on data_type to skip reasoning/message pieces that also have api_role "assistant".
+            if piece.api_role == "assistant" and piece.original_value_data_type == "function_call":
                 try:
                     section = json.loads(piece.original_value)
                 except Exception:
                     continue
-                if section.get("type") == "function_call":
+                if isinstance(section, dict) and section.get("type") == "function_call":
                     # Do NOT skip function_call even if status == "completed" — we still need to emit the output.
-                    return cast(dict[str, Any], section)
+                    return cast("dict[str, Any]", section)
         return None
 
     async def _execute_call_section(self, tool_call_section: dict[str, Any]) -> dict[str, Any]:
@@ -733,7 +741,7 @@ class OpenAIResponseTarget(OpenAITarget, PromptChatTarget):
         except Exception:
             # If arguments are not valid JSON, surface a structured error (or raise)
             if self._fail_on_missing_function:
-                raise ValueError(f"Malformed arguments for function '{name}': {args_json}")
+                raise ValueError(f"Malformed arguments for function '{name}': {args_json}") from None
             logger.warning("Malformed arguments for function '%s': %s", name, args_json)
             return {
                 "error": "malformed_arguments",

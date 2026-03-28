@@ -31,6 +31,8 @@ class WritableText(Protocol):
 
 TextOutput = IO[str] | StringIO | Path
 
+WRITER_WORKER_JOIN_TIMEOUT = 1
+
 
 @contextmanager
 def open_text_output(output: TextOutput) -> Generator[IO[str]]:

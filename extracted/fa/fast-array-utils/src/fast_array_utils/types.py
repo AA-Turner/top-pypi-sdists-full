@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from importlib.util import find_spec
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING
 
 
 __all__ = [
@@ -33,8 +33,6 @@ __all__ = [
     "sparray",
     "spmatrix",
 ]
-
-T_co = TypeVar("T_co", covariant=True)
 
 
 # scipy sparse
@@ -111,7 +109,7 @@ if TYPE_CHECKING:
     from anndata.abc import CSCDataset, CSRDataset  # type: ignore[import-untyped]
 else:  # pragma: no cover
     try:  # only exists in anndata 0.11+
-        from anndata.abc import CSCDataset, CSRDataset  # type: ignore[import-untyped]
+        from anndata.abc import CSCDataset, CSRDataset
     except ImportError:
         CSRDataset = type("CSRDataset", (), {})
         CSCDataset = type("CSCDataset", (), {})

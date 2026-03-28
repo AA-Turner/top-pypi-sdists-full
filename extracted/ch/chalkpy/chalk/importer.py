@@ -597,6 +597,9 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
             if isinstance(f.window_materialization, dict)
             else None
         ),
+        backfill_tags=(
+            f.window_materialization.get("backfill_tags", None) if isinstance(f.window_materialization, dict) else None
+        ),
         backfill_lookback_duration_seconds=(
             _try_parse_duration(
                 "backfill_lookback_duration",
@@ -836,6 +839,9 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
             f.window_materialization.get("backfill_schedule", None)
             if isinstance(f.window_materialization, dict)
             else None
+        ),
+        backfill_tags=(
+            f.window_materialization.get("backfill_tags", None) if isinstance(f.window_materialization, dict) else None
         ),
         backfill_lookback_duration_seconds=(
             _try_parse_duration(

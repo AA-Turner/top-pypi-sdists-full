@@ -13034,6 +13034,7 @@ class DefaultStackSynthesizerProps:
     jsii_struct_bases=[],
     name_mapping={
         "build_args": "buildArgs",
+        "build_contexts": "buildContexts",
         "cache_disabled": "cacheDisabled",
         "cache_from": "cacheFrom",
         "cache_to": "cacheTo",
@@ -13048,6 +13049,7 @@ class DockerBuildOptions:
         self,
         *,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
         cache_from: typing.Optional[typing.Sequence[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]]] = None,
         cache_to: typing.Optional[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -13059,6 +13061,7 @@ class DockerBuildOptions:
         '''Docker build options.
 
         :param build_args: Build args. Default: - no build args
+        :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Default: - no additional build contexts
         :param cache_disabled: Disable the cache and pass ``--no-cache`` to the ``docker build`` command. Default: - cache is used
         :param cache_from: Cache from options to pass to the ``docker build`` command. Default: - no cache from args are passed
         :param cache_to: Cache to options to pass to the ``docker build`` command. Default: - no cache to args are passed
@@ -13092,6 +13095,7 @@ class DockerBuildOptions:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e285633ad5a50949fcc0277b0b38d3679a006cdac41feaef60665b393932370c)
             check_type(argname="argument build_args", value=build_args, expected_type=type_hints["build_args"])
+            check_type(argname="argument build_contexts", value=build_contexts, expected_type=type_hints["build_contexts"])
             check_type(argname="argument cache_disabled", value=cache_disabled, expected_type=type_hints["cache_disabled"])
             check_type(argname="argument cache_from", value=cache_from, expected_type=type_hints["cache_from"])
             check_type(argname="argument cache_to", value=cache_to, expected_type=type_hints["cache_to"])
@@ -13102,6 +13106,8 @@ class DockerBuildOptions:
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if build_args is not None:
             self._values["build_args"] = build_args
+        if build_contexts is not None:
+            self._values["build_contexts"] = build_contexts
         if cache_disabled is not None:
             self._values["cache_disabled"] = cache_disabled
         if cache_from is not None:
@@ -13124,6 +13130,23 @@ class DockerBuildOptions:
         :default: - no build args
         '''
         result = self._values.get("build_args")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def build_contexts(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Build contexts to pass to the ``docker build`` command.
+
+        Build contexts can be used to specify additional directories or images
+        to use during the build. Each entry specifies a named build context
+        and its source (a directory path, a URL, or a docker image).
+
+        :default: - no additional build contexts
+
+        :see: https://docs.docker.com/build/building/context/#additional-build-contexts
+        '''
+        result = self._values.get("build_contexts")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
@@ -13377,6 +13400,7 @@ class DockerImage(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.DockerImage"):
         path: builtins.str,
         *,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
         cache_from: typing.Optional[typing.Sequence[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]]] = None,
         cache_to: typing.Optional[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -13389,6 +13413,7 @@ class DockerImage(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.DockerImage"):
 
         :param path: The path to the directory containing the Docker file.
         :param build_args: Build args. Default: - no build args
+        :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Default: - no additional build contexts
         :param cache_disabled: Disable the cache and pass ``--no-cache`` to the ``docker build`` command. Default: - cache is used
         :param cache_from: Cache from options to pass to the ``docker build`` command. Default: - no cache from args are passed
         :param cache_to: Cache to options to pass to the ``docker build`` command. Default: - no cache to args are passed
@@ -13402,6 +13427,7 @@ class DockerImage(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.DockerImage"):
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         options = DockerBuildOptions(
             build_args=build_args,
+            build_contexts=build_contexts,
             cache_disabled=cache_disabled,
             cache_from=cache_from,
             cache_to=cache_to,
@@ -13602,6 +13628,7 @@ class DockerImageAssetLocation:
         "directory_name": "directoryName",
         "display_name": "displayName",
         "docker_build_args": "dockerBuildArgs",
+        "docker_build_contexts": "dockerBuildContexts",
         "docker_build_secrets": "dockerBuildSecrets",
         "docker_build_ssh": "dockerBuildSsh",
         "docker_build_target": "dockerBuildTarget",
@@ -13624,6 +13651,7 @@ class DockerImageAssetSource:
         directory_name: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_ssh: typing.Optional[builtins.str] = None,
         docker_build_target: typing.Optional[builtins.str] = None,
@@ -13642,6 +13670,7 @@ class DockerImageAssetSource:
         :param directory_name: The directory where the Dockerfile is stored, must be relative to the cloud assembly root. Default: - Exactly one of ``directoryName`` and ``executable`` is required
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. Default: - The asset hash is used to display the asset
         :param docker_build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build args are passed
+        :param docker_build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Only allowed when ``directoryName`` is specified. Default: - no additional build contexts
         :param docker_build_secrets: Build secrets to pass to the ``docker build`` command. Since Docker build secrets are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build secrets are passed
         :param docker_build_ssh: SSH agent socket or keys to pass to the ``docker buildx`` command. Default: - no ssh arg is passed
         :param docker_build_target: Docker target to build to. Only allowed when ``directoryName`` is specified. Default: - no target
@@ -13671,6 +13700,9 @@ class DockerImageAssetSource:
                 display_name="displayName",
                 docker_build_args={
                     "docker_build_args_key": "dockerBuildArgs"
+                },
+                docker_build_contexts={
+                    "docker_build_contexts_key": "dockerBuildContexts"
                 },
                 docker_build_secrets={
                     "docker_build_secrets_key": "dockerBuildSecrets"
@@ -13710,6 +13742,7 @@ class DockerImageAssetSource:
             check_type(argname="argument directory_name", value=directory_name, expected_type=type_hints["directory_name"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument docker_build_args", value=docker_build_args, expected_type=type_hints["docker_build_args"])
+            check_type(argname="argument docker_build_contexts", value=docker_build_contexts, expected_type=type_hints["docker_build_contexts"])
             check_type(argname="argument docker_build_secrets", value=docker_build_secrets, expected_type=type_hints["docker_build_secrets"])
             check_type(argname="argument docker_build_ssh", value=docker_build_ssh, expected_type=type_hints["docker_build_ssh"])
             check_type(argname="argument docker_build_target", value=docker_build_target, expected_type=type_hints["docker_build_target"])
@@ -13732,6 +13765,8 @@ class DockerImageAssetSource:
             self._values["display_name"] = display_name
         if docker_build_args is not None:
             self._values["docker_build_args"] = docker_build_args
+        if docker_build_contexts is not None:
+            self._values["docker_build_contexts"] = docker_build_contexts
         if docker_build_secrets is not None:
             self._values["docker_build_secrets"] = docker_build_secrets
         if docker_build_ssh is not None:
@@ -13817,6 +13852,25 @@ class DockerImageAssetSource:
         :default: - no build args are passed
         '''
         result = self._values.get("docker_build_args")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def docker_build_contexts(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Build contexts to pass to the ``docker build`` command.
+
+        Build contexts can be used to specify additional directories or images
+        to use during the build. Each entry specifies a named build context
+        and its source (a directory path, a URL, or a docker image).
+
+        Only allowed when ``directoryName`` is specified.
+
+        :default: - no additional build contexts
+
+        :see: https://docs.docker.com/build/building/context/#additional-build-contexts
+        '''
+        result = self._values.get("docker_build_contexts")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
@@ -18178,6 +18232,7 @@ class IStackSynthesizer(typing_extensions.Protocol):
         directory_name: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_ssh: typing.Optional[builtins.str] = None,
         docker_build_target: typing.Optional[builtins.str] = None,
@@ -18199,6 +18254,7 @@ class IStackSynthesizer(typing_extensions.Protocol):
         :param directory_name: The directory where the Dockerfile is stored, must be relative to the cloud assembly root. Default: - Exactly one of ``directoryName`` and ``executable`` is required
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. Default: - The asset hash is used to display the asset
         :param docker_build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build args are passed
+        :param docker_build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Only allowed when ``directoryName`` is specified. Default: - no additional build contexts
         :param docker_build_secrets: Build secrets to pass to the ``docker build`` command. Since Docker build secrets are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build secrets are passed
         :param docker_build_ssh: SSH agent socket or keys to pass to the ``docker buildx`` command. Default: - no ssh arg is passed
         :param docker_build_target: Docker target to build to. Only allowed when ``directoryName`` is specified. Default: - no target
@@ -18288,6 +18344,7 @@ class _IStackSynthesizerProxy:
         directory_name: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_ssh: typing.Optional[builtins.str] = None,
         docker_build_target: typing.Optional[builtins.str] = None,
@@ -18309,6 +18366,7 @@ class _IStackSynthesizerProxy:
         :param directory_name: The directory where the Dockerfile is stored, must be relative to the cloud assembly root. Default: - Exactly one of ``directoryName`` and ``executable`` is required
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. Default: - The asset hash is used to display the asset
         :param docker_build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build args are passed
+        :param docker_build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Only allowed when ``directoryName`` is specified. Default: - no additional build contexts
         :param docker_build_secrets: Build secrets to pass to the ``docker build`` command. Since Docker build secrets are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build secrets are passed
         :param docker_build_ssh: SSH agent socket or keys to pass to the ``docker buildx`` command. Default: - no ssh arg is passed
         :param docker_build_target: Docker target to build to. Only allowed when ``directoryName`` is specified. Default: - no target
@@ -18327,6 +18385,7 @@ class _IStackSynthesizerProxy:
             directory_name=directory_name,
             display_name=display_name,
             docker_build_args=docker_build_args,
+            docker_build_contexts=docker_build_contexts,
             docker_build_secrets=docker_build_secrets,
             docker_build_ssh=docker_build_ssh,
             docker_build_target=docker_build_target,
@@ -23857,6 +23916,25 @@ class Stack(
             check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
         return typing.cast(builtins.str, jsii.invoke(self, "toYamlString", [obj]))
 
+    @jsii.member(jsii_name="with")
+    def with_(
+        self,
+        *mixins: "_constructs_77d1e7e8.IMixin",
+    ) -> "_constructs_77d1e7e8.IConstruct":
+        '''Applies one or more mixins to this construct.
+
+        Mixins are applied in order. The list of constructs is captured at the
+        start of the call, so constructs added by a mixin will not be visited.
+        Use multiple ``with()`` calls if subsequent mixins should apply to added
+        constructs.
+
+        :param mixins: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6bb03317fbf696d23b8d389775173671620bf08b43c16d5e15f21e1b66e8f838)
+            check_type(argname="argument mixins", value=mixins, expected_type=typing.Tuple[type_hints["mixins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_constructs_77d1e7e8.IConstruct", jsii.invoke(self, "with", [*mixins]))
+
     @builtins.property
     @jsii.member(jsii_name="account")
     def account(self) -> builtins.str:
@@ -24456,6 +24534,7 @@ class StackSynthesizer(
         directory_name: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_ssh: typing.Optional[builtins.str] = None,
         docker_build_target: typing.Optional[builtins.str] = None,
@@ -24483,6 +24562,7 @@ class StackSynthesizer(
         :param directory_name: The directory where the Dockerfile is stored, must be relative to the cloud assembly root. Default: - Exactly one of ``directoryName`` and ``executable`` is required
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. Default: - The asset hash is used to display the asset
         :param docker_build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build args are passed
+        :param docker_build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Only allowed when ``directoryName`` is specified. Default: - no additional build contexts
         :param docker_build_secrets: Build secrets to pass to the ``docker build`` command. Since Docker build secrets are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build secrets are passed
         :param docker_build_ssh: SSH agent socket or keys to pass to the ``docker buildx`` command. Default: - no ssh arg is passed
         :param docker_build_target: Docker target to build to. Only allowed when ``directoryName`` is specified. Default: - no target
@@ -24816,6 +24896,7 @@ class _StackSynthesizerProxy(StackSynthesizer):
         directory_name: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_ssh: typing.Optional[builtins.str] = None,
         docker_build_target: typing.Optional[builtins.str] = None,
@@ -24843,6 +24924,7 @@ class _StackSynthesizerProxy(StackSynthesizer):
         :param directory_name: The directory where the Dockerfile is stored, must be relative to the cloud assembly root. Default: - Exactly one of ``directoryName`` and ``executable`` is required
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. Default: - The asset hash is used to display the asset
         :param docker_build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build args are passed
+        :param docker_build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Only allowed when ``directoryName`` is specified. Default: - no additional build contexts
         :param docker_build_secrets: Build secrets to pass to the ``docker build`` command. Since Docker build secrets are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build secrets are passed
         :param docker_build_ssh: SSH agent socket or keys to pass to the ``docker buildx`` command. Default: - no ssh arg is passed
         :param docker_build_target: Docker target to build to. Only allowed when ``directoryName`` is specified. Default: - no target
@@ -24861,6 +24943,7 @@ class _StackSynthesizerProxy(StackSynthesizer):
             directory_name=directory_name,
             display_name=display_name,
             docker_build_args=docker_build_args,
+            docker_build_contexts=docker_build_contexts,
             docker_build_secrets=docker_build_secrets,
             docker_build_ssh=docker_build_ssh,
             docker_build_target=docker_build_target,
@@ -35702,6 +35785,19 @@ class CfnStackSet(
         return typing.cast("TagManager", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="managedExecution")
+    def managed_execution(self) -> typing.Any:
+        '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.'''
+        return typing.cast(typing.Any, jsii.get(self, "managedExecution"))
+
+    @managed_execution.setter
+    def managed_execution(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "managedExecution", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="permissionModel")
     def permission_model(self) -> builtins.str:
         '''Describes how the IAM roles required for StackSet operations are created.'''
@@ -35809,19 +35905,6 @@ class CfnStackSet(
             type_hints = typing.get_type_hints(_typecheckingstub__69b51712ff6404ccdc84f33ee3ab1d6f9badd506eff63172a852cf116891ff6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "executionRoleName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="managedExecution")
-    def managed_execution(self) -> typing.Any:
-        '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.'''
-        return typing.cast(typing.Any, jsii.get(self, "managedExecution"))
-
-    @managed_execution.setter
-    def managed_execution(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedExecution", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="operationPreferences")
@@ -38350,6 +38433,7 @@ class LegacyStackSynthesizer(
         directory_name: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_ssh: typing.Optional[builtins.str] = None,
         docker_build_target: typing.Optional[builtins.str] = None,
@@ -38377,6 +38461,7 @@ class LegacyStackSynthesizer(
         :param directory_name: The directory where the Dockerfile is stored, must be relative to the cloud assembly root. Default: - Exactly one of ``directoryName`` and ``executable`` is required
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. Default: - The asset hash is used to display the asset
         :param docker_build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build args are passed
+        :param docker_build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Only allowed when ``directoryName`` is specified. Default: - no additional build contexts
         :param docker_build_secrets: Build secrets to pass to the ``docker build`` command. Since Docker build secrets are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build secrets are passed
         :param docker_build_ssh: SSH agent socket or keys to pass to the ``docker buildx`` command. Default: - no ssh arg is passed
         :param docker_build_target: Docker target to build to. Only allowed when ``directoryName`` is specified. Default: - no target
@@ -38395,6 +38480,7 @@ class LegacyStackSynthesizer(
             directory_name=directory_name,
             display_name=display_name,
             docker_build_args=docker_build_args,
+            docker_build_contexts=docker_build_contexts,
             docker_build_secrets=docker_build_secrets,
             docker_build_ssh=docker_build_ssh,
             docker_build_target=docker_build_target,
@@ -38682,6 +38768,7 @@ class NestedStackSynthesizer(
         directory_name: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_ssh: typing.Optional[builtins.str] = None,
         docker_build_target: typing.Optional[builtins.str] = None,
@@ -38709,6 +38796,7 @@ class NestedStackSynthesizer(
         :param directory_name: The directory where the Dockerfile is stored, must be relative to the cloud assembly root. Default: - Exactly one of ``directoryName`` and ``executable`` is required
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. Default: - The asset hash is used to display the asset
         :param docker_build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build args are passed
+        :param docker_build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Only allowed when ``directoryName`` is specified. Default: - no additional build contexts
         :param docker_build_secrets: Build secrets to pass to the ``docker build`` command. Since Docker build secrets are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build secrets are passed
         :param docker_build_ssh: SSH agent socket or keys to pass to the ``docker buildx`` command. Default: - no ssh arg is passed
         :param docker_build_target: Docker target to build to. Only allowed when ``directoryName`` is specified. Default: - no target
@@ -38727,6 +38815,7 @@ class NestedStackSynthesizer(
             directory_name=directory_name,
             display_name=display_name,
             docker_build_args=docker_build_args,
+            docker_build_contexts=docker_build_contexts,
             docker_build_secrets=docker_build_secrets,
             docker_build_ssh=docker_build_ssh,
             docker_build_target=docker_build_target,
@@ -38954,6 +39043,7 @@ class CliCredentialsStackSynthesizer(
         directory_name: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_ssh: typing.Optional[builtins.str] = None,
         docker_build_target: typing.Optional[builtins.str] = None,
@@ -38981,6 +39071,7 @@ class CliCredentialsStackSynthesizer(
         :param directory_name: The directory where the Dockerfile is stored, must be relative to the cloud assembly root. Default: - Exactly one of ``directoryName`` and ``executable`` is required
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. Default: - The asset hash is used to display the asset
         :param docker_build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build args are passed
+        :param docker_build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Only allowed when ``directoryName`` is specified. Default: - no additional build contexts
         :param docker_build_secrets: Build secrets to pass to the ``docker build`` command. Since Docker build secrets are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build secrets are passed
         :param docker_build_ssh: SSH agent socket or keys to pass to the ``docker buildx`` command. Default: - no ssh arg is passed
         :param docker_build_target: Docker target to build to. Only allowed when ``directoryName`` is specified. Default: - no target
@@ -38999,6 +39090,7 @@ class CliCredentialsStackSynthesizer(
             directory_name=directory_name,
             display_name=display_name,
             docker_build_args=docker_build_args,
+            docker_build_contexts=docker_build_contexts,
             docker_build_secrets=docker_build_secrets,
             docker_build_ssh=docker_build_ssh,
             docker_build_target=docker_build_target,
@@ -39222,6 +39314,7 @@ class DefaultStackSynthesizer(
         directory_name: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_ssh: typing.Optional[builtins.str] = None,
         docker_build_target: typing.Optional[builtins.str] = None,
@@ -39249,6 +39342,7 @@ class DefaultStackSynthesizer(
         :param directory_name: The directory where the Dockerfile is stored, must be relative to the cloud assembly root. Default: - Exactly one of ``directoryName`` and ``executable`` is required
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. Default: - The asset hash is used to display the asset
         :param docker_build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build args are passed
+        :param docker_build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Only allowed when ``directoryName`` is specified. Default: - no additional build contexts
         :param docker_build_secrets: Build secrets to pass to the ``docker build`` command. Since Docker build secrets are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build secrets are passed
         :param docker_build_ssh: SSH agent socket or keys to pass to the ``docker buildx`` command. Default: - no ssh arg is passed
         :param docker_build_target: Docker target to build to. Only allowed when ``directoryName`` is specified. Default: - no target
@@ -39267,6 +39361,7 @@ class DefaultStackSynthesizer(
             directory_name=directory_name,
             display_name=display_name,
             docker_build_args=docker_build_args,
+            docker_build_contexts=docker_build_contexts,
             docker_build_secrets=docker_build_secrets,
             docker_build_ssh=docker_build_ssh,
             docker_build_target=docker_build_target,
@@ -39549,6 +39644,7 @@ class BootstraplessSynthesizer(
         directory_name: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_ssh: typing.Optional[builtins.str] = None,
         docker_build_target: typing.Optional[builtins.str] = None,
@@ -39576,6 +39672,7 @@ class BootstraplessSynthesizer(
         :param directory_name: The directory where the Dockerfile is stored, must be relative to the cloud assembly root. Default: - Exactly one of ``directoryName`` and ``executable`` is required
         :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. Default: - The asset hash is used to display the asset
         :param docker_build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build args are passed
+        :param docker_build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Only allowed when ``directoryName`` is specified. Default: - no additional build contexts
         :param docker_build_secrets: Build secrets to pass to the ``docker build`` command. Since Docker build secrets are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Only allowed when ``directoryName`` is specified. Default: - no build secrets are passed
         :param docker_build_ssh: SSH agent socket or keys to pass to the ``docker buildx`` command. Default: - no ssh arg is passed
         :param docker_build_target: Docker target to build to. Only allowed when ``directoryName`` is specified. Default: - no target
@@ -39594,6 +39691,7 @@ class BootstraplessSynthesizer(
             directory_name=directory_name,
             display_name=display_name,
             docker_build_args=docker_build_args,
+            docker_build_contexts=docker_build_contexts,
             docker_build_secrets=docker_build_secrets,
             docker_build_ssh=docker_build_ssh,
             docker_build_target=docker_build_target,
@@ -40039,6 +40137,7 @@ __all__ = [
     "aws_elasticloadbalancingv2_actions",
     "aws_elasticloadbalancingv2_targets",
     "aws_elasticsearch",
+    "aws_elementalinference",
     "aws_emr",
     "aws_emrcontainers",
     "aws_emrserverless",
@@ -40169,6 +40268,7 @@ __all__ = [
     "aws_route53",
     "aws_route53_patterns",
     "aws_route53_targets",
+    "aws_route53globalresolver",
     "aws_route53profiles",
     "aws_route53recoverycontrol",
     "aws_route53recoveryreadiness",
@@ -40356,6 +40456,7 @@ from . import aws_elasticloadbalancingv2
 from . import aws_elasticloadbalancingv2_actions
 from . import aws_elasticloadbalancingv2_targets
 from . import aws_elasticsearch
+from . import aws_elementalinference
 from . import aws_emr
 from . import aws_emrcontainers
 from . import aws_emrserverless
@@ -40486,6 +40587,7 @@ from . import aws_rolesanywhere
 from . import aws_route53
 from . import aws_route53_patterns
 from . import aws_route53_targets
+from . import aws_route53globalresolver
 from . import aws_route53profiles
 from . import aws_route53recoverycontrol
 from . import aws_route53recoveryreadiness
@@ -41788,6 +41890,7 @@ def _typecheckingstub__06784f4f0c2d983d957b0f4fbf46c4e4e85e842ac87bb6c7b582ce30b
 def _typecheckingstub__e285633ad5a50949fcc0277b0b38d3679a006cdac41feaef60665b393932370c(
     *,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     cache_disabled: typing.Optional[builtins.bool] = None,
     cache_from: typing.Optional[typing.Sequence[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
     cache_to: typing.Optional[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -41824,6 +41927,7 @@ def _typecheckingstub__ee160dc0667b6e8f45df2c2f176a77d9d6a3ece4b83cdf7804625adf8
     path: builtins.str,
     *,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     cache_disabled: typing.Optional[builtins.bool] = None,
     cache_from: typing.Optional[typing.Sequence[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
     cache_to: typing.Optional[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -41864,6 +41968,7 @@ def _typecheckingstub__9dc551978a96bea78751c4b4d32e87775d67d2a68f351884cf05c35d5
     directory_name: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
     docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    docker_build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     docker_build_ssh: typing.Optional[builtins.str] = None,
     docker_build_target: typing.Optional[builtins.str] = None,
@@ -43437,6 +43542,12 @@ def _typecheckingstub__3ba08701301281c5f44dd21a0522923c6b22922c3c702e41f67edce27
 
 def _typecheckingstub__d11292dfb7c0b4e79f7b3aca3724b7a48b0d18733506af24e25299c48e3674f4(
     obj: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6bb03317fbf696d23b8d389775173671620bf08b43c16d5e15f21e1b66e8f838(
+    *mixins: _constructs_77d1e7e8.IMixin,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -45045,6 +45156,12 @@ def _typecheckingstub__57648a38a59fb6d75dd552ca0fe250aa51e2511c9dbd779f211f36d05
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bb21580072a82cabb449c57b07732ff0c209ae85a5b9cdc23fd652093bc2278b(
     value: builtins.str,
 ) -> None:
@@ -45089,12 +45206,6 @@ def _typecheckingstub__2e922a74f7a0e62a3b43f5ffc866664dabe0e0f9e9b9fb9bd5591af73
 
 def _typecheckingstub__69b51712ff6404ccdc84f33ee3ab1d6f9badd506eff63172a852cf116891ff6b(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

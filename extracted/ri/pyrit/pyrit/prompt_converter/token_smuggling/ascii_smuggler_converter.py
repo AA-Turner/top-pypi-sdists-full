@@ -4,7 +4,7 @@
 import logging
 from typing import Literal
 
-from pyrit.identifiers import ConverterIdentifier
+from pyrit.identifiers import ComponentIdentifier
 from pyrit.prompt_converter.token_smuggling.base import SmugglerConverter
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class AsciiSmugglerConverter(SmugglerConverter):
         - U+E007F (end control tag)
 
     Replicates the functionality detailed in the following blog post:
-    https://embracethered.com/blog/posts/2024/hiding-and-finding-text-with-unicode-tags/
+    [@embracethered2024unicode]
     """
 
     def __init__(self, action: Literal["encode", "decode"] = "encode", unicode_tags: bool = False):
@@ -33,16 +33,19 @@ class AsciiSmugglerConverter(SmugglerConverter):
         self.unicode_tags = unicode_tags
         super().__init__(action=action)
 
-    def _build_identifier(self) -> ConverterIdentifier:
+    def _build_identifier(self) -> ComponentIdentifier:
         """
         Build identifier with ASCII smuggler parameters.
 
         Returns:
-            ConverterIdentifier: The identifier for this converter.
+            ComponentIdentifier: The identifier for this converter.
         """
-        base_params = super()._build_identifier().converter_specific_params or {}
-        base_params["unicode_tags"] = self.unicode_tags
-        return self._create_identifier(converter_specific_params=base_params)
+        return self._create_identifier(
+            params={
+                "action": self.action,
+                "unicode_tags": self.unicode_tags,
+            }
+        )
 
     def encode_message(self, *, message: str) -> tuple[str, str]:
         """

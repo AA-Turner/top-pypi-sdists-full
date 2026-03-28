@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schemathesis
-Version: 4.13.0
+Version: 4.14.1
 Summary: Property-based testing framework for Open API and GraphQL based apps
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -48,6 +48,8 @@ Requires-Dist: tenacity<10.0,>=9.1.2
 Requires-Dist: tomli>=2.2.1; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.12.2
 Requires-Dist: werkzeug<4,>=0.16.0
+Provides-Extra: allure
+Requires-Dist: allure-python-commons>=2.13.0; extra == 'allure'
 Provides-Extra: bench
 Requires-Dist: pytest-codspeed==4.3.0; extra == 'bench'
 Requires-Dist: pytest-test-groups==1.2.1; extra == 'bench'
@@ -56,6 +58,7 @@ Requires-Dist: coverage-enable-subprocess; extra == 'cov'
 Requires-Dist: coverage[toml]>=5.3; extra == 'cov'
 Provides-Extra: dev
 Requires-Dist: aiohttp<4.0,>=3.9.1; extra == 'dev'
+Requires-Dist: allure-python-commons>=2.13.0; extra == 'dev'
 Requires-Dist: coverage-enable-subprocess; extra == 'dev'
 Requires-Dist: coverage>=6; extra == 'dev'
 Requires-Dist: coverage[toml]>=5.3; extra == 'dev'
@@ -83,6 +86,7 @@ Provides-Extra: profiling
 Requires-Dist: pyinstrument>=5.1; extra == 'profiling'
 Provides-Extra: tests
 Requires-Dist: aiohttp<4.0,>=3.9.1; extra == 'tests'
+Requires-Dist: allure-python-commons>=2.13.0; extra == 'tests'
 Requires-Dist: coverage>=6; extra == 'tests'
 Requires-Dist: fastapi>=0.86.0; extra == 'tests'
 Requires-Dist: flask<4.0,>=2.1.1; extra == 'tests'

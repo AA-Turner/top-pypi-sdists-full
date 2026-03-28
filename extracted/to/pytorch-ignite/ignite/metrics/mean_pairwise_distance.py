@@ -1,4 +1,4 @@
-from typing import Callable, Sequence, Union
+from collections.abc import Callable, Sequence
 
 import torch
 from torch.nn.functional import pairwise_distance
@@ -27,7 +27,7 @@ class MeanPairwiseDistance(Metric):
             metric's device to be the same as your ``update`` arguments ensures the ``update`` method is
             non-blocking. By default, CPU.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Examples:
@@ -72,10 +72,10 @@ class MeanPairwiseDistance(Metric):
         p: int = 2,
         eps: float = 1e-6,
         output_transform: Callable = lambda x: x,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ) -> None:
-        super(MeanPairwiseDistance, self).__init__(output_transform, device=device, skip_unrolling=False)
+        super().__init__(output_transform, device=device, skip_unrolling=False)
         self._p = p
         self._eps = eps
 
@@ -92,7 +92,7 @@ class MeanPairwiseDistance(Metric):
         self._num_examples += y.shape[0]
 
     @sync_all_reduce("_sum_of_distances", "_num_examples")
-    def compute(self) -> Union[float, torch.Tensor]:
+    def compute(self) -> float | torch.Tensor:
         if self._num_examples == 0:
-            raise NotComputableError("MeanAbsoluteError must have at least one example before it can be computed.")
+            raise NotComputableError("MeanPairwiseDistance must have at least one example before it can be computed.")
         return self._sum_of_distances.item() / self._num_examples

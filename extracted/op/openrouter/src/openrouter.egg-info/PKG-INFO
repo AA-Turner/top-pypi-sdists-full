@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openrouter
-Version: 0.7.11
+Version: 0.8.0
 Summary: Official Python Client SDK for OpenRouter.
 Author: OpenRouter
 License: Apache-2.0
@@ -198,7 +198,8 @@ def main():
 
     with OpenRouter(
         http_referer="<value>",
-        x_title="<value>",
+        x_open_router_title="<value>",
+        x_open_router_categories="<value>",
         api_key=os.getenv("OPENROUTER_API_KEY", ""),
     ) as open_router:
         # Rest of application here...
@@ -209,7 +210,8 @@ async def amain():
 
     async with OpenRouter(
         http_referer="<value>",
-        x_title="<value>",
+        x_open_router_title="<value>",
+        x_open_router_categories="<value>",
         api_key=os.getenv("OPENROUTER_API_KEY", ""),
     ) as open_router:
         # Rest of application here...

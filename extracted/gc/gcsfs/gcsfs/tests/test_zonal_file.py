@@ -4,6 +4,9 @@ import os
 from unittest import mock
 
 import pytest
+from google.cloud.storage.asyncio.async_appendable_object_writer import (
+    _DEFAULT_FLUSH_INTERVAL_BYTES,
+)
 
 from gcsfs.tests.settings import TEST_ZONAL_BUCKET
 from gcsfs.tests.utils import tempdir, tmpfile
@@ -49,8 +52,13 @@ def test_zonal_file_write_success(extended_gcsfs, zonal_write_mocks, file_path):
     data1 = b"first part "
     data2 = b"second part"
     with extended_gcsfs.open(file_path, "wb", finalize_on_close=True) as f:
-        f.write(data1)
-        f.write(data2)
+        bytes_written1 = f.write(data1)
+        assert bytes_written1 == len(data1)
+        assert f.loc == len(data1)
+
+        bytes_written2 = f.write(data2)
+        assert bytes_written2 == len(data2)
+        assert f.loc == len(data1) + len(data2)
 
     if zonal_write_mocks:
         zonal_write_mocks["aaow"].append.assert_has_awaits(
@@ -68,7 +76,29 @@ def test_zonal_file_open_write_mode(extended_gcsfs, zonal_write_mocks, file_path
 
     if zonal_write_mocks:
         zonal_write_mocks["init_aaow"].assert_called_once_with(
-            extended_gcsfs.grpc_client, bucket, key, None
+            extended_gcsfs.grpc_client, bucket, key, None, _DEFAULT_FLUSH_INTERVAL_BYTES
+        )
+    else:
+        assert extended_gcsfs.exists(file_path)
+
+
+def test_zonal_file_open_write_mode_with_custom_flush_interval_bytes(
+    extended_gcsfs, zonal_write_mocks, file_path
+):
+    """Test that opening a ZonalFile in write mode initializes the writer."""
+    bucket, key, _ = extended_gcsfs.split_path(file_path)
+    custom_flush_interval_bytes = 4 * 1024 * 1024
+    with extended_gcsfs.open(
+        file_path,
+        "wb",
+        finalize_on_close=True,
+        flush_interval_bytes=custom_flush_interval_bytes,
+    ):
+        pass
+
+    if zonal_write_mocks:
+        zonal_write_mocks["init_aaow"].assert_called_once_with(
+            extended_gcsfs.grpc_client, bucket, key, None, custom_flush_interval_bytes
         )
     else:
         assert extended_gcsfs.exists(file_path)
@@ -85,7 +115,11 @@ def test_zonal_file_open_append_mode(extended_gcsfs, zonal_write_mocks, file_pat
         # check _info is called to get the generation
         zonal_write_mocks["_gcsfs_info"].assert_awaited_once_with(file_path)
         zonal_write_mocks["init_aaow"].assert_called_once_with(
-            extended_gcsfs.grpc_client, bucket, key, "12345"
+            extended_gcsfs.grpc_client,
+            bucket,
+            key,
+            "12345",
+            _DEFAULT_FLUSH_INTERVAL_BYTES,
         )
     else:
         assert extended_gcsfs.cat(file_path) == b"data"
@@ -112,7 +146,7 @@ def test_zonal_file_open_append_mode_nonexistent_file(
     if zonal_write_mocks:
         # init_aaow should be called with generation=None
         zonal_write_mocks["init_aaow"].assert_called_once_with(
-            extended_gcsfs.grpc_client, bucket, key, None
+            extended_gcsfs.grpc_client, bucket, key, None, _DEFAULT_FLUSH_INTERVAL_BYTES
         )
         # _info is called to get the generation, but it fails
         extended_gcsfs._info.assert_awaited_once()
@@ -127,6 +161,26 @@ def test_zonal_file_flush(extended_gcsfs, zonal_write_mocks, file_path):
 
     if zonal_write_mocks:
         zonal_write_mocks["aaow"].flush.assert_awaited()
+
+
+def test_zonal_file_lazy_init_creates_empty_file_on_close(
+    extended_gcsfs, zonal_write_mocks, file_path
+):
+    """Test that opening a file does not immediately create it on the server (lazy init),
+    but empty file is created when the file is closed."""
+    f = extended_gcsfs.open(file_path, "wb")
+    assert f.aaow is None  # AAOW should not be initialized since no data is written
+
+    if zonal_write_mocks:
+        zonal_write_mocks["init_aaow"].assert_not_called()
+    else:
+        assert not extended_gcsfs.exists(file_path)
+    f.close()
+
+    if zonal_write_mocks:
+        zonal_write_mocks["init_aaow"].assert_awaited_once()
+    else:
+        assert extended_gcsfs.exists(file_path)
 
 
 def test_zonal_file_commit(extended_gcsfs, zonal_write_mocks, file_path):
@@ -188,7 +242,21 @@ def test_zonal_file_double_finalize_warning(
         with mock.patch("gcsfs.zonal_file.logger") as mock_logger:
             f.commit()
         mock_logger.warning.assert_called_once_with(
-            "This file has already been finalized."
+            "This file has already been finalized. Ignoring commit call."
+        )
+
+
+def test_zonal_file_commit_not_writable_warning(
+    extended_gcsfs, zonal_write_mocks, file_path
+):
+    """Test that calling commit on a non-writable file logs a warning."""
+    with extended_gcsfs.open(file_path, "wb") as f:
+        # Simulate file not being writable
+        f.mode = "rb"
+        with mock.patch("gcsfs.zonal_file.logger") as mock_logger:
+            f.commit()
+        mock_logger.warning.assert_called_once_with(
+            "File not in write mode. Ignoring commit call."
         )
 
 

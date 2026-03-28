@@ -21,7 +21,7 @@ Implementation Notes
 
 """
 
-__version__ = "3.1.6"
+__version__ = "3.1.7"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_ConnectionManager.git"
 
 import errno

@@ -200,9 +200,31 @@ class Column:
     def p_column_property(self, p: List):
         """c_property : id id
         | id SET id
-        | SET id"""
+        | SET id
+        | id LP pid RP"""
         p_list = list(p)
-        if p[1].lower() == "auto":
+        if len(p) == 5 and p[1].upper() == "IDENTITY":
+            size_values = p[3]
+            if len(size_values) == 1:
+                value = (
+                    int(size_values[0])
+                    if str(size_values[0]).isnumeric()
+                    else size_values[0]
+                )
+            else:
+                first = (
+                    int(size_values[0])
+                    if str(size_values[0]).isnumeric()
+                    else size_values[0]
+                )
+                second = (
+                    int(size_values[1])
+                    if str(size_values[1]).isnumeric()
+                    else size_values[1]
+                )
+                value = (first, second)
+            p[0] = {"identity": value}
+        elif p[1].lower() == "auto":
             p[0] = {"increment": True}
         else:
             p[0] = {"property": {p_list[1]: p_list[-1]}}
@@ -586,10 +608,13 @@ class Column:
         name = None
         if isinstance(p[1], dict):
             if "constraint" in p[1]:
-                if "in_statement" not in p[2]["check"][0]:
-                    statement = " ".join(p[2]["check"])
-                else:
-                    statement = p[2]["check"][0]
+                statement = p[2]["check"]
+                if isinstance(statement, list):
+                    if statement and isinstance(statement[0], dict):
+                        # Keep dict payload for IN statements.
+                        statement = statement[0]
+                    else:
+                        statement = self.set_check_in_columm(statement)
                 p[0] = {
                     "check": {
                         "constraint_name": p[1]["constraint"]["name"],
@@ -1822,20 +1847,60 @@ class BaseSQL(
 
     def p_generated(self, p: List) -> None:
         """
-        generated : gen_always funct_expr
-        | gen_always funct_expr id
-        | gen_always LP multi_id RP
+        generated : gen_always multi_id
+        | gen_always multi_id id
+        | gen_always LP f_call RP
+        | gen_always LP f_call RP id
+        | gen_always LP check_pid RP
+        | gen_always LP check_pid RP id
         | gen_always f_call
         """
         p_list = list(p)
         stored = False
+        from_check_pid = False
         if len(p) > 3 and p_list[-1].lower() == "stored":
             stored = True
-        _as = p[2]
+        if p_list[2] == "(":
+            _as = p[3]
+            if isinstance(_as, list):
+                from_check_pid = True
+                _as = " ".join(_as)
+        else:
+            _as = p[2]
         if isinstance(_as, str):
             _as = check_spec(_as)
+            if from_check_pid:
+                _as = self.normalize_generated_expression(_as)
 
         p[0] = {"generated": {"always": True, "as": _as, "stored": stored}}
+
+    @staticmethod
+    def normalize_generated_expression(expression: str) -> str:
+        expression = re.sub(r"\s*,\s*", ",", expression)
+        expression = re.sub(r"\(\s+", "(", expression)
+        expression = re.sub(r"\s+\)", ")", expression)
+        expression = re.sub(r"\s*::\s*", "::", expression)
+        keywords_with_spacing = {
+            "CASE",
+            "WHEN",
+            "THEN",
+            "ELSE",
+            "END",
+            "AND",
+            "OR",
+            "NOT",
+        }
+
+        def _normalize_call_spacing(match: re.Match) -> str:
+            name = match.group(1)
+            if name.upper() in keywords_with_spacing:
+                return f"{name} ("
+            return f"{name}("
+
+        expression = re.sub(
+            r"\b([A-Za-z_][A-Za-z0-9_$]*)\s+\(", _normalize_call_spacing, expression
+        )
+        return expression.replace("\\\\", "\\")
 
     def p_gen_always(self, p: List) -> None:
         """
@@ -1860,6 +1925,7 @@ class BaseSQL(
 
     def p_check_st(self, p: List) -> None:
         """check_st : CHECK LP multi_id_statement RP
+        | CHECK LP check_pid RP
         | CHECK LP f_call id id RP
         | CHECK LP f_call id RP
         | CHECK LP f_call RP
@@ -1901,6 +1967,38 @@ class BaseSQL(
             else:
                 p[0]["check"].append(item)
             i += 1
+
+    def p_check_pid(self, p: List) -> None:
+        """check_pid : id
+        | STRING
+        | IS
+        | NULL
+        | OR
+        | EQ
+        | COMMA
+        | check_pid id
+        | check_pid STRING
+        | check_pid IS
+        | check_pid NULL
+        | check_pid OR
+        | check_pid EQ
+        | check_pid COMMA
+        | LP check_pid RP
+        | check_pid LP check_pid RP
+        """
+        p_list = list(p)
+        if len(p_list) == 2:
+            p[0] = [p_list[1]]
+        elif len(p_list) == 4 and p_list[1] == "(":
+            nested = " ".join(p[2]) if isinstance(p[2], list) else p[2]
+            p[0] = [f"({nested})"]
+        elif len(p_list) == 5 and isinstance(p[1], list) and p_list[2] == "(":
+            p[0] = p_list[1]
+            nested = " ".join(p[3]) if isinstance(p[3], list) else p[3]
+            p[0].append(f"({nested})")
+        else:
+            p[0] = p_list[1]
+            p[0].append(p_list[-1])
 
     def p_using_tablespace(self, p: List) -> None:
         """using_tablespace : USING INDEX tablespace"""
@@ -2026,6 +2124,7 @@ class BaseSQL(
 
     def p_uniq(self, p: List) -> None:
         """uniq : UNIQUE LP pid RP
+        | UNIQUE id LP pid RP
         | UNIQUE KEY id LP pid RP
         """
         p_list = remove_par(list(p))

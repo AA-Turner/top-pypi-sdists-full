@@ -1,4 +1,7 @@
-from typing import Any, Callable, Dict, Optional
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
 
 from ignite.distributed import utils as idist
 from ignite.utils import setup_logger
@@ -211,13 +214,13 @@ class Parallel:
 
     def __init__(
         self,
-        backend: Optional[str] = None,
-        nproc_per_node: Optional[int] = None,
-        nnodes: Optional[int] = None,
-        node_rank: Optional[int] = None,
-        master_addr: Optional[str] = None,
-        master_port: Optional[int] = None,
-        init_method: Optional[str] = None,
+        backend: str | None = None,
+        nproc_per_node: int | None = None,
+        nnodes: int | None = None,
+        node_rank: int | None = None,
+        master_addr: str | None = None,
+        master_port: int | None = None,
+        init_method: str | None = None,
         **spawn_kwargs: Any,
     ) -> None:
         if backend is not None:
@@ -246,13 +249,13 @@ class Parallel:
     @staticmethod
     def _setup_spawn_params(
         nproc_per_node: int,
-        nnodes: Optional[int] = None,
-        node_rank: Optional[int] = None,
-        master_addr: Optional[str] = None,
-        master_port: Optional[int] = None,
-        init_method: Optional[str] = None,
+        nnodes: int | None = None,
+        node_rank: int | None = None,
+        master_addr: str | None = None,
+        master_port: int | None = None,
+        init_method: str | None = None,
         **spawn_kwargs: Any,
-    ) -> Dict:
+    ) -> dict:
         if nproc_per_node < 1:
             raise ValueError(f"Argument nproc_per_node should positive, but given {nproc_per_node}")
         if nnodes is None:
@@ -322,19 +325,15 @@ class Parallel:
             idist.initialize(self.backend, init_method=self.init_method)
 
         # The logger can be setup from now since idist.initialize() has been called (if needed)
-        self._logger = setup_logger(__name__ + "." + self.__class__.__name__)  # type: ignore[assignment]
+        self._logger = setup_logger(__name__ + "." + self.__class__.__name__)
 
         if self.backend is not None:
             if self._spawn_params is None:
-                self._logger.info(  # type: ignore[attr-defined]
-                    f"Initialized processing group with backend: '{self.backend}'"
-                )
+                self._logger.info(f"Initialized processing group with backend: '{self.backend}'")
             else:
-                self._logger.info(  # type: ignore[attr-defined]
-                    f"Initialized distributed launcher with backend: '{self.backend}'"
-                )
+                self._logger.info(f"Initialized distributed launcher with backend: '{self.backend}'")
                 msg = "\n\t".join([f"{k}: {v}" for k, v in self._spawn_params.items() if v is not None])
-                self._logger.info(f"- Parameters to spawn processes: \n\t{msg}")  # type: ignore[attr-defined]
+                self._logger.info(f"- Parameters to spawn processes: \n\t{msg}")
 
         return self
 

@@ -14,6 +14,7 @@ from .types import (
     HookMatcher,
     McpStatusResponse,
     Message,
+    PermissionMode,
     ResultMessage,
 )
 
@@ -179,8 +180,8 @@ class ClaudeSDKClient:
         await self._query.initialize()
 
         # If we have an initial prompt stream, start streaming it
-        if prompt is not None and isinstance(prompt, AsyncIterable) and self._query._tg:
-            self._query._tg.start_soon(self._query.stream_input, prompt)
+        if prompt is not None and isinstance(prompt, AsyncIterable):
+            self._query.spawn_task(self._query.stream_input(prompt))
 
     async def receive_messages(self) -> AsyncIterator[Message]:
         """Receive all messages from Claude."""
@@ -230,14 +231,16 @@ class ClaudeSDKClient:
             raise CLIConnectionError("Not connected. Call connect() first.")
         await self._query.interrupt()
 
-    async def set_permission_mode(self, mode: str) -> None:
+    async def set_permission_mode(self, mode: PermissionMode) -> None:
         """Change permission mode during conversation (only works with streaming mode).
 
         Args:
             mode: The permission mode to set. Valid options:
                 - 'default': CLI prompts for dangerous tools
                 - 'acceptEdits': Auto-accept file edits
+                - 'plan': Plan-only mode (no tool execution)
                 - 'bypassPermissions': Allow all tools (use with caution)
+                - 'dontAsk': Allow all tools without prompting
 
         Example:
             ```python

@@ -240,6 +240,26 @@ class GrpcHandler:
             self._channel.close()
         self._channel = None
 
+    def reconnect(self, address: Optional[str] = None, timeout: float = 10):
+        """Reset the gRPC channel, reconnecting to the same or a new address.
+
+        Preserves the handler object identity so that all existing references
+        (MilvusClient._handler, in-flight retry loops) continue to work.
+
+        Args:
+            address: Optional new address to connect to.
+            timeout: Connection timeout in seconds.
+        """
+        try:
+            self.close()
+        except Exception:
+            # Ensure channel is cleared even if close() fails
+            self._channel = None
+        if address:
+            self._address = address
+        self._setup_grpc_channel()
+        self._wait_for_channel_ready(timeout=timeout)
+
     def reset_db_name(self, db_name: str):
         """Deprecated: db_name is now passed per-request via kwargs.
 
@@ -1120,6 +1140,8 @@ class GrpcHandler:
                 return SearchFuture(future, func)
 
             response = self._stub.Search(request, timeout=timeout, metadata=_api_level_md(context))
+            if response is None:
+                raise MilvusException(message="Received None response from server during search")
             check_status(response.status)
             round_decimal = kwargs.get("round_decimal", -1)
             return SearchResult(
@@ -1153,6 +1175,8 @@ class GrpcHandler:
             response = self._stub.HybridSearch(
                 request, timeout=timeout, metadata=_api_level_md(context)
             )
+            if response is None:
+                raise MilvusException(message="Received None response from server during search")
             check_status(response.status)
             round_decimal = kwargs.get("round_decimal", -1)
             return SearchResult(response.results, round_decimal, status=response.status)
@@ -1198,6 +1222,17 @@ class GrpcHandler:
         use_default_consistency = ts_utils.construct_guarantee_ts(
             collection_name, kwargs, self.server_address, (context.get_db_name() if context else "")
         )
+
+        if (
+            not kwargs.get("schema")
+            and data is not None
+            and len(data) > 0
+            and isinstance(data[0], bytes)
+        ):
+            schema_dict, _ = self._get_schema(
+                collection_name, timeout=timeout, context=context, **kwargs
+            )
+            kwargs["schema"] = schema_dict
 
         request = Prepare.search_requests_with_expr(
             collection_name=collection_name,
@@ -1246,6 +1281,15 @@ class GrpcHandler:
             collection_name, kwargs, self.server_address, (context.get_db_name() if context else "")
         )
 
+        _cached_schema = kwargs.get("schema")
+        if not _cached_schema:
+            for req in reqs:
+                if req.data is not None and len(req.data) > 0 and isinstance(req.data[0], bytes):
+                    _cached_schema, _ = self._get_schema(
+                        collection_name, timeout=timeout, context=context, **kwargs
+                    )
+                    break
+
         requests = []
         for req in reqs:
             # Convert EmbeddingList to flat array if present in the request data
@@ -1254,6 +1298,9 @@ class GrpcHandler:
             if isinstance(data, list) and data and isinstance(data[0], EmbeddingList):
                 data = [emb_list.to_flat_array() for emb_list in data]
                 req_kwargs["is_embedding_list"] = True
+
+            if _cached_schema and not req_kwargs.get("schema"):
+                req_kwargs["schema"] = _cached_schema
 
             search_request = Prepare.search_requests_with_expr(
                 collection_name=collection_name,
@@ -3115,6 +3162,7 @@ class GrpcHandler:
         self,
         clusters: Optional[List[Dict]] = None,
         cross_cluster_topology: Optional[List[Dict]] = None,
+        force_promote: bool = False,
         timeout: Optional[float] = None,
         context: Optional[CallContext] = None,
         **kwargs,
@@ -3123,8 +3171,9 @@ class GrpcHandler:
         Update replication configuration across Milvus clusters.
 
         Args:
-            clusters: The replication configuration to apply
-            cross_cluster_topology: The replication configuration to apply
+            clusters: List of cluster configurations to apply
+            cross_cluster_topology: List of cross-cluster topology relationships to apply
+            force_promote: If true, force promote the current cluster to primary
             timeout: An optional duration of time in seconds to allow for the RPC
             **kwargs: Additional arguments
 
@@ -3134,6 +3183,7 @@ class GrpcHandler:
         request = Prepare.update_replicate_configuration_request(
             clusters=clusters,
             cross_cluster_topology=cross_cluster_topology,
+            force_promote=force_promote,
         )
 
         status = self._stub.UpdateReplicateConfiguration(

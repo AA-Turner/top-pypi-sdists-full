@@ -16,8 +16,8 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import Field, StrictStr
-from typing import Any
+from pydantic import Field, StrictBool, StrictStr
+from typing import Any, Optional
 from typing_extensions import Annotated
 from arthur_client.api_bindings.models.attestation_record import AttestationRecord
 from arthur_client.api_bindings.models.create_policy_assignments_request import CreatePolicyAssignmentsRequest
@@ -29,6 +29,7 @@ from arthur_client.api_bindings.models.policy_alert_rule import PolicyAlertRule
 from arthur_client.api_bindings.models.policy_assignment import PolicyAssignment
 from arthur_client.api_bindings.models.policy_assignment_detail import PolicyAssignmentDetail
 from arthur_client.api_bindings.models.policy_attestation_rule import PolicyAttestationRule
+from arthur_client.api_bindings.models.policy_sort import PolicySort
 from arthur_client.api_bindings.models.policy_summary import PolicySummary
 from arthur_client.api_bindings.models.post_attestation_record import PostAttestationRecord
 from arthur_client.api_bindings.models.post_policy import PostPolicy
@@ -40,6 +41,7 @@ from arthur_client.api_bindings.models.resource_list_policy_alert_rule import Re
 from arthur_client.api_bindings.models.resource_list_policy_assignment import ResourceListPolicyAssignment
 from arthur_client.api_bindings.models.resource_list_policy_attestation_rule import ResourceListPolicyAttestationRule
 from arthur_client.api_bindings.models.set_compliance_status_request import SetComplianceStatusRequest
+from arthur_client.api_bindings.models.sort_order import SortOrder
 
 from arthur_client.api_bindings.api_client import ApiClient, RequestSerialized
 from arthur_client.api_bindings.api_response import ApiResponse
@@ -1174,7 +1176,7 @@ class PoliciesV1Api:
     ) -> PolicySummary:
         """Create Policy
 
-        Creates a new policy with inline rules for the organization. At least one alert or attestation rule is required.
+        Creates a new policy with inline rules for the organization. At least one alert or attestation rule is required. Requires organization_create_policy permission.
 
         :param post_policy: (required)
         :type post_policy: PostPolicy
@@ -1243,7 +1245,7 @@ class PoliciesV1Api:
     ) -> ApiResponse[PolicySummary]:
         """Create Policy
 
-        Creates a new policy with inline rules for the organization. At least one alert or attestation rule is required.
+        Creates a new policy with inline rules for the organization. At least one alert or attestation rule is required. Requires organization_create_policy permission.
 
         :param post_policy: (required)
         :type post_policy: PostPolicy
@@ -1312,7 +1314,7 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """Create Policy
 
-        Creates a new policy with inline rules for the organization. At least one alert or attestation rule is required.
+        Creates a new policy with inline rules for the organization. At least one alert or attestation rule is required. Requires organization_create_policy permission.
 
         :param post_policy: (required)
         :type post_policy: PostPolicy
@@ -1750,7 +1752,7 @@ class PoliciesV1Api:
     ) -> ResourceListPolicyAssignment:
         """Create Policy Assignments
 
-        Applies a policy to one or more applications. Requires both policy_assignment_create on the policy and model_assign_policy on each target model.
+        Applies a policy to one or more applications.
 
         :param policy_id: The ID of the policy. (required)
         :type policy_id: str
@@ -1823,7 +1825,7 @@ class PoliciesV1Api:
     ) -> ApiResponse[ResourceListPolicyAssignment]:
         """Create Policy Assignments
 
-        Applies a policy to one or more applications. Requires both policy_assignment_create on the policy and model_assign_policy on each target model.
+        Applies a policy to one or more applications.
 
         :param policy_id: The ID of the policy. (required)
         :type policy_id: str
@@ -1896,7 +1898,7 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """Create Policy Assignments
 
-        Applies a policy to one or more applications. Requires both policy_assignment_create on the policy and model_assign_policy on each target model.
+        Applies a policy to one or more applications.
 
         :param policy_id: The ID of the policy. (required)
         :type policy_id: str
@@ -2323,7 +2325,7 @@ class PoliciesV1Api:
     @validate_call
     def delete_policy(
         self,
-        policy_id: Annotated[StrictStr, Field(description="The ID of the policy to delete.")],
+        policy_id: StrictStr,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2339,9 +2341,9 @@ class PoliciesV1Api:
     ) -> None:
         """Delete Policy
 
-        Deletes a policy and cascades to all assignments, materialized rules, and attestation records.
+        Deletes a policy and cascades to all assignments, materialized rules, and attestation records. Requires policy_delete permission.
 
-        :param policy_id: The ID of the policy to delete. (required)
+        :param policy_id: (required)
         :type policy_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2392,7 +2394,7 @@ class PoliciesV1Api:
     @validate_call
     def delete_policy_with_http_info(
         self,
-        policy_id: Annotated[StrictStr, Field(description="The ID of the policy to delete.")],
+        policy_id: StrictStr,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2408,9 +2410,9 @@ class PoliciesV1Api:
     ) -> ApiResponse[None]:
         """Delete Policy
 
-        Deletes a policy and cascades to all assignments, materialized rules, and attestation records.
+        Deletes a policy and cascades to all assignments, materialized rules, and attestation records. Requires policy_delete permission.
 
-        :param policy_id: The ID of the policy to delete. (required)
+        :param policy_id: (required)
         :type policy_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -2461,7 +2463,7 @@ class PoliciesV1Api:
     @validate_call
     def delete_policy_without_preload_content(
         self,
-        policy_id: Annotated[StrictStr, Field(description="The ID of the policy to delete.")],
+        policy_id: StrictStr,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2477,9 +2479,9 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """Delete Policy
 
-        Deletes a policy and cascades to all assignments, materialized rules, and attestation records.
+        Deletes a policy and cascades to all assignments, materialized rules, and attestation records. Requires policy_delete permission.
 
-        :param policy_id: The ID of the policy to delete. (required)
+        :param policy_id: (required)
         :type policy_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3391,7 +3393,7 @@ class PoliciesV1Api:
     @validate_call
     def get_policy(
         self,
-        policy_id: Annotated[StrictStr, Field(description="The ID of the policy.")],
+        policy_id: StrictStr,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3407,9 +3409,9 @@ class PoliciesV1Api:
     ) -> Policy:
         """Get Policy
 
-        Returns a single policy by ID including nested alert rules and attestation rules.
+        Returns a single policy by ID including nested alert rules and attestation rules. Requires policy_read permission.
 
-        :param policy_id: The ID of the policy. (required)
+        :param policy_id: (required)
         :type policy_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3460,7 +3462,7 @@ class PoliciesV1Api:
     @validate_call
     def get_policy_with_http_info(
         self,
-        policy_id: Annotated[StrictStr, Field(description="The ID of the policy.")],
+        policy_id: StrictStr,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3476,9 +3478,9 @@ class PoliciesV1Api:
     ) -> ApiResponse[Policy]:
         """Get Policy
 
-        Returns a single policy by ID including nested alert rules and attestation rules.
+        Returns a single policy by ID including nested alert rules and attestation rules. Requires policy_read permission.
 
-        :param policy_id: The ID of the policy. (required)
+        :param policy_id: (required)
         :type policy_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -3529,7 +3531,7 @@ class PoliciesV1Api:
     @validate_call
     def get_policy_without_preload_content(
         self,
-        policy_id: Annotated[StrictStr, Field(description="The ID of the policy.")],
+        policy_id: StrictStr,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3545,9 +3547,9 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """Get Policy
 
-        Returns a single policy by ID including nested alert rules and attestation rules.
+        Returns a single policy by ID including nested alert rules and attestation rules. Requires policy_read permission.
 
-        :param policy_id: The ID of the policy. (required)
+        :param policy_id: (required)
         :type policy_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -4727,6 +4729,9 @@ class PoliciesV1Api:
     def list_model_attestations(
         self,
         model_id: Annotated[StrictStr, Field(description="The ID of the model.")],
+        latest: Annotated[Optional[StrictBool], Field(description="If true, only return the most recent attestation for each rule.")] = None,
+        valid: Annotated[Optional[StrictBool], Field(description="If true, only return attestations that have not expired.")] = None,
+        policy_assignment_id: Annotated[Optional[StrictStr], Field(description="Optional policy assignment ID to filter attestations by.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4746,6 +4751,12 @@ class PoliciesV1Api:
 
         :param model_id: The ID of the model. (required)
         :type model_id: str
+        :param latest: If true, only return the most recent attestation for each rule.
+        :type latest: bool
+        :param valid: If true, only return attestations that have not expired.
+        :type valid: bool
+        :param policy_assignment_id: Optional policy assignment ID to filter attestations by.
+        :type policy_assignment_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4770,6 +4781,9 @@ class PoliciesV1Api:
 
         _param = self._list_model_attestations_serialize(
             model_id=model_id,
+            latest=latest,
+            valid=valid,
+            policy_assignment_id=policy_assignment_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4796,6 +4810,9 @@ class PoliciesV1Api:
     def list_model_attestations_with_http_info(
         self,
         model_id: Annotated[StrictStr, Field(description="The ID of the model.")],
+        latest: Annotated[Optional[StrictBool], Field(description="If true, only return the most recent attestation for each rule.")] = None,
+        valid: Annotated[Optional[StrictBool], Field(description="If true, only return attestations that have not expired.")] = None,
+        policy_assignment_id: Annotated[Optional[StrictStr], Field(description="Optional policy assignment ID to filter attestations by.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4815,6 +4832,12 @@ class PoliciesV1Api:
 
         :param model_id: The ID of the model. (required)
         :type model_id: str
+        :param latest: If true, only return the most recent attestation for each rule.
+        :type latest: bool
+        :param valid: If true, only return attestations that have not expired.
+        :type valid: bool
+        :param policy_assignment_id: Optional policy assignment ID to filter attestations by.
+        :type policy_assignment_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4839,6 +4862,9 @@ class PoliciesV1Api:
 
         _param = self._list_model_attestations_serialize(
             model_id=model_id,
+            latest=latest,
+            valid=valid,
+            policy_assignment_id=policy_assignment_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4865,6 +4891,9 @@ class PoliciesV1Api:
     def list_model_attestations_without_preload_content(
         self,
         model_id: Annotated[StrictStr, Field(description="The ID of the model.")],
+        latest: Annotated[Optional[StrictBool], Field(description="If true, only return the most recent attestation for each rule.")] = None,
+        valid: Annotated[Optional[StrictBool], Field(description="If true, only return attestations that have not expired.")] = None,
+        policy_assignment_id: Annotated[Optional[StrictStr], Field(description="Optional policy assignment ID to filter attestations by.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4884,6 +4913,12 @@ class PoliciesV1Api:
 
         :param model_id: The ID of the model. (required)
         :type model_id: str
+        :param latest: If true, only return the most recent attestation for each rule.
+        :type latest: bool
+        :param valid: If true, only return attestations that have not expired.
+        :type valid: bool
+        :param policy_assignment_id: Optional policy assignment ID to filter attestations by.
+        :type policy_assignment_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4908,6 +4943,9 @@ class PoliciesV1Api:
 
         _param = self._list_model_attestations_serialize(
             model_id=model_id,
+            latest=latest,
+            valid=valid,
+            policy_assignment_id=policy_assignment_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4929,6 +4967,9 @@ class PoliciesV1Api:
     def _list_model_attestations_serialize(
         self,
         model_id,
+        latest,
+        valid,
+        policy_assignment_id,
         _request_auth,
         _content_type,
         _headers,
@@ -4953,6 +4994,18 @@ class PoliciesV1Api:
         if model_id is not None:
             _path_params['model_id'] = model_id
         # process the query parameters
+        if latest is not None:
+            
+            _query_params.append(('latest', latest))
+            
+        if valid is not None:
+            
+            _query_params.append(('valid', valid))
+            
+        if policy_assignment_id is not None:
+            
+            _query_params.append(('policy_assignment_id', policy_assignment_id))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -4994,6 +5047,7 @@ class PoliciesV1Api:
     def list_model_policy_assignments(
         self,
         model_id: Annotated[StrictStr, Field(description="The ID of the model.")],
+        assignment_id: Annotated[Optional[StrictStr], Field(description="Optional assignment ID to filter by.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5013,6 +5067,8 @@ class PoliciesV1Api:
 
         :param model_id: The ID of the model. (required)
         :type model_id: str
+        :param assignment_id: Optional assignment ID to filter by.
+        :type assignment_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -5037,6 +5093,7 @@ class PoliciesV1Api:
 
         _param = self._list_model_policy_assignments_serialize(
             model_id=model_id,
+            assignment_id=assignment_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -5063,6 +5120,7 @@ class PoliciesV1Api:
     def list_model_policy_assignments_with_http_info(
         self,
         model_id: Annotated[StrictStr, Field(description="The ID of the model.")],
+        assignment_id: Annotated[Optional[StrictStr], Field(description="Optional assignment ID to filter by.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5082,6 +5140,8 @@ class PoliciesV1Api:
 
         :param model_id: The ID of the model. (required)
         :type model_id: str
+        :param assignment_id: Optional assignment ID to filter by.
+        :type assignment_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -5106,6 +5166,7 @@ class PoliciesV1Api:
 
         _param = self._list_model_policy_assignments_serialize(
             model_id=model_id,
+            assignment_id=assignment_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -5132,6 +5193,7 @@ class PoliciesV1Api:
     def list_model_policy_assignments_without_preload_content(
         self,
         model_id: Annotated[StrictStr, Field(description="The ID of the model.")],
+        assignment_id: Annotated[Optional[StrictStr], Field(description="Optional assignment ID to filter by.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5151,6 +5213,8 @@ class PoliciesV1Api:
 
         :param model_id: The ID of the model. (required)
         :type model_id: str
+        :param assignment_id: Optional assignment ID to filter by.
+        :type assignment_id: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -5175,6 +5239,7 @@ class PoliciesV1Api:
 
         _param = self._list_model_policy_assignments_serialize(
             model_id=model_id,
+            assignment_id=assignment_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -5196,6 +5261,7 @@ class PoliciesV1Api:
     def _list_model_policy_assignments_serialize(
         self,
         model_id,
+        assignment_id,
         _request_auth,
         _content_type,
         _headers,
@@ -5220,6 +5286,10 @@ class PoliciesV1Api:
         if model_id is not None:
             _path_params['model_id'] = model_id
         # process the query parameters
+        if assignment_id is not None:
+            
+            _query_params.append(('assignment_id', assignment_id))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -5260,6 +5330,11 @@ class PoliciesV1Api:
     @validate_call
     def list_policies(
         self,
+        sort: Annotated[Optional[PolicySort], Field(description="Override the field used for sorting the returned list.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="Override the sort order used.")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="Filter policies by name (case-insensitive partial match).")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5275,8 +5350,18 @@ class PoliciesV1Api:
     ) -> ResourceListPolicy:
         """List Policies
 
-        Lists all policies for the organization.
+        Lists all policies for the organization. Requires organization_list_policies permission.
 
+        :param sort: Override the field used for sorting the returned list.
+        :type sort: PolicySort
+        :param order: Override the sort order used.
+        :type order: SortOrder
+        :param name: Filter policies by name (case-insensitive partial match).
+        :type name: str
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -5300,6 +5385,11 @@ class PoliciesV1Api:
         """ # noqa: E501
 
         _param = self._list_policies_serialize(
+            sort=sort,
+            order=order,
+            name=name,
+            page=page,
+            page_size=page_size,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -5309,6 +5399,7 @@ class PoliciesV1Api:
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "ResourceListPolicy",
             '500': "InternalServerError",
+            '422': "HTTPValidationError",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5324,6 +5415,11 @@ class PoliciesV1Api:
     @validate_call
     def list_policies_with_http_info(
         self,
+        sort: Annotated[Optional[PolicySort], Field(description="Override the field used for sorting the returned list.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="Override the sort order used.")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="Filter policies by name (case-insensitive partial match).")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5339,8 +5435,18 @@ class PoliciesV1Api:
     ) -> ApiResponse[ResourceListPolicy]:
         """List Policies
 
-        Lists all policies for the organization.
+        Lists all policies for the organization. Requires organization_list_policies permission.
 
+        :param sort: Override the field used for sorting the returned list.
+        :type sort: PolicySort
+        :param order: Override the sort order used.
+        :type order: SortOrder
+        :param name: Filter policies by name (case-insensitive partial match).
+        :type name: str
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -5364,6 +5470,11 @@ class PoliciesV1Api:
         """ # noqa: E501
 
         _param = self._list_policies_serialize(
+            sort=sort,
+            order=order,
+            name=name,
+            page=page,
+            page_size=page_size,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -5373,6 +5484,7 @@ class PoliciesV1Api:
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "ResourceListPolicy",
             '500': "InternalServerError",
+            '422': "HTTPValidationError",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5388,6 +5500,11 @@ class PoliciesV1Api:
     @validate_call
     def list_policies_without_preload_content(
         self,
+        sort: Annotated[Optional[PolicySort], Field(description="Override the field used for sorting the returned list.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="Override the sort order used.")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="Filter policies by name (case-insensitive partial match).")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5403,8 +5520,18 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """List Policies
 
-        Lists all policies for the organization.
+        Lists all policies for the organization. Requires organization_list_policies permission.
 
+        :param sort: Override the field used for sorting the returned list.
+        :type sort: PolicySort
+        :param order: Override the sort order used.
+        :type order: SortOrder
+        :param name: Filter policies by name (case-insensitive partial match).
+        :type name: str
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -5428,6 +5555,11 @@ class PoliciesV1Api:
         """ # noqa: E501
 
         _param = self._list_policies_serialize(
+            sort=sort,
+            order=order,
+            name=name,
+            page=page,
+            page_size=page_size,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -5437,6 +5569,7 @@ class PoliciesV1Api:
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "ResourceListPolicy",
             '500': "InternalServerError",
+            '422': "HTTPValidationError",
         }
         response_data = self.api_client.call_api(
             *_param,
@@ -5447,6 +5580,11 @@ class PoliciesV1Api:
 
     def _list_policies_serialize(
         self,
+        sort,
+        order,
+        name,
+        page,
+        page_size,
         _request_auth,
         _content_type,
         _headers,
@@ -5469,6 +5607,26 @@ class PoliciesV1Api:
 
         # process the path parameters
         # process the query parameters
+        if sort is not None:
+            
+            _query_params.append(('sort', sort.value))
+            
+        if order is not None:
+            
+            _query_params.append(('order', order.value))
+            
+        if name is not None:
+            
+            _query_params.append(('name', name))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -6872,7 +7030,7 @@ class PoliciesV1Api:
     @validate_call
     def update_policy(
         self,
-        policy_id: Annotated[StrictStr, Field(description="The ID of the policy to update.")],
+        policy_id: StrictStr,
         patch_policy: PatchPolicy,
         _request_timeout: Union[
             None,
@@ -6889,9 +7047,9 @@ class PoliciesV1Api:
     ) -> Policy:
         """Update Policy
 
-        Updates a policy's metadata or enforcement delay.
+        Updates a policy's metadata or enforcement delay. Requires policy_update permission.
 
-        :param policy_id: The ID of the policy to update. (required)
+        :param policy_id: (required)
         :type policy_id: str
         :param patch_policy: (required)
         :type patch_policy: PatchPolicy
@@ -6945,7 +7103,7 @@ class PoliciesV1Api:
     @validate_call
     def update_policy_with_http_info(
         self,
-        policy_id: Annotated[StrictStr, Field(description="The ID of the policy to update.")],
+        policy_id: StrictStr,
         patch_policy: PatchPolicy,
         _request_timeout: Union[
             None,
@@ -6962,9 +7120,9 @@ class PoliciesV1Api:
     ) -> ApiResponse[Policy]:
         """Update Policy
 
-        Updates a policy's metadata or enforcement delay.
+        Updates a policy's metadata or enforcement delay. Requires policy_update permission.
 
-        :param policy_id: The ID of the policy to update. (required)
+        :param policy_id: (required)
         :type policy_id: str
         :param patch_policy: (required)
         :type patch_policy: PatchPolicy
@@ -7018,7 +7176,7 @@ class PoliciesV1Api:
     @validate_call
     def update_policy_without_preload_content(
         self,
-        policy_id: Annotated[StrictStr, Field(description="The ID of the policy to update.")],
+        policy_id: StrictStr,
         patch_policy: PatchPolicy,
         _request_timeout: Union[
             None,
@@ -7035,9 +7193,9 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """Update Policy
 
-        Updates a policy's metadata or enforcement delay.
+        Updates a policy's metadata or enforcement delay. Requires policy_update permission.
 
-        :param policy_id: The ID of the policy to update. (required)
+        :param policy_id: (required)
         :type policy_id: str
         :param patch_policy: (required)
         :type patch_policy: PatchPolicy

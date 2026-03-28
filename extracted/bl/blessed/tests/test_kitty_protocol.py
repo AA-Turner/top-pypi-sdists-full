@@ -20,7 +20,6 @@ from tests.conftest import IS_WINDOWS, TEST_KEYBOARD
 # isort: off
 # curses
 if platform.system() == 'Windows':
-    # pylint: disable=import-error
     from jinxed import KEY_EXIT, KEY_ENTER, KEY_BACKSPACE
 else:
     from curses import KEY_EXIT, KEY_ENTER, KEY_BACKSPACE
@@ -660,17 +659,21 @@ def test_kitty_letter_digit_name_synthesis(sequence, expected_name, expected_val
 
 
 @pytest.mark.parametrize("sequence,expected_name,expected_value", [
-    ('\x1b[49u', None, '1'),
-    ('\x1b[97;1u', None, 'a'),
-    ('\x1b[65;1u', None, 'A'),
-    ('\x1b[122;1u', None, 'z'),
-    ('\x1b[97u', None, 'a'),
-    ('\x1b[32;5u', None, ' '),
-    ('\x1b[33;3u', None, '!'),
-    ('\x1b[59;5u', None, ';'),
-    ('\x1b[46;3u', None, '.'),
-    ('\x1b[64;5u', None, '@'),
-    ('\x1b[91;3u', 'CSI', '['),
+    ('\x1b[49u', 'KEY_1', '1'),
+    ('\x1b[97;1u', 'KEY_A', 'a'),
+    ('\x1b[65;1u', 'KEY_A', 'A'),
+    ('\x1b[122;1u', 'KEY_Z', 'z'),
+    ('\x1b[97u', 'KEY_A', 'a'),
+    ('\x1b[32;5u', 'KEY_CTRL_SPACE', ' '),
+    ('\x1b[33;3u', 'KEY_ALT_EXCLAMATION_MARK', '!'),
+    ('\x1b[59;5u', 'KEY_CTRL_SEMICOLON', ';'),
+    ('\x1b[46;3u', 'KEY_ALT_PERIOD', '.'),
+    ('\x1b[64;5u', 'KEY_CTRL_AT', '@'),
+    ('\x1b[91;3u', 'KEY_ALT_LEFT_SQUARE_BRACKET', '['),
+    ('\x1b[233u', None, '\xe9'),  # e-acute, no name for non-ASCII
+    ('\x1b[12354u', None, '\u3042'),  # hiragana 'a', Japanese IME
+    ('\x1b[26159u', None, '\u662f'),  # han 'shi' (is), Chinese IME
+    ('\x1b[44032u', None, '\uac00'),  # hangul 'ga', Korean IME
 ])
 def test_kitty_name_synthesis_edge_cases(sequence, expected_name, expected_value):
     """Test name synthesis edge cases."""
@@ -702,6 +705,14 @@ def test_kitty_name_synthesis_edge_cases(sequence, expected_name, expected_value
     # Repeat event tests
     ('\x1b[106;5:2u', 'KEY_CTRL_J_REPEATED'),
     ('\x1b[97;3:2u', 'KEY_ALT_A_REPEATED'),
+
+    # Unmodified release/repeat events
+    ('\x1b[111;1:3u', 'KEY_O_RELEASED'),
+    ('\x1b[111;1:2u', 'KEY_O_REPEATED'),
+    ('\x1b[97;1:3u', 'KEY_A_RELEASED'),
+    ('\x1b[97;1:2u', 'KEY_A_REPEATED'),
+    ('\x1b[49;1:3u', 'KEY_1_RELEASED'),
+    ('\x1b[49;1:2u', 'KEY_1_REPEATED'),
 ])
 def test_kitty_name_synthesis_special_cases(sequence, expected_name):
     """Test special cases in Kitty protocol name synthesis including event types."""
@@ -800,10 +811,10 @@ def test_disambiguate_f1_f4_not_confused_with_alt():
 
 
 @pytest.mark.parametrize("sequence,expected_name", [
-    ('\x1b[91;5u', 'CSI'),
-    ('\x1b[64;5u', None),
-    ('\x1b[96;5u', None),
-    ('\x1b[123;5u', None),
+    ('\x1b[91;5u', 'KEY_CTRL_LEFT_SQUARE_BRACKET'),
+    ('\x1b[64;5u', 'KEY_CTRL_AT'),
+    ('\x1b[96;5u', 'KEY_CTRL_GRAVE_ACCENT'),
+    ('\x1b[123;5u', 'KEY_CTRL_LEFT_CURLY_BRACKET'),
     ('\x1b[65;5u', 'KEY_CTRL_A'),
     ('\x1b[90;5u', 'KEY_CTRL_Z'),
     ('\x1b[97;5u', 'KEY_CTRL_A'),
@@ -962,6 +973,25 @@ def test_event_type_name_suffixes(sequence, expected_name, expected_value):
     ks = _match_legacy_csi_letter_form(sequence)
     assert ks.name == expected_name
     assert ks.value == expected_value
+
+
+@pytest.mark.parametrize("sequence,expected_name", [
+    ('\x1b[1;1:1A', 'KEY_UP'),
+    ('\x1b[1;1:1B', 'KEY_DOWN'),
+    ('\x1b[1;1:1C', 'KEY_RIGHT'),
+    ('\x1b[1;1:1D', 'KEY_LEFT'),
+    ('\x1b[1;1:3A', 'KEY_UP_RELEASED'),
+    ('\x1b[1;1:3D', 'KEY_LEFT_RELEASED'),
+    ('\x1b[1;1:2A', 'KEY_UP_REPEATED'),
+    ('\x1b[1;1:1P', 'KEY_F1'),
+    ('\x1b[1;1:1H', 'KEY_HOME'),
+    ('\x1b[1;1:1F', 'KEY_END'),
+])
+def test_unmodified_press_legacy_csi_arrow_keys(sequence, expected_name):
+    """Test unmodified press events resolve names for legacy CSI sequences."""
+    ks = _match_legacy_csi_letter_form(sequence)
+    assert ks is not None
+    assert ks.name == expected_name
 
 
 def test_event_type_dynamic_predicates():
@@ -1522,3 +1552,161 @@ def test_kitty_state_boundary_kitty_only_response(response, expected_flags):
         assert flags.value == expected_flags
         assert term._kitty_kb_first_query_failed is False
     child()
+
+
+@pytest.mark.parametrize("sequence,expected_key_name,expected_key_value", [
+    # Press: key_name == name, key_value == value
+    ('\x1b[97;5u', 'KEY_CTRL_A', 'a'),
+    ('\x1b[122;3u', 'KEY_ALT_Z', 'z'),
+
+    # Repeat: key_name strips _REPEATED
+    ('\x1b[97;1:2u', 'KEY_A', 'a'),
+    ('\x1b[97;3:2u', 'KEY_ALT_A', 'a'),
+    ('\x1b[106;5:2u', 'KEY_CTRL_J', 'j'),
+
+    # Release: key_name strips _RELEASED, key_value returns the character
+    ('\x1b[97;1:3u', 'KEY_A', 'a'),
+    ('\x1b[97;3:3u', 'KEY_ALT_A', 'a'),
+    ('\x1b[122;7:3u', 'KEY_CTRL_ALT_Z', 'z'),
+    ('\x1b[49;5:3u', 'KEY_CTRL_1', '1'),
+    ('\x1b[111;1:3u', 'KEY_O', 'o'),
+])
+def test_key_name_and_key_value(sequence, expected_key_name, expected_key_value):
+    """Test key_name strips event suffix and key_value works for releases."""
+    ks = _match_kitty_key(sequence)
+    assert ks.key_name == expected_key_name
+    assert ks.key_value == expected_key_value
+
+
+@pytest.mark.parametrize("sequence,expected_name,expected_key_value", [
+    # Control char keys: key_value returns the control character for releases
+    ('\x1b[27;1:3u', 'KEY_ESCAPE', '\x1b'),
+    ('\x1b[13;1:3u', 'KEY_ENTER', '\n'),
+    ('\x1b[9;1:3u', 'KEY_TAB', '\t'),
+])
+def test_key_value_control_keys_released(sequence, expected_name, expected_key_value):
+    """Test key_value returns control char for released control keys."""
+    ks = _match_kitty_key(sequence)
+    assert ks.released
+    assert ks.key_name == expected_name
+    assert ks.key_value == expected_key_value
+    assert ks.value == ''
+
+
+def test_key_name_plain_text():
+    """Test key_name is None for plain text press (no name synthesized)."""
+    ks = Keystroke('a')
+    assert ks.name is None
+    assert ks.key_name is None
+    assert ks.key_value == 'a'
+
+
+def test_key_name_key_value_press_identity():
+    """Test key_name == name and key_value == value for press events."""
+    ks = _match_kitty_key('\x1b[97;5u')
+    assert ks.pressed
+    assert ks.key_name == ks.name
+    assert ks.key_value == ks.value
+
+
+@pytest.mark.parametrize("sequence,expected_name,expected_value", [
+    ('\x1b[97u', 'KEY_A', 'a'),
+    ('\x1b[65u', 'KEY_A', 'A'),
+    ('\x1b[122u', 'KEY_Z', 'z'),
+    ('\x1b[90u', 'KEY_Z', 'Z'),
+    ('\x1b[49u', 'KEY_1', '1'),
+    ('\x1b[48u', 'KEY_0', '0'),
+    ('\x1b[57u', 'KEY_9', '9'),
+    ('\x1b[97;1u', 'KEY_A', 'a'),
+    ('\x1b[65;1u', 'KEY_A', 'A'),
+    ('\x1b[122;1u', 'KEY_Z', 'z'),
+])
+def test_kitty_plain_press_synthesizes_name(sequence, expected_name, expected_value):
+    """Test kitty protocol synthesizes names for unmodified press events."""
+    ks = _match_kitty_key(sequence)
+    assert ks.name == expected_name
+    assert ks.value == expected_value
+
+
+@pytest.mark.parametrize("sequence,expected_name,expected_value", [
+    ('\x1b[32u', 'KEY_SPACE', ' '),
+    ('\x1b[33u', 'KEY_EXCLAMATION_MARK', '!'),
+    ('\x1b[34u', 'KEY_DOUBLE_QUOTE', '"'),
+    ('\x1b[35u', 'KEY_HASH', '#'),
+    ('\x1b[36u', 'KEY_DOLLAR', '$'),
+    ('\x1b[37u', 'KEY_PERCENT', '%'),
+    ('\x1b[38u', 'KEY_AMPERSAND', '&'),
+    ('\x1b[39u', 'KEY_APOSTROPHE', "'"),
+    ('\x1b[40u', 'KEY_LEFT_PARENTHESIS', '('),
+    ('\x1b[41u', 'KEY_RIGHT_PARENTHESIS', ')'),
+    ('\x1b[42u', 'KEY_ASTERISK', '*'),
+    ('\x1b[43u', 'KEY_PLUS', '+'),
+    ('\x1b[44u', 'KEY_COMMA', ','),
+    ('\x1b[45u', 'KEY_MINUS', '-'),
+    ('\x1b[46u', 'KEY_PERIOD', '.'),
+    ('\x1b[47u', 'KEY_SLASH', '/'),
+    ('\x1b[58u', 'KEY_COLON', ':'),
+    ('\x1b[59u', 'KEY_SEMICOLON', ';'),
+    ('\x1b[60u', 'KEY_LESS_THAN', '<'),
+    ('\x1b[61u', 'KEY_EQUALS', '='),
+    ('\x1b[62u', 'KEY_GREATER_THAN', '>'),
+    ('\x1b[63u', 'KEY_QUESTION_MARK', '?'),
+    ('\x1b[64u', 'KEY_AT', '@'),
+    ('\x1b[91u', 'KEY_LEFT_SQUARE_BRACKET', '['),
+    ('\x1b[92u', 'KEY_BACKSLASH', '\\'),
+    ('\x1b[93u', 'KEY_RIGHT_SQUARE_BRACKET', ']'),
+    ('\x1b[94u', 'KEY_CARET', '^'),
+    ('\x1b[95u', 'KEY_UNDERSCORE', '_'),
+    ('\x1b[96u', 'KEY_GRAVE_ACCENT', '`'),
+    ('\x1b[123u', 'KEY_LEFT_CURLY_BRACKET', '{'),
+    ('\x1b[124u', 'KEY_PIPE', '|'),
+    ('\x1b[125u', 'KEY_RIGHT_CURLY_BRACKET', '}'),
+    ('\x1b[126u', 'KEY_TILDE', '~'),
+])
+def test_kitty_ascii_symbol_names(sequence, expected_name, expected_value):
+    """Test kitty protocol synthesizes names for all ASCII symbols."""
+    ks = _match_kitty_key(sequence)
+    assert ks.name == expected_name
+    assert ks.value == expected_value
+
+
+@pytest.mark.parametrize("sequence,expected_name,expected_value", [
+    ('\x1b[91;3u', 'KEY_ALT_LEFT_SQUARE_BRACKET', '['),
+    ('\x1b[91;5u', 'KEY_CTRL_LEFT_SQUARE_BRACKET', '['),
+    ('\x1b[91;7u', 'KEY_CTRL_ALT_LEFT_SQUARE_BRACKET', '['),
+    ('\x1b[91;1:3u', 'KEY_LEFT_SQUARE_BRACKET_RELEASED', ''),
+    ('\x1b[93;3u', 'KEY_ALT_RIGHT_SQUARE_BRACKET', ']'),
+    ('\x1b[93;5u', 'KEY_CTRL_RIGHT_SQUARE_BRACKET', ']'),
+    ('\x1b[32;3u', 'KEY_ALT_SPACE', ' '),
+    ('\x1b[32;5u', 'KEY_CTRL_SPACE', ' '),
+    ('\x1b[33;3u', 'KEY_ALT_EXCLAMATION_MARK', '!'),
+    ('\x1b[46;3u', 'KEY_ALT_PERIOD', '.'),
+    ('\x1b[46;5u', 'KEY_CTRL_PERIOD', '.'),
+    ('\x1b[64;5u', 'KEY_CTRL_AT', '@'),
+    ('\x1b[59;5u', 'KEY_CTRL_SEMICOLON', ';'),
+    ('\x1b[45;3u', 'KEY_ALT_MINUS', '-'),
+    ('\x1b[61;3u', 'KEY_ALT_EQUALS', '='),
+    ('\x1b[47;5u', 'KEY_CTRL_SLASH', '/'),
+    ('\x1b[92;5u', 'KEY_CTRL_BACKSLASH', '\\'),
+    ('\x1b[126;3u', 'KEY_ALT_TILDE', '~'),
+])
+def test_kitty_ascii_symbol_with_modifiers(sequence, expected_name, expected_value):
+    """Test kitty protocol synthesizes names for ASCII symbols with modifiers."""
+    ks = _match_kitty_key(sequence)
+    assert ks.name == expected_name
+    assert ks.value == expected_value
+
+
+@pytest.mark.parametrize("sequence,expected_name", [
+    ('\x1b[91;1:3u', 'KEY_LEFT_SQUARE_BRACKET_RELEASED'),
+    ('\x1b[91;1:2u', 'KEY_LEFT_SQUARE_BRACKET_REPEATED'),
+    ('\x1b[91;3:3u', 'KEY_ALT_LEFT_SQUARE_BRACKET_RELEASED'),
+    ('\x1b[32;1:3u', 'KEY_SPACE_RELEASED'),
+    ('\x1b[46;1:3u', 'KEY_PERIOD_RELEASED'),
+    ('\x1b[46;5:3u', 'KEY_CTRL_PERIOD_RELEASED'),
+    ('\x1b[33;3:2u', 'KEY_ALT_EXCLAMATION_MARK_REPEATED'),
+])
+def test_kitty_ascii_symbol_event_types(sequence, expected_name):
+    """Test kitty protocol event type suffixes for ASCII symbols."""
+    ks = _match_kitty_key(sequence)
+    assert ks.name == expected_name

@@ -42,6 +42,12 @@ class DeploymentBuildStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DEPLOYMENT_BUILD_STATUS_EXPIRED: _ClassVar[DeploymentBuildStatus]
     DEPLOYMENT_BUILD_STATUS_BOOT_ERRORS: _ClassVar[DeploymentBuildStatus]
 
+class TelemetryCollectorTolerationMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TELEMETRY_COLLECTOR_TOLERATION_MODE_UNSPECIFIED: _ClassVar[TelemetryCollectorTolerationMode]
+    TELEMETRY_COLLECTOR_TOLERATION_MODE_NO_SCHEDULE_ALL: _ClassVar[TelemetryCollectorTolerationMode]
+    TELEMETRY_COLLECTOR_TOLERATION_MODE_NO_SCHEDULE_ALL_EXCEPT_NO_NETWORK: _ClassVar[TelemetryCollectorTolerationMode]
+
 class PerfettoTrigger(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     PERFETTO_TRIGGER_UNSPECIFIED: _ClassVar[PerfettoTrigger]
@@ -78,6 +84,9 @@ DEPLOYMENT_BUILD_STATUS_TIMEOUT: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_CANCELLED: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_EXPIRED: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_BOOT_ERRORS: DeploymentBuildStatus
+TELEMETRY_COLLECTOR_TOLERATION_MODE_UNSPECIFIED: TelemetryCollectorTolerationMode
+TELEMETRY_COLLECTOR_TOLERATION_MODE_NO_SCHEDULE_ALL: TelemetryCollectorTolerationMode
+TELEMETRY_COLLECTOR_TOLERATION_MODE_NO_SCHEDULE_ALL_EXCEPT_NO_NETWORK: TelemetryCollectorTolerationMode
 PERFETTO_TRIGGER_UNSPECIFIED: PerfettoTrigger
 PERFETTO_TRIGGER_TIME_INTERVAL: PerfettoTrigger
 PERFETTO_TRIGGER_HTTP: PerfettoTrigger
@@ -119,12 +128,27 @@ class ActivateDeploymentResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class IndexDeploymentRequest(_message.Message):
-    __slots__ = ("existing_deployment_id", "dry_run")
+    __slots__ = (
+        "existing_deployment_id",
+        "dry_run",
+        "shadow_force_venv_rebuild",
+        "shadow_skip_handle_conversion_errors",
+    )
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DRY_RUN_FIELD_NUMBER: _ClassVar[int]
+    SHADOW_FORCE_VENV_REBUILD_FIELD_NUMBER: _ClassVar[int]
+    SHADOW_SKIP_HANDLE_CONVERSION_ERRORS_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     dry_run: bool
-    def __init__(self, existing_deployment_id: _Optional[str] = ..., dry_run: bool = ...) -> None: ...
+    shadow_force_venv_rebuild: bool
+    shadow_skip_handle_conversion_errors: bool
+    def __init__(
+        self,
+        existing_deployment_id: _Optional[str] = ...,
+        dry_run: bool = ...,
+        shadow_force_venv_rebuild: bool = ...,
+        shadow_skip_handle_conversion_errors: bool = ...,
+    ) -> None: ...
 
 class IndexDeploymentResponse(_message.Message):
     __slots__ = ("build_id",)
@@ -1005,21 +1029,24 @@ class EnvoyGatewaySpecs(_message.Message):
     ) -> None: ...
 
 class EnvoyGatewayListener(_message.Message):
-    __slots__ = ("port", "protocol", "name", "allowed_routes")
+    __slots__ = ("port", "protocol", "name", "allowed_routes", "hostname")
     PORT_FIELD_NUMBER: _ClassVar[int]
     PROTOCOL_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     ALLOWED_ROUTES_FIELD_NUMBER: _ClassVar[int]
+    HOSTNAME_FIELD_NUMBER: _ClassVar[int]
     port: int
     protocol: str
     name: str
     allowed_routes: EnvoyGatewayAllowedRoutes
+    hostname: str
     def __init__(
         self,
         port: _Optional[int] = ...,
         protocol: _Optional[str] = ...,
         name: _Optional[str] = ...,
         allowed_routes: _Optional[_Union[EnvoyGatewayAllowedRoutes, _Mapping]] = ...,
+        hostname: _Optional[str] = ...,
     ) -> None: ...
 
 class EnvoyGatewayAllowedRoutes(_message.Message):
@@ -1580,18 +1607,21 @@ class CustomerCollectorConfig(_message.Message):
     def __init__(self, config_yaml: _Optional[str] = ...) -> None: ...
 
 class OtelCollectorSpec(_message.Message):
-    __slots__ = ("otel_collector_version", "request", "limit")
+    __slots__ = ("otel_collector_version", "request", "limit", "toleration_mode")
     OTEL_COLLECTOR_VERSION_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    TOLERATION_MODE_FIELD_NUMBER: _ClassVar[int]
     otel_collector_version: str
     request: KubeResourceConfig
     limit: KubeResourceConfig
+    toleration_mode: TelemetryCollectorTolerationMode
     def __init__(
         self,
         otel_collector_version: _Optional[str] = ...,
         request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        toleration_mode: _Optional[_Union[TelemetryCollectorTolerationMode, str]] = ...,
     ) -> None: ...
 
 class ClickHouseSpec(_message.Message):

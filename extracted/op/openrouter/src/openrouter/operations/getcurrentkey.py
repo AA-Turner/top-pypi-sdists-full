@@ -22,8 +22,12 @@ class GetCurrentKeyGlobalsTypedDict(TypedDict):
     This is used to track API usage per application.
 
     """
-    x_title: NotRequired[str]
+    x_open_router_title: NotRequired[str]
     r"""The app display name allows you to customize how your app appears in OpenRouter's dashboard.
+
+    """
+    x_open_router_categories: NotRequired[str]
+    r"""Comma-separated list of app categories (e.g. \"cli-agent,cloud-agent\"). Used for marketplace rankings.
 
     """
 
@@ -39,12 +43,21 @@ class GetCurrentKeyGlobals(BaseModel):
 
     """
 
-    x_title: Annotated[
+    x_open_router_title: Annotated[
         Optional[str],
-        pydantic.Field(alias="X-Title"),
+        pydantic.Field(alias="X-OpenRouter-Title"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
     ] = None
     r"""The app display name allows you to customize how your app appears in OpenRouter's dashboard.
+
+    """
+
+    x_open_router_categories: Annotated[
+        Optional[str],
+        pydantic.Field(alias="X-OpenRouter-Categories"),
+        FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
+    ] = None
+    r"""Comma-separated list of app categories (e.g. \"cli-agent,cloud-agent\"). Used for marketplace rankings.
 
     """
 
@@ -55,8 +68,12 @@ class GetCurrentKeyRequestTypedDict(TypedDict):
     This is used to track API usage per application.
 
     """
-    x_title: NotRequired[str]
+    x_open_router_title: NotRequired[str]
     r"""The app display name allows you to customize how your app appears in OpenRouter's dashboard.
+
+    """
+    x_open_router_categories: NotRequired[str]
+    r"""Comma-separated list of app categories (e.g. \"cli-agent,cloud-agent\"). Used for marketplace rankings.
 
     """
 
@@ -72,12 +89,21 @@ class GetCurrentKeyRequest(BaseModel):
 
     """
 
-    x_title: Annotated[
+    x_open_router_title: Annotated[
         Optional[str],
-        pydantic.Field(alias="X-Title"),
+        pydantic.Field(alias="X-OpenRouter-Title"),
         FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
     ] = None
     r"""The app display name allows you to customize how your app appears in OpenRouter's dashboard.
+
+    """
+
+    x_open_router_categories: Annotated[
+        Optional[str],
+        pydantic.Field(alias="X-OpenRouter-Categories"),
+        FieldMetadata(header=HeaderMetadata(style="simple", explode=False)),
+    ] = None
+    r"""Comma-separated list of app categories (e.g. \"cli-agent,cloud-agent\"). Used for marketplace rankings.
 
     """
 
@@ -147,6 +173,8 @@ class GetCurrentKeyDataTypedDict(TypedDict):
     r"""Type of limit reset for the API key"""
     include_byok_in_limit: bool
     r"""Whether to include external BYOK usage in the credit limit"""
+    creator_user_id: Nullable[str]
+    r"""The user ID of the key creator. For organization-owned keys, this is the member who created the key. For individual users, this is the user's own ID."""
     rate_limit: RateLimitTypedDict
     r"""Legacy rate limit information about a key. Will always return -1."""
     expires_at: NotRequired[Nullable[datetime]]
@@ -209,6 +237,9 @@ class GetCurrentKeyData(BaseModel):
     include_byok_in_limit: bool
     r"""Whether to include external BYOK usage in the credit limit"""
 
+    creator_user_id: Nullable[str]
+    r"""The user ID of the key creator. For organization-owned keys, this is the member who created the key. For individual users, this is the user's own ID."""
+
     rate_limit: Annotated[
         RateLimit,
         pydantic.Field(
@@ -223,7 +254,13 @@ class GetCurrentKeyData(BaseModel):
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = ["expires_at"]
-        nullable_fields = ["limit", "limit_remaining", "limit_reset", "expires_at"]
+        nullable_fields = [
+            "limit",
+            "limit_remaining",
+            "limit_reset",
+            "expires_at",
+            "creator_user_id",
+        ]
         null_default_fields = []
 
         serialized = handler(self)

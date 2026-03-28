@@ -1,21 +1,21 @@
 """
- MNIST example with training and validation monitoring using TensorboardX and Tensorboard.
+MNIST example with training and validation monitoring using TensorboardX and Tensorboard.
 
- Requirements:
-    Optionally TensorboardX (https://github.com/lanpa/tensorboard-pytorch): `pip install tensorboardX`
-    Tensorboard: `pip install tensorflow` (or just install tensorboard without the rest of tensorflow)
+Requirements:
+   Optionally TensorboardX (https://github.com/lanpa/tensorboard-pytorch): `pip install tensorboardX`
+   Tensorboard: `pip install tensorflow` (or just install tensorboard without the rest of tensorflow)
 
- Usage:
+Usage:
 
-    Start tensorboard:
-    ```bash
-    tensorboard --logdir=/tmp/tensorboard_logs/
-    ```
+   Start tensorboard:
+   ```bash
+   tensorboard --logdir=/tmp/tensorboard_logs/
+   ```
 
-    Run the example:
-    ```bash
-    python mnist_with_tensorboard_logger.py --log_dir=/tmp/tensorboard_logs
-    ```
+   Run the example:
+   ```bash
+   python mnist_with_tensorboard_logger.py --log_dir=/tmp/tensorboard_logs
+   ```
 """
 
 import sys
@@ -46,7 +46,7 @@ from ignite.utils import setup_logger
 
 class Net(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
         self.conv2_drop = nn.Dropout2d()

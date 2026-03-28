@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import subprocess
+import time
 from collections.abc import Callable
 from pathlib import Path
 from time import perf_counter
 
 from pydantic import BaseModel, Field
 
-from plato.cli.chronos.dev.ssh import build_ssh_command_string
+from plato.cli.chronos.dev.ssh import build_ssh_command_string, ensure_master_connection
 
 logger = logging.getLogger(__name__)
 
@@ -231,27 +232,40 @@ class SyncManager:
             parts.append(f"sent {SyncManager._format_bytes(bytes_sent_raw)}")
         return ", ".join(parts)
 
-    def _sync_target(self, target: SyncTarget) -> tuple[bool, str]:
-        """Sync a single target. Returns (success, stats_summary)."""
-        try:
-            cmd = self._build_rsync_cmd(target)
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
-            if result.returncode != 0:
-                logger.warning(f"Rsync failed for {target.local_path}: {result.stderr}")
-                return False, ""
-            stats = self._parse_rsync_stats(result.stdout)
-            return True, stats
-        except subprocess.TimeoutExpired:
-            logger.warning(f"Rsync timed out for {target.local_path}")
-            return False, ""
-        except Exception as e:
-            logger.warning(f"Rsync error for {target.local_path}: {e}")
-            return False, ""
+    def _sync_target(self, target: SyncTarget, max_retries: int = 3, retry_delay: float = 5.0) -> tuple[bool, str]:
+        """Sync a single target with retries. Returns (success, stats_summary)."""
+        cmd = self._build_rsync_cmd(target)
+        last_error = ""
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+                if result.returncode == 0:
+                    stats = self._parse_rsync_stats(result.stdout)
+                    return True, stats
+                last_error = result.stderr
+            except subprocess.TimeoutExpired:
+                last_error = "timed out"
+            except Exception as e:
+                last_error = str(e)
+
+            if attempt < max_retries:
+                logger.warning(
+                    "Rsync failed for %s (attempt %d/%d), retrying in %.0fs: %s",
+                    target.local_path,
+                    attempt,
+                    max_retries,
+                    retry_delay,
+                    last_error.strip(),
+                )
+                time.sleep(retry_delay)
+
+        logger.warning(f"Rsync failed for {target.local_path} after {max_retries} attempts: {last_error}")
+        return False, ""
 
     async def initial_sync(self, on_synced: Callable[[SyncTarget, float], None] | None = None) -> int:
         """Sync all targets in parallel.
@@ -269,6 +283,11 @@ class SyncManager:
             len(self.targets),
             ", ".join(f"{t.local_path.name} -> {t.remote_path}" for t in self.targets),
         )
+
+        # Pre-establish SSH master so parallel rsyncs multiplex over it
+        if self.targets:
+            target = self.targets[0]
+            await loop.run_in_executor(None, ensure_master_connection, target.job_id, self.ssh_key_path)
 
         async def _sync_one(target: SyncTarget) -> bool:
             logger.info(

@@ -3642,6 +3642,7 @@ class CfnConfiguredTable(
                     work_group="workGroup",
         
                     # the properties below are optional
+                    catalog_name="catalogName",
                     output_location="outputLocation",
                     region="region"
                 ),
@@ -4705,6 +4706,7 @@ class CfnConfiguredTable(
             "database_name": "databaseName",
             "table_name": "tableName",
             "work_group": "workGroup",
+            "catalog_name": "catalogName",
             "output_location": "outputLocation",
             "region": "region",
         },
@@ -4716,6 +4718,7 @@ class CfnConfiguredTable(
             database_name: builtins.str,
             table_name: builtins.str,
             work_group: builtins.str,
+            catalog_name: typing.Optional[builtins.str] = None,
             output_location: typing.Optional[builtins.str] = None,
             region: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -4724,6 +4727,7 @@ class CfnConfiguredTable(
             :param database_name: The database name.
             :param table_name: The table reference.
             :param work_group: The workgroup of the Athena table reference.
+            :param catalog_name: 
             :param output_location: The output location for the Athena table.
             :param region: The AWS Region where the Athena table is located. This parameter is required to uniquely identify and access tables across different Regions.
 
@@ -4742,6 +4746,7 @@ class CfnConfiguredTable(
                     work_group="workGroup",
                 
                     # the properties below are optional
+                    catalog_name="catalogName",
                     output_location="outputLocation",
                     region="region"
                 )
@@ -4751,6 +4756,7 @@ class CfnConfiguredTable(
                 check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
                 check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
                 check_type(argname="argument work_group", value=work_group, expected_type=type_hints["work_group"])
+                check_type(argname="argument catalog_name", value=catalog_name, expected_type=type_hints["catalog_name"])
                 check_type(argname="argument output_location", value=output_location, expected_type=type_hints["output_location"])
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4758,6 +4764,8 @@ class CfnConfiguredTable(
                 "table_name": table_name,
                 "work_group": work_group,
             }
+            if catalog_name is not None:
+                self._values["catalog_name"] = catalog_name
             if output_location is not None:
                 self._values["output_location"] = output_location
             if region is not None:
@@ -4792,6 +4800,14 @@ class CfnConfiguredTable(
             result = self._values.get("work_group")
             assert result is not None, "Required property 'work_group' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def catalog_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-athenatablereference.html#cfn-cleanrooms-configuredtable-athenatablereference-catalogname
+            '''
+            result = self._values.get("catalog_name")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def output_location(self) -> typing.Optional[builtins.str]:
@@ -5585,6 +5601,7 @@ class CfnConfiguredTable(
                         work_group="workGroup",
                 
                         # the properties below are optional
+                        catalog_name="catalogName",
                         output_location="outputLocation",
                         region="region"
                     ),
@@ -6706,6 +6723,7 @@ class CfnConfiguredTableProps:
                         work_group="workGroup",
             
                         # the properties below are optional
+                        catalog_name="catalogName",
                         output_location="outputLocation",
                         region="region"
                     ),
@@ -11112,6 +11130,7 @@ def _typecheckingstub__58a53beb1a0a90ec538b0213243c8721465a73c73f8bf745778a09f20
     database_name: builtins.str,
     table_name: builtins.str,
     work_group: builtins.str,
+    catalog_name: typing.Optional[builtins.str] = None,
     output_location: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
 ) -> None:

@@ -206,6 +206,21 @@ def layer_remove(
     :return: Result of the operator call.
     """
 
+def move_to_layer(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    target_layer_name: str | None = "",
+    add_new_layer: bool | None = False,
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Move the active spline to layer
+
+    :param target_layer_name: Name, Target Mask Layer (optional, never None)
+    :param add_new_layer: New Layer, Move selection to a new layer (optional)
+    :return: Result of the operator call.
+    """
+
 def new(
     execution_context: int | str | None = None,
     undo: bool | None = None,

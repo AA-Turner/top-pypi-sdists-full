@@ -113,10 +113,10 @@ steps:
         continue_on:
           - failed
 
-  - id: gate_plan_approved
-    type: gate
-    condition: plan_is_approved
-    if_false: blocked_plan_not_approved
+      - id: gate_plan_approved
+        type: gate
+        condition: plan_is_approved
+        if_false: blocked_plan_not_approved
 
   - id: implement_issue
     type: runner
@@ -490,6 +490,11 @@ steps:
         timeout: 15
         continue_on:
           - failed
+
+      - id: gate_pr_approved
+        type: gate
+        condition: plan_is_approved
+        if_false: blocked_pr_not_approved
 
   - id: assert_pr_approved
     type: runner

@@ -1,5 +1,5 @@
 import collections
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from os.path import dirname, join
 from typing import (
     Any,
@@ -10,6 +10,7 @@ from typing import (
 
 from django.apps import apps
 from django.conf import settings
+from django.core.exceptions import FieldDoesNotExist
 from django.db.models import (
     AutoField,
     BooleanField,
@@ -25,7 +26,11 @@ from django.db.models.fields.proxy import OrderWrt
 from django.db.models.fields.related import (
     ReverseManyToOneDescriptor as ForeignRelatedObjectsDescriptor,
 )
-from django.db.models.fields.reverse_related import ManyToOneRel, OneToOneRel
+from django.db.models.fields.reverse_related import (
+    ForeignObjectRel,
+    ManyToOneRel,
+    OneToOneRel,
+)
 
 from . import generators, random_gen
 from ._types import M, NewM
@@ -57,6 +62,9 @@ mock_file_jpeg = join(dirname(__file__), "mock_img.jpeg")
 mock_file_txt = join(dirname(__file__), "mock_file.txt")
 
 MAX_MANY_QUANTITY = 5
+
+M2MValues = Iterable[Model]
+M2MInput = M2MValues | Callable[[], M2MValues]
 
 __all__ = [
     "Baker",
@@ -367,7 +375,7 @@ class Baker(Generic[M]):
     ) -> None:
         self.make_m2m = make_m2m
         self.create_files = create_files
-        self.m2m_dict: dict[str, list] = {}
+        self.m2m_dict: dict[str, M2MInput] = {}
         self.iterator_attrs: dict[str, Iterator] = {}
         self.model_attrs: dict[str, Any] = {}
         self.rel_attrs: dict[str, Any] = {}
@@ -614,13 +622,18 @@ class Baker(Generic[M]):
         if isinstance(field, OneToOneField) and self._remote_field(field).parent_link:
             return True
 
-        other_fields_to_skip = [
+        # Skip reverse relations (ManyToOneRel, OneToOneRel, ManyToManyRel)
+        # These are handled separately in create_by_related_name
+        if isinstance(field, ForeignObjectRel):
+            return True
+
+        other_fields_to_skip: list[type] = [
             AutoField,
             OrderWrt,
         ]
 
         if BAKER_CONTENTTYPES:
-            other_fields_to_skip.extend([GenericRelation, GenericForeignKey])
+            other_fields_to_skip.extend([GenericRelation, GenericForeignKey])  # type: ignore[list-item]
 
         if isinstance(field, tuple(other_fields_to_skip)):
             return True
@@ -704,7 +717,7 @@ class Baker(Generic[M]):
     def _handle_m2m(self, instance: Model):
         for key, values in self.m2m_dict.items():
             if callable(values):
-                values = values()
+                values = cast(Callable[[], M2MValues], values)()
 
             for value in values:
                 if not value.pk:
@@ -912,7 +925,7 @@ def _save_related_objs(model, objects, _using=None) -> None:
                 setattr(objects[i], fk.name, fk_obj)
 
 
-def bulk_create(baker: Baker[M], quantity: int, **kwargs) -> list[M]:
+def bulk_create(baker: Baker[M], quantity: int, **kwargs) -> list[M]:  # noqa: C901
     """
     Bulk create entries and all related FKs as well.
 
@@ -967,5 +980,47 @@ def bulk_create(baker: Baker[M], quantity: int, **kwargs) -> list[M]:
                     getattr(entry, reverse_relation_name).set(
                         kwargs[reverse_relation_name]
                     )
+
+    # set M2M on FK-related objects (e.g. `home__dogs=[dog]`)
+    # `_handle_m2m()` is skipped during `prepare()` since `commit=False`,
+    # and `_save_related_objs()` only persists FK rows without touching M2M.
+    for kwarg_key, kwarg_value in kwargs.items():
+        if "__" not in kwarg_key:
+            continue
+        fk_field_name, m2m_field_name = kwarg_key.split("__", 1)
+        if "__" in m2m_field_name:
+            continue  # only handle one level of nesting
+        try:
+            fk_field = baker.model._meta.get_field(fk_field_name)
+        except FieldDoesNotExist:
+            continue
+        if not isinstance(fk_field, (ForeignKey, OneToOneField)):
+            continue
+        try:
+            related_m2m = fk_field.related_model._meta.get_field(m2m_field_name)
+        except FieldDoesNotExist:
+            continue
+        if not isinstance(related_m2m, ManyToManyField):
+            continue
+        # skip custom through models — .set() requires an auto-created through table;
+        # custom through models have extra required fields baker cannot populate here
+        through_model = related_m2m.remote_field.through
+        if not through_model._meta.auto_created:
+            continue
+        through_rows = []
+        for entry in created_entries:
+            fk_obj = getattr(entry, fk_field_name, None)
+            if fk_obj is not None:
+                through_rows.extend(
+                    through_model(
+                        **{
+                            related_m2m.m2m_field_name(): fk_obj,
+                            related_m2m.m2m_reverse_field_name(): obj,
+                        }
+                    )
+                    for obj in kwarg_value
+                )
+        if through_rows:
+            through_model.objects.bulk_create(through_rows)
 
     return created_entries

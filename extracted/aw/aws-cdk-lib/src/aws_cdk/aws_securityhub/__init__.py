@@ -7651,6 +7651,19 @@ class CfnHub(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e17fb796b4e0971555823ae1c97a99f19e5677ae303ff0ef984cd00ac919ea87)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="autoEnableControls")
     def auto_enable_controls(
         self,
@@ -7698,19 +7711,6 @@ class CfnHub(
             type_hints = typing.get_type_hints(_typecheckingstub__4d118847a7bb58b794458a6afe88e0a8324a3a4e1590aba4f028de455ee8c624)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableDefaultStandards", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e17fb796b4e0971555823ae1c97a99f19e5677ae303ff0ef984cd00ac919ea87)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -14844,6 +14844,12 @@ def _typecheckingstub__db4b61e6830fa5a7557c941ad1ea7690d59d4d1ea7c453b10a17081c2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e17fb796b4e0971555823ae1c97a99f19e5677ae303ff0ef984cd00ac919ea87(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f8111fb2c58ed3e1e0c85928b084d60f2c8b02b604055e3087ce38f249967a54(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
@@ -14858,12 +14864,6 @@ def _typecheckingstub__6647ce06efe713d1b36ec98af92808e5bf616a683fa68b2fb4fe64faf
 
 def _typecheckingstub__4d118847a7bb58b794458a6afe88e0a8324a3a4e1590aba4f028de455ee8c624(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e17fb796b4e0971555823ae1c97a99f19e5677ae303ff0ef984cd00ac919ea87(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

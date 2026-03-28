@@ -21,7 +21,7 @@
 """  # noqa: E501
 
 
-__version__ = "3.2.0"
+__version__ = "3.3.0"
 
 import importlib as _importlib
 import threading as _threading
@@ -191,6 +191,9 @@ _LAZY_IMPORT_MAP = {
     "ActionProviderPayloadType": "okta.models.action_provider_payload_type",
     "ActionProviderType": "okta.models.action_provider_type",
     "Actions": "okta.models.actions",
+    "ActiveDirectoryApplication": "okta.models.active_directory_application",
+    "ActiveDirectoryApplicationSettings": "okta.models.active_directory_application_settings",
+    "ActiveDirectoryApplicationSettingsApplication": "okta.models.active_directory_application_settings_application",
     "ActiveDirectoryGroupScope": "okta.models.active_directory_group_scope",
     "ActiveDirectoryGroupType": "okta.models.active_directory_group_type",
     "AddGroupRequest": "okta.models.add_group_request",
@@ -648,6 +651,7 @@ _LAZY_IMPORT_MAP = {
     "EmailDomainDNSRecordType": "okta.models.email_domain_dns_record_type",
     "EmailDomainResponse": "okta.models.email_domain_response",
     "EmailDomainResponseWithEmbedded": "okta.models.email_domain_response_with_embedded",
+    "EmailDomainResponseWithEmbeddedAllOfEmbedded": "okta.models.email_domain_response_with_embedded_all_of_embedded",
     "EmailDomainStatus": "okta.models.email_domain_status",
     "EmailPreview": "okta.models.email_preview",
     "EmailPreviewLinks": "okta.models.email_preview_links",

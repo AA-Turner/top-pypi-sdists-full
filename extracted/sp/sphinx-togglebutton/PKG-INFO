@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-togglebutton
-Version: 0.4.4
+Version: 0.4.5
 Summary: Toggle page content and collapse admonitions in Sphinx.
 Home-page: https://github.com/executablebooks/sphinx-togglebutton
 Author: Chris Holdgraf

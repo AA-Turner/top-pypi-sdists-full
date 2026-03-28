@@ -20,7 +20,7 @@ except ImportError:
     DigitalInOut = None
 
 
-__version__ = "5.2.15"
+__version__ = "5.2.16"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_BusDevice.git"
 
 

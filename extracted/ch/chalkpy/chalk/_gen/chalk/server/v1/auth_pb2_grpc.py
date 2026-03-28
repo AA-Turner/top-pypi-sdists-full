@@ -106,6 +106,11 @@ class AuthServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailResponse.FromString,
         )
+        self.SelfServiceCreateTeam = channel.unary_unary(
+            "/chalk.server.v1.AuthService/SelfServiceCreateTeam",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.SelfServiceCreateTeamRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.SelfServiceCreateTeamResponse.FromString,
+        )
 
 
 class AuthServiceServicer(object):
@@ -219,6 +224,12 @@ class AuthServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def SelfServiceCreateTeam(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_AuthServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -311,6 +322,11 @@ def add_AuthServiceServicer_to_server(servicer, server):
             servicer.UpsertUserByEmail,
             request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailResponse.SerializeToString,
+        ),
+        "SelfServiceCreateTeam": grpc.unary_unary_rpc_method_handler(
+            servicer.SelfServiceCreateTeam,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.SelfServiceCreateTeamRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.SelfServiceCreateTeamResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.AuthService", rpc_method_handlers)
@@ -833,6 +849,35 @@ class AuthService(object):
             "/chalk.server.v1.AuthService/UpsertUserByEmail",
             chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SelfServiceCreateTeam(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/SelfServiceCreateTeam",
+            chalk_dot_server_dot_v1_dot_auth__pb2.SelfServiceCreateTeamRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.SelfServiceCreateTeamResponse.FromString,
             options,
             channel_credentials,
             insecure,

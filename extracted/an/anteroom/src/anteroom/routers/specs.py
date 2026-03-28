@@ -27,6 +27,13 @@ class CreateSpecBody(BaseModel):
     creation_flow: str | None = None
 
 
+class GenerateSpecBody(BaseModel):
+    namespace: str = Field(min_length=1, max_length=64)
+    name: str = Field(min_length=1, max_length=64)
+    prompt: str | None = None
+    issue_number: int | None = Field(default=None, ge=1)
+
+
 class LaunchFromTaskBody(BaseModel):
     workflow_id: str = Field(min_length=1, max_length=128)
     extra_inputs: dict[str, Any] | None = None
@@ -86,6 +93,43 @@ async def create_spec(request: Request, body: CreateSpecBody) -> dict[str, Any]:
             raise HTTPException(status_code=409, detail="Spec with this FQN already exists")
         raise
     return art
+
+
+@router.post("/specs/generate")
+async def generate_spec(request: Request, body: GenerateSpecBody) -> dict[str, Any]:
+    """Generate spec YAML from a prompt or GitHub issue via LLM."""
+    if not body.prompt and body.issue_number is None:
+        raise HTTPException(status_code=422, detail="Either 'prompt' or 'issue_number' is required")
+
+    from ..services.ai_service import create_ai_service
+    from ..services.spec_schema import CREATION_FLOW_FROM_ISSUE, CREATION_FLOW_PROMPT
+
+    config = request.app.state.config
+    ai_service = create_ai_service(config.ai)
+
+    from ..services.spec_generator import generate_spec_from_issue, generate_spec_from_prompt
+
+    try:
+        if body.issue_number is not None:
+            content_yaml = await generate_spec_from_issue(
+                body.issue_number,
+                ai_service=ai_service,
+                namespace=body.namespace,
+                name=body.name,
+            )
+            creation_flow = CREATION_FLOW_FROM_ISSUE
+        else:
+            content_yaml = await generate_spec_from_prompt(
+                body.prompt or "",
+                ai_service=ai_service,
+                namespace=body.namespace,
+                name=body.name,
+            )
+            creation_flow = CREATION_FLOW_PROMPT
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    return {"content_yaml": content_yaml, "creation_flow": creation_flow}
 
 
 @router.get("/specs/queue")

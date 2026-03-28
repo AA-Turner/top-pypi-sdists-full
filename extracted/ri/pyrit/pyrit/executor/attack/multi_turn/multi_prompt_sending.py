@@ -3,7 +3,7 @@
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Optional, Type
+from typing import TYPE_CHECKING, Any, Optional
 
 from pyrit.common.apply_defaults import REQUIRED_VALUE, apply_defaults
 from pyrit.common.utils import get_kwarg_param
@@ -19,6 +19,7 @@ from pyrit.executor.attack.multi_turn.multi_turn_attack_strategy import (
     MultiTurnAttackContext,
     MultiTurnAttackStrategy,
 )
+from pyrit.identifiers import build_atomic_attack_identifier
 from pyrit.models import (
     AttackOutcome,
     AttackResult,
@@ -46,11 +47,11 @@ class MultiPromptSendingAttackParameters(AttackParameters):
     Only accepts objective and user_messages fields.
     """
 
-    user_messages: Optional[List[Message]] = None
+    user_messages: Optional[list[Message]] = None
 
     @classmethod
     async def from_seed_group_async(
-        cls: Type["MultiPromptSendingAttackParameters"],
+        cls: type["MultiPromptSendingAttackParameters"],
         seed_group: SeedAttackGroup,
         *,
         adversarial_chat: Optional["PromptChatTarget"] = None,
@@ -203,7 +204,16 @@ class MultiPromptSendingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[An
 
         Args:
             context (MultiTurnAttackContext): The attack context containing attack parameters.
+
+        Raises:
+            ValueError: If the objective target does not support multi-turn conversations.
         """
+        if not self._objective_target.capabilities.supports_multi_turn:
+            raise ValueError(
+                "MultiPromptSendingAttack requires a multi-turn target. "
+                "The objective target does not support multi-turn conversations."
+            )
+
         # Ensure the context has a session (like red_teaming.py does)
         context.session = ConversationSession()
 
@@ -251,7 +261,16 @@ class MultiPromptSendingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[An
                 response = response_message
                 context.last_response = response
                 context.executed_turns += 1
-                self._logger.debug(f"Successfully sent message {message_index + 1}")
+
+                blocked = [p for p in response_message.message_pieces if p.response_error == "blocked"]
+                error = [p for p in response_message.message_pieces if p.converted_value_data_type == "error"]
+                if len(blocked) == 0 and len(error) == 0:
+                    self._logger.debug(f"Successfully sent message {message_index + 1}")
+                else:
+                    self._logger.debug(
+                        f"Successfully sent message {message_index + 1}, received blocked/error response, terminating"
+                    )
+                    break
             else:
                 response = None
                 self._logger.warning(f"Failed to send message {message_index + 1}, terminating")
@@ -266,10 +285,10 @@ class MultiPromptSendingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[An
         # Determine the outcome
         outcome, outcome_reason = self._determine_attack_outcome(response=response, score=score, context=context)
 
-        result = AttackResult(
+        return AttackResult(
             conversation_id=context.session.conversation_id,
             objective=context.objective,
-            attack_identifier=self.get_identifier(),
+            atomic_attack_identifier=build_atomic_attack_identifier(attack_identifier=self.get_identifier()),
             last_response=response.get_piece() if response else None,
             last_score=score,
             related_conversations=context.related_conversations,
@@ -277,8 +296,6 @@ class MultiPromptSendingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[An
             outcome_reason=outcome_reason,
             executed_turns=context.executed_turns,
         )
-
-        return result
 
     def _determine_attack_outcome(
         self,
@@ -319,7 +336,6 @@ class MultiPromptSendingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[An
     async def _teardown_async(self, *, context: MultiTurnAttackContext[Any]) -> None:
         """Clean up after attack execution."""
         # Nothing to be done here, no-op
-        pass
 
     async def _send_prompt_to_objective_target_async(
         self, *, current_message: Message, context: MultiTurnAttackContext[Any]

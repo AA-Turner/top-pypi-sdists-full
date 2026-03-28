@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: adafruit-circuitpython-busdevice
-Version: 5.2.15
+Version: 5.2.16
 Summary: CircuitPython bus device classes to manage bus sharing.
 Author-email: Adafruit Industries <circuitpython@adafruit.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
 Keywords: adafruit,spi,i2c,bus,device,micropython,circuitpython
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Embedded Systems
 Classifier: Topic :: System :: Hardware
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Description-Content-Type: text/x-rst
 License-File: LICENSE

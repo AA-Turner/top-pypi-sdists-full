@@ -119,6 +119,11 @@ class CfnCloudAutonomousVmCluster(
             db_servers=["dbServers"],
             description="description",
             display_name="displayName",
+            iam_roles=[odb.CfnCloudAutonomousVmCluster.IamRoleProperty(
+                aws_integration="awsIntegration",
+                iam_role_arn="iamRoleArn",
+                status="status"
+            )],
             is_mtls_enabled_vm_cluster=False,
             license_model="licenseModel",
             maintenance_window=odb.CfnCloudAutonomousVmCluster.MaintenanceWindowProperty(
@@ -153,6 +158,7 @@ class CfnCloudAutonomousVmCluster(
         db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
+        iam_roles: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudAutonomousVmCluster.IamRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         license_model: typing.Optional[builtins.str] = None,
         maintenance_window: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudAutonomousVmCluster.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -174,6 +180,7 @@ class CfnCloudAutonomousVmCluster(
         :param db_servers: The list of database servers associated with the Autonomous VM cluster.
         :param description: The user-provided description of the Autonomous VM cluster.
         :param display_name: The display name of the Autonomous VM cluster. Required when creating an Autonomous VM cluster.
+        :param iam_roles: The AWS Identity and Access Management (IAM) service roles associated with the Autonomous VM cluster.
         :param is_mtls_enabled_vm_cluster: Specifies whether mutual TLS (mTLS) authentication is enabled for the Autonomous VM cluster.
         :param license_model: The Oracle license model that applies to the Autonomous VM cluster. Valid values are ``LICENSE_INCLUDED`` or ``BRING_YOUR_OWN_LICENSE`` .
         :param maintenance_window: The scheduling details for the maintenance window. Patching and system updates take place during the maintenance window.
@@ -196,6 +203,7 @@ class CfnCloudAutonomousVmCluster(
             db_servers=db_servers,
             description=description,
             display_name=display_name,
+            iam_roles=iam_roles,
             is_mtls_enabled_vm_cluster=is_mtls_enabled_vm_cluster,
             license_model=license_model,
             maintenance_window=maintenance_window,
@@ -626,6 +634,24 @@ class CfnCloudAutonomousVmCluster(
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="iamRoles")
+    def iam_roles(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]]:
+        '''The AWS Identity and Access Management (IAM) service roles associated with the Autonomous VM cluster.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]], jsii.get(self, "iamRoles"))
+
+    @iam_roles.setter
+    def iam_roles(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__105257ef44474dd5c7bb2e24057c1aa2109abc7bcfe92a2155def87abce5a367)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "iamRoles", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="isMtlsEnabledVmCluster")
     def is_mtls_enabled_vm_cluster(
         self,
@@ -767,6 +793,95 @@ class CfnCloudAutonomousVmCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__7f4f14ad61521ea763f91422ba382ad5682e9530d8b2883c57ade0003139ff56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "totalContainerDatabases", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_odb.CfnCloudAutonomousVmCluster.IamRoleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "aws_integration": "awsIntegration",
+            "iam_role_arn": "iamRoleArn",
+            "status": "status",
+        },
+    )
+    class IamRoleProperty:
+        def __init__(
+            self,
+            *,
+            aws_integration: typing.Optional[builtins.str] = None,
+            iam_role_arn: typing.Optional[builtins.str] = None,
+            status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''An AWS Identity and Access Management (IAM) service role associated with the Autonomous VM cluster.
+
+            :param aws_integration: The AWS integration configuration settings for the AWS Identity and Access Management (IAM) service role.
+            :param iam_role_arn: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) service role.
+            :param status: The current status of the AWS Identity and Access Management (IAM) service role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudautonomousvmcluster-iamrole.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_odb as odb
+                
+                iam_role_property = odb.CfnCloudAutonomousVmCluster.IamRoleProperty(
+                    aws_integration="awsIntegration",
+                    iam_role_arn="iamRoleArn",
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__886b68400d89131ff223d65666709636b3deb438b3925bc4e692acc8123b05f8)
+                check_type(argname="argument aws_integration", value=aws_integration, expected_type=type_hints["aws_integration"])
+                check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if aws_integration is not None:
+                self._values["aws_integration"] = aws_integration
+            if iam_role_arn is not None:
+                self._values["iam_role_arn"] = iam_role_arn
+            if status is not None:
+                self._values["status"] = status
+
+        @builtins.property
+        def aws_integration(self) -> typing.Optional[builtins.str]:
+            '''The AWS integration configuration settings for the AWS Identity and Access Management (IAM) service role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudautonomousvmcluster-iamrole.html#cfn-odb-cloudautonomousvmcluster-iamrole-awsintegration
+            '''
+            result = self._values.get("aws_integration")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def iam_role_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) service role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudautonomousvmcluster-iamrole.html#cfn-odb-cloudautonomousvmcluster-iamrole-iamrolearn
+            '''
+            result = self._values.get("iam_role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''The current status of the AWS Identity and Access Management (IAM) service role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudautonomousvmcluster-iamrole.html#cfn-odb-cloudautonomousvmcluster-iamrole-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IamRoleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_odb.CfnCloudAutonomousVmCluster.MaintenanceWindowProperty",
@@ -922,6 +1037,7 @@ class CfnCloudAutonomousVmCluster(
         "db_servers": "dbServers",
         "description": "description",
         "display_name": "displayName",
+        "iam_roles": "iamRoles",
         "is_mtls_enabled_vm_cluster": "isMtlsEnabledVmCluster",
         "license_model": "licenseModel",
         "maintenance_window": "maintenanceWindow",
@@ -944,6 +1060,7 @@ class CfnCloudAutonomousVmClusterProps:
         db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
+        iam_roles: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudAutonomousVmCluster.IamRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         license_model: typing.Optional[builtins.str] = None,
         maintenance_window: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudAutonomousVmCluster.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -963,6 +1080,7 @@ class CfnCloudAutonomousVmClusterProps:
         :param db_servers: The list of database servers associated with the Autonomous VM cluster.
         :param description: The user-provided description of the Autonomous VM cluster.
         :param display_name: The display name of the Autonomous VM cluster. Required when creating an Autonomous VM cluster.
+        :param iam_roles: The AWS Identity and Access Management (IAM) service roles associated with the Autonomous VM cluster.
         :param is_mtls_enabled_vm_cluster: Specifies whether mutual TLS (mTLS) authentication is enabled for the Autonomous VM cluster.
         :param license_model: The Oracle license model that applies to the Autonomous VM cluster. Valid values are ``LICENSE_INCLUDED`` or ``BRING_YOUR_OWN_LICENSE`` .
         :param maintenance_window: The scheduling details for the maintenance window. Patching and system updates take place during the maintenance window.
@@ -991,6 +1109,11 @@ class CfnCloudAutonomousVmClusterProps:
                 db_servers=["dbServers"],
                 description="description",
                 display_name="displayName",
+                iam_roles=[odb.CfnCloudAutonomousVmCluster.IamRoleProperty(
+                    aws_integration="awsIntegration",
+                    iam_role_arn="iamRoleArn",
+                    status="status"
+                )],
                 is_mtls_enabled_vm_cluster=False,
                 license_model="licenseModel",
                 maintenance_window=odb.CfnCloudAutonomousVmCluster.MaintenanceWindowProperty(
@@ -1021,6 +1144,7 @@ class CfnCloudAutonomousVmClusterProps:
             check_type(argname="argument db_servers", value=db_servers, expected_type=type_hints["db_servers"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument iam_roles", value=iam_roles, expected_type=type_hints["iam_roles"])
             check_type(argname="argument is_mtls_enabled_vm_cluster", value=is_mtls_enabled_vm_cluster, expected_type=type_hints["is_mtls_enabled_vm_cluster"])
             check_type(argname="argument license_model", value=license_model, expected_type=type_hints["license_model"])
             check_type(argname="argument maintenance_window", value=maintenance_window, expected_type=type_hints["maintenance_window"])
@@ -1044,6 +1168,8 @@ class CfnCloudAutonomousVmClusterProps:
             self._values["description"] = description
         if display_name is not None:
             self._values["display_name"] = display_name
+        if iam_roles is not None:
+            self._values["iam_roles"] = iam_roles
         if is_mtls_enabled_vm_cluster is not None:
             self._values["is_mtls_enabled_vm_cluster"] = is_mtls_enabled_vm_cluster
         if license_model is not None:
@@ -1126,6 +1252,17 @@ class CfnCloudAutonomousVmClusterProps:
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def iam_roles(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]]:
+        '''The AWS Identity and Access Management (IAM) service roles associated with the Autonomous VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudautonomousvmcluster.html#cfn-odb-cloudautonomousvmcluster-iamroles
+        '''
+        result = self._values.get("iam_roles")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudAutonomousVmCluster.IamRoleProperty"]]]], result)
 
     @builtins.property
     def is_mtls_enabled_vm_cluster(
@@ -2330,6 +2467,11 @@ class CfnCloudVmCluster(
             display_name="displayName",
             gi_version="giVersion",
             hostname="hostname",
+            iam_roles=[odb.CfnCloudVmCluster.IamRoleProperty(
+                aws_integration="awsIntegration",
+                iam_role_arn="iamRoleArn",
+                status="status"
+            )],
             is_local_backup_enabled=False,
             is_sparse_diskgroup_enabled=False,
             license_model="licenseModel",
@@ -2362,6 +2504,7 @@ class CfnCloudVmCluster(
         display_name: typing.Optional[builtins.str] = None,
         gi_version: typing.Optional[builtins.str] = None,
         hostname: typing.Optional[builtins.str] = None,
+        iam_roles: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudVmCluster.IamRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         license_model: typing.Optional[builtins.str] = None,
@@ -2388,6 +2531,7 @@ class CfnCloudVmCluster(
         :param display_name: The user-friendly name for the VM cluster. Required when creating a VM cluster.
         :param gi_version: The software version of the Oracle Grid Infrastructure (GI) for the VM cluster. Required when creating a VM cluster.
         :param hostname: The host name for the VM cluster. Required when creating a VM cluster.
+        :param iam_roles: The AWS Identity and Access Management (IAM) service roles associated with the VM cluster.
         :param is_local_backup_enabled: Specifies whether database backups to local Exadata storage are enabled for the VM cluster.
         :param is_sparse_diskgroup_enabled: Specifies whether the VM cluster is configured with a sparse disk group.
         :param license_model: The Oracle license model applied to the VM cluster.
@@ -2415,6 +2559,7 @@ class CfnCloudVmCluster(
             display_name=display_name,
             gi_version=gi_version,
             hostname=hostname,
+            iam_roles=iam_roles,
             is_local_backup_enabled=is_local_backup_enabled,
             is_sparse_diskgroup_enabled=is_sparse_diskgroup_enabled,
             license_model=license_model,
@@ -2798,6 +2943,24 @@ class CfnCloudVmCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__0fd54015f6c4b31aa2007d549141e71219e140c311d6f9e23a787d6f35024881)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "hostname", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="iamRoles")
+    def iam_roles(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.IamRoleProperty"]]]]:
+        '''The AWS Identity and Access Management (IAM) service roles associated with the VM cluster.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.IamRoleProperty"]]]], jsii.get(self, "iamRoles"))
+
+    @iam_roles.setter
+    def iam_roles(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.IamRoleProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27594cfc1f4f814bfd9ae1e614145ac51f37521ab853091729cfb3cd7b460557)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "iamRoles", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="isLocalBackupEnabled")
@@ -3340,6 +3503,95 @@ class CfnCloudVmCluster(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_odb.CfnCloudVmCluster.IamRoleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "aws_integration": "awsIntegration",
+            "iam_role_arn": "iamRoleArn",
+            "status": "status",
+        },
+    )
+    class IamRoleProperty:
+        def __init__(
+            self,
+            *,
+            aws_integration: typing.Optional[builtins.str] = None,
+            iam_role_arn: typing.Optional[builtins.str] = None,
+            status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''An AWS Identity and Access Management (IAM) service role associated with the VM cluster.
+
+            :param aws_integration: The AWS integration configuration settings for the AWS Identity and Access Management (IAM) service role.
+            :param iam_role_arn: The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) service role.
+            :param status: The current status of the AWS Identity and Access Management (IAM) service role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudvmcluster-iamrole.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_odb as odb
+                
+                iam_role_property = odb.CfnCloudVmCluster.IamRoleProperty(
+                    aws_integration="awsIntegration",
+                    iam_role_arn="iamRoleArn",
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8f2c528520e89712ffee62a837695d1ddeca48484519ed6f4a64efe1fc65e112)
+                check_type(argname="argument aws_integration", value=aws_integration, expected_type=type_hints["aws_integration"])
+                check_type(argname="argument iam_role_arn", value=iam_role_arn, expected_type=type_hints["iam_role_arn"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if aws_integration is not None:
+                self._values["aws_integration"] = aws_integration
+            if iam_role_arn is not None:
+                self._values["iam_role_arn"] = iam_role_arn
+            if status is not None:
+                self._values["status"] = status
+
+        @builtins.property
+        def aws_integration(self) -> typing.Optional[builtins.str]:
+            '''The AWS integration configuration settings for the AWS Identity and Access Management (IAM) service role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudvmcluster-iamrole.html#cfn-odb-cloudvmcluster-iamrole-awsintegration
+            '''
+            result = self._values.get("aws_integration")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def iam_role_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the AWS Identity and Access Management (IAM) service role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudvmcluster-iamrole.html#cfn-odb-cloudvmcluster-iamrole-iamrolearn
+            '''
+            result = self._values.get("iam_role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''The current status of the AWS Identity and Access Management (IAM) service role.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-cloudvmcluster-iamrole.html#cfn-odb-cloudvmcluster-iamrole-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IamRoleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_odb.CfnCloudVmClusterProps",
@@ -3356,6 +3608,7 @@ class CfnCloudVmCluster(
         "display_name": "displayName",
         "gi_version": "giVersion",
         "hostname": "hostname",
+        "iam_roles": "iamRoles",
         "is_local_backup_enabled": "isLocalBackupEnabled",
         "is_sparse_diskgroup_enabled": "isSparseDiskgroupEnabled",
         "license_model": "licenseModel",
@@ -3383,6 +3636,7 @@ class CfnCloudVmClusterProps:
         display_name: typing.Optional[builtins.str] = None,
         gi_version: typing.Optional[builtins.str] = None,
         hostname: typing.Optional[builtins.str] = None,
+        iam_roles: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCloudVmCluster.IamRoleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         license_model: typing.Optional[builtins.str] = None,
@@ -3407,6 +3661,7 @@ class CfnCloudVmClusterProps:
         :param display_name: The user-friendly name for the VM cluster. Required when creating a VM cluster.
         :param gi_version: The software version of the Oracle Grid Infrastructure (GI) for the VM cluster. Required when creating a VM cluster.
         :param hostname: The host name for the VM cluster. Required when creating a VM cluster.
+        :param iam_roles: The AWS Identity and Access Management (IAM) service roles associated with the VM cluster.
         :param is_local_backup_enabled: Specifies whether database backups to local Exadata storage are enabled for the VM cluster.
         :param is_sparse_diskgroup_enabled: Specifies whether the VM cluster is configured with a sparse disk group.
         :param license_model: The Oracle license model applied to the VM cluster.
@@ -3466,6 +3721,11 @@ class CfnCloudVmClusterProps:
                 display_name="displayName",
                 gi_version="giVersion",
                 hostname="hostname",
+                iam_roles=[odb.CfnCloudVmCluster.IamRoleProperty(
+                    aws_integration="awsIntegration",
+                    iam_role_arn="iamRoleArn",
+                    status="status"
+                )],
                 is_local_backup_enabled=False,
                 is_sparse_diskgroup_enabled=False,
                 license_model="licenseModel",
@@ -3494,6 +3754,7 @@ class CfnCloudVmClusterProps:
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument gi_version", value=gi_version, expected_type=type_hints["gi_version"])
             check_type(argname="argument hostname", value=hostname, expected_type=type_hints["hostname"])
+            check_type(argname="argument iam_roles", value=iam_roles, expected_type=type_hints["iam_roles"])
             check_type(argname="argument is_local_backup_enabled", value=is_local_backup_enabled, expected_type=type_hints["is_local_backup_enabled"])
             check_type(argname="argument is_sparse_diskgroup_enabled", value=is_sparse_diskgroup_enabled, expected_type=type_hints["is_sparse_diskgroup_enabled"])
             check_type(argname="argument license_model", value=license_model, expected_type=type_hints["license_model"])
@@ -3527,6 +3788,8 @@ class CfnCloudVmClusterProps:
             self._values["gi_version"] = gi_version
         if hostname is not None:
             self._values["hostname"] = hostname
+        if iam_roles is not None:
+            self._values["iam_roles"] = iam_roles
         if is_local_backup_enabled is not None:
             self._values["is_local_backup_enabled"] = is_local_backup_enabled
         if is_sparse_diskgroup_enabled is not None:
@@ -3660,6 +3923,17 @@ class CfnCloudVmClusterProps:
         '''
         result = self._values.get("hostname")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def iam_roles(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.IamRoleProperty"]]]]:
+        '''The AWS Identity and Access Management (IAM) service roles associated with the VM cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-cloudvmcluster.html#cfn-odb-cloudvmcluster-iamroles
+        '''
+        result = self._values.get("iam_roles")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCloudVmCluster.IamRoleProperty"]]]], result)
 
     @builtins.property
     def is_local_backup_enabled(
@@ -3801,12 +4075,17 @@ class CfnOdbNetwork(
             availability_zone_id="availabilityZoneId",
             backup_subnet_cidr="backupSubnetCidr",
             client_subnet_cidr="clientSubnetCidr",
+            cross_region_s3_restore_sources=["crossRegionS3RestoreSources"],
             custom_domain_name="customDomainName",
             default_dns_prefix="defaultDnsPrefix",
             delete_associated_resources=False,
             display_name="displayName",
+            kms_access="kmsAccess",
+            kms_policy_document="kmsPolicyDocument",
             s3_access="s3Access",
             s3_policy_document="s3PolicyDocument",
+            sts_access="stsAccess",
+            sts_policy_document="stsPolicyDocument",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -3824,12 +4103,17 @@ class CfnOdbNetwork(
         availability_zone_id: typing.Optional[builtins.str] = None,
         backup_subnet_cidr: typing.Optional[builtins.str] = None,
         client_subnet_cidr: typing.Optional[builtins.str] = None,
+        cross_region_s3_restore_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
         custom_domain_name: typing.Optional[builtins.str] = None,
         default_dns_prefix: typing.Optional[builtins.str] = None,
         delete_associated_resources: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         display_name: typing.Optional[builtins.str] = None,
+        kms_access: typing.Optional[builtins.str] = None,
+        kms_policy_document: typing.Optional[builtins.str] = None,
         s3_access: typing.Optional[builtins.str] = None,
         s3_policy_document: typing.Optional[builtins.str] = None,
+        sts_access: typing.Optional[builtins.str] = None,
+        sts_policy_document: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         zero_etl_access: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -3841,12 +4125,17 @@ class CfnOdbNetwork(
         :param availability_zone_id: The AZ ID of the AZ where the ODB network is located. Required when creating an ODB network. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the network.
         :param backup_subnet_cidr: The CIDR range of the backup subnet in the ODB network.
         :param client_subnet_cidr: The CIDR range of the client subnet in the ODB network. Required when creating an ODB network.
+        :param cross_region_s3_restore_sources: The cross-Region Amazon S3 restore sources for the ODB network.
         :param custom_domain_name: The domain name for the resources in the ODB network.
         :param default_dns_prefix: The DNS prefix to the default DNS domain name. The default DNS domain name is oraclevcn.com.
         :param delete_associated_resources: Specifies whether to delete associated OCI networking resources along with the ODB network. Required when creating an ODB network.
         :param display_name: The user-friendly name of the ODB network. Required when creating an ODB network.
+        :param kms_access: The AWS Key Management Service (KMS) access configuration for the ODB network.
+        :param kms_policy_document: The AWS Key Management Service (KMS) policy document that defines permissions for key usage within the ODB network.
         :param s3_access: The configuration for Amazon S3 access from the ODB network.
         :param s3_policy_document: Specifies the endpoint policy for Amazon S3 access from the ODB network.
+        :param sts_access: The AWS Security Token Service (STS) access configuration for the ODB network.
+        :param sts_policy_document: The AWS Security Token Service (STS) policy document that defines permissions for token service usage within the ODB network.
         :param tags: Tags to assign to the Odb Network.
         :param zero_etl_access: The configuration for Zero-ETL access from the ODB network.
         '''
@@ -3859,12 +4148,17 @@ class CfnOdbNetwork(
             availability_zone_id=availability_zone_id,
             backup_subnet_cidr=backup_subnet_cidr,
             client_subnet_cidr=client_subnet_cidr,
+            cross_region_s3_restore_sources=cross_region_s3_restore_sources,
             custom_domain_name=custom_domain_name,
             default_dns_prefix=default_dns_prefix,
             delete_associated_resources=delete_associated_resources,
             display_name=display_name,
+            kms_access=kms_access,
+            kms_policy_document=kms_policy_document,
             s3_access=s3_access,
             s3_policy_document=s3_policy_document,
+            sts_access=sts_access,
+            sts_policy_document=sts_policy_document,
             tags=tags,
             zero_etl_access=zero_etl_access,
         )
@@ -4048,6 +4342,24 @@ class CfnOdbNetwork(
         jsii.set(self, "clientSubnetCidr", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="crossRegionS3RestoreSources")
+    def cross_region_s3_restore_sources(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''The cross-Region Amazon S3 restore sources for the ODB network.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "crossRegionS3RestoreSources"))
+
+    @cross_region_s3_restore_sources.setter
+    def cross_region_s3_restore_sources(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ac378e112721957af33955fadad5a749e22c9bb120481a61d9ba2240c5f4c45)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "crossRegionS3RestoreSources", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="customDomainName")
     def custom_domain_name(self) -> typing.Optional[builtins.str]:
         '''The domain name for the resources in the ODB network.'''
@@ -4105,6 +4417,32 @@ class CfnOdbNetwork(
         jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="kmsAccess")
+    def kms_access(self) -> typing.Optional[builtins.str]:
+        '''The AWS Key Management Service (KMS) access configuration for the ODB network.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsAccess"))
+
+    @kms_access.setter
+    def kms_access(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08e550741354799cf835d5b5cd11742347c9e515584bd2b5b58090bcf4f7f332)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsAccess", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsPolicyDocument")
+    def kms_policy_document(self) -> typing.Optional[builtins.str]:
+        '''The AWS Key Management Service (KMS) policy document that defines permissions for key usage within the ODB network.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsPolicyDocument"))
+
+    @kms_policy_document.setter
+    def kms_policy_document(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f7b692a54c478e17ba740716ed8f1a5f4bfff5a114836300a6c5efd38904ecbb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsPolicyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="s3Access")
     def s3_access(self) -> typing.Optional[builtins.str]:
         '''The configuration for Amazon S3 access from the ODB network.'''
@@ -4131,6 +4469,32 @@ class CfnOdbNetwork(
         jsii.set(self, "s3PolicyDocument", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="stsAccess")
+    def sts_access(self) -> typing.Optional[builtins.str]:
+        '''The AWS Security Token Service (STS) access configuration for the ODB network.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "stsAccess"))
+
+    @sts_access.setter
+    def sts_access(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fbb96c3fd86b0a5dd6b864d6c5f901a572327bed1d34fa5ffb2d6ade36117fee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stsAccess", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="stsPolicyDocument")
+    def sts_policy_document(self) -> typing.Optional[builtins.str]:
+        '''The AWS Security Token Service (STS) policy document that defines permissions for token service usage within the ODB network.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "stsPolicyDocument"))
+
+    @sts_policy_document.setter
+    def sts_policy_document(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d5af2aac26a31e330bef17c6c74981d50bbe61a5731f101ee10e108ad58dfd3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stsPolicyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Tags to assign to the Odb Network.'''
@@ -4155,6 +4519,200 @@ class CfnOdbNetwork(
             type_hints = typing.get_type_hints(_typecheckingstub__8b37fc0f36ed5a2463c0ef988c6f8aff7344389a8c80070dd7013b5e428fa33f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "zeroEtlAccess", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_odb.CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "ipv4_addresses": "ipv4Addresses",
+            "region": "region",
+            "status": "status",
+        },
+    )
+    class CrossRegionS3RestoreSourcesAccessProperty:
+        def __init__(
+            self,
+            *,
+            ipv4_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+            region: typing.Optional[builtins.str] = None,
+            status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration access for the cross-Region Amazon S3 database restore source for the ODB network.
+
+            :param ipv4_addresses: The IPv4 addresses allowed for cross-Region Amazon S3 restore access.
+            :param region: The AWS-Region for cross-Region Amazon S3 restore access.
+            :param status: The status of the managed resource access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-crossregions3restoresourcesaccess.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_odb as odb
+                
+                cross_region_s3_restore_sources_access_property = odb.CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty(
+                    ipv4_addresses=["ipv4Addresses"],
+                    region="region",
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ab87808b3bbf075d7918fb62502368d78d183ddadd3c8775d33e5acef025fc36)
+                check_type(argname="argument ipv4_addresses", value=ipv4_addresses, expected_type=type_hints["ipv4_addresses"])
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ipv4_addresses is not None:
+                self._values["ipv4_addresses"] = ipv4_addresses
+            if region is not None:
+                self._values["region"] = region
+            if status is not None:
+                self._values["status"] = status
+
+        @builtins.property
+        def ipv4_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The IPv4 addresses allowed for cross-Region Amazon S3 restore access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-crossregions3restoresourcesaccess.html#cfn-odb-odbnetwork-crossregions3restoresourcesaccess-ipv4addresses
+            '''
+            result = self._values.get("ipv4_addresses")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def region(self) -> typing.Optional[builtins.str]:
+            '''The AWS-Region for cross-Region Amazon S3 restore access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-crossregions3restoresourcesaccess.html#cfn-odb-odbnetwork-crossregions3restoresourcesaccess-region
+            '''
+            result = self._values.get("region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''The status of the managed resource access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-crossregions3restoresourcesaccess.html#cfn-odb-odbnetwork-crossregions3restoresourcesaccess-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CrossRegionS3RestoreSourcesAccessProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_odb.CfnOdbNetwork.KmsAccessProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "domain_name": "domainName",
+            "ipv4_addresses": "ipv4Addresses",
+            "kms_policy_document": "kmsPolicyDocument",
+            "status": "status",
+        },
+    )
+    class KmsAccessProperty:
+        def __init__(
+            self,
+            *,
+            domain_name: typing.Optional[builtins.str] = None,
+            ipv4_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+            kms_policy_document: typing.Optional[builtins.str] = None,
+            status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The AWS Key Management Service (KMS) access configuration.
+
+            :param domain_name: The domain name for the AWS KMS access.
+            :param ipv4_addresses: The IPv4 addresses for the AWS KMS access.
+            :param kms_policy_document: The endpoint policy for the AWS KMS access.
+            :param status: The status of the managed resource access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-kmsaccess.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_odb as odb
+                
+                kms_access_property = odb.CfnOdbNetwork.KmsAccessProperty(
+                    domain_name="domainName",
+                    ipv4_addresses=["ipv4Addresses"],
+                    kms_policy_document="kmsPolicyDocument",
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b806730b2e3d85d7530eb3a7761492a4600e5bbdfdb839d29dae41e41b362476)
+                check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+                check_type(argname="argument ipv4_addresses", value=ipv4_addresses, expected_type=type_hints["ipv4_addresses"])
+                check_type(argname="argument kms_policy_document", value=kms_policy_document, expected_type=type_hints["kms_policy_document"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if domain_name is not None:
+                self._values["domain_name"] = domain_name
+            if ipv4_addresses is not None:
+                self._values["ipv4_addresses"] = ipv4_addresses
+            if kms_policy_document is not None:
+                self._values["kms_policy_document"] = kms_policy_document
+            if status is not None:
+                self._values["status"] = status
+
+        @builtins.property
+        def domain_name(self) -> typing.Optional[builtins.str]:
+            '''The domain name for the AWS KMS access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-kmsaccess.html#cfn-odb-odbnetwork-kmsaccess-domainname
+            '''
+            result = self._values.get("domain_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ipv4_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The IPv4 addresses for the AWS KMS access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-kmsaccess.html#cfn-odb-odbnetwork-kmsaccess-ipv4addresses
+            '''
+            result = self._values.get("ipv4_addresses")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def kms_policy_document(self) -> typing.Optional[builtins.str]:
+            '''The endpoint policy for the AWS KMS access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-kmsaccess.html#cfn-odb-odbnetwork-kmsaccess-kmspolicydocument
+            '''
+            result = self._values.get("kms_policy_document")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''The status of the managed resource access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-kmsaccess.html#cfn-odb-odbnetwork-kmsaccess-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KmsAccessProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_odb.CfnOdbNetwork.ManagedS3BackupAccessProperty",
@@ -4230,12 +4788,15 @@ class CfnOdbNetwork(
         jsii_type="aws-cdk-lib.aws_odb.CfnOdbNetwork.ManagedServicesProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "cross_region_s3_restore_sources_access": "crossRegionS3RestoreSourcesAccess",
+            "kms_access": "kmsAccess",
             "managed_s3_backup_access": "managedS3BackupAccess",
             "managed_services_ipv4_cidrs": "managedServicesIpv4Cidrs",
             "resource_gateway_arn": "resourceGatewayArn",
             "s3_access": "s3Access",
             "service_network_arn": "serviceNetworkArn",
             "service_network_endpoint": "serviceNetworkEndpoint",
+            "sts_access": "stsAccess",
             "zero_etl_access": "zeroEtlAccess",
         },
     )
@@ -4243,22 +4804,28 @@ class CfnOdbNetwork(
         def __init__(
             self,
             *,
+            cross_region_s3_restore_sources_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            kms_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.KmsAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             managed_s3_backup_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.ManagedS3BackupAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             managed_services_ipv4_cidrs: typing.Optional[typing.Sequence[builtins.str]] = None,
             resource_gateway_arn: typing.Optional[builtins.str] = None,
             s3_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.S3AccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             service_network_arn: typing.Optional[builtins.str] = None,
             service_network_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.ServiceNetworkEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sts_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.StsAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             zero_etl_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOdbNetwork.ZeroEtlAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The managed services configuration for the ODB network.
 
+            :param cross_region_s3_restore_sources_access: The access configuration for the cross-Region Amazon S3 database restore source.
+            :param kms_access: The AWS Key Management Service (KMS) access configuration.
             :param managed_s3_backup_access: The managed Amazon S3 backup access configuration.
             :param managed_services_ipv4_cidrs: The IPv4 CIDR blocks for the managed services.
             :param resource_gateway_arn: The Amazon Resource Name (ARN) of the resource gateway.
             :param s3_access: The Amazon S3 access configuration.
             :param service_network_arn: The Amazon Resource Name (ARN) of the service network.
             :param service_network_endpoint: The service network endpoint configuration.
+            :param sts_access: The AWS Security Token Service (STS) access configuration.
             :param zero_etl_access: The Zero-ETL access configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-managedservices.html
@@ -4271,6 +4838,17 @@ class CfnOdbNetwork(
                 from aws_cdk import aws_odb as odb
                 
                 managed_services_property = odb.CfnOdbNetwork.ManagedServicesProperty(
+                    cross_region_s3_restore_sources_access=[odb.CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty(
+                        ipv4_addresses=["ipv4Addresses"],
+                        region="region",
+                        status="status"
+                    )],
+                    kms_access=odb.CfnOdbNetwork.KmsAccessProperty(
+                        domain_name="domainName",
+                        ipv4_addresses=["ipv4Addresses"],
+                        kms_policy_document="kmsPolicyDocument",
+                        status="status"
+                    ),
                     managed_s3_backup_access=odb.CfnOdbNetwork.ManagedS3BackupAccessProperty(
                         ipv4_addresses=["ipv4Addresses"],
                         status="status"
@@ -4288,6 +4866,12 @@ class CfnOdbNetwork(
                         vpc_endpoint_id="vpcEndpointId",
                         vpc_endpoint_type="vpcEndpointType"
                     ),
+                    sts_access=odb.CfnOdbNetwork.StsAccessProperty(
+                        domain_name="domainName",
+                        ipv4_addresses=["ipv4Addresses"],
+                        status="status",
+                        sts_policy_document="stsPolicyDocument"
+                    ),
                     zero_etl_access=odb.CfnOdbNetwork.ZeroEtlAccessProperty(
                         cidr="cidr",
                         status="status"
@@ -4296,14 +4880,21 @@ class CfnOdbNetwork(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__f05f5ee314e82552aae02e8a14cfd272bb6288ddfa3db3a136edf0b694fc8f04)
+                check_type(argname="argument cross_region_s3_restore_sources_access", value=cross_region_s3_restore_sources_access, expected_type=type_hints["cross_region_s3_restore_sources_access"])
+                check_type(argname="argument kms_access", value=kms_access, expected_type=type_hints["kms_access"])
                 check_type(argname="argument managed_s3_backup_access", value=managed_s3_backup_access, expected_type=type_hints["managed_s3_backup_access"])
                 check_type(argname="argument managed_services_ipv4_cidrs", value=managed_services_ipv4_cidrs, expected_type=type_hints["managed_services_ipv4_cidrs"])
                 check_type(argname="argument resource_gateway_arn", value=resource_gateway_arn, expected_type=type_hints["resource_gateway_arn"])
                 check_type(argname="argument s3_access", value=s3_access, expected_type=type_hints["s3_access"])
                 check_type(argname="argument service_network_arn", value=service_network_arn, expected_type=type_hints["service_network_arn"])
                 check_type(argname="argument service_network_endpoint", value=service_network_endpoint, expected_type=type_hints["service_network_endpoint"])
+                check_type(argname="argument sts_access", value=sts_access, expected_type=type_hints["sts_access"])
                 check_type(argname="argument zero_etl_access", value=zero_etl_access, expected_type=type_hints["zero_etl_access"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cross_region_s3_restore_sources_access is not None:
+                self._values["cross_region_s3_restore_sources_access"] = cross_region_s3_restore_sources_access
+            if kms_access is not None:
+                self._values["kms_access"] = kms_access
             if managed_s3_backup_access is not None:
                 self._values["managed_s3_backup_access"] = managed_s3_backup_access
             if managed_services_ipv4_cidrs is not None:
@@ -4316,8 +4907,32 @@ class CfnOdbNetwork(
                 self._values["service_network_arn"] = service_network_arn
             if service_network_endpoint is not None:
                 self._values["service_network_endpoint"] = service_network_endpoint
+            if sts_access is not None:
+                self._values["sts_access"] = sts_access
             if zero_etl_access is not None:
                 self._values["zero_etl_access"] = zero_etl_access
+
+        @builtins.property
+        def cross_region_s3_restore_sources_access(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty"]]]]:
+            '''The access configuration for the cross-Region Amazon S3 database restore source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-managedservices.html#cfn-odb-odbnetwork-managedservices-crossregions3restoresourcesaccess
+            '''
+            result = self._values.get("cross_region_s3_restore_sources_access")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty"]]]], result)
+
+        @builtins.property
+        def kms_access(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.KmsAccessProperty"]]:
+            '''The AWS Key Management Service (KMS) access configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-managedservices.html#cfn-odb-odbnetwork-managedservices-kmsaccess
+            '''
+            result = self._values.get("kms_access")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.KmsAccessProperty"]], result)
 
         @builtins.property
         def managed_s3_backup_access(
@@ -4380,6 +4995,17 @@ class CfnOdbNetwork(
             '''
             result = self._values.get("service_network_endpoint")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.ServiceNetworkEndpointProperty"]], result)
+
+        @builtins.property
+        def sts_access(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.StsAccessProperty"]]:
+            '''The AWS Security Token Service (STS) access configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-managedservices.html#cfn-odb-odbnetwork-managedservices-stsaccess
+            '''
+            result = self._values.get("sts_access")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOdbNetwork.StsAccessProperty"]], result)
 
         @builtins.property
         def zero_etl_access(
@@ -4582,6 +5208,111 @@ class CfnOdbNetwork(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_odb.CfnOdbNetwork.StsAccessProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "domain_name": "domainName",
+            "ipv4_addresses": "ipv4Addresses",
+            "status": "status",
+            "sts_policy_document": "stsPolicyDocument",
+        },
+    )
+    class StsAccessProperty:
+        def __init__(
+            self,
+            *,
+            domain_name: typing.Optional[builtins.str] = None,
+            ipv4_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+            status: typing.Optional[builtins.str] = None,
+            sts_policy_document: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The AWS Security Token Service (STS) access configuration.
+
+            :param domain_name: The domain name for the AWS STS access.
+            :param ipv4_addresses: The IPv4 addresses for the AWS STS access.
+            :param status: The status of the managed resource access.
+            :param sts_policy_document: The endpoint policy for the AWS STS access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-stsaccess.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_odb as odb
+                
+                sts_access_property = odb.CfnOdbNetwork.StsAccessProperty(
+                    domain_name="domainName",
+                    ipv4_addresses=["ipv4Addresses"],
+                    status="status",
+                    sts_policy_document="stsPolicyDocument"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b8b2d27a4bbe89976fd3a6539cd1af84f9e26990b32fa427f2b176b687cb72a0)
+                check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+                check_type(argname="argument ipv4_addresses", value=ipv4_addresses, expected_type=type_hints["ipv4_addresses"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+                check_type(argname="argument sts_policy_document", value=sts_policy_document, expected_type=type_hints["sts_policy_document"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if domain_name is not None:
+                self._values["domain_name"] = domain_name
+            if ipv4_addresses is not None:
+                self._values["ipv4_addresses"] = ipv4_addresses
+            if status is not None:
+                self._values["status"] = status
+            if sts_policy_document is not None:
+                self._values["sts_policy_document"] = sts_policy_document
+
+        @builtins.property
+        def domain_name(self) -> typing.Optional[builtins.str]:
+            '''The domain name for the AWS STS access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-stsaccess.html#cfn-odb-odbnetwork-stsaccess-domainname
+            '''
+            result = self._values.get("domain_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ipv4_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The IPv4 addresses for the AWS STS access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-stsaccess.html#cfn-odb-odbnetwork-stsaccess-ipv4addresses
+            '''
+            result = self._values.get("ipv4_addresses")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''The status of the managed resource access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-stsaccess.html#cfn-odb-odbnetwork-stsaccess-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def sts_policy_document(self) -> typing.Optional[builtins.str]:
+            '''The endpoint policy for the AWS STS access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-odb-odbnetwork-stsaccess.html#cfn-odb-odbnetwork-stsaccess-stspolicydocument
+            '''
+            result = self._values.get("sts_policy_document")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StsAccessProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_odb.CfnOdbNetwork.ZeroEtlAccessProperty",
         jsii_struct_bases=[],
         name_mapping={"cidr": "cidr", "status": "status"},
@@ -4660,12 +5391,17 @@ class CfnOdbNetwork(
         "availability_zone_id": "availabilityZoneId",
         "backup_subnet_cidr": "backupSubnetCidr",
         "client_subnet_cidr": "clientSubnetCidr",
+        "cross_region_s3_restore_sources": "crossRegionS3RestoreSources",
         "custom_domain_name": "customDomainName",
         "default_dns_prefix": "defaultDnsPrefix",
         "delete_associated_resources": "deleteAssociatedResources",
         "display_name": "displayName",
+        "kms_access": "kmsAccess",
+        "kms_policy_document": "kmsPolicyDocument",
         "s3_access": "s3Access",
         "s3_policy_document": "s3PolicyDocument",
+        "sts_access": "stsAccess",
+        "sts_policy_document": "stsPolicyDocument",
         "tags": "tags",
         "zero_etl_access": "zeroEtlAccess",
     },
@@ -4678,12 +5414,17 @@ class CfnOdbNetworkProps:
         availability_zone_id: typing.Optional[builtins.str] = None,
         backup_subnet_cidr: typing.Optional[builtins.str] = None,
         client_subnet_cidr: typing.Optional[builtins.str] = None,
+        cross_region_s3_restore_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
         custom_domain_name: typing.Optional[builtins.str] = None,
         default_dns_prefix: typing.Optional[builtins.str] = None,
         delete_associated_resources: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         display_name: typing.Optional[builtins.str] = None,
+        kms_access: typing.Optional[builtins.str] = None,
+        kms_policy_document: typing.Optional[builtins.str] = None,
         s3_access: typing.Optional[builtins.str] = None,
         s3_policy_document: typing.Optional[builtins.str] = None,
+        sts_access: typing.Optional[builtins.str] = None,
+        sts_policy_document: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         zero_etl_access: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -4693,12 +5434,17 @@ class CfnOdbNetworkProps:
         :param availability_zone_id: The AZ ID of the AZ where the ODB network is located. Required when creating an ODB network. Specify either AvailabilityZone or AvailabilityZoneId to define the location of the network.
         :param backup_subnet_cidr: The CIDR range of the backup subnet in the ODB network.
         :param client_subnet_cidr: The CIDR range of the client subnet in the ODB network. Required when creating an ODB network.
+        :param cross_region_s3_restore_sources: The cross-Region Amazon S3 restore sources for the ODB network.
         :param custom_domain_name: The domain name for the resources in the ODB network.
         :param default_dns_prefix: The DNS prefix to the default DNS domain name. The default DNS domain name is oraclevcn.com.
         :param delete_associated_resources: Specifies whether to delete associated OCI networking resources along with the ODB network. Required when creating an ODB network.
         :param display_name: The user-friendly name of the ODB network. Required when creating an ODB network.
+        :param kms_access: The AWS Key Management Service (KMS) access configuration for the ODB network.
+        :param kms_policy_document: The AWS Key Management Service (KMS) policy document that defines permissions for key usage within the ODB network.
         :param s3_access: The configuration for Amazon S3 access from the ODB network.
         :param s3_policy_document: Specifies the endpoint policy for Amazon S3 access from the ODB network.
+        :param sts_access: The AWS Security Token Service (STS) access configuration for the ODB network.
+        :param sts_policy_document: The AWS Security Token Service (STS) policy document that defines permissions for token service usage within the ODB network.
         :param tags: Tags to assign to the Odb Network.
         :param zero_etl_access: The configuration for Zero-ETL access from the ODB network.
 
@@ -4717,12 +5463,17 @@ class CfnOdbNetworkProps:
                 availability_zone_id="availabilityZoneId",
                 backup_subnet_cidr="backupSubnetCidr",
                 client_subnet_cidr="clientSubnetCidr",
+                cross_region_s3_restore_sources=["crossRegionS3RestoreSources"],
                 custom_domain_name="customDomainName",
                 default_dns_prefix="defaultDnsPrefix",
                 delete_associated_resources=False,
                 display_name="displayName",
+                kms_access="kmsAccess",
+                kms_policy_document="kmsPolicyDocument",
                 s3_access="s3Access",
                 s3_policy_document="s3PolicyDocument",
+                sts_access="stsAccess",
+                sts_policy_document="stsPolicyDocument",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -4736,12 +5487,17 @@ class CfnOdbNetworkProps:
             check_type(argname="argument availability_zone_id", value=availability_zone_id, expected_type=type_hints["availability_zone_id"])
             check_type(argname="argument backup_subnet_cidr", value=backup_subnet_cidr, expected_type=type_hints["backup_subnet_cidr"])
             check_type(argname="argument client_subnet_cidr", value=client_subnet_cidr, expected_type=type_hints["client_subnet_cidr"])
+            check_type(argname="argument cross_region_s3_restore_sources", value=cross_region_s3_restore_sources, expected_type=type_hints["cross_region_s3_restore_sources"])
             check_type(argname="argument custom_domain_name", value=custom_domain_name, expected_type=type_hints["custom_domain_name"])
             check_type(argname="argument default_dns_prefix", value=default_dns_prefix, expected_type=type_hints["default_dns_prefix"])
             check_type(argname="argument delete_associated_resources", value=delete_associated_resources, expected_type=type_hints["delete_associated_resources"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument kms_access", value=kms_access, expected_type=type_hints["kms_access"])
+            check_type(argname="argument kms_policy_document", value=kms_policy_document, expected_type=type_hints["kms_policy_document"])
             check_type(argname="argument s3_access", value=s3_access, expected_type=type_hints["s3_access"])
             check_type(argname="argument s3_policy_document", value=s3_policy_document, expected_type=type_hints["s3_policy_document"])
+            check_type(argname="argument sts_access", value=sts_access, expected_type=type_hints["sts_access"])
+            check_type(argname="argument sts_policy_document", value=sts_policy_document, expected_type=type_hints["sts_policy_document"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument zero_etl_access", value=zero_etl_access, expected_type=type_hints["zero_etl_access"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4753,6 +5509,8 @@ class CfnOdbNetworkProps:
             self._values["backup_subnet_cidr"] = backup_subnet_cidr
         if client_subnet_cidr is not None:
             self._values["client_subnet_cidr"] = client_subnet_cidr
+        if cross_region_s3_restore_sources is not None:
+            self._values["cross_region_s3_restore_sources"] = cross_region_s3_restore_sources
         if custom_domain_name is not None:
             self._values["custom_domain_name"] = custom_domain_name
         if default_dns_prefix is not None:
@@ -4761,10 +5519,18 @@ class CfnOdbNetworkProps:
             self._values["delete_associated_resources"] = delete_associated_resources
         if display_name is not None:
             self._values["display_name"] = display_name
+        if kms_access is not None:
+            self._values["kms_access"] = kms_access
+        if kms_policy_document is not None:
+            self._values["kms_policy_document"] = kms_policy_document
         if s3_access is not None:
             self._values["s3_access"] = s3_access
         if s3_policy_document is not None:
             self._values["s3_policy_document"] = s3_policy_document
+        if sts_access is not None:
+            self._values["sts_access"] = sts_access
+        if sts_policy_document is not None:
+            self._values["sts_policy_document"] = sts_policy_document
         if tags is not None:
             self._values["tags"] = tags
         if zero_etl_access is not None:
@@ -4813,6 +5579,17 @@ class CfnOdbNetworkProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def cross_region_s3_restore_sources(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''The cross-Region Amazon S3 restore sources for the ODB network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-crossregions3restoresources
+        '''
+        result = self._values.get("cross_region_s3_restore_sources")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def custom_domain_name(self) -> typing.Optional[builtins.str]:
         '''The domain name for the resources in the ODB network.
 
@@ -4857,6 +5634,24 @@ class CfnOdbNetworkProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def kms_access(self) -> typing.Optional[builtins.str]:
+        '''The AWS Key Management Service (KMS) access configuration for the ODB network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-kmsaccess
+        '''
+        result = self._values.get("kms_access")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_policy_document(self) -> typing.Optional[builtins.str]:
+        '''The AWS Key Management Service (KMS) policy document that defines permissions for key usage within the ODB network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-kmspolicydocument
+        '''
+        result = self._values.get("kms_policy_document")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def s3_access(self) -> typing.Optional[builtins.str]:
         '''The configuration for Amazon S3 access from the ODB network.
 
@@ -4872,6 +5667,24 @@ class CfnOdbNetworkProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-s3policydocument
         '''
         result = self._values.get("s3_policy_document")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sts_access(self) -> typing.Optional[builtins.str]:
+        '''The AWS Security Token Service (STS) access configuration for the ODB network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-stsaccess
+        '''
+        result = self._values.get("sts_access")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sts_policy_document(self) -> typing.Optional[builtins.str]:
+        '''The AWS Security Token Service (STS) policy document that defines permissions for token service usage within the ODB network.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbnetwork.html#cfn-odb-odbnetwork-stspolicydocument
+        '''
+        result = self._values.get("sts_policy_document")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -4930,6 +5743,7 @@ class CfnOdbPeeringConnection(
             display_name="displayName",
             odb_network_id="odbNetworkId",
             peer_network_id="peerNetworkId",
+            peer_network_route_table_ids=["peerNetworkRouteTableIds"],
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -4946,6 +5760,7 @@ class CfnOdbPeeringConnection(
         display_name: typing.Optional[builtins.str] = None,
         odb_network_id: typing.Optional[builtins.str] = None,
         peer_network_id: typing.Optional[builtins.str] = None,
+        peer_network_route_table_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ODB::OdbPeeringConnection``.
@@ -4956,6 +5771,7 @@ class CfnOdbPeeringConnection(
         :param display_name: The display name of the ODB peering connection.
         :param odb_network_id: The unique identifier of the ODB network.
         :param peer_network_id: The unique identifier of the peer network.
+        :param peer_network_route_table_ids: The unique identifier of the VPC route table for which a route to the ODB network is automatically created during peering connection establishment.
         :param tags: Tags to assign to the Odb peering connection.
         '''
         if __debug__:
@@ -4967,6 +5783,7 @@ class CfnOdbPeeringConnection(
             display_name=display_name,
             odb_network_id=odb_network_id,
             peer_network_id=peer_network_id,
+            peer_network_route_table_ids=peer_network_route_table_ids,
             tags=tags,
         )
 
@@ -5152,6 +5969,24 @@ class CfnOdbPeeringConnection(
         jsii.set(self, "peerNetworkId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="peerNetworkRouteTableIds")
+    def peer_network_route_table_ids(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''The unique identifier of the VPC route table for which a route to the ODB network is automatically created during peering connection establishment.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "peerNetworkRouteTableIds"))
+
+    @peer_network_route_table_ids.setter
+    def peer_network_route_table_ids(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__36924cc18a5ef3db750d5231afdfca833233f6d260ff64fc44bf2a36cbb5d1ba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "peerNetworkRouteTableIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Tags to assign to the Odb peering connection.'''
@@ -5173,6 +6008,7 @@ class CfnOdbPeeringConnection(
         "display_name": "displayName",
         "odb_network_id": "odbNetworkId",
         "peer_network_id": "peerNetworkId",
+        "peer_network_route_table_ids": "peerNetworkRouteTableIds",
         "tags": "tags",
     },
 )
@@ -5184,6 +6020,7 @@ class CfnOdbPeeringConnectionProps:
         display_name: typing.Optional[builtins.str] = None,
         odb_network_id: typing.Optional[builtins.str] = None,
         peer_network_id: typing.Optional[builtins.str] = None,
+        peer_network_route_table_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnOdbPeeringConnection``.
@@ -5192,6 +6029,7 @@ class CfnOdbPeeringConnectionProps:
         :param display_name: The display name of the ODB peering connection.
         :param odb_network_id: The unique identifier of the ODB network.
         :param peer_network_id: The unique identifier of the peer network.
+        :param peer_network_route_table_ids: The unique identifier of the VPC route table for which a route to the ODB network is automatically created during peering connection establishment.
         :param tags: Tags to assign to the Odb peering connection.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbpeeringconnection.html
@@ -5209,6 +6047,7 @@ class CfnOdbPeeringConnectionProps:
                 display_name="displayName",
                 odb_network_id="odbNetworkId",
                 peer_network_id="peerNetworkId",
+                peer_network_route_table_ids=["peerNetworkRouteTableIds"],
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -5221,6 +6060,7 @@ class CfnOdbPeeringConnectionProps:
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument odb_network_id", value=odb_network_id, expected_type=type_hints["odb_network_id"])
             check_type(argname="argument peer_network_id", value=peer_network_id, expected_type=type_hints["peer_network_id"])
+            check_type(argname="argument peer_network_route_table_ids", value=peer_network_route_table_ids, expected_type=type_hints["peer_network_route_table_ids"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if additional_peer_network_cidrs is not None:
@@ -5231,6 +6071,8 @@ class CfnOdbPeeringConnectionProps:
             self._values["odb_network_id"] = odb_network_id
         if peer_network_id is not None:
             self._values["peer_network_id"] = peer_network_id
+        if peer_network_route_table_ids is not None:
+            self._values["peer_network_route_table_ids"] = peer_network_route_table_ids
         if tags is not None:
             self._values["tags"] = tags
 
@@ -5271,6 +6113,17 @@ class CfnOdbPeeringConnectionProps:
         '''
         result = self._values.get("peer_network_id")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def peer_network_route_table_ids(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''The unique identifier of the VPC route table for which a route to the ODB network is automatically created during peering connection establishment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-odb-odbpeeringconnection.html#cfn-odb-odbpeeringconnection-peernetworkroutetableids
+        '''
+        result = self._values.get("peer_network_route_table_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -5318,6 +6171,7 @@ def _typecheckingstub__d5f3b11bad526801ca3c7c4e0e6c7dadf7c59ded4c26290e2160449d6
     db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
+    iam_roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudAutonomousVmCluster.IamRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     license_model: typing.Optional[builtins.str] = None,
     maintenance_window: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudAutonomousVmCluster.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5392,6 +6246,12 @@ def _typecheckingstub__75d262c2ba8661c4d2d20abe159b3efce30fa2a6854ff6d4d27b98c11
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__105257ef44474dd5c7bb2e24057c1aa2109abc7bcfe92a2155def87abce5a367(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudAutonomousVmCluster.IamRoleProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b71c28f08596e3a8e06bf9ac61f202a72d06b5f6a93ae96a6cd988fa2c8b3457(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
@@ -5452,6 +6312,15 @@ def _typecheckingstub__7f4f14ad61521ea763f91422ba382ad5682e9530d8b2883c57ade0003
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__886b68400d89131ff223d65666709636b3deb438b3925bc4e692acc8123b05f8(
+    *,
+    aws_integration: typing.Optional[builtins.str] = None,
+    iam_role_arn: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bec420fa64b103170ca1fde88b7f5526381889811659e8a32ae9356eed292838(
     *,
     days_of_week: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -5472,6 +6341,7 @@ def _typecheckingstub__221a7c6782ef0d7603f8cd9a8a17d1bbaad9d65511e49e607ac274b8a
     db_servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
+    iam_roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudAutonomousVmCluster.IamRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     is_mtls_enabled_vm_cluster: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     license_model: typing.Optional[builtins.str] = None,
     maintenance_window: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudAutonomousVmCluster.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5649,6 +6519,7 @@ def _typecheckingstub__54a24296108cf4d367a887b0b65dc2c9163c185183c8fde1522a8cb32
     display_name: typing.Optional[builtins.str] = None,
     gi_version: typing.Optional[builtins.str] = None,
     hostname: typing.Optional[builtins.str] = None,
+    iam_roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudVmCluster.IamRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     license_model: typing.Optional[builtins.str] = None,
@@ -5753,6 +6624,12 @@ def _typecheckingstub__0fd54015f6c4b31aa2007d549141e71219e140c311d6f9e23a787d6f3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__27594cfc1f4f814bfd9ae1e614145ac51f37521ab853091729cfb3cd7b460557(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCloudVmCluster.IamRoleProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cee2b990c5219e427b51018646f252e8e93f20f5bc21497075e635e6fee21bc6(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
@@ -5844,6 +6721,15 @@ def _typecheckingstub__c95a10051fe96e033b74a53129c8792115ffa8596c6e20c63b8b2bae5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8f2c528520e89712ffee62a837695d1ddeca48484519ed6f4a64efe1fc65e112(
+    *,
+    aws_integration: typing.Optional[builtins.str] = None,
+    iam_role_arn: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b7c1c550550cdc807e34dbb5ced4b50daf930df9156b6a6f0dfaa8e978be765a(
     *,
     cloud_exadata_infrastructure_id: typing.Optional[builtins.str] = None,
@@ -5857,6 +6743,7 @@ def _typecheckingstub__b7c1c550550cdc807e34dbb5ced4b50daf930df9156b6a6f0dfaa8e97
     display_name: typing.Optional[builtins.str] = None,
     gi_version: typing.Optional[builtins.str] = None,
     hostname: typing.Optional[builtins.str] = None,
+    iam_roles: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCloudVmCluster.IamRoleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     is_local_backup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     is_sparse_diskgroup_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     license_model: typing.Optional[builtins.str] = None,
@@ -5879,12 +6766,17 @@ def _typecheckingstub__9fb7fc690c89d5ce8f5abecb60ad841f57c0a476f500c817c386b57c3
     availability_zone_id: typing.Optional[builtins.str] = None,
     backup_subnet_cidr: typing.Optional[builtins.str] = None,
     client_subnet_cidr: typing.Optional[builtins.str] = None,
+    cross_region_s3_restore_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
     custom_domain_name: typing.Optional[builtins.str] = None,
     default_dns_prefix: typing.Optional[builtins.str] = None,
     delete_associated_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     display_name: typing.Optional[builtins.str] = None,
+    kms_access: typing.Optional[builtins.str] = None,
+    kms_policy_document: typing.Optional[builtins.str] = None,
     s3_access: typing.Optional[builtins.str] = None,
     s3_policy_document: typing.Optional[builtins.str] = None,
+    sts_access: typing.Optional[builtins.str] = None,
+    sts_policy_document: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     zero_etl_access: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -5939,6 +6831,12 @@ def _typecheckingstub__964e75c8af7e656feecdf2af9cc1f3709e5857d22d004e58037f1a4d9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9ac378e112721957af33955fadad5a749e22c9bb120481a61d9ba2240c5f4c45(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d8107768076a5ec91104db244c22d754231524ae1e1cdad765edecf3270b5e9d(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -5963,6 +6861,18 @@ def _typecheckingstub__6f9a4c06370e66400707daa4ab73fb37a67d67c8422f10b57fa0ee6b1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__08e550741354799cf835d5b5cd11742347c9e515584bd2b5b58090bcf4f7f332(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f7b692a54c478e17ba740716ed8f1a5f4bfff5a114836300a6c5efd38904ecbb(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7f428808d342fa75b5322aafc69efcb16a9aadaf8c1f1602313528cb3d71f054(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -5970,6 +6880,18 @@ def _typecheckingstub__7f428808d342fa75b5322aafc69efcb16a9aadaf8c1f1602313528cb3
     pass
 
 def _typecheckingstub__6e9a1278f83bd7d6781ffbd7b2e4e7ec97b8190160130c264991534d7c4eb6a7(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fbb96c3fd86b0a5dd6b864d6c5f901a572327bed1d34fa5ffb2d6ade36117fee(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d5af2aac26a31e330bef17c6c74981d50bbe61a5731f101ee10e108ad58dfd3(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -5987,6 +6909,25 @@ def _typecheckingstub__8b37fc0f36ed5a2463c0ef988c6f8aff7344389a8c80070dd7013b5e4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ab87808b3bbf075d7918fb62502368d78d183ddadd3c8775d33e5acef025fc36(
+    *,
+    ipv4_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+    region: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b806730b2e3d85d7530eb3a7761492a4600e5bbdfdb839d29dae41e41b362476(
+    *,
+    domain_name: typing.Optional[builtins.str] = None,
+    ipv4_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+    kms_policy_document: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1b0181205001e0daa042d78d18fe8d5325e5c0b3292546c75de8da725399ad6c(
     *,
     ipv4_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -5997,12 +6938,15 @@ def _typecheckingstub__1b0181205001e0daa042d78d18fe8d5325e5c0b3292546c75de8da725
 
 def _typecheckingstub__f05f5ee314e82552aae02e8a14cfd272bb6288ddfa3db3a136edf0b694fc8f04(
     *,
+    cross_region_s3_restore_sources_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.CrossRegionS3RestoreSourcesAccessProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    kms_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.KmsAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     managed_s3_backup_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.ManagedS3BackupAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     managed_services_ipv4_cidrs: typing.Optional[typing.Sequence[builtins.str]] = None,
     resource_gateway_arn: typing.Optional[builtins.str] = None,
     s3_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.S3AccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_network_arn: typing.Optional[builtins.str] = None,
     service_network_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.ServiceNetworkEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sts_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.StsAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     zero_etl_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOdbNetwork.ZeroEtlAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6026,6 +6970,16 @@ def _typecheckingstub__aa23d13536607858ecb17ec218e9d01d10a09d3dc235be793fb3ac748
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b8b2d27a4bbe89976fd3a6539cd1af84f9e26990b32fa427f2b176b687cb72a0(
+    *,
+    domain_name: typing.Optional[builtins.str] = None,
+    ipv4_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+    status: typing.Optional[builtins.str] = None,
+    sts_policy_document: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8d8647c7f912887ddd8cf379fbed057ec6a564b3495caa039b6697c1b5aa3e9e(
     *,
     cidr: typing.Optional[builtins.str] = None,
@@ -6040,12 +6994,17 @@ def _typecheckingstub__41648888050cc85bcebe5a38dc9918a297404cec697643f0d6d43e8c7
     availability_zone_id: typing.Optional[builtins.str] = None,
     backup_subnet_cidr: typing.Optional[builtins.str] = None,
     client_subnet_cidr: typing.Optional[builtins.str] = None,
+    cross_region_s3_restore_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
     custom_domain_name: typing.Optional[builtins.str] = None,
     default_dns_prefix: typing.Optional[builtins.str] = None,
     delete_associated_resources: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     display_name: typing.Optional[builtins.str] = None,
+    kms_access: typing.Optional[builtins.str] = None,
+    kms_policy_document: typing.Optional[builtins.str] = None,
     s3_access: typing.Optional[builtins.str] = None,
     s3_policy_document: typing.Optional[builtins.str] = None,
+    sts_access: typing.Optional[builtins.str] = None,
+    sts_policy_document: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     zero_etl_access: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -6060,6 +7019,7 @@ def _typecheckingstub__cf0303fdbabd342a7442eedc20c217c961164af3d96d803130ec699ce
     display_name: typing.Optional[builtins.str] = None,
     odb_network_id: typing.Optional[builtins.str] = None,
     peer_network_id: typing.Optional[builtins.str] = None,
+    peer_network_route_table_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6113,6 +7073,12 @@ def _typecheckingstub__9ab942a64178d4b44a12a7c4d77ac39a95872d25a99449973520d474c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__36924cc18a5ef3db750d5231afdfca833233f6d260ff64fc44bf2a36cbb5d1ba(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e52d668f36d0789e49c0196d151e22c497a4f1c0a77cff71369f51481f5725dc(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -6125,6 +7091,7 @@ def _typecheckingstub__cb14f6a041f61647a57988c9818fe08cae77494cecfe8f526e6f77c42
     display_name: typing.Optional[builtins.str] = None,
     odb_network_id: typing.Optional[builtins.str] = None,
     peer_network_id: typing.Optional[builtins.str] = None,
+    peer_network_route_table_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

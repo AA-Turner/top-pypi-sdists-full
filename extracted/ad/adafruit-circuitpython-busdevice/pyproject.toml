@@ -12,7 +12,7 @@ requires = [
 [project]
 name = "adafruit-circuitpython-busdevice"
 description = "CircuitPython bus device classes to manage bus sharing."
-version = "5.2.15"
+version = "5.2.16"
 readme = "README.rst"
 authors = [
     {name = "Adafruit Industries", email = "circuitpython@adafruit.com"}
@@ -27,13 +27,12 @@ keywords = [
     "micropython",
     "circuitpython",
 ]
-license = {text = "MIT"}
+license = "MIT"
 classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Embedded Systems",
     "Topic :: System :: Hardware",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
 ]
 dynamic = ["dependencies", "optional-dependencies"]

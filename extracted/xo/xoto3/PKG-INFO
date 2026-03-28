@@ -1,18 +1,16 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: xoto3
-Version: 2.0.1
+Version: 2.1.0
 Summary: High level utilities for a subset of boto3 operations common for AWS serverless development in Python.
+License-File: LICENSE
 Author: Peter Gaultney
 Author-email: pgaultney@xoi.io
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.12,<3.15
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: boto3 (>=1.9)
-Requires-Dist: typing-extensions
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: boto3 (>=1.28.27)
 Description-Content-Type: text/markdown
 
 # xoto3
@@ -82,17 +80,14 @@ Some highlights:
 
 ### Getting set up
 
-This repository leverages Poetry >= 2.0. Install it with `pip install poetry~=2.0`
+This repository leverages Poetry >= 2.3. Install it with `pipx install "poetry>=2.3,<2.4"`
 Then simply run `poetry install`. You'll want to periodically run `poetry update` as well.
 
 **The poetry.lock file** is not version-controlled, and shouldn't be (there's an argument to be made about pinning dev dependencies)
 
 ### Versioning
 
-The version is kept in both `pyproject.toml` and `xoto3/__about__.py` for runtime use.
-We use [poetry-bumpversion](https://pypi.org/project/poetry-bumpversion/) to keep them in sync.
-
-Therefore, it's important for you to either change the version using the `poetry version (major|minor|patch|<x.y.z>` command, or edit both files manually.
+The version is set in `pyproject.toml`. Update it with `poetry version (major|minor|patch|<x.y.z>)`.
 
 ## Testing
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-users
-Version: 15.0.4
+Version: 15.0.5
 Summary: Ready-to-use and customizable users management for FastAPI
 Project-URL: Documentation, https://fastapi-users.github.io/fastapi-users/
 Project-URL: Source, https://github.com/fastapi-users/fastapi-users
@@ -23,7 +23,7 @@ Requires-Dist: email-validator<2.4,>=1.1.0
 Requires-Dist: fastapi>=0.65.2
 Requires-Dist: makefun<2.0.0,>=1.11.2
 Requires-Dist: pwdlib[argon2,bcrypt]==0.3.0
-Requires-Dist: pyjwt[crypto]<3.0.0,>=2.11.0
+Requires-Dist: pyjwt[crypto]<3.0.0,>=2.12.0
 Requires-Dist: python-multipart<0.1.0,>=0.0.22
 Provides-Extra: beanie
 Requires-Dist: fastapi-users-db-beanie>=4.0.0; extra == 'beanie'

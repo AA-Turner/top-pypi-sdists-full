@@ -31,6 +31,7 @@ class ScheduledQuery:
         completion_deadline: timedelta | None = None,
         num_shards: int | None = None,
         num_workers: int | None = None,
+        input_sql: str | None = None,
     ):
         """Create an offline query which runs on a schedule.
 
@@ -88,7 +89,6 @@ class ScheduledQuery:
         resource_group
             The resource group to use for the query. If not set, the default resource group will be used.
 
-
         Returns
         -------
         ScheduledQuery
@@ -137,6 +137,7 @@ class ScheduledQuery:
                 f"Scheduled query '{name}' was instantiated with `store_offline=False` and `store_online=False`. Running it will have no effect, as it does not store any data."
             )
 
+        self.input_sql = input_sql
         self.name = name
         self.cron = schedule
         self.output = [str(f) for f in output]

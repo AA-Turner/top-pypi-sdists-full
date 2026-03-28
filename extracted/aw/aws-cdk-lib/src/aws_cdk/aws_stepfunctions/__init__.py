@@ -2863,19 +2863,6 @@ class CfnStateMachine(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="roleArn")
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role to use for this state machine.'''
-        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
-
-    @role_arn.setter
-    def role_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="definition")
     def definition(self) -> typing.Any:
         '''The Amazon States Language definition of the state machine.'''
@@ -2887,6 +2874,19 @@ class CfnStateMachine(
             type_hints = typing.get_type_hints(_typecheckingstub__f82f2a7642ea2ac7bdf170a2733a41594fd40eb07f7e540d495f22c6fa06b147)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role to use for this state machine.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="definitionS3Location")
@@ -26954,14 +26954,14 @@ def _typecheckingstub__d81dc102aa24fdc5c42fa4ed2ff7c70c77beb876a92e54f87c1584898
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b(
-    value: builtins.str,
+def _typecheckingstub__f82f2a7642ea2ac7bdf170a2733a41594fd40eb07f7e540d495f22c6fa06b147(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f82f2a7642ea2ac7bdf170a2733a41594fd40eb07f7e540d495f22c6fa06b147(
-    value: typing.Any,
+def _typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

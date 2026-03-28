@@ -82,6 +82,22 @@ const bucket = new s3.Bucket(stack, 'MyDSSEBucket', {
 });
 ```
 
+Explicitly block uploads encrypted with SSE-C:
+
+```python
+bucket = s3.Bucket(self, "MySsecBlockedBucket",
+    blocked_encryption_types=[s3.BlockedEncryptionType.SSE_C]
+)
+```
+
+Allow uploads with all encryption types:
+
+```python
+bucket = s3.Bucket(self, "MyBucket",
+    blocked_encryption_types=[s3.BlockedEncryptionType.NONE]
+)
+```
+
 ## Permissions
 
 A bucket policy will be automatically created for the bucket upon the first call to
@@ -1439,6 +1455,54 @@ class BlockPublicAccessOptions:
         )
 
 
+class BlockedEncryptionType(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_s3.BlockedEncryptionType",
+):
+    '''Encryption types that can be blocked on an S3 bucket.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        bucket = s3.Bucket(self, "MySsecBlockedBucket",
+            blocked_encryption_types=[s3.BlockedEncryptionType.SSE_C]
+        )
+    '''
+
+    @jsii.member(jsii_name="custom")
+    @builtins.classmethod
+    def custom(cls, name: builtins.str) -> "BlockedEncryptionType":
+        '''Use this constructor only if S3 releases a new BlockedEncryptionType that is unknown to CDK.
+
+        Otherwise, use this class's static constants.
+
+        :param name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__acd2cebd3290ee859e9dbf500e985b6ed5592169878907580a178eb6ac497e30)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        return typing.cast("BlockedEncryptionType", jsii.sinvoke(cls, "custom", [name]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="NONE")
+    def NONE(cls) -> "BlockedEncryptionType":
+        '''Special value - all encryption types are allowed.'''
+        return typing.cast("BlockedEncryptionType", jsii.sget(cls, "NONE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SSE_C")
+    def SSE_C(cls) -> "BlockedEncryptionType":
+        '''Server-Side Encryption with customer-provided keys (SSE-C) is blocked.'''
+        return typing.cast("BlockedEncryptionType", jsii.sget(cls, "SSE_C"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name for this blocked encryption type used in the API.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_s3.BucketAccessControl")
 class BucketAccessControl(enum.Enum):
     '''Default bucket access control types.
@@ -2502,6 +2566,7 @@ class BucketPolicyProps:
         "abac_status": "abacStatus",
         "access_control": "accessControl",
         "auto_delete_objects": "autoDeleteObjects",
+        "blocked_encryption_types": "blockedEncryptionTypes",
         "block_public_access": "blockPublicAccess",
         "bucket_key_enabled": "bucketKeyEnabled",
         "bucket_name": "bucketName",
@@ -2543,6 +2608,7 @@ class BucketProps:
         abac_status: typing.Optional[builtins.bool] = None,
         access_control: typing.Optional["BucketAccessControl"] = None,
         auto_delete_objects: typing.Optional[builtins.bool] = None,
+        blocked_encryption_types: typing.Optional[typing.Sequence["BlockedEncryptionType"]] = None,
         block_public_access: typing.Optional["BlockPublicAccess"] = None,
         bucket_key_enabled: typing.Optional[builtins.bool] = None,
         bucket_name: typing.Optional[builtins.str] = None,
@@ -2580,6 +2646,7 @@ class BucketProps:
         :param abac_status: Enables Amazon S3 to evaluate the ABAC policy in the request. Set to true to enable ABAC, false to explicitly disable it. Default: - The ABAC status is not set
         :param access_control: Specifies a canned ACL that grants predefined permissions to the bucket. Default: BucketAccessControl.PRIVATE
         :param auto_delete_objects: Whether all objects should be automatically deleted when the bucket is removed from the stack or when the stack is deleted. Requires the ``removalPolicy`` to be set to ``RemovalPolicy.DESTROY``. **Warning** if you have deployed a bucket with ``autoDeleteObjects: true``, switching this to ``false`` in a CDK version *before* ``1.126.0`` will lead to all objects in the bucket being deleted. Be sure to update your bucket resources by deploying with CDK version ``1.126.0`` or later **before** switching this value to ``false``. Setting ``autoDeleteObjects`` to true on a bucket will add ``s3:PutBucketPolicy`` to the bucket policy. This is because during bucket deletion, the custom resource provider needs to update the bucket policy by adding a deny policy for ``s3:PutObject`` to prevent race conditions with external bucket writers. Default: false
+        :param blocked_encryption_types: Encryption types that should be blocked for this bucket. Use ``NONE`` to allow all encryption types. At least one ``BlockedEncryptionType`` must be given. If ``NONE`` is given, it must be the only ``BlockedEncryptionType`` in the list. Default: - Amazon S3 determines which encryption types to block.
         :param block_public_access: The block public access configuration of this bucket. Default: - CloudFormation defaults will apply. New buckets and objects don't allow public access, but users can modify bucket policies or object permissions to allow public access
         :param bucket_key_enabled: Whether Amazon S3 should use its own intermediary key to generate data keys. Only relevant when using KMS for encryption. - If not enabled, every object GET and PUT will cause an API call to KMS (with the attendant cost implications of that). - If enabled, S3 will use its own time-limited key instead. Only relevant, when Encryption is not set to ``BucketEncryption.UNENCRYPTED``. Default: - false
         :param bucket_name: Physical name of this bucket. Default: - Assigned by CloudFormation (recommended).
@@ -2640,6 +2707,7 @@ class BucketProps:
             check_type(argname="argument abac_status", value=abac_status, expected_type=type_hints["abac_status"])
             check_type(argname="argument access_control", value=access_control, expected_type=type_hints["access_control"])
             check_type(argname="argument auto_delete_objects", value=auto_delete_objects, expected_type=type_hints["auto_delete_objects"])
+            check_type(argname="argument blocked_encryption_types", value=blocked_encryption_types, expected_type=type_hints["blocked_encryption_types"])
             check_type(argname="argument block_public_access", value=block_public_access, expected_type=type_hints["block_public_access"])
             check_type(argname="argument bucket_key_enabled", value=bucket_key_enabled, expected_type=type_hints["bucket_key_enabled"])
             check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
@@ -2679,6 +2747,8 @@ class BucketProps:
             self._values["access_control"] = access_control
         if auto_delete_objects is not None:
             self._values["auto_delete_objects"] = auto_delete_objects
+        if blocked_encryption_types is not None:
+            self._values["blocked_encryption_types"] = blocked_encryption_types
         if block_public_access is not None:
             self._values["block_public_access"] = block_public_access
         if bucket_key_enabled is not None:
@@ -2786,6 +2856,20 @@ class BucketProps:
         '''
         result = self._values.get("auto_delete_objects")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def blocked_encryption_types(
+        self,
+    ) -> typing.Optional[typing.List["BlockedEncryptionType"]]:
+        '''Encryption types that should be blocked for this bucket. Use ``NONE`` to allow all encryption types.
+
+        At least one ``BlockedEncryptionType`` must be given. If ``NONE`` is given, it must be
+        the only ``BlockedEncryptionType`` in the list.
+
+        :default: - Amazon S3 determines which encryption types to block.
+        '''
+        result = self._values.get("blocked_encryption_types")
+        return typing.cast(typing.Optional[typing.List["BlockedEncryptionType"]], result)
 
     @builtins.property
     def block_public_access(self) -> typing.Optional["BlockPublicAccess"]:
@@ -4595,6 +4679,19 @@ class CfnAccessPoint(
         jsii.set(self, "bucket", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> typing.Any:
+        '''The access point policy associated with this access point.'''
+        return typing.cast(typing.Any, jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e424ad18d868eff85114332893fcf1ce3e590b1265b2bf01673d07c7eae67193)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="bucketAccountId")
     def bucket_account_id(self) -> typing.Optional[builtins.str]:
         '''The AWS account ID associated with the S3 bucket associated with this access point.'''
@@ -4619,19 +4716,6 @@ class CfnAccessPoint(
             type_hints = typing.get_type_hints(_typecheckingstub__3a857c1b168134cdd7d76a3c9a3359cc7cf23990068b2761f01adf573b2cb2d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policy")
-    def policy(self) -> typing.Any:
-        '''The access point policy associated with this access point.'''
-        return typing.cast(typing.Any, jsii.get(self, "policy"))
-
-    @policy.setter
-    def policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e424ad18d868eff85114332893fcf1ce3e590b1265b2bf01673d07c7eae67193)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="publicAccessBlockConfiguration")
@@ -5092,6 +5176,8 @@ class CfnBucket(
         analytics_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.AnalyticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         bucket_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.BucketEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bucket_name: typing.Optional[builtins.str] = None,
+        bucket_name_prefix: typing.Optional[builtins.str] = None,
+        bucket_namespace: typing.Optional[builtins.str] = None,
         cors_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.CorsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         intelligent_tiering_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.IntelligentTieringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         inventory_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.InventoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -5120,6 +5206,8 @@ class CfnBucket(
         :param analytics_configurations: Specifies the configuration and any analyses for the analytics filter of an Amazon S3 bucket.
         :param bucket_encryption: Specifies default encryption for a bucket using server-side encryption with Amazon S3-managed keys (SSE-S3), AWS KMS-managed keys (SSE-KMS), or dual-layer server-side encryption with KMS-managed keys (DSSE-KMS). For information about the Amazon S3 default encryption feature, see `Amazon S3 Default Encryption for S3 Buckets <https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
         :param bucket_name: A name for the bucket. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must contain only lowercase letters, numbers, periods (.), and dashes (-) and must follow `Amazon S3 bucket restrictions and limitations <https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html>`_ . For more information, see `Rules for naming Amazon S3 buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ in the *Amazon S3 User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
+        :param bucket_name_prefix: 
+        :param bucket_namespace: 
         :param cors_configuration: Describes the cross-origin access configuration for objects in an Amazon S3 bucket. For more information, see `Enabling Cross-Origin Resource Sharing <https://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html>`_ in the *Amazon S3 User Guide* .
         :param intelligent_tiering_configurations: Defines how Amazon S3 handles Intelligent-Tiering storage.
         :param inventory_configurations: Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see `GET Bucket inventory <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html>`_ in the *Amazon S3 API Reference* .
@@ -5149,6 +5237,8 @@ class CfnBucket(
             analytics_configurations=analytics_configurations,
             bucket_encryption=bucket_encryption,
             bucket_name=bucket_name,
+            bucket_name_prefix=bucket_name_prefix,
+            bucket_namespace=bucket_namespace,
             cors_configuration=cors_configuration,
             intelligent_tiering_configurations=intelligent_tiering_configurations,
             inventory_configurations=inventory_configurations,
@@ -5514,6 +5604,30 @@ class CfnBucket(
             type_hints = typing.get_type_hints(_typecheckingstub__54108cc6ed6ba655299058199da4b6fec6fa93a8906725ea4b77f9b08dc389da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bucketName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketNamePrefix")
+    def bucket_name_prefix(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bucketNamePrefix"))
+
+    @bucket_name_prefix.setter
+    def bucket_name_prefix(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eaf535721aa061e4dc9866cedf4d8d8e94bf2131eef571a08c12adad13b737f8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bucketNamePrefix", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="bucketNamespace")
+    def bucket_namespace(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bucketNamespace"))
+
+    @bucket_namespace.setter
+    def bucket_namespace(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97215eda16d9d40fe326145ba24c82a15d3908a202256abf6cda1957e56a9888)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bucketNamespace", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="corsConfiguration")
@@ -12780,6 +12894,8 @@ class CfnBucketPolicyProps:
         "analytics_configurations": "analyticsConfigurations",
         "bucket_encryption": "bucketEncryption",
         "bucket_name": "bucketName",
+        "bucket_name_prefix": "bucketNamePrefix",
+        "bucket_namespace": "bucketNamespace",
         "cors_configuration": "corsConfiguration",
         "intelligent_tiering_configurations": "intelligentTieringConfigurations",
         "inventory_configurations": "inventoryConfigurations",
@@ -12809,6 +12925,8 @@ class CfnBucketProps:
         analytics_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.AnalyticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         bucket_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.BucketEncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bucket_name: typing.Optional[builtins.str] = None,
+        bucket_name_prefix: typing.Optional[builtins.str] = None,
+        bucket_namespace: typing.Optional[builtins.str] = None,
         cors_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.CorsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         intelligent_tiering_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.IntelligentTieringConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         inventory_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBucket.InventoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -12835,6 +12953,8 @@ class CfnBucketProps:
         :param analytics_configurations: Specifies the configuration and any analyses for the analytics filter of an Amazon S3 bucket.
         :param bucket_encryption: Specifies default encryption for a bucket using server-side encryption with Amazon S3-managed keys (SSE-S3), AWS KMS-managed keys (SSE-KMS), or dual-layer server-side encryption with KMS-managed keys (DSSE-KMS). For information about the Amazon S3 default encryption feature, see `Amazon S3 Default Encryption for S3 Buckets <https://docs.aws.amazon.com/AmazonS3/latest/dev/bucket-encryption.html>`_ in the *Amazon S3 User Guide* .
         :param bucket_name: A name for the bucket. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must contain only lowercase letters, numbers, periods (.), and dashes (-) and must follow `Amazon S3 bucket restrictions and limitations <https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html>`_ . For more information, see `Rules for naming Amazon S3 buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ in the *Amazon S3 User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
+        :param bucket_name_prefix: 
+        :param bucket_namespace: 
         :param cors_configuration: Describes the cross-origin access configuration for objects in an Amazon S3 bucket. For more information, see `Enabling Cross-Origin Resource Sharing <https://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html>`_ in the *Amazon S3 User Guide* .
         :param intelligent_tiering_configurations: Defines how Amazon S3 handles Intelligent-Tiering storage.
         :param inventory_configurations: Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see `GET Bucket inventory <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html>`_ in the *Amazon S3 API Reference* .
@@ -12876,6 +12996,8 @@ class CfnBucketProps:
             check_type(argname="argument analytics_configurations", value=analytics_configurations, expected_type=type_hints["analytics_configurations"])
             check_type(argname="argument bucket_encryption", value=bucket_encryption, expected_type=type_hints["bucket_encryption"])
             check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+            check_type(argname="argument bucket_name_prefix", value=bucket_name_prefix, expected_type=type_hints["bucket_name_prefix"])
+            check_type(argname="argument bucket_namespace", value=bucket_namespace, expected_type=type_hints["bucket_namespace"])
             check_type(argname="argument cors_configuration", value=cors_configuration, expected_type=type_hints["cors_configuration"])
             check_type(argname="argument intelligent_tiering_configurations", value=intelligent_tiering_configurations, expected_type=type_hints["intelligent_tiering_configurations"])
             check_type(argname="argument inventory_configurations", value=inventory_configurations, expected_type=type_hints["inventory_configurations"])
@@ -12906,6 +13028,10 @@ class CfnBucketProps:
             self._values["bucket_encryption"] = bucket_encryption
         if bucket_name is not None:
             self._values["bucket_name"] = bucket_name
+        if bucket_name_prefix is not None:
+            self._values["bucket_name_prefix"] = bucket_name_prefix
+        if bucket_namespace is not None:
+            self._values["bucket_namespace"] = bucket_namespace
         if cors_configuration is not None:
             self._values["cors_configuration"] = cors_configuration
         if intelligent_tiering_configurations is not None:
@@ -13020,6 +13146,22 @@ class CfnBucketProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-bucketname
         '''
         result = self._values.get("bucket_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def bucket_name_prefix(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-bucketnameprefix
+        '''
+        result = self._values.get("bucket_name_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def bucket_namespace(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-bucketnamespace
+        '''
+        result = self._values.get("bucket_namespace")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -23294,6 +23436,7 @@ class Bucket(
         abac_status: typing.Optional[builtins.bool] = None,
         access_control: typing.Optional["BucketAccessControl"] = None,
         auto_delete_objects: typing.Optional[builtins.bool] = None,
+        blocked_encryption_types: typing.Optional[typing.Sequence["BlockedEncryptionType"]] = None,
         block_public_access: typing.Optional["BlockPublicAccess"] = None,
         bucket_key_enabled: typing.Optional[builtins.bool] = None,
         bucket_name: typing.Optional[builtins.str] = None,
@@ -23333,6 +23476,7 @@ class Bucket(
         :param abac_status: Enables Amazon S3 to evaluate the ABAC policy in the request. Set to true to enable ABAC, false to explicitly disable it. Default: - The ABAC status is not set
         :param access_control: Specifies a canned ACL that grants predefined permissions to the bucket. Default: BucketAccessControl.PRIVATE
         :param auto_delete_objects: Whether all objects should be automatically deleted when the bucket is removed from the stack or when the stack is deleted. Requires the ``removalPolicy`` to be set to ``RemovalPolicy.DESTROY``. **Warning** if you have deployed a bucket with ``autoDeleteObjects: true``, switching this to ``false`` in a CDK version *before* ``1.126.0`` will lead to all objects in the bucket being deleted. Be sure to update your bucket resources by deploying with CDK version ``1.126.0`` or later **before** switching this value to ``false``. Setting ``autoDeleteObjects`` to true on a bucket will add ``s3:PutBucketPolicy`` to the bucket policy. This is because during bucket deletion, the custom resource provider needs to update the bucket policy by adding a deny policy for ``s3:PutObject`` to prevent race conditions with external bucket writers. Default: false
+        :param blocked_encryption_types: Encryption types that should be blocked for this bucket. Use ``NONE`` to allow all encryption types. At least one ``BlockedEncryptionType`` must be given. If ``NONE`` is given, it must be the only ``BlockedEncryptionType`` in the list. Default: - Amazon S3 determines which encryption types to block.
         :param block_public_access: The block public access configuration of this bucket. Default: - CloudFormation defaults will apply. New buckets and objects don't allow public access, but users can modify bucket policies or object permissions to allow public access
         :param bucket_key_enabled: Whether Amazon S3 should use its own intermediary key to generate data keys. Only relevant when using KMS for encryption. - If not enabled, every object GET and PUT will cause an API call to KMS (with the attendant cost implications of that). - If enabled, S3 will use its own time-limited key instead. Only relevant, when Encryption is not set to ``BucketEncryption.UNENCRYPTED``. Default: - false
         :param bucket_name: Physical name of this bucket. Default: - Assigned by CloudFormation (recommended).
@@ -23374,6 +23518,7 @@ class Bucket(
             abac_status=abac_status,
             access_control=access_control,
             auto_delete_objects=auto_delete_objects,
+            blocked_encryption_types=blocked_encryption_types,
             block_public_access=block_public_access,
             bucket_key_enabled=bucket_key_enabled,
             bucket_name=bucket_name,
@@ -23799,6 +23944,7 @@ class Bucket(
 __all__ = [
     "BlockPublicAccess",
     "BlockPublicAccessOptions",
+    "BlockedEncryptionType",
     "Bucket",
     "BucketAccessControl",
     "BucketAttributes",
@@ -23906,6 +24052,12 @@ def _typecheckingstub__d48386339cd452ab0caab24c06ced633e07ba8a40172743a2c1d09cbf
     block_public_policy: typing.Optional[builtins.bool] = None,
     ignore_public_acls: typing.Optional[builtins.bool] = None,
     restrict_public_buckets: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__acd2cebd3290ee859e9dbf500e985b6ed5592169878907580a178eb6ac497e30(
+    name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24064,6 +24216,7 @@ def _typecheckingstub__f2ff878f2dca3dd037442155369c2fcc7bd194425c0967a7fd7bfa576
     abac_status: typing.Optional[builtins.bool] = None,
     access_control: typing.Optional[BucketAccessControl] = None,
     auto_delete_objects: typing.Optional[builtins.bool] = None,
+    blocked_encryption_types: typing.Optional[typing.Sequence[BlockedEncryptionType]] = None,
     block_public_access: typing.Optional[BlockPublicAccess] = None,
     bucket_key_enabled: typing.Optional[builtins.bool] = None,
     bucket_name: typing.Optional[builtins.str] = None,
@@ -24386,6 +24539,12 @@ def _typecheckingstub__f05d02ed64de76ec07ffab71aa952c3861b4de33221b338dcc4ff6eda
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e424ad18d868eff85114332893fcf1ce3e590b1265b2bf01673d07c7eae67193(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a20900e59a68c51259a69f8b59e898cf7f2b7da3295de514614bf9738b61566c(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -24394,12 +24553,6 @@ def _typecheckingstub__a20900e59a68c51259a69f8b59e898cf7f2b7da3295de514614bf9738
 
 def _typecheckingstub__3a857c1b168134cdd7d76a3c9a3359cc7cf23990068b2761f01adf573b2cb2d6(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e424ad18d868eff85114332893fcf1ce3e590b1265b2bf01673d07c7eae67193(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24462,6 +24615,8 @@ def _typecheckingstub__0cfa39e37f5fa17b8234ce2f712ef5cf3bf2c262914967924c19a67f6
     analytics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.AnalyticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.BucketEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bucket_name: typing.Optional[builtins.str] = None,
+    bucket_name_prefix: typing.Optional[builtins.str] = None,
+    bucket_namespace: typing.Optional[builtins.str] = None,
     cors_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.CorsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     intelligent_tiering_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.IntelligentTieringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     inventory_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.InventoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -24554,6 +24709,18 @@ def _typecheckingstub__51b46a81434808d9dc9a5d68b053ff1b93618b7249c98960f0b51727b
     pass
 
 def _typecheckingstub__54108cc6ed6ba655299058199da4b6fec6fa93a8906725ea4b77f9b08dc389da(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eaf535721aa061e4dc9866cedf4d8d8e94bf2131eef571a08c12adad13b737f8(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97215eda16d9d40fe326145ba24c82a15d3908a202256abf6cda1957e56a9888(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -25301,6 +25468,8 @@ def _typecheckingstub__658a4165ec8804b9770871bbb27764713f55dc53e9c9e990dca120e77
     analytics_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.AnalyticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     bucket_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.BucketEncryptionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bucket_name: typing.Optional[builtins.str] = None,
+    bucket_name_prefix: typing.Optional[builtins.str] = None,
+    bucket_namespace: typing.Optional[builtins.str] = None,
     cors_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.CorsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     intelligent_tiering_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.IntelligentTieringConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     inventory_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBucket.InventoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -26464,6 +26633,7 @@ def _typecheckingstub__25f24cbf29544d9c579e765350a7b51ec4ec81bc2cc07a21660738a1e
     abac_status: typing.Optional[builtins.bool] = None,
     access_control: typing.Optional[BucketAccessControl] = None,
     auto_delete_objects: typing.Optional[builtins.bool] = None,
+    blocked_encryption_types: typing.Optional[typing.Sequence[BlockedEncryptionType]] = None,
     block_public_access: typing.Optional[BlockPublicAccess] = None,
     bucket_key_enabled: typing.Optional[builtins.bool] = None,
     bucket_name: typing.Optional[builtins.str] = None,

@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
 from pyUSPTO.http_config import HTTPConfig
 
+DEFAULT_BASE_URL = "https://api.uspto.gov"
+
 
 class USPTOConfig:
     """Configuration for USPTO API clients.
@@ -23,10 +25,11 @@ class USPTOConfig:
     def __init__(
         self,
         api_key: str | None = None,
-        bulk_data_base_url: str = "https://api.uspto.gov",
-        patent_data_base_url: str = "https://api.uspto.gov",
-        petition_decisions_base_url: str = "https://api.uspto.gov",
-        ptab_base_url: str = "https://api.uspto.gov",
+        bulk_data_base_url: str = DEFAULT_BASE_URL,
+        patent_data_base_url: str = DEFAULT_BASE_URL,
+        petition_decisions_base_url: str = DEFAULT_BASE_URL,
+        ptab_base_url: str = DEFAULT_BASE_URL,
+        enriched_citations_base_url: str = DEFAULT_BASE_URL,
         http_config: HTTPConfig | None = None,
         include_raw_data: bool = False,
     ):
@@ -38,6 +41,7 @@ class USPTOConfig:
             patent_data_base_url: Base URL for the Patent Data API
             petition_decisions_base_url: Base URL for the Final Petition Decisions API
             ptab_base_url: Base URL for the PTAB (Patent Trial and Appeal Board) API
+            enriched_citations_base_url: Base URL for the Enriched Citations API
             http_config: Optional HTTPConfig for request handling (uses defaults if None)
             include_raw_data: If True, store raw JSON in response objects for debugging (default: False)
         """
@@ -49,6 +53,7 @@ class USPTOConfig:
         self.patent_data_base_url = patent_data_base_url
         self.petition_decisions_base_url = petition_decisions_base_url
         self.ptab_base_url = ptab_base_url
+        self.enriched_citations_base_url = enriched_citations_base_url
 
         # Use provided HTTPConfig or create default
         self.http_config = http_config if http_config is not None else HTTPConfig()
@@ -69,16 +74,17 @@ class USPTOConfig:
         return cls(
             api_key=os.environ.get("USPTO_API_KEY"),
             bulk_data_base_url=os.environ.get(
-                "USPTO_BULK_DATA_BASE_URL", "https://api.uspto.gov"
+                "USPTO_BULK_DATA_BASE_URL", DEFAULT_BASE_URL
             ),
             patent_data_base_url=os.environ.get(
-                "USPTO_PATENT_DATA_BASE_URL", "https://api.uspto.gov"
+                "USPTO_PATENT_DATA_BASE_URL", DEFAULT_BASE_URL
             ),
             petition_decisions_base_url=os.environ.get(
-                "USPTO_PETITION_DECISIONS_BASE_URL", "https://api.uspto.gov"
+                "USPTO_PETITION_DECISIONS_BASE_URL", DEFAULT_BASE_URL
             ),
-            ptab_base_url=os.environ.get(
-                "USPTO_PTAB_BASE_URL", "https://api.uspto.gov"
+            ptab_base_url=os.environ.get("USPTO_PTAB_BASE_URL", DEFAULT_BASE_URL),
+            enriched_citations_base_url=os.environ.get(
+                "USPTO_ENRICHED_CITATIONS_BASE_URL", DEFAULT_BASE_URL
             ),
             # Also read HTTP config from environment
             http_config=HTTPConfig.from_env(),
@@ -114,6 +120,7 @@ class USPTOConfig:
         # Set API key header
         if self.api_key:
             session.headers["X-API-KEY"] = self.api_key
+            session.headers["Accept"] = "application/json"
 
         # Apply custom headers from HTTP config
         if self.http_config.custom_headers:

@@ -209,7 +209,8 @@ class DatabaseTransformer(ABC):
             statements = sqlglot.parse(query, dialect=dialect) if dialect else sqlglot.parse(query)
             return [
                 SqlStatement(
-                    statement=str(stmt), statement_type=stmt.key.upper() if stmt.key else "UNKNOWN"
+                    statement=stmt.sql(dialect=dialect),
+                    statement_type=stmt.key.upper() if stmt.key else "UNKNOWN",
                 )
                 for stmt in statements
                 if stmt and not isinstance(stmt, (exp.Comment, exp.Semicolon))

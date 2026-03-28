@@ -8143,6 +8143,19 @@ class CfnJobTemplate(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="abortConfig")
+    def abort_config(self) -> typing.Any:
+        '''The criteria that determine when and how a job abort takes place.'''
+        return typing.cast(typing.Any, jsii.get(self, "abortConfig"))
+
+    @abort_config.setter
+    def abort_config(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f40f09bc35afd5f5e50b9e8f924a59a5a6d5b45df38f967e79fd79a00774400)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "abortConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> builtins.str:
         '''A description of the job template.'''
@@ -8154,6 +8167,19 @@ class CfnJobTemplate(
             type_hints = typing.get_type_hints(_typecheckingstub__a5dbd2bef3f2c7259a873c8de7cdb341df4efb87fc6ec99f1d55d9c72c71ca5c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="jobExecutionsRolloutConfig")
+    def job_executions_rollout_config(self) -> typing.Any:
+        '''Allows you to create a staged rollout of a job.'''
+        return typing.cast(typing.Any, jsii.get(self, "jobExecutionsRolloutConfig"))
+
+    @job_executions_rollout_config.setter
+    def job_executions_rollout_config(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a3b7c7c5e7e945fd413ee16c2e54218842766448b684f18577cdd3a81536aa4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "jobExecutionsRolloutConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="jobTemplateId")
@@ -8169,17 +8195,30 @@ class CfnJobTemplate(
         jsii.set(self, "jobTemplateId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="abortConfig")
-    def abort_config(self) -> typing.Any:
-        '''The criteria that determine when and how a job abort takes place.'''
-        return typing.cast(typing.Any, jsii.get(self, "abortConfig"))
+    @jsii.member(jsii_name="presignedUrlConfig")
+    def presigned_url_config(self) -> typing.Any:
+        '''Configuration for pre-signed S3 URLs.'''
+        return typing.cast(typing.Any, jsii.get(self, "presignedUrlConfig"))
 
-    @abort_config.setter
-    def abort_config(self, value: typing.Any) -> None:
+    @presigned_url_config.setter
+    def presigned_url_config(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f40f09bc35afd5f5e50b9e8f924a59a5a6d5b45df38f967e79fd79a00774400)
+            type_hints = typing.get_type_hints(_typecheckingstub__ffe36746b59892b68618463aa605c6eec750c1726048b2f9948aad2e934dce26)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "abortConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "presignedUrlConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="timeoutConfig")
+    def timeout_config(self) -> typing.Any:
+        '''Specifies the amount of time each device has to finish its execution of the job.'''
+        return typing.cast(typing.Any, jsii.get(self, "timeoutConfig"))
+
+    @timeout_config.setter
+    def timeout_config(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63db9ef17710d5d57b5c0289a1f2c954feba65d2ba85c49994c7be9353ca2124)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "timeoutConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="destinationPackageVersions")
@@ -8257,19 +8296,6 @@ class CfnJobTemplate(
         jsii.set(self, "jobExecutionsRetryConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="jobExecutionsRolloutConfig")
-    def job_executions_rollout_config(self) -> typing.Any:
-        '''Allows you to create a staged rollout of a job.'''
-        return typing.cast(typing.Any, jsii.get(self, "jobExecutionsRolloutConfig"))
-
-    @job_executions_rollout_config.setter
-    def job_executions_rollout_config(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a3b7c7c5e7e945fd413ee16c2e54218842766448b684f18577cdd3a81536aa4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "jobExecutionsRolloutConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="maintenanceWindows")
     def maintenance_windows(
         self,
@@ -8288,19 +8314,6 @@ class CfnJobTemplate(
         jsii.set(self, "maintenanceWindows", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="presignedUrlConfig")
-    def presigned_url_config(self) -> typing.Any:
-        '''Configuration for pre-signed S3 URLs.'''
-        return typing.cast(typing.Any, jsii.get(self, "presignedUrlConfig"))
-
-    @presigned_url_config.setter
-    def presigned_url_config(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ffe36746b59892b68618463aa605c6eec750c1726048b2f9948aad2e934dce26)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "presignedUrlConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="tagsRaw")
     def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Metadata that can be used to manage the job template.'''
@@ -8312,19 +8325,6 @@ class CfnJobTemplate(
             type_hints = typing.get_type_hints(_typecheckingstub__2ac72e1296cc8de2004ee1a5cb79bd2213507a7ac113aad45202fcef9cfe9b9a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="timeoutConfig")
-    def timeout_config(self) -> typing.Any:
-        '''Specifies the amount of time each device has to finish its execution of the job.'''
-        return typing.cast(typing.Any, jsii.get(self, "timeoutConfig"))
-
-    @timeout_config.setter
-    def timeout_config(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63db9ef17710d5d57b5c0289a1f2c954feba65d2ba85c49994c7be9353ca2124)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timeoutConfig", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iot.CfnJobTemplate.AbortConfigProperty",
@@ -25701,8 +25701,20 @@ def _typecheckingstub__f2a86951a1e1ebece770795a855b17961e501e915c37e29403a4fe9a9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6f40f09bc35afd5f5e50b9e8f924a59a5a6d5b45df38f967e79fd79a00774400(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a5dbd2bef3f2c7259a873c8de7cdb341df4efb87fc6ec99f1d55d9c72c71ca5c(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a3b7c7c5e7e945fd413ee16c2e54218842766448b684f18577cdd3a81536aa4(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25713,7 +25725,13 @@ def _typecheckingstub__12c768b347988b4f842a2feecd381c891729e9d2a4387993560c1c223
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6f40f09bc35afd5f5e50b9e8f924a59a5a6d5b45df38f967e79fd79a00774400(
+def _typecheckingstub__ffe36746b59892b68618463aa605c6eec750c1726048b2f9948aad2e934dce26(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63db9ef17710d5d57b5c0289a1f2c954feba65d2ba85c49994c7be9353ca2124(
     value: typing.Any,
 ) -> None:
     """Type checking stubs"""
@@ -25749,32 +25767,14 @@ def _typecheckingstub__f06014baeaf6002138bac789e24d18ef62114c2addaa5f368395bdf1e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__5a3b7c7c5e7e945fd413ee16c2e54218842766448b684f18577cdd3a81536aa4(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0f132479de3bbee81c8ebdc76379b3feeed37c925ad91198dee50eb4140f3b2a(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnJobTemplate.MaintenanceWindowProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ffe36746b59892b68618463aa605c6eec750c1726048b2f9948aad2e934dce26(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__2ac72e1296cc8de2004ee1a5cb79bd2213507a7ac113aad45202fcef9cfe9b9a(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__63db9ef17710d5d57b5c0289a1f2c954feba65d2ba85c49994c7be9353ca2124(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

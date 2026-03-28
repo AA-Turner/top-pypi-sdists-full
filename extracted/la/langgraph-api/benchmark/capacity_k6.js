@@ -1,6 +1,6 @@
 import { check, fail } from "k6";
 import { Trend, Counter } from "k6/metrics";
-import { Benchmarks } from "./benchmark-runners/benchmarks.js";
+import { Benchmarks } from "./benchmark-runners/dist/benchmarks.js";
 
 // Metrics
 const runExecutionLatency = new Trend("run_execution_latency");
@@ -112,25 +112,24 @@ export default function (data) {
 
   if (!timeoutSuccess) {
     console.log(
-      `VU ${__VU}: status=${result.status} duration=${totalDuration.toFixed(2)}s success=false (timeout)`,
+      `VU ${__VU}: duration=${totalDuration.toFixed(2)}s success=false (timeout)`,
     );
     errorMetrics.timeout_errors.add(1);
     fail(
       `Benchmark execution timeout exceeded for VU ${__VU}: ${totalDuration.toFixed(2)}s > ${RUN_EXECUTION_TIMEOUT_SECONDS}s`,
     );
-    return; // Exit early to avoid further validation
   }
 
   // Validate the result using the runner's validation
   const success = runner.validate(result, errorMetrics, benchmarkGraphOptions);
 
   console.log(
-    `VU ${__VU}: status=${result.status} duration=${totalDuration.toFixed(2)}s success=${success}`,
+    `VU ${__VU}: duration=${totalDuration.toFixed(2)}s success=${success}`,
   );
 
   // Fail the VU iteration if validation failed
   if (!success) {
-    fail(`Benchmark validation failed for VU ${__VU}: status=${result.status}`);
+    fail(`Benchmark validation failed for VU ${__VU}`);
   }
 }
 

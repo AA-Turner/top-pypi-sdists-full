@@ -1,4 +1,4 @@
-from typing import Callable, Sequence, Union
+from collections.abc import Callable, Sequence
 
 import torch
 from torch import Tensor
@@ -51,7 +51,7 @@ class HSIC(Metric):
             metric's device to be the same as your ``update`` arguments ensures the ``update`` method is
             non-blocking. By default, CPU.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Examples:
@@ -98,7 +98,7 @@ class HSIC(Metric):
         sigma_y: float = -1,
         ignore_invalid_batch: bool = True,
         output_transform: Callable = lambda x: x,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ):
         super().__init__(output_transform, device, skip_unrolling=skip_unrolling)
@@ -132,7 +132,7 @@ class HSIC(Metric):
         rx = xx.diag().unsqueeze(0).expand_as(xx)
         dxx = rx.T + rx - xx * 2
 
-        vx: Union[Tensor, float]
+        vx: Tensor | float
         if self.sigma_x < 0:
             # vx = torch.quantile(dxx, 0.5)
             vx = torch.quantile(dxx, 0.5)
@@ -144,7 +144,7 @@ class HSIC(Metric):
         ry = yy.diag().unsqueeze(0).expand_as(yy)
         dyy = ry.T + ry - yy * 2
 
-        vy: Union[Tensor, float]
+        vy: Tensor | float
         if self.sigma_y < 0:
             vy = torch.quantile(dyy, 0.5)
         else:

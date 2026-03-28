@@ -1,4 +1,5 @@
-from typing import Any, Callable, Tuple, Union
+from collections.abc import Callable
+from typing import Any
 
 import torch
 
@@ -62,7 +63,7 @@ class KendallRankCorrelation(EpochMetric):
             metric's device to be the same as your ``update`` arguments ensures the ``update`` method is
             non-blocking. By default, CPU.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Examples:
@@ -94,7 +95,7 @@ class KendallRankCorrelation(EpochMetric):
         variant: str = "b",
         output_transform: Callable[..., Any] = lambda x: x,
         check_compute_fn: bool = True,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ) -> None:
         try:
@@ -104,7 +105,7 @@ class KendallRankCorrelation(EpochMetric):
 
         super().__init__(_get_kendall_tau(variant), output_transform, check_compute_fn, device, skip_unrolling)
 
-    def update(self, output: Tuple[torch.Tensor, torch.Tensor]) -> None:
+    def update(self, output: tuple[torch.Tensor, torch.Tensor]) -> None:
         y_pred, y = output[0].detach(), output[1].detach()
         if y_pred.ndim == 1:
             y_pred = y_pred.unsqueeze(1)

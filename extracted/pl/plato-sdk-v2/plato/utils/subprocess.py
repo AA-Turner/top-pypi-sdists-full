@@ -30,6 +30,9 @@ SSH_OPTS: list[tuple[str, str]] = [
     ("StrictHostKeyChecking", "no"),
     ("UserKnownHostsFile", "/dev/null"),
     ("LogLevel", "ERROR"),
+    ("ConnectTimeout", "15"),
+    ("ServerAliveInterval", "10"),
+    ("ServerAliveCountMax", "3"),
 ]
 
 

@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import AsyncExitStack, aclosing, asynccontextmanager, suppress
@@ -32,6 +33,7 @@ from langgraph_api import _checkpointer as api_checkpointer
 from langgraph_api import store as api_store
 from langgraph_api.asyncio import ValueEvent, wait_if_not_done
 from langgraph_api.command import map_cmd
+from langgraph_api.config import LSD_PUBLISH_QUEUE_SIZE
 from langgraph_api.feature_flags import (
     IS_POSTGRES_OR_GRPC_BACKEND,
     UPDATES_NEEDED_FOR_INTERRUPTS,
@@ -39,12 +41,12 @@ from langgraph_api.feature_flags import (
     USE_RUNTIME_CONTEXT_API,
 )
 from langgraph_api.graph import get_graph
-from langgraph_api.grpc.ops.runs import StreamPublishException
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.metadata import HOST, PLAN, USER_API_URL, incr_nodes
 from langgraph_api.metrics_datadog import (
     COUNTER_STREAMING_DATA_LOSS,
-    COUNTER_STREAMING_EVENT,
+    GAUGE_PUBLISH_QUEUE_AVAILABILITY,
+    HISTOGRAM_STREAM_DATA_SIZE,
     LATENCY_STREAM_PUBLISH,
     get_datadog_metrics_reporter,
 )
@@ -502,58 +504,80 @@ async def consume(
     if "messages-tuple" in stream_modes:
         stream_modes.add("messages")
     stream_modes.add("metadata")
+    publish_queue: asyncio.Queue[tuple[str, bytes, str, bool] | object] = asyncio.Queue(
+        maxsize=LSD_PUBLISH_QUEUE_SIZE
+    )
+    publish_sentinel = object()
 
-    async with aclosing(stream):
-        try:
-            async for mode, payload in stream:
-                event_type = get_stream_event_type(mode)
-                if reporter.enabled:
-                    with reporter.track_latency_ms(
-                        LATENCY_STREAM_PUBLISH,
-                        attributes={"stream_event_type": event_type},
-                    ):
-                        await Runs.Stream.publish(
-                            run_id,
-                            mode,
-                            await run_in_executor(None, json_dumpb, payload),
-                            thread_id=thread_id,
-                            resumable=resumable and mode.split("|")[0] in stream_modes,
-                        )
-                    reporter.inc_counter(
-                        COUNTER_STREAMING_EVENT,
-                        attributes={"stream_event_type": event_type},
-                    )
-                else:
+    async def _publish_worker() -> None:
+        while True:
+            item = await publish_queue.get()
+            event_type = "unknown"
+            try:
+                if item is publish_sentinel:
+                    return
+                mode, payload_bytes, event_type, is_resumable = cast(
+                    "tuple[str, bytes, str, bool]", item
+                )
+                with reporter.track_latency_ms(
+                    LATENCY_STREAM_PUBLISH,
+                    attributes={"stream_event_type": event_type},
+                ):
                     await Runs.Stream.publish(
                         run_id,
                         mode,
-                        await run_in_executor(None, json_dumpb, payload),
+                        payload_bytes,
                         thread_id=thread_id,
-                        resumable=resumable and mode.split("|")[0] in stream_modes,
+                        resumable=is_resumable,
                     )
-        except Exception as e:
-            if isinstance(e, ExceptionGroup):
-                e = e.exceptions[0]
-            with suppress(Exception):
-                await Runs.Stream.publish(
-                    run_id,
-                    "error",
-                    await run_in_executor(None, json_dumpb, e),
-                    thread_id=thread_id,
+                reporter.record_histogram(
+                    HISTOGRAM_STREAM_DATA_SIZE,
+                    float(len(payload_bytes)),
+                    attributes={"stream_event_type": event_type},
                 )
-            # Only suppress stream publish failures. Other exceptions should
-            # still bubble up so run/task status is accurate.
-            if isinstance(e, StreamPublishException):
+            except Exception:
                 await logger.aerror(
-                    "Suppressing stream consume exception",
+                    "Publish failed, skipping event",
                     run_id=str(run_id),
                     thread_id=str(thread_id),
-                    error_type=type(e).__name__,
-                    error=str(e),
+                    stream_event_type=event_type,
                 )
-                reporter.inc_counter(COUNTER_STREAMING_DATA_LOSS)
-                return
-            raise e
+                reporter.inc_counter(
+                    COUNTER_STREAMING_DATA_LOSS,
+                    attributes={"stream_event_type": event_type},
+                )
+            finally:
+                publish_queue.task_done()
+
+    async def _enqueue(item: tuple[str, bytes, str, bool] | object) -> None:
+        """Enqueue an item for publishing. Blocks if the queue is full."""
+        reporter.record_gauge(
+            GAUGE_PUBLISH_QUEUE_AVAILABILITY,
+            float(publish_queue.maxsize - publish_queue.qsize()),
+        )
+        await publish_queue.put(item)
+
+    publisher_task = asyncio.create_task(_publish_worker())
+    try:
+        async with aclosing(stream):
+            async for mode, payload in stream:
+                event_type = get_stream_event_type(mode)
+                payload_bytes = await run_in_executor(None, json_dumpb, payload)
+                is_resumable = resumable and mode.split("|")[0] in stream_modes
+                await _enqueue((mode, payload_bytes, event_type, is_resumable))
+
+    except Exception as e:
+        if isinstance(e, ExceptionGroup):
+            e = e.exceptions[0]
+        with suppress(Exception):
+            error_payload = await run_in_executor(None, json_dumpb, e)
+            await _enqueue(("error", error_payload, "error", False))
+        raise e
+    finally:
+        with suppress(Exception):
+            await _enqueue(publish_sentinel)
+        if not publisher_task.done():
+            await publisher_task
 
 
 def get_feedback_urls(run_id: str, feedback_keys: list[str]) -> dict[str, str]:

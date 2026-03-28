@@ -12,11 +12,11 @@ from __future__ import annotations
 
 import importlib.util
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Optional
 
-from pyrit.identifiers import Identifier
+from pyrit.registry.base import ClassRegistryEntry
 from pyrit.registry.class_registries.base_class_registry import (
     BaseClassRegistry,
     ClassEntry,
@@ -34,16 +34,24 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class InitializerMetadata(Identifier):
+class InitializerMetadata(ClassRegistryEntry):
     """
     Metadata describing a registered PyRITInitializer class.
 
     Use get_class() to get the actual class.
     """
 
-    display_name: str
-    required_env_vars: tuple[str, ...]
-    execution_order: int
+    # Human-readable display name (e.g., "Objective Target Setup").
+    display_name: str = field(kw_only=True)
+
+    # Environment variables required by the initializer.
+    required_env_vars: tuple[str, ...] = field(kw_only=True)
+
+    # Execution order priority (lower = earlier).
+    execution_order: int = field(kw_only=True)
+
+    # Supported parameters as tuples of (name, description, required, default).
+    supported_parameters: tuple[tuple[str, str, bool, Optional[list[str]]], ...] = field(kw_only=True, default=())
 
 
 class InitializerRegistry(BaseClassRegistry["PyRITInitializer", InitializerMetadata]):
@@ -58,7 +66,7 @@ class InitializerRegistry(BaseClassRegistry["PyRITInitializer", InitializerMetad
     """
 
     @classmethod
-    def get_registry_singleton(cls) -> "InitializerRegistry":
+    def get_registry_singleton(cls) -> InitializerRegistry:
         """
         Get the singleton instance of the InitializerRegistry.
 
@@ -86,7 +94,7 @@ class InitializerRegistry(BaseClassRegistry["PyRITInitializer", InitializerMetad
         assert self._discovery_path is not None
 
         # Track file paths for collision detection and resolution
-        self._initializer_paths: Dict[str, Path] = {}
+        self._initializer_paths: dict[str, Path] = {}
 
         super().__init__(lazy_discovery=lazy_discovery)
 
@@ -148,13 +156,17 @@ class InitializerRegistry(BaseClassRegistry["PyRITInitializer", InitializerMetad
 
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
-                if inspect.isclass(attr) and issubclass(attr, base_class) and attr is not base_class:
-                    if not inspect.isabstract(attr):
-                        self._register_initializer(
-                            short_name=short_name,
-                            file_path=file_path,
-                            initializer_class=attr,  # type: ignore[arg-type]
-                        )
+                if (
+                    inspect.isclass(attr)
+                    and issubclass(attr, base_class)
+                    and attr is not base_class
+                    and not inspect.isabstract(attr)
+                ):
+                    self._register_initializer(
+                        short_name=short_name,
+                        file_path=file_path,
+                        initializer_class=attr,  # type: ignore[arg-type]
+                    )
 
         except Exception as e:
             logger.warning(f"Failed to load initializer module {short_name}: {e}")
@@ -164,7 +176,7 @@ class InitializerRegistry(BaseClassRegistry["PyRITInitializer", InitializerMetad
         *,
         short_name: str,
         file_path: Path,
-        initializer_class: "type[PyRITInitializer]",
+        initializer_class: type[PyRITInitializer],
     ) -> None:
         """
         Register an initializer class.
@@ -192,7 +204,7 @@ class InitializerRegistry(BaseClassRegistry["PyRITInitializer", InitializerMetad
         except Exception as e:
             logger.warning(f"Failed to register initializer {initializer_class.__name__}: {e}")
 
-    def _build_metadata(self, name: str, entry: ClassEntry["PyRITInitializer"]) -> InitializerMetadata:
+    def _build_metadata(self, name: str, entry: ClassEntry[PyRITInitializer]) -> InitializerMetadata:
         """
         Build metadata for an initializer class.
 
@@ -208,18 +220,19 @@ class InitializerRegistry(BaseClassRegistry["PyRITInitializer", InitializerMetad
         try:
             instance = initializer_class()
             return InitializerMetadata(
-                identifier_type="class",
                 class_name=initializer_class.__name__,
                 class_module=initializer_class.__module__,
                 class_description=instance.description,
                 display_name=instance.name,
                 required_env_vars=tuple(instance.required_env_vars),
                 execution_order=instance.execution_order,
+                supported_parameters=tuple(
+                    (p.name, p.description, p.required, p.default) for p in instance.supported_parameters
+                ),
             )
         except Exception as e:
             logger.warning(f"Failed to get metadata for {name}: {e}")
             return InitializerMetadata(
-                identifier_type="class",
                 class_name=initializer_class.__name__,
                 class_module=initializer_class.__module__,
                 class_description="Error loading initializer metadata",

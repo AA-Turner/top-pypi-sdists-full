@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rio-cogeo
-Version: 7.0.1
+Version: 7.0.2
 Summary: Cloud Optimized GeoTIFF (COGEO) creation plugin for rasterio
 Project-URL: Source, https://github.com/cogeotiff/rio-cogeo
 Project-URL: Documentation, https://cogeotiff.github.io/rio-cogeo/

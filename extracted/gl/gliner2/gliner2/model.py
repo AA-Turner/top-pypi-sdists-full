@@ -5,6 +5,8 @@ This module contains the core Extractor model that accepts PreprocessedBatch
 directly for efficient GPU-only forward passes.
 """
 
+import importlib
+import logging
 import os
 import tempfile
 from typing import Dict, List, Any, Optional, Tuple
@@ -12,6 +14,8 @@ from typing import Dict, List, Any, Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+logger = logging.getLogger(__name__)
 from gliner.modeling.span_rep import SpanRepLayer
 from gliner2.layers import CountLSTMoE, CountLSTM, create_mlp, CountLSTMv2
 from gliner2.processor import SchemaTransformer, PreprocessedBatch, SamplingConfig
@@ -24,6 +28,10 @@ from transformers import (
     AutoTokenizer,
 )
 
+IS_FLASHDEBERTA = importlib.util.find_spec("flashdeberta") is not None
+if IS_FLASHDEBERTA:
+    from flashdeberta import FlashDebertaV2Model
+
 
 class ExtractorConfig(PretrainedConfig):
     """Configuration for the Extractor model."""
@@ -35,6 +43,7 @@ class ExtractorConfig(PretrainedConfig):
             max_width: int = 8,
             counting_layer: str = "count_lstm",
             token_pooling: str = "first",
+            max_len: int = None,
             **kwargs
     ):
         super().__init__(**kwargs)
@@ -42,6 +51,7 @@ class ExtractorConfig(PretrainedConfig):
         self.max_width = max_width
         self.counting_layer = counting_layer
         self.token_pooling = token_pooling
+        self.max_len = max_len
 
 
 class Extractor(PreTrainedModel):
@@ -81,10 +91,7 @@ class Extractor(PreTrainedModel):
             )
 
         # Load encoder
-        if encoder_config is not None:
-            self.encoder = AutoModel.from_config(encoder_config, trust_remote_code=True)
-        else:
-            self.encoder = AutoModel.from_pretrained(config.model_name, trust_remote_code=True)
+        self.encoder = self._load_encoder(config.model_name, encoder_config)
 
         self.encoder.resize_token_embeddings(len(self.processor.tokenizer))
         self.hidden_size = self.encoder.config.hidden_size
@@ -145,6 +152,40 @@ class Extractor(PreTrainedModel):
         print(f"Token pooling      : {config.token_pooling}")
         print("=" * 60)
 
+    @staticmethod
+    def _load_encoder(model_name: str, encoder_config=None) -> nn.Module:
+        """Load the transformer encoder, using optimized backends when available.
+
+        Checks for FlashDeberta support when the encoder is DebertaV2-based.
+        Activated by setting the USE_FLASHDEBERTA environment variable.
+
+        Args:
+            model_name: Name or path of the pretrained model.
+            encoder_config: Optional pre-loaded encoder config. If provided,
+                the model is initialized from config; otherwise from pretrained.
+
+        Returns:
+            The initialized encoder module.
+        """
+        use_flashdeberta = (
+            IS_FLASHDEBERTA
+            and os.environ.get("USE_FLASHDEBERTA", "")
+        )
+
+        if encoder_config is not None:
+            config_name = encoder_config.__class__.__name__
+            if config_name == "DebertaV2Config" and use_flashdeberta:
+                print("Using FlashDeberta backend.")
+                return FlashDebertaV2Model(encoder_config)
+            return AutoModel.from_config(encoder_config, trust_remote_code=True)
+
+        pretrained_config = AutoConfig.from_pretrained(model_name)
+        config_name = pretrained_config.__class__.__name__
+        if config_name == "DebertaV2Config" and use_flashdeberta:
+            print("Using FlashDeberta backend.")
+            return FlashDebertaV2Model.from_pretrained(model_name)
+        return AutoModel.from_pretrained(model_name, trust_remote_code=True)
+
     # =========================================================================
     # Main Forward Pass
     # =========================================================================
@@ -173,10 +214,25 @@ class Extractor(PreTrainedModel):
             return self._empty_loss_dict()
 
         device = next(self.parameters()).device
-        batch = batch.to(device)
+        dtype = next(self.parameters()).dtype
+        batch = batch.to(device, dtype if dtype != torch.float32 else None)
 
         # Encode batch through transformer
         all_token_embs, all_schema_embs = self._encode_batch(batch)
+
+        # Batch span rep for samples that need it
+        span_samples = []
+        for i in range(len(batch)):
+            has_span = any(t != "classifications" for t in batch.task_types[i])
+            if has_span and all_token_embs[i].numel() > 0:
+                span_samples.append(i)
+
+        all_span_info = [None] * len(batch)
+        if span_samples:
+            span_embs = [all_token_embs[i] for i in span_samples]
+            span_results = self.compute_span_rep_batched(span_embs)
+            for idx, si in zip(span_samples, span_results):
+                all_span_info[idx] = si
 
         # Compute losses for each sample
         cls_losses = []
@@ -192,7 +248,8 @@ class Extractor(PreTrainedModel):
                     embs_per_schema=all_schema_embs[i],
                     task_types=batch.task_types[i],
                     structure_labels=batch.structure_labels[i],
-                    device=device
+                    device=device,
+                    span_info=all_span_info[i]
                 )
 
                 cls_losses.append(sample_losses["classification"])
@@ -307,7 +364,8 @@ class Extractor(PreTrainedModel):
             embs_per_schema: List[List[torch.Tensor]],
             task_types: List[str],
             structure_labels: List[Any],
-            device: torch.device
+            device: torch.device,
+            span_info: Optional[Dict[str, Any]] = None
     ) -> Dict[str, torch.Tensor]:
         """
         Compute all losses for a single sample.
@@ -318,6 +376,8 @@ class Extractor(PreTrainedModel):
             task_types: Task type for each schema
             structure_labels: Labels for each schema
             device: Computation device
+            span_info: Pre-computed span representations (from batched computation).
+                       If None, computed on-the-fly for this sample.
 
         Returns:
             Dict with classification, structure, and count losses
@@ -326,11 +386,11 @@ class Extractor(PreTrainedModel):
         struct_loss = torch.tensor(0.0, device=device)
         count_loss = torch.tensor(0.0, device=device)
 
-        # Compute span representations if needed
-        has_span_task = any(t != "classifications" for t in task_types)
-        span_info = None
-        if has_span_task and token_embeddings.numel() > 0:
-            span_info = self.compute_span_rep(token_embeddings)
+        # Compute span representations if needed and not pre-computed
+        if span_info is None:
+            has_span_task = any(t != "classifications" for t in task_types)
+            if has_span_task and token_embeddings.numel() > 0:
+                span_info = self.compute_span_rep(token_embeddings)
 
         all_counts = []
         all_p_embs = []
@@ -399,18 +459,21 @@ class Extractor(PreTrainedModel):
         text_length = len(token_embeddings)
         device = token_embeddings.device
 
-        spans_idx = []
-        for i in range(text_length):
-            for j in range(self.max_width):
-                if i + j < text_length:
-                    spans_idx.append((i, i + j))
-                else:
-                    spans_idx.append((-1, -1))
+        # Vectorized span index generation
+        starts = torch.arange(text_length, device=device).unsqueeze(1).expand(-1, self.max_width)
+        offsets = torch.arange(self.max_width, device=device).unsqueeze(0)
+        ends = starts + offsets
+        valid = ends < text_length
 
-        spans_idx = torch.tensor([spans_idx], dtype=torch.long, device=device)
+        starts_flat = starts.reshape(-1)
+        ends_flat = ends.reshape(-1)
+        invalid = ~valid.reshape(-1)
+        starts_flat = torch.where(invalid, torch.tensor(-1, device=device), starts_flat)
+        ends_flat = torch.where(invalid, torch.tensor(-1, device=device), ends_flat)
+        spans_idx = torch.stack([starts_flat, ends_flat], dim=-1).unsqueeze(0)
 
         # Mask invalid spans
-        span_mask = (spans_idx[:, :, 0] == -1) | (spans_idx[:, :, 1] == -1)
+        span_mask = invalid.unsqueeze(0)
 
         # Replace invalid with (0, 0) for safe indexing
         safe_spans = torch.where(
@@ -430,6 +493,103 @@ class Extractor(PreTrainedModel):
             "spans_idx": spans_idx,
             "span_mask": span_mask
         }
+
+    def compute_span_rep_batched(
+            self,
+            token_embs_list: List[torch.Tensor],
+    ) -> List[Dict[str, Any]]:
+        """
+        Batch span rep computation across multiple samples.
+
+        Pads token embeddings to the max text length, builds span indices once
+        for the padded length, then runs a single forward pass through
+        SpanMarkerV0. The results are unpacked per-sample with correct shapes.
+
+        Bit-identical to calling compute_span_rep per sample because
+        SpanMarkerV0 uses pointwise MLPs + gather (no cross-position mixing),
+        and we only use valid-position outputs.
+
+        Args:
+            token_embs_list: List of (text_len_i, hidden) tensors
+
+        Returns:
+            List of dicts with span_rep, spans_idx, span_mask per sample
+        """
+        if not token_embs_list:
+            return []
+
+        device = token_embs_list[0].device
+        text_lengths = [len(t) for t in token_embs_list]
+        max_text_len = max(text_lengths)
+        batch_size = len(token_embs_list)
+        hidden = token_embs_list[0].shape[-1]
+
+        # Pad variable-length list into a single dense tensor (stays eager
+        # so torch.compile doesn't guard on per-element shapes).
+        padded = torch.zeros(batch_size, max_text_len, hidden,
+                             device=device, dtype=token_embs_list[0].dtype)
+        for i, emb in enumerate(token_embs_list):
+            padded[i, :text_lengths[i]] = emb
+
+        text_len_t = torch.tensor(text_lengths, device=device)
+
+        # Dense tensor path — safe for torch.compile
+        span_rep, safe_spans, span_mask = self._compute_span_rep_core(
+            padded, text_len_t,
+        )
+
+        # Unpack per-sample results (Python dicts, stays eager)
+        results = []
+        for i in range(batch_size):
+            tl = text_lengths[i]
+            results.append({
+                "span_rep": span_rep[i, :tl, :, :],
+                "spans_idx": safe_spans[i:i+1, :, :],
+                "span_mask": span_mask[i:i+1, :],
+            })
+        return results
+
+    def _compute_span_rep_core(
+            self,
+            padded: torch.Tensor,
+            text_len_t: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Dense-tensor span computation (compile-friendly).
+
+        Args:
+            padded: (batch, max_text_len, hidden) — padded token embeddings
+            text_len_t: (batch,) — actual text lengths per sample
+
+        Returns:
+            span_rep: (batch, max_text_len, max_width, hidden)
+            safe_spans: (batch, N, 2)
+            span_mask: (batch, N) — True for invalid
+        """
+        batch_size, max_text_len, _ = padded.shape
+        device = padded.device
+
+        # Vectorized span indices for max_text_len
+        starts = torch.arange(max_text_len, device=device).unsqueeze(1).expand(-1, self.max_width)
+        offsets = torch.arange(self.max_width, device=device).unsqueeze(0)
+        ends = starts + offsets  # (max_text_len, max_width)
+
+        # Per-sample validity: span (i, i+j) valid iff i+j < text_lengths[sample]
+        ends_expanded = ends.unsqueeze(0).expand(batch_size, -1, -1)
+        valid = ends_expanded < text_len_t.view(-1, 1, 1)
+
+        starts_flat = starts.reshape(-1).unsqueeze(0).expand(batch_size, -1)
+        ends_flat = ends.reshape(-1).unsqueeze(0).expand(batch_size, -1)
+        valid_flat = valid.reshape(batch_size, -1)
+
+        safe_starts = torch.where(valid_flat, starts_flat, torch.zeros_like(starts_flat))
+        safe_ends = torch.where(valid_flat, ends_flat, torch.zeros_like(ends_flat))
+        safe_spans = torch.stack([safe_starts, safe_ends], dim=-1)  # (batch, N, 2)
+        span_mask = ~valid_flat  # (batch, N) — True for invalid
+
+        # Single batched forward pass through SpanMarkerV0
+        span_rep = self.span_rep(padded, safe_spans)  # (batch, max_text_len, max_width, hidden)
+
+        return span_rep, safe_spans, span_mask
 
     def compute_struct_loss(
             self,
@@ -509,16 +669,28 @@ class Extractor(PreTrainedModel):
     def from_pretrained(cls, repo_or_dir: str, **kwargs):
         """
         Load model from Hugging Face Hub or local directory.
-        
+
+        Args:
+            repo_or_dir: HuggingFace repo ID or local directory path.
+            quantize: If True, convert model to fp16 after loading.
+            compile: If True, torch.compile the encoder and span-rep
+                with ``dynamic=True`` for fused GPU kernels.
+            map_location: Device to load the model onto (e.g. "cpu", "cuda").
+            **kwargs: Additional keyword arguments.
+
         To use a LoRA adapter:
             1. Load the base model first
             2. Then load the adapter using model.load_adapter()
-        
+
         Example:
             model = Extractor.from_pretrained("base-model-name")
             model.load_adapter("path/to/adapter")
         """
         from huggingface_hub import hf_hub_download
+
+        quantize = kwargs.pop("quantize", False)
+        compile_model = kwargs.pop("compile", False)
+        map_location = kwargs.pop("map_location", None)
 
         def download_or_local(repo, filename):
             if os.path.isdir(repo):
@@ -556,17 +728,86 @@ class Extractor(PreTrainedModel):
             pass
 
         model.load_state_dict(state_dict)
+
+        if map_location is not None:
+            model = model.to(map_location)
+
+        if quantize:
+            model.quantize()
+
+        if compile_model:
+            model.compile()
+
         return model
+
+    # =========================================================================
+    # Quantization
+    # =========================================================================
+
+    def quantize(self) -> 'Extractor':
+        """Convert all model parameters to float16 for faster inference.
+
+        Returns:
+            self (for method chaining).
+
+        Example::
+
+            model = GLiNER2.from_pretrained("fastino/gliner2-base-v1")
+            model.quantize()
+
+            model = GLiNER2.from_pretrained("fastino/gliner2-base-v1",
+                                            map_location="cuda")
+            model.quantize()
+        """
+        self.half()
+        logger.info("Converted model to fp16")
+        return self
+
+    # =========================================================================
+    # torch.compile
+    # =========================================================================
+
+    def compile(self) -> 'Extractor':
+        """Compile tensor subgraphs with ``torch.compile(dynamic=True)``.
+
+        Three components are compiled (all verified 0 graph breaks):
+
+        - **encoder** (DeBERTa backbone)
+        - **_compute_span_rep_core** (span index + MLP)
+        - **count_embed** (CompileSafeGRU + DownscaledTransformer)
+
+        The list-of-tensors padding in ``compute_span_rep_batched`` and the
+        per-sample Python decode path are left in eager mode.
+
+        The first call triggers tracing and is slow; subsequent calls
+        with similar shapes use the cached compiled graph.
+
+        Returns:
+            self (for method chaining).
+
+        Example::
+
+            model = GLiNER2.from_pretrained("fastino/gliner2-base-v1",
+                                            map_location="cuda")
+            model.compile()
+        """
+        self.encoder = torch.compile(self.encoder, dynamic=True)
+        self._compute_span_rep_core = torch.compile(
+            self._compute_span_rep_core, dynamic=True,
+        )
+        self.count_embed = torch.compile(self.count_embed, dynamic=True)
+        logger.info("Compiled encoder, span-rep, and count-embed with torch.compile(dynamic=True)")
+        return self
 
     def load_adapter(self, adapter_path: str) -> 'Extractor':
         """
         Load a LoRA adapter onto this model.
-        
+
         If an adapter is already loaded, it will be unloaded first.
-        
+
         Args:
             adapter_path: Path to adapter directory
-            
+
         Returns:
             self for method chaining
             

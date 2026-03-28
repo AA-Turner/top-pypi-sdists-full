@@ -5,7 +5,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import sys
 import os
-
+from .abstractLogManager import LevelFilter
 PACKAGE_NAME = "abstract_utilities"
 
 # ─────────────────────────────────────────────────────────────
@@ -132,6 +132,10 @@ LOG_ROOT = _resolve_log_root()
 # Public API
 # ─────────────────────────────────────────────────────────────
 
+# Store filters keyed by logger name for runtime control
+_level_filters: dict[str, LevelFilter] = {}
+
+
 def get_logFile(
     name: str,
     *,
@@ -143,12 +147,20 @@ def get_logFile(
 
     logger = logging.getLogger(name)
 
+    # Skip re-initialization only if already configured
     if logger.handlers:
         return logger
 
-    logger.setLevel(level)
+    logger.setLevel(logging.DEBUG)  # Logger accepts everything
 
     formatter = SafeFormatter(LOG_FORMAT, DATE_FORMAT)
+    
+    # Create and store filter for this logger
+    level_filter = LevelFilter()
+    # Initialize with desired level (e.g., if level=INFO, disable DEBUG)
+    if level > logging.DEBUG:
+        level_filter.disable_level(logging.DEBUG)
+    _level_filters[name] = level_filter
 
     try:
         file_handler = RotatingFileHandler(
@@ -158,6 +170,8 @@ def get_logFile(
             encoding="utf-8",
         )
         file_handler.setFormatter(formatter)
+        file_handler.setLevel(logging.DEBUG)  # Handler accepts everything
+        file_handler.addFilter(level_filter)
         logger.addHandler(file_handler)
     except PermissionError:
         logger.addHandler(logging.NullHandler())
@@ -165,8 +179,34 @@ def get_logFile(
     if console:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
+        console_handler.setLevel(logging.DEBUG)  # Handler accepts everything
+        console_handler.addFilter(level_filter)
         logger.addHandler(console_handler)
 
     logger.propagate = False
     return logger
 
+
+def set_logger_level(name: str, level: int, enabled: bool) -> None:
+    """
+    Enable or disable a specific level for a logger.
+    
+    Args:
+        name: Logger name (from get_logFile)
+        level: logging.DEBUG, logging.INFO, etc.
+        enabled: True to enable, False to disable
+    """
+    if name not in _level_filters:
+        raise ValueError(f"Logger '{name}' not configured. Call get_logFile first.")
+    
+    if enabled:
+        _level_filters[name].enable_level(level)
+    else:
+        _level_filters[name].disable_level(level)
+
+
+def is_logger_level_enabled(name: str, level: int) -> bool:
+    """Check if a level is enabled for a logger."""
+    if name not in _level_filters:
+        return False
+    return _level_filters[name].is_enabled(level)

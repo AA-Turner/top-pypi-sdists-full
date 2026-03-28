@@ -1,5 +1,6 @@
 import inspect
-from typing import Any, Callable, Tuple, Union
+from collections.abc import Callable
+from typing import Any
 
 
 def _check_signature(fn: Callable, fn_description: str, *args: Any, **kwargs: Any) -> None:
@@ -21,7 +22,7 @@ def _check_signature(fn: Callable, fn_description: str, *args: Any, **kwargs: An
         )
 
 
-def _to_hours_mins_secs(time_taken: Union[float, int]) -> Tuple[int, int, float]:
+def _to_hours_mins_secs(time_taken: float | int) -> tuple[int, int, float]:
     """Convert seconds to hours, mins, seconds and milliseconds."""
     mins, secs = divmod(time_taken, 60)
     hours, mins = divmod(mins, 60)

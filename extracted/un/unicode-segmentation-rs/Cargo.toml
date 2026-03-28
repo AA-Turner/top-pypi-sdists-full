@@ -1,6 +1,6 @@
 [dependencies]
-pyo3 = {version = "0.27.1", features = ["extension-module", "abi3-py310", "generate-import-lib"]}
-unicode-segmentation = "1.12.0"
+pyo3 = {version = "0.28.2", features = ["extension-module", "abi3-py310", "generate-import-lib"]}
+unicode-segmentation = "1.13.2"
 unicode-width = "0.2.2"
 
 [lib]
@@ -15,4 +15,4 @@ license = "MIT"
 name = "unicode-segmentation-rs"
 readme = "README.md"
 repository = "https://github.com/WeblateOrg/unicode-segmentation-rs"
-version = "0.2.1"
+version = "0.2.2"

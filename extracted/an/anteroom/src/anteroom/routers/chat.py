@@ -1894,7 +1894,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
                     queue = asyncio.Queue()
                     _message_queues[conversation_id] = queue
                 await queue.put({"role": "user", "content": message_text})
-                return JSONResponse({"status": "queued", "position": queue.qsize()})
+                return JSONResponse({"status": "queued", "position": queue.qsize(), "queue_depth": queue.qsize()})
 
     if regenerate:
         existing = storage.list_messages(db, conversation_id)

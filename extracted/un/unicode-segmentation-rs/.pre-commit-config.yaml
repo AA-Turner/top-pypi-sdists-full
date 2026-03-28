@@ -10,17 +10,16 @@ repos:
   - id: check-toml
   - id: check-merge-conflict
   - id: check-json
-  - id: debug-statements
   - id: mixed-line-ending
     args: [--fix=lf]
   - id: pretty-format-json
     args: [--no-sort-keys, --autofix]
 - repo: https://github.com/adrienverge/yamllint
-  rev: v1.37.1
+  rev: v1.38.0
   hooks:
   - id: yamllint
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.14.9
+  rev: v0.15.8
   hooks:
   - id: ruff-check
     args:
@@ -32,7 +31,7 @@ repos:
   - id: check-hooks-apply
   - id: check-useless-excludes
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.15.0
+  rev: v2.16.0
   hooks:
   - id: pretty-format-yaml
     args: [--autofix, --indent, '2']
@@ -45,7 +44,7 @@ repos:
     additional_dependencies:
     - mdformat-gfm==1.0.0
 - repo: https://github.com/igorshubovych/markdownlint-cli
-  rev: v0.47.0
+  rev: v0.48.0
   hooks:
   - id: markdownlint
 - repo: https://github.com/fsfe/reuse-tool
@@ -53,16 +52,19 @@ repos:
   hooks:
   - id: reuse
 - repo: https://github.com/rhysd/actionlint
-  rev: v1.7.9
+  rev: v1.7.11
   hooks:
   - id: actionlint
 - repo: https://github.com/zizmorcore/zizmor-pre-commit
-  rev: v1.18.0
+  rev: v1.23.1
   hooks:
   - id: zizmor
-- repo: https://github.com/gitleaks/gitleaks
-  rev: v8.30.0
+- repo: https://github.com/mongodb/kingfisher
+  rev: v1.90.0
   hooks:
-  - id: gitleaks
+  - id: kingfisher-auto
 ci:
   autoupdate_schedule: quarterly
+  skip:
+  - reuse
+  - kingfisher-auto

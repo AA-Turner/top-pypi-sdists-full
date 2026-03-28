@@ -156,7 +156,7 @@ EvaluatorLevelType = Literal["SESSION", "TOOL_CALL", "TRACE"]
 EvaluatorStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
-EvaluatorTypeType = Literal["Builtin", "Custom"]
+EvaluatorTypeType = Literal["Builtin", "Custom", "CustomCode"]
 ExceptionLevelType = Literal["DEBUG"]
 FilterOperatorType = Literal[
     "Contains",

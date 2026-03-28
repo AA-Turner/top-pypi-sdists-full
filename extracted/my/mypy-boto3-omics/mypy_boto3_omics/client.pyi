@@ -31,6 +31,7 @@ from .paginator import (
     ListAnnotationStoresPaginator,
     ListAnnotationStoreVersionsPaginator,
     ListBatchPaginator,
+    ListConfigurationsPaginator,
     ListMultipartReadSetUploadsPaginator,
     ListReadSetActivationJobsPaginator,
     ListReadSetExportJobsPaginator,
@@ -68,6 +69,8 @@ from .type_defs import (
     CreateAnnotationStoreResponseTypeDef,
     CreateAnnotationStoreVersionRequestTypeDef,
     CreateAnnotationStoreVersionResponseTypeDef,
+    CreateConfigurationRequestTypeDef,
+    CreateConfigurationResponseTypeDef,
     CreateMultipartReadSetUploadRequestTypeDef,
     CreateMultipartReadSetUploadResponseTypeDef,
     CreateReferenceStoreRequestTypeDef,
@@ -91,6 +94,7 @@ from .type_defs import (
     DeleteAnnotationStoreVersionsRequestTypeDef,
     DeleteAnnotationStoreVersionsResponseTypeDef,
     DeleteBatchRequestTypeDef,
+    DeleteConfigurationRequestTypeDef,
     DeleteReferenceRequestTypeDef,
     DeleteReferenceStoreRequestTypeDef,
     DeleteRunBatchRequestTypeDef,
@@ -114,6 +118,8 @@ from .type_defs import (
     GetAnnotationStoreVersionResponseTypeDef,
     GetBatchRequestTypeDef,
     GetBatchResponseTypeDef,
+    GetConfigurationRequestTypeDef,
+    GetConfigurationResponseTypeDef,
     GetReadSetActivationJobRequestTypeDef,
     GetReadSetActivationJobResponseTypeDef,
     GetReadSetExportJobRequestTypeDef,
@@ -162,6 +168,8 @@ from .type_defs import (
     ListAnnotationStoreVersionsResponseTypeDef,
     ListBatchRequestTypeDef,
     ListBatchResponseTypeDef,
+    ListConfigurationsRequestTypeDef,
+    ListConfigurationsResponseTypeDef,
     ListMultipartReadSetUploadsRequestTypeDef,
     ListMultipartReadSetUploadsResponseTypeDef,
     ListReadSetActivationJobsRequestTypeDef,
@@ -418,6 +426,16 @@ class OmicsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#create_annotation_store_version)
         """
 
+    def create_configuration(
+        self, **kwargs: Unpack[CreateConfigurationRequestTypeDef]
+    ) -> CreateConfigurationResponseTypeDef:
+        """
+        Create a new configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#create_configuration)
+        """
+
     def create_multipart_read_set_upload(
         self, **kwargs: Unpack[CreateMultipartReadSetUploadRequestTypeDef]
     ) -> CreateMultipartReadSetUploadResponseTypeDef:
@@ -542,6 +560,16 @@ class OmicsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_batch.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#delete_batch)
+        """
+
+    def delete_configuration(
+        self, **kwargs: Unpack[DeleteConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Delete an existing configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#delete_configuration)
         """
 
     def delete_reference(self, **kwargs: Unpack[DeleteReferenceRequestTypeDef]) -> dict[str, Any]:
@@ -704,6 +732,16 @@ class OmicsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_batch.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#get_batch)
+        """
+
+    def get_configuration(
+        self, **kwargs: Unpack[GetConfigurationRequestTypeDef]
+    ) -> GetConfigurationResponseTypeDef:
+        """
+        Retrieve configuration details for specified name.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#get_configuration)
         """
 
     def get_read_set(self, **kwargs: Unpack[GetReadSetRequestTypeDef]) -> GetReadSetResponseTypeDef:
@@ -945,6 +983,16 @@ class OmicsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_batch.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#list_batch)
+        """
+
+    def list_configurations(
+        self, **kwargs: Unpack[ListConfigurationsRequestTypeDef]
+    ) -> ListConfigurationsResponseTypeDef:
+        """
+        List all configurations for the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_configurations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#list_configurations)
         """
 
     def list_multipart_read_set_uploads(
@@ -1400,6 +1448,17 @@ class OmicsClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_batch"]
     ) -> ListBatchPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_configurations"]
+    ) -> ListConfigurationsPaginator:
         """
         Create a paginator for an operation.
 

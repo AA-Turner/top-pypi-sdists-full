@@ -253,6 +253,19 @@ class CfnAccessPoint(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> typing.Any:
+        '''The access point policy associated with this access point.'''
+        return typing.cast(typing.Any, jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0fe8d23b1da317c18e81dcb763cd502a86a78fbe1cf3b94eabdb297243d29f70)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="vpcConfiguration")
     def vpc_configuration(
         self,
@@ -269,19 +282,6 @@ class CfnAccessPoint(
             type_hints = typing.get_type_hints(_typecheckingstub__55812ce12eee7d4ecd641b7985f48f98d2a1667857eae24a92f028f85a0a79a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policy")
-    def policy(self) -> typing.Any:
-        '''The access point policy associated with this access point.'''
-        return typing.cast(typing.Any, jsii.get(self, "policy"))
-
-    @policy.setter
-    def policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fe8d23b1da317c18e81dcb763cd502a86a78fbe1cf3b94eabdb297243d29f70)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_s3outposts.CfnAccessPoint.VpcConfigurationProperty",
@@ -2162,14 +2162,14 @@ def _typecheckingstub__8021398797d252dec5a923723349cc7067b5d1b7eb8e0583b457262fb
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__55812ce12eee7d4ecd641b7985f48f98d2a1667857eae24a92f028f85a0a79a8(
-    value: typing.Union[_IResolvable_da3f097b, CfnAccessPoint.VpcConfigurationProperty],
+def _typecheckingstub__0fe8d23b1da317c18e81dcb763cd502a86a78fbe1cf3b94eabdb297243d29f70(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0fe8d23b1da317c18e81dcb763cd502a86a78fbe1cf3b94eabdb297243d29f70(
-    value: typing.Any,
+def _typecheckingstub__55812ce12eee7d4ecd641b7985f48f98d2a1667857eae24a92f028f85a0a79a8(
+    value: typing.Union[_IResolvable_da3f097b, CfnAccessPoint.VpcConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass

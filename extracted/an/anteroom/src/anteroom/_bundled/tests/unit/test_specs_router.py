@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -398,3 +400,97 @@ class TestCreateSpecDesignFirst:
             },
         )
         assert resp.status_code == 201
+
+
+# ---------------------------------------------------------------------------
+# POST /api/specs/generate (#1165)
+# ---------------------------------------------------------------------------
+
+
+VALID_LLM_JSON = json.dumps(
+    {
+        "requirements": "Must support widgets.",
+        "design": "Use widget parser.",
+        "tasks": [{"id": "t1", "summary": "Implement parser"}],
+    }
+)
+
+
+class TestGenerateSpec:
+    @pytest.fixture()
+    def gen_client(self, db: Any) -> TestClient:
+        from anteroom.routers.specs import router
+
+        app = FastAPI()
+        app.include_router(router, prefix="/api")
+        app.state.db = db
+
+        config = MagicMock()
+        config.ai = MagicMock()
+        app.state.config = config
+        return TestClient(app)
+
+    def test_generate_from_prompt(self, gen_client: TestClient) -> None:
+        with (
+            patch(
+                "anteroom.services.spec_generator.generate_spec_from_prompt",
+                new_callable=AsyncMock,
+                return_value="requirements: req\ndesign: des\ntasks:\n  - id: t1\n    summary: s\n",
+            ),
+            patch("anteroom.services.ai_service.create_ai_service", return_value=MagicMock()),
+        ):
+            resp = gen_client.post(
+                "/api/specs/generate",
+                json={"namespace": "ns", "name": "feat", "prompt": "Build widgets"},
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "content_yaml" in data
+        assert data["creation_flow"] == "prompt"
+
+    def test_generate_from_issue(self, gen_client: TestClient) -> None:
+        with (
+            patch(
+                "anteroom.services.spec_generator.generate_spec_from_issue",
+                new_callable=AsyncMock,
+                return_value="requirements: req\ndesign: des\ntasks:\n  - id: t1\n    summary: s\n",
+            ),
+            patch("anteroom.services.ai_service.create_ai_service", return_value=MagicMock()),
+        ):
+            resp = gen_client.post(
+                "/api/specs/generate",
+                json={"namespace": "ns", "name": "feat", "issue_number": 42},
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["creation_flow"] == "from_issue"
+
+    def test_generate_missing_both(self, gen_client: TestClient) -> None:
+        resp = gen_client.post(
+            "/api/specs/generate",
+            json={"namespace": "ns", "name": "feat"},
+        )
+        assert resp.status_code == 422
+
+    def test_generate_value_error(self, gen_client: TestClient) -> None:
+        with (
+            patch(
+                "anteroom.services.spec_generator.generate_spec_from_prompt",
+                new_callable=AsyncMock,
+                side_effect=ValueError("AI service unavailable"),
+            ),
+            patch("anteroom.services.ai_service.create_ai_service", return_value=MagicMock()),
+        ):
+            resp = gen_client.post(
+                "/api/specs/generate",
+                json={"namespace": "ns", "name": "feat", "prompt": "Build widgets"},
+            )
+        assert resp.status_code == 422
+        assert "AI service unavailable" in resp.json()["detail"]
+
+    def test_generate_missing_namespace(self, gen_client: TestClient) -> None:
+        resp = gen_client.post(
+            "/api/specs/generate",
+            json={"name": "feat", "prompt": "Build widgets"},
+        )
+        assert resp.status_code == 422

@@ -63,6 +63,11 @@ from anteroom.cli.renderer import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _clear_no_color(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+
 class TestVerbosity:
     def setup_method(self) -> None:
         set_verbosity(Verbosity.COMPACT)

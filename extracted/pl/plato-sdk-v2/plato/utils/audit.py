@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import logging
 import posixpath
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
+import pathspec
 from pydantic import BaseModel, Field
 
 from plato.chronos.models import AttributionKind, AuditEventInput, Operation
@@ -258,8 +260,11 @@ def _extract_syscall_info(au: auparse.AuParser) -> ParsedSyscallInfo:
     return syscall_info
 
 
-def parse_audit_raw(raw_output: str) -> list[AuditEventInput]:
+def parse_audit_raw(raw_output: str) -> Iterator[AuditEventInput]:
     """Parse ``ausearch --format raw`` output into AuditEventInput objects.
+
+    Yields events one at a time to avoid materialising the full list in memory
+    (150K+ events can cause significant memory pressure on the world VM).
 
     Uses the ``auparse`` library (from ``python3-audit``) to parse raw audit
     log records. This handles event grouping, hex-encoded paths, and extracts
@@ -268,9 +273,8 @@ def parse_audit_raw(raw_output: str) -> list[AuditEventInput]:
     """
     import auparse  # Imported at call time because the C extension may be built at runtime
 
-    events: list[AuditEventInput] = []
     if not raw_output or not raw_output.strip():
-        return events
+        return
 
     au = auparse.AuParser(auparse.AUSOURCE_BUFFER, raw_output)
 
@@ -302,21 +306,17 @@ def parse_audit_raw(raw_output: str) -> list[AuditEventInput]:
         if not resolved_paths.path:
             continue
 
-        events.append(
-            AuditEventInput(
-                timestamp=timestamp,
-                operation=action,
-                path=resolved_paths.path,
-                new_path=resolved_paths.new_path,
-                exe=syscall_info.exe or how,
-                uid=uid,
-                pid=syscall_info.pid,
-                ppid=syscall_info.ppid,
-                comm=syscall_info.comm,
-            )
+        yield AuditEventInput(
+            timestamp=timestamp,
+            operation=action,
+            path=resolved_paths.path,
+            new_path=resolved_paths.new_path,
+            exe=syscall_info.exe or how,
+            uid=uid,
+            pid=syscall_info.pid,
+            ppid=syscall_info.ppid,
+            comm=syscall_info.comm,
         )
-
-    return events
 
 
 def _event_to_record(
@@ -354,6 +354,45 @@ def _event_to_record(
     )
 
 
+_DEFAULT_AUDIT_IGNORE_PATTERNS = [
+    ".git/",
+]
+
+
+def load_audit_ignore(workspace_path: str) -> pathspec.PathSpec:
+    """Load a ``.auditignore`` file from a workspace directory.
+
+    Always includes built-in default patterns (e.g. ``.git/``) even when no
+    ``.auditignore`` file exists. User patterns from the file are appended
+    after the defaults.
+    """
+    lines = list(_DEFAULT_AUDIT_IGNORE_PATTERNS)
+    ignore_file = Path(workspace_path) / ".auditignore"
+    if ignore_file.is_file():
+        lines.extend(ignore_file.read_text(encoding="utf-8").splitlines())
+        logger.debug(
+            "Loaded .auditignore from %s (%d user patterns)",
+            workspace_path,
+            len(lines) - len(_DEFAULT_AUDIT_IGNORE_PATTERNS),
+        )
+    spec = pathspec.PathSpec.from_lines("gitwildmatch", lines)
+    return spec
+
+
+def audit_ignore_filter(
+    events: Iterator[AuditEventInput],
+    ignore_spec: pathspec.PathSpec,
+    workspace_prefix: str | None = None,
+) -> Iterator[AuditEventInput]:
+    """Filter audit events through an auditignore spec, yielding non-ignored events."""
+    prefix = (workspace_prefix.rstrip("/") + "/") if workspace_prefix else ""
+    for event in events:
+        rel = event.path[len(prefix) :] if prefix and event.path.startswith(prefix) else event.path
+        if ignore_spec.match_file(rel):
+            continue
+        yield event
+
+
 def write_audit_jsonl(
     jsonl_path: Path,
     events: list[AuditEventInput],
@@ -361,11 +400,13 @@ def write_audit_jsonl(
 ) -> None:
     """Write audit events to a JSONL spool file."""
     jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
     with jsonl_path.open("w", encoding="utf-8") as f:
         for event in events:
             f.write(_event_to_record(event, context).model_dump_json())
             f.write("\n")
-    logger.info("Wrote %d audit events to %s", len(events), jsonl_path)
+            count += 1
+    logger.info("Wrote %d audit events to %s", count, jsonl_path)
 
 
 def read_audit_records(spool_path: Path) -> list[AuditSpoolRecord]:

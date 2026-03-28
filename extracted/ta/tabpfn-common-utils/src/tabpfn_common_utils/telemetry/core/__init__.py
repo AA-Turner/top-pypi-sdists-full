@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .events import (
     BaseTelemetryEvent,
+    ExtensionEntryEvent,
     ModelLoadEvent,
     PingEvent,
     DatasetEvent,
@@ -24,6 +25,7 @@ from .decorators import (
 # Public exports
 __all__ = [
     "BaseTelemetryEvent",
+    "ExtensionEntryEvent",
     "PingEvent",
     "DatasetEvent",
     "ModelLoadEvent",

@@ -499,3 +499,21 @@ class PredictEvent(ModelCallEvent):
     @property
     def name(self) -> str:
         return "predict_called"
+
+
+@dataclass
+class ExtensionEntryEvent(BaseTelemetryEvent):
+    """
+    Event emitted once per user-facing extension entry point call.
+
+    Unlike FitEvent/PredictEvent which fire per downstream model call,
+    this fires exactly once when the outermost @set_extension decorator
+    is entered, giving an unbiased count of extension usage.
+    """
+
+    # Name of the extension that was entered
+    extension_name: str = ""
+
+    @property
+    def name(self) -> str:
+        return "extension_entry"

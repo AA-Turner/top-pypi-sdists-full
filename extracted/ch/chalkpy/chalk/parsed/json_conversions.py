@@ -420,6 +420,7 @@ def convert_type_to_gql(
             completionDeadline=None if t.completion_deadline is None else timedelta_to_duration(t.completion_deadline),
             numShards=t.num_shards,
             numWorkers=t.num_workers,
+            inputSql=t.input_sql,
         )
 
     if isinstance(t, NamedQuery):
@@ -664,6 +665,7 @@ def convert_type_to_gql(
                     ),
                     backfillStartTime=mat.backfill_start_time,
                     backfillSchedule=mat.backfill_schedule,
+                    backfillTags=mat.backfill_tags,
                     continuousResolver=mat.continuous_resolver,
                     continuousBufferDuration=(
                         float(mat.continuous_buffer_duration_seconds)

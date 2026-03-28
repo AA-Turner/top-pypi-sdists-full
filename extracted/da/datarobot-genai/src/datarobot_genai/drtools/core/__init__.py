@@ -13,3 +13,8 @@
 # limitations under the License.
 
 """Core utilities and shared components for DataRobot tools."""
+
+from .tool_metadata import get_registered_tools
+from .tool_metadata import tool_metadata
+
+__all__ = ["tool_metadata", "get_registered_tools"]

@@ -1,11 +1,35 @@
+from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
 from collections.abc import Mapping
-from typing import Tuple
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ignite.engine import Engine
+
+
+class ResettableHandler(metaclass=ABCMeta):
+    """Interface for handlers whose internal state can be reset.
+
+    Subclasses must implement the :meth:`reset` method to clear any accumulated
+    state, typically at the beginning of a training run.
+
+    .. versionadded:: 0.5.4
+    """
+
+    @abstractmethod
+    def reset(self) -> None:
+        """Reset the handler's internal state."""
+        pass
+
+    @abstractmethod
+    def attach(self, engine: "Engine", *args: Any, **kwargs: Any) -> None:
+        """Attach the handler to an engine."""
+        pass
 
 
 class Serializable:
-    _state_dict_all_req_keys: Tuple = ()
-    _state_dict_one_of_opt_keys: Tuple = ()
+    _state_dict_all_req_keys: tuple = ()
+    _state_dict_one_of_opt_keys: tuple = ()
 
     def state_dict(self) -> OrderedDict:
         raise NotImplementedError

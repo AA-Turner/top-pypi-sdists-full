@@ -51,6 +51,7 @@ if typing.TYPE_CHECKING:
         MetadataValue,
         MultitaskStrategy,
         OnConflictBehavior,
+        PoolStats,
         QueueStats,
         Run,
         RunSelectField,
@@ -2232,6 +2233,11 @@ class Runs(Authenticated):
         }
 
     @staticmethod
+    async def pool_stats() -> PoolStats:
+        """This method is for fetching the grpc pool stats, which don't exist for inmem, so we return empty dict"""
+        return {}
+
+    @staticmethod
     async def next(wait: bool, limit: int = 1) -> AsyncIterator[tuple[Run, int]]:
         """Get the next run from the queue, and the attempt number.
         1 is the first attempt, 2 is the first retry, etc."""
@@ -3132,6 +3138,7 @@ class Crons(Authenticated):
         end_time: datetime | None = None,
         metadata: dict | None = None,
         enabled: bool,
+        timezone: str | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Cron]:
         from langgraph_api.graph import get_assistant_id  # noqa: PLC0415
@@ -3186,14 +3193,17 @@ class Crons(Authenticated):
         assistant_id = get_assistant_id(payload["assistant_id"])
         payload["assistant_id"] = assistant_id
 
-        # Get assistant-specific auth filters
-        assistant_request_data = Auth.types.AssistantsRead(
-            assistant_id=payload["assistant_id"]
-        )
-        assistant_request_data["metadata"] = metadata  # type: ignore
-        assistant_filters = await Assistants.handle_event(
-            ctx, "read", assistant_request_data
-        )
+        from langgraph_api.graph import SYSTEM_ASSISTANT_IDS  # noqa: PLC0415
+
+        assistant_filters: list[Any] = []
+        if assistant_id not in SYSTEM_ASSISTANT_IDS:
+            assistant_request_data = Auth.types.AssistantsRead(
+                assistant_id=payload["assistant_id"]
+            )
+            assistant_request_data["metadata"] = metadata  # type: ignore
+            assistant_filters = await Assistants.handle_event(
+                ctx, "read", assistant_request_data
+            )
 
         # Validate assistant exists
         assistant = next(
@@ -3276,8 +3286,9 @@ class Crons(Authenticated):
             "user_id": user_id,
             "end_time": end_time,
             "schedule": schedule,
+            "timezone": timezone,
             "payload": payload,
-            "next_run_date": next_cron_date(schedule, now),
+            "next_run_date": next_cron_date(schedule, now, timezone=timezone),
             "metadata": metadata,
             "on_run_completed": effective_on_run_completed,
             "enabled": enabled,
@@ -3302,6 +3313,7 @@ class Crons(Authenticated):
         on_run_completed: Literal["delete", "keep"] | None = None,
         payload: dict | None = None,
         metadata: dict | None = None,
+        timezone: str | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Cron]:
         from langgraph_api.utils import get_auth_ctx, next_cron_date  # noqa: PLC0415
@@ -3322,7 +3334,15 @@ class Crons(Authenticated):
         # Check if anything to update
         has_updates = any(
             v is not None
-            for v in [schedule, end_time, enabled, on_run_completed, payload, metadata]
+            for v in [
+                schedule,
+                end_time,
+                enabled,
+                on_run_completed,
+                payload,
+                metadata,
+                timezone,
+            ]
         )
         if not has_updates:
             raise HTTPException(status_code=400, detail="No fields to update")
@@ -3342,10 +3362,20 @@ class Crons(Authenticated):
                 detail=f"Cron '{cron_id}' not found",
             )
 
+        if timezone is not None:
+            cron["timezone"] = timezone
+
         if schedule is not None:
             Crons._validate_cron_schedule_or_throw(schedule)
             cron["schedule"] = schedule
-            cron["next_run_date"] = next_cron_date(schedule, datetime.now(UTC))
+            cron["next_run_date"] = next_cron_date(
+                schedule, datetime.now(UTC), timezone=cron.get("timezone")
+            )
+        elif timezone is not None:
+            # Timezone changed but schedule didn't — recompute next_run_date
+            cron["next_run_date"] = next_cron_date(
+                cron["schedule"], datetime.now(UTC), timezone=timezone
+            )
 
         if end_time is not None:
             cron["end_time"] = end_time

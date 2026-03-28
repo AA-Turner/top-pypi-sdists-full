@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
-from peakrdl.plugins.exporter import ExporterSubcommandPlugin #pylint: disable=import-error
-from peakrdl.config import schema #pylint: disable=import-error
+from peakrdl.plugins.exporter import ExporterSubcommandPlugin
+from peakrdl.config import schema
 
 from .exporter import CHeaderExporter
 from .c_standards import CStandard
@@ -31,6 +31,15 @@ class Exporter(ExporterSubcommandPlugin):
         )
 
         arg_group.add_argument(
+            "--linux-kernel",
+            action="store_true",
+            default=False,
+            help=""""
+            If set, output uses Linux kernel-compatible header includes.
+            """
+        )
+
+        arg_group.add_argument(
             "-b", "--bitfields",
             choices=["ltoh", "htol", "none"],
             default=None,
@@ -48,10 +57,10 @@ class Exporter(ExporterSubcommandPlugin):
             action="store_true",
             default=False,
             help=""""
-            If set, the top-level hiearchy is skipped. Instead, definitions for
+            If set, the top-level hierarchy is skipped. Instead, definitions for
             all the direct children are generated.
 
-            Note that only block-like definitons are generated.
+            Note that only block-like definitions are generated.
             i.e: children that are registers are skipped.
             """
         )
@@ -67,8 +76,8 @@ class Exporter(ExporterSubcommandPlugin):
         )
 
         # Wrap constructor to allow hex strings
-        def integer(n):
-            return int(n, 0)
+        def integer(n: Union[int, str]) -> int:
+            return int(n, 0) # type: ignore # bogus error
 
         arg_group.add_argument(
             "--inst-offset",

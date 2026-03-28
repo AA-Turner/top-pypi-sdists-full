@@ -81,11 +81,13 @@ from ..interfaces.aws_observabilityadmin import (
     IOrganizationCentralizationRuleRef as _IOrganizationCentralizationRuleRef_c0e786ce,
     IOrganizationTelemetryRuleRef as _IOrganizationTelemetryRuleRef_c536ab68,
     IS3TableIntegrationRef as _IS3TableIntegrationRef_0d27be71,
+    ITelemetryEnrichmentRef as _ITelemetryEnrichmentRef_67eed03a,
     ITelemetryPipelinesRef as _ITelemetryPipelinesRef_a5d8576e,
     ITelemetryRuleRef as _ITelemetryRuleRef_9918195f,
     OrganizationCentralizationRuleReference as _OrganizationCentralizationRuleReference_e0f14dd2,
     OrganizationTelemetryRuleReference as _OrganizationTelemetryRuleReference_447c11d2,
     S3TableIntegrationReference as _S3TableIntegrationReference_5391966c,
+    TelemetryEnrichmentReference as _TelemetryEnrichmentReference_a978d10d,
     TelemetryPipelinesReference as _TelemetryPipelinesReference_c5feae72,
     TelemetryRuleReference as _TelemetryRuleReference_35b2b664,
 )
@@ -3578,6 +3580,180 @@ class CfnS3TableIntegrationProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _ITelemetryEnrichmentRef_67eed03a)
+class CfnTelemetryEnrichment(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnTelemetryEnrichment",
+):
+    '''AWS::ObservabilityAdmin::TelemetryEnrichment cloudformation resource enables the resource tags for telemetry feature in CloudWatch to enrich infrastructure metrics with AWS resource tags.
+
+    For more details: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/resource-tags-for-telemetry.html
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-telemetryenrichment.html
+    :cloudformationResource: AWS::ObservabilityAdmin::TelemetryEnrichment
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_observabilityadmin as observabilityadmin
+        
+        cfn_telemetry_enrichment = observabilityadmin.CfnTelemetryEnrichment(self, "MyCfnTelemetryEnrichment",
+            scope="scope"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope_: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        scope: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::ObservabilityAdmin::TelemetryEnrichment``.
+
+        :param scope_: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param scope: Scope of the Telemetry Enrichment.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ba5a5e42f36c7fc17bb7c590d5a373046157a6ffaa63db0c471053a5201cc54)
+            check_type(argname="argument scope_", value=scope_, expected_type=type_hints["scope_"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTelemetryEnrichmentProps(scope=scope)
+
+        jsii.create(self.__class__, self, [scope_, id, props])
+
+    @jsii.member(jsii_name="isCfnTelemetryEnrichment")
+    @builtins.classmethod
+    def is_cfn_telemetry_enrichment(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTelemetryEnrichment.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d44786bc813ad1d1367df2897bcbf68ea8108d60d0b9b59ae90578f776616814)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTelemetryEnrichment", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38484b599c9d24b5b4e69eed67c6fd7eb0c385e9a31f8a1fcae3423b4a33c632)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6032d2eee341171e71bf9783d5c8885f15fc5a7521d3788723939aaa746d10c9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Current status of the resource tags for telemetry feature (Running, Stopped, or Impaired).
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="telemetryEnrichmentRef")
+    def telemetry_enrichment_ref(self) -> "_TelemetryEnrichmentReference_a978d10d":
+        '''A reference to a TelemetryEnrichment resource.'''
+        return typing.cast("_TelemetryEnrichmentReference_a978d10d", jsii.get(self, "telemetryEnrichmentRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scope")
+    def scope(self) -> typing.Optional[builtins.str]:
+        '''Scope of the Telemetry Enrichment.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "scope"))
+
+    @scope.setter
+    def scope(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02bb6f1ff0f0be33515cb6d31d7e6d46827e38f27b9969de30c0b28fd7c13d54)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnTelemetryEnrichmentProps",
+    jsii_struct_bases=[],
+    name_mapping={"scope": "scope"},
+)
+class CfnTelemetryEnrichmentProps:
+    def __init__(self, *, scope: typing.Optional[builtins.str] = None) -> None:
+        '''Properties for defining a ``CfnTelemetryEnrichment``.
+
+        :param scope: Scope of the Telemetry Enrichment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-telemetryenrichment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_observabilityadmin as observabilityadmin
+            
+            cfn_telemetry_enrichment_props = observabilityadmin.CfnTelemetryEnrichmentProps(
+                scope="scope"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a30f5085a114a209191cdafe68039db0885f3e529a62c36334fd5847fe978cd4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if scope is not None:
+            self._values["scope"] = scope
+
+    @builtins.property
+    def scope(self) -> typing.Optional[builtins.str]:
+        '''Scope of the Telemetry Enrichment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-telemetryenrichment.html#cfn-observabilityadmin-telemetryenrichment-scope
+        '''
+        result = self._values.get("scope")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTelemetryEnrichmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _ITelemetryPipelinesRef_a5d8576e, _ITaggableV2_4e6798f8)
 class CfnTelemetryPipelines(
     _CfnResource_9df397a6,
@@ -6193,6 +6369,8 @@ __all__ = [
     "CfnOrganizationTelemetryRuleProps",
     "CfnS3TableIntegration",
     "CfnS3TableIntegrationProps",
+    "CfnTelemetryEnrichment",
+    "CfnTelemetryEnrichmentProps",
     "CfnTelemetryPipelines",
     "CfnTelemetryPipelinesProps",
     "CfnTelemetryRule",
@@ -6598,6 +6776,46 @@ def _typecheckingstub__595e24a51b54bcce8c75e459e7e3581741d212973d102f13a7b1f8c21
     role_arn: builtins.str,
     log_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnS3TableIntegration.LogSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ba5a5e42f36c7fc17bb7c590d5a373046157a6ffaa63db0c471053a5201cc54(
+    scope_: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    scope: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d44786bc813ad1d1367df2897bcbf68ea8108d60d0b9b59ae90578f776616814(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38484b599c9d24b5b4e69eed67c6fd7eb0c385e9a31f8a1fcae3423b4a33c632(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6032d2eee341171e71bf9783d5c8885f15fc5a7521d3788723939aaa746d10c9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02bb6f1ff0f0be33515cb6d31d7e6d46827e38f27b9969de30c0b28fd7c13d54(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a30f5085a114a209191cdafe68039db0885f3e529a62c36334fd5847fe978cd4(
+    *,
+    scope: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

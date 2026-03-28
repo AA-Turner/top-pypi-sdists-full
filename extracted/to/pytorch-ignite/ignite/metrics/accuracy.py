@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Sequence, Tuple, Union
+from collections.abc import Callable, Sequence
 
 import torch
 
@@ -13,15 +13,13 @@ class _BaseClassification(Metric):
         self,
         output_transform: Callable = lambda x: x,
         is_multilabel: bool = False,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ):
         self._is_multilabel = is_multilabel
-        self._type: Optional[str] = None
-        self._num_classes: Optional[int] = None
-        super(_BaseClassification, self).__init__(
-            output_transform=output_transform, device=device, skip_unrolling=skip_unrolling
-        )
+        self._type: str | None = None
+        self._num_classes: int | None = None
+        super().__init__(output_transform=output_transform, device=device, skip_unrolling=skip_unrolling)
 
     def reset(self) -> None:
         self._type = None
@@ -38,7 +36,7 @@ class _BaseClassification(Metric):
             )
 
         y_shape = y.shape
-        y_pred_shape: Tuple[int, ...] = y_pred.shape
+        y_pred_shape: tuple[int, ...] = y_pred.shape
 
         if y.ndimension() + 1 == y_pred.ndimension():
             y_pred_shape = (y_pred_shape[0],) + y_pred_shape[2:]
@@ -118,7 +116,7 @@ class Accuracy(_BaseClassification):
             device to be the same as your ``update`` arguments ensures the ``update`` method is non-blocking. By
             default, CPU.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Examples:
@@ -223,10 +221,10 @@ class Accuracy(_BaseClassification):
         self,
         output_transform: Callable = lambda x: x,
         is_multilabel: bool = False,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ):
-        super(Accuracy, self).__init__(
+        super().__init__(
             output_transform=output_transform, is_multilabel=is_multilabel, device=device, skip_unrolling=skip_unrolling
         )
 
@@ -234,7 +232,7 @@ class Accuracy(_BaseClassification):
     def reset(self) -> None:
         self._num_correct = torch.tensor(0, device=self._device)
         self._num_examples = 0
-        super(Accuracy, self).reset()
+        super().reset()
 
     @reinit__is_reduced
     def update(self, output: Sequence[torch.Tensor]) -> None:
@@ -254,6 +252,8 @@ class Accuracy(_BaseClassification):
             y_pred = torch.transpose(y_pred, 1, last_dim - 1).reshape(-1, num_classes)
             y = torch.transpose(y, 1, last_dim - 1).reshape(-1, num_classes)
             correct = torch.all(y == y_pred.type_as(y), dim=-1)
+        else:
+            raise ValueError(f"Unexpected type: {self._type}")
 
         self._num_correct += torch.sum(correct).to(self._device)
         self._num_examples += correct.shape[0]

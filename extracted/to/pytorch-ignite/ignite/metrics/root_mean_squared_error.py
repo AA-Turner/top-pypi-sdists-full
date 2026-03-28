@@ -1,5 +1,4 @@
 import math
-from typing import Union
 
 import torch
 
@@ -27,7 +26,7 @@ class RootMeanSquaredError(MeanSquaredError):
             metric's device to be the same as your ``update`` arguments ensures the ``update`` method is
             non-blocking. By default, CPU.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Examples:
@@ -65,6 +64,6 @@ class RootMeanSquaredError(MeanSquaredError):
         ``skip_unrolling`` argument is added.
     """
 
-    def compute(self) -> Union[torch.Tensor, float]:
+    def compute(self) -> torch.Tensor | float:
         mse = super(RootMeanSquaredError, self).compute()
         return math.sqrt(mse)

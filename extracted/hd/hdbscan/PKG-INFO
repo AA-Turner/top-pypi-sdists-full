@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hdbscan
-Version: 0.8.41
+Version: 0.8.42
 Summary: Clustering based on density with variable density clusters
 Home-page: http://github.com/scikit-learn-contrib/hdbscan
 Maintainer: Leland McInnes

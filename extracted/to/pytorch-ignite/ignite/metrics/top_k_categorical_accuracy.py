@@ -1,4 +1,4 @@
-from typing import Callable, Sequence, Union
+from collections.abc import Callable, Sequence
 
 import torch
 
@@ -25,7 +25,7 @@ class TopKCategoricalAccuracy(Metric):
             metric's device to be the same as your ``update`` arguments ensures the ``update`` method is
             non-blocking. By default, CPU.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Examples:
@@ -85,10 +85,10 @@ class TopKCategoricalAccuracy(Metric):
         self,
         k: int = 5,
         output_transform: Callable = lambda x: x,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ) -> None:
-        super(TopKCategoricalAccuracy, self).__init__(output_transform, device=device, skip_unrolling=skip_unrolling)
+        super().__init__(output_transform, device=device, skip_unrolling=skip_unrolling)
         self._k = k
 
     @reinit__is_reduced
@@ -107,7 +107,7 @@ class TopKCategoricalAccuracy(Metric):
         self._num_examples += correct.shape[0]
 
     @sync_all_reduce("_num_correct", "_num_examples")
-    def compute(self) -> Union[float, torch.Tensor]:
+    def compute(self) -> float | torch.Tensor:
         if self._num_examples == 0:
             raise NotComputableError(
                 "TopKCategoricalAccuracy must have at least one example before it can be computed."

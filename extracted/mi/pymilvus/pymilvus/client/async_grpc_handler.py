@@ -122,6 +122,26 @@ class AsyncGrpcHandler:
         await self._async_channel.close()
         self._async_channel = None
 
+    async def reconnect(self, address: Optional[str] = None, timeout: float = 10):
+        """Reset the async gRPC channel, reconnecting to the same or a new address.
+
+        Preserves the handler object identity so that all existing references
+        (AsyncMilvusClient._handler, in-flight retry loops) continue to work.
+
+        Args:
+            address: Optional new address to connect to.
+            timeout: Connection timeout in seconds (default 10).
+        """
+        try:
+            await self.close()
+        except Exception:
+            self._async_channel = None
+        if address:
+            self._address = address
+        self._setup_grpc_channel()
+        self._is_channel_ready = False
+        await self.ensure_channel_ready(timeout=timeout)
+
     def _setup_authorization_interceptor(self, user: str, password: str, token: str):
         keys = []
         values = []
@@ -962,6 +982,17 @@ class AsyncGrpcHandler:
             collection_name, kwargs, self.server_address, (context.get_db_name() if context else "")
         )
 
+        if (
+            not kwargs.get("schema")
+            and data is not None
+            and len(data) > 0
+            and isinstance(data[0], bytes)
+        ):
+            schema_dict, _ = await self._get_schema(
+                collection_name, timeout=timeout, context=context, **kwargs
+            )
+            kwargs["schema"] = schema_dict
+
         request = Prepare.search_requests_with_expr(
             collection_name=collection_name,
             data=data,
@@ -1009,6 +1040,15 @@ class AsyncGrpcHandler:
             collection_name, kwargs, self.server_address, (context.get_db_name() if context else "")
         )
 
+        _cached_schema = kwargs.get("schema")
+        if not _cached_schema:
+            for req in reqs:
+                if req.data is not None and len(req.data) > 0 and isinstance(req.data[0], bytes):
+                    _cached_schema, _ = await self._get_schema(
+                        collection_name, timeout=timeout, context=context, **kwargs
+                    )
+                    break
+
         requests = []
         for req in reqs:
             data = req.data
@@ -1017,6 +1057,9 @@ class AsyncGrpcHandler:
             if isinstance(data, list) and len(data) > 0 and isinstance(data[0], EmbeddingList):
                 data = [emb_list.to_flat_array() for emb_list in data]
                 req_kwargs["is_embedding_list"] = True
+
+            if _cached_schema and not req_kwargs.get("schema"):
+                req_kwargs["schema"] = _cached_schema
 
             search_request = Prepare.search_requests_with_expr(
                 collection_name=collection_name,

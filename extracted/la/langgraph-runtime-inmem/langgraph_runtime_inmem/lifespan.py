@@ -118,10 +118,9 @@ async def lifespan(
             if config.N_JOBS_PER_WORKER > 0:
                 tg.create_task(queue_with_signal())
 
-            if config.FF_CRONS_ENABLED:
-                from langgraph_api import cron_scheduler  # noqa: PLC0415
+            from langgraph_api import cron_scheduler  # noqa: PLC0415
 
-                tg.create_task(cron_scheduler.cron_scheduler())
+            tg.create_task(cron_scheduler.cron_scheduler())
 
             yield
     except graph.GraphLoadError as exc:

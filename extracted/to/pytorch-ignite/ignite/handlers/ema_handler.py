@@ -1,6 +1,5 @@
 import warnings
 from copy import deepcopy
-from typing import Optional, Union
 
 import torch.nn as nn
 
@@ -152,22 +151,21 @@ class EMAHandler:
         self,
         model: nn.Module,
         momentum: float = 0.0002,
-        momentum_warmup: Optional[float] = None,
-        warmup_iters: Optional[int] = None,
+        momentum_warmup: float | None = None,
+        warmup_iters: int | None = None,
         handle_buffers: str = "copy",
     ) -> None:
         if not 0 < momentum < 1:
             raise ValueError(f"Invalid momentum: {momentum}")
         self.momentum = momentum
-        self._momentum_lambda_obj: Optional[EMAWarmUp] = None
+        self._momentum_lambda_obj: EMAWarmUp | None = None
         if momentum_warmup is not None and warmup_iters is not None:
-            self.momentum_scheduler: Optional[BaseParamScheduler] = None
+            self.momentum_scheduler: BaseParamScheduler | None = None
             self._momentum_lambda_obj = EMAWarmUp(momentum_warmup, warmup_iters, momentum)
 
         if not isinstance(model, nn.Module):
             raise ValueError(
-                f"model should be an instance of nn.Module or its subclasses, but got"
-                f"model: {model.__class__.__name__}"
+                f"model should be an instance of nn.Module or its subclasses, but gotmodel: {model.__class__.__name__}"
             )
 
         if isinstance(model, nn.parallel.DistributedDataParallel):
@@ -180,7 +178,7 @@ class EMAHandler:
 
         if handle_buffers not in ("copy", "update", "ema_train"):
             raise ValueError(
-                f"handle_buffers can only be one of 'copy', 'update', 'ema_train', " f"but got {handle_buffers}"
+                f"handle_buffers can only be one of 'copy', 'update', 'ema_train', but got {handle_buffers}"
             )
 
         self.handle_buffers = handle_buffers
@@ -216,7 +214,7 @@ class EMAHandler:
         engine: Engine,
         name: str = "ema_momentum",
         warn_if_exists: bool = True,
-        event: Union[str, Events, CallableEventWithFilter, EventsList] = Events.ITERATION_COMPLETED,
+        event: str | Events | CallableEventWithFilter | EventsList = Events.ITERATION_COMPLETED,
     ) -> None:
         """Attach the handler to engine. After the handler is attached, the ``Engine.state`` will add an new attribute
         with name ``name`` if the attribute does not exist. Then, the current momentum can be retrieved from

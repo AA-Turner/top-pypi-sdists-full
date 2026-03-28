@@ -44,7 +44,9 @@ class AlertRule(BaseModel):
     interval: AlertRuleInterval = Field(description="The interval of the alert rule, commonly '1 day', '1 hour', etc.")
     last_updated_by_user: Optional[User] = None
     notification_webhooks: List[AlertRuleNotificationWebhook] = Field(description="Notification webhooks configured for the alert rule.")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "model_id", "name", "description", "threshold", "bound", "query", "metric_name", "interval", "last_updated_by_user", "notification_webhooks"]
+    policy_alert_rule_id: Optional[StrictStr] = None
+    policy_model_assignment_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "model_id", "name", "description", "threshold", "bound", "query", "metric_name", "interval", "last_updated_by_user", "notification_webhooks", "policy_alert_rule_id", "policy_model_assignment_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -108,6 +110,16 @@ class AlertRule(BaseModel):
         if self.last_updated_by_user is None and "last_updated_by_user" in self.model_fields_set:
             _dict['last_updated_by_user'] = None
 
+        # set to None if policy_alert_rule_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.policy_alert_rule_id is None and "policy_alert_rule_id" in self.model_fields_set:
+            _dict['policy_alert_rule_id'] = None
+
+        # set to None if policy_model_assignment_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.policy_model_assignment_id is None and "policy_model_assignment_id" in self.model_fields_set:
+            _dict['policy_model_assignment_id'] = None
+
         return _dict
 
     @classmethod
@@ -132,7 +144,9 @@ class AlertRule(BaseModel):
             "metric_name": obj.get("metric_name"),
             "interval": AlertRuleInterval.from_dict(obj["interval"]) if obj.get("interval") is not None else None,
             "last_updated_by_user": User.from_dict(obj["last_updated_by_user"]) if obj.get("last_updated_by_user") is not None else None,
-            "notification_webhooks": [AlertRuleNotificationWebhook.from_dict(_item) for _item in obj["notification_webhooks"]] if obj.get("notification_webhooks") is not None else None
+            "notification_webhooks": [AlertRuleNotificationWebhook.from_dict(_item) for _item in obj["notification_webhooks"]] if obj.get("notification_webhooks") is not None else None,
+            "policy_alert_rule_id": obj.get("policy_alert_rule_id"),
+            "policy_model_assignment_id": obj.get("policy_model_assignment_id")
         })
         return _obj
 

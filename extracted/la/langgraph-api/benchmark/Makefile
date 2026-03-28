@@ -20,15 +20,20 @@ STEPS ?= 100
 
 benchmark-burst:
 	make benchmark-reset
+	npm install
+	npm run build
 	k6 run burst.js
 
 benchmark-ramp:
 	make benchmark-reset
+	npm install
+	npm run build
 	k6 run --out json=raw_data_$(shell date +%Y-%m-%dT%H-%M-%S).json --system-tags=[] ramp.js
 
 benchmark-capacity:
 	rm -f capacity_summary.json
 	npm install
+	npm run build
 	LANGSMITH_API_KEY=$(LANGSMITH_API_KEY) \
 	CLUSTER_NAME=$(CLUSTER_NAME) \
 	WORKLOAD_NAMES=$(WORKLOAD_NAMES) \

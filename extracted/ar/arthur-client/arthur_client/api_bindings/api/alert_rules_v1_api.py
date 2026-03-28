@@ -599,6 +599,7 @@ class AlertRulesV1Api:
         threshold_less_than: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="The threshold to filter by, less than.")] = None,
         threshold_greater_than: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="The threshold to filter by, greater than.")] = None,
         metric_name: Annotated[Optional[StrictStr], Field(description="The name of the alert rule query metric to search by.")] = None,
+        policy_model_assignment_id: Annotated[Optional[StrictStr], Field(description="Optional policy model assignment ID to filter alert rules by.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -636,6 +637,8 @@ class AlertRulesV1Api:
         :type threshold_greater_than: float
         :param metric_name: The name of the alert rule query metric to search by.
         :type metric_name: str
+        :param policy_model_assignment_id: Optional policy model assignment ID to filter alert rules by.
+        :type policy_model_assignment_id: str
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -672,6 +675,7 @@ class AlertRulesV1Api:
             threshold_less_than=threshold_less_than,
             threshold_greater_than=threshold_greater_than,
             metric_name=metric_name,
+            policy_model_assignment_id=policy_model_assignment_id,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -709,6 +713,7 @@ class AlertRulesV1Api:
         threshold_less_than: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="The threshold to filter by, less than.")] = None,
         threshold_greater_than: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="The threshold to filter by, greater than.")] = None,
         metric_name: Annotated[Optional[StrictStr], Field(description="The name of the alert rule query metric to search by.")] = None,
+        policy_model_assignment_id: Annotated[Optional[StrictStr], Field(description="Optional policy model assignment ID to filter alert rules by.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -746,6 +751,8 @@ class AlertRulesV1Api:
         :type threshold_greater_than: float
         :param metric_name: The name of the alert rule query metric to search by.
         :type metric_name: str
+        :param policy_model_assignment_id: Optional policy model assignment ID to filter alert rules by.
+        :type policy_model_assignment_id: str
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -782,6 +789,7 @@ class AlertRulesV1Api:
             threshold_less_than=threshold_less_than,
             threshold_greater_than=threshold_greater_than,
             metric_name=metric_name,
+            policy_model_assignment_id=policy_model_assignment_id,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -819,6 +827,7 @@ class AlertRulesV1Api:
         threshold_less_than: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="The threshold to filter by, less than.")] = None,
         threshold_greater_than: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="The threshold to filter by, greater than.")] = None,
         metric_name: Annotated[Optional[StrictStr], Field(description="The name of the alert rule query metric to search by.")] = None,
+        policy_model_assignment_id: Annotated[Optional[StrictStr], Field(description="Optional policy model assignment ID to filter alert rules by.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -856,6 +865,8 @@ class AlertRulesV1Api:
         :type threshold_greater_than: float
         :param metric_name: The name of the alert rule query metric to search by.
         :type metric_name: str
+        :param policy_model_assignment_id: Optional policy model assignment ID to filter alert rules by.
+        :type policy_model_assignment_id: str
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -892,6 +903,7 @@ class AlertRulesV1Api:
             threshold_less_than=threshold_less_than,
             threshold_greater_than=threshold_greater_than,
             metric_name=metric_name,
+            policy_model_assignment_id=policy_model_assignment_id,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -924,6 +936,7 @@ class AlertRulesV1Api:
         threshold_less_than,
         threshold_greater_than,
         metric_name,
+        policy_model_assignment_id,
         page,
         page_size,
         _request_auth,
@@ -981,6 +994,10 @@ class AlertRulesV1Api:
         if metric_name is not None:
             
             _query_params.append(('metric_name', metric_name))
+            
+        if policy_model_assignment_id is not None:
+            
+            _query_params.append(('policy_model_assignment_id', policy_model_assignment_id))
             
         if page is not None:
             

@@ -1,7 +1,8 @@
 import numbers
 import warnings
 from functools import partial
-from typing import Any, Callable, cast, Dict, Iterable, Mapping, Optional, Sequence, Union
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -41,19 +42,19 @@ from ignite.utils import deprecated
 
 def setup_common_training_handlers(
     trainer: Engine,
-    train_sampler: Optional[DistributedSampler] = None,
-    to_save: Optional[Mapping] = None,
+    train_sampler: DistributedSampler | None = None,
+    to_save: Mapping | None = None,
     save_every_iters: int = 1000,
-    output_path: Optional[str] = None,
-    lr_scheduler: Optional[Union[ParamScheduler, PyTorchLRScheduler]] = None,
+    output_path: str | None = None,
+    lr_scheduler: ParamScheduler | PyTorchLRScheduler | None = None,
     with_gpu_stats: bool = False,
-    output_names: Optional[Iterable[str]] = None,
+    output_names: Iterable[str] | None = None,
     with_pbars: bool = True,
     with_pbar_on_iters: bool = True,
     log_every_iters: int = 100,
     stop_on_nan: bool = True,
     clear_cuda_cache: bool = True,
-    save_handler: Optional[Union[Callable, BaseSaveHandler]] = None,
+    save_handler: Callable | BaseSaveHandler | None = None,
     **kwargs: Any,
 ) -> None:
     """Helper method to setup trainer with common handlers (it also supports distributed configuration):
@@ -145,18 +146,18 @@ setup_common_distrib_training_handlers = setup_common_training_handlers
 
 def _setup_common_training_handlers(
     trainer: Engine,
-    to_save: Optional[Mapping] = None,
+    to_save: Mapping | None = None,
     save_every_iters: int = 1000,
-    output_path: Optional[str] = None,
-    lr_scheduler: Optional[Union[ParamScheduler, PyTorchLRScheduler]] = None,
+    output_path: str | None = None,
+    lr_scheduler: ParamScheduler | PyTorchLRScheduler | None = None,
     with_gpu_stats: bool = False,
-    output_names: Optional[Iterable[str]] = None,
+    output_names: Iterable[str] | None = None,
     with_pbars: bool = True,
     with_pbar_on_iters: bool = True,
     log_every_iters: int = 100,
     stop_on_nan: bool = True,
     clear_cuda_cache: bool = True,
-    save_handler: Optional[Union[Callable, BaseSaveHandler]] = None,
+    save_handler: Callable | BaseSaveHandler | None = None,
     **kwargs: Any,
 ) -> None:
     if output_path is not None and save_handler is not None:
@@ -185,13 +186,15 @@ def _setup_common_training_handlers(
             save_handler = DiskSaver(dirname=output_path, require_empty=False)
 
         checkpoint_handler = Checkpoint(
-            to_save, cast(Union[Callable, BaseSaveHandler], save_handler), filename_prefix="training", **kwargs
+            to_save, cast(Callable | BaseSaveHandler, save_handler), filename_prefix="training", **kwargs
         )
         trainer.add_event_handler(Events.ITERATION_COMPLETED(every=save_every_iters), checkpoint_handler)
 
     if with_gpu_stats:
         GpuInfo().attach(
-            trainer, name="gpu", event_name=Events.ITERATION_COMPLETED(every=log_every_iters)  # type: ignore[arg-type]
+            trainer,
+            name="gpu",
+            event_name=Events.ITERATION_COMPLETED(every=log_every_iters),  # type: ignore[arg-type]
         )
 
     if output_names is not None:
@@ -227,19 +230,19 @@ def _setup_common_training_handlers(
 
 def _setup_common_distrib_training_handlers(
     trainer: Engine,
-    train_sampler: Optional[DistributedSampler] = None,
-    to_save: Optional[Mapping] = None,
+    train_sampler: DistributedSampler | None = None,
+    to_save: Mapping | None = None,
     save_every_iters: int = 1000,
-    output_path: Optional[str] = None,
-    lr_scheduler: Optional[Union[ParamScheduler, PyTorchLRScheduler]] = None,
+    output_path: str | None = None,
+    lr_scheduler: ParamScheduler | PyTorchLRScheduler | None = None,
     with_gpu_stats: bool = False,
-    output_names: Optional[Iterable[str]] = None,
+    output_names: Iterable[str] | None = None,
     with_pbars: bool = True,
     with_pbar_on_iters: bool = True,
     log_every_iters: int = 100,
     stop_on_nan: bool = True,
     clear_cuda_cache: bool = True,
-    save_handler: Optional[Union[Callable, BaseSaveHandler]] = None,
+    save_handler: Callable | BaseSaveHandler | None = None,
     **kwargs: Any,
 ) -> None:
     _setup_common_training_handlers(
@@ -265,6 +268,7 @@ def _setup_common_distrib_training_handlers(
 
         @trainer.on(Events.EPOCH_STARTED)
         def distrib_set_epoch(engine: Engine) -> None:
+            # pyrefly: ignore [missing-attribute]
             train_sampler.set_epoch(engine.state.epoch - 1)
 
 
@@ -285,8 +289,8 @@ def setup_any_logging(
     logger: BaseLogger,
     logger_module: Any,
     trainer: Engine,
-    optimizers: Optional[Union[Optimizer, Dict[str, Optimizer], Dict[None, Optimizer]]],
-    evaluators: Optional[Union[Engine, Dict[str, Engine]]],
+    optimizers: Optimizer | dict[str, Optimizer] | dict[None, Optimizer] | None,
+    evaluators: Engine | dict[str, Engine] | None,
     log_every_iters: int,
 ) -> None:
     pass
@@ -295,8 +299,8 @@ def setup_any_logging(
 def _setup_logging(
     logger: BaseLogger,
     trainer: Engine,
-    optimizers: Optional[Union[Optimizer, Dict[str, Optimizer], Dict[None, Optimizer]]],
-    evaluators: Optional[Union[Engine, Dict[str, Engine]]],
+    optimizers: Optimizer | dict[str, Optimizer] | dict[None, Optimizer] | None,
+    evaluators: Engine | dict[str, Engine] | None,
     log_every_iters: int,
 ) -> None:
     if optimizers is not None:
@@ -340,8 +344,8 @@ def _setup_logging(
 def setup_tb_logging(
     output_path: str,
     trainer: Engine,
-    optimizers: Optional[Union[Optimizer, Dict[str, Optimizer]]] = None,
-    evaluators: Optional[Union[Engine, Dict[str, Engine]]] = None,
+    optimizers: Optimizer | dict[str, Optimizer] | None = None,
+    evaluators: Engine | dict[str, Engine] | None = None,
     log_every_iters: int = 100,
     **kwargs: Any,
 ) -> TensorboardLogger:
@@ -372,8 +376,8 @@ def setup_tb_logging(
 
 def setup_visdom_logging(
     trainer: Engine,
-    optimizers: Optional[Union[Optimizer, Dict[str, Optimizer]]] = None,
-    evaluators: Optional[Union[Engine, Dict[str, Engine]]] = None,
+    optimizers: Optimizer | dict[str, Optimizer] | None = None,
+    evaluators: Engine | dict[str, Engine] | None = None,
     log_every_iters: int = 100,
     **kwargs: Any,
 ) -> VisdomLogger:
@@ -382,6 +386,11 @@ def setup_visdom_logging(
         - Training metrics, e.g. running average loss values
         - Learning rate(s)
         - Evaluation metrics
+
+    .. warning::
+
+        This function uses VisdomLogger which is currently untested due to the visdom package being
+        unmaintained and difficult to install with modern Python packages. Use at your own risk.
 
     Args:
         trainer: trainer engine
@@ -403,8 +412,8 @@ def setup_visdom_logging(
 
 def setup_mlflow_logging(
     trainer: Engine,
-    optimizers: Optional[Union[Optimizer, Dict[str, Optimizer]]] = None,
-    evaluators: Optional[Union[Engine, Dict[str, Engine]]] = None,
+    optimizers: Optimizer | dict[str, Optimizer] | None = None,
+    evaluators: Engine | dict[str, Engine] | None = None,
     log_every_iters: int = 100,
     **kwargs: Any,
 ) -> MLflowLogger:
@@ -434,8 +443,8 @@ def setup_mlflow_logging(
 
 def setup_neptune_logging(
     trainer: Engine,
-    optimizers: Optional[Union[Optimizer, Dict[str, Optimizer]]] = None,
-    evaluators: Optional[Union[Engine, Dict[str, Engine]]] = None,
+    optimizers: Optimizer | dict[str, Optimizer] | None = None,
+    evaluators: Engine | dict[str, Engine] | None = None,
     log_every_iters: int = 100,
     **kwargs: Any,
 ) -> NeptuneLogger:
@@ -465,8 +474,8 @@ def setup_neptune_logging(
 
 def setup_wandb_logging(
     trainer: Engine,
-    optimizers: Optional[Union[Optimizer, Dict[str, Optimizer]]] = None,
-    evaluators: Optional[Union[Engine, Dict[str, Engine]]] = None,
+    optimizers: Optimizer | dict[str, Optimizer] | None = None,
+    evaluators: Engine | dict[str, Engine] | None = None,
     log_every_iters: int = 100,
     **kwargs: Any,
 ) -> WandBLogger:
@@ -496,8 +505,8 @@ def setup_wandb_logging(
 
 def setup_plx_logging(
     trainer: Engine,
-    optimizers: Optional[Union[Optimizer, Dict[str, Optimizer]]] = None,
-    evaluators: Optional[Union[Engine, Dict[str, Engine]]] = None,
+    optimizers: Optimizer | dict[str, Optimizer] | None = None,
+    evaluators: Engine | dict[str, Engine] | None = None,
     log_every_iters: int = 100,
     **kwargs: Any,
 ) -> PolyaxonLogger:
@@ -527,8 +536,8 @@ def setup_plx_logging(
 
 def setup_clearml_logging(
     trainer: Engine,
-    optimizers: Optional[Union[Optimizer, Dict[str, Optimizer]]] = None,
-    evaluators: Optional[Union[Engine, Dict[str, Engine]]] = None,
+    optimizers: Optimizer | dict[str, Optimizer] | None = None,
+    evaluators: Engine | dict[str, Engine] | None = None,
     log_every_iters: int = 100,
     **kwargs: Any,
 ) -> ClearMLLogger:
@@ -558,8 +567,8 @@ def setup_clearml_logging(
 
 def setup_trains_logging(
     trainer: Engine,
-    optimizers: Optional[Union[Optimizer, Dict[str, Optimizer]]] = None,
-    evaluators: Optional[Union[Engine, Dict[str, Engine]]] = None,
+    optimizers: Optimizer | dict[str, Optimizer] | None = None,
+    evaluators: Engine | dict[str, Engine] | None = None,
     log_every_iters: int = 100,
     **kwargs: Any,
 ) -> ClearMLLogger:
@@ -572,12 +581,12 @@ get_default_score_fn = Checkpoint.get_default_score_fn
 
 
 def gen_save_best_models_by_val_score(
-    save_handler: Union[Callable, BaseSaveHandler],
+    save_handler: Callable | BaseSaveHandler,
     evaluator: Engine,
-    models: Union[torch.nn.Module, Dict[str, torch.nn.Module]],
+    models: torch.nn.Module | dict[str, torch.nn.Module],
     metric_name: str,
     n_saved: int = 3,
-    trainer: Optional[Engine] = None,
+    trainer: Engine | None = None,
     tag: str = "val",
     score_sign: float = 1.0,
     **kwargs: Any,
@@ -614,7 +623,7 @@ def gen_save_best_models_by_val_score(
         global_step_transform = global_step_from_engine(trainer)
 
     if isinstance(models, nn.Module):
-        to_save: Dict[str, nn.Module] = {"model": models}
+        to_save: dict[str, nn.Module] = {"model": models}
     else:
         to_save = models
 
@@ -639,7 +648,7 @@ def save_best_model_by_val_score(
     model: torch.nn.Module,
     metric_name: str,
     n_saved: int = 3,
-    trainer: Optional[Engine] = None,
+    trainer: Engine | None = None,
     tag: str = "val",
     score_sign: float = 1.0,
     **kwargs: Any,

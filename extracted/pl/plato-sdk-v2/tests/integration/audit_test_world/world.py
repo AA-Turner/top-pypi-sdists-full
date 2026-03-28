@@ -35,7 +35,7 @@ from plato.worlds.config import AgentConfig, RunConfig
 # Use a real published agent image so PlatoVMRuntime._sync_code can resolve the
 # package name and version.  We don't actually run the agent — we just need the
 # VM to boot with auditd available.
-_AGENT_IMAGE = "383806609161.dkr.ecr.us-west-1.amazonaws.com/vm/rootfs/plato-agents/claude-code:3.0.22"
+_AGENT_IMAGE = "383806609161.dkr.ecr.us-west-1.amazonaws.com/vm/rootfs/plato-agents/claude-code:3.0.45"
 
 
 class AuditTestWorldConfig(RunConfig):
@@ -203,7 +203,7 @@ class AuditTestWorld(BaseWorld[AuditTestWorldConfig]):
                     f"ausearch --format raw should return data for workspace {scope.workspace_name}",
                 )
                 if raw_log:
-                    raw_events.extend(parse_audit_raw(raw_log))
+                    raw_events.extend(list(parse_audit_raw(raw_log)))
 
             self._verify_operations(raw_events, tag)
 

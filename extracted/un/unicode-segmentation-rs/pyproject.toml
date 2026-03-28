@@ -4,7 +4,7 @@ requires = ["maturin>=1.10.0,<2.0"]
 
 [dependency-groups]
 build = [
-  "maturin==1.10.2"
+  "maturin==1.12.6"
 ]
 dev = [
   {include-group = "build"},
@@ -12,10 +12,10 @@ dev = [
   {include-group = "pre-commit"}
 ]
 pre-commit = [
-  "pre-commit==4.5.0"
+  "prek==0.3.8"
 ]
 test = [
-  "pytest-github-actions-annotate-failures==0.3.0",
+  "pytest-github-actions-annotate-failures==0.4.0",
   "pytest==9.0.2"
 ]
 

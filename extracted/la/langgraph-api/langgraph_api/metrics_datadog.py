@@ -94,7 +94,6 @@ def def_gauge(name: str, tier: int) -> MetricDef:
 
 
 # Pre-defined counter metrics.
-COUNTER_STREAMING_EVENT = def_counter("streaming_event_counter", METRIC_TIER_CRITICAL)
 COUNTER_STREAMING_DATA_LOSS = def_counter(
     "streaming_data_loss_counter", METRIC_TIER_CRITICAL
 )
@@ -145,30 +144,13 @@ LATENCY_STREAM_PUBLISH = def_latency("stream_publish_latency", METRIC_TIER_INFO)
 # Pre-defined gauge metrics.
 GAUGE_WORKERS_ACTIVE = def_gauge("workers_active", METRIC_TIER_CRITICAL)
 GAUGE_WORKERS_AVAILABLE = def_gauge("workers_available", METRIC_TIER_CRITICAL)
-
-# DR-aligned internal metrics registry (pre_defined_scope_internal.go requested ranges).
-# Keep implemented and TODO groups separate for easier tracking.
-REGISTERED_INTERNAL_METRICS: tuple[MetricDef, ...] = (
-    COUNTER_RUN_ATTEMPT_STARTED,
-    COUNTER_RUN_SUCCESS,
-    COUNTER_RUN_CANCELED_BY_REQUEST,
-    COUNTER_RUN_FAILED_RETRIABLE,
-    COUNTER_RUN_FAILED_AFTER_RETRY,
-    COUNTER_RUN_EXCEED_MAX_ATTEMPTS_AT_START,
-    COUNTER_RUN_ABANDONED_BY_SHUTDOWN,
-    COUNTER_RUN_SET_STATUS_ERROR,
-    LATENCY_RUN_QUEUE_WAIT_TIME_1ST_ATTEMPT,
-    LATENCY_RUN_QUEUE_WAIT_TIME_RETRY_ATTEMPT,
-    LATENCY_RUN_EXECUTION,
-    LATENCY_STREAM_PUBLISH,
-    COUNTER_GRAPH_RECURSION_LIMIT_ERROR,
-    COUNTER_FAILED_TO_FETCH_RUNS,
-    COUNTER_SERVER_STARTED,
-    COUNTER_SERVER_REQUESTED_TO_STOP,
-    COUNTER_SERVER_STOPPED,
-    COUNTER_STREAMING_DATA_LOSS,
-    COUNTER_STREAMING_EVENT,
+GAUGE_PUBLISH_QUEUE_AVAILABILITY = def_gauge(
+    "publish_queue_availability", METRIC_TIER_CRITICAL
 )
+
+
+# Pre-defined histogram metrics.
+HISTOGRAM_STREAM_DATA_SIZE = def_histogram("stream_data_size_bytes", METRIC_TIER_DEBUG)
 
 
 def _normalize_emitting_tier(value: int) -> int:
@@ -274,7 +256,6 @@ class DatadogMetricsReporter:
                 )
                 self._meter = self._meter_provider.get_meter(SERVICE_NAME)
                 self._enabled = True
-                self._register_predefined_metrics()
                 logger.info(
                     "Initialized Datadog metrics reporter",
                     endpoint=f"https://{config.LSD_DD_ENDPOINT}/v1/metrics",
@@ -308,11 +289,6 @@ class DatadogMetricsReporter:
 
     def _tier_enabled(self, tier: int) -> bool:
         return _normalize_emitting_tier(tier) <= self._max_tier
-
-    def _register_predefined_metrics(self) -> None:
-        for metric in REGISTERED_INTERNAL_METRICS:
-            if self._tier_enabled(metric.tier):
-                self._get_or_create_instrument(metric)
 
     def _get_or_create_instrument(self, metric: MetricDef):
         name = self._instrument_name(metric.name)

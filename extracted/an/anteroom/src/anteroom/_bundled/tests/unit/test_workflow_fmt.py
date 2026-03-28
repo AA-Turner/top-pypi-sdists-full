@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
+import pytest
+
 from anteroom.cli.workflow_fmt import (
     STATUS_ICONS,
     format_duration_ms,
@@ -17,6 +19,11 @@ from anteroom.cli.workflow_fmt import (
     status_icon,
 )
 from anteroom.services.workflow_diagnosis import Diagnosis, DiagnosisEvidence
+
+
+@pytest.fixture(autouse=True)
+def _clear_no_color(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NO_COLOR", raising=False)
 
 
 class TestFormatDurationMs:

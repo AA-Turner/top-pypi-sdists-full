@@ -18,6 +18,10 @@ from abstra_internals.cloud_api import (
     get_project_info,
 )
 from abstra_internals.consts.filepaths import TEST_DATA_FILEPATH
+from abstra_internals.controllers.execution.drain import (
+    drain_until_response,
+    normalize_response,
+)
 from abstra_internals.controllers.execution.execution import ExecutionController
 from abstra_internals.controllers.execution.execution_client import HeadlessClient
 from abstra_internals.credentials import (
@@ -1656,26 +1660,17 @@ class MainController:
         connection = self.repositories.producer.enqueue(
             page.id, context, user_jwt=user_jwt
         )
-        start_msg = connection.recv()
-
-        if isinstance(start_msg, str):
-            start_msg = json.loads(start_msg)
+        start_msg = drain_until_response(connection)
+        if not start_msg:
+            connection.close()
+            flask.abort(500)
+            return  # unreachable, but satisfies type checker
 
         try:
-            response = connection.recv()
+            response = normalize_response(drain_until_response(connection))
 
             if not response:
                 flask.abort(500)
-
-            if isinstance(response, str):
-                response = json.loads(response)
-
-            if not isinstance(response, Response):
-                response = Response(
-                    headers=response.get("headers", {}),
-                    status=response.get("status", 200),
-                    body=response.get("body", ""),
-                )
         finally:
             connection.close()
 
@@ -2325,28 +2320,28 @@ class MainController:
         connection = self.repositories.producer.enqueue(
             hook.id, context, user_jwt=user_jwt
         )
-        start_msg = connection.recv()
+        start_msg = drain_until_response(connection)
 
         if isinstance(start_msg, str):
-            start_msg = json.loads(start_msg)
+            try:
+                start_msg = json.loads(start_msg)
+            except (json.JSONDecodeError, TypeError):
+                connection.close()
+                flask.abort(500)
+                return  # unreachable, but satisfies type checker
+
+        if not isinstance(start_msg, dict) or "executionId" not in start_msg:
+            connection.close()
+            flask.abort(500)
+            return  # unreachable, but satisfies type checker
 
         start_msg = ExecutionStartedMessage(execution_id=start_msg["executionId"])
 
         try:
-            response = connection.recv()
+            response = normalize_response(drain_until_response(connection))
 
             if not response:
                 flask.abort(500)
-
-            if isinstance(response, str):
-                response = json.loads(response)
-
-            if not isinstance(response, Response):
-                response = Response(
-                    headers=response.get("headers", {}),
-                    status=response.get("status", 200),
-                    body=response.get("body", ""),
-                )
         finally:
             connection.close()
 

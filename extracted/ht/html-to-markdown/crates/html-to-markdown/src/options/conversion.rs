@@ -62,7 +62,9 @@ pub struct ConversionOptions {
     /// Use HTML <br> elements in tables instead of spaces for line breaks
     pub br_in_tables: bool,
 
-    /// Enable spatial table reconstruction in hOCR documents (via spatial positioning analysis)
+    /// Enable spatial table reconstruction in hOCR documents (via spatial positioning analysis).
+    ///
+    /// **Deprecated since 2.30.0**: hOCR support will be removed in v3.
     pub hocr_spatial_tables: bool,
 
     /// Highlight style for <mark> elements (`DoubleEqual`, Html, Bold, None)
@@ -176,7 +178,9 @@ pub struct ConversionOptionsUpdate {
     /// Optional HTML <br> usage in tables override
     pub br_in_tables: Option<bool>,
 
-    /// Optional spatial table reconstruction for hOCR documents override
+    /// Optional spatial table reconstruction for hOCR documents override.
+    ///
+    /// **Deprecated since 2.30.0**: hOCR support will be removed in v3.
     pub hocr_spatial_tables: Option<bool>,
 
     /// Optional highlight style override for <mark> elements

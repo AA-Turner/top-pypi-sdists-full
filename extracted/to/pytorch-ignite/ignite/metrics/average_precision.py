@@ -1,4 +1,4 @@
-from typing import Callable, Union
+from collections.abc import Callable
 
 import torch
 
@@ -29,7 +29,7 @@ class AveragePrecision(EpochMetric):
             no issues. User will be warned in case there are any issues computing the function.
         device: optional device specification for internal storage.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Note:
@@ -71,7 +71,7 @@ class AveragePrecision(EpochMetric):
         self,
         output_transform: Callable = lambda x: x,
         check_compute_fn: bool = False,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ):
         try:
@@ -79,7 +79,7 @@ class AveragePrecision(EpochMetric):
         except ImportError:
             raise ModuleNotFoundError("This contrib module requires scikit-learn to be installed.")
 
-        super(AveragePrecision, self).__init__(
+        super().__init__(
             average_precision_compute_fn,
             output_transform=output_transform,
             check_compute_fn=check_compute_fn,

@@ -154,3 +154,44 @@ class TestGetRequiredResourceParent(unittest.TestCase):
         parents = {"DATABASE": "dev", "SCHEMA": "public"}
         _ = DatabaseTransformer.get_required_resource_parent(parents, "DATABASE")
         self.assertEqual(parents, {"DATABASE": "dev", "SCHEMA": "public"})
+
+
+class TestSplitQuery(unittest.TestCase):
+    """Tests for split_query via SparkTransformer (dialect='spark')."""
+
+    def test_spark_preserves_backtick_identifiers(self):
+        from sagemaker_studio.sql_engine.spark_transformer import SparkTransformer
+
+        query = "SELECT name FROM spark_catalog.`iam-database-glue`.sample_table LIMIT 10"
+        stmts = SparkTransformer.split_query(query)
+        self.assertEqual(len(stmts), 1)
+        self.assertIn("`iam-database-glue`", stmts[0].statement)
+        self.assertNotIn('"iam-database-glue"', stmts[0].statement)
+        self.assertEqual(stmts[0].statement_type, "SELECT")
+
+    def test_spark_multi_statement_preserves_backticks(self):
+        from sagemaker_studio.sql_engine.spark_transformer import SparkTransformer
+
+        query = (
+            "SELECT * FROM `my-cat`.`my-db`.`my-table`;\n" "SELECT count(*) FROM `other-db`.`tbl`"
+        )
+        stmts = SparkTransformer.split_query(query)
+        self.assertEqual(len(stmts), 2)
+        self.assertIn("`my-cat`", stmts[0].statement)
+        self.assertIn("`other-db`", stmts[1].statement)
+
+    def test_spark_single_statement_no_backticks(self):
+        from sagemaker_studio.sql_engine.spark_transformer import SparkTransformer
+
+        stmts = SparkTransformer.split_query("SELECT 1")
+        self.assertEqual(len(stmts), 1)
+        self.assertEqual(stmts[0].statement_type, "SELECT")
+
+    def test_default_dialect_uses_double_quotes(self):
+        """DuckDB transformer (no dialect) should use double quotes for identifiers."""
+        from sagemaker_studio.sql_engine.duckdb_transformer import DuckDBTransformer
+
+        query = 'SELECT * FROM "my-db"."my-table"'
+        stmts = DuckDBTransformer.split_query(query)
+        self.assertEqual(len(stmts), 1)
+        self.assertIn('"my-db"', stmts[0].statement)

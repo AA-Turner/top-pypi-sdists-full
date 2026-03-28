@@ -5,13 +5,13 @@
 
 use std::time::Duration;
 
-use ::primp::{
-    header::{HeaderMap, HeaderValue},
-    redirect::Policy,
-    ClientBuilder, Proxy,
-};
 use foldhash::fast::RandomState;
 use indexmap::IndexMap;
+use primp::{
+    header::{HeaderMap, HeaderValue},
+    redirect::Policy,
+    ClientBuilder, Proxy, Url,
+};
 
 use crate::error::PrimpResult;
 use crate::impersonate::{
@@ -177,6 +177,20 @@ pub fn cookies_to_header_values(cookies: &IndexMapSSR) -> Vec<HeaderValue> {
         }
     }
     result
+}
+
+/// Parse a string as either a URL or a domain name, returning a `Url`.
+///
+/// If the input is a valid URL, it is used directly.
+/// Otherwise, it is treated as a domain and wrapped as `https://{domain}/`.
+pub fn parse_url_or_domain(input: &str) -> Result<Url, url::ParseError> {
+    if let Ok(url) = Url::parse(input) {
+        if url.scheme() == "http" || url.scheme() == "https" {
+            return Ok(url);
+        }
+    }
+    // Treat as domain: prepend https://
+    Url::parse(&format!("https://{}/", input.trim_end_matches('/')))
 }
 
 /// Removes the COOKIE header from a HeaderMap and returns the remaining headers as IndexMap.

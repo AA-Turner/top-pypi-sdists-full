@@ -33,13 +33,12 @@ def fetch_many_shot_jailbreaking_dataset() -> list[dict[str, str]]:
     source = "https://raw.githubusercontent.com/KutalVolkan/many-shot-jailbreaking-dataset/5eac855/examples.json"
     response = requests.get(source)
     response.raise_for_status()
-    return cast(list[dict[str, str]], response.json())
+    return cast("list[dict[str, str]]", response.json())
 
 
 class ManyShotJailbreakAttack(PromptSendingAttack):
     """
-    Implement the Many Shot Jailbreak method as discussed in research found here:
-    https://www.anthropic.com/research/many-shot-jailbreaking.
+    Implement the Many Shot Jailbreak method [@anthropic2024manyshot].
 
     Prepends the seed prompt with a faux dialogue between a human and an AI, using examples from a dataset
     to demonstrate successful jailbreaking attempts. This method leverages the model's ability to learn from

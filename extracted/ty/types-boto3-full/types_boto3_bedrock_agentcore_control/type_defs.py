@@ -115,6 +115,7 @@ __all__ = (
     "CloudWatchLogsInputConfigOutputTypeDef",
     "CloudWatchLogsInputConfigTypeDef",
     "CloudWatchOutputConfigTypeDef",
+    "CodeBasedEvaluatorConfigTypeDef",
     "CodeConfigurationOutputTypeDef",
     "CodeConfigurationTypeDef",
     "CodeInterpreterNetworkConfigurationOutputTypeDef",
@@ -296,6 +297,7 @@ __all__ = (
     "KinesisResourceOutputTypeDef",
     "KinesisResourceTypeDef",
     "KmsConfigurationTypeDef",
+    "LambdaEvaluatorConfigTypeDef",
     "LambdaInterceptorConfigurationTypeDef",
     "LifecycleConfigurationTypeDef",
     "LinkedinOauth2ProviderConfigInputTypeDef",
@@ -680,6 +682,11 @@ class CloudWatchLogsInputConfigTypeDef(TypedDict):
 
 class CloudWatchOutputConfigTypeDef(TypedDict):
     logGroupName: str
+
+
+class LambdaEvaluatorConfigTypeDef(TypedDict):
+    lambdaArn: str
+    lambdaTimeoutInSeconds: NotRequired[int]
 
 
 class CodeInterpreterSummaryTypeDef(TypedDict):
@@ -1605,6 +1612,10 @@ class DataSourceConfigTypeDef(TypedDict):
 
 class OutputConfigTypeDef(TypedDict):
     cloudWatchConfig: CloudWatchOutputConfigTypeDef
+
+
+class CodeBasedEvaluatorConfigTypeDef(TypedDict):
+    lambdaConfig: NotRequired[LambdaEvaluatorConfigTypeDef]
 
 
 class CodeTypeDef(TypedDict):
@@ -2934,10 +2945,12 @@ class AuthorizerConfigurationTypeDef(TypedDict):
 
 class EvaluatorConfigOutputTypeDef(TypedDict):
     llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigOutputTypeDef]
+    codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
 
 
 class EvaluatorConfigTypeDef(TypedDict):
     llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigTypeDef]
+    codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
 
 
 AgentRuntimeArtifactUnionTypeDef = Union[

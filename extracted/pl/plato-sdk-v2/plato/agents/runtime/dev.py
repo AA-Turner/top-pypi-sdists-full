@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
-import os
+import shlex
 from pathlib import Path
 
 from plato.agents.runtime.transport import rsync_to
+from plato.utils.pypi_index import plato_token_simple_index
 from plato.utils.subprocess import run_ssh
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,9 @@ async def sync_dev_code(
 
     editables = " ".join(f"-e {p}" for p in editable_paths)
     logger.debug(f"Installing packages in editable mode: {editable_paths}")
-    exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, f"uv pip install --system {editables}", timeout=300)
+    store_idx = plato_token_simple_index("pypi-store")
+    pip_cmd = f"uv pip install --system --index-url {shlex.quote(store_idx)} {editables}"
+    exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, pip_cmd, timeout=300)
     if exit_code != 0:
         raise RuntimeError(f"Failed to install packages: {stderr or stdout}")
 
@@ -87,7 +90,7 @@ async def sync_dev_code(
     # (the base image may have an old version baked in).
     # Include the agent package (--with -e /app) so entry points are discoverable
     # by plato-agent-runner in the tool's isolated environment.
-    tool_cmd = "uv tool install -e /sdk --force --python 3.12"
+    tool_cmd = f"uv tool install -e /sdk --force --python 3.12 --index-url {shlex.quote(store_idx)}"
     if agent_synced:
         tool_cmd += " --with-editable /app"
     exit_code, stdout, stderr = await run_ssh(
@@ -102,25 +105,57 @@ async def sync_dev_code(
     return agent_synced
 
 
+def build_agent_install_command(package_name: str, version: str) -> str:
+    """Build the uv command to install an agent package on a VM.
+
+    Uses ``--default-index`` for pypi-store (SDK + public PyPI deps) and
+    ``--index`` for the agents registry (checked first so agent packages
+    take priority over any public PyPI name collision).
+    ``unsafe-best-match`` is intentionally omitted so uv uses first-match
+    strategy — each package resolves from the first index that has it.
+    """
+    store_url = plato_token_simple_index("pypi-store")
+    agents_url = plato_token_simple_index("agents")
+    return (
+        f"uv tool install plato-sdk-v2 --python 3.12 "
+        f"--with '{package_name}=={version}' "
+        f"--default-index {shlex.quote(store_url)} "
+        f"--index {shlex.quote(agents_url)} "
+        f"--prerelease allow --refresh --force"
+    )
+
+
 async def install_production_agent(
     ssh_key: Path,
     hostname: str,
     package_name: str,
     version: str,
+    max_retries: int = 3,
+    retry_delay: float = 10.0,
 ) -> None:
     """Install agent package from PyPI on VM (production mode)."""
     logger.debug(f"Installing agent package: {package_name}=={version}")
+    # UV_HTTP_TIMEOUT: bump from default 30s — the plato.so PyPI index
+    # intermittently takes longer to respond, causing uv's internal retries
+    # to exhaust before a response arrives.
+    install_cmd = f"UV_HTTP_TIMEOUT=90 {build_agent_install_command(package_name, version)}"
 
-    api_key = os.environ.get("PLATO_API_KEY", "")
-    pypi_url = f"https://__token__:{api_key}@plato.so/api/v2/pypi/agents/simple/"
+    last_error = ""
+    for attempt in range(1, max_retries + 1):
+        exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, install_cmd, user="root", timeout=300)
+        if exit_code == 0:
+            return
+        last_error = stderr or stdout
+        if attempt < max_retries:
+            logger.warning(
+                "Agent install failed (attempt %d/%d), retrying in %.0fs: %s",
+                attempt,
+                max_retries,
+                retry_delay,
+                last_error.strip(),
+            )
+            import asyncio
 
-    install_cmd = (
-        f"uv tool install plato-sdk-v2 --python 3.12 "
-        f"--with '{package_name}=={version}' "
-        f"--index-url 'https://pypi.org/simple/' "
-        f"--extra-index-url '{pypi_url}' "
-        f"--index-strategy unsafe-best-match --prerelease allow --refresh --force"
-    )
-    exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, install_cmd, user="root", timeout=300)
-    if exit_code != 0:
-        raise RuntimeError(f"Failed to install agent package: {stderr or stdout}")
+            await asyncio.sleep(retry_delay)
+
+    raise RuntimeError(f"Failed to install agent package after {max_retries} attempts: {last_error}")

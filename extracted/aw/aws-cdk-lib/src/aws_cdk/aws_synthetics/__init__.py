@@ -4632,6 +4632,20 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
         return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_3_0"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_3_1")
+    def SYNTHETICS_NODEJS_3_1(cls) -> "Runtime":
+        '''``syn-nodejs-3.1`` includes the following: - Lambda runtime Node.js 20.x.
+
+        New Features:
+
+        - **Synthetics runtime namespace migration**: Canary runtime namespace has been migrated from ``@amzn/synthetics-core`` to ``@aws/synthetics-core``.
+        - **Type definitions on npm**: Type definitions for the synthetics library are now published on npm. Ensure that the package version you install matches your canary's runtime version.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_Nodejs.html#CloudWatch_Synthetics_runtimeversion-syn-nodejs-3.1
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_3_1"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_1_0")
     def SYNTHETICS_NODEJS_PLAYWRIGHT_1_0(cls) -> "Runtime":
         '''``syn-nodejs-playwright-1.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.45 - Chromium version 126.0.6478.126.

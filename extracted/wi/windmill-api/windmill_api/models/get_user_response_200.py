@@ -30,6 +30,7 @@ class GetUserResponse200:
         name (Union[Unset, str]):
         groups (Union[Unset, List[str]]):
         added_via (Union[Unset, None, GetUserResponse200AddedVia]):
+        is_service_account (Union[Unset, bool]):
     """
 
     email: str
@@ -44,6 +45,7 @@ class GetUserResponse200:
     name: Union[Unset, str] = UNSET
     groups: Union[Unset, List[str]] = UNSET
     added_via: Union[Unset, None, "GetUserResponse200AddedVia"] = UNSET
+    is_service_account: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -68,6 +70,8 @@ class GetUserResponse200:
         if not isinstance(self.added_via, Unset):
             added_via = self.added_via.to_dict() if self.added_via else None
 
+        is_service_account = self.is_service_account
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -89,6 +93,8 @@ class GetUserResponse200:
             field_dict["groups"] = groups
         if added_via is not UNSET:
             field_dict["added_via"] = added_via
+        if is_service_account is not UNSET:
+            field_dict["is_service_account"] = is_service_account
 
         return field_dict
 
@@ -128,6 +134,8 @@ class GetUserResponse200:
         else:
             added_via = GetUserResponse200AddedVia.from_dict(_added_via)
 
+        is_service_account = d.pop("is_service_account", UNSET)
+
         get_user_response_200 = cls(
             email=email,
             username=username,
@@ -141,6 +149,7 @@ class GetUserResponse200:
             name=name,
             groups=groups,
             added_via=added_via,
+            is_service_account=is_service_account,
         )
 
         get_user_response_200.additional_properties = d

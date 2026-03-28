@@ -1,6 +1,5 @@
 import numbers
 import os
-from typing import Dict, List
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -18,10 +17,10 @@ from ignite.metrics.metric import (
     BatchWise,
     EpochWise,
     Metric,
-    reinit__is_reduced,
     RunningBatchWise,
     RunningEpochWise,
     SingleEpochRunningBatchWise,
+    reinit__is_reduced,
     sync_all_reduce,
 )
 from ignite.utils import _tree_map
@@ -29,7 +28,7 @@ from ignite.utils import _tree_map
 
 class DummyMetric1(Metric):
     def __init__(self, true_output, output_transform=lambda x: x):
-        super(DummyMetric1, self).__init__(output_transform=output_transform)
+        super().__init__(output_transform=output_transform)
         self.true_output = true_output
 
     def reset(self):
@@ -136,7 +135,7 @@ def test_arithmetics():
     class ListGatherMetric(Metric):
         def __init__(self, index):
             self.index = index
-            super(ListGatherMetric, self).__init__()
+            super().__init__()
 
         def reset(self):
             self.list_ = []
@@ -283,7 +282,7 @@ def test_attach():
     class CountMetric(Metric):
         def __init__(self, value):
             self.reset_count = 0
-            super(CountMetric, self).__init__()
+            super().__init__()
             self.reset_count = 0
             self.compute_count = 0
             self.update_count = 0
@@ -868,7 +867,7 @@ def test_usage_exception():
 
 class DummyAccumulateInListMetric(Metric):
     def __init__(self):
-        super(DummyAccumulateInListMetric, self).__init__()
+        super().__init__()
         self.value = []
 
     def reset(self):
@@ -901,7 +900,7 @@ def test_epochwise_usage(usage):
 
 class DummyAccumulateMetric(Metric):
     def __init__(self):
-        super(DummyAccumulateMetric, self).__init__()
+        super().__init__()
         self.value = 0
 
     def reset(self):
@@ -991,7 +990,7 @@ def test_single_epoch_running_batchwise_usage(usage):
 def test_batchfiltered_usage():
     class MyMetric(Metric):
         def __init__(self):
-            super(MyMetric, self).__init__()
+            super().__init__()
             self.value = []
 
         def reset(self):
@@ -1087,7 +1086,7 @@ def test_list_of_tensors_and_numbers(shapes):
 
     class MyMetric(Metric):
         def __init__(self, check_fn):
-            super(MyMetric, self).__init__()
+            super().__init__()
             self.check_fn = check_fn
 
         def reset(self):
@@ -1206,7 +1205,7 @@ class DummyMetric4(Metric):
         self.metric._num_correct = self.expected_state["metric"]["_num_correct"]
         self.metric._num_examples = self.expected_state["metric"]["_num_examples"]
 
-        self.metric_dict: Dict[str, Metric] = {
+        self.metric_dict: dict[str, Metric] = {
             "m1": Accuracy(),
             "m2": Precision(),
             "n": self.expected_state["metric_dict"]["n"],
@@ -1218,7 +1217,7 @@ class DummyMetric4(Metric):
         self.metric_dict["m2"]._weight = self.expected_state["metric_dict"]["m2"]["_weight"]
         self.metric_dict["m2"]._updated = self.expected_state["metric_dict"]["m2"]["_updated"]
 
-        self.metric_list: List[Metric] = [
+        self.metric_list: list[Metric] = [
             Recall(),
             Precision(),
             self.expected_state["metric_list"][2],
@@ -1420,7 +1419,7 @@ def test_load_state_dict():
 
 class DummyMetric5(Metric):
     def __init__(self, true_output, output_transform=lambda x: x, skip_unrolling=False):
-        super(DummyMetric5, self).__init__(output_transform=output_transform, skip_unrolling=skip_unrolling)
+        super().__init__(output_transform=output_transform, skip_unrolling=skip_unrolling)
         self.true_output = true_output
 
     def reset(self):
@@ -1434,7 +1433,7 @@ class DummyMetric5(Metric):
 
 
 def test_skip_unrolling():
-    # y_pred and y are ouputs recieved from a multi_output model
+    # y_pred and y are outputs received from a multi_output model
     a_pred = torch.rand(8, 1)
     b_pred = torch.rand(8, 1)
     y_pred = [a_pred, b_pred]
@@ -1470,8 +1469,87 @@ def test_access_to_metric_dunder_attributes():
     assert "value" in inspect.signature(metric).parameters.keys()
 
 
+def test_getattr_typo_reports_definition_site():
+    """__getattr__ should report where the bad attribute was accessed, not deep inside compute()."""
+
+    class ScalarMetric(Metric):
+        def reset(self):
+            self._values = torch.tensor([])
+
+        def update(self, output):
+            self._values = torch.cat([self._values, torch.tensor([output])])
+
+        def compute(self):
+            return self._values
+
+    engine = Engine(lambda e, b: b)
+    m = ScalarMetric()
+
+    # Typo: .meen() instead of .mean()
+    bad = m.meen()
+    bad.attach(engine, "bad")
+
+    with pytest.raises(AttributeError, match=r"Metric result of type .* has no attribute 'meen'"):
+        engine.run([1.0, 2.0, 3.0], max_epochs=1)
+
+
 def test_output_transform_type_check():
     y_pred = torch.tensor([[2.0], [-2.0]])
     y = torch.zeros(2)
     with pytest.raises(TypeError, match="Argument output_transform should be callable"):
         DummyMetric1(true_output=(y_pred, y), output_transform=1)
+
+
+class MappingMetric(Metric):
+    def __init__(self, mapping, **kwargs):
+        super().__init__(**kwargs)
+        self._mapping = mapping
+
+    def reset(self):
+        pass
+
+    def update(self, output):
+        pass
+
+    def compute(self):
+        return dict(self._mapping)
+
+
+def _run_and_get_metrics(metric: Metric, name: str):
+    engine = Engine(lambda e, x: 0)
+    metric.attach(engine, name)
+    engine.run([0], max_epochs=1)
+    return engine.state.metrics
+
+
+@pytest.mark.parametrize(
+    "mode,expect_map,expect_keys",
+    [
+        ("flatten", False, {"a": 1, "b": 2}),
+        ("named", True, None),
+        ("both", True, {"a": 1, "b": 2}),
+    ],
+)
+def test_metrics_result_mode_parametrized(mode, expect_map, expect_keys):
+    mapping = {"a": 1, "b": 2}
+    metric = MappingMetric(mapping, metrics_result_mode=mode)
+    metrics = _run_and_get_metrics(metric, "map")
+
+    if expect_map:
+        assert metrics.get("map") == mapping
+    else:
+        assert "map" not in metrics
+
+    if expect_keys is None:
+        assert all(k not in metrics for k in mapping)
+    else:
+        for k, v in expect_keys.items():
+            assert metrics.get(k) == v
+
+
+def test_metrics_result_mode_conflict_error():
+    metric = MappingMetric({"map": 3}, metrics_result_mode="named")
+    engine = Engine(lambda e, x: 0)
+    metric.attach(engine, "map")
+    with pytest.raises(ValueError):
+        engine.run([0], max_epochs=1)

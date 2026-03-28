@@ -71,6 +71,7 @@ from .models.chargingprofiles import ChargingProfiles
 from .models.common import Vin
 from .models.departure import DepartureInfo, DepartureTimer
 from .models.driving_range import DrivingRange, EngineType
+from .models.driving_score import DrivingScore
 from .models.event import (
     BaseEvent,
     OperationEvent,
@@ -87,6 +88,7 @@ from .models.health import Health
 from .models.info import CapabilityId, Info
 from .models.maintenance import Maintenance, MaintenanceReport
 from .models.position import ParkingPositionV3, Positions
+from .models.software_status import SoftwareUpdateStatus
 from .models.spin import Spin
 from .models.status import Status
 from .models.trip_statistics import SingleTrips, TripStatistics
@@ -404,11 +406,21 @@ class MySkoda:
         """Retrieve departure timers for the specified vehicle."""
         return (await self.rest_api.get_departure_timers(vin, anonymize=anonymize)).result
 
+    async def get_driving_score(self, vin: Vin, anonymize: bool = False) -> DrivingScore:
+        """Retrieve driving score for the specified vehicle."""
+        return (await self.rest_api.get_driving_score(vin, anonymize=anonymize)).result
+
     async def get_connection_status(
         self, vin: Vin, anonymize: bool = False
     ) -> VehicleConnectionStatus:
         """Retrieve vehicle connection status for the specified vehicle."""
         return (await self.rest_api.get_vehicle_connection_status(vin, anonymize=anonymize)).result
+
+    async def get_software_update_status(
+        self, vin: Vin, anonymize: bool = False
+    ) -> SoftwareUpdateStatus:
+        """Retrieve software update status for the specified vehicle."""
+        return (await self.rest_api.get_software_update_status(vin, anonymize=anonymize)).result
 
     async def start_charging(self, vin: Vin) -> None:
         """Start charging the car."""
@@ -761,6 +773,7 @@ class MySkoda:
             Endpoint.TRIP_STATISTICS: self.rest_api.get_trip_statistics,
             Endpoint.DEPARTURE_INFO: self.rest_api.get_departure_timers,
             Endpoint.VEHICLE_CONNECTION_STATUS: self.rest_api.get_vehicle_connection_status,
+            Endpoint.DRIVING_SCORE: self.rest_api.get_driving_score,
         }
 
         # Look up the method, or raise an error if unsupported
@@ -859,6 +872,10 @@ class MySkoda:
     async def _request_connection_status(self, vin: Vin) -> None:
         """Update state with connection status data."""
         self._vehicles[vin].connection_status = await self.get_connection_status(vin)
+
+    async def _request_software_update_status(self, vin: Vin) -> None:
+        """Update state with software update status."""
+        self._vehicles[vin].software_update_status = await self.get_software_update_status(vin)
 
     async def _wait_for_operation(self, operation: OperationName) -> None:
         if self.mqtt is None:

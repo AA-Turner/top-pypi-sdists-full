@@ -19,7 +19,7 @@ from google.protobuf import descriptor_pb2 as google_dot_protobuf_dot_descriptor
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1d\x63halk/server/v1/support.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a google/protobuf/descriptor.proto">\n\x18IncidentServiceReference\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04type\x18\x02 \x01(\tR\x04type"<\n\x0cIncidentBody\x12\x12\n\x04type\x18\x01 \x01(\tR\x04type\x12\x18\n\x07\x64\x65tails\x18\x02 \x01(\tR\x07\x64\x65tails"\x9e\x02\n\x08Incident\x12\x12\n\x04type\x18\x01 \x01(\tR\x04type\x12\x14\n\x05title\x18\x02 \x01(\tR\x05title\x12\x43\n\x07service\x18\x03 \x01(\x0b\x32).chalk.server.v1.IncidentServiceReferenceR\x07service\x12\x1d\n\x07urgency\x18\x04 \x01(\tH\x00R\x07urgency\x88\x01\x01\x12&\n\x0cincident_key\x18\x05 \x01(\tH\x01R\x0bincidentKey\x88\x01\x01\x12\x36\n\x04\x62ody\x18\x06 \x01(\x0b\x32\x1d.chalk.server.v1.IncidentBodyH\x02R\x04\x62ody\x88\x01\x01\x42\n\n\x08_urgencyB\x0f\n\r_incident_keyB\x07\n\x05_body"V\n\x1d\x43reateCustomerIncidentRequest\x12\x35\n\x08incident\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.IncidentR\x08incident" \n\x1e\x43reateCustomerIncidentResponse2\x97\x01\n\x0eSupportService\x12\x84\x01\n\x16\x43reateCustomerIncident\x12..chalk.server.v1.CreateCustomerIncidentRequest\x1a/.chalk.server.v1.CreateCustomerIncidentResponse"\t\x80}\x05\x8a\xd3\x0e\x02\x08\x02\x42\x95\x01\n\x13\x63om.chalk.server.v1B\x0cSupportProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1d\x63halk/server/v1/support.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a google/protobuf/descriptor.proto">\n\x18IncidentServiceReference\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04type\x18\x02 \x01(\tR\x04type"<\n\x0cIncidentBody\x12\x12\n\x04type\x18\x01 \x01(\tR\x04type\x12\x18\n\x07\x64\x65tails\x18\x02 \x01(\tR\x07\x64\x65tails"\x9e\x02\n\x08Incident\x12\x12\n\x04type\x18\x01 \x01(\tR\x04type\x12\x14\n\x05title\x18\x02 \x01(\tR\x05title\x12\x43\n\x07service\x18\x03 \x01(\x0b\x32).chalk.server.v1.IncidentServiceReferenceR\x07service\x12\x1d\n\x07urgency\x18\x04 \x01(\tH\x00R\x07urgency\x88\x01\x01\x12&\n\x0cincident_key\x18\x05 \x01(\tH\x01R\x0bincidentKey\x88\x01\x01\x12\x36\n\x04\x62ody\x18\x06 \x01(\x0b\x32\x1d.chalk.server.v1.IncidentBodyH\x02R\x04\x62ody\x88\x01\x01\x42\n\n\x08_urgencyB\x0f\n\r_incident_keyB\x07\n\x05_body"V\n\x1d\x43reateCustomerIncidentRequest\x12\x35\n\x08incident\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.IncidentR\x08incident" \n\x1e\x43reateCustomerIncidentResponse2\xd6\x01\n\x0eSupportService\x12\xc3\x01\n\x16\x43reateCustomerIncident\x12..chalk.server.v1.CreateCustomerIncidentRequest\x1a/.chalk.server.v1.CreateCustomerIncidentResponse"H\x80}\x05\x8a\xd3\x0e\x41\x08\x02\x12=Created a customer incident in the incident management systemB\x95\x01\n\x13\x63om.chalk.server.v1B\x0cSupportProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -33,7 +33,9 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_SUPPORTSERVICE"].methods_by_name["CreateCustomerIncident"]._options = None
     _globals["_SUPPORTSERVICE"].methods_by_name[
         "CreateCustomerIncident"
-    ]._serialized_options = b"\200}\005\212\323\016\002\010\002"
+    ]._serialized_options = (
+        b"\200}\005\212\323\016A\010\002\022=Created a customer incident in the incident management system"
+    )
     _globals["_INCIDENTSERVICEREFERENCE"]._serialized_start = 144
     _globals["_INCIDENTSERVICEREFERENCE"]._serialized_end = 206
     _globals["_INCIDENTBODY"]._serialized_start = 208
@@ -45,5 +47,5 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_CREATECUSTOMERINCIDENTRESPONSE"]._serialized_start = 647
     _globals["_CREATECUSTOMERINCIDENTRESPONSE"]._serialized_end = 679
     _globals["_SUPPORTSERVICE"]._serialized_start = 682
-    _globals["_SUPPORTSERVICE"]._serialized_end = 833
+    _globals["_SUPPORTSERVICE"]._serialized_end = 896
 # @@protoc_insertion_point(module_scope)

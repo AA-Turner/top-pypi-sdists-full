@@ -132,6 +132,7 @@ class CfnChannel(
         destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         dry_run: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         encoder_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EncoderSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        inference_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InferenceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         input_attachments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         input_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         linked_channel_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.LinkedChannelSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -154,6 +155,7 @@ class CfnChannel(
         :param destinations: The settings that identify the destination for the outputs in this MediaLive output package.
         :param dry_run: 
         :param encoder_settings: The encoding configuration for the output content.
+        :param inference_settings: 
         :param input_attachments: The list of input attachments for the channel.
         :param input_specification: The input specification for this channel. It specifies the key characteristics of the inputs for this channel: the maximum bitrate, the resolution, and the codec.
         :param linked_channel_settings: 
@@ -177,6 +179,7 @@ class CfnChannel(
             destinations=destinations,
             dry_run=dry_run,
             encoder_settings=encoder_settings,
+            inference_settings=inference_settings,
             input_attachments=input_attachments,
             input_specification=input_specification,
             linked_channel_settings=linked_channel_settings,
@@ -336,6 +339,19 @@ class CfnChannel(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''A collection of tags for this channel.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__53063edb939a91b86de1b82e9af65d09af8e01650061a1b1693b7912e6164f14)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="anywhereSettings")
     def anywhere_settings(
         self,
@@ -469,6 +485,23 @@ class CfnChannel(
         jsii.set(self, "encoderSettings", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="inferenceSettings")
+    def inference_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InferenceSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InferenceSettingsProperty"]], jsii.get(self, "inferenceSettings"))
+
+    @inference_settings.setter
+    def inference_settings(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InferenceSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42ba150335109fed562f37f2d94659ebaee5be94dc432f71f6a6d436ddea4e24)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "inferenceSettings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="inputAttachments")
     def input_attachments(
         self,
@@ -577,19 +610,6 @@ class CfnChannel(
             type_hints = typing.get_type_hints(_typecheckingstub__54b9cee27918938a1be87816364ecf209866f36edaf4395b5de8016df80718f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''A collection of tags for this channel.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53063edb939a91b86de1b82e9af65d09af8e01650061a1b1693b7912e6164f14)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
@@ -14058,6 +14078,55 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.InferenceSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"feed_arn": "feedArn"},
+    )
+    class InferenceSettingsProperty:
+        def __init__(self, *, feed_arn: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param feed_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inferencesettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                inference_settings_property = medialive.CfnChannel.InferenceSettingsProperty(
+                    feed_arn="feedArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__247f28e68caf60c2736ce17d7ad287bf10e4f4a8a40d8d0b13e531b452dd5d13)
+                check_type(argname="argument feed_arn", value=feed_arn, expected_type=type_hints["feed_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if feed_arn is not None:
+                self._values["feed_arn"] = feed_arn
+
+        @builtins.property
+        def feed_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-inferencesettings.html#cfn-medialive-channel-inferencesettings-feedarn
+            '''
+            result = self._values.get("feed_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InferenceSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.InputAttachmentProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -25636,6 +25705,7 @@ class CfnChannelPlacementGroupProps:
         "destinations": "destinations",
         "dry_run": "dryRun",
         "encoder_settings": "encoderSettings",
+        "inference_settings": "inferenceSettings",
         "input_attachments": "inputAttachments",
         "input_specification": "inputSpecification",
         "linked_channel_settings": "linkedChannelSettings",
@@ -25659,6 +25729,7 @@ class CfnChannelProps:
         destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         dry_run: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         encoder_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EncoderSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        inference_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InferenceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         input_attachments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputAttachmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         input_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.InputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         linked_channel_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.LinkedChannelSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -25679,6 +25750,7 @@ class CfnChannelProps:
         :param destinations: The settings that identify the destination for the outputs in this MediaLive output package.
         :param dry_run: 
         :param encoder_settings: The encoding configuration for the output content.
+        :param inference_settings: 
         :param input_attachments: The list of input attachments for the channel.
         :param input_specification: The input specification for this channel. It specifies the key characteristics of the inputs for this channel: the maximum bitrate, the resolution, and the codec.
         :param linked_channel_settings: 
@@ -25706,6 +25778,7 @@ class CfnChannelProps:
             check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
             check_type(argname="argument dry_run", value=dry_run, expected_type=type_hints["dry_run"])
             check_type(argname="argument encoder_settings", value=encoder_settings, expected_type=type_hints["encoder_settings"])
+            check_type(argname="argument inference_settings", value=inference_settings, expected_type=type_hints["inference_settings"])
             check_type(argname="argument input_attachments", value=input_attachments, expected_type=type_hints["input_attachments"])
             check_type(argname="argument input_specification", value=input_specification, expected_type=type_hints["input_specification"])
             check_type(argname="argument linked_channel_settings", value=linked_channel_settings, expected_type=type_hints["linked_channel_settings"])
@@ -25732,6 +25805,8 @@ class CfnChannelProps:
             self._values["dry_run"] = dry_run
         if encoder_settings is not None:
             self._values["encoder_settings"] = encoder_settings
+        if inference_settings is not None:
+            self._values["inference_settings"] = inference_settings
         if input_attachments is not None:
             self._values["input_attachments"] = input_attachments
         if input_specification is not None:
@@ -25832,6 +25907,16 @@ class CfnChannelProps:
         '''
         result = self._values.get("encoder_settings")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.EncoderSettingsProperty"]], result)
+
+    @builtins.property
+    def inference_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InferenceSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-inferencesettings
+        '''
+        result = self._values.get("inference_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.InferenceSettingsProperty"]], result)
 
     @builtins.property
     def input_attachments(
@@ -28643,6 +28728,19 @@ class CfnInput(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''A collection of tags for this input.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4cb0b4312f5bf2286fec4a480d4c11d73095bd5e3394f8191687cad43833f859)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="destinations")
     def destinations(
         self,
@@ -28847,19 +28945,6 @@ class CfnInput(
             type_hints = typing.get_type_hints(_typecheckingstub__a4ba24e3c418be19be8d83700db7c5458b9a7b7560b1d9bcb5f371c89a322da3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "srtSettings", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''A collection of tags for this input.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cb0b4312f5bf2286fec4a480d4c11d73095bd5e3394f8191687cad43833f859)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -34774,6 +34859,7 @@ def _typecheckingstub__0060427de31049849d0b954eb2d8f1219de8b4f8164b94cdfa32d6ef2
     destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     dry_run: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     encoder_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.EncoderSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    inference_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InferenceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     linked_channel_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.LinkedChannelSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -34827,6 +34913,12 @@ def _typecheckingstub__e2253fe8a2d59d3935026cb52637b011dbe3c7c13c56356047e371000
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__53063edb939a91b86de1b82e9af65d09af8e01650061a1b1693b7912e6164f14(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fd7334cacbe92d6917c2266de7d120f4dfdf1176775aaa8b7fb067d8645290e0(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.AnywhereSettingsProperty]],
 ) -> None:
@@ -34875,6 +34967,12 @@ def _typecheckingstub__7fdb195a3769eba13c8fa8392bdc7fdb13d178f09f1a3128b22012ff6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__42ba150335109fed562f37f2d94659ebaee5be94dc432f71f6a6d436ddea4e24(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.InferenceSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__21a00bae3ae031cde82b03663d2a24b4294b4b914a32c0c2f6738dd48830dc30(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnChannel.InputAttachmentProperty]]]],
 ) -> None:
@@ -34913,12 +35011,6 @@ def _typecheckingstub__70ea23804c9eff1d939ba4e0c6cc8df0464ad8f53606a203ad6e5d2c8
 
 def _typecheckingstub__54b9cee27918938a1be87816364ecf209866f36edaf4395b5de8016df80718f9(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__53063edb939a91b86de1b82e9af65d09af8e01650061a1b1693b7912e6164f14(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35970,6 +36062,13 @@ def _typecheckingstub__9127d145510b55400db9ebe097d21c49700c749c5836f277c9ac9da29
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__247f28e68caf60c2736ce17d7ad287bf10e4f4a8a40d8d0b13e531b452dd5d13(
+    *,
+    feed_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a8ce5d39b59d21c93ae714cc8e38981dd11da05bdbb72bdf578194fc344ae99c(
     *,
     automatic_input_failover_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.AutomaticInputFailoverSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -36860,6 +36959,7 @@ def _typecheckingstub__b13ea4bee752af01767701d05a81e0c16839b625a40da4f298a5e05d7
     destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     dry_run: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     encoder_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.EncoderSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    inference_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InferenceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputAttachmentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.InputSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     linked_channel_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.LinkedChannelSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -37406,6 +37506,12 @@ def _typecheckingstub__1e30819ae8a8ae88784222461c091da43415ef7f311ddfa329659f314
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4cb0b4312f5bf2286fec4a480d4c11d73095bd5e3394f8191687cad43833f859(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4cffc80b1792cfd553a18c3073e65c06bd96b5645d7d220d2c0fa6401fddb016(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInput.InputDestinationRequestProperty]]]],
 ) -> None:
@@ -37480,12 +37586,6 @@ def _typecheckingstub__1e2140b67b560eb9a66e34c68eb67fd4ee61037201bd2a5b844eaf6d2
 
 def _typecheckingstub__a4ba24e3c418be19be8d83700db7c5458b9a7b7560b1d9bcb5f371c89a322da3(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInput.SrtSettingsRequestProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4cb0b4312f5bf2286fec4a480d4c11d73095bd5e3394f8191687cad43833f859(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

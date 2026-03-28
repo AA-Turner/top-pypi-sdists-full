@@ -1,4 +1,5 @@
-from typing import Any, Callable, Dict, Sequence, Tuple
+from collections.abc import Callable, Sequence
+from typing import Any
 
 import torch
 
@@ -16,7 +17,7 @@ class MetricGroup(Metric):
             form expected by the metric. `output_transform` of each metric in the group is also
             called upon its update.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` and ``y`` contain multi-ouput as
+            true for multi-output model, for example, if ``y_pred`` and ``y`` contain multi-output as
             ``(y_pred_a, y_pred_b)`` and ``(y_a, y_b)``, in which case the update method is called for
             ``(y_pred_a, y_a)`` and ``(y_pred_b, y_b)``.Alternatively, ``output_transform`` can be used to handle
             this.
@@ -44,13 +45,13 @@ class MetricGroup(Metric):
         ``skip_unrolling`` argument is added.
     """
 
-    _state_dict_all_req_keys: Tuple[str, ...] = ("metrics",)
+    _state_dict_all_req_keys: tuple[str, ...] = ("metrics",)
 
     def __init__(
-        self, metrics: Dict[str, Metric], output_transform: Callable = lambda x: x, skip_unrolling: bool = False
+        self, metrics: dict[str, Metric], output_transform: Callable = lambda x: x, skip_unrolling: bool = False
     ):
         self.metrics = metrics
-        super(MetricGroup, self).__init__(output_transform=output_transform, skip_unrolling=skip_unrolling)
+        super().__init__(output_transform=output_transform, skip_unrolling=skip_unrolling)
 
     def reset(self) -> None:
         for m in self.metrics.values():
@@ -60,5 +61,5 @@ class MetricGroup(Metric):
         for m in self.metrics.values():
             m.update(m._output_transform(output))
 
-    def compute(self) -> Dict[str, Any]:
+    def compute(self) -> dict[str, Any]:
         return {k: m.compute() for k, m in self.metrics.items()}

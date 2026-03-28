@@ -31,6 +31,7 @@ from .literals import (
     CodeInterpreterSessionStatusType,
     CommandExecutionStatusType,
     ContentBlockTypeType,
+    LanguageRuntimeType,
     MemoryRecordStatusType,
     Oauth2FlowTypeType,
     OperatorTypeType,
@@ -847,6 +848,7 @@ class ToolArgumentsTypeDef(TypedDict):
     content: NotRequired[Sequence[InputContentBlockTypeDef]]
     directoryPath: NotRequired[str]
     taskId: NotRequired[str]
+    runtime: NotRequired[LanguageRuntimeType]
 
 class StartBrowserSessionResponseTypeDef(TypedDict):
     browserIdentifier: str

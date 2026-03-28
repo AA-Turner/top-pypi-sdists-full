@@ -1026,3 +1026,378 @@ def _sample_windows_min_max(
 
     # numpy scalars
     return float(np.nanmin(np.array(mins, dtype=float))), float(np.nanmax(np.array(maxs, dtype=float)))
+
+
+def _no_shuffle_chunks(chunks, dtype, dims, target_mb):
+    """Compute target chunk dict that is an exact multiple of *chunks*.
+
+    Returns a ``{dim: size}`` dict, or ``None`` when the current
+    chunks already meet or exceed the target.
+    """
+    base = tuple(c[0] for c in chunks)
+
+    current_bytes = dtype.itemsize
+    for b in base:
+        current_bytes *= b
+
+    target_bytes = target_mb * 1024 * 1024
+
+    if current_bytes >= target_bytes:
+        return None
+
+    ndim = len(base)
+    ratio = target_bytes / current_bytes
+    multiplier = max(1, int(ratio ** (1.0 / ndim)))
+
+    if multiplier <= 1:
+        return None
+
+    return {dim: b * multiplier for dim, b in zip(dims, base)}
+
+
+def rechunk_no_shuffle(agg, target_mb=128):
+    """Rechunk a dask-backed DataArray or Dataset without triggering a shuffle.
+
+    Computes an integer multiplier per dimension so that each new chunk
+    is an exact multiple of the original chunk size.  This lets dask
+    merge whole source chunks in-place instead of splitting and
+    recombining partial blocks (which is effectively a shuffle).
+
+    Parameters
+    ----------
+    agg : xr.DataArray or xr.Dataset
+        Input raster(s).  If not backed by a dask array the input is
+        returned unchanged.  For Datasets, each variable is rechunked
+        independently.
+    target_mb : int or float
+        Target chunk size in megabytes.  The actual chunk size will be
+        the closest multiple of the source chunk that does not exceed
+        this target.  Default 128.
+
+    Returns
+    -------
+    xr.DataArray or xr.Dataset
+        Rechunked object.  Coordinates and attributes are preserved.
+
+    Raises
+    ------
+    TypeError
+        If *agg* is not an ``xr.DataArray`` or ``xr.Dataset``.
+    ValueError
+        If *target_mb* is not positive.
+
+    Examples
+    --------
+    >>> import dask.array as da
+    >>> import xarray as xr
+    >>> arr = xr.DataArray(da.zeros((4096, 4096), chunks=256))
+    >>> big = rechunk_no_shuffle(arr, target_mb=64)
+    >>> big.chunks  # multiples of 256
+    """
+    if isinstance(agg, xr.Dataset):
+        return _rechunk_dataset_no_shuffle(agg, target_mb)
+    if not isinstance(agg, xr.DataArray):
+        raise TypeError(
+            f"rechunk_no_shuffle(): expected xr.DataArray or xr.Dataset, "
+            f"got {type(agg).__name__}"
+        )
+    if target_mb <= 0:
+        raise ValueError(
+            f"rechunk_no_shuffle(): target_mb must be > 0, got {target_mb}"
+        )
+
+    if not has_dask_array() or not isinstance(agg.data, da.Array):
+        return agg
+
+    new_chunks = _no_shuffle_chunks(
+        agg.chunks, agg.dtype, agg.dims, target_mb,
+    )
+    if new_chunks is None:
+        return agg
+    return agg.chunk(new_chunks)
+
+
+def _rechunk_dataset_no_shuffle(ds, target_mb):
+    """Rechunk every variable in a Dataset without triggering a shuffle."""
+    if target_mb <= 0:
+        raise ValueError(
+            f"rechunk_no_shuffle(): target_mb must be > 0, got {target_mb}"
+        )
+
+    if not has_dask_array():
+        return ds
+
+    # Compute target chunks from the first dask-backed variable.
+    # This assumes all variables share the same chunk layout and dtype;
+    # for mixed-dtype Datasets the budget may overshoot on smaller types.
+    new_chunks = None
+    for var in ds.data_vars.values():
+        if isinstance(var.data, da.Array):
+            new_chunks = _no_shuffle_chunks(
+                var.chunks, var.dtype, var.dims, target_mb,
+            )
+            break
+
+    if new_chunks is None:
+        return ds
+
+    return ds.chunk(new_chunks)
+
+
+def _normalize_depth(depth, ndim):
+    """Normalize depth to a dict {axis: int}.
+
+    Accepts int, tuple, or dict.  Validates completeness and
+    non-negativity.
+    """
+    if isinstance(depth, dict):
+        expected = set(range(ndim))
+        got = set(depth.keys())
+        missing = expected - got
+        extra = got - expected
+        if missing:
+            raise ValueError(
+                f"_normalize_depth: missing axes {sorted(missing)} "
+                f"for ndim={ndim}"
+            )
+        if extra:
+            raise ValueError(
+                f"_normalize_depth: extra axes {sorted(extra)} "
+                f"for ndim={ndim}"
+            )
+        for v in depth.values():
+            if v < 0:
+                raise ValueError(
+                    f"_normalize_depth: depth must be non-negative, got {v}"
+                )
+        return dict(depth)
+
+    if isinstance(depth, int):
+        if depth < 0:
+            raise ValueError(
+                f"_normalize_depth: depth must be non-negative, got {depth}"
+            )
+        return {ax: depth for ax in range(ndim)}
+
+    if isinstance(depth, tuple):
+        if len(depth) != ndim:
+            raise ValueError(
+                f"_normalize_depth: tuple length {len(depth)} != ndim {ndim}"
+            )
+        for v in depth:
+            if v < 0:
+                raise ValueError(
+                    f"_normalize_depth: depth must be non-negative, got {v}"
+                )
+        return {ax: d for ax, d in enumerate(depth)}
+
+    raise TypeError(
+        f"_normalize_depth: expected int, tuple, or dict, got {type(depth).__name__}"
+    )
+
+
+def _pad_nan(data, depth):
+    """Pad a 2-D numpy or cupy array with NaN on each side.
+
+    Parameters
+    ----------
+    data : numpy or cupy array
+    depth : tuple of int
+        ``(d0, d1)`` cells to pad per axis.
+    """
+    pad_width = tuple((d, d) for d in depth)
+    if is_cupy_array(data):
+        if np.issubdtype(data.dtype, np.integer):
+            data = data.astype(cupy.float64)
+        out = cupy.pad(data, pad_width, mode='constant',
+                       constant_values=np.nan)
+    else:
+        # Promote integer dtypes so NaN fill works
+        if np.issubdtype(data.dtype, np.integer):
+            data = data.astype(np.float64)
+        out = np.pad(data, pad_width, mode='constant',
+                     constant_values=np.nan)
+    return out
+
+
+def fused_overlap(agg, *stages, boundary='nan'):
+    """Run multiple overlap operations in a single map_overlap call.
+
+    Each stage is a ``(func, depth)`` pair. ``func`` receives a padded
+    chunk and returns the unpadded interior result.  Stages are fused
+    into one ``map_overlap`` call with the sum of all depths, producing
+    one blockwise graph layer instead of N.
+
+    Parameters
+    ----------
+    agg : xr.DataArray
+        Input raster.
+    *stages : tuple of (callable, depth)
+        Each ``func`` takes array ``(H+2*d, W+2*d)`` -> ``(H, W)``.
+        ``depth`` is int, tuple, or dict.
+    boundary : str
+        Must be ``'nan'``.
+
+    Returns
+    -------
+    xr.DataArray
+    """
+    if not isinstance(agg, xr.DataArray):
+        raise TypeError(
+            f"fused_overlap(): expected xr.DataArray, "
+            f"got {type(agg).__name__}"
+        )
+    if not stages:
+        raise ValueError("fused_overlap(): need at least one stage")
+    if boundary != 'nan':
+        raise ValueError(
+            f"fused_overlap(): boundary must be 'nan', got {boundary!r}"
+        )
+
+    ndim = agg.ndim
+
+    # Normalize and sum depths
+    stage_depths = [_normalize_depth(d, ndim) for _, d in stages]
+    total_depth = {ax: sum(sd[ax] for sd in stage_depths)
+                   for ax in range(ndim)}
+
+    # --- non-dask path ---
+    if not has_dask_array() or not isinstance(agg.data, da.Array):
+        result = agg.data
+        for i, (func, _) in enumerate(stages):
+            depth_tuple = tuple(stage_depths[i][ax] for ax in range(ndim))
+            padded = _pad_nan(result, depth_tuple)
+            result = func(padded)
+        return agg.copy(data=result)
+
+    # --- dask path ---
+    # Validate chunk sizes
+    for ax, d in total_depth.items():
+        for cs in agg.chunks[ax]:
+            if cs < d:
+                raise ValueError(
+                    f"Chunk size {cs} on axis {ax} is smaller than "
+                    f"total depth {d}. Rechunk first."
+                )
+
+    funcs = [f for f, _ in stages]
+
+    def _fused_wrapper(block):
+        result = block
+        for func in funcs:
+            result = func(result)
+        return result
+
+    out = agg.data.map_overlap(
+        _fused_wrapper,
+        depth=total_depth,
+        boundary=np.nan,
+        trim=False,
+        meta=np.array(()),
+    )
+
+    return agg.copy(data=out)
+
+
+def multi_overlap(agg, func, n_outputs, depth, boundary='nan', dtype=None):
+    """Run a multi-output kernel via a single overlap + map_blocks call.
+
+    ``func`` receives a padded 2-D chunk and returns
+    ``(n_outputs, H, W)`` -- the unpadded interior for each output band.
+    The result is a 3-D DataArray with a leading ``band`` dimension.
+
+    Parameters
+    ----------
+    agg : xr.DataArray
+        2-D input raster.
+    func : callable
+        ``(H+2*dy, W+2*dx) -> (n_outputs, H, W)``
+    n_outputs : int
+        Number of output bands (>= 1).
+    depth : int or tuple of int
+        Per-axis overlap (>= 1 on each axis).
+    boundary : str
+        Boundary mode: 'nan', 'nearest', 'reflect', or 'wrap'.
+    dtype : numpy dtype, optional
+        Output dtype.  Defaults to input dtype.
+
+    Returns
+    -------
+    xr.DataArray
+        Shape ``(n_outputs, H, W)`` with ``band`` leading dimension.
+    """
+    if not isinstance(agg, xr.DataArray):
+        raise TypeError(
+            f"multi_overlap(): expected xr.DataArray, "
+            f"got {type(agg).__name__}"
+        )
+    if agg.ndim != 2:
+        raise ValueError(
+            f"multi_overlap(): input must be 2-D, got {agg.ndim}-D"
+        )
+    if n_outputs < 1:
+        raise ValueError(
+            f"multi_overlap(): n_outputs must be >= 1, got {n_outputs}"
+        )
+
+    _validate_boundary(boundary)
+
+    depth_dict = _normalize_depth(depth, agg.ndim)
+    for ax, d in depth_dict.items():
+        if d < 1:
+            raise ValueError(
+                f"multi_overlap(): depth must be >= 1, got {d} on axis {ax}"
+            )
+
+    dtype = dtype or agg.dtype
+
+    # --- non-dask path ---
+    if not has_dask_array() or not isinstance(agg.data, da.Array):
+        if boundary == 'nan':
+            depth_tuple = tuple(depth_dict[ax] for ax in range(agg.ndim))
+            padded = _pad_nan(agg.data, depth_tuple)
+        else:
+            depth_tuple = tuple(depth_dict[ax] for ax in range(agg.ndim))
+            padded = _pad_array(agg.data, depth_tuple, boundary)
+        result_data = func(padded).astype(dtype)
+        return xr.DataArray(
+            result_data,
+            dims=['band'] + list(agg.dims),
+            coords=agg.coords,
+            attrs=agg.attrs,
+        )
+
+    # --- dask path ---
+    import dask.array.overlap as _dask_overlap
+
+    boundary_val = _boundary_to_dask(boundary, is_cupy=is_cupy_backed(agg))
+
+    # Validate chunk sizes
+    for ax, d in depth_dict.items():
+        for cs in agg.chunks[ax]:
+            if cs < d:
+                raise ValueError(
+                    f"Chunk size {cs} on axis {ax} is smaller than "
+                    f"depth {d}. Rechunk first."
+                )
+
+    # Step 1: pad with overlap
+    padded = _dask_overlap.overlap(
+        agg.data, depth=depth_dict, boundary=boundary_val
+    )
+
+    # Step 2: map_blocks -- func returns (n_outputs, H, W) per block
+    out = da.map_blocks(
+        func,
+        padded,
+        dtype=dtype,
+        new_axis=0,
+        chunks=((n_outputs,),) + agg.data.chunks,
+    )
+
+    return xr.DataArray(
+        out,
+        dims=['band'] + list(agg.dims),
+        coords=agg.coords,
+        attrs=agg.attrs,
+    )

@@ -21,97 +21,58 @@
 //! ```
 
 pub use crate::imp::Impersonate;
-use crate::ClientBuilder;
-
-/// Configures the client builder for Chrome impersonation.
-///
-/// This function applies all necessary settings to mimic a specific Chrome version,
-/// including TLS configuration, HTTP/2 settings, and default headers.
-///
-/// # Arguments
-///
-/// * `chrome` - The Chrome version to impersonate
-/// * `builder` - The client builder to configure
-/// * `os_type` - Optional operating system to mimic. If `None`, defaults to Windows.
-///
-/// # Returns
-///
-/// The configured client builder.
-pub fn configure_impersonate(
-    chrome: Impersonate,
-    builder: ClientBuilder,
-    os_type: Option<crate::imp::ImpersonateOS>,
-) -> ClientBuilder {
-    let (final_chrome, final_os) = crate::imp::get_random_impersonate_config(Some(chrome), os_type);
-
-    let settings = build_chrome_settings(final_chrome, final_os);
-
-    let mut builder = builder
-        .use_rustls_impersonate(settings.browser_emulator, settings.emulation_profile)
-        .http2_initial_stream_window_size(settings.http2.initial_stream_window_size)
-        .http2_initial_connection_window_size(settings.http2.initial_connection_window_size)
-        .http2_max_concurrent_streams(settings.http2.max_concurrent_streams)
-        .http2_max_frame_size(settings.http2.max_frame_size)
-        .http2_max_header_list_size(settings.http2.max_header_list_size.unwrap_or(262144))
-        .http2_header_table_size(settings.http2.header_table_size)
-        .http2_enable_push(settings.http2.enable_push)
-        .replace_default_headers(settings.headers);
-
-    // Disable compression methods if not supported by the browser
-    if !settings.gzip {
-        builder = builder.no_gzip();
-    }
-    if !settings.brotli {
-        builder = builder.no_brotli();
-    }
-    if !settings.zstd {
-        builder = builder.no_zstd();
-    }
-
-    // Apply HTTP/2 fingerprinting settings
-    if let Some(settings_order) = settings.http2.settings_order {
-        builder = builder.http2_settings_order(settings_order);
-    }
-    if let Some(headers_pseudo_order) = settings.http2.headers_pseudo_order {
-        builder = builder.http2_headers_pseudo_order(headers_pseudo_order);
-    }
-    if let Some(headers_stream_dependency) = settings.http2.headers_stream_dependency {
-        builder = builder.http2_headers_stream_dependency(headers_stream_dependency);
-    }
-    if let Some(priorities) = settings.http2.priorities {
-        builder = builder.http2_priorities(priorities);
-    }
-
-    builder
-}
 
 /// Builds browser settings for a specific Chrome version and OS.
-fn build_chrome_settings(
+pub(crate) fn build_chrome_settings(
     chrome: Impersonate,
     os: crate::imp::ImpersonateOS,
 ) -> crate::imp::BrowserSettings {
     use http::header::*;
     use rustls::client::{BrowserEmulator, BrowserType, BrowserVersion};
     use rustls::crypto::emulation;
-    use crate::imp::EmulationProfile;
     use std::sync::OnceLock;
 
     let user_agent = build_user_agent(chrome, os);
     let sec_ch_ua = build_sec_ch_ua(chrome, os);
 
-    // Use HeaderMap with capacity for 11 headers to avoid reallocations
-    let mut headers = http::HeaderMap::with_capacity(11);
-    headers.insert(USER_AGENT, user_agent.parse().unwrap());
-    headers.insert("sec-ch-ua", sec_ch_ua.parse().unwrap());
-    headers.insert("sec-ch-ua-mobile", "?0".parse().unwrap());
-    headers.insert("sec-ch-ua-platform", os_platform(os).parse().unwrap());
-    headers.insert("sec-fetch-dest", "document".parse().unwrap());
-    headers.insert("sec-fetch-mode", "navigate".parse().unwrap());
-    headers.insert("sec-fetch-site", "none".parse().unwrap());
-    headers.insert("sec-fetch-user", "?1".parse().unwrap());
-    headers.insert(ACCEPT, "*/*".parse().unwrap());
-    headers.insert("accept-encoding", "gzip, deflate, br, zstd".parse().unwrap());
-    headers.insert("priority", "u=0, i".parse().unwrap());
+    let mut headers = http::HeaderMap::with_capacity(13);
+    headers.insert(USER_AGENT, http::HeaderValue::from_static(user_agent));
+    headers.insert(
+        "upgrade-insecure-requests",
+        http::HeaderValue::from_static("1"),
+    );
+    headers.insert("sec-ch-ua", http::HeaderValue::from_static(sec_ch_ua));
+    headers.insert(
+        "sec-ch-ua-mobile",
+        http::HeaderValue::from_static(
+            if matches!(
+                os,
+                crate::imp::ImpersonateOS::Android | crate::imp::ImpersonateOS::IOS
+            ) {
+                "?1"
+            } else {
+                "?0"
+            },
+        ),
+    );
+    headers.insert(
+        "sec-ch-ua-platform",
+        http::HeaderValue::from_static(os_platform(os)),
+    );
+    headers.insert("sec-fetch-dest", http::HeaderValue::from_static("document"));
+    headers.insert("sec-fetch-mode", http::HeaderValue::from_static("navigate"));
+    headers.insert("sec-fetch-site", http::HeaderValue::from_static("none"));
+    headers.insert("sec-fetch-user", http::HeaderValue::from_static("?1"));
+    headers.insert(ACCEPT, http::HeaderValue::from_static("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"));
+    headers.insert(
+        "accept-encoding",
+        http::HeaderValue::from_static("gzip, deflate, br, zstd"),
+    );
+    headers.insert(
+        "accept-language",
+        http::HeaderValue::from_static("en-US,en;q=0.9"),
+    );
+    headers.insert("priority", http::HeaderValue::from_static("u=0, i"));
 
     // Get cached browser emulator for Chrome (avoids Vec allocations on each call)
     let browser_emulator = match chrome {
@@ -119,9 +80,11 @@ fn build_chrome_settings(
             static CHROME_144: OnceLock<BrowserEmulator> = OnceLock::new();
             CHROME_144
                 .get_or_init(|| {
-                    let mut emulator = BrowserEmulator::new(BrowserType::Chrome, BrowserVersion::new(144, 0, 0));
+                    let mut emulator =
+                        BrowserEmulator::new(BrowserType::Chrome, BrowserVersion::new(144, 0, 0));
                     emulator.cipher_suites = Some(emulation::cipher_suites::CHROME.to_vec());
-                    emulator.signature_algorithms = Some(emulation::signature_algorithms::CHROME.to_vec());
+                    emulator.signature_algorithms =
+                        Some(emulation::signature_algorithms::CHROME.to_vec());
                     emulator.named_groups = Some(emulation::named_groups::CHROME.to_vec());
                     emulator.extension_order_seed = Some(emulation::extension_order::CHROME);
                     emulator
@@ -132,38 +95,39 @@ fn build_chrome_settings(
             static CHROME_145: OnceLock<BrowserEmulator> = OnceLock::new();
             CHROME_145
                 .get_or_init(|| {
-                    let mut emulator = BrowserEmulator::new(BrowserType::Chrome, BrowserVersion::new(145, 0, 0));
+                    let mut emulator =
+                        BrowserEmulator::new(BrowserType::Chrome, BrowserVersion::new(145, 0, 0));
                     emulator.cipher_suites = Some(emulation::cipher_suites::CHROME.to_vec());
-                    emulator.signature_algorithms = Some(emulation::signature_algorithms::CHROME.to_vec());
+                    emulator.signature_algorithms =
+                        Some(emulation::signature_algorithms::CHROME.to_vec());
                     emulator.named_groups = Some(emulation::named_groups::CHROME.to_vec());
                     emulator.extension_order_seed = Some(emulation::extension_order::CHROME);
                     emulator
                 })
                 .clone()
         }
-        _ => {
-            static CHROME_DEFAULT: OnceLock<BrowserEmulator> = OnceLock::new();
-            CHROME_DEFAULT
+        Impersonate::ChromeV146 => {
+            static CHROME_146: OnceLock<BrowserEmulator> = OnceLock::new();
+            CHROME_146
                 .get_or_init(|| {
-                    let mut emulator = BrowserEmulator::new(BrowserType::Chrome, BrowserVersion::new(144, 0, 0));
+                    let mut emulator =
+                        BrowserEmulator::new(BrowserType::Chrome, BrowserVersion::new(146, 0, 0));
                     emulator.cipher_suites = Some(emulation::cipher_suites::CHROME.to_vec());
-                    emulator.signature_algorithms = Some(emulation::signature_algorithms::CHROME.to_vec());
+                    emulator.signature_algorithms =
+                        Some(emulation::signature_algorithms::CHROME.to_vec());
                     emulator.named_groups = Some(emulation::named_groups::CHROME.to_vec());
                     emulator.extension_order_seed = Some(emulation::extension_order::CHROME);
                     emulator
                 })
                 .clone()
         }
+        _ => unreachable!(),
     };
-
-    // Use Chrome emulation profile
-    let emulation_profile = EmulationProfile::chrome();
 
     let http2 = build_http2_settings(chrome);
 
     crate::imp::BrowserSettings {
         browser_emulator,
-        emulation_profile,
         http2,
         headers,
         gzip: true,
@@ -181,6 +145,7 @@ fn build_user_agent(chrome: Impersonate, os: crate::imp::ImpersonateOS) -> &'sta
             crate::imp::ImpersonateOS::Linux => "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
             crate::imp::ImpersonateOS::Android => "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36",
             crate::imp::ImpersonateOS::IOS => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/144.0.0.0 Mobile/15E148 Safari/604.1",
+            _ => build_user_agent(chrome, crate::imp::random_impersonate_os()),
         },
         Impersonate::ChromeV145 => match os {
             crate::imp::ImpersonateOS::Windows => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
@@ -188,17 +153,27 @@ fn build_user_agent(chrome: Impersonate, os: crate::imp::ImpersonateOS) -> &'sta
             crate::imp::ImpersonateOS::Linux => "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
             crate::imp::ImpersonateOS::Android => "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Mobile Safari/537.36",
             crate::imp::ImpersonateOS::IOS => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/145.0.0.0 Mobile/15E148 Safari/604.1",
+            _ => build_user_agent(chrome, crate::imp::random_impersonate_os()),
         },
-        _ => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        Impersonate::ChromeV146 => match os {
+            crate::imp::ImpersonateOS::Windows => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+            crate::imp::ImpersonateOS::MacOS => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+            crate::imp::ImpersonateOS::Linux => "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+            crate::imp::ImpersonateOS::Android => "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Mobile Safari/537.36",
+            crate::imp::ImpersonateOS::IOS => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/146.0.0.0 Mobile/15E148 Safari/604.1",
+            _ => build_user_agent(chrome, crate::imp::random_impersonate_os()),
+        },
+        _ => unreachable!(),
     }
 }
 
 /// Builds a sec-ch-ua header value for a Chrome version and OS.
 fn build_sec_ch_ua(chrome: Impersonate, _os: crate::imp::ImpersonateOS) -> &'static str {
     match chrome {
-        Impersonate::ChromeV144 => r#""Google Chrome";v="144", "Chromium";v="144", "Not/A)Brand";v="24""#,
-        Impersonate::ChromeV145 => r#""Google Chrome";v="145", "Chromium";v="145", "Not/A)Brand";v="24""#,
-        _ => r#""Google Chrome";v="144", "Chromium";v="144", "Not/A)Brand";v="24""#,
+        Impersonate::ChromeV144 => r#""Not-A.Brand";v="24", "Chromium";v="144""#,
+        Impersonate::ChromeV145 => r#""Not-A.Brand";v="24", "Chromium";v="145""#,
+        Impersonate::ChromeV146 => r#""Not-A.Brand";v="24", "Chromium";v="146""#,
+        _ => unreachable!(),
     }
 }
 
@@ -210,23 +185,24 @@ fn os_platform(os: crate::imp::ImpersonateOS) -> &'static str {
         crate::imp::ImpersonateOS::Linux => r#""Linux""#,
         crate::imp::ImpersonateOS::Android => r#""Android""#,
         crate::imp::ImpersonateOS::IOS => r#""iOS""#,
+        _ => os_platform(crate::imp::random_impersonate_os()),
     }
 }
 
 /// Builds HTTP/2 settings for a Chrome version.
 #[cfg(feature = "http2")]
 fn build_http2_settings(_chrome: Impersonate) -> crate::imp::Http2Data {
-    use crate::imp::{SettingsOrder, SettingId, PseudoOrder, PseudoId, StreamDependency};
+    use crate::imp::{PseudoId, PseudoOrder, SettingId, SettingsOrder};
 
     // Chrome 144 sends only settings: 1, 2, 4, 6
     // Expected fingerprint: 1:65536;2:0;4:6291456;6:262144
     let settings_order = Some(
         SettingsOrder::builder()
-            .push(SettingId::HeaderTableSize)      // 1: 65536
-            .push(SettingId::EnablePush)           // 2: 0
-            .push(SettingId::InitialWindowSize)    // 4: 6291456
-            .push(SettingId::MaxHeaderListSize)    // 6: 262144
-            .build_without_extend()
+            .push(SettingId::HeaderTableSize) // 1: 65536
+            .push(SettingId::EnablePush) // 2: 0
+            .push(SettingId::InitialWindowSize) // 4: 6291456
+            .push(SettingId::MaxHeaderListSize) // 6: 262144
+            .build_without_extend(),
     );
 
     let headers_pseudo_order = Some(
@@ -235,10 +211,8 @@ fn build_http2_settings(_chrome: Impersonate) -> crate::imp::Http2Data {
             .push(PseudoId::Authority)
             .push(PseudoId::Scheme)
             .push(PseudoId::Path)
-            .build()
+            .build(),
     );
-
-    let headers_stream_dependency = Some(StreamDependency::chrome());
 
     crate::imp::Http2Data {
         initial_stream_window_size: Some(6291456),
@@ -252,35 +226,30 @@ fn build_http2_settings(_chrome: Impersonate) -> crate::imp::Http2Data {
         no_rfc7540_priorities: None,
         settings_order,
         headers_pseudo_order,
-        headers_stream_dependency,
-        priorities: None,
-    }
-}
-
-/// Builds HTTP/2 settings for a Chrome version (without http2 feature).
-#[cfg(not(feature = "http2"))]
-fn build_http2_settings(_chrome: Impersonate) -> crate::imp::Http2Data {
-    crate::imp::Http2Data {
-        initial_stream_window_size: Some(6291456),
-        initial_connection_window_size: Some(15728640),
-        max_concurrent_streams: None,
-        max_frame_size: None,
-        max_header_list_size: Some(262144),
-        header_table_size: Some(65536),
-        enable_push: Some(false),
-        enable_connect_protocol: None,
-        no_rfc7540_priorities: None,
-        settings_order: None,
-        headers_pseudo_order: None,
-        headers_stream_dependency: None,
-        priorities: None,
+        headers_priority: Some((255, 0, true)), // Chrome: weight=255 (displays as 0 on wire after -1), dep=0, excl=1
+        headers_order: Some(vec![
+            http::HeaderName::from_static("sec-ch-ua"),
+            http::HeaderName::from_static("sec-ch-ua-mobile"),
+            http::HeaderName::from_static("sec-ch-ua-platform"),
+            http::HeaderName::from_static("upgrade-insecure-requests"),
+            http::HeaderName::from_static("user-agent"),
+            http::HeaderName::from_static("accept"),
+            http::HeaderName::from_static("sec-fetch-site"),
+            http::HeaderName::from_static("sec-fetch-mode"),
+            http::HeaderName::from_static("sec-fetch-user"),
+            http::HeaderName::from_static("sec-fetch-dest"),
+            http::HeaderName::from_static("accept-encoding"),
+            http::HeaderName::from_static("accept-language"),
+            http::HeaderName::from_static("priority"),
+        ]),
+        initial_stream_id: None,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::async_impl::client::Client;
     use crate::imp::Impersonate;
+    use crate::Client;
     use serde::{Deserialize, Serialize};
 
     /// BrowserLeaks.com API response structure
@@ -292,17 +261,17 @@ mod tests {
         pub akamai_text: String,
     }
 
-    const CHROME144_USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
-    const CHROME144_JA4: &str = "t13d1516h2_8daaf6152771_d8a2da3f94cd";
-    const CHROME144_AKAMAI_HASH: &str = "52d84b11737d980aef856699f885ca86";
-    const CHROME144_AKAMAI_TEXT: &str = "1:65536;2:0;4:6291456;6:262144|15663105|0|m,a,s,p";
+    const CHROME146_USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+    const CHROME146_JA4: &str = "t13d1516h2_8daaf6152771_d8a2da3f94cd";
+    const CHROME146_AKAMAI_HASH: &str = "52d84b11737d980aef856699f885ca86";
+    const CHROME146_AKAMAI_TEXT: &str = "1:65536;2:0;4:6291456;6:262144|15663105|0|m,a,s,p";
 
     #[tokio::test]
     #[cfg(feature = "impersonate")]
-    async fn test_chrome144() {
+    async fn test_chrome146() {
         let client = Client::builder()
             .impersonate_os(crate::imp::ImpersonateOS::Linux)
-            .impersonate(Impersonate::ChromeV144)
+            .impersonate(Impersonate::ChromeV146)
             .build()
             .unwrap();
 
@@ -314,9 +283,9 @@ mod tests {
 
         let json: BrowserLeaksResponse = response.json().await.unwrap();
 
-        assert_eq!(json.user_agent, CHROME144_USER_AGENT);
-        assert_eq!(json.ja4, CHROME144_JA4);
-        assert_eq!(json.akamai_hash, CHROME144_AKAMAI_HASH);
-        assert_eq!(json.akamai_text, CHROME144_AKAMAI_TEXT);
+        assert_eq!(json.user_agent, CHROME146_USER_AGENT);
+        assert_eq!(json.ja4, CHROME146_JA4);
+        assert_eq!(json.akamai_hash, CHROME146_AKAMAI_HASH);
+        assert_eq!(json.akamai_text, CHROME146_AKAMAI_TEXT);
     }
 }

@@ -1,5 +1,6 @@
 import warnings
-from typing import Any, Callable, cast, Optional, Union
+from collections.abc import Callable
+from typing import Any, cast
 
 import torch
 
@@ -28,7 +29,7 @@ class RunningAverage(Metric):
             use the ``src``'s device. Otherwise, defaults to CPU. Only applicable when the computed value
             from the metric is a tensor.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Examples:
@@ -97,11 +98,11 @@ class RunningAverage(Metric):
 
     def __init__(
         self,
-        src: Optional[Metric] = None,
+        src: Metric | None = None,
         alpha: float = 0.98,
-        output_transform: Optional[Callable] = None,
-        epoch_bound: Optional[bool] = None,
-        device: Optional[Union[str, torch.device]] = None,
+        output_transform: Callable | None = None,
+        epoch_bound: bool | None = None,
+        device: str | torch.device | None = None,
         skip_unrolling: bool = False,
     ):
         if not (isinstance(src, Metric) or src is None):
@@ -118,13 +119,12 @@ class RunningAverage(Metric):
 
             if device is not None:
                 raise ValueError("Argument device should be None if src is a Metric.")
-            self.src: Union[Metric, None] = src
+            self.src: Metric | None = src
             device = src._device
         else:
             if output_transform is None:
                 raise ValueError(
-                    "Argument output_transform should not be None if src corresponds "
-                    "to the output of process function."
+                    "Argument output_transform should not be None if src corresponds to the output of process function."
                 )
             self.src = None
             if device is None:
@@ -138,18 +138,16 @@ class RunningAverage(Metric):
             )
         self.epoch_bound = epoch_bound
         self.alpha = alpha
-        super(RunningAverage, self).__init__(
-            output_transform=output_transform, device=device, skip_unrolling=skip_unrolling
-        )
+        super().__init__(output_transform=output_transform, device=device, skip_unrolling=skip_unrolling)
 
     @reinit__is_reduced
     def reset(self) -> None:
-        self._value: Optional[Union[float, torch.Tensor]] = None
+        self._value: float | torch.Tensor | None = None
         if isinstance(self.src, Metric):
             self.src.reset()
 
     @reinit__is_reduced
-    def update(self, output: Union[torch.Tensor, float]) -> None:
+    def update(self, output: torch.Tensor | float) -> None:
         if self.src is None:
             output = output.detach().to(self._device, copy=True) if isinstance(output, torch.Tensor) else output
             value = idist.all_reduce(output) / idist.get_world_size()
@@ -162,10 +160,10 @@ class RunningAverage(Metric):
         else:
             self._value = self._value * self.alpha + (1.0 - self.alpha) * value
 
-    def compute(self) -> Union[torch.Tensor, float]:
-        return cast(Union[torch.Tensor, float], self._value)
+    def compute(self) -> torch.Tensor | float:
+        return cast(torch.Tensor | float, self._value)
 
-    def attach(self, engine: Engine, name: str, usage: Union[str, MetricUsage] = RunningBatchWise()) -> None:
+    def attach(self, engine: Engine, name: str, usage: str | MetricUsage = RunningBatchWise()) -> None:
         r"""
         Attach the metric to the ``engine`` using the events determined by the ``usage``.
 
@@ -219,7 +217,7 @@ class RunningAverage(Metric):
 
         super().attach(engine, name, usage)
 
-    def detach(self, engine: Engine, usage: Union[str, MetricUsage] = RunningBatchWise()) -> None:
+    def detach(self, engine: Engine, usage: str | MetricUsage = RunningBatchWise()) -> None:
         usage = self._check_usage(usage)
         if self.epoch_bound is not None:
             usage = SingleEpochRunningBatchWise() if self.epoch_bound else RunningBatchWise()

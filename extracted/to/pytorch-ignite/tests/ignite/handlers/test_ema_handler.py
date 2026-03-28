@@ -1,5 +1,5 @@
 import os
-from typing import Any, Callable, Union
+from typing import Any, Callable
 
 import pytest
 import torch
@@ -30,7 +30,7 @@ def get_dummy_model():
     yield _get_dummy_model
 
 
-def _get_dummy_step_fn(model: Union[nn.Module, DataParallel, DistributedDataParallel]) -> Callable:
+def _get_dummy_step_fn(model: nn.Module | DataParallel | DistributedDataParallel) -> Callable:
     """Get a dummy step function, given model is a (wrapper of) dummy model returned from _get_dummy_model"""
 
     def step_fn(engine, batch):
@@ -97,7 +97,7 @@ def test_ema_warmup_func(get_dummy_model):
 def test_ema_invalid_model():
     with pytest.raises(ValueError, match="model should be an instance of nn.Module or its subclasses"):
         model = "Invalid Model"
-        EMAHandler(model)  # type: ignore
+        EMAHandler(model)
 
 
 @pytest.mark.distributed

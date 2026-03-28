@@ -34,6 +34,39 @@ VALID_PHASE_NAMES = frozenset({"requirements", "design", "tasks"})
 
 PENDING_SENTINEL = "[pending — to be derived from design]"
 
+# ---------------------------------------------------------------------------
+# Creation flow constants (#1165)
+# ---------------------------------------------------------------------------
+
+CREATION_FLOW_PROMPT = "prompt"
+CREATION_FLOW_FROM_ISSUE = "from_issue"
+CREATION_FLOW_MANUAL = "manual"
+
+# ---------------------------------------------------------------------------
+# JSON schema for LLM-assisted spec generation (#1165)
+# ---------------------------------------------------------------------------
+
+SPEC_GENERATION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["requirements", "design", "tasks"],
+    "properties": {
+        "requirements": {"type": "string", "description": "Requirements description"},
+        "design": {"type": "string", "description": "Design description"},
+        "tasks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["id", "summary"],
+                "properties": {
+                    "id": {"type": "string"},
+                    "summary": {"type": "string"},
+                    "depends_on": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+        },
+    },
+}
+
 
 def is_pending_content(phase: str, content: SpecContent) -> bool:
     """Check whether the given phase still contains placeholder sentinel content."""
@@ -344,6 +377,48 @@ BUGFIX_TEMPLATE = (
     "  List what must NOT change.\n\n"
     "tasks:\n  - id: t1\n    summary: First fix task\n"
 )
+
+
+# ---------------------------------------------------------------------------
+# Topological sort (#1165)
+# ---------------------------------------------------------------------------
+
+
+def topological_sort_tasks(tasks: list[SpecTask]) -> list[list[SpecTask]]:
+    """Group tasks by dependency level using Kahn's algorithm.
+
+    Returns tasks grouped so that level 0 has no dependencies, level 1 depends
+    only on level 0, etc.  Tasks within each level are independent and can run
+    concurrently.  Assumes the DAG is valid (pre-validated by
+    ``_validate_task_graph``).
+    """
+    if not tasks:
+        return []
+
+    task_map: dict[str, SpecTask] = {t.id: t for t in tasks}
+    in_degree: dict[str, int] = {t.id: 0 for t in tasks}
+    dependents: dict[str, list[str]] = {t.id: [] for t in tasks}
+
+    for t in tasks:
+        for dep in t.depends_on:
+            in_degree[t.id] += 1
+            if dep in dependents:
+                dependents[dep].append(t.id)
+
+    current_level = [tid for tid, deg in in_degree.items() if deg == 0]
+    levels: list[list[SpecTask]] = []
+
+    while current_level:
+        levels.append([task_map[tid] for tid in current_level])
+        next_level: list[str] = []
+        for tid in current_level:
+            for dep_id in dependents[tid]:
+                in_degree[dep_id] -= 1
+                if in_degree[dep_id] == 0:
+                    next_level.append(dep_id)
+        current_level = next_level
+
+    return levels
 
 
 # ---------------------------------------------------------------------------

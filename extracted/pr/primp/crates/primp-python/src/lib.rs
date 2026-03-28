@@ -3,10 +3,9 @@ use std::sync::{Arc, LazyLock, RwLock};
 use std::time::Duration;
 
 use ::primp::{
-    header, multipart, Body, Client as PrimpClient, Method, Proxy, Response as PrimpResponse, Url,
+    multipart, Body, Client as PrimpClient, Method, Proxy, Response as PrimpResponse, Url,
 };
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
 use pythonize::depythonize;
 use serde_json::Value;
 use tokio::{
@@ -18,7 +17,7 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 mod client_builder;
 use client_builder::{
     configure_client_builder, cookies_to_header_values, headers_without_cookie,
-    parse_cookies_from_header, IndexMapSSR,
+    parse_cookies_from_header, parse_url_or_domain, IndexMapSSR,
 };
 
 mod error;
@@ -62,6 +61,21 @@ pub struct Client {
     impersonate: Option<String>,
     #[pyo3(get)]
     impersonate_os: Option<String>,
+}
+
+pub fn extract_cookies_to_indexmap(headers: &http::HeaderMap) -> IndexMapSSR {
+    let mut cookie_map = IndexMapSSR::default();
+    for cookie_header in headers.get_all(http::header::SET_COOKIE).iter() {
+        if let Ok(cookie_str) = cookie_header.to_str() {
+            if let Some((name, value)) = cookie_str.split_once('=') {
+                cookie_map.insert(
+                    name.trim().to_string(),
+                    value.split(';').next().unwrap_or("").trim().to_string(),
+                );
+            }
+        }
+    }
+    cookie_map
 }
 
 #[pymethods]
@@ -226,7 +240,8 @@ impl Client {
 
     #[pyo3(signature = (url, cookies))]
     fn set_cookies(&self, url: &str, cookies: Option<IndexMapSSR>) -> PrimpResult<()> {
-        let url = Url::parse(url).map_err(|e| PrimpErrorEnum::InvalidURL(e.to_string()))?;
+        let url =
+            parse_url_or_domain(url).map_err(|e| PrimpErrorEnum::InvalidURL(e.to_string()))?;
         if let Some(cookies) = cookies {
             let header_values = cookies_to_header_values(&cookies);
             let client = self.client.read().expect("client lock was poisoned");
@@ -416,61 +431,22 @@ impl Client {
 
         if stream {
             // Return StreamResponse for streaming
-            let headers = PyDict::new(py);
-            for (key, value) in resp.headers() {
-                headers.set_item(key.as_str(), value.to_str().unwrap_or(""))?;
-            }
-
-            let cookies = PyDict::new(py);
-            let set_cookie_header = resp.headers().get_all(header::SET_COOKIE);
-            for cookie_header in set_cookie_header.iter() {
-                if let Ok(cookie_str) = cookie_header.to_str() {
-                    if let Some((name, value)) = cookie_str.split_once('=') {
-                        cookies
-                            .set_item(name.trim(), value.split(';').next().unwrap_or("").trim())?;
-                    }
-                }
-            }
+            let headers: IndexMapSSR = resp.headers().to_indexmap();
+            let cookies = extract_cookies_to_indexmap(resp.headers());
 
             let encoding = extract_encoding(resp.headers()).name().to_string();
 
-            let stream_response = StreamResponse::new(
-                resp,
-                url,
-                status_code,
-                encoding,
-                headers.unbind(),
-                cookies.unbind(),
-            );
+            let stream_response =
+                StreamResponse::new(resp, url, status_code, encoding, headers, cookies);
             Ok(stream_response.into_pyobject(py)?.into_any().unbind())
         } else {
             // Return regular Response with pre-computed headers and cookies
-            let headers = PyDict::new(py);
-            for (key, value) in resp.headers() {
-                headers.set_item(key.as_str(), value.to_str().unwrap_or(""))?;
-            }
-
-            let cookies = PyDict::new(py);
-            let set_cookie_header = resp.headers().get_all(header::SET_COOKIE);
-            for cookie_header in set_cookie_header.iter() {
-                if let Ok(cookie_str) = cookie_header.to_str() {
-                    if let Some((name, value)) = cookie_str.split_once('=') {
-                        cookies
-                            .set_item(name.trim(), value.split(';').next().unwrap_or("").trim())?;
-                    }
-                }
-            }
+            let headers: IndexMapSSR = resp.headers().to_indexmap();
+            let cookies = extract_cookies_to_indexmap(resp.headers());
 
             let encoding = extract_encoding(resp.headers()).name().to_string();
 
-            let response = Response::new(
-                resp,
-                url,
-                status_code,
-                headers.unbind(),
-                cookies.unbind(),
-                encoding,
-            );
+            let response = Response::new(resp, url, status_code, headers, cookies, encoding);
             Ok(response.into_pyobject(py)?.into_any().unbind())
         }
     }
@@ -1408,6 +1384,9 @@ fn primp(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(put, m)?)?;
     m.add_function(wrap_pyfunction!(patch, m)?)?;
     m.add_function(wrap_pyfunction!(request, m)?)?;
+
+    // Version
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
 
     Ok(())
 }

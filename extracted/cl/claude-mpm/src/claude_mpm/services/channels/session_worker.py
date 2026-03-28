@@ -101,6 +101,17 @@ class SessionWorker:
             else ""
         )
 
+        # Inject output style into system prompt (SDK sessions don't load
+        # user settings, so the outputStyle configured in
+        # ~/.claude/settings.json is never applied automatically)
+        style_content = self._get_output_style_content()
+        if style_content:
+            system_prompt = (
+                f"{style_content}\n\n{system_prompt}"
+                if system_prompt
+                else style_content
+            )
+
         # Inject GitHub context into system prompt
         if self.github_context is not None:
             try:
@@ -280,6 +291,13 @@ class SessionWorker:
                     data={"state": "stopped"},
                 )
             )
+
+    @staticmethod
+    def _get_output_style_content() -> str | None:
+        """Load the configured output style content for injection into system prompt."""
+        from claude_mpm.core.output_style_manager import get_output_style_for_injection
+
+        return get_output_style_for_injection()
 
     async def _handle_command(self, msg: ChannelMessage) -> None:
         """Handle /cd and other session-level commands."""

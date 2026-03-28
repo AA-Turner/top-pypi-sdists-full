@@ -16,7 +16,9 @@ use pythonize::pythonize;
 use serde_json::from_slice;
 use tokio::sync::Mutex as TMutex;
 
+use crate::client_builder::IndexMapSSR;
 use crate::error::{body_collection_error, convert_reqwest_error, BodyError, PrimpErrorEnum};
+use crate::traits::HeadersTraits;
 use crate::utils::extract_encoding;
 use crate::RUNTIME;
 
@@ -39,8 +41,8 @@ pub struct AsyncResponse {
     resp: Arc<TMutex<Option<::primp::Response>>>,
     _content: Option<Py<PyBytes>>,
     _encoding: Option<String>,
-    _headers: Option<Py<PyDict>>,
-    _cookies: Option<Py<PyDict>>,
+    _headers: Option<IndexMapSSR>,
+    _cookies: Option<IndexMapSSR>,
     #[pyo3(get)]
     pub url: String,
     #[pyo3(get)]
@@ -91,7 +93,7 @@ impl AsyncResponse {
 
     /// Get character encoding (sync)
     #[getter]
-    fn get_encoding<'rs>(&mut self, _py: Python<'rs>) -> PyResult<String> {
+    fn get_encoding(&mut self, _py: Python<'_>) -> PyResult<String> {
         if let Some(encoding) = self._encoding.as_ref() {
             return Ok(encoding.clone());
         }
@@ -135,91 +137,51 @@ impl AsyncResponse {
     #[getter]
     fn get_headers<'rs>(&mut self, py: Python<'rs>) -> PyResult<Bound<'rs, PyDict>> {
         if let Some(headers) = &self._headers {
-            return Ok(headers.clone_ref(py).into_bound(py));
+            return headers.clone().into_pyobject(py);
         }
 
-        let new_headers = PyDict::new(py);
         let resp = Arc::clone(&self.resp);
-        let headers = RUNTIME.block_on(async {
+        let headers: IndexMapSSR = RUNTIME.block_on(async {
             let resp_guard = resp.lock().await;
             match resp_guard.as_ref() {
-                Some(r) => {
-                    let headers_vec: Vec<(String, String)> = r
-                        .headers()
-                        .iter()
-                        .filter_map(|(key, value)| {
-                            value
-                                .to_str()
-                                .ok()
-                                .map(|v| (key.to_string(), v.to_string()))
-                        })
-                        .collect();
-                    Ok::<Option<Vec<(String, String)>>, PyErr>(Some(headers_vec))
-                }
+                Some(r) => Ok(r.headers().to_indexmap()),
                 None => Err(BodyError::new_err(
                     "Response body already consumed or moved",
                 )),
             }
         })?;
 
-        if let Some(headers) = headers {
-            for (key, value) in headers {
-                new_headers.set_item(key, value).ok();
-            }
-        }
-
-        self._headers = Some(new_headers.clone().unbind());
-        Ok(new_headers)
+        let py_dict = headers.clone().into_pyobject(py)?;
+        self._headers = Some(headers);
+        Ok(py_dict)
     }
 
     /// Get response cookies (sync)
     #[getter]
     fn get_cookies<'rs>(&mut self, py: Python<'rs>) -> PyResult<Bound<'rs, PyDict>> {
         if let Some(cookies) = &self._cookies {
-            return Ok(cookies.clone_ref(py).into_bound(py));
+            return cookies.clone().into_pyobject(py);
         }
 
-        let new_cookies = PyDict::new(py);
         let resp = Arc::clone(&self.resp);
-        let cookies = RUNTIME.block_on(async {
+        let cookies: IndexMapSSR = RUNTIME.block_on(async {
             let resp_guard = resp.lock().await;
             match resp_guard.as_ref() {
-                Some(r) => {
-                    let set_cookie_header = r.headers().get_all(::primp::header::SET_COOKIE);
-                    let cookies_vec: Vec<(String, String)> = set_cookie_header
-                        .iter()
-                        .filter_map(|cookie_header| {
-                            cookie_header.to_str().ok().and_then(|cookie_str| {
-                                cookie_str.split_once('=').map(|(name, value)| {
-                                    (
-                                        name.trim().to_string(),
-                                        value.split(';').next().unwrap_or("").trim().to_string(),
-                                    )
-                                })
-                            })
-                        })
-                        .collect();
-                    Ok::<Option<Vec<(String, String)>>, PyErr>(Some(cookies_vec))
-                }
+                Some(r) => Ok(crate::extract_cookies_to_indexmap(r.headers())),
                 None => Err(BodyError::new_err(
                     "Response body already consumed or moved",
                 )),
             }
         })?;
 
-        if let Some(cookies) = cookies {
-            for (key, value) in cookies {
-                new_cookies.set_item(key, value).ok();
-            }
-        }
-
-        self._cookies = Some(new_cookies.clone().unbind());
-        Ok(new_cookies)
+        let py_dict = cookies.clone().into_pyobject(py)?;
+        self._cookies = Some(cookies);
+        Ok(py_dict)
     }
 
     /// Get HTML converted to Markdown (sync)
     #[getter]
-    fn text_markdown<'rs>(&mut self, py: Python<'rs>) -> Result<String> {
+    fn text_markdown(&mut self, py: Python<'_>) -> Result<String> {
         let content = self.get_content(py)?.unbind();
         let raw_bytes = content.as_bytes(py);
         let text = py.detach(|| from_read(raw_bytes, 100))?;
@@ -228,7 +190,7 @@ impl AsyncResponse {
 
     /// Get HTML converted to plain text (sync)
     #[getter]
-    fn text_plain<'rs>(&mut self, py: Python<'rs>) -> Result<String> {
+    fn text_plain(&mut self, py: Python<'_>) -> Result<String> {
         let content = self.get_content(py)?.unbind();
         let raw_bytes = content.as_bytes(py);
         let text =
@@ -238,7 +200,7 @@ impl AsyncResponse {
 
     /// Get HTML converted to rich text (sync)
     #[getter]
-    fn text_rich<'rs>(&mut self, py: Python<'rs>) -> Result<String> {
+    fn text_rich(&mut self, py: Python<'_>) -> Result<String> {
         let content = self.get_content(py)?.unbind();
         let raw_bytes = content.as_bytes(py);
         let text = py.detach(|| from_read_with_decorator(raw_bytes, 100, RichDecorator::new()))?;
@@ -306,8 +268,8 @@ pub struct AsyncStreamResponse {
     url: String,
     #[pyo3(get)]
     status_code: u16,
-    headers: Py<PyDict>,
-    cookies: Py<PyDict>,
+    headers: IndexMapSSR,
+    cookies: IndexMapSSR,
 }
 
 impl AsyncStreamResponse {
@@ -316,8 +278,8 @@ impl AsyncStreamResponse {
         url: String,
         status_code: u16,
         encoding: String,
-        headers: Py<PyDict>,
-        cookies: Py<PyDict>,
+        headers: IndexMapSSR,
+        cookies: IndexMapSSR,
     ) -> Self {
         AsyncStreamResponse {
             resp: Arc::new(TMutex::new(Some(resp))),
@@ -334,14 +296,14 @@ impl AsyncStreamResponse {
 impl AsyncStreamResponse {
     /// Get response headers (sync)
     #[getter]
-    fn get_headers<'rs>(&self, py: Python<'rs>) -> Bound<'rs, PyDict> {
-        self.headers.clone_ref(py).into_bound(py)
+    fn get_headers<'rs>(&self, py: Python<'rs>) -> PyResult<Bound<'rs, PyDict>> {
+        self.headers.clone().into_pyobject(py)
     }
 
     /// Get response cookies (sync)
     #[getter]
-    fn get_cookies<'rs>(&self, py: Python<'rs>) -> Bound<'rs, PyDict> {
-        self.cookies.clone_ref(py).into_bound(py)
+    fn get_cookies<'rs>(&self, py: Python<'rs>) -> PyResult<Bound<'rs, PyDict>> {
+        self.cookies.clone().into_pyobject(py)
     }
 
     /// Get character encoding (sync)
@@ -529,7 +491,7 @@ impl AsyncStreamResponse {
 pub struct AsyncBytesIterator {
     resp: Arc<TMutex<Option<::primp::Response>>>,
     chunk_size: usize,
-    buffer: Vec<u8>,
+    buffer: Arc<TMutex<Vec<u8>>>,
 }
 
 impl AsyncBytesIterator {
@@ -537,7 +499,7 @@ impl AsyncBytesIterator {
         AsyncBytesIterator {
             resp,
             chunk_size,
-            buffer: Vec::new(),
+            buffer: Arc::new(TMutex::new(Vec::new())),
         }
     }
 }
@@ -553,15 +515,16 @@ impl AsyncBytesIterator {
 
         let resp = Arc::clone(&self.resp);
         let chunk_size = self.chunk_size;
-        let buffer = std::mem::take(&mut self.buffer);
+        let buffer = Arc::clone(&self.buffer);
 
         let future = async move {
-            let mut buffer = buffer;
-
             // If we have buffered data, return it
-            if buffer.len() >= chunk_size {
-                let chunk: Vec<u8> = buffer.drain(..chunk_size).collect();
-                return Ok::<Vec<u8>, PyErr>(chunk);
+            {
+                let mut buf = buffer.lock().await;
+                if buf.len() >= chunk_size {
+                    let chunk: Vec<u8> = buf.drain(..chunk_size).collect();
+                    return Ok::<Vec<u8>, PyErr>(chunk);
+                }
             }
 
             // Need to fetch more data
@@ -569,12 +532,13 @@ impl AsyncBytesIterator {
             match resp_guard.as_mut() {
                 Some(r) => match r.chunk().await {
                     Ok(Some(data)) => {
-                        buffer.extend_from_slice(&data);
-                        if buffer.len() >= chunk_size {
-                            let result: Vec<u8> = buffer.drain(..chunk_size).collect();
+                        let mut buf = buffer.lock().await;
+                        buf.extend_from_slice(&data);
+                        if buf.len() >= chunk_size {
+                            let result: Vec<u8> = buf.drain(..chunk_size).collect();
                             Ok(result)
-                        } else if !buffer.is_empty() {
-                            let result: Vec<u8> = std::mem::take(&mut buffer);
+                        } else if !buf.is_empty() {
+                            let result: Vec<u8> = std::mem::take(&mut *buf);
                             Ok(result)
                         } else {
                             // Received empty chunk, stream is exhausted
@@ -584,8 +548,9 @@ impl AsyncBytesIterator {
                         }
                     }
                     Ok(None) => {
-                        if !buffer.is_empty() {
-                            let result: Vec<u8> = std::mem::take(&mut buffer);
+                        let mut buf = buffer.lock().await;
+                        if !buf.is_empty() {
+                            let result: Vec<u8> = std::mem::take(&mut *buf);
                             Ok(result)
                         } else {
                             Err(PyErr::new::<pyo3::exceptions::PyStopAsyncIteration, _>(
@@ -596,8 +561,9 @@ impl AsyncBytesIterator {
                     Err(e) => Err(convert_reqwest_error(e)),
                 },
                 None => {
-                    if !buffer.is_empty() {
-                        let result: Vec<u8> = std::mem::take(&mut buffer);
+                    let mut buf = buffer.lock().await;
+                    if !buf.is_empty() {
+                        let result: Vec<u8> = std::mem::take(&mut *buf);
                         Ok(result)
                     } else {
                         Err(PyErr::new::<pyo3::exceptions::PyStopAsyncIteration, _>(
@@ -618,7 +584,7 @@ pub struct AsyncTextIterator {
     resp: Arc<TMutex<Option<::primp::Response>>>,
     encoding: String,
     chunk_size: usize,
-    buffer: Vec<u8>,
+    buffer: Arc<TMutex<Vec<u8>>>,
 }
 
 impl AsyncTextIterator {
@@ -631,7 +597,7 @@ impl AsyncTextIterator {
             resp,
             encoding,
             chunk_size,
-            buffer: Vec::new(),
+            buffer: Arc::new(TMutex::new(Vec::new())),
         }
     }
 }
@@ -648,17 +614,18 @@ impl AsyncTextIterator {
         let resp = Arc::clone(&self.resp);
         let encoding = self.encoding.clone();
         let chunk_size = self.chunk_size;
-        let buffer = std::mem::take(&mut self.buffer);
+        let buffer = Arc::clone(&self.buffer);
 
         let future = async move {
-            let mut buffer = buffer;
-
             // If we have buffered data, return it
-            if buffer.len() >= chunk_size {
-                let chunk: Vec<u8> = buffer.drain(..chunk_size).collect();
-                let enc = Encoding::for_label(encoding.as_bytes()).unwrap_or(UTF_8);
-                let (text, _, _) = enc.decode(&chunk);
-                return Ok::<String, PyErr>(text.to_string());
+            {
+                let mut buf = buffer.lock().await;
+                if buf.len() >= chunk_size {
+                    let chunk: Vec<u8> = buf.drain(..chunk_size).collect();
+                    let enc = Encoding::for_label(encoding.as_bytes()).unwrap_or(UTF_8);
+                    let (text, _, _) = enc.decode(&chunk);
+                    return Ok::<String, PyErr>(text.to_string());
+                }
             }
 
             // Need to fetch more data
@@ -666,14 +633,15 @@ impl AsyncTextIterator {
             match resp_guard.as_mut() {
                 Some(r) => match r.chunk().await {
                     Ok(Some(data)) => {
-                        buffer.extend_from_slice(&data);
-                        if buffer.len() >= chunk_size {
-                            let result: Vec<u8> = buffer.drain(..chunk_size).collect();
+                        let mut buf = buffer.lock().await;
+                        buf.extend_from_slice(&data);
+                        if buf.len() >= chunk_size {
+                            let result: Vec<u8> = buf.drain(..chunk_size).collect();
                             let enc = Encoding::for_label(encoding.as_bytes()).unwrap_or(UTF_8);
                             let (text, _, _) = enc.decode(&result);
                             Ok(text.to_string())
-                        } else if !buffer.is_empty() {
-                            let result: Vec<u8> = std::mem::take(&mut buffer);
+                        } else if !buf.is_empty() {
+                            let result: Vec<u8> = std::mem::take(&mut *buf);
                             let enc = Encoding::for_label(encoding.as_bytes()).unwrap_or(UTF_8);
                             let (text, _, _) = enc.decode(&result);
                             Ok(text.to_string())
@@ -682,8 +650,9 @@ impl AsyncTextIterator {
                         }
                     }
                     Ok(None) => {
-                        if !buffer.is_empty() {
-                            let result: Vec<u8> = std::mem::take(&mut buffer);
+                        let mut buf = buffer.lock().await;
+                        if !buf.is_empty() {
+                            let result: Vec<u8> = std::mem::take(&mut *buf);
                             let enc = Encoding::for_label(encoding.as_bytes()).unwrap_or(UTF_8);
                             let (text, _, _) = enc.decode(&result);
                             Ok(text.to_string())
@@ -696,8 +665,9 @@ impl AsyncTextIterator {
                     Err(e) => Err(convert_reqwest_error(e)),
                 },
                 None => {
-                    if !buffer.is_empty() {
-                        let result: Vec<u8> = std::mem::take(&mut buffer);
+                    let mut buf = buffer.lock().await;
+                    if !buf.is_empty() {
+                        let result: Vec<u8> = std::mem::take(&mut *buf);
                         let enc = Encoding::for_label(encoding.as_bytes()).unwrap_or(UTF_8);
                         let (text, _, _) = enc.decode(&result);
                         Ok(text.to_string())
@@ -718,16 +688,16 @@ impl AsyncTextIterator {
 #[pyclass]
 pub struct AsyncLinesIterator {
     resp: Arc<TMutex<Option<::primp::Response>>>,
-    buffer: String,
-    done: bool,
+    buffer: Arc<TMutex<String>>,
+    done: Arc<TMutex<bool>>,
 }
 
 impl AsyncLinesIterator {
     fn new(resp: Arc<TMutex<Option<::primp::Response>>>) -> Self {
         AsyncLinesIterator {
             resp,
-            buffer: String::new(),
-            done: false,
+            buffer: Arc::new(TMutex::new(String::new())),
+            done: Arc::new(TMutex::new(false)),
         }
     }
 }
@@ -742,29 +712,33 @@ impl AsyncLinesIterator {
         use pyo3_async_runtimes::tokio::future_into_py;
 
         let resp = Arc::clone(&self.resp);
-        let buffer = std::mem::take(&mut self.buffer);
-        let done = self.done;
+        let buffer = Arc::clone(&self.buffer);
+        let done = Arc::clone(&self.done);
 
         let future = async move {
-            let mut buffer = buffer;
-            let mut done = done;
-
             loop {
                 // Check if we have a complete line in buffer
-                if let Some(newline_pos) = buffer.find('\n') {
-                    let line: String = buffer.drain(..=newline_pos).collect();
-                    let line = line.trim_end_matches('\r').trim_end_matches('\n');
-                    return Ok::<String, PyErr>(line.to_string());
+                {
+                    let mut buf = buffer.lock().await;
+                    if let Some(newline_pos) = buf.find('\n') {
+                        let line: String = buf.drain(..=newline_pos).collect();
+                        let line = line.trim_end_matches('\r').trim_end_matches('\n');
+                        return Ok::<String, PyErr>(line.to_string());
+                    }
                 }
 
-                if done {
-                    if !buffer.is_empty() {
-                        let line = std::mem::take(&mut buffer);
-                        return Ok(line);
+                {
+                    let is_done = *done.lock().await;
+                    if is_done {
+                        let mut buf = buffer.lock().await;
+                        if !buf.is_empty() {
+                            let line = std::mem::take(&mut *buf);
+                            return Ok(line);
+                        }
+                        return Err(PyErr::new::<pyo3::exceptions::PyStopAsyncIteration, _>(
+                            "Stream exhausted",
+                        ));
                     }
-                    return Err(PyErr::new::<pyo3::exceptions::PyStopAsyncIteration, _>(
-                        "Stream exhausted",
-                    ));
                 }
 
                 // Fetch more data
@@ -772,16 +746,19 @@ impl AsyncLinesIterator {
                 match resp_guard.as_mut() {
                     Some(r) => match r.chunk().await {
                         Ok(Some(data)) => {
+                            let mut buf = buffer.lock().await;
                             let text = String::from_utf8_lossy(&data);
-                            buffer.push_str(&text);
+                            buf.push_str(&text);
                         }
                         Ok(None) => {
-                            done = true;
+                            let mut is_done = done.lock().await;
+                            *is_done = true;
                         }
                         Err(e) => return Err(convert_reqwest_error(e)),
                     },
                     None => {
-                        done = true;
+                        let mut is_done = done.lock().await;
+                        *is_done = true;
                     }
                 }
             }

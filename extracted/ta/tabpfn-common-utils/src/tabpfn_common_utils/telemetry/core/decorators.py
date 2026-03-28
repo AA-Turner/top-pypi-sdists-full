@@ -15,7 +15,7 @@ from pathlib import Path
 from functools import wraps
 from typing import Any, Callable, Dict, Literal, Optional, Tuple, Union
 
-from .events import FitEvent, PredictEvent
+from .events import ExtensionEntryEvent, FitEvent, PredictEvent
 from .service import capture_event
 from tabpfn_common_utils.utils import shape_of
 
@@ -214,6 +214,7 @@ def _wrap_callable_with_extension(fn, extension_name: str):
         if _get_context_var("tabpfn_current_extension").get() is not None:
             return fn(*args, **kwargs)
         with _extension_context(extension_name):
+            capture_event(ExtensionEntryEvent(extension_name=extension_name))
             return fn(*args, **kwargs)
 
     setattr(wrapped, _MARKER_ATTR, extension_name)

@@ -13,13 +13,14 @@ from pyrit.exceptions import (
     handle_bad_request_exception,
     pyrit_target_retry,
 )
-from pyrit.identifiers import TargetIdentifier
+from pyrit.identifiers import ComponentIdentifier
 from pyrit.message_normalizer import ChatMessageNormalizer, MessageListNormalizer
 from pyrit.models import (
     Message,
     construct_response_from_request,
 )
 from pyrit.prompt_target.common.prompt_chat_target import PromptChatTarget
+from pyrit.prompt_target.common.target_capabilities import TargetCapabilities
 from pyrit.prompt_target.common.utils import limit_requests_per_minute, validate_temperature, validate_top_p
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,10 @@ class AzureMLChatTarget(PromptChatTarget):
     endpoint_uri_environment_variable: str = "AZURE_ML_MANAGED_ENDPOINT"
     api_key_environment_variable: str = "AZURE_ML_KEY"
 
+    _DEFAULT_CAPABILITIES: TargetCapabilities = TargetCapabilities(
+        supports_multi_message_pieces=True, supports_editable_history=True, supports_multi_turn=True
+    )
+
     def __init__(
         self,
         *,
@@ -52,6 +57,7 @@ class AzureMLChatTarget(PromptChatTarget):
         top_p: float = 1.0,
         repetition_penalty: float = 1.0,
         max_requests_per_minute: Optional[int] = None,
+        custom_capabilities: Optional[TargetCapabilities] = None,
         **param_kwargs: Any,
     ) -> None:
         """
@@ -79,6 +85,8 @@ class AzureMLChatTarget(PromptChatTarget):
             max_requests_per_minute (int, Optional): Number of requests the target can handle per
                 minute before hitting a rate limit. The number of requests sent to the target
                 will be capped at the value provided.
+            custom_capabilities (TargetCapabilities, Optional): Override the default capabilities for this target
+                instance. Useful for targets whose capabilities depend on deployment configuration.
             **param_kwargs: Additional parameters to pass to the model for generating responses. Example
                 parameters can be found here: https://huggingface.co/docs/api-inference/tasks/text-generation.
                 Note that the link above may not be comprehensive, and specific acceptable parameters may be
@@ -89,7 +97,11 @@ class AzureMLChatTarget(PromptChatTarget):
             env_var_name=self.endpoint_uri_environment_variable, passed_value=endpoint
         )
         PromptChatTarget.__init__(
-            self, max_requests_per_minute=max_requests_per_minute, endpoint=endpoint_value, model_name=model_name
+            self,
+            max_requests_per_minute=max_requests_per_minute,
+            endpoint=endpoint_value,
+            model_name=model_name,
+            custom_capabilities=custom_capabilities,
         )
 
         self._initialize_vars(endpoint=endpoint, api_key=api_key)
@@ -104,17 +116,17 @@ class AzureMLChatTarget(PromptChatTarget):
         self._repetition_penalty = repetition_penalty
         self._extra_parameters = param_kwargs
 
-    def _build_identifier(self) -> TargetIdentifier:
+    def _build_identifier(self) -> ComponentIdentifier:
         """
         Build the identifier with Azure ML-specific parameters.
 
         Returns:
-            TargetIdentifier: The identifier for this target instance.
+            ComponentIdentifier: The identifier for this target instance.
         """
         return self._create_identifier(
-            temperature=self._temperature,
-            top_p=self._top_p,
-            target_specific_params={
+            params={
+                "temperature": self._temperature,
+                "top_p": self._top_p,
                 "max_new_tokens": self._max_new_tokens,
                 "repetition_penalty": self._repetition_penalty,
                 "message_normalizer": self.message_normalizer.__class__.__name__,
@@ -180,7 +192,7 @@ class AzureMLChatTarget(PromptChatTarget):
                 # Handle Bad Request
                 response_entry = handle_bad_request_exception(response_text=hse.response.text, request=request)
             elif hse.response.status_code == 429:
-                raise RateLimitException()
+                raise RateLimitException from hse
             else:
                 raise hse
 
@@ -218,11 +230,11 @@ class AzureMLChatTarget(PromptChatTarget):
             return str(response.json()["output"])
         except Exception as e:
             if response.json() == {}:
-                raise EmptyResponseException(message="The chat returned an empty response.")
-            raise e(
+                raise EmptyResponseException(message="The chat returned an empty response.") from e
+            raise type(e)(
                 f"Exception obtaining response from the target. Returned response: {response.json()}. "
-                + f"Exception: {str(e)}"  # type: ignore
-            )
+                f"Exception: {str(e)}"
+            ) from e
 
     async def _construct_http_body_async(
         self,
@@ -243,7 +255,7 @@ class AzureMLChatTarget(PromptChatTarget):
         # Parameters include additional ones passed in through **kwargs. Those not accepted by the model will
         # be ignored. We only include commonly supported parameters here - model-specific parameters like
         # stop sequences should be passed via **param_kwargs since different models use different EOS tokens.
-        data = {
+        return {
             "input_data": {
                 "input_string": messages_dict,
                 "parameters": {
@@ -255,8 +267,6 @@ class AzureMLChatTarget(PromptChatTarget):
                 | self._extra_parameters,
             }
         }
-
-        return data
 
     def _get_headers(self) -> dict[str, str]:
         """
@@ -274,12 +284,3 @@ class AzureMLChatTarget(PromptChatTarget):
 
     def _validate_request(self, *, message: Message) -> None:
         pass
-
-    def is_json_response_supported(self) -> bool:
-        """
-        Check if the target supports JSON as a response format.
-
-        Returns:
-            bool: True if JSON response is supported, False otherwise.
-        """
-        return False

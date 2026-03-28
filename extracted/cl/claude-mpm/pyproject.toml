@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claude-mpm"
-version = "6.0.0"
+version = "6.0.2"
 description = "Claude Code workflow and agent management framework - Multi-agent orchestration, skills system, MCP integration, session management, and semantic code search for AI-powered development"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -134,6 +134,8 @@ slack = [ "slack-bolt>=1.18.0", "slack-sdk>=3.23.0",]
 http = [ "starlette>=0.38.0", "sse-starlette>=2.0.0", "pyngrok>=7.0.0",]
 # Claude Agent SDK for in-process agent execution (alternative to CLI subprocess)
 sdk = [ "claude-agent-sdk>=0.1.48",]
+# Telegram bot client for remote Claude control via Telegram
+telegram = [ "python-telegram-bot>=20.0",]
 # Google Workspace extended features (rclone for Drive sync)
 # NOTE: Requires rclone CLI binary installed separately (https://rclone.org/downloads/)
 # The implementation uses rclone via subprocess, not a Python package.
@@ -153,6 +155,7 @@ claude-mpm-doctor = "claude_mpm.scripts.mpm_doctor:main"
 # claude-mpm-monitor = "claude_mpm.scripts.launch_monitor:main"
 # claude-mpm-socketio = "claude_mpm.scripts.socketio_daemon:main"
 # claude-mpm-ui = "claude_mpm.services.ui_service.main:main"
+claude-mpm-serve = "claude_mpm.services.ui_service.main:main"
 
 [dependency-groups]
 dev = [
@@ -311,7 +314,7 @@ ignore-imports = false
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "6.0.0"
+version = "6.0.2"
 version_files = [ "VERSION", "src/claude_mpm/VERSION", "package.json:version", "pyproject.toml:version",]
 tag_format = "v$version"
 update_changelog_on_bump = true

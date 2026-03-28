@@ -229,6 +229,7 @@ def export_from_registry() -> export_pb.Export:
                 ),
                 num_shards=cron.num_shards,
                 num_workers=cron.num_workers,
+                input_sql=cron.input_sql,
             )
         )
 

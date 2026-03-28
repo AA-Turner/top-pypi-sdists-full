@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from jsonschema_rs import Validator
 
-from schemathesis import transport
-from schemathesis.checks import CHECKS, CheckContext, CheckFunction, load_all_checks, run_checks
+from schemathesis import hooks, transport
+from schemathesis.checks import CHECKS, CheckContext, CheckFunction, CheckResult, load_all_checks, run_checks
 from schemathesis.core import NOT_SET, SCHEMATHESIS_TEST_CASE_HEADER, NotSet, curl
 from schemathesis.core.errors import IncorrectUsage
-from schemathesis.core.failures import FailureGroup, failure_report_title, format_failures
+from schemathesis.core.failures import Failure, FailureGroup, failure_report_title, format_failures
 from schemathesis.core.parameters import CONTAINER_TO_LOCATION, ParameterLocation
 from schemathesis.core.transport import Response
+from schemathesis.engine import Status
 from schemathesis.generation import GenerationMode, generate_random_case_id
 from schemathesis.generation.meta import CaseMetadata, ComponentInfo
 from schemathesis.generation.overrides import Override, store_components
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
     from requests.structures import CaseInsensitiveDict
     from werkzeug.test import TestResponse
 
+    from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.schemas import APIOperation
 
 
@@ -400,8 +402,16 @@ class Case:
                 # (e.g., malformed path template). Skip adding curl command to avoid
                 # replacing the original exception with a secondary error.
                 pass
+            # Notify hooks about network-level failures (connection errors, timeouts, etc.)
+            import requests
+
+            request = getattr(exc, "request", None)
+            if isinstance(request, requests.PreparedRequest):
+                dispatch("after_network_error", hook_context, self, request)
+                self.operation.schema.hooks.dispatch("after_network_error", hook_context, self, request)
             raise
         dispatch("after_call", hook_context, self, response)
+        self.operation.schema.hooks.dispatch("after_call", hook_context, self, response)
         return response
 
     def validate_response(
@@ -412,6 +422,7 @@ class Case:
         excluded_checks: list[CheckFunction] | None = None,
         headers: dict[str, Any] | None = None,
         transport_kwargs: dict[str, Any] | None = None,
+        recorder: ScenarioRecorder | None = None,
     ) -> None:
         """Validate a response against the API schema and built-in checks.
 
@@ -422,6 +433,7 @@ class Case:
             excluded_checks: Built-in checks to skip.
             headers: Headers used in the original request.
             transport_kwargs: Transport arguments used in the original request.
+            recorder: Recorder for stateful check context (case/response lookups).
 
         """
         __tracebackhide__ = True
@@ -453,15 +465,42 @@ class Case:
             headers=CaseInsensitiveDict(headers) if headers else None,
             config=config,
             transport_kwargs=transport_kwargs,
-            recorder=None,
+            recorder=recorder,
         )
+        has_after_validate = hooks.defines("after_validate") or self.operation.schema.hooks.defines("after_validate")
+        check_results: list[CheckResult] = []
+        _on_success: Callable[[str, Case], None] | None
+
+        if has_after_validate:
+
+            def on_failure(name: str, collected: set[Failure], failure: Failure) -> None:
+                collected.add(failure)
+                check_results.append(CheckResult(name=name, status=Status.FAILURE, failure=failure))
+
+            def on_success(name: str, _: Case) -> None:
+                check_results.append(CheckResult(name=name, status=Status.SUCCESS, failure=None))
+
+            _on_success = on_success
+
+        else:
+
+            def on_failure(name: str, collected: set[Failure], failure: Failure) -> None:
+                collected.add(failure)
+
+            _on_success = None
+
         failures = run_checks(
             case=self,
             response=response,
             ctx=ctx,
             checks=checks,
-            on_failure=lambda _, collected, failure: collected.add(failure),
+            on_failure=on_failure,
+            on_success=_on_success,
         )
+        if has_after_validate:
+            hook_context = HookContext(operation=self.operation)
+            dispatch("after_validate", hook_context, self, response, check_results)
+            self.operation.schema.hooks.dispatch("after_validate", hook_context, self, response, check_results)
         if failures:
             _failures = list(failures)
             message = failure_report_title(_failures) + "\n"

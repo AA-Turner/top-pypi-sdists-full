@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable
-from typing import Callable
+from collections.abc import Awaitable, Callable
 
 from asgiref.sync import iscoroutinefunction, markcoroutinefunction
 from django.conf import settings
@@ -13,13 +12,13 @@ from django.http.response import HttpResponseBase
 from django.utils.functional import cached_property
 
 _FEATURE_NAMES: set[str] = {
-    # Base and Chrome-only features
-    # Retrieved from Chrome document.featurePolicy.allowedFeatures()
-    # with flag "Experimental Web Platform features" turned on:
+    # Chrome features (99)
+    # https://github.com/chromium/chromium/raw/refs/heads/main/services/network/public/cpp/permissions_policy/permissions_policy_features.json5
     "accelerometer",
     "ambient-light-sensor",
     "aria-notify",
     "attribution-reporting",
+    "autofill",
     "autoplay",
     "bluetooth",
     "browsing-topics",
@@ -40,6 +39,7 @@ _FEATURE_NAMES: set[str] = {
     "ch-ua-form-factors",
     "ch-ua-full-version",
     "ch-ua-full-version-list",
+    "ch-ua-high-entropy-values",
     "ch-ua-mobile",
     "ch-ua-model",
     "ch-ua-platform",
@@ -55,11 +55,13 @@ _FEATURE_NAMES: set[str] = {
     "deferred-fetch",
     "deferred-fetch-minimal",
     "device-attributes",
+    "digital-credentials-create",
     "digital-credentials-get",
     "display-capture",
     "encrypted-media",
     "execution-while-not-rendered",
     "execution-while-out-of-viewport",
+    "fenced-unpartitioned-storage-read",
     "focus-without-user-activation",
     "fullscreen",
     "gamepad",
@@ -74,20 +76,24 @@ _FEATURE_NAMES: set[str] = {
     "language-detector",
     "language-model",
     "local-fonts",
+    "local-network",
     "local-network-access",
+    "loopback-network",
     "magnetometer",
+    "manual-text",
+    "media-playback-while-not-visible",
     "microphone",
     "midi",
     "on-device-speech-recognition",
     "otp-credentials",
     "payment",
     "picture-in-picture",
-    "popins",
     "private-aggregation",
     "private-state-token-issuance",
     "private-state-token-redemption",
     "publickey-credentials-create",
     "publickey-credentials-get",
+    "record-ad-auction-events",
     "rewriter",
     "run-ad-auction",
     "screen-wake-lock",
@@ -102,16 +108,15 @@ _FEATURE_NAMES: set[str] = {
     "unload",
     "usb",
     "vertical-scroll",
+    "web-app-installation",
+    "web-share",
     "window-management",
     "writer",
     "xr-spatial-tracking",
-    # Firefox-only features.
-    # Retrieved from Firefox document.featurePolicy.allowedFeatures()
-    # with dom.security.featurePolicy.header.enabled preference set to true
-    # in about:config (plus a restart):
+    # Firefox-only features (2)
+    # https://github.com/mozilla/gecko-dev/raw/refs/heads/master/dom/security/featurepolicy/FeaturePolicyUtils.cpp
     "document-domain",
     "vr",
-    "web-share",
 }
 
 
@@ -134,7 +139,8 @@ class PermissionsPolicyMiddleware:
             # inside __call__ to avoid swapping out dunder methods
             markcoroutinefunction(self)
 
-        self.header_value  # noqa: B018 - Access at setup so ImproperlyConfigured can be raised
+        self.permissions_policy  # noqa: B018 - Access at setup so ImproperlyConfigured can be raised
+        self.permissions_policy_report_only  # noqa: B018 - Access at setup so ImproperlyConfigured can be raised
         receiver(setting_changed)(self.clear_header_value)
 
     def __call__(
@@ -144,25 +150,36 @@ class PermissionsPolicyMiddleware:
             return self.__acall__(request)
         response = self.get_response(request)
         assert isinstance(response, HttpResponseBase)  # type narrow
-        value = self.header_value
-        if value:
-            response["Permissions-Policy"] = value
+
+        if permissions_policy := self.permissions_policy:
+            response["Permissions-Policy"] = permissions_policy
+        if permissions_policy_report_only := self.permissions_policy_report_only:
+            response["Permissions-Policy-Report-Only"] = permissions_policy_report_only
         return response
 
     async def __acall__(self, request: HttpRequest) -> HttpResponseBase:
         result = self.get_response(request)
         assert not isinstance(result, HttpResponseBase)  # type narrow
         response = await result
-        value = self.header_value
-        if value:  # pragma: no branch
-            response["Permissions-Policy"] = value
+        if permissions_policy := self.permissions_policy:
+            response["Permissions-Policy"] = permissions_policy
+        if permissions_policy_report_only := self.permissions_policy_report_only:
+            response["Permissions-Policy-Report-Only"] = permissions_policy_report_only
         return response
 
     @cached_property
-    def header_value(self) -> str:
-        setting: dict[str, str | list[str] | tuple[str]] = getattr(
-            settings, "PERMISSIONS_POLICY", {}
+    def permissions_policy(self) -> str:
+        return self.compute_header_value(getattr(settings, "PERMISSIONS_POLICY", {}))
+
+    @cached_property
+    def permissions_policy_report_only(self) -> str:
+        return self.compute_header_value(
+            getattr(settings, "PERMISSIONS_POLICY_REPORT_ONLY", {})
         )
+
+    def compute_header_value(
+        self, setting: dict[str, str | list[str] | tuple[str]]
+    ) -> str:
         pieces = []
         for feature, values in sorted(setting.items()):
             if feature not in _FEATURE_NAMES:
@@ -186,6 +203,11 @@ class PermissionsPolicyMiddleware:
     def clear_header_value(self, setting: str, **kwargs: object) -> None:
         if setting == "PERMISSIONS_POLICY":
             try:
-                del self.header_value
+                del self.permissions_policy
+            except AttributeError:
+                pass
+        elif setting == "PERMISSIONS_POLICY_REPORT_ONLY":
+            try:
+                del self.permissions_policy_report_only
             except AttributeError:
                 pass

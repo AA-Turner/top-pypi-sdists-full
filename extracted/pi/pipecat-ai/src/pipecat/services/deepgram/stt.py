@@ -41,6 +41,9 @@ try:
     from deepgram import AsyncDeepgramClient
     from deepgram.core.events import EventType
     from deepgram.listen.v1.types import (
+        ListenV1CloseStream,
+        ListenV1Finalize,
+        ListenV1KeepAlive,
         ListenV1Results,
         ListenV1SpeechStarted,
         ListenV1UtteranceEnd,
@@ -577,7 +580,11 @@ class DeepgramSTTService(STTService):
             Frame: None (transcription results come via WebSocket callbacks).
         """
         if self._connection:
-            await self._connection.send_media(audio)
+            try:
+                await self._connection.send_media(audio)
+            except Exception as e:
+                logger.warning(f"{self}: send_media failed, connection will reconnect: {e}")
+                self._connection = None
         yield None
 
     def _build_connect_kwargs(self) -> dict:
@@ -654,7 +661,7 @@ class DeepgramSTTService(STTService):
         self._connection = None
 
         if connection:
-            await connection.send_close_stream()
+            await connection.send_close_stream(ListenV1CloseStream(type="CloseStream"))
 
         await self.cancel_task(self._connection_task)
         self._connection_task = None
@@ -699,7 +706,7 @@ class DeepgramSTTService(STTService):
             await asyncio.sleep(5)
             if self._connection:
                 try:
-                    await self._connection.send_keep_alive()
+                    await self._connection.send_keep_alive(ListenV1KeepAlive(type="KeepAlive"))
                     logger.trace(f"{self}: Sent keepalive")
                 except Exception as e:
                     logger.warning(f"{self}: Keepalive failed: {e}")
@@ -796,5 +803,5 @@ class DeepgramSTTService(STTService):
             # Mark that we're awaiting a from_finalize response
             if self._connection:
                 self.request_finalize()
-                await self._connection.send_finalize()
+                await self._connection.send_finalize(ListenV1Finalize(type="Finalize"))
                 logger.trace(f"Triggered finalize event on: {frame.name=}, {direction=}")

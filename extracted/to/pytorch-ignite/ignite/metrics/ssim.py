@@ -1,5 +1,5 @@
 import warnings
-from typing import Callable, Optional, Sequence, Union
+from collections.abc import Callable, Sequence
 
 import torch
 import torch.nn.functional as F
@@ -34,7 +34,7 @@ class SSIM(Metric):
             device to be the same as your ``update`` arguments ensures the ``update`` method is non-blocking. By
             default, CPU.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
         ndims: Number of dimensions of the input image: 2d or 3d. Accepted values: 2, 3. Default: 2
 
@@ -77,14 +77,14 @@ class SSIM(Metric):
 
     def __init__(
         self,
-        data_range: Union[int, float],
-        kernel_size: Union[int, Sequence[int]] = 11,
-        sigma: Union[float, Sequence[float]] = 1.5,
+        data_range: int | float,
+        kernel_size: int | Sequence[int] = 11,
+        sigma: float | Sequence[float] = 1.5,
         k1: float = 0.01,
         k2: float = 0.03,
         gaussian: bool = True,
         output_transform: Callable = lambda x: x,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
         ndims: int = 2,
     ):
@@ -115,7 +115,7 @@ class SSIM(Metric):
         if any(y <= 0 for y in self.sigma):
             raise ValueError(f"Expected sigma to have positive number. Got {sigma}.")
 
-        super(SSIM, self).__init__(output_transform=output_transform, device=device, skip_unrolling=skip_unrolling)
+        super().__init__(output_transform=output_transform, device=device, skip_unrolling=skip_unrolling)
         self.gaussian = gaussian
         self.data_range = data_range
         self.c1 = (k1 * data_range) ** 2
@@ -129,7 +129,7 @@ class SSIM(Metric):
         self._kernel_nd = self._gaussian_or_uniform_kernel(
             kernel_size=self.kernel_size, sigma=self.sigma, ndims=self.ndims
         )
-        self._kernel: Optional[torch.Tensor] = None
+        self._kernel: torch.Tensor | None = None
 
     @reinit__is_reduced
     def reset(self) -> None:
@@ -161,11 +161,15 @@ class SSIM(Metric):
             kernel_y = self._gaussian(kernel_size[1], sigma[1])
             if ndims == 3:
                 kernel_z = self._gaussian(kernel_size[2], sigma[2])
+            else:
+                kernel_z = None
         else:
             kernel_x = self._uniform(kernel_size[0])
             kernel_y = self._uniform(kernel_size[1])
             if ndims == 3:
                 kernel_z = self._uniform(kernel_size[2])
+            else:
+                kernel_z = None
 
         result = (
             torch.einsum("i,j->ij", kernel_x, kernel_y)

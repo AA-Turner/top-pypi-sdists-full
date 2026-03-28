@@ -220,6 +220,7 @@ class ScheduledQuerySchedule(_message.Message):
         "dataset_name",
         "num_shards",
         "num_workers",
+        "input_sql",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -250,6 +251,7 @@ class ScheduledQuerySchedule(_message.Message):
     DATASET_NAME_FIELD_NUMBER: _ClassVar[int]
     NUM_SHARDS_FIELD_NUMBER: _ClassVar[int]
     NUM_WORKERS_FIELD_NUMBER: _ClassVar[int]
+    INPUT_SQL_FIELD_NUMBER: _ClassVar[int]
     id: int
     cron_query_id: int
     deployment_id: str
@@ -269,6 +271,7 @@ class ScheduledQuerySchedule(_message.Message):
     dataset_name: str
     num_shards: int
     num_workers: int
+    input_sql: str
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -290,4 +293,5 @@ class ScheduledQuerySchedule(_message.Message):
         dataset_name: _Optional[str] = ...,
         num_shards: _Optional[int] = ...,
         num_workers: _Optional[int] = ...,
+        input_sql: _Optional[str] = ...,
     ) -> None: ...

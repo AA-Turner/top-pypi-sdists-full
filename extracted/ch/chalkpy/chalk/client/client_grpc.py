@@ -155,6 +155,8 @@ if TYPE_CHECKING:
     from pyarrow import RecordBatch, Table
     from pydantic import BaseModel
 
+    from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobResponse
+    from chalk._gen.chalk.aggregate.v1.service_pb2_grpc import AggregateServiceStub
     from chalk._gen.chalk.server.v1.builder_pb2 import StartBranchResponse
     from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
     from chalk.client import ChalkError
@@ -390,6 +392,14 @@ class StubProvider:
             raise RuntimeError("Unable to connect to API server.")
         return DataPlaneJobQueueServiceStub(self._server_channel)
 
+    @cached_property
+    def aggregate_stub(self) -> "AggregateServiceStub":
+        from chalk._gen.chalk.aggregate.v1.service_pb2_grpc import AggregateServiceStub
+
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return AggregateServiceStub(self._server_channel)
+
     def __init__(
         self,
         token_config: TokenConfig,
@@ -618,6 +628,9 @@ class StubRefresher:
 
     def call_streaming_stub(self, fn: Callable[[SimpleStreamingServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.streaming_stub)
+
+    def call_aggregate_stub(self, fn: Callable[[AggregateServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.aggregate_stub)
 
     @property
     def log_stub(self) -> LogSearchServiceStub:
@@ -2746,3 +2759,37 @@ class ChalkGRPCClient:
             errors=errors_list if errors_list else None,
             message=proto_response.message if proto_response.message else None,
         )
+
+    def trigger_aggregate_backfill(
+        self,
+        features: list[str],
+        lower_bound: dt.datetime | None = None,
+        upper_bound: dt.datetime | None = None,
+        resolver: str | None = None,
+        query_tags: list[str] | None = None,
+    ) -> CreateAggregateBackfillJobResponse:
+        """Trigger an aggregate backfill job.
+
+        Parameters
+        ----------
+        features : list[str]
+            The fully-qualified names of the aggregate features to backfill.
+        lower_bound : datetime, optional
+            The lower bound of the time range to backfill.
+        upper_bound : datetime, optional
+            The upper bound of the time range to backfill.
+        resolver : str, optional
+            The resolver to use for the backfill.
+        query_tags : list[str], optional
+            Resolver tags to prefer when running the backfill.
+        """
+        from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobRequest
+
+        req = CreateAggregateBackfillJobRequest(
+            features=features,
+            lower_bound=timestamp_pb2.Timestamp(seconds=int(lower_bound.timestamp())) if lower_bound else None,
+            upper_bound=timestamp_pb2.Timestamp(seconds=int(upper_bound.timestamp())) if upper_bound else None,
+            resolver=resolver or "",
+            query_tags=query_tags or [],
+        )
+        return self._stub_refresher.call_aggregate_stub(lambda stub: stub.CreateAggregateBackfillJob(req, timeout=None))

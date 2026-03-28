@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GameSentenceMiner
-Version: 2026.3.22
+Version: 2026.3.23
 Summary: A tool for mining sentences from games. Update: Dependencies, replay buffer based line searching, and bug fixes.
 Author-email: Beangate <bpwhelan95@gmail.com>
 License: MIT License
@@ -164,7 +164,7 @@ Track your immersion habits with the stats dashboard.
 
 ## 🚀 Getting Started
 
-1.  **Download:** Get the [latest release](https://github.com/bpwhelan/GameSentenceMiner/releases).
+1.  **Download:** Get the [latest release](https://github.com/bpwhelan/GameSentenceMiner/releases/latest).
 2.  **Install:** Watch the [Installation Guide](https://www.youtube.com/watch?v=sVL9omRbGc4).
 3.  **Requirements:**
     *   An Anki tool (Yomitan, JL, etc.)

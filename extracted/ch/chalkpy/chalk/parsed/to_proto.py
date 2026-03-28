@@ -921,6 +921,11 @@ class ToProtoConverter:
                         else None
                     ),
                     backfill_schedule=mat.backfill_schedule,
+                    backfill_tag_sets=(
+                        [pb.BackfillTagSet(tags=tag_set) for tag_set in mat.backfill_tags]
+                        if mat.backfill_tags is not None
+                        else []
+                    ),
                     approx_top_k_arg_k=(
                         aggregation_kwargs.get("k")
                         if mat.aggregation in ("approx_top_k", "approx_percentile", "min_by_n", "max_by_n")
@@ -1017,6 +1022,11 @@ class ToProtoConverter:
                                     datetime_to_proto_timestamp(wmp.backfill_start_time)
                                     if wmp.backfill_start_time is not None
                                     else None
+                                ),
+                                backfill_tag_sets=(
+                                    [pb.BackfillTagSet(tags=tag_set) for tag_set in wmp.backfill_tags]
+                                    if wmp.backfill_tags is not None
+                                    else []
                                 ),
                                 continuous_buffer_duration=(
                                     seconds_int_to_proto_duration(wmp.continuous_buffer_duration_seconds)

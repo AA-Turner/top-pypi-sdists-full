@@ -100,6 +100,46 @@ asset = DockerImageAsset(self, "MyBuildImage",
 )
 ```
 
+You can optionally pass additional build contexts to the `docker build` command by specifying
+the `buildContexts` property. Each entry specifies a named build context and its source, which
+can be a directory path, a URL, or a docker image. This is equivalent to the `--build-context`
+flag in the `docker build` command.
+
+```python
+from aws_cdk.aws_ecr_assets import DockerImageAsset
+
+
+asset = DockerImageAsset(self, "MyBuildImage",
+    directory=path.join(__dirname, "my-image"),
+    build_contexts={
+        "mycontext": path.join(__dirname, "path/to/context"),
+        "alpine": "docker-image://alpine:latest"
+    }
+)
+```
+
+Note that while changes to the `buildContexts` values (e.g. changing which directory a context
+points to) will invalidate the asset hash and trigger a rebuild, changes to the *contents* of
+directories referenced by build contexts are not automatically tracked. Only the contents of
+the primary `directory` are fingerprinted. If files in a build context directory change, you can
+use `extraHash` to trigger a rebuild:
+
+```python
+from aws_cdk.aws_ecr_assets import DockerImageAsset
+from aws_cdk import FileSystem
+
+
+context_dir = path.join(__dirname, "path/to/context")
+
+asset = DockerImageAsset(self, "MyBuildImage",
+    directory=path.join(__dirname, "my-image"),
+    build_contexts={
+        "mycontext": context_dir
+    },
+    extra_hash=FileSystem.fingerprint(context_dir)
+)
+```
+
 You can optionally pass a target to the `docker build` command by specifying
 the `target` property:
 
@@ -403,12 +443,10 @@ class DockerImageAsset(
         
         asset = DockerImageAsset(self, "MyBuildImage",
             directory=path.join(__dirname, "my-image"),
-            build_args={
-                "HTTP_PROXY": "http://10.20.30.2:1234"
-            },
-            invalidation=ecr_assets.DockerImageAssetInvalidationOptions(
-                build_args=False
-            )
+            build_contexts={
+                "mycontext": path.join(__dirname, "path/to/context"),
+                "alpine": "docker-image://alpine:latest"
+            }
         )
     '''
 
@@ -420,6 +458,7 @@ class DockerImageAsset(
         directory: builtins.str,
         asset_name: typing.Optional[builtins.str] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
@@ -443,6 +482,7 @@ class DockerImageAsset(
         :param directory: The directory where the Dockerfile is stored. Any directory inside with a name that matches the CDK output folder (cdk.out by default) will be excluded from the asset
         :param asset_name: Unique identifier of the docker image asset and its potential revisions. Required if using AppScopedStagingSynthesizer. Default: - no asset name
         :param build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no build args are passed
+        :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Since Docker build contexts are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no additional build contexts
         :param build_secrets: Build secrets. Docker BuildKit must be enabled to use build secrets. Default: - no build secrets
         :param build_ssh: SSH agent socket or keys to pass to the ``docker build`` command. Docker BuildKit must be enabled to use the ssh flag Default: - no --ssh flag
         :param cache_disabled: Disable the cache and pass ``--no-cache`` to the ``docker build`` command. Default: - cache is used
@@ -468,6 +508,7 @@ class DockerImageAsset(
             directory=directory,
             asset_name=asset_name,
             build_args=build_args,
+            build_contexts=build_contexts,
             build_secrets=build_secrets,
             build_ssh=build_ssh,
             cache_disabled=cache_disabled,
@@ -576,6 +617,7 @@ class DockerImageAsset(
     jsii_struct_bases=[],
     name_mapping={
         "build_args": "buildArgs",
+        "build_contexts": "buildContexts",
         "build_secrets": "buildSecrets",
         "build_ssh": "buildSsh",
         "extra_hash": "extraHash",
@@ -592,6 +634,7 @@ class DockerImageAssetInvalidationOptions:
         self,
         *,
         build_args: typing.Optional[builtins.bool] = None,
+        build_contexts: typing.Optional[builtins.bool] = None,
         build_secrets: typing.Optional[builtins.bool] = None,
         build_ssh: typing.Optional[builtins.bool] = None,
         extra_hash: typing.Optional[builtins.bool] = None,
@@ -605,6 +648,7 @@ class DockerImageAssetInvalidationOptions:
         '''Options to control invalidation of ``DockerImageAsset`` asset hashes.
 
         :param build_args: Use ``buildArgs`` while calculating the asset hash. Default: true
+        :param build_contexts: Use ``buildContexts`` while calculating the asset hash. Default: true
         :param build_secrets: Use ``buildSecrets`` while calculating the asset hash. Default: true
         :param build_ssh: Use ``buildSsh`` while calculating the asset hash. Default: true
         :param extra_hash: Use ``extraHash`` while calculating the asset hash. Default: true
@@ -635,6 +679,7 @@ class DockerImageAssetInvalidationOptions:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81627cbb76e02c4366e7249ba22ecc8384c24639f62db324ccde3c3dd90d6d80)
             check_type(argname="argument build_args", value=build_args, expected_type=type_hints["build_args"])
+            check_type(argname="argument build_contexts", value=build_contexts, expected_type=type_hints["build_contexts"])
             check_type(argname="argument build_secrets", value=build_secrets, expected_type=type_hints["build_secrets"])
             check_type(argname="argument build_ssh", value=build_ssh, expected_type=type_hints["build_ssh"])
             check_type(argname="argument extra_hash", value=extra_hash, expected_type=type_hints["extra_hash"])
@@ -647,6 +692,8 @@ class DockerImageAssetInvalidationOptions:
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if build_args is not None:
             self._values["build_args"] = build_args
+        if build_contexts is not None:
+            self._values["build_contexts"] = build_contexts
         if build_secrets is not None:
             self._values["build_secrets"] = build_secrets
         if build_ssh is not None:
@@ -673,6 +720,15 @@ class DockerImageAssetInvalidationOptions:
         :default: true
         '''
         result = self._values.get("build_args")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def build_contexts(self) -> typing.Optional[builtins.bool]:
+        '''Use ``buildContexts`` while calculating the asset hash.
+
+        :default: true
+        '''
+        result = self._values.get("build_contexts")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -778,6 +834,7 @@ class DockerImageAssetInvalidationOptions:
         "extra_hash": "extraHash",
         "asset_name": "assetName",
         "build_args": "buildArgs",
+        "build_contexts": "buildContexts",
         "build_secrets": "buildSecrets",
         "build_ssh": "buildSsh",
         "cache_disabled": "cacheDisabled",
@@ -802,6 +859,7 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
         extra_hash: typing.Optional[builtins.str] = None,
         asset_name: typing.Optional[builtins.str] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
@@ -823,6 +881,7 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
         :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
         :param asset_name: Unique identifier of the docker image asset and its potential revisions. Required if using AppScopedStagingSynthesizer. Default: - no asset name
         :param build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no build args are passed
+        :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Since Docker build contexts are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no additional build contexts
         :param build_secrets: Build secrets. Docker BuildKit must be enabled to use build secrets. Default: - no build secrets
         :param build_ssh: SSH agent socket or keys to pass to the ``docker build`` command. Docker BuildKit must be enabled to use the ssh flag Default: - no --ssh flag
         :param cache_disabled: Disable the cache and pass ``--no-cache`` to the ``docker build`` command. Default: - cache is used
@@ -853,6 +912,9 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
                 build_args={
                     "build_args_key": "buildArgs"
                 },
+                build_contexts={
+                    "build_contexts_key": "buildContexts"
+                },
                 build_secrets={
                     "build_secrets_key": "buildSecrets"
                 },
@@ -882,6 +944,7 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
                 ignore_mode=cdk.IgnoreMode.GLOB,
                 invalidation=ecr_assets.DockerImageAssetInvalidationOptions(
                     build_args=False,
+                    build_contexts=False,
                     build_secrets=False,
                     build_ssh=False,
                     extra_hash=False,
@@ -910,6 +973,7 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
             check_type(argname="argument extra_hash", value=extra_hash, expected_type=type_hints["extra_hash"])
             check_type(argname="argument asset_name", value=asset_name, expected_type=type_hints["asset_name"])
             check_type(argname="argument build_args", value=build_args, expected_type=type_hints["build_args"])
+            check_type(argname="argument build_contexts", value=build_contexts, expected_type=type_hints["build_contexts"])
             check_type(argname="argument build_secrets", value=build_secrets, expected_type=type_hints["build_secrets"])
             check_type(argname="argument build_ssh", value=build_ssh, expected_type=type_hints["build_ssh"])
             check_type(argname="argument cache_disabled", value=cache_disabled, expected_type=type_hints["cache_disabled"])
@@ -935,6 +999,8 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
             self._values["asset_name"] = asset_name
         if build_args is not None:
             self._values["build_args"] = build_args
+        if build_contexts is not None:
+            self._values["build_contexts"] = build_contexts
         if build_secrets is not None:
             self._values["build_secrets"] = build_secrets
         if build_ssh is not None:
@@ -1021,6 +1087,27 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
         :default: - no build args are passed
         '''
         result = self._values.get("build_args")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def build_contexts(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Build contexts to pass to the ``docker build`` command.
+
+        Build contexts can be used to specify additional directories or images
+        to use during the build. Each entry specifies a named build context
+        and its source (a directory path, a URL, or a docker image).
+
+        Since Docker build contexts are resolved before deployment, keys and
+        values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or
+        ``queue.queueUrl``).
+
+        :default: - no additional build contexts
+
+        :see: https://docs.docker.com/build/building/context/#additional-build-contexts
+        '''
+        result = self._values.get("build_contexts")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
@@ -1198,6 +1285,7 @@ class DockerImageAssetOptions(_FileFingerprintOptions_115b8b51):
         "extra_hash": "extraHash",
         "asset_name": "assetName",
         "build_args": "buildArgs",
+        "build_contexts": "buildContexts",
         "build_secrets": "buildSecrets",
         "build_ssh": "buildSsh",
         "cache_disabled": "cacheDisabled",
@@ -1223,6 +1311,7 @@ class DockerImageAssetProps(DockerImageAssetOptions):
         extra_hash: typing.Optional[builtins.str] = None,
         asset_name: typing.Optional[builtins.str] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
@@ -1245,6 +1334,7 @@ class DockerImageAssetProps(DockerImageAssetOptions):
         :param extra_hash: Extra information to encode into the fingerprint (e.g. build instructions and other inputs). Default: - hash is only based on source content
         :param asset_name: Unique identifier of the docker image asset and its potential revisions. Required if using AppScopedStagingSynthesizer. Default: - no asset name
         :param build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no build args are passed
+        :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Since Docker build contexts are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no additional build contexts
         :param build_secrets: Build secrets. Docker BuildKit must be enabled to use build secrets. Default: - no build secrets
         :param build_ssh: SSH agent socket or keys to pass to the ``docker build`` command. Docker BuildKit must be enabled to use the ssh flag Default: - no --ssh flag
         :param cache_disabled: Disable the cache and pass ``--no-cache`` to the ``docker build`` command. Default: - cache is used
@@ -1268,12 +1358,10 @@ class DockerImageAssetProps(DockerImageAssetOptions):
             
             asset = DockerImageAsset(self, "MyBuildImage",
                 directory=path.join(__dirname, "my-image"),
-                build_args={
-                    "HTTP_PROXY": "http://10.20.30.2:1234"
-                },
-                invalidation=ecr_assets.DockerImageAssetInvalidationOptions(
-                    build_args=False
-                )
+                build_contexts={
+                    "mycontext": path.join(__dirname, "path/to/context"),
+                    "alpine": "docker-image://alpine:latest"
+                }
             )
         '''
         if isinstance(cache_to, dict):
@@ -1288,6 +1376,7 @@ class DockerImageAssetProps(DockerImageAssetOptions):
             check_type(argname="argument extra_hash", value=extra_hash, expected_type=type_hints["extra_hash"])
             check_type(argname="argument asset_name", value=asset_name, expected_type=type_hints["asset_name"])
             check_type(argname="argument build_args", value=build_args, expected_type=type_hints["build_args"])
+            check_type(argname="argument build_contexts", value=build_contexts, expected_type=type_hints["build_contexts"])
             check_type(argname="argument build_secrets", value=build_secrets, expected_type=type_hints["build_secrets"])
             check_type(argname="argument build_ssh", value=build_ssh, expected_type=type_hints["build_ssh"])
             check_type(argname="argument cache_disabled", value=cache_disabled, expected_type=type_hints["cache_disabled"])
@@ -1316,6 +1405,8 @@ class DockerImageAssetProps(DockerImageAssetOptions):
             self._values["asset_name"] = asset_name
         if build_args is not None:
             self._values["build_args"] = build_args
+        if build_contexts is not None:
+            self._values["build_contexts"] = build_contexts
         if build_secrets is not None:
             self._values["build_secrets"] = build_secrets
         if build_ssh is not None:
@@ -1402,6 +1493,27 @@ class DockerImageAssetProps(DockerImageAssetOptions):
         :default: - no build args are passed
         '''
         result = self._values.get("build_args")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def build_contexts(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Build contexts to pass to the ``docker build`` command.
+
+        Build contexts can be used to specify additional directories or images
+        to use during the build. Each entry specifies a named build context
+        and its source (a directory path, a URL, or a docker image).
+
+        Since Docker build contexts are resolved before deployment, keys and
+        values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or
+        ``queue.queueUrl``).
+
+        :default: - no additional build contexts
+
+        :see: https://docs.docker.com/build/building/context/#additional-build-contexts
+        '''
+        result = self._values.get("build_contexts")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
@@ -1908,6 +2020,7 @@ def _typecheckingstub__797fbc31925afd247c6567a5b5c30dcdc13a3d9b17aba80ece42c86bd
     directory: builtins.str,
     asset_name: typing.Optional[builtins.str] = None,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_ssh: typing.Optional[builtins.str] = None,
     cache_disabled: typing.Optional[builtins.bool] = None,
@@ -1950,6 +2063,7 @@ def _typecheckingstub__8ec71b1b90f7f6ec2ffd8b6786f94c82f25f01c9dd8e87f97fb3e6cea
 def _typecheckingstub__81627cbb76e02c4366e7249ba22ecc8384c24639f62db324ccde3c3dd90d6d80(
     *,
     build_args: typing.Optional[builtins.bool] = None,
+    build_contexts: typing.Optional[builtins.bool] = None,
     build_secrets: typing.Optional[builtins.bool] = None,
     build_ssh: typing.Optional[builtins.bool] = None,
     extra_hash: typing.Optional[builtins.bool] = None,
@@ -1971,6 +2085,7 @@ def _typecheckingstub__be58b9ab6157641d31b553709d8decad6c9801460bec8e3ff07aadc33
     extra_hash: typing.Optional[builtins.str] = None,
     asset_name: typing.Optional[builtins.str] = None,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_ssh: typing.Optional[builtins.str] = None,
     cache_disabled: typing.Optional[builtins.bool] = None,
@@ -1995,6 +2110,7 @@ def _typecheckingstub__1abde6bc94231492c7b40171b32143e7c5533e907120fe3e3c2ebeca2
     extra_hash: typing.Optional[builtins.str] = None,
     asset_name: typing.Optional[builtins.str] = None,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_ssh: typing.Optional[builtins.str] = None,
     cache_disabled: typing.Optional[builtins.bool] = None,

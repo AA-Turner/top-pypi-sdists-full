@@ -35,7 +35,7 @@ class TestPostJobSpec(unittest.TestCase):
         model = PostJobSpec()
         if include_optional:
             return PostJobSpec(
-                job_type = 'discover_agents',
+                job_type = 'compliance_policy_check',
                 scope_model_id = '',
                 start_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 end_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
@@ -46,7 +46,8 @@ class TestPostJobSpec(unittest.TestCase):
                 workspace_id = '',
                 data_plane_id = '',
                 project_id = '',
-                lookback_hours = 56
+                lookback_hours = 56,
+                policy_assignment_id = ''
             )
         else:
             return PostJobSpec(

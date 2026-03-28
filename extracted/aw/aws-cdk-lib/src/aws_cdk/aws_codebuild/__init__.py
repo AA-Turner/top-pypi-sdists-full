@@ -13347,6 +13347,7 @@ class LinuxBuildImage(
         directory: builtins.str,
         asset_name: typing.Optional[builtins.str] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
@@ -13371,6 +13372,7 @@ class LinuxBuildImage(
         :param directory: The directory where the Dockerfile is stored. Any directory inside with a name that matches the CDK output folder (cdk.out by default) will be excluded from the asset
         :param asset_name: Unique identifier of the docker image asset and its potential revisions. Required if using AppScopedStagingSynthesizer. Default: - no asset name
         :param build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no build args are passed
+        :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Since Docker build contexts are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no additional build contexts
         :param build_secrets: Build secrets. Docker BuildKit must be enabled to use build secrets. Default: - no build secrets
         :param build_ssh: SSH agent socket or keys to pass to the ``docker build`` command. Docker BuildKit must be enabled to use the ssh flag Default: - no --ssh flag
         :param cache_disabled: Disable the cache and pass ``--no-cache`` to the ``docker build`` command. Default: - cache is used
@@ -13396,6 +13398,7 @@ class LinuxBuildImage(
             directory=directory,
             asset_name=asset_name,
             build_args=build_args,
+            build_contexts=build_contexts,
             build_secrets=build_secrets,
             build_ssh=build_ssh,
             cache_disabled=cache_disabled,
@@ -14063,6 +14066,9 @@ class MacBuildImage(
             build_args={
                 "build_args_key": "buildArgs"
             },
+            build_contexts={
+                "build_contexts_key": "buildContexts"
+            },
             build_secrets={
                 "build_secrets_key": "buildSecrets"
             },
@@ -14092,6 +14098,7 @@ class MacBuildImage(
             ignore_mode=cdk.IgnoreMode.GLOB,
             invalidation=ecr_assets.DockerImageAssetInvalidationOptions(
                 build_args=False,
+                build_contexts=False,
                 build_secrets=False,
                 build_ssh=False,
                 extra_hash=False,
@@ -14119,6 +14126,7 @@ class MacBuildImage(
         directory: builtins.str,
         asset_name: typing.Optional[builtins.str] = None,
         build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
@@ -14143,6 +14151,7 @@ class MacBuildImage(
         :param directory: The directory where the Dockerfile is stored. Any directory inside with a name that matches the CDK output folder (cdk.out by default) will be excluded from the asset
         :param asset_name: Unique identifier of the docker image asset and its potential revisions. Required if using AppScopedStagingSynthesizer. Default: - no asset name
         :param build_args: Build args to pass to the ``docker build`` command. Since Docker build arguments are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no build args are passed
+        :param build_contexts: Build contexts to pass to the ``docker build`` command. Build contexts can be used to specify additional directories or images to use during the build. Each entry specifies a named build context and its source (a directory path, a URL, or a docker image). Since Docker build contexts are resolved before deployment, keys and values cannot refer to unresolved tokens (such as ``lambda.functionArn`` or ``queue.queueUrl``). Default: - no additional build contexts
         :param build_secrets: Build secrets. Docker BuildKit must be enabled to use build secrets. Default: - no build secrets
         :param build_ssh: SSH agent socket or keys to pass to the ``docker build`` command. Docker BuildKit must be enabled to use the ssh flag Default: - no --ssh flag
         :param cache_disabled: Disable the cache and pass ``--no-cache`` to the ``docker build`` command. Default: - cache is used
@@ -14168,6 +14177,7 @@ class MacBuildImage(
             directory=directory,
             asset_name=asset_name,
             build_args=build_args,
+            build_contexts=build_contexts,
             build_secrets=build_secrets,
             build_ssh=build_ssh,
             cache_disabled=cache_disabled,
@@ -21334,6 +21344,7 @@ def _typecheckingstub__c4ce5766deb0a7d190b79fe8c16f4eb758ab6db30a15dc2ea68692833
     directory: builtins.str,
     asset_name: typing.Optional[builtins.str] = None,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_ssh: typing.Optional[builtins.str] = None,
     cache_disabled: typing.Optional[builtins.bool] = None,
@@ -21402,6 +21413,7 @@ def _typecheckingstub__aa924aa0600b9706b95a62c612f337f8dde0f0df7d5d3b8c5b48b7279
     directory: builtins.str,
     asset_name: typing.Optional[builtins.str] = None,
     build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    build_contexts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     build_ssh: typing.Optional[builtins.str] = None,
     cache_disabled: typing.Optional[builtins.bool] = None,

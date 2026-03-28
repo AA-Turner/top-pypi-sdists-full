@@ -27,6 +27,7 @@ from opentelemetry.trace import (
     INVALID_SPAN_ID,
     INVALID_TRACE_ID,
     Span,
+    SpanKind,
 )
 from opentelemetry.trace.span import NonRecordingSpan
 from opentelemetry.trace.status import Status, StatusCode
@@ -52,6 +53,7 @@ class InstanaSpan(Span, ReadableSpan):
         attributes: types.Attributes = {},
         events: Sequence[Event] = [],
         status: Optional[Status] = Status(StatusCode.UNSET),
+        kind: SpanKind = SpanKind.INTERNAL,
     ) -> None:
         super().__init__(
             name=name,
@@ -62,7 +64,7 @@ class InstanaSpan(Span, ReadableSpan):
             attributes=attributes,
             events=events,
             status=status,
-            # kind=kind,
+            kind=kind,
         )
         self._span_processor = span_processor
         self._lock = Lock()
@@ -190,7 +192,7 @@ class InstanaSpan(Span, ReadableSpan):
             events=self.events,
             status=self.status,
             stack=self.stack,
-            # kind=self.kind,
+            kind=self.kind,
         )
 
     def end(self, end_time: Optional[int] = None) -> None:
@@ -241,7 +243,7 @@ INVALID_SPAN_CONTEXT = SpanContext(
 INVALID_SPAN = NonRecordingSpan(INVALID_SPAN_CONTEXT)
 
 
-def get_current_span(context: Optional[Context] = None) -> InstanaSpan:
+def get_current_span(context: Optional[Context] = None) -> Union[InstanaSpan, Span]:
     """Retrieve the current span.
 
     Args:
@@ -252,6 +254,6 @@ def get_current_span(context: Optional[Context] = None) -> InstanaSpan:
         The Span set in the context if it exists. INVALID_SPAN otherwise.
     """
     span = get_value(_SPAN_KEY, context=context)
-    if span is None or not isinstance(span, InstanaSpan):
+    if span is None or not isinstance(span, (InstanaSpan, Span)):
         return INVALID_SPAN
     return span

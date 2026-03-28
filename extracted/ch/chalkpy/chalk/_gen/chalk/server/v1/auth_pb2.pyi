@@ -408,6 +408,22 @@ class UpsertUserByEmailResponse(_message.Message):
     user: AdapterUser
     def __init__(self, user: _Optional[_Union[AdapterUser, _Mapping]] = ...) -> None: ...
 
+class SelfServiceCreateTeamRequest(_message.Message):
+    __slots__ = ("user_id", "team_name")
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    TEAM_NAME_FIELD_NUMBER: _ClassVar[int]
+    user_id: str
+    team_name: str
+    def __init__(self, user_id: _Optional[str] = ..., team_name: _Optional[str] = ...) -> None: ...
+
+class SelfServiceCreateTeamResponse(_message.Message):
+    __slots__ = ("team_id", "project_id")
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    project_id: str
+    def __init__(self, team_id: _Optional[str] = ..., project_id: _Optional[str] = ...) -> None: ...
+
 class GetTokenRequest(_message.Message):
     __slots__ = ("client_id", "client_secret", "grant_type", "scope", "expires_at")
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]

@@ -976,15 +976,6 @@ class CfnWorkspaceInstance(
                     arn="arn",
                     name="name"
                 ),
-                instance_market_options=workspacesinstances.CfnWorkspaceInstance.InstanceMarketOptionsRequestProperty(
-                    market_type="marketType",
-                    spot_options=workspacesinstances.CfnWorkspaceInstance.SpotMarketOptionsProperty(
-                        instance_interruption_behavior="instanceInterruptionBehavior",
-                        max_price="maxPrice",
-                        spot_instance_type="spotInstanceType",
-                        valid_until_utc="validUntilUtc"
-                    )
-                ),
                 ipv6_address_count=123,
                 key_name="keyName",
                 license_specifications=[workspacesinstances.CfnWorkspaceInstance.LicenseConfigurationRequestProperty(
@@ -2013,80 +2004,6 @@ class CfnWorkspaceInstance(
             )
 
     @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_workspacesinstances.CfnWorkspaceInstance.InstanceMarketOptionsRequestProperty",
-        jsii_struct_bases=[],
-        name_mapping={"market_type": "marketType", "spot_options": "spotOptions"},
-    )
-    class InstanceMarketOptionsRequestProperty:
-        def __init__(
-            self,
-            *,
-            market_type: typing.Optional[builtins.str] = None,
-            spot_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspaceInstance.SpotMarketOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''
-            :param market_type: 
-            :param spot_options: 
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesinstances-workspaceinstance-instancemarketoptionsrequest.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_workspacesinstances as workspacesinstances
-                
-                instance_market_options_request_property = workspacesinstances.CfnWorkspaceInstance.InstanceMarketOptionsRequestProperty(
-                    market_type="marketType",
-                    spot_options=workspacesinstances.CfnWorkspaceInstance.SpotMarketOptionsProperty(
-                        instance_interruption_behavior="instanceInterruptionBehavior",
-                        max_price="maxPrice",
-                        spot_instance_type="spotInstanceType",
-                        valid_until_utc="validUntilUtc"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__b98b268bcbc4c8517d4411ff3cec97b75028e2bf24bcfbe5187fddb5e5ddf912)
-                check_type(argname="argument market_type", value=market_type, expected_type=type_hints["market_type"])
-                check_type(argname="argument spot_options", value=spot_options, expected_type=type_hints["spot_options"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if market_type is not None:
-                self._values["market_type"] = market_type
-            if spot_options is not None:
-                self._values["spot_options"] = spot_options
-
-        @builtins.property
-        def market_type(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesinstances-workspaceinstance-instancemarketoptionsrequest.html#cfn-workspacesinstances-workspaceinstance-instancemarketoptionsrequest-markettype
-            '''
-            result = self._values.get("market_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def spot_options(
-            self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspaceInstance.SpotMarketOptionsProperty"]]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesinstances-workspaceinstance-instancemarketoptionsrequest.html#cfn-workspacesinstances-workspaceinstance-instancemarketoptionsrequest-spotoptions
-            '''
-            result = self._values.get("spot_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspaceInstance.SpotMarketOptionsProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "InstanceMarketOptionsRequestProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_workspacesinstances.CfnWorkspaceInstance.InstanceMetadataOptionsRequestProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2423,7 +2340,6 @@ class CfnWorkspaceInstance(
             "enclave_options": "enclaveOptions",
             "hibernation_options": "hibernationOptions",
             "iam_instance_profile": "iamInstanceProfile",
-            "instance_market_options": "instanceMarketOptions",
             "ipv6_address_count": "ipv6AddressCount",
             "key_name": "keyName",
             "license_specifications": "licenseSpecifications",
@@ -2455,7 +2371,6 @@ class CfnWorkspaceInstance(
             enclave_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspaceInstance.EnclaveOptionsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             hibernation_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspaceInstance.HibernationOptionsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             iam_instance_profile: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspaceInstance.IamInstanceProfileSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            instance_market_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspaceInstance.InstanceMarketOptionsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ipv6_address_count: typing.Optional[jsii.Number] = None,
             key_name: typing.Optional[builtins.str] = None,
             license_specifications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspaceInstance.LicenseConfigurationRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -2483,7 +2398,6 @@ class CfnWorkspaceInstance(
             :param enclave_options: 
             :param hibernation_options: 
             :param iam_instance_profile: 
-            :param instance_market_options: 
             :param ipv6_address_count: 
             :param key_name: 
             :param license_specifications: 
@@ -2553,15 +2467,6 @@ class CfnWorkspaceInstance(
                         arn="arn",
                         name="name"
                     ),
-                    instance_market_options=workspacesinstances.CfnWorkspaceInstance.InstanceMarketOptionsRequestProperty(
-                        market_type="marketType",
-                        spot_options=workspacesinstances.CfnWorkspaceInstance.SpotMarketOptionsProperty(
-                            instance_interruption_behavior="instanceInterruptionBehavior",
-                            max_price="maxPrice",
-                            spot_instance_type="spotInstanceType",
-                            valid_until_utc="validUntilUtc"
-                        )
-                    ),
                     ipv6_address_count=123,
                     key_name="keyName",
                     license_specifications=[workspacesinstances.CfnWorkspaceInstance.LicenseConfigurationRequestProperty(
@@ -2626,7 +2531,6 @@ class CfnWorkspaceInstance(
                 check_type(argname="argument enclave_options", value=enclave_options, expected_type=type_hints["enclave_options"])
                 check_type(argname="argument hibernation_options", value=hibernation_options, expected_type=type_hints["hibernation_options"])
                 check_type(argname="argument iam_instance_profile", value=iam_instance_profile, expected_type=type_hints["iam_instance_profile"])
-                check_type(argname="argument instance_market_options", value=instance_market_options, expected_type=type_hints["instance_market_options"])
                 check_type(argname="argument ipv6_address_count", value=ipv6_address_count, expected_type=type_hints["ipv6_address_count"])
                 check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
                 check_type(argname="argument license_specifications", value=license_specifications, expected_type=type_hints["license_specifications"])
@@ -2664,8 +2568,6 @@ class CfnWorkspaceInstance(
                 self._values["hibernation_options"] = hibernation_options
             if iam_instance_profile is not None:
                 self._values["iam_instance_profile"] = iam_instance_profile
-            if instance_market_options is not None:
-                self._values["instance_market_options"] = instance_market_options
             if ipv6_address_count is not None:
                 self._values["ipv6_address_count"] = ipv6_address_count
             if key_name is not None:
@@ -2810,16 +2712,6 @@ class CfnWorkspaceInstance(
             '''
             result = self._values.get("iam_instance_profile")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspaceInstance.IamInstanceProfileSpecificationProperty"]], result)
-
-        @builtins.property
-        def instance_market_options(
-            self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspaceInstance.InstanceMarketOptionsRequestProperty"]]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesinstances-workspaceinstance-managedinstance.html#cfn-workspacesinstances-workspaceinstance-managedinstance-instancemarketoptions
-            '''
-            result = self._values.get("instance_market_options")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspaceInstance.InstanceMarketOptionsRequestProperty"]], result)
 
         @builtins.property
         def ipv6_address_count(self) -> typing.Optional[jsii.Number]:
@@ -3214,106 +3106,6 @@ class CfnWorkspaceInstance(
             )
 
     @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_workspacesinstances.CfnWorkspaceInstance.SpotMarketOptionsProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "instance_interruption_behavior": "instanceInterruptionBehavior",
-            "max_price": "maxPrice",
-            "spot_instance_type": "spotInstanceType",
-            "valid_until_utc": "validUntilUtc",
-        },
-    )
-    class SpotMarketOptionsProperty:
-        def __init__(
-            self,
-            *,
-            instance_interruption_behavior: typing.Optional[builtins.str] = None,
-            max_price: typing.Optional[builtins.str] = None,
-            spot_instance_type: typing.Optional[builtins.str] = None,
-            valid_until_utc: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''
-            :param instance_interruption_behavior: 
-            :param max_price: 
-            :param spot_instance_type: 
-            :param valid_until_utc: 
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesinstances-workspaceinstance-spotmarketoptions.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_workspacesinstances as workspacesinstances
-                
-                spot_market_options_property = workspacesinstances.CfnWorkspaceInstance.SpotMarketOptionsProperty(
-                    instance_interruption_behavior="instanceInterruptionBehavior",
-                    max_price="maxPrice",
-                    spot_instance_type="spotInstanceType",
-                    valid_until_utc="validUntilUtc"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3f2b025a20b39464357aca8413f9d8b09d278990163112ca1429525ca31400ea)
-                check_type(argname="argument instance_interruption_behavior", value=instance_interruption_behavior, expected_type=type_hints["instance_interruption_behavior"])
-                check_type(argname="argument max_price", value=max_price, expected_type=type_hints["max_price"])
-                check_type(argname="argument spot_instance_type", value=spot_instance_type, expected_type=type_hints["spot_instance_type"])
-                check_type(argname="argument valid_until_utc", value=valid_until_utc, expected_type=type_hints["valid_until_utc"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if instance_interruption_behavior is not None:
-                self._values["instance_interruption_behavior"] = instance_interruption_behavior
-            if max_price is not None:
-                self._values["max_price"] = max_price
-            if spot_instance_type is not None:
-                self._values["spot_instance_type"] = spot_instance_type
-            if valid_until_utc is not None:
-                self._values["valid_until_utc"] = valid_until_utc
-
-        @builtins.property
-        def instance_interruption_behavior(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesinstances-workspaceinstance-spotmarketoptions.html#cfn-workspacesinstances-workspaceinstance-spotmarketoptions-instanceinterruptionbehavior
-            '''
-            result = self._values.get("instance_interruption_behavior")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def max_price(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesinstances-workspaceinstance-spotmarketoptions.html#cfn-workspacesinstances-workspaceinstance-spotmarketoptions-maxprice
-            '''
-            result = self._values.get("max_price")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def spot_instance_type(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesinstances-workspaceinstance-spotmarketoptions.html#cfn-workspacesinstances-workspaceinstance-spotmarketoptions-spotinstancetype
-            '''
-            result = self._values.get("spot_instance_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def valid_until_utc(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspacesinstances-workspaceinstance-spotmarketoptions.html#cfn-workspacesinstances-workspaceinstance-spotmarketoptions-validuntilutc
-            '''
-            result = self._values.get("valid_until_utc")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "SpotMarketOptionsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_workspacesinstances.CfnWorkspaceInstance.TagSpecificationProperty",
         jsii_struct_bases=[],
         name_mapping={"resource_type": "resourceType", "tags": "tags"},
@@ -3457,15 +3249,6 @@ class CfnWorkspaceInstanceProps:
                     iam_instance_profile=workspacesinstances.CfnWorkspaceInstance.IamInstanceProfileSpecificationProperty(
                         arn="arn",
                         name="name"
-                    ),
-                    instance_market_options=workspacesinstances.CfnWorkspaceInstance.InstanceMarketOptionsRequestProperty(
-                        market_type="marketType",
-                        spot_options=workspacesinstances.CfnWorkspaceInstance.SpotMarketOptionsProperty(
-                            instance_interruption_behavior="instanceInterruptionBehavior",
-                            max_price="maxPrice",
-                            spot_instance_type="spotInstanceType",
-                            valid_until_utc="validUntilUtc"
-                        )
                     ),
                     ipv6_address_count=123,
                     key_name="keyName",
@@ -3892,14 +3675,6 @@ def _typecheckingstub__5785155bdccebc0d8fada1620d3c62726134a88a6a448d54e8ea0f622
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b98b268bcbc4c8517d4411ff3cec97b75028e2bf24bcfbe5187fddb5e5ddf912(
-    *,
-    market_type: typing.Optional[builtins.str] = None,
-    spot_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspaceInstance.SpotMarketOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__d879a9a1ea939eed5a5bf31a9e53a33bef78538d965c45115d7750157f87c88b(
     *,
     http_endpoint: typing.Optional[builtins.str] = None,
@@ -3949,7 +3724,6 @@ def _typecheckingstub__122edb12e6993ba3ae146e0faaf65a6eef7a6651e2293cb5479f0afe3
     enclave_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspaceInstance.EnclaveOptionsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hibernation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspaceInstance.HibernationOptionsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     iam_instance_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspaceInstance.IamInstanceProfileSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_market_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspaceInstance.InstanceMarketOptionsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ipv6_address_count: typing.Optional[jsii.Number] = None,
     key_name: typing.Optional[builtins.str] = None,
     license_specifications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspaceInstance.LicenseConfigurationRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -3990,16 +3764,6 @@ def _typecheckingstub__5bcd696ce9417cfc6075ca9f9d64535711403bc6dc26a7e1e325bcb0b
 def _typecheckingstub__6fcd9d05f58e0d776ba7b11b076d5a7c565bc9ea5ce223eab03cdac46e660811(
     *,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3f2b025a20b39464357aca8413f9d8b09d278990163112ca1429525ca31400ea(
-    *,
-    instance_interruption_behavior: typing.Optional[builtins.str] = None,
-    max_price: typing.Optional[builtins.str] = None,
-    spot_instance_type: typing.Optional[builtins.str] = None,
-    valid_until_utc: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

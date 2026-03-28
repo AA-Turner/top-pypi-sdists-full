@@ -313,6 +313,13 @@ class MaterializationWindowConfig(TypedDict, total=False):
     backfill_schedule: CronTab | None
     """The schedule on which to automatically backfill the aggregation. For example, `"* * * * *"` or `"1h"`."""
 
+    backfill_tags: list[list[str]] | None
+    """Optional resolver tags to use when running the scheduled aggregate backfill.
+    Each inner list produces a separate scheduled backfill job that resolves data
+    using resolvers matching those tags. For example, `[["tag1"], ["tag2", "tag3"]]` would
+    create two scheduled backfill jobs, one for resolvers tagged "tag1" and one for "tag2, tag3".
+    """
+
     continuous_buffer_duration: Duration | None
     """The minimum period of time for which to sample data directly via online query, rather than from the backfilled aggregations."""
 

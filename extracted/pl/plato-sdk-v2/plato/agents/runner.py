@@ -18,11 +18,13 @@ from plato.agents.runtime import DockerRuntime, PlatoVMRuntime
 from plato.agents.runtime.base import AgentContext, PreparedAgent, Runtime
 from plato.agents.runtime.transport import NFSTransport, Transport
 from plato.agents.runtime.vm import VMConfig
-from plato.chronos.models import Operation
+from plato.chronos.models import AuditEventInput, Operation
 from plato.runtime import VMRuntimeConfig
 from plato.utils.audit import (
     AuditScopeContext,
+    audit_ignore_filter,
     build_audit_key,
+    load_audit_ignore,
     new_audit_run_id,
     parse_audit_raw,
     write_audit_jsonl,
@@ -579,32 +581,33 @@ class AgentRunner:
                     )
                     continue
 
-                events = await asyncio.to_thread(parse_audit_raw, raw_log)
-                if not events:
-                    logger.debug(
-                        "No audit events parsed from log for scope %s",
-                        scope.audit_key,
-                    )
-                    continue
+                # Parse → filter pipeline runs in a thread to avoid blocking
+                # the event loop (auparse is C code, pathspec is CPU-bound).
+                ignore_spec = await asyncio.to_thread(load_audit_ignore, scope.transport.path)
 
-                # Filter out noise: directory opens on the mount root itself
-                # (e.g. /workspace) are triggered by every path resolution and
-                # carry no useful information.
-                pre_filter_count = len(events)
-                events = [
-                    e
-                    for e in events
-                    if not (
-                        e.path in (scope.mount_path, scope.mount_path + "/.") and e.operation == Operation.opened_file
-                    )
-                ]
-                if len(events) < pre_filter_count:
+                def _parse_and_filter(raw: str) -> list[AuditEventInput]:
+                    """Parse raw audit log, apply auditignore + mount-root filters.
+
+                    Returns a materialised list because downstream resolution
+                    needs random access for time-window attribution.
+                    """
+                    parsed = parse_audit_raw(raw)
+                    filtered = audit_ignore_filter(parsed, ignore_spec, workspace_prefix=scope.mount_path)
+                    return [
+                        e
+                        for e in filtered
+                        if not (
+                            e.path in (scope.mount_path, scope.mount_path + "/.")
+                            and e.operation == Operation.opened_file
+                        )
+                    ]
+
+                events = await asyncio.to_thread(_parse_and_filter, raw_log)
+                if not events:
                     logger.debug(
-                        "Filtered %d mount-root noise events for scope %s",
-                        pre_filter_count - len(events),
+                        "No audit events after parsing and filtering for scope %s",
                         scope.audit_key,
                     )
-                if not events:
                     continue
                 logger.info(
                     "Parsed %d audit events for scope %s (agent=%s), time range: %s .. %s",
@@ -780,13 +783,13 @@ class AgentRunner:
                 display_name=current_display_name,
             )
 
-            if run_error is None:
-                try:
-                    for hook in self._post_run_hooks:
-                        await hook(prepared)
-                except Exception as exc:
+            try:
+                for hook in self._post_run_hooks:
+                    await hook(prepared)
+            except Exception as exc:
+                if run_error is None:
                     final_error = exc
-                    logger.exception("Post-run hook failed on VM %s", prepared.agent_id)
+                logger.exception("Post-run hook failed on VM %s", prepared.agent_id)
 
             logger.info("Cleaning up agent VM %s", prepared.agent_id)
             try:

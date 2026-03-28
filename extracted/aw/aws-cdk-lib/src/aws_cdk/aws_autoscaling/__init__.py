@@ -870,6 +870,46 @@ The following deletion protection levels are available:
 
 **Note:** When using `PREVENT_ALL_DELETION`, you must first update the deletion protection setting before deleting the CloudFormation stack containing the Auto Scaling group.
 
+## Instance Lifecycle Policy
+
+You can configure an instance lifecycle policy to control how instances are handled during lifecycle events, particularly when lifecycle hooks are abandoned or fail. This allows fine-grained control over when to preserve instances for manual intervention.
+
+The instance lifecycle policy defines retention triggers that specify when instances should be moved to a Retained state rather than terminated. Retained instances don't count toward desired capacity and remain until you manually terminate them.
+
+**Important:** To use instance lifecycle policies in your Auto Scaling group, you must also configure a termination lifecycle hook. If you configure an instance lifecycle policy but don't have any termination lifecycle hooks, the policy has no effect. Instance lifecycle policies will only apply when termination lifecycle actions are abandoned, not when they complete successfully with the CONTINUE result.
+
+```python
+# vpc: ec2.Vpc
+# instance_type: ec2.InstanceType
+# machine_image: ec2.IMachineImage
+
+
+asg = autoscaling.AutoScalingGroup(self, "ASG",
+    vpc=vpc,
+    instance_type=instance_type,
+    machine_image=machine_image,
+
+    # Configure instance lifecycle policy
+    instance_lifecycle_policy=autoscaling.InstanceLifecyclePolicy(
+        retention_triggers=autoscaling.RetentionTriggers(
+            terminate_hook_abandon=autoscaling.TerminateHookAbandonAction.RETAIN
+        )
+    )
+)
+
+# Add termination lifecycle hook (required for the policy to take effect)
+asg.add_lifecycle_hook("TerminationHook",
+    lifecycle_transition=autoscaling.LifecycleTransition.INSTANCE_TERMINATING
+)
+```
+
+The `terminateHookAbandon` trigger specifies the action when a termination lifecycle hook is abandoned due to failure, timeout, or explicit abandonment. You can set it to:
+
+* `RETAIN` - Move instances to a Retained state for manual investigation
+* `TERMINATE` - Use default termination behavior (instances are terminated normally)
+
+This feature is particularly useful for debugging failed instances or preserving instances that contain important data during lifecycle hook failures.
+
 ## Future work
 
 * [ ] CloudWatch Events (impossible to add currently as the AutoScalingGroup ARN is
@@ -1586,29 +1626,31 @@ class BasicLifecycleHookProps:
         :param notification_target: The target of the lifecycle hook. Default: - No target.
         :param role: The role that allows publishing to the notification target. Default: - A role will be created if a target is provided. Otherwise, no role is created.
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            from aws_cdk import aws_autoscaling as autoscaling
-            from aws_cdk import aws_iam as iam
+            # vpc: ec2.Vpc
+            # instance_type: ec2.InstanceType
+            # machine_image: ec2.IMachineImage
             
-            # lifecycle_hook_target: autoscaling.ILifecycleHookTarget
-            # role: iam.Role
             
-            basic_lifecycle_hook_props = autoscaling.BasicLifecycleHookProps(
-                lifecycle_transition=autoscaling.LifecycleTransition.INSTANCE_LAUNCHING,
+            asg = autoscaling.AutoScalingGroup(self, "ASG",
+                vpc=vpc,
+                instance_type=instance_type,
+                machine_image=machine_image,
             
-                # the properties below are optional
-                default_result=autoscaling.DefaultResult.CONTINUE,
-                heartbeat_timeout=cdk.Duration.minutes(30),
-                lifecycle_hook_name="lifecycleHookName",
-                notification_metadata="notificationMetadata",
-                notification_target=lifecycle_hook_target,
-                role=role
+                # Configure instance lifecycle policy
+                instance_lifecycle_policy=autoscaling.InstanceLifecyclePolicy(
+                    retention_triggers=autoscaling.RetentionTriggers(
+                        terminate_hook_abandon=autoscaling.TerminateHookAbandonAction.RETAIN
+                    )
+                )
+            )
+            
+            # Add termination lifecycle hook (required for the policy to take effect)
+            asg.add_lifecycle_hook("TerminationHook",
+                lifecycle_transition=autoscaling.LifecycleTransition.INSTANCE_TERMINATING
             )
         '''
         if __debug__:
@@ -13926,6 +13968,7 @@ class CfnWarmPoolProps:
         "health_check": "healthCheck",
         "health_checks": "healthChecks",
         "ignore_unmodified_size_properties": "ignoreUnmodifiedSizeProperties",
+        "instance_lifecycle_policy": "instanceLifecyclePolicy",
         "instance_monitoring": "instanceMonitoring",
         "key_name": "keyName",
         "key_pair": "keyPair",
@@ -13961,6 +14004,7 @@ class CommonAutoScalingGroupProps:
         health_check: typing.Optional["HealthCheck"] = None,
         health_checks: typing.Optional["HealthChecks"] = None,
         ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
+        instance_lifecycle_policy: typing.Optional[typing.Union["InstanceLifecyclePolicy", typing.Dict[builtins.str, typing.Any]]] = None,
         instance_monitoring: typing.Optional["Monitoring"] = None,
         key_name: typing.Optional[builtins.str] = None,
         key_pair: typing.Optional["_IKeyPair_bc344eda"] = None,
@@ -13996,6 +14040,7 @@ class CommonAutoScalingGroupProps:
         :param health_check: (deprecated) Configuration for health checks. Default: - HealthCheck.ec2 with no grace period
         :param health_checks: Configuration for EC2 or additional health checks. Even when using ``HealthChecks.withAdditionalChecks()``, the EC2 type is implicitly included. Default: - EC2 type with no grace period
         :param ignore_unmodified_size_properties: If the ASG has scheduled actions, don't reset unchanged group sizes. Only used if the ASG has scheduled actions (which may scale your ASG up or down regardless of cdk deployments). If true, the size of the group will only be reset if it has been changed in the CDK app. If false, the sizes will always be changed back to what they were in the CDK app on deployment. Default: true
+        :param instance_lifecycle_policy: An instance lifecycle policy that defines how instances should be handled during lifecycle events, particularly when lifecycle hooks are abandoned or fail. Default: None
         :param instance_monitoring: Controls whether instances in this group are launched with detailed or basic monitoring. When detailed monitoring is enabled, Amazon CloudWatch generates metrics every minute and your account is charged a fee. When you disable detailed monitoring, CloudWatch generates metrics every 5 minutes. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified Default: - Monitoring.DETAILED
         :param key_name: (deprecated) Name of SSH keypair to grant access to instances. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param key_pair: The SSH keypair to grant access to the instance. Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified. You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
@@ -14053,6 +14098,11 @@ class CommonAutoScalingGroupProps:
                 health_check=health_check,
                 health_checks=health_checks,
                 ignore_unmodified_size_properties=False,
+                instance_lifecycle_policy=autoscaling.InstanceLifecyclePolicy(
+                    retention_triggers=autoscaling.RetentionTriggers(
+                        terminate_hook_abandon=autoscaling.TerminateHookAbandonAction.RETAIN
+                    )
+                ),
                 instance_monitoring=autoscaling.Monitoring.BASIC,
                 key_name="keyName",
                 key_pair=key_pair,
@@ -14082,6 +14132,8 @@ class CommonAutoScalingGroupProps:
                 )
             )
         '''
+        if isinstance(instance_lifecycle_policy, dict):
+            instance_lifecycle_policy = InstanceLifecyclePolicy(**instance_lifecycle_policy)
         if isinstance(vpc_subnets, dict):
             vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
         if __debug__:
@@ -14100,6 +14152,7 @@ class CommonAutoScalingGroupProps:
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
             check_type(argname="argument health_checks", value=health_checks, expected_type=type_hints["health_checks"])
             check_type(argname="argument ignore_unmodified_size_properties", value=ignore_unmodified_size_properties, expected_type=type_hints["ignore_unmodified_size_properties"])
+            check_type(argname="argument instance_lifecycle_policy", value=instance_lifecycle_policy, expected_type=type_hints["instance_lifecycle_policy"])
             check_type(argname="argument instance_monitoring", value=instance_monitoring, expected_type=type_hints["instance_monitoring"])
             check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
             check_type(argname="argument key_pair", value=key_pair, expected_type=type_hints["key_pair"])
@@ -14144,6 +14197,8 @@ class CommonAutoScalingGroupProps:
             self._values["health_checks"] = health_checks
         if ignore_unmodified_size_properties is not None:
             self._values["ignore_unmodified_size_properties"] = ignore_unmodified_size_properties
+        if instance_lifecycle_policy is not None:
+            self._values["instance_lifecycle_policy"] = instance_lifecycle_policy
         if instance_monitoring is not None:
             self._values["instance_monitoring"] = instance_monitoring
         if key_name is not None:
@@ -14356,6 +14411,17 @@ class CommonAutoScalingGroupProps:
         '''
         result = self._values.get("ignore_unmodified_size_properties")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def instance_lifecycle_policy(self) -> typing.Optional["InstanceLifecyclePolicy"]:
+        '''An instance lifecycle policy that defines how instances should be handled during lifecycle events, particularly when lifecycle hooks are abandoned or fail.
+
+        :default: None
+
+        :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/instance-lifecycle-policy.html
+        '''
+        result = self._values.get("instance_lifecycle_policy")
+        return typing.cast(typing.Optional["InstanceLifecyclePolicy"], result)
 
     @builtins.property
     def instance_monitoring(self) -> typing.Optional["Monitoring"]:
@@ -16277,6 +16343,78 @@ typing.cast(typing.Any, ILifecycleHookTarget).__jsii_proxy_class__ = lambda : _I
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_autoscaling.InstanceLifecyclePolicy",
+    jsii_struct_bases=[],
+    name_mapping={"retention_triggers": "retentionTriggers"},
+)
+class InstanceLifecyclePolicy:
+    def __init__(
+        self,
+        *,
+        retention_triggers: typing.Optional[typing.Union["RetentionTriggers", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''Instance lifecycle policy for an Auto Scaling group.
+
+        :param retention_triggers: Retention triggers for the instance lifecycle policy. Default: - No retention triggers configured
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # vpc: ec2.Vpc
+            # instance_type: ec2.InstanceType
+            # machine_image: ec2.IMachineImage
+            
+            
+            asg = autoscaling.AutoScalingGroup(self, "ASG",
+                vpc=vpc,
+                instance_type=instance_type,
+                machine_image=machine_image,
+            
+                # Configure instance lifecycle policy
+                instance_lifecycle_policy=autoscaling.InstanceLifecyclePolicy(
+                    retention_triggers=autoscaling.RetentionTriggers(
+                        terminate_hook_abandon=autoscaling.TerminateHookAbandonAction.RETAIN
+                    )
+                )
+            )
+            
+            # Add termination lifecycle hook (required for the policy to take effect)
+            asg.add_lifecycle_hook("TerminationHook",
+                lifecycle_transition=autoscaling.LifecycleTransition.INSTANCE_TERMINATING
+            )
+        '''
+        if isinstance(retention_triggers, dict):
+            retention_triggers = RetentionTriggers(**retention_triggers)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__44a1f2a39b2e994eef7a02057de1095b1e5f225051ec596a66813a4371b7a98c)
+            check_type(argname="argument retention_triggers", value=retention_triggers, expected_type=type_hints["retention_triggers"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if retention_triggers is not None:
+            self._values["retention_triggers"] = retention_triggers
+
+    @builtins.property
+    def retention_triggers(self) -> typing.Optional["RetentionTriggers"]:
+        '''Retention triggers for the instance lifecycle policy.
+
+        :default: - No retention triggers configured
+        '''
+        result = self._values.get("retention_triggers")
+        return typing.cast(typing.Optional["RetentionTriggers"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstanceLifecyclePolicy(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_autoscaling.InstancesDistribution",
     jsii_struct_bases=[],
     name_mapping={
@@ -17017,7 +17155,35 @@ class LifecycleHookTargetConfig:
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_autoscaling.LifecycleTransition")
 class LifecycleTransition(enum.Enum):
-    '''What instance transition to attach the hook to.'''
+    '''What instance transition to attach the hook to.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # vpc: ec2.Vpc
+        # instance_type: ec2.InstanceType
+        # machine_image: ec2.IMachineImage
+        
+        
+        asg = autoscaling.AutoScalingGroup(self, "ASG",
+            vpc=vpc,
+            instance_type=instance_type,
+            machine_image=machine_image,
+        
+            # Configure instance lifecycle policy
+            instance_lifecycle_policy=autoscaling.InstanceLifecyclePolicy(
+                retention_triggers=autoscaling.RetentionTriggers(
+                    terminate_hook_abandon=autoscaling.TerminateHookAbandonAction.RETAIN
+                )
+            )
+        )
+        
+        # Add termination lifecycle hook (required for the policy to take effect)
+        asg.add_lifecycle_hook("TerminationHook",
+            lifecycle_transition=autoscaling.LifecycleTransition.INSTANCE_TERMINATING
+        )
+    '''
 
     INSTANCE_LAUNCHING = "INSTANCE_LAUNCHING"
     '''Execute the hook when an instance is about to be added.'''
@@ -17697,6 +17863,85 @@ class RequestCountScalingProps(BaseTargetTrackingProps):
 
     def __repr__(self) -> str:
         return "RequestCountScalingProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_autoscaling.RetentionTriggers",
+    jsii_struct_bases=[],
+    name_mapping={"terminate_hook_abandon": "terminateHookAbandon"},
+)
+class RetentionTriggers:
+    def __init__(
+        self,
+        *,
+        terminate_hook_abandon: typing.Optional["TerminateHookAbandonAction"] = None,
+    ) -> None:
+        '''Defines the specific triggers that cause instances to be retained in a Retained state rather than terminated.
+
+        Each trigger corresponds to a different failure scenario during
+        the instance lifecycle. This allows fine-grained control over when to preserve instances
+        for manual intervention.
+
+        :param terminate_hook_abandon: Specifies the action when a termination lifecycle hook is abandoned due to failure, timeout, or explicit abandonment (calling CompleteLifecycleAction). Set to Retain to move instances to a Retained state. Set to Terminate for default termination behavior. Retained instances don't count toward desired capacity and remain until you call TerminateInstanceInAutoScalingGroup. Default: - No action specified
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # vpc: ec2.Vpc
+            # instance_type: ec2.InstanceType
+            # machine_image: ec2.IMachineImage
+            
+            
+            asg = autoscaling.AutoScalingGroup(self, "ASG",
+                vpc=vpc,
+                instance_type=instance_type,
+                machine_image=machine_image,
+            
+                # Configure instance lifecycle policy
+                instance_lifecycle_policy=autoscaling.InstanceLifecyclePolicy(
+                    retention_triggers=autoscaling.RetentionTriggers(
+                        terminate_hook_abandon=autoscaling.TerminateHookAbandonAction.RETAIN
+                    )
+                )
+            )
+            
+            # Add termination lifecycle hook (required for the policy to take effect)
+            asg.add_lifecycle_hook("TerminationHook",
+                lifecycle_transition=autoscaling.LifecycleTransition.INSTANCE_TERMINATING
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__135926276f82011124fe8276aab16da02c2b206355c2770985d2df1628f3e254)
+            check_type(argname="argument terminate_hook_abandon", value=terminate_hook_abandon, expected_type=type_hints["terminate_hook_abandon"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if terminate_hook_abandon is not None:
+            self._values["terminate_hook_abandon"] = terminate_hook_abandon
+
+    @builtins.property
+    def terminate_hook_abandon(self) -> typing.Optional["TerminateHookAbandonAction"]:
+        '''Specifies the action when a termination lifecycle hook is abandoned due to failure, timeout, or explicit abandonment (calling CompleteLifecycleAction).
+
+        Set to Retain to move instances to a Retained state. Set to Terminate for default termination behavior.
+
+        Retained instances don't count toward desired capacity and remain
+        until you call TerminateInstanceInAutoScalingGroup.
+
+        :default: - No action specified
+        '''
+        result = self._values.get("terminate_hook_abandon")
+        return typing.cast(typing.Optional["TerminateHookAbandonAction"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RetentionTriggers(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -19547,6 +19792,44 @@ class TargetTrackingScalingPolicyProps(BasicTargetTrackingScalingPolicyProps):
         )
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_autoscaling.TerminateHookAbandonAction")
+class TerminateHookAbandonAction(enum.Enum):
+    '''Actions for when a termination lifecycle hook is abandoned.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # vpc: ec2.Vpc
+        # instance_type: ec2.InstanceType
+        # machine_image: ec2.IMachineImage
+        
+        
+        asg = autoscaling.AutoScalingGroup(self, "ASG",
+            vpc=vpc,
+            instance_type=instance_type,
+            machine_image=machine_image,
+        
+            # Configure instance lifecycle policy
+            instance_lifecycle_policy=autoscaling.InstanceLifecyclePolicy(
+                retention_triggers=autoscaling.RetentionTriggers(
+                    terminate_hook_abandon=autoscaling.TerminateHookAbandonAction.RETAIN
+                )
+            )
+        )
+        
+        # Add termination lifecycle hook (required for the policy to take effect)
+        asg.add_lifecycle_hook("TerminationHook",
+            lifecycle_transition=autoscaling.LifecycleTransition.INSTANCE_TERMINATING
+        )
+    '''
+
+    RETAIN = "RETAIN"
+    '''Move instances to a Retained state when termination hook is abandoned.'''
+    TERMINATE = "TERMINATE"
+    '''Terminate instances normally when termination hook is abandoned (default behavior).'''
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_autoscaling.TerminationPolicy")
 class TerminationPolicy(enum.Enum):
     '''Specifies the termination criteria to apply before Amazon EC2 Auto Scaling chooses an instance for termination.
@@ -20043,6 +20326,7 @@ class AutoScalingGroup(
         health_check: typing.Optional["HealthCheck"] = None,
         health_checks: typing.Optional["HealthChecks"] = None,
         ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
+        instance_lifecycle_policy: typing.Optional[typing.Union["InstanceLifecyclePolicy", typing.Dict[builtins.str, typing.Any]]] = None,
         instance_monitoring: typing.Optional["Monitoring"] = None,
         key_name: typing.Optional[builtins.str] = None,
         key_pair: typing.Optional["_IKeyPair_bc344eda"] = None,
@@ -20090,6 +20374,7 @@ class AutoScalingGroup(
         :param health_check: (deprecated) Configuration for health checks. Default: - HealthCheck.ec2 with no grace period
         :param health_checks: Configuration for EC2 or additional health checks. Even when using ``HealthChecks.withAdditionalChecks()``, the EC2 type is implicitly included. Default: - EC2 type with no grace period
         :param ignore_unmodified_size_properties: If the ASG has scheduled actions, don't reset unchanged group sizes. Only used if the ASG has scheduled actions (which may scale your ASG up or down regardless of cdk deployments). If true, the size of the group will only be reset if it has been changed in the CDK app. If false, the sizes will always be changed back to what they were in the CDK app on deployment. Default: true
+        :param instance_lifecycle_policy: An instance lifecycle policy that defines how instances should be handled during lifecycle events, particularly when lifecycle hooks are abandoned or fail. Default: None
         :param instance_monitoring: Controls whether instances in this group are launched with detailed or basic monitoring. When detailed monitoring is enabled, Amazon CloudWatch generates metrics every minute and your account is charged a fee. When you disable detailed monitoring, CloudWatch generates metrics every 5 minutes. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified Default: - Monitoring.DETAILED
         :param key_name: (deprecated) Name of SSH keypair to grant access to instances. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param key_pair: The SSH keypair to grant access to the instance. Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified. You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
@@ -20139,6 +20424,7 @@ class AutoScalingGroup(
             health_check=health_check,
             health_checks=health_checks,
             ignore_unmodified_size_properties=ignore_unmodified_size_properties,
+            instance_lifecycle_policy=instance_lifecycle_policy,
             instance_monitoring=instance_monitoring,
             key_name=key_name,
             key_pair=key_pair,
@@ -20747,6 +21033,7 @@ class AutoScalingGroup(
         "health_check": "healthCheck",
         "health_checks": "healthChecks",
         "ignore_unmodified_size_properties": "ignoreUnmodifiedSizeProperties",
+        "instance_lifecycle_policy": "instanceLifecyclePolicy",
         "instance_monitoring": "instanceMonitoring",
         "key_name": "keyName",
         "key_pair": "keyPair",
@@ -20796,6 +21083,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         health_check: typing.Optional["HealthCheck"] = None,
         health_checks: typing.Optional["HealthChecks"] = None,
         ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
+        instance_lifecycle_policy: typing.Optional[typing.Union["InstanceLifecyclePolicy", typing.Dict[builtins.str, typing.Any]]] = None,
         instance_monitoring: typing.Optional["Monitoring"] = None,
         key_name: typing.Optional[builtins.str] = None,
         key_pair: typing.Optional["_IKeyPair_bc344eda"] = None,
@@ -20842,6 +21130,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         :param health_check: (deprecated) Configuration for health checks. Default: - HealthCheck.ec2 with no grace period
         :param health_checks: Configuration for EC2 or additional health checks. Even when using ``HealthChecks.withAdditionalChecks()``, the EC2 type is implicitly included. Default: - EC2 type with no grace period
         :param ignore_unmodified_size_properties: If the ASG has scheduled actions, don't reset unchanged group sizes. Only used if the ASG has scheduled actions (which may scale your ASG up or down regardless of cdk deployments). If true, the size of the group will only be reset if it has been changed in the CDK app. If false, the sizes will always be changed back to what they were in the CDK app on deployment. Default: true
+        :param instance_lifecycle_policy: An instance lifecycle policy that defines how instances should be handled during lifecycle events, particularly when lifecycle hooks are abandoned or fail. Default: None
         :param instance_monitoring: Controls whether instances in this group are launched with detailed or basic monitoring. When detailed monitoring is enabled, Amazon CloudWatch generates metrics every minute and your account is charged a fee. When you disable detailed monitoring, CloudWatch generates metrics every 5 minutes. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified Default: - Monitoring.DETAILED
         :param key_name: (deprecated) Name of SSH keypair to grant access to instances. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
         :param key_pair: The SSH keypair to grant access to the instance. Feature flag ``AUTOSCALING_GENERATE_LAUNCH_TEMPLATE`` must be enabled to use this property. ``launchTemplate`` and ``mixedInstancesPolicy`` must not be specified when this property is specified. You can either specify ``keyPair`` or ``keyName``, not both. Default: - No SSH access will be possible.
@@ -20887,6 +21176,8 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
                 security_group=my_security_group
             )
         '''
+        if isinstance(instance_lifecycle_policy, dict):
+            instance_lifecycle_policy = InstanceLifecyclePolicy(**instance_lifecycle_policy)
         if isinstance(vpc_subnets, dict):
             vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
         if isinstance(init_options, dict):
@@ -20909,6 +21200,7 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
             check_type(argname="argument health_checks", value=health_checks, expected_type=type_hints["health_checks"])
             check_type(argname="argument ignore_unmodified_size_properties", value=ignore_unmodified_size_properties, expected_type=type_hints["ignore_unmodified_size_properties"])
+            check_type(argname="argument instance_lifecycle_policy", value=instance_lifecycle_policy, expected_type=type_hints["instance_lifecycle_policy"])
             check_type(argname="argument instance_monitoring", value=instance_monitoring, expected_type=type_hints["instance_monitoring"])
             check_type(argname="argument key_name", value=key_name, expected_type=type_hints["key_name"])
             check_type(argname="argument key_pair", value=key_pair, expected_type=type_hints["key_pair"])
@@ -20969,6 +21261,8 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
             self._values["health_checks"] = health_checks
         if ignore_unmodified_size_properties is not None:
             self._values["ignore_unmodified_size_properties"] = ignore_unmodified_size_properties
+        if instance_lifecycle_policy is not None:
+            self._values["instance_lifecycle_policy"] = instance_lifecycle_policy
         if instance_monitoring is not None:
             self._values["instance_monitoring"] = instance_monitoring
         if key_name is not None:
@@ -21207,6 +21501,17 @@ class AutoScalingGroupProps(CommonAutoScalingGroupProps):
         '''
         result = self._values.get("ignore_unmodified_size_properties")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def instance_lifecycle_policy(self) -> typing.Optional["InstanceLifecyclePolicy"]:
+        '''An instance lifecycle policy that defines how instances should be handled during lifecycle events, particularly when lifecycle hooks are abandoned or fail.
+
+        :default: None
+
+        :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/instance-lifecycle-policy.html
+        '''
+        result = self._values.get("instance_lifecycle_policy")
+        return typing.cast(typing.Optional["InstanceLifecyclePolicy"], result)
 
     @builtins.property
     def instance_monitoring(self) -> typing.Optional["Monitoring"]:
@@ -21972,6 +22277,7 @@ __all__ = [
     "IAutoScalingGroup",
     "ILifecycleHook",
     "ILifecycleHookTarget",
+    "InstanceLifecyclePolicy",
     "InstancesDistribution",
     "LaunchTemplateOverrides",
     "LifecycleHook",
@@ -21989,6 +22295,7 @@ __all__ = [
     "PredefinedMetric",
     "RenderSignalsOptions",
     "RequestCountScalingProps",
+    "RetentionTriggers",
     "RollingUpdateOptions",
     "ScalingEvent",
     "ScalingEvents",
@@ -22006,6 +22313,7 @@ __all__ = [
     "StepScalingPolicyProps",
     "TargetTrackingScalingPolicy",
     "TargetTrackingScalingPolicyProps",
+    "TerminateHookAbandonAction",
     "TerminationPolicy",
     "UpdatePolicy",
     "WarmPool",
@@ -23575,6 +23883,7 @@ def _typecheckingstub__e7df3cbef8de53a463241b6e60846fac6e519118c7118785f8f4efb6d
     health_check: typing.Optional[HealthCheck] = None,
     health_checks: typing.Optional[HealthChecks] = None,
     ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
+    instance_lifecycle_policy: typing.Optional[typing.Union[InstanceLifecyclePolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     instance_monitoring: typing.Optional[Monitoring] = None,
     key_name: typing.Optional[builtins.str] = None,
     key_pair: typing.Optional[_IKeyPair_bc344eda] = None,
@@ -23773,6 +24082,13 @@ def _typecheckingstub__c9770cd60cfc69f2c7d108523545fc5de207bca98daae82701548d55b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__44a1f2a39b2e994eef7a02057de1095b1e5f225051ec596a66813a4371b7a98c(
+    *,
+    retention_triggers: typing.Optional[typing.Union[RetentionTriggers, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bb58af418fe3e379a2f815054eedffadc45d19358b6956e7eb1f57e0c4b5ac09(
     *,
     on_demand_allocation_strategy: typing.Optional[OnDemandAllocationStrategy] = None,
@@ -23885,6 +24201,13 @@ def _typecheckingstub__775d27074efc25014f9d47b49e64941b878e6dd1129f5eb7c675a5e5c
     disable_scale_in: typing.Optional[builtins.bool] = None,
     estimated_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
     target_requests_per_minute: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__135926276f82011124fe8276aab16da02c2b206355c2770985d2df1628f3e254(
+    *,
+    terminate_hook_abandon: typing.Optional[TerminateHookAbandonAction] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24132,6 +24455,7 @@ def _typecheckingstub__82981fc74407321badee3133fda3bd0a016f4ab7634f761219c1c808c
     health_check: typing.Optional[HealthCheck] = None,
     health_checks: typing.Optional[HealthChecks] = None,
     ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
+    instance_lifecycle_policy: typing.Optional[typing.Union[InstanceLifecyclePolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     instance_monitoring: typing.Optional[Monitoring] = None,
     key_name: typing.Optional[builtins.str] = None,
     key_pair: typing.Optional[_IKeyPair_bc344eda] = None,
@@ -24342,6 +24666,7 @@ def _typecheckingstub__186ff14d58334848486a7ecd802c6b72a1b76f272f25349712b95361e
     health_check: typing.Optional[HealthCheck] = None,
     health_checks: typing.Optional[HealthChecks] = None,
     ignore_unmodified_size_properties: typing.Optional[builtins.bool] = None,
+    instance_lifecycle_policy: typing.Optional[typing.Union[InstanceLifecyclePolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     instance_monitoring: typing.Optional[Monitoring] = None,
     key_name: typing.Optional[builtins.str] = None,
     key_pair: typing.Optional[_IKeyPair_bc344eda] = None,

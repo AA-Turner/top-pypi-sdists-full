@@ -20,6 +20,7 @@ Usage::
         ListAnnotationStoreVersionsPaginator,
         ListAnnotationStoresPaginator,
         ListBatchPaginator,
+        ListConfigurationsPaginator,
         ListMultipartReadSetUploadsPaginator,
         ListReadSetActivationJobsPaginator,
         ListReadSetExportJobsPaginator,
@@ -82,6 +83,7 @@ Usage::
     list_annotation_store_versions_paginator: ListAnnotationStoreVersionsPaginator = client.get_paginator("list_annotation_store_versions")
     list_annotation_stores_paginator: ListAnnotationStoresPaginator = client.get_paginator("list_annotation_stores")
     list_batch_paginator: ListBatchPaginator = client.get_paginator("list_batch")
+    list_configurations_paginator: ListConfigurationsPaginator = client.get_paginator("list_configurations")
     list_multipart_read_set_uploads_paginator: ListMultipartReadSetUploadsPaginator = client.get_paginator("list_multipart_read_set_uploads")
     list_read_set_activation_jobs_paginator: ListReadSetActivationJobsPaginator = client.get_paginator("list_read_set_activation_jobs")
     list_read_set_export_jobs_paginator: ListReadSetExportJobsPaginator = client.get_paginator("list_read_set_export_jobs")
@@ -111,6 +113,7 @@ from .paginator import (
     ListAnnotationStoresPaginator,
     ListAnnotationStoreVersionsPaginator,
     ListBatchPaginator,
+    ListConfigurationsPaginator,
     ListMultipartReadSetUploadsPaginator,
     ListReadSetActivationJobsPaginator,
     ListReadSetExportJobsPaginator,
@@ -166,6 +169,7 @@ __all__ = (
     "ListAnnotationStoreVersionsPaginator",
     "ListAnnotationStoresPaginator",
     "ListBatchPaginator",
+    "ListConfigurationsPaginator",
     "ListMultipartReadSetUploadsPaginator",
     "ListReadSetActivationJobsPaginator",
     "ListReadSetExportJobsPaginator",

@@ -16,7 +16,9 @@ use pythonize::pythonize;
 use serde_json::from_slice;
 use tokio::sync::Mutex as TMutex;
 
+use crate::client_builder::IndexMapSSR;
 use crate::error::{body_collection_error, convert_reqwest_error, BodyError, PrimpErrorEnum};
+use crate::traits::HeadersTraits;
 use crate::utils::extract_encoding;
 use crate::RUNTIME;
 
@@ -42,8 +44,8 @@ pub struct Response {
     pub resp: Option<::primp::Response>,
     pub _content: Option<Py<PyBytes>>,
     pub _encoding: Option<String>,
-    pub _headers: Option<Py<PyDict>>,
-    pub _cookies: Option<Py<PyDict>>,
+    pub _headers: Option<IndexMapSSR>,
+    pub _cookies: Option<IndexMapSSR>,
     #[pyo3(get)]
     pub url: String,
     #[pyo3(get)]
@@ -55,8 +57,8 @@ impl Response {
         resp: ::primp::Response,
         url: String,
         status_code: u16,
-        headers: Py<PyDict>,
-        cookies: Py<PyDict>,
+        headers: IndexMapSSR,
+        cookies: IndexMapSSR,
         encoding: String,
     ) -> Self {
         Response {
@@ -96,7 +98,7 @@ impl Response {
     }
 
     #[getter]
-    fn get_encoding<'rs>(&mut self, _py: Python<'rs>) -> Result<String> {
+    fn get_encoding(&mut self, _py: Python<'_>) -> Result<String> {
         if let Some(encoding) = self._encoding.as_ref() {
             return Ok(encoding.clone());
         }
@@ -150,53 +152,35 @@ impl Response {
     #[getter]
     fn get_headers<'rs>(&mut self, py: Python<'rs>) -> Result<Bound<'rs, PyDict>> {
         if let Some(headers) = &self._headers {
-            return Ok(headers.clone_ref(py).into_bound(py));
+            return Ok(headers.clone().into_pyobject(py)?);
         }
 
-        let new_headers = PyDict::new(py);
-        let resp_ref = self.resp.as_ref();
-        match resp_ref {
-            Some(r) => {
-                for (key, value) in r.headers() {
-                    new_headers.set_item(key.as_str(), value.to_str()?)?;
-                }
-            }
+        let new_headers: IndexMapSSR = match self.resp.as_ref() {
+            Some(r) => r.headers().to_indexmap(),
             None => {
                 return Err(BodyError::new_err("Response body already consumed or moved").into())
             }
-        }
-        self._headers = Some(new_headers.clone().unbind());
-        Ok(new_headers)
+        };
+        let py_dict = new_headers.clone().into_pyobject(py)?;
+        self._headers = Some(new_headers);
+        Ok(py_dict)
     }
 
     #[getter]
     fn get_cookies<'rs>(&mut self, py: Python<'rs>) -> Result<Bound<'rs, PyDict>> {
         if let Some(cookies) = &self._cookies {
-            return Ok(cookies.clone_ref(py).into_bound(py));
+            return Ok(cookies.clone().into_pyobject(py)?);
         }
 
-        let new_cookies = PyDict::new(py);
-        let resp_ref = self.resp.as_ref();
-        match resp_ref {
-            Some(r) => {
-                let set_cookie_header = r.headers().get_all(::primp::header::SET_COOKIE);
-                for cookie_header in set_cookie_header.iter() {
-                    if let Ok(cookie_str) = cookie_header.to_str() {
-                        if let Some((name, value)) = cookie_str.split_once('=') {
-                            new_cookies.set_item(
-                                name.trim(),
-                                value.split(';').next().unwrap_or("").trim(),
-                            )?;
-                        }
-                    }
-                }
-            }
-            None => {
-                return Err(BodyError::new_err("Response body already consumed or moved").into())
-            }
-        }
-        self._cookies = Some(new_cookies.clone().unbind());
-        Ok(new_cookies)
+        let cookie_map = if let Some(r) = self.resp.as_ref() {
+            crate::extract_cookies_to_indexmap(r.headers())
+        } else {
+            return Err(BodyError::new_err("Response body already consumed or moved").into());
+        };
+
+        let py_dict = cookie_map.clone().into_pyobject(py)?;
+        self._cookies = Some(cookie_map);
+        Ok(py_dict)
     }
 
     #[getter]
@@ -265,8 +249,8 @@ pub struct StreamResponse {
     url: String,
     #[pyo3(get)]
     status_code: u16,
-    headers: Py<PyDict>,
-    cookies: Py<PyDict>,
+    headers: IndexMapSSR,
+    cookies: IndexMapSSR,
 }
 
 impl StreamResponse {
@@ -275,8 +259,8 @@ impl StreamResponse {
         url: String,
         status_code: u16,
         encoding: String,
-        headers: Py<PyDict>,
-        cookies: Py<PyDict>,
+        headers: IndexMapSSR,
+        cookies: IndexMapSSR,
     ) -> Self {
         StreamResponse {
             resp: Arc::new(TMutex::new(Some(resp))),
@@ -293,14 +277,14 @@ impl StreamResponse {
 impl StreamResponse {
     /// Get response headers
     #[getter]
-    fn get_headers<'rs>(&self, py: Python<'rs>) -> Bound<'rs, PyDict> {
-        self.headers.clone_ref(py).into_bound(py)
+    fn get_headers<'rs>(&self, py: Python<'rs>) -> PyResult<Bound<'rs, PyDict>> {
+        self.headers.clone().into_pyobject(py)
     }
 
     /// Get response cookies
     #[getter]
-    fn get_cookies<'rs>(&self, py: Python<'rs>) -> Bound<'rs, PyDict> {
-        self.cookies.clone_ref(py).into_bound(py)
+    fn get_cookies<'rs>(&self, py: Python<'rs>) -> PyResult<Bound<'rs, PyDict>> {
+        self.cookies.clone().into_pyobject(py)
     }
 
     /// Get character encoding
@@ -397,7 +381,7 @@ impl StreamResponse {
     }
 
     /// Close response and release resources
-    fn close<'rs>(&mut self, py: Python<'rs>) -> PyResult<()> {
+    fn close(&mut self, py: Python<'_>) -> PyResult<()> {
         let resp = Arc::clone(&self.resp);
         py.detach(|| {
             RUNTIME.block_on(async {

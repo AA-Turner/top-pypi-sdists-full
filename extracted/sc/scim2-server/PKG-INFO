@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: scim2-server
-Version: 0.1.8
+Version: 0.1.9
 Summary: Lightweight SCIM2 server prototype
 Keywords: scim,scim2,provisioning,rfc7643,rfc7644
 Author: Yaal Coop, Christian Friedrich Coors

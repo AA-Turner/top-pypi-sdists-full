@@ -5,6 +5,10 @@ import flask
 import flask_sock
 
 from abstra_internals.constants import get_public_dir
+from abstra_internals.controllers.execution.drain import (
+    drain_until_response,
+    normalize_response,
+)
 from abstra_internals.controllers.main import MainController
 from abstra_internals.entities.execution_context import (
     FormContext,
@@ -236,29 +240,21 @@ def get_player_bp(controller: MainController):
 
         connection = controller.repositories.producer.enqueue(hook.id, context)
 
+        drain_until_response(connection)  # ExecutionStartedMessage
+
         try:
-            connection.recv()  # ExecutionStartedMessage
-            response = connection.recv()
+            response = normalize_response(drain_until_response(connection))
 
             if not response:
                 flask.abort(500)
-
-            if not isinstance(response, Response):
-                response = Response(
-                    headers=response.get("headers", {}),
-                    status=response.get("status", 200),
-                    body=response.get("body", ""),
-                )
         finally:
             connection.close()
 
-        result = flask.Response(
+        return flask.Response(
             status=response.status,
             response=response.body,
             headers=response.headers,
         )
-
-        return result
 
     def _run_page(path):
         page = controller.get_page_stage_by_path(path)
@@ -277,8 +273,12 @@ def get_player_bp(controller: MainController):
 
         connection = controller.repositories.producer.enqueue(page.id, context)
 
-        connection.recv()  # ExecutionStartedMessage
-        msg = connection.recv()
+        start_msg = drain_until_response(connection)
+        if not start_msg:
+            connection.close()
+            flask.abort(500)
+
+        msg = drain_until_response(connection)
 
         if not msg:
             connection.close()
@@ -314,17 +314,14 @@ def get_player_bp(controller: MainController):
         # Regular response
         connection.close()
 
-        if not isinstance(msg, Response):
-            msg = Response(
-                headers=msg.get("headers", {}),
-                status=msg.get("status", 200),
-                body=msg.get("body", ""),
-            )
+        response = normalize_response(msg)
+        if not response:
+            flask.abort(500)
 
         return flask.Response(
-            status=msg.status,
-            response=msg.body,
-            headers=msg.headers,
+            status=response.status,
+            response=response.body,
+            headers=response.headers,
         )
 
     @bp.get("/_page-home/_static/<path:filename>")

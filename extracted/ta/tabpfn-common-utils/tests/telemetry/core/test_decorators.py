@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from tabpfn_common_utils.telemetry.core.decorators import (
@@ -10,6 +12,7 @@ from tabpfn_common_utils.telemetry.core.decorators import (
     get_current_extension,
     _extension_context,
 )
+from tabpfn_common_utils.telemetry.core.events import ExtensionEntryEvent
 
 
 class TestSetExtensionDecorator:
@@ -268,3 +271,115 @@ class TestRoundDims:
         # Test some intermediate values
         assert _round_dims((1234, 67)) == (1200, 75)  # 1234 -> 1200, 67 -> 75
         assert _round_dims((876, 89)) == (1000, 100)  # 876 -> 1000, 89 -> 100
+
+
+class TestExtensionEntryEventEmission:
+    """Test that set_extension emits ExtensionEntryEvent correctly."""
+
+    @patch("tabpfn_common_utils.telemetry.core.decorators.capture_event")
+    def test_single_call_emits_one_event(self, mock_capture):
+        """A single decorated function call emits exactly one ExtensionEntryEvent."""
+
+        @set_extension("test_ext")
+        def my_func():
+            return 42
+
+        result = my_func()
+
+        assert result == 42
+        assert mock_capture.call_count == 1
+        event = mock_capture.call_args[0][0]
+        assert isinstance(event, ExtensionEntryEvent)
+        assert event.extension_name == "test_ext"
+
+    @patch("tabpfn_common_utils.telemetry.core.decorators.capture_event")
+    def test_nested_calls_emit_one_event(self, mock_capture):
+        """Nested decorated calls emit only one event for the outermost extension."""
+
+        @set_extension("outer")
+        def outer():
+            return inner()
+
+        @set_extension("inner")
+        def inner():
+            return get_current_extension()
+
+        result = outer()
+
+        # Inner should see the outer context
+        assert result == "outer"
+        # Only one event emitted (for the outer entry)
+        assert mock_capture.call_count == 1
+        event = mock_capture.call_args[0][0]
+        assert isinstance(event, ExtensionEntryEvent)
+        assert event.extension_name == "outer"
+
+    @patch("tabpfn_common_utils.telemetry.core.decorators.capture_event")
+    def test_sequential_calls_emit_separate_events(self, mock_capture):
+        """Two sequential (non-nested) calls emit two separate events."""
+
+        @set_extension("ext_a")
+        def func_a():
+            return "a"
+
+        @set_extension("ext_b")
+        def func_b():
+            return "b"
+
+        func_a()
+        func_b()
+
+        assert mock_capture.call_count == 2
+        assert mock_capture.call_args_list[0][0][0].extension_name == "ext_a"
+        assert mock_capture.call_args_list[1][0][0].extension_name == "ext_b"
+
+    @patch("tabpfn_common_utils.telemetry.core.decorators.capture_event")
+    def test_class_decorator_emits_one_event_per_public_method_call(self, mock_capture):
+        """A class decorated with set_extension emits one event per public method call.
+        __init__ is private (starts with _) so it's not wrapped by default."""
+
+        @set_extension("cls_ext")
+        class MyClass:
+            def do_work(self):
+                return "done"
+
+        obj = MyClass()
+        obj.do_work()
+
+        # Only do_work is public; __init__ starts with _ so not wrapped
+        assert mock_capture.call_count == 1
+        event = mock_capture.call_args[0][0]
+        assert isinstance(event, ExtensionEntryEvent)
+        assert event.extension_name == "cls_ext"
+
+    @patch("tabpfn_common_utils.telemetry.core.decorators.capture_event")
+    def test_class_nested_method_calls_emit_one_event(self, mock_capture):
+        """When a class method calls another decorated function, only the outer emits."""
+
+        @set_extension("inner_ext")
+        def helper():
+            return "helped"
+
+        @set_extension("cls_ext")
+        class MyClass:
+            def do_work(self):
+                return helper()
+
+        obj = MyClass()
+        result = obj.do_work()
+
+        assert result == "helped"
+        # do_work emits one event, helper() is nested so no event
+        assert mock_capture.call_count == 1
+        assert mock_capture.call_args[0][0].extension_name == "cls_ext"
+
+    @patch("posthog.Posthog.capture", side_effect=RuntimeError("PostHog down"))
+    def test_capture_event_resilient_to_posthog_failure(self, _mock_posthog):
+        """PostHog client failure doesn't prevent the wrapped function from running."""
+
+        @set_extension("fail_ext")
+        def my_func():
+            return "still works"
+
+        result = my_func()
+        assert result == "still works"

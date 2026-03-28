@@ -3151,6 +3151,10 @@ class CfnGateway(
                 )
             )],
             kms_key_arn="kmsKeyArn",
+            policy_engine_configuration=bedrockagentcore.CfnGateway.GatewayPolicyEngineConfigurationProperty(
+                arn="arn",
+                mode="mode"
+            ),
             protocol_configuration=bedrockagentcore.CfnGateway.GatewayProtocolConfigurationProperty(
                 mcp=bedrockagentcore.CfnGateway.MCPGatewayConfigurationProperty(
                     instructions="instructions",
@@ -3178,6 +3182,7 @@ class CfnGateway(
         exception_level: typing.Optional[builtins.str] = None,
         interceptor_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGateway.GatewayInterceptorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
+        policy_engine_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGateway.GatewayPolicyEngineConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         protocol_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGateway.GatewayProtocolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -3194,6 +3199,7 @@ class CfnGateway(
         :param exception_level: The exception level for the gateway.
         :param interceptor_configurations: 
         :param kms_key_arn: The KMS key ARN for the gateway.
+        :param policy_engine_configuration: The configuration for a policy engine associated with a gateway. A policy engine is a collection of policies that evaluates and authorizes agent tool calls. When associated with a gateway, the policy engine intercepts all agent requests and determines whether to allow or deny each action based on the defined policies.
         :param protocol_configuration: The protocol configuration for the gateway target.
         :param tags: The tags for the gateway.
         '''
@@ -3211,6 +3217,7 @@ class CfnGateway(
             exception_level=exception_level,
             interceptor_configurations=interceptor_configurations,
             kms_key_arn=kms_key_arn,
+            policy_engine_configuration=policy_engine_configuration,
             protocol_configuration=protocol_configuration,
             tags=tags,
         )
@@ -3479,6 +3486,24 @@ class CfnGateway(
             type_hints = typing.get_type_hints(_typecheckingstub__68d2d9d8c84164d38a9976889d155298546ea61a787e120117719ee748ac6cf6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineConfiguration")
+    def policy_engine_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGateway.GatewayPolicyEngineConfigurationProperty"]]:
+        '''The configuration for a policy engine associated with a gateway.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGateway.GatewayPolicyEngineConfigurationProperty"]], jsii.get(self, "policyEngineConfiguration"))
+
+    @policy_engine_configuration.setter
+    def policy_engine_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGateway.GatewayPolicyEngineConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c0565662ef9d70e268fc108e9d8deae9a88abbef9a2947b7c539376ae327221d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyEngineConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="protocolConfiguration")
@@ -4070,6 +4095,78 @@ class CfnGateway(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGateway.GatewayPolicyEngineConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"arn": "arn", "mode": "mode"},
+    )
+    class GatewayPolicyEngineConfigurationProperty:
+        def __init__(self, *, arn: builtins.str, mode: builtins.str) -> None:
+            '''The configuration for a policy engine associated with a gateway.
+
+            A policy engine is a collection of policies that evaluates and authorizes agent tool calls. When associated with a gateway, the policy engine intercepts all agent requests and determines whether to allow or deny each action based on the defined policies.
+
+            :param arn: The ARN of the policy engine. The policy engine contains Cedar policies that define fine-grained authorization rules specifying who can perform what actions on which resources as agents interact through the gateway.
+            :param mode: The enforcement mode for the policy engine. LOG_ONLY - The policy engine evaluates each action against your policies and adds traces on whether tool calls would be allowed or denied, but does not enforce the decision. Use this mode to test and validate policies before enabling enforcement. ENFORCE - The policy engine evaluates actions against your policies and enforces decisions by allowing or denying agent operations. Test and validate policies in LOG_ONLY mode before enabling enforcement to avoid unintended denials or adversely affecting production traffic.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gateway-gatewaypolicyengineconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                gateway_policy_engine_configuration_property = bedrockagentcore.CfnGateway.GatewayPolicyEngineConfigurationProperty(
+                    arn="arn",
+                    mode="mode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8d6afecb81f90d1e7b8b621fd4f7630805fb16b7050acd45e9554144e0eb5be4)
+                check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+                check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "arn": arn,
+                "mode": mode,
+            }
+
+        @builtins.property
+        def arn(self) -> builtins.str:
+            '''The ARN of the policy engine.
+
+            The policy engine contains Cedar policies that define fine-grained authorization rules specifying who can perform what actions on which resources as agents interact through the gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gateway-gatewaypolicyengineconfiguration.html#cfn-bedrockagentcore-gateway-gatewaypolicyengineconfiguration-arn
+            '''
+            result = self._values.get("arn")
+            assert result is not None, "Required property 'arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def mode(self) -> builtins.str:
+            '''The enforcement mode for the policy engine.
+
+            LOG_ONLY - The policy engine evaluates each action against your policies and adds traces on whether tool calls would be allowed or denied, but does not enforce the decision. Use this mode to test and validate policies before enabling enforcement. ENFORCE - The policy engine evaluates actions against your policies and enforces decisions by allowing or denying agent operations. Test and validate policies in LOG_ONLY mode before enabling enforcement to avoid unintended denials or adversely affecting production traffic.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gateway-gatewaypolicyengineconfiguration.html#cfn-bedrockagentcore-gateway-gatewaypolicyengineconfiguration-mode
+            '''
+            result = self._values.get("mode")
+            assert result is not None, "Required property 'mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GatewayPolicyEngineConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGateway.GatewayProtocolConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"mcp": "mcp"},
@@ -4448,6 +4545,7 @@ class CfnGateway(
         "exception_level": "exceptionLevel",
         "interceptor_configurations": "interceptorConfigurations",
         "kms_key_arn": "kmsKeyArn",
+        "policy_engine_configuration": "policyEngineConfiguration",
         "protocol_configuration": "protocolConfiguration",
         "tags": "tags",
     },
@@ -4465,6 +4563,7 @@ class CfnGatewayProps:
         exception_level: typing.Optional[builtins.str] = None,
         interceptor_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGateway.GatewayInterceptorConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
+        policy_engine_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGateway.GatewayPolicyEngineConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         protocol_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGateway.GatewayProtocolConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -4479,6 +4578,7 @@ class CfnGatewayProps:
         :param exception_level: The exception level for the gateway.
         :param interceptor_configurations: 
         :param kms_key_arn: The KMS key ARN for the gateway.
+        :param policy_engine_configuration: The configuration for a policy engine associated with a gateway. A policy engine is a collection of policies that evaluates and authorizes agent tool calls. When associated with a gateway, the policy engine intercepts all agent requests and determines whether to allow or deny each action based on the defined policies.
         :param protocol_configuration: The protocol configuration for the gateway target.
         :param tags: The tags for the gateway.
 
@@ -4535,6 +4635,10 @@ class CfnGatewayProps:
                     )
                 )],
                 kms_key_arn="kmsKeyArn",
+                policy_engine_configuration=bedrockagentcore.CfnGateway.GatewayPolicyEngineConfigurationProperty(
+                    arn="arn",
+                    mode="mode"
+                ),
                 protocol_configuration=bedrockagentcore.CfnGateway.GatewayProtocolConfigurationProperty(
                     mcp=bedrockagentcore.CfnGateway.MCPGatewayConfigurationProperty(
                         instructions="instructions",
@@ -4558,6 +4662,7 @@ class CfnGatewayProps:
             check_type(argname="argument exception_level", value=exception_level, expected_type=type_hints["exception_level"])
             check_type(argname="argument interceptor_configurations", value=interceptor_configurations, expected_type=type_hints["interceptor_configurations"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument policy_engine_configuration", value=policy_engine_configuration, expected_type=type_hints["policy_engine_configuration"])
             check_type(argname="argument protocol_configuration", value=protocol_configuration, expected_type=type_hints["protocol_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4576,6 +4681,8 @@ class CfnGatewayProps:
             self._values["interceptor_configurations"] = interceptor_configurations
         if kms_key_arn is not None:
             self._values["kms_key_arn"] = kms_key_arn
+        if policy_engine_configuration is not None:
+            self._values["policy_engine_configuration"] = policy_engine_configuration
         if protocol_configuration is not None:
             self._values["protocol_configuration"] = protocol_configuration
         if tags is not None:
@@ -4666,6 +4773,19 @@ class CfnGatewayProps:
         '''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policy_engine_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGateway.GatewayPolicyEngineConfigurationProperty"]]:
+        '''The configuration for a policy engine associated with a gateway.
+
+        A policy engine is a collection of policies that evaluates and authorizes agent tool calls. When associated with a gateway, the policy engine intercepts all agent requests and determines whether to allow or deny each action based on the defined policies.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-gateway.html#cfn-bedrockagentcore-gateway-policyengineconfiguration
+        '''
+        result = self._values.get("policy_engine_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGateway.GatewayPolicyEngineConfigurationProperty"]], result)
 
     @builtins.property
     def protocol_configuration(
@@ -7382,6 +7502,19 @@ class CfnMemory(
                     updated_at="updatedAt"
                 )
             )],
+            stream_delivery_resources=bedrockagentcore.CfnMemory.StreamDeliveryResourcesProperty(
+                resources=[bedrockagentcore.CfnMemory.StreamDeliveryResourceProperty(
+                    kinesis=bedrockagentcore.CfnMemory.KinesisResourceProperty(
+                        content_configurations=[bedrockagentcore.CfnMemory.ContentConfigurationProperty(
+                            type="type",
+        
+                            # the properties below are optional
+                            level="level"
+                        )],
+                        data_stream_arn="dataStreamArn"
+                    )
+                )]
+            ),
             tags={
                 "tags_key": "tags"
             }
@@ -7399,6 +7532,7 @@ class CfnMemory(
         encryption_key_arn: typing.Optional[builtins.str] = None,
         memory_execution_role_arn: typing.Optional[builtins.str] = None,
         memory_strategies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.MemoryStrategyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        stream_delivery_resources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.StreamDeliveryResourcesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Create a new ``AWS::BedrockAgentCore::Memory``.
@@ -7411,6 +7545,7 @@ class CfnMemory(
         :param encryption_key_arn: The memory encryption key Amazon Resource Name (ARN).
         :param memory_execution_role_arn: The memory role ARN.
         :param memory_strategies: The memory strategies.
+        :param stream_delivery_resources: 
         :param tags: The tags for the resources.
         '''
         if __debug__:
@@ -7424,6 +7559,7 @@ class CfnMemory(
             encryption_key_arn=encryption_key_arn,
             memory_execution_role_arn=memory_execution_role_arn,
             memory_strategies=memory_strategies,
+            stream_delivery_resources=stream_delivery_resources,
             tags=tags,
         )
 
@@ -7635,6 +7771,23 @@ class CfnMemory(
         jsii.set(self, "memoryStrategies", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="streamDeliveryResources")
+    def stream_delivery_resources(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.StreamDeliveryResourcesProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.StreamDeliveryResourcesProperty"]], jsii.get(self, "streamDeliveryResources"))
+
+    @stream_delivery_resources.setter
+    def stream_delivery_resources(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.StreamDeliveryResourcesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e8077806371202894d3f87241134b8537a38c5a9f1dc9acc0c6d52bd6be85f5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamDeliveryResources", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The tags for the resources.'''
@@ -7649,6 +7802,78 @@ class CfnMemory(
             type_hints = typing.get_type_hints(_typecheckingstub__20937c3b9ee32cb1df4d7eaf09c5da2b921076b8dab073c8f61380cb9b64e33b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.ContentConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"type": "type", "level": "level"},
+    )
+    class ContentConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            level: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param type: The type of content to deliver.
+            :param level: The level of content detail to deliver.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-contentconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                content_configuration_property = bedrockagentcore.CfnMemory.ContentConfigurationProperty(
+                    type="type",
+                
+                    # the properties below are optional
+                    level="level"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4ec727b2724b0ccc48547595fb276578b4f70fe510380cc4decb63cda0f7415c)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+            if level is not None:
+                self._values["level"] = level
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of content to deliver.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-contentconfiguration.html#cfn-bedrockagentcore-memory-contentconfiguration-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def level(self) -> typing.Optional[builtins.str]:
+            '''The level of content detail to deliver.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-contentconfiguration.html#cfn-bedrockagentcore-memory-contentconfiguration-level
+            '''
+            result = self._values.get("level")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContentConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.CustomConfigurationInputProperty",
@@ -8734,6 +8959,85 @@ class CfnMemory(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.KinesisResourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "content_configurations": "contentConfigurations",
+            "data_stream_arn": "dataStreamArn",
+        },
+    )
+    class KinesisResourceProperty:
+        def __init__(
+            self,
+            *,
+            content_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.ContentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            data_stream_arn: builtins.str,
+        ) -> None:
+            '''
+            :param content_configurations: 
+            :param data_stream_arn: ARN format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-kinesisresource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                kinesis_resource_property = bedrockagentcore.CfnMemory.KinesisResourceProperty(
+                    content_configurations=[bedrockagentcore.CfnMemory.ContentConfigurationProperty(
+                        type="type",
+                
+                        # the properties below are optional
+                        level="level"
+                    )],
+                    data_stream_arn="dataStreamArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__93a22e4fee5b26f3fa35e0a901c97e310ef9fc0744e5186b65b5da338fff9022)
+                check_type(argname="argument content_configurations", value=content_configurations, expected_type=type_hints["content_configurations"])
+                check_type(argname="argument data_stream_arn", value=data_stream_arn, expected_type=type_hints["data_stream_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "content_configurations": content_configurations,
+                "data_stream_arn": data_stream_arn,
+            }
+
+        @builtins.property
+        def content_configurations(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMemory.ContentConfigurationProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-kinesisresource.html#cfn-bedrockagentcore-memory-kinesisresource-contentconfigurations
+            '''
+            result = self._values.get("content_configurations")
+            assert result is not None, "Required property 'content_configurations' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMemory.ContentConfigurationProperty"]]], result)
+
+        @builtins.property
+        def data_stream_arn(self) -> builtins.str:
+            '''ARN format.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-kinesisresource.html#cfn-bedrockagentcore-memory-kinesisresource-datastreamarn
+            '''
+            result = self._values.get("data_stream_arn")
+            assert result is not None, "Required property 'data_stream_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KinesisResourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.MemoryStrategyProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -9535,6 +9839,135 @@ class CfnMemory(
 
         def __repr__(self) -> str:
             return "SemanticOverrideProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.StreamDeliveryResourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"kinesis": "kinesis"},
+    )
+    class StreamDeliveryResourceProperty:
+        def __init__(
+            self,
+            *,
+            kinesis: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.KinesisResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param kinesis: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-streamdeliveryresource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                stream_delivery_resource_property = bedrockagentcore.CfnMemory.StreamDeliveryResourceProperty(
+                    kinesis=bedrockagentcore.CfnMemory.KinesisResourceProperty(
+                        content_configurations=[bedrockagentcore.CfnMemory.ContentConfigurationProperty(
+                            type="type",
+                
+                            # the properties below are optional
+                            level="level"
+                        )],
+                        data_stream_arn="dataStreamArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9e93735b60f0e5bcf189708c2aa4167c5a07fc67fdbb240fe2503499a89430c8)
+                check_type(argname="argument kinesis", value=kinesis, expected_type=type_hints["kinesis"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if kinesis is not None:
+                self._values["kinesis"] = kinesis
+
+        @builtins.property
+        def kinesis(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.KinesisResourceProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-streamdeliveryresource.html#cfn-bedrockagentcore-memory-streamdeliveryresource-kinesis
+            '''
+            result = self._values.get("kinesis")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.KinesisResourceProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamDeliveryResourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.StreamDeliveryResourcesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"resources": "resources"},
+    )
+    class StreamDeliveryResourcesProperty:
+        def __init__(
+            self,
+            *,
+            resources: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.StreamDeliveryResourceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''
+            :param resources: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-streamdeliveryresources.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                stream_delivery_resources_property = bedrockagentcore.CfnMemory.StreamDeliveryResourcesProperty(
+                    resources=[bedrockagentcore.CfnMemory.StreamDeliveryResourceProperty(
+                        kinesis=bedrockagentcore.CfnMemory.KinesisResourceProperty(
+                            content_configurations=[bedrockagentcore.CfnMemory.ContentConfigurationProperty(
+                                type="type",
+                
+                                # the properties below are optional
+                                level="level"
+                            )],
+                            data_stream_arn="dataStreamArn"
+                        )
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8da4cbe8911c39d38348db455d0ae5e6aedc3caae072ac32c9c322b52715b4f6)
+                check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "resources": resources,
+            }
+
+        @builtins.property
+        def resources(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMemory.StreamDeliveryResourceProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-streamdeliveryresources.html#cfn-bedrockagentcore-memory-streamdeliveryresources-resources
+            '''
+            result = self._values.get("resources")
+            assert result is not None, "Required property 'resources' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMemory.StreamDeliveryResourceProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamDeliveryResourcesProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -10453,6 +10886,7 @@ class CfnMemory(
         "encryption_key_arn": "encryptionKeyArn",
         "memory_execution_role_arn": "memoryExecutionRoleArn",
         "memory_strategies": "memoryStrategies",
+        "stream_delivery_resources": "streamDeliveryResources",
         "tags": "tags",
     },
 )
@@ -10466,6 +10900,7 @@ class CfnMemoryProps:
         encryption_key_arn: typing.Optional[builtins.str] = None,
         memory_execution_role_arn: typing.Optional[builtins.str] = None,
         memory_strategies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.MemoryStrategyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        stream_delivery_resources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.StreamDeliveryResourcesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''Properties for defining a ``CfnMemory``.
@@ -10476,6 +10911,7 @@ class CfnMemoryProps:
         :param encryption_key_arn: The memory encryption key Amazon Resource Name (ARN).
         :param memory_execution_role_arn: The memory role ARN.
         :param memory_strategies: The memory strategies.
+        :param stream_delivery_resources: 
         :param tags: The tags for the resources.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-memory.html
@@ -10623,6 +11059,19 @@ class CfnMemoryProps:
                         updated_at="updatedAt"
                     )
                 )],
+                stream_delivery_resources=bedrockagentcore.CfnMemory.StreamDeliveryResourcesProperty(
+                    resources=[bedrockagentcore.CfnMemory.StreamDeliveryResourceProperty(
+                        kinesis=bedrockagentcore.CfnMemory.KinesisResourceProperty(
+                            content_configurations=[bedrockagentcore.CfnMemory.ContentConfigurationProperty(
+                                type="type",
+            
+                                # the properties below are optional
+                                level="level"
+                            )],
+                            data_stream_arn="dataStreamArn"
+                        )
+                    )]
+                ),
                 tags={
                     "tags_key": "tags"
                 }
@@ -10636,6 +11085,7 @@ class CfnMemoryProps:
             check_type(argname="argument encryption_key_arn", value=encryption_key_arn, expected_type=type_hints["encryption_key_arn"])
             check_type(argname="argument memory_execution_role_arn", value=memory_execution_role_arn, expected_type=type_hints["memory_execution_role_arn"])
             check_type(argname="argument memory_strategies", value=memory_strategies, expected_type=type_hints["memory_strategies"])
+            check_type(argname="argument stream_delivery_resources", value=stream_delivery_resources, expected_type=type_hints["stream_delivery_resources"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "event_expiry_duration": event_expiry_duration,
@@ -10649,6 +11099,8 @@ class CfnMemoryProps:
             self._values["memory_execution_role_arn"] = memory_execution_role_arn
         if memory_strategies is not None:
             self._values["memory_strategies"] = memory_strategies
+        if stream_delivery_resources is not None:
+            self._values["stream_delivery_resources"] = stream_delivery_resources
         if tags is not None:
             self._values["tags"] = tags
 
@@ -10709,6 +11161,16 @@ class CfnMemoryProps:
         '''
         result = self._values.get("memory_strategies")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMemory.MemoryStrategyProperty"]]]], result)
+
+    @builtins.property
+    def stream_delivery_resources(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.StreamDeliveryResourcesProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-memory.html#cfn-bedrockagentcore-memory-streamdeliveryresources
+        '''
+        result = self._values.get("stream_delivery_resources")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMemory.StreamDeliveryResourcesProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -16008,6 +16470,7 @@ def _typecheckingstub__718d4d7128ca57b0228b268f1204c5574e63e51d4e7701a53fd67a1e8
     exception_level: typing.Optional[builtins.str] = None,
     interceptor_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayInterceptorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+    policy_engine_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayPolicyEngineConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     protocol_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -16092,6 +16555,12 @@ def _typecheckingstub__68d2d9d8c84164d38a9976889d155298546ea61a787e120117719ee74
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c0565662ef9d70e268fc108e9d8deae9a88abbef9a2947b7c539376ae327221d(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGateway.GatewayPolicyEngineConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__05982d11a516cc3cf2e986a22173b4993c5267490c660a8f123f9c141f3f117b(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGateway.GatewayProtocolConfigurationProperty]],
 ) -> None:
@@ -16156,6 +16625,14 @@ def _typecheckingstub__715cb5162dd44f0620c0da9c35156ecbbe6adcf966dd3dabfefa1ba61
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8d6afecb81f90d1e7b8b621fd4f7630805fb16b7050acd45e9554144e0eb5be4(
+    *,
+    arn: builtins.str,
+    mode: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__381e09b484f23635acaed28352a759fdd9ac853b91ce6a848c9ed3892887eb7c(
     *,
     mcp: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.MCPGatewayConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -16211,6 +16688,7 @@ def _typecheckingstub__790df6c55e75e75d6f8c8a9a5518586d5e4ae350e3bfc4555e2ed4bf3
     exception_level: typing.Optional[builtins.str] = None,
     interceptor_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayInterceptorConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+    policy_engine_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayPolicyEngineConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     protocol_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.GatewayProtocolConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -16466,6 +16944,7 @@ def _typecheckingstub__b95a7255db9df73ca225a32aecd624481667f18f3308ba77ce3fbf7d7
     encryption_key_arn: typing.Optional[builtins.str] = None,
     memory_execution_role_arn: typing.Optional[builtins.str] = None,
     memory_strategies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    stream_delivery_resources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.StreamDeliveryResourcesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -16531,8 +17010,22 @@ def _typecheckingstub__b18515e6738d6694af7855ee5a84c8940fcfa482c5e51f03ea9e0abda
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e8077806371202894d3f87241134b8537a38c5a9f1dc9acc0c6d52bd6be85f5a(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMemory.StreamDeliveryResourcesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__20937c3b9ee32cb1df4d7eaf09c5da2b921076b8dab073c8f61380cb9b64e33b(
     value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ec727b2724b0ccc48547595fb276578b4f70fe510380cc4decb63cda0f7415c(
+    *,
+    type: builtins.str,
+    level: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16627,6 +17120,14 @@ def _typecheckingstub__44e7fa751a69795001dc84cc0fd23b36ae6952ce8c475d549b7599b33
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__93a22e4fee5b26f3fa35e0a901c97e310ef9fc0744e5186b65b5da338fff9022(
+    *,
+    content_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.ContentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    data_stream_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c7fa25b2413ebaf6794a4e0d96d4404f578a37b86cd501369f7c93f8d049e8e7(
     *,
     custom_memory_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.CustomMemoryStrategyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -16688,6 +17189,20 @@ def _typecheckingstub__c4fcd9046e68a8e9401f48408f0a4870f5c13f714c342e2085d178557
     *,
     consolidation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.SemanticOverrideConsolidationConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     extraction: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.SemanticOverrideExtractionConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e93735b60f0e5bcf189708c2aa4167c5a07fc67fdbb240fe2503499a89430c8(
+    *,
+    kinesis: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.KinesisResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8da4cbe8911c39d38348db455d0ae5e6aedc3caae072ac32c9c322b52715b4f6(
+    *,
+    resources: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.StreamDeliveryResourceProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16790,6 +17305,7 @@ def _typecheckingstub__28dda218e5909d8e89c4ab4ee9bac6335e1f1cde1c399e1ac3c1c739e
     encryption_key_arn: typing.Optional[builtins.str] = None,
     memory_execution_role_arn: typing.Optional[builtins.str] = None,
     memory_strategies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    stream_delivery_resources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.StreamDeliveryResourcesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

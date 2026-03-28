@@ -12612,6 +12612,19 @@ class CfnReplicationConfig(
         jsii.set(self, "replicationConfigIdentifier", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="replicationSettings")
+    def replication_settings(self) -> typing.Any:
+        '''Optional JSON settings for AWS DMS Serverless replications that are provisioned using this replication configuration.'''
+        return typing.cast(typing.Any, jsii.get(self, "replicationSettings"))
+
+    @replication_settings.setter
+    def replication_settings(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13c1acc7a82f208546609dcf4d8a9e2a00dabcf1c361d10d0f4f3604035d01cc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replicationSettings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="replicationType")
     def replication_type(self) -> builtins.str:
         '''The type of AWS DMS Serverless replication to provision using this replication configuration.'''
@@ -12636,6 +12649,19 @@ class CfnReplicationConfig(
             type_hints = typing.get_type_hints(_typecheckingstub__c60be257dd07e3947c2b6c272e0798fe76f69b66051d6c2dfca413c2d616b936)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceEndpointArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="supplementalSettings")
+    def supplemental_settings(self) -> typing.Any:
+        '''Optional JSON settings for specifying supplemental data.'''
+        return typing.cast(typing.Any, jsii.get(self, "supplementalSettings"))
+
+    @supplemental_settings.setter
+    def supplemental_settings(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0bcc39fb53e8639c570621f12a090b2b213567d85d495108a6b12db7f7442ee8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "supplementalSettings", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tableMappings")
@@ -12664,19 +12690,6 @@ class CfnReplicationConfig(
         jsii.set(self, "targetEndpointArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="replicationSettings")
-    def replication_settings(self) -> typing.Any:
-        '''Optional JSON settings for AWS DMS Serverless replications that are provisioned using this replication configuration.'''
-        return typing.cast(typing.Any, jsii.get(self, "replicationSettings"))
-
-    @replication_settings.setter
-    def replication_settings(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13c1acc7a82f208546609dcf4d8a9e2a00dabcf1c361d10d0f4f3604035d01cc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicationSettings", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="resourceIdentifier")
     def resource_identifier(self) -> typing.Optional[builtins.str]:
         '''Optional unique value or name that you set for a given resource that can be used to construct an Amazon Resource Name (ARN) for that resource.'''
@@ -12688,19 +12701,6 @@ class CfnReplicationConfig(
             type_hints = typing.get_type_hints(_typecheckingstub__9dfbba127aff370430ba7dccb2539bc163a4dc67c556711d3450abbd5c937247)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="supplementalSettings")
-    def supplemental_settings(self) -> typing.Any:
-        '''Optional JSON settings for specifying supplemental data.'''
-        return typing.cast(typing.Any, jsii.get(self, "supplementalSettings"))
-
-    @supplemental_settings.setter
-    def supplemental_settings(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bcc39fb53e8639c570621f12a090b2b213567d85d495108a6b12db7f7442ee8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "supplementalSettings", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -16459,6 +16459,12 @@ def _typecheckingstub__b0eda6e7fe61fa165d7afb96aba6536d12a18d3c374115a7c447ed9d3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__13c1acc7a82f208546609dcf4d8a9e2a00dabcf1c361d10d0f4f3604035d01cc(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__805ebea2610d6a01f26aed0eb893129ec908af9d73cbb47689f5d6c727f01381(
     value: builtins.str,
 ) -> None:
@@ -16467,6 +16473,12 @@ def _typecheckingstub__805ebea2610d6a01f26aed0eb893129ec908af9d73cbb47689f5d6c72
 
 def _typecheckingstub__c60be257dd07e3947c2b6c272e0798fe76f69b66051d6c2dfca413c2d616b936(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bcc39fb53e8639c570621f12a090b2b213567d85d495108a6b12db7f7442ee8(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16483,20 +16495,8 @@ def _typecheckingstub__4ca6e7b9ff71eb3a98317ab9f9de43b76c48b035eddf3add1e2ff840f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__13c1acc7a82f208546609dcf4d8a9e2a00dabcf1c361d10d0f4f3604035d01cc(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9dfbba127aff370430ba7dccb2539bc163a4dc67c556711d3450abbd5c937247(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0bcc39fb53e8639c570621f12a090b2b213567d85d495108a6b12db7f7442ee8(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -9,8 +9,10 @@ import pytest
 from plato.chronos.models import AttributionKind, AuditEventInput, Operation
 from plato.utils.audit import (
     AuditScopeContext,
+    audit_ignore_filter,
     audit_spool_path,
     build_audit_key,
+    load_audit_ignore,
     merge_audit_jsonl,
     new_audit_run_id,
     parse_audit_raw,
@@ -91,7 +93,7 @@ class TestParseAuditRaw:
 
     def test_parse_basic(self) -> None:
         """Parse sample raw output and verify events."""
-        events = parse_audit_raw(_SAMPLE_RAW_OPEN_DELETE)
+        events = list(parse_audit_raw(_SAMPLE_RAW_OPEN_DELETE))
         assert len(events) == 2
         assert isinstance(events[0], AuditEventInput)
         assert events[0].operation == Operation.opened_file
@@ -105,7 +107,7 @@ class TestParseAuditRaw:
 
     def test_parse_rename(self) -> None:
         """Rename events should preserve both old and new paths."""
-        events = parse_audit_raw(_SAMPLE_RAW_RENAME)
+        events = list(parse_audit_raw(_SAMPLE_RAW_RENAME))
         assert len(events) == 1
         assert events[0].operation == Operation.renamed
         assert events[0].path == "/workspace/code/old_name.py"
@@ -113,7 +115,7 @@ class TestParseAuditRaw:
 
     def test_parse_create_directory(self) -> None:
         """Directory creation has created-directory operation with full path."""
-        events = parse_audit_raw(_SAMPLE_RAW_MKDIR)
+        events = list(parse_audit_raw(_SAMPLE_RAW_MKDIR))
         assert len(events) == 1
         assert events[0].operation == Operation.created_directory
         assert events[0].path == "/workspace/code/src"
@@ -121,22 +123,22 @@ class TestParseAuditRaw:
 
     def test_parse_empty(self) -> None:
         """Empty or blank input returns no events."""
-        assert parse_audit_raw("") == []
-        assert parse_audit_raw("   ") == []
+        assert list(parse_audit_raw("")) == []
+        assert list(parse_audit_raw("   ")) == []
 
     def test_parse_filters_failures(self) -> None:
         """Failed operations are filtered out."""
-        events = parse_audit_raw(_SAMPLE_RAW_FAILED)
+        events = list(parse_audit_raw(_SAMPLE_RAW_FAILED))
         assert len(events) == 0
 
     def test_parse_filters_non_filesystem(self) -> None:
         """Non-filesystem actions like added-audit-rule are filtered out."""
-        events = parse_audit_raw(_SAMPLE_RAW_NON_FILESYSTEM)
+        events = list(parse_audit_raw(_SAMPLE_RAW_NON_FILESYSTEM))
         assert len(events) == 0
 
     def test_timestamp_is_datetime(self) -> None:
         """Timestamp should be a timezone-aware datetime."""
-        events = parse_audit_raw(_SAMPLE_RAW_OPEN_DELETE)
+        events = list(parse_audit_raw(_SAMPLE_RAW_OPEN_DELETE))
         ts = events[0].timestamp
         assert ts.tzinfo is not None
         assert ts.year == 2024
@@ -145,12 +147,12 @@ class TestParseAuditRaw:
 
     def test_uid_parsed(self) -> None:
         """UID should be extracted from subject."""
-        events = parse_audit_raw(_SAMPLE_RAW_OPEN_DELETE)
+        events = list(parse_audit_raw(_SAMPLE_RAW_OPEN_DELETE))
         assert events[0].uid == 1000
 
     def test_absolute_path_preserved(self) -> None:
         """Absolute paths in PATH records should be used directly."""
-        events = parse_audit_raw(_SAMPLE_RAW_ABSOLUTE_PATH)
+        events = list(parse_audit_raw(_SAMPLE_RAW_ABSOLUTE_PATH))
         assert len(events) == 1
         assert events[0].path == "/workspace/abs_file.txt"
 
@@ -901,3 +903,63 @@ class TestAuditUploadPayload:
         assert no_pid_span_ids == {"span-a", "span-b"}
         assert dumped["events"][2]["attribution_kind"] == AttributionKind.time_window
         assert dumped["events"][3]["attribution_kind"] == AttributionKind.time_window
+
+
+class TestAuditIgnore:
+    """Tests for .auditignore loading and filtering."""
+
+    def test_load_defaults_without_file(self, tmp_path: Path) -> None:
+        """Without .auditignore file, still returns spec with default patterns (.git/)."""
+        spec = load_audit_ignore(str(tmp_path))
+        assert spec.match_file(".git/config")
+        assert spec.match_file(".git/objects/abc123")
+        assert not spec.match_file("main.py")
+
+    def test_load_audit_ignore_merges_with_defaults(self, tmp_path: Path) -> None:
+        """User patterns are merged with built-in defaults."""
+        (tmp_path / ".auditignore").write_text("node_modules/\n*.pyc\n")
+        spec = load_audit_ignore(str(tmp_path))
+        # User patterns
+        assert spec.match_file("node_modules/foo.js")
+        assert spec.match_file("bar.pyc")
+        # Default patterns still present
+        assert spec.match_file(".git/HEAD")
+        # Non-matching
+        assert not spec.match_file("main.py")
+
+    def test_audit_ignore_filter_drops_matching(self) -> None:
+        """Filter removes events whose paths match the ignore spec."""
+        events = _make_test_events()
+        import pathspec
+
+        spec = pathspec.PathSpec.from_lines("gitwildmatch", ["old.*"])
+        result = list(audit_ignore_filter(iter(events), spec, workspace_prefix="/workspace/code"))
+        assert len(result) == 1
+        assert result[0].path == "/workspace/code/main.py"
+
+    def test_audit_ignore_filter_drops_git_by_default(self) -> None:
+        """Default ignore spec filters out .git/ paths."""
+        from datetime import datetime, timezone
+
+        events = [
+            AuditEventInput(
+                timestamp=datetime(2024, 3, 9, 16, 0, 0, tzinfo=timezone.utc),
+                operation="opened-file",
+                path="/workspace/code/.git/objects/abc123",
+                exe="/usr/bin/git",
+                uid=1000,
+            ),
+            AuditEventInput(
+                timestamp=datetime(2024, 3, 9, 16, 0, 1, tzinfo=timezone.utc),
+                operation="opened-file",
+                path="/workspace/code/main.py",
+                exe="/usr/bin/python3",
+                uid=1000,
+            ),
+        ]
+        import pathspec
+
+        spec = pathspec.PathSpec.from_lines("gitwildmatch", [".git/"])
+        result = list(audit_ignore_filter(iter(events), spec, workspace_prefix="/workspace/code"))
+        assert len(result) == 1
+        assert result[0].path == "/workspace/code/main.py"

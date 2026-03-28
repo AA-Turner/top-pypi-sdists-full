@@ -1,11 +1,11 @@
 """Polyaxon logger and its helper handlers."""
 
-from typing import Any, Callable, List, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 from torch.optim import Optimizer
 
 from ignite.engine import Engine, Events
-
 from ignite.handlers.base_logger import BaseLogger, BaseOptimizerParamsHandler, BaseOutputHandler
 from ignite.handlers.utils import global_step_from_engine  # noqa
 
@@ -237,16 +237,14 @@ class OutputHandler(BaseOutputHandler):
     def __init__(
         self,
         tag: str,
-        metric_names: Optional[List[str]] = None,
-        output_transform: Optional[Callable] = None,
-        global_step_transform: Optional[Callable[[Engine, Union[str, Events]], int]] = None,
-        state_attributes: Optional[List[str]] = None,
+        metric_names: str | list[str] | None = None,
+        output_transform: Callable | None = None,
+        global_step_transform: Callable[[Engine, str | Events], int] | None = None,
+        state_attributes: list[str] | None = None,
     ):
-        super(OutputHandler, self).__init__(
-            tag, metric_names, output_transform, global_step_transform, state_attributes
-        )
+        super().__init__(tag, metric_names, output_transform, global_step_transform, state_attributes)
 
-    def __call__(self, engine: Engine, logger: PolyaxonLogger, event_name: Union[str, Events]) -> None:
+    def __call__(self, engine: Engine, logger: PolyaxonLogger, event_name: str | Events) -> None:
         if not isinstance(logger, PolyaxonLogger):
             raise RuntimeError("Handler 'OutputHandler' works only with PolyaxonLogger")
 
@@ -256,8 +254,7 @@ class OutputHandler(BaseOutputHandler):
 
         if not isinstance(global_step, int):
             raise TypeError(
-                f"global_step must be int, got {type(global_step)}."
-                " Please check the output of global_step_transform."
+                f"global_step must be int, got {type(global_step)}. Please check the output of global_step_transform."
             )
 
         metrics.update({"step": global_step})
@@ -296,10 +293,10 @@ class OptimizerParamsHandler(BaseOptimizerParamsHandler):
             )
     """
 
-    def __init__(self, optimizer: Optimizer, param_name: str = "lr", tag: Optional[str] = None):
-        super(OptimizerParamsHandler, self).__init__(optimizer, param_name, tag)
+    def __init__(self, optimizer: Optimizer, param_name: str = "lr", tag: str | None = None):
+        super().__init__(optimizer, param_name, tag)
 
-    def __call__(self, engine: Engine, logger: PolyaxonLogger, event_name: Union[str, Events]) -> None:
+    def __call__(self, engine: Engine, logger: PolyaxonLogger, event_name: str | Events) -> None:
         if not isinstance(logger, PolyaxonLogger):
             raise RuntimeError("Handler OptimizerParamsHandler works only with PolyaxonLogger")
 

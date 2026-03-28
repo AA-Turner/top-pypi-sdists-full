@@ -1,4 +1,5 @@
 import ignite.metrics.clustering
+import ignite.metrics.fairness
 import ignite.metrics.regression
 
 from ignite.metrics.accumulation import Average, GeometricAverage, VariableAccumulation
@@ -24,6 +25,7 @@ from ignite.metrics.mean_absolute_error import MeanAbsoluteError
 from ignite.metrics.mean_average_precision import MeanAveragePrecision
 from ignite.metrics.mean_pairwise_distance import MeanPairwiseDistance
 from ignite.metrics.mean_squared_error import MeanSquaredError
+from ignite.metrics.matthews_corrcoef import MatthewsCorrCoef
 from ignite.metrics.metric import BatchFiltered, BatchWise, EpochWise, Metric, MetricUsage
 from ignite.metrics.metric_group import MetricGroup
 from ignite.metrics.metrics_lambda import MetricsLambda
@@ -35,6 +37,7 @@ from ignite.metrics.precision import Precision
 from ignite.metrics.precision_recall_curve import PrecisionRecallCurve
 from ignite.metrics.psnr import PSNR
 from ignite.metrics.recall import Recall
+from ignite.metrics.rec_sys.hitrate import HitRate
 from ignite.metrics.roc_auc import ROC_AUC, RocCurve
 from ignite.metrics.root_mean_squared_error import RootMeanSquaredError
 from ignite.metrics.running_average import RunningAverage
@@ -55,6 +58,7 @@ __all__ = [
     "MeanAbsoluteError",
     "MeanPairwiseDistance",
     "MeanSquaredError",
+    "MatthewsCorrCoef",
     "ConfusionMatrix",
     "CosineSimilarity",
     "ClassificationReport",
@@ -90,6 +94,7 @@ __all__ = [
     "RougeL",
     "regression",
     "clustering",
+    "fairness",
     "AveragePrecision",
     "CohenKappa",
     "GpuInfo",
@@ -100,4 +105,5 @@ __all__ = [
     "ObjectDetectionAvgPrecisionRecall",
     "CommonObjectDetectionMetrics",
     "coco_tensor_list_to_dict_list",
+    "HitRate",
 ]

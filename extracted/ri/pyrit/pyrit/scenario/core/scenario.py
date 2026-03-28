@@ -13,28 +13,30 @@ import logging
 import textwrap
 import uuid
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Set, Tuple, Type, Union, cast
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Optional, Union, cast
 
 from tqdm.auto import tqdm
 
 from pyrit.common import REQUIRED_VALUE, apply_defaults
 from pyrit.executor.attack.single_turn.prompt_sending import PromptSendingAttack
-from pyrit.identifiers import TargetIdentifier
 from pyrit.memory import CentralMemory
 from pyrit.memory.memory_models import ScenarioResultEntry
 from pyrit.models import AttackResult
 from pyrit.models.scenario_result import ScenarioIdentifier, ScenarioResult
-from pyrit.prompt_target import PromptTarget
+from pyrit.prompt_target import OpenAIChatTarget, PromptTarget
+from pyrit.registry import ScorerRegistry
 from pyrit.scenario.core.atomic_attack import AtomicAttack
 from pyrit.scenario.core.dataset_configuration import DatasetConfiguration
 from pyrit.scenario.core.scenario_strategy import (
     ScenarioCompositeStrategy,
     ScenarioStrategy,
 )
-from pyrit.score import Scorer, TrueFalseScorer
+from pyrit.score import Scorer, SelfAskRefusalScorer, TrueFalseInverterScorer, TrueFalseScorer
 
 if TYPE_CHECKING:
     from pyrit.executor.attack.core.attack_config import AttackScoringConfig
+    from pyrit.identifiers import ComponentIdentifier
     from pyrit.models import SeedAttackGroup
 
 logger = logging.getLogger(__name__)
@@ -52,9 +54,9 @@ class Scenario(ABC):
     def __init__(
         self,
         *,
-        name: str,
+        name: str = "",
         version: int,
-        strategy_class: Type[ScenarioStrategy],
+        strategy_class: type[ScenarioStrategy],
         objective_scorer: Scorer,
         include_default_baseline: bool = True,
         scenario_result_id: Optional[Union[uuid.UUID, str]] = None,
@@ -95,28 +97,28 @@ class Scenario(ABC):
 
         # These will be set in initialize_async
         self._objective_target: Optional[PromptTarget] = None
-        self._objective_target_identifier: Optional[TargetIdentifier] = None
-        self._memory_labels: Dict[str, str] = {}
+        self._objective_target_identifier: Optional[ComponentIdentifier] = None
+        self._memory_labels: dict[str, str] = {}
         self._max_concurrency: int = 1
         self._max_retries: int = 0
 
         self._objective_scorer = objective_scorer
         self._objective_scorer_identifier = objective_scorer.get_identifier()
 
-        self._name = name
+        self._name = name if name else type(self).__name__
         self._memory = CentralMemory.get_memory_instance()
-        self._atomic_attacks: List[AtomicAttack] = []
+        self._atomic_attacks: list[AtomicAttack] = []
         self._scenario_result_id: Optional[str] = str(scenario_result_id) if scenario_result_id else None
         self._result_lock = asyncio.Lock()
 
         self._include_baseline = include_default_baseline
 
         # Store prepared strategy composites for use in _get_atomic_attacks_async
-        self._scenario_composites: List[ScenarioCompositeStrategy] = []
+        self._scenario_composites: list[ScenarioCompositeStrategy] = []
 
         # Store original objectives for each atomic attack (before any mutations)
         # Key: atomic_attack_name, Value: tuple of original objectives
-        self._original_objectives_map: Dict[str, tuple[str, ...]] = {}
+        self._original_objectives_map: dict[str, tuple[str, ...]] = {}
 
     @property
     def name(self) -> str:
@@ -130,7 +132,7 @@ class Scenario(ABC):
 
     @classmethod
     @abstractmethod
-    def get_strategy_class(cls) -> Type[ScenarioStrategy]:
+    def get_strategy_class(cls) -> type[ScenarioStrategy]:
         """
         Get the strategy enum class for this scenario.
 
@@ -141,7 +143,6 @@ class Scenario(ABC):
         Returns:
             Type[ScenarioStrategy]: The strategy enum class (e.g., FoundryStrategy, EncodingStrategy).
         """
-        pass
 
     @classmethod
     @abstractmethod
@@ -156,7 +157,6 @@ class Scenario(ABC):
         Returns:
             ScenarioStrategy: The default aggregate strategy (e.g., FoundryStrategy.EASY, EncodingStrategy.ALL).
         """
-        pass
 
     @classmethod
     @abstractmethod
@@ -171,18 +171,30 @@ class Scenario(ABC):
         Returns:
             DatasetConfiguration: The default dataset configuration.
         """
-        pass
+
+    def _get_default_objective_scorer(self) -> TrueFalseScorer:
+        # Deferred import to avoid circular dependency:
+        from pyrit.setup.initializers.components.scorers import ScorerInitializerTags
+
+        entries = ScorerRegistry.get_registry_singleton().get_by_tag(tag=ScorerInitializerTags.DEFAULT_OBJECTIVE_SCORER)
+        if entries and isinstance(entries[0].instance, TrueFalseScorer):
+            scorer = entries[0].instance
+            logger.info(f"Using registered default objective scorer: {type(scorer).__name__}")
+            return scorer
+        scorer = TrueFalseInverterScorer(scorer=SelfAskRefusalScorer(chat_target=OpenAIChatTarget()))
+        logger.info(f"No registered default objective scorer found, using fallback: {type(scorer).__name__}")
+        return scorer
 
     @apply_defaults
     async def initialize_async(
         self,
         *,
-        objective_target: PromptTarget = REQUIRED_VALUE,  # type: ignore
+        objective_target: PromptTarget = REQUIRED_VALUE,  # type: ignore[assignment]
         scenario_strategies: Optional[Sequence[ScenarioStrategy | ScenarioCompositeStrategy]] = None,
         dataset_config: Optional[DatasetConfiguration] = None,
         max_concurrency: int = 10,
         max_retries: int = 0,
-        memory_labels: Optional[Dict[str, str]] = None,
+        memory_labels: Optional[dict[str, str]] = None,
     ) -> None:
         """
         Initialize the scenario by populating self._atomic_attacks and creating the ScenarioResult.
@@ -260,9 +272,8 @@ class Scenario(ABC):
                 # Validate that the stored scenario matches current configuration
                 if self._validate_stored_scenario(stored_result=existing_result):
                     return  # Valid match - skip creating new scenario result
-                else:
-                    # Validation failed - will create new scenario result
-                    self._scenario_result_id = None
+                # Validation failed - will create new scenario result
+                self._scenario_result_id = None
             else:
                 logger.warning(
                     f"Scenario result ID {self._scenario_result_id} not found in memory. Creating new scenario result."
@@ -270,7 +281,7 @@ class Scenario(ABC):
                 self._scenario_result_id = None
 
         # Create new scenario result
-        attack_results: Dict[str, List[AttackResult]] = {
+        attack_results: dict[str, list[AttackResult]] = {
             atomic_attack.atomic_attack_name: [] for atomic_attack in self._atomic_attacks
         }
 
@@ -316,7 +327,7 @@ class Scenario(ABC):
             memory_labels=self._memory_labels,
         )
 
-    def _get_baseline_data(self) -> Tuple[List["SeedAttackGroup"], "AttackScoringConfig", PromptTarget]:
+    def _get_baseline_data(self) -> tuple[list["SeedAttackGroup"], "AttackScoringConfig", PromptTarget]:
         """
         Get the data needed to create a baseline attack.
 
@@ -343,7 +354,7 @@ class Scenario(ABC):
         # Import here to avoid circular imports
         from pyrit.executor.attack.core.attack_config import AttackScoringConfig
 
-        attack_scoring_config = AttackScoringConfig(objective_scorer=cast(TrueFalseScorer, self._objective_scorer))
+        attack_scoring_config = AttackScoringConfig(objective_scorer=cast("TrueFalseScorer", self._objective_scorer))
 
         if not attack_scoring_config:
             raise ValueError("Attack scoring config is required to create baseline attack.")
@@ -399,7 +410,7 @@ class Scenario(ABC):
         )
         return True
 
-    def _get_completed_objectives_for_attack(self, *, atomic_attack_name: str) -> Set[str]:
+    def _get_completed_objectives_for_attack(self, *, atomic_attack_name: str) -> set[str]:
         """
         Get the set of objectives that have already been completed for a specific atomic attack.
 
@@ -412,7 +423,7 @@ class Scenario(ABC):
         if not self._scenario_result_id:
             return set()
 
-        completed_objectives: Set[str] = set()
+        completed_objectives: set[str] = set()
 
         try:
             # Retrieve the scenario result from memory
@@ -432,7 +443,7 @@ class Scenario(ABC):
 
         return completed_objectives
 
-    async def _get_remaining_atomic_attacks_async(self) -> List[AtomicAttack]:
+    async def _get_remaining_atomic_attacks_async(self) -> list[AtomicAttack]:
         """
         Get the list of atomic attacks that still have objectives to complete.
 
@@ -446,7 +457,7 @@ class Scenario(ABC):
             # No scenario result yet, return all atomic attacks
             return self._atomic_attacks
 
-        remaining_attacks: List[AtomicAttack] = []
+        remaining_attacks: list[AtomicAttack] = []
 
         for atomic_attack in self._atomic_attacks:
             # Get completed objectives for this atomic attack name
@@ -479,7 +490,7 @@ class Scenario(ABC):
         return remaining_attacks
 
     async def _update_scenario_result_async(
-        self, *, atomic_attack_name: str, attack_results: List[AttackResult]
+        self, *, atomic_attack_name: str, attack_results: list[AttackResult]
     ) -> None:
         """
         Update the scenario result in memory with new attack results (thread-safe).
@@ -508,7 +519,7 @@ class Scenario(ABC):
                 )
 
     @abstractmethod
-    async def _get_atomic_attacks_async(self) -> List[AtomicAttack]:
+    async def _get_atomic_attacks_async(self) -> list[AtomicAttack]:
         """
         Retrieve the list of AtomicAttack instances in this scenario.
 
@@ -518,7 +529,6 @@ class Scenario(ABC):
         Returns:
             List[AtomicAttack]: The list of AtomicAttack instances in this scenario.
         """
-        pass
 
     async def run_async(self) -> ScenarioResult:
         """
@@ -564,8 +574,7 @@ class Scenario(ABC):
         last_exception = None
         for retry_attempt in range(self._max_retries + 1):  # +1 for initial attempt
             try:
-                result = await self._execute_scenario_async()
-                return result
+                return await self._execute_scenario_async()
             except Exception as e:
                 last_exception = e
 
@@ -584,14 +593,13 @@ class Scenario(ABC):
                     )
                     # Continue to next iteration for retry
                     continue
-                else:
-                    # No more retries, log final failure
-                    logger.error(
-                        f"Scenario '{self._name}' failed after {current_tries} attempts "
-                        f"(initial + {self._max_retries} retries) with error: {str(e)}. Giving up.",
-                        exc_info=True,
-                    )
-                    raise
+                # No more retries, log final failure
+                logger.error(
+                    f"Scenario '{self._name}' failed after {current_tries} attempts "
+                    f"(initial + {self._max_retries} retries) with error: {str(e)}. Giving up.",
+                    exc_info=True,
+                )
+                raise
 
         # This should never be reached, but just in case
         if last_exception:
@@ -645,8 +653,7 @@ class Scenario(ABC):
             scenario_results = self._memory.get_scenario_results(scenario_result_ids=[scenario_result_id])
             if scenario_results:
                 return scenario_results[0]
-            else:
-                raise ValueError(f"Scenario result with ID {scenario_result_id} not found")
+            raise ValueError(f"Scenario result with ID {scenario_result_id} not found")
 
         logger.info(
             f"Scenario '{self._name}' has {len(remaining_attacks)} atomic attacks "
@@ -715,11 +722,10 @@ class Scenario(ABC):
                             f"in scenario '{self._name}': {incomplete_count} of {incomplete_count + completed_count} "
                             f"objectives incomplete. First failure: {atomic_results.incomplete_objectives[0][1]}"
                         ) from atomic_results.incomplete_objectives[0][1]
-                    else:
-                        logger.info(
-                            f"Atomic attack {i}/{len(self._atomic_attacks)} completed successfully with "
-                            f"{len(atomic_results.completed_results)} results"
-                        )
+                    logger.info(
+                        f"Atomic attack {i}/{len(self._atomic_attacks)} completed successfully with "
+                        f"{len(atomic_results.completed_results)} results"
+                    )
 
                 except Exception as e:
                     # Exception was raised either by run_async or by our check above

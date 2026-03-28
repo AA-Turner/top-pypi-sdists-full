@@ -1,34 +1,125 @@
 """
+bpy.types.*
+
+:maxdepth: 1
+:glob:
+
+Shared Enum Types <bpy_types_enum_items/index>
+
+:hidden:
+:maxdepth: 1
+
+Types with Custom Property Support <bpy_types_custom_properties>
+
+:hidden:
+:maxdepth: 1
+
 
 --------------------
 
-This example shows how an add-on can register custom keyboard shortcuts.
-Keymaps are added to keyconfigs.addon
+This script is the UIList subclass used to show material slots, with a bunch of additional commentaries.
 
- and removed when unregistered.
-
-Store (keymap, keymap_item)
-
- tuples for safe cleanup, as multiple add-ons may use the same keymap.
+Notice the name of the class, this naming convention is similar as the one for panels or menus.
 
 [NOTE]
-Users can customize add-on shortcuts in the Keymap Preferences.
-Add-on keymaps appear under their respective editors and can be
-modified or disabled without editing the add-on code.
-Add-ons should only manipulate keymaps in keyconfigs.addon
+UIList subclasses must be registered for Blender to use them.
 
- and not manipulate the user's keymaps
-because add-on keymaps serve as a default which users may customize.
-Modifying user keymaps directly interferes with users' own preferences.
+```../examples/bpy.types.UIList.1.py```
 
-[WARNING]
-Add-ons can add items to existing modal keymaps but cannot create
-new modal keymaps via Python. Use modal=True
 
- when targeting
-an existing modal keymap such as "Knife Tool Modal Map".
+--------------------
 
-```../examples/bpy.types.KeyMaps.1.py```
+This script is an extended version of the UIList
+
+ subclass used to show vertex groups. It is not used 'as is',
+because iterating over all vertices in a 'draw' function is a very bad idea for UI performance! However, it's a good
+example of how to create/use filtering/reordering callbacks.
+
+```../examples/bpy.types.UIList.2.py```
+
+
+--------------------
+
+The NodeTree.poll function determines if a node tree is visible
+in the given context (similar to how Panel.poll
+and Menu.poll define visibility). If it returns False,
+the node tree type will not be selectable in the node editor.
+
+A typical condition for shader nodes would be to check the active render engine
+of the scene and only show nodes of the renderer they are designed for.
+
+```../examples/bpy.types.NodeTree.0.py```
+
+
+--------------------
+
+PropertyGroups are the base class for dynamically defined sets of properties.
+
+They can be used to extend existing Blender data with your own types which can
+be animated, accessed from the user interface and from Python.
+
+[NOTE]
+The values assigned to Blender data are saved to disk but the class
+definitions are not, this means whenever you load Blender the class needs
+to be registered too.
+This is best done by creating an add-on which loads on startup and registers
+your properties.
+
+[NOTE]
+PropertyGroups must be registered before assigning them to Blender data.
+
+Property types used in class declarations are all in bpy.props
+
+
+
+```../examples/bpy.types.PropertyGroup.0.py```
+
+
+--------------------
+
+A file handler allows custom drag-and-drop behavior to be associated with a given Operator
+
+
+(FileHandler.bl_import_operator) and set of file extensions
+(FileHandler.bl_file_extensions). Control over which area of the UI accepts the
+drag-in-drop action is specified using the FileHandler.poll_drop method.
+
+Similar to operators that use a file select window, operators participating in drag-and-drop, and
+only accepting a single file, must define the following property:
+
+```
+filepath: bpy.props.StringProperty(subtype='FILE_PATH', options={'SKIP_SAVE'})
+```
+
+This filepath
+
+ property will be set to the full path of the file dropped by the user.
+
+```../examples/bpy.types.FileHandler.1.py```
+
+
+--------------------
+
+Operators which support being executed with multiple files from drag-and-drop require the
+following properties be defined:
+
+```
+directory: StringProperty(subtype='DIR_PATH', options={'SKIP_SAVE', 'HIDDEN'})
+files: CollectionProperty(type=OperatorFileListElement, options={'SKIP_SAVE', 'HIDDEN'})
+```
+
+These directory
+
+ and files
+
+ properties will be set with the necessary data from the
+drag-and-drop operation.
+
+Additionally, if the operator provides operator properties that need to be accessible to the user,
+the ImportHelper.invoke_popup method can be used to show a dialog leveraging the standard
+Operator.draw method for layout and display.
+
+```../examples/bpy.types.FileHandler.2.py```
 
 
 --------------------
@@ -340,269 +431,6 @@ The USDHookExample
 
 ```../examples/bpy.types.USDHook.0.py```
 
-Attributes are used to store data that corresponds to geometry elements.
-Geometry elements are items in one of the geometry domains like points, curves, or faces.
-
-An attribute has a name
-
-, a type
-
-, and is stored on a domain
-
-.
-
-name
-
-
-    The name of this attribute. Names have to be unique within the same geometry.
-    If the name starts with a .
-
-    , the attribute is hidden from the UI.
-
-type
-
-
-    The type of data that this attribute stores, e.g. a float, integer, color, etc.
-    See Attribute Type Items.
-
-domain
-
-
-    The geometry domain that the attribute is stored on.
-    See Attribute Domain Items.
-
-
---------------------
-
-Attributes can be stored on geometries like Mesh, Curves, PointCloud, etc.
-These geometries have attribute groups (usually called attributes
-
-).
-Using the groups, attributes can then be accessed by their name:
-
-```
-radii = curves.attributes["radius"]
-```
-
-Creating and storing custom attributes is done using the attributes.new
-
- function:
-
-```
-# Add a new attribute named `my_attribute_name` of type `float` on the point domain of the geometry.
-my_attribute = curves.attributes.new("my_attribute_name", 'FLOAT', 'POINT')
-```
-
-Removing attributes can be done like so:
-
-```
-attribute = drawing.attributes["some_attribute"]
-drawing.attributes.remove(attribute)
-```
-
-[NOTE]
-Some attributes are required and cannot be removed, like "position"
-
-.
-
-Attribute values are read by accessing their attribute.data
-
- collection property.
-However, in cases where multiple values should be read at once,
-it is better to use the bpy_prop_collection.foreach_get function and read the values into a numpy
-
- buffer.
-
-```
-import numpy as np
-
-# Get the radius attribute.
-radii = curves.attributes["radius"]
-# Print the radius of the first point.
-print(radii.data[0].value)
-# Output: 0.005
-
-# Get the total number of points.
-num_points = attributes.domain_size('POINT')
-# Create an empty buffer to read all the radii into.
-radii_data = np.zeros(num_points, dtype=np.float32)
-# Read all the radii of the curves into `radii_data` at once.
-radii.data.foreach_get('value', radii_data)
-# Print all the radii.
-print(radii_data)
-# Output: [0.1, 0.2, 0.3, 0.4, ... ]
-```
-
-[NOTE]
-Some attribute types use different named properties to access their value.
-Instead of value
-
-, vectors use vector
-
-, and colors use color
-
-.
-
-Writing to different attribute types is very similar. You can simply assign to a value directly.
-Again, when writing to multiple values, it is recommended to use the bpy_prop_collection.foreach_set function
-to write the values from a numpy
-
- buffer.
-
-```
-import numpy as np
-
-radii = curves.attributes["radius"]
-# Write a radius with a value of 0.5 to the first point.
-radii.data[0].value = 0.5
-print(radii.data[0].value)
-# Output: 0.5
-
-num_points = attributes.domain_size('POINT')
-# Generate random radii with values between 0.001 and 0.05 using numpy.
-new_radii = np.random.uniform(0.001, 0.05, num_points)
-# Write the new radii to the radius attribute.
-radii.data.foreach_set('value', new_radii)
-```
-
-The bpy_prop_collection.foreach_get / bpy_prop_collection.foreach_set methods require a flat array.
-This is sometimes not desirable, e.g. when reading/writing positions, which are 3D vectors.
-In these cases, it's possible to use np.ravel
-
- to pass the data as a flat array:
-
-```
-num_points = attributes.domain_size('POINT')
-positions = curves.attributes['position']
-# Here, we're using a numpy array with shape (num_points, 3) so that each
-# element is a 3d vector.
-positions_data = np.zeros((num_points, 3), dtype=np.float32)
-# The `np.ravel` function will pass the `positions_data` as a flat array
-# without changing the original shape.
-positions.data.foreach_get('vector', np.ravel(positions_data))
-print(positions_data)
-# Output: [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], ...]
-```
-
-
---------------------
-
-The mesh data is accessed in object mode and intended for compact storage,
-for more flexible mesh editing from Python see bmesh.
-
-Blender stores 4 main arrays to define mesh geometry.
-
-* Mesh.vertices (3 points in space)
-* Mesh.edges (reference 2 vertices)
-* Mesh.loops (reference a single vertex and edge)
-* Mesh.polygons: (reference a range of loops)
-
-Each polygon references a slice in the loop array, this way,
-polygons do not store vertices or corner data such as UVs directly,
-only a reference to loops that the polygon uses.
-
-Mesh.loops, Mesh.uv_layers Mesh.vertex_colors are all aligned so the same polygon loop
-indices can be used to find the UVs and vertex colors as with as the vertices.
-
-To compare mesh API options see: NGons and Tessellation Faces <info_gotcha_mesh_faces>
-
-This example script prints the vertices and UVs for each polygon, assumes the active object is a mesh with UVs.
-
-```../examples/bpy.types.Mesh.0.py```
-
-
---------------------
-
-The NodeTree.poll function determines if a node tree is visible
-in the given context (similar to how Panel.poll
-and Menu.poll define visibility). If it returns False,
-the node tree type will not be selectable in the node editor.
-
-A typical condition for shader nodes would be to check the active render engine
-of the scene and only show nodes of the renderer they are designed for.
-
-```../examples/bpy.types.NodeTree.0.py```
-
-
---------------------
-
-The Image data-block is a shallow wrapper around image or video file(s)
-(on disk, as packed data, or generated).
-
-All actual data like the pixel buffer, size, resolution etc. is
-cached in an imbuf.types.ImBuf image buffer (or several buffers
-in some cases, like UDIM textures, multi-views, animations...).
-
-Several properties and functions of the Image data-block are then actually
-using/modifying its image buffer, and not the Image data-block itself.
-
-[WARNING]
-One key limitation is that image buffers are not shared between different
-Image data-blocks, and they are not duplicated when copying an image.
-So until a modified image buffer is saved on disk, duplicating its Image
-data-block will not propagate the underlying buffer changes to the new Image.
-
-This example script generates an Image data-block with a given size,
-change its first pixel, rescale it, and duplicates the image.
-
-The duplicated image still has the same size and colors as the original image
-at its creation, all editing in the original image's buffer is 'lost' in its copy.
-
-```../examples/bpy.types.Image.0.py```
-
-
---------------------
-
-This example creates a simple macro operator that
-moves the active object and then rotates it.
-It demonstrates:
-
-* Defining a macro operator class.
-* Registering it and defining sub-operators.
-* Setting property values for each step.
-
-```../examples/bpy.types.Macro.0.py```
-
-bpy.types.*
-
-:maxdepth: 1
-:glob:
-
-Shared Enum Types <bpy_types_enum_items/index>
-
-:hidden:
-:maxdepth: 1
-
-Types with Custom Property Support <bpy_types_custom_properties>
-
-:hidden:
-:maxdepth: 1
-
-```../examples/bpy.types.AddonPreferences.1.py```
-
-
---------------------
-
-This script is the UIList subclass used to show material slots, with a bunch of additional commentaries.
-
-Notice the name of the class, this naming convention is similar as the one for panels or menus.
-
-[NOTE]
-UIList subclasses must be registered for Blender to use them.
-
-```../examples/bpy.types.UIList.1.py```
-
-
---------------------
-
-This script is an extended version of the UIList
-
- subclass used to show vertex groups. It is not used 'as is',
-because iterating over all vertices in a 'draw' function is a very bad idea for UI performance! However, it's a good
-example of how to create/use filtering/reordering callbacks.
-
-```../examples/bpy.types.UIList.2.py```
-
 Base class for integrating USD Hydra based renderers.
 
 
@@ -610,120 +438,83 @@ Base class for integrating USD Hydra based renderers.
 
 ```../examples/bpy.types.HydraRenderEngine.0.py```
 
-
---------------------
-
-This example demonstrates access to the evaluated ID (such as object, material, etc.) state from
-an original ID.
-This is needed every time one needs to access state with animation, constraints, and modifiers
-taken into account.
-
-```../examples/bpy.types.Depsgraph.1.py```
+```../examples/bpy.types.AddonPreferences.1.py```
 
 
 --------------------
 
-This example demonstrates access to the original ID.
-Such access is needed to check whether object is selected, or to compare pointers.
+This script demonstrates basic operations on object like creating new
+object, placing it into a view layer, selecting it and making it active.
 
-```../examples/bpy.types.Depsgraph.2.py```
-
-
---------------------
-
-Sometimes it is needed to know all the instances with their matrices (for example, when writing an
-exporter or a custom render engine).
-This example shows how to access all objects and instances in the scene.
-
-```../examples/bpy.types.Depsgraph.3.py```
+```../examples/bpy.types.Object.0.py```
 
 
 --------------------
 
-Function to get a mesh from any object with geometry. It is typically used by exporters, render
-engines and tools that need to access the evaluated mesh as displayed in the viewport.
+Here is an example of a simple menu. Menus differ from panels in that they must
+reference from a header, panel or another menu.
 
-Object.to_mesh() is closely interacting with dependency graph: its behavior depends on whether it
-is used on original or evaluated object.
-
-When is used on original object, the result mesh is calculated from the object without taking
-animation or modifiers into account:
-
-* For meshes this is similar to duplicating the source mesh.
-* For curves this disables own modifiers, and modifiers of objects used as bevel and taper.
-* For meta-balls this produces an empty mesh since polygonization is done as a modifier evaluation.
-
-When is used on evaluated object all modifiers are taken into account.
+Notice the 'CATEGORY_MT_name' in  Menu.bl_idname, this is a naming
+convention for menus.
 
 [NOTE]
-The result mesh is owned by the object. It can be freed by calling ~Object.to_mesh_clear.
+Menu subclasses must be registered before referencing them from Blender.
 
 [NOTE]
-The result mesh must be treated as temporary, and cannot be referenced from objects in the main
-database. If the mesh intended to be used in a persistent manner use ~BlendDataMeshes.new_from_object
-instead.
+Menus have their UILayout.operator_context initialized as
+'EXEC_REGION_WIN' rather than 'INVOKE_REGION_WIN' (see Execution Context <rna_enum_operator_context_items>).
+If the operator context needs to initialize inputs from the
+Operator.invoke function, then this needs to be explicitly set.
+When a menu is added to UI elements such as a panel or header,
+the operator execution context will be inherited from them.
 
-[NOTE]
-If object does not have geometry (i.e. camera) the functions returns None.
-
-```../examples/bpy.types.Depsgraph.4.py```
+```../examples/bpy.types.Menu.0.py```
 
 
 --------------------
 
-Function to copy a new mesh from any object with geometry. The mesh is added to the main
-database and can be referenced by objects. Typically used by tools that create new objects
-or apply modifiers.
+This menu demonstrates some different functions.
 
-When is used on original object, the result mesh is calculated from the object without taking
-animation or modifiers into account:
-
-* For meshes this is similar to duplicating the source mesh.
-* For curves this disables own modifiers, and modifiers of objects used as bevel and taper.
-* For meta-balls this produces an empty mesh since polygonization is done as a modifier evaluation.
-
-When is used on evaluated object all modifiers are taken into account.
-
-All the references (such as materials) are re-mapped to original. This ensures validity and
-consistency of the main database.
-
-[NOTE]
-If object does not have geometry (i.e. camera) the functions returns None.
-
-```../examples/bpy.types.Depsgraph.5.py```
+```../examples/bpy.types.Menu.1.py```
 
 
 --------------------
 
-This example is a combination of all previous ones, and shows how to write a simple exporter
-script.
+When creating menus for add-ons you can't reference menus
+in Blender's default scripts.
+Instead, the add-on can add menu items to existing menus.
 
-```../examples/bpy.types.Depsgraph.6.py```
+The function menu_draw acts like Menu.draw.
+
+```../examples/bpy.types.Menu.2.py```
 
 
 --------------------
 
-Function to get a curve from text and curve objects. It is typically used by exporters, render
-engines, and tools that need to access the curve representing the object.
+Preset menus are simply a convention that uses a menu sub-class
+to perform the common task of managing presets.
 
-The function takes the evaluated dependency graph as a required parameter and optionally a boolean
-apply_modifiers which defaults to false. If apply_modifiers is true and the object is a curve object,
-the spline deform modifiers are applied on the control points. Note that constructive modifiers and
-modifiers that are not spline-enabled will not be applied. So modifiers like Array will not be applied
-and deform modifiers that have Apply On Spline disabled will not be applied.
+This example shows how you can add a preset menu.
 
-If the object is a text object. The text will be converted into a 3D curve and returned. Modifiers are
-never applied on text objects and apply_modifiers will be ignored. If the object is neither a curve nor
-a text object, an error will be reported.
+This example uses the object display options,
+however you can use properties defined by your own scripts too.
 
-[NOTE]
-The resulting curve is owned by the object. It can be freed by calling ~Object.to_curve_clear.
+```../examples/bpy.types.Menu.3.py```
 
-[NOTE]
-The resulting curve must be treated as temporary, and cannot be referenced from objects in the main
-database.
 
-```../examples/bpy.types.Depsgraph.7.py```
+--------------------
+
+This example enables you to insert your own menu entry into the common
+right click menu that you get while hovering over a UI button (e.g. operator,
+value field, color, string, etc.)
+
+To make the example work, you have to first select an object
+then right click on an user interface element (maybe a color in the
+material properties) and choose *Execute Custom Action*.
+
+Executing the operator will then print all values.
+
+```../examples/bpy.types.Menu.4.py```
 
 
 --------------------
@@ -899,95 +690,6 @@ from a search field, this can be done using bpy.types.Operator.invoke_search_pop
 
 ```../examples/bpy.types.Operator.7.py```
 
-
---------------------
-
-PropertyGroups are the base class for dynamically defined sets of properties.
-
-They can be used to extend existing Blender data with your own types which can
-be animated, accessed from the user interface and from Python.
-
-[NOTE]
-The values assigned to Blender data are saved to disk but the class
-definitions are not, this means whenever you load Blender the class needs
-to be registered too.
-This is best done by creating an add-on which loads on startup and registers
-your properties.
-
-[NOTE]
-PropertyGroups must be registered before assigning them to Blender data.
-
-Property types used in class declarations are all in bpy.props
-
-
-
-```../examples/bpy.types.PropertyGroup.0.py```
-
-
---------------------
-
-```../examples/bpy.types.RenderEngine.1.py```
-
-
---------------------
-
-```../examples/bpy.types.RenderEngine.2.py```
-
-
---------------------
-
-This script demonstrates basic operations on object like creating new
-object, placing it into a view layer, selecting it and making it active.
-
-```../examples/bpy.types.Object.0.py```
-
-
---------------------
-
-A file handler allows custom drag-and-drop behavior to be associated with a given Operator
-
-
-(FileHandler.bl_import_operator) and set of file extensions
-(FileHandler.bl_file_extensions). Control over which area of the UI accepts the
-drag-in-drop action is specified using the FileHandler.poll_drop method.
-
-Similar to operators that use a file select window, operators participating in drag-and-drop, and
-only accepting a single file, must define the following property:
-
-```
-filepath: bpy.props.StringProperty(subtype='FILE_PATH', options={'SKIP_SAVE'})
-```
-
-This filepath
-
- property will be set to the full path of the file dropped by the user.
-
-```../examples/bpy.types.FileHandler.1.py```
-
-
---------------------
-
-Operators which support being executed with multiple files from drag-and-drop require the
-following properties be defined:
-
-```
-directory: StringProperty(subtype='DIR_PATH', options={'SKIP_SAVE', 'HIDDEN'})
-files: CollectionProperty(type=OperatorFileListElement, options={'SKIP_SAVE', 'HIDDEN'})
-```
-
-These directory
-
- and files
-
- properties will be set with the necessary data from the
-drag-and-drop operation.
-
-Additionally, if the operator provides operator properties that need to be accessible to the user,
-the ImportHelper.invoke_popup method can be used to show a dialog leveraging the standard
-Operator.draw method for layout and display.
-
-```../examples/bpy.types.FileHandler.2.py```
-
 Action Slots organize animation data within an action. Each action has slots with specific animation
 data. An animated data-block specifies an action and a slot, determining the animation data it uses.
 See the Blender Manual
@@ -1047,6 +749,345 @@ use the users()
 
 ```../examples/bpy.types.ActionSlot.4.py```
 
+Attributes are used to store data that corresponds to geometry elements.
+Geometry elements are items in one of the geometry domains like points, curves, or faces.
+
+An attribute has a name
+
+, a type
+
+, and is stored on a domain
+
+.
+
+name
+
+
+    The name of this attribute. Names have to be unique within the same geometry.
+    If the name starts with a .
+
+    , the attribute is hidden from the UI.
+
+type
+
+
+    The type of data that this attribute stores, e.g. a float, integer, color, etc.
+    See Attribute Type Items.
+
+domain
+
+
+    The geometry domain that the attribute is stored on.
+    See Attribute Domain Items.
+
+
+--------------------
+
+Attributes can be stored on geometries like Mesh, Curves, PointCloud, etc.
+These geometries have attribute groups (usually called attributes
+
+).
+Using the groups, attributes can then be accessed by their name:
+
+```
+radii = curves.attributes["radius"]
+```
+
+Creating and storing custom attributes is done using the attributes.new
+
+ function:
+
+```
+# Add a new attribute named `my_attribute_name` of type `float` on the point domain of the geometry.
+my_attribute = curves.attributes.new("my_attribute_name", 'FLOAT', 'POINT')
+```
+
+Removing attributes can be done like so:
+
+```
+attribute = drawing.attributes["some_attribute"]
+drawing.attributes.remove(attribute)
+```
+
+[NOTE]
+Some attributes are required and cannot be removed, like "position"
+
+.
+
+Attribute values are read by accessing their attribute.data
+
+ collection property.
+However, in cases where multiple values should be read at once,
+it is better to use the bpy_prop_collection.foreach_get function and read the values into a numpy
+
+ buffer.
+
+```
+import numpy as np
+
+# Get the radius attribute.
+radii = curves.attributes["radius"]
+# Print the radius of the first point.
+print(radii.data[0].value)
+# Output: 0.005
+
+# Get the total number of points.
+num_points = attributes.domain_size('POINT')
+# Create an empty buffer to read all the radii into.
+radii_data = np.zeros(num_points, dtype=np.float32)
+# Read all the radii of the curves into `radii_data` at once.
+radii.data.foreach_get('value', radii_data)
+# Print all the radii.
+print(radii_data)
+# Output: [0.1, 0.2, 0.3, 0.4, ... ]
+```
+
+[NOTE]
+Some attribute types use different named properties to access their value.
+Instead of value
+
+, vectors use vector
+
+, and colors use color
+
+.
+
+Writing to different attribute types is very similar. You can simply assign to a value directly.
+Again, when writing to multiple values, it is recommended to use the bpy_prop_collection.foreach_set function
+to write the values from a numpy
+
+ buffer.
+
+```
+import numpy as np
+
+radii = curves.attributes["radius"]
+# Write a radius with a value of 0.5 to the first point.
+radii.data[0].value = 0.5
+print(radii.data[0].value)
+# Output: 0.5
+
+num_points = attributes.domain_size('POINT')
+# Generate random radii with values between 0.001 and 0.05 using numpy.
+new_radii = np.random.uniform(0.001, 0.05, num_points)
+# Write the new radii to the radius attribute.
+radii.data.foreach_set('value', new_radii)
+```
+
+The bpy_prop_collection.foreach_get / bpy_prop_collection.foreach_set methods require a flat array.
+This is sometimes not desirable, e.g. when reading/writing positions, which are 3D vectors.
+In these cases, it's possible to use np.ravel
+
+ to pass the data as a flat array:
+
+```
+num_points = attributes.domain_size('POINT')
+positions = curves.attributes['position']
+# Here, we're using a numpy array with shape (num_points, 3) so that each
+# element is a 3d vector.
+positions_data = np.zeros((num_points, 3), dtype=np.float32)
+# The `np.ravel` function will pass the `positions_data` as a flat array
+# without changing the original shape.
+positions.data.foreach_get('vector', np.ravel(positions_data))
+print(positions_data)
+# Output: [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], ...]
+```
+
+
+--------------------
+
+This example creates a simple macro operator that
+moves the active object and then rotates it.
+It demonstrates:
+
+* Defining a macro operator class.
+* Registering it and defining sub-operators.
+* Setting property values for each step.
+
+```../examples/bpy.types.Macro.0.py```
+
+
+--------------------
+
+This example shows how an add-on can register custom keyboard shortcuts.
+Keymaps are added to keyconfigs.addon
+
+ and removed when unregistered.
+
+Store (keymap, keymap_item)
+
+ tuples for safe cleanup, as multiple add-ons may use the same keymap.
+
+[NOTE]
+Users can customize add-on shortcuts in the Keymap Preferences.
+Add-on keymaps appear under their respective editors and can be
+modified or disabled without editing the add-on code.
+Add-ons should only manipulate keymaps in keyconfigs.addon
+
+ and not manipulate the user's keymaps
+because add-on keymaps serve as a default which users may customize.
+Modifying user keymaps directly interferes with users' own preferences.
+
+[WARNING]
+Add-ons can add items to existing modal keymaps but cannot create
+new modal keymaps via Python. Use modal=True
+
+ when targeting
+an existing modal keymap such as "Knife Tool Modal Map".
+
+```../examples/bpy.types.KeyMaps.1.py```
+
+
+--------------------
+
+```../examples/bpy.types.RenderEngine.1.py```
+
+
+--------------------
+
+```../examples/bpy.types.RenderEngine.2.py```
+
+
+--------------------
+
+The mesh data is accessed in object mode and intended for compact storage,
+for more flexible mesh editing from Python see bmesh.
+
+Blender stores 4 main arrays to define mesh geometry.
+
+* Mesh.vertices (3 points in space)
+* Mesh.edges (reference 2 vertices)
+* Mesh.loops (reference a single vertex and edge)
+* Mesh.polygons: (reference a range of loops)
+
+Each polygon references a slice in the loop array, this way,
+polygons do not store vertices or corner data such as UVs directly,
+only a reference to loops that the polygon uses.
+
+Mesh.loops, Mesh.uv_layers Mesh.vertex_colors are all aligned so the same polygon loop
+indices can be used to find the UVs and vertex colors as with as the vertices.
+
+To compare mesh API options see: NGons and Tessellation Faces <info_gotcha_mesh_faces>
+
+This example script prints the vertices and UVs for each polygon, assumes the active object is a mesh with UVs.
+
+```../examples/bpy.types.Mesh.0.py```
+
+
+--------------------
+
+This example demonstrates access to the evaluated ID (such as object, material, etc.) state from
+an original ID.
+This is needed every time one needs to access state with animation, constraints, and modifiers
+taken into account.
+
+```../examples/bpy.types.Depsgraph.1.py```
+
+
+--------------------
+
+This example demonstrates access to the original ID.
+Such access is needed to check whether object is selected, or to compare pointers.
+
+```../examples/bpy.types.Depsgraph.2.py```
+
+
+--------------------
+
+Sometimes it is needed to know all the instances with their matrices (for example, when writing an
+exporter or a custom render engine).
+This example shows how to access all objects and instances in the scene.
+
+```../examples/bpy.types.Depsgraph.3.py```
+
+
+--------------------
+
+Function to get a mesh from any object with geometry. It is typically used by exporters, render
+engines and tools that need to access the evaluated mesh as displayed in the viewport.
+
+Object.to_mesh() is closely interacting with dependency graph: its behavior depends on whether it
+is used on original or evaluated object.
+
+When is used on original object, the result mesh is calculated from the object without taking
+animation or modifiers into account:
+
+* For meshes this is similar to duplicating the source mesh.
+* For curves this disables own modifiers, and modifiers of objects used as bevel and taper.
+* For meta-balls this produces an empty mesh since polygonization is done as a modifier evaluation.
+
+When is used on evaluated object all modifiers are taken into account.
+
+[NOTE]
+The result mesh is owned by the object. It can be freed by calling ~Object.to_mesh_clear.
+
+[NOTE]
+The result mesh must be treated as temporary, and cannot be referenced from objects in the main
+database. If the mesh intended to be used in a persistent manner use ~BlendDataMeshes.new_from_object
+instead.
+
+[NOTE]
+If object does not have geometry (i.e. camera) the functions returns None.
+
+```../examples/bpy.types.Depsgraph.4.py```
+
+
+--------------------
+
+Function to copy a new mesh from any object with geometry. The mesh is added to the main
+database and can be referenced by objects. Typically used by tools that create new objects
+or apply modifiers.
+
+When is used on original object, the result mesh is calculated from the object without taking
+animation or modifiers into account:
+
+* For meshes this is similar to duplicating the source mesh.
+* For curves this disables own modifiers, and modifiers of objects used as bevel and taper.
+* For meta-balls this produces an empty mesh since polygonization is done as a modifier evaluation.
+
+When is used on evaluated object all modifiers are taken into account.
+
+All the references (such as materials) are re-mapped to original. This ensures validity and
+consistency of the main database.
+
+[NOTE]
+If object does not have geometry (i.e. camera) the functions returns None.
+
+```../examples/bpy.types.Depsgraph.5.py```
+
+
+--------------------
+
+This example is a combination of all previous ones, and shows how to write a simple exporter
+script.
+
+```../examples/bpy.types.Depsgraph.6.py```
+
+
+--------------------
+
+Function to get a curve from text and curve objects. It is typically used by exporters, render
+engines, and tools that need to access the curve representing the object.
+
+The function takes the evaluated dependency graph as a required parameter and optionally a boolean
+apply_modifiers which defaults to false. If apply_modifiers is true and the object is a curve object,
+the spline deform modifiers are applied on the control points. Note that constructive modifiers and
+modifiers that are not spline-enabled will not be applied. So modifiers like Array will not be applied
+and deform modifiers that have Apply On Spline disabled will not be applied.
+
+If the object is a text object. The text will be converted into a 3D curve and returned. Modifiers are
+never applied on text objects and apply_modifiers will be ignored. If the object is neither a curve nor
+a text object, an error will be reported.
+
+[NOTE]
+The resulting curve is owned by the object. It can be freed by calling ~Object.to_curve_clear.
+
+[NOTE]
+The resulting curve must be treated as temporary, and cannot be referenced from objects in the main
+database.
+
+```../examples/bpy.types.Depsgraph.7.py```
+
 
 --------------------
 
@@ -1080,70 +1121,29 @@ Menu.poll function.
 
 --------------------
 
-Here is an example of a simple menu. Menus differ from panels in that they must
-reference from a header, panel or another menu.
+The Image data-block is a shallow wrapper around image or video file(s)
+(on disk, as packed data, or generated).
 
-Notice the 'CATEGORY_MT_name' in  Menu.bl_idname, this is a naming
-convention for menus.
+All actual data like the pixel buffer, size, resolution etc. is
+cached in an imbuf.types.ImBuf image buffer (or several buffers
+in some cases, like UDIM textures, multi-views, animations...).
 
-[NOTE]
-Menu subclasses must be registered before referencing them from Blender.
+Several properties and functions of the Image data-block are then actually
+using/modifying its image buffer, and not the Image data-block itself.
 
-[NOTE]
-Menus have their UILayout.operator_context initialized as
-'EXEC_REGION_WIN' rather than 'INVOKE_REGION_WIN' (see Execution Context <rna_enum_operator_context_items>).
-If the operator context needs to initialize inputs from the
-Operator.invoke function, then this needs to be explicitly set.
-When a menu is added to UI elements such as a panel or header,
-the operator execution context will be inherited from them.
+[WARNING]
+One key limitation is that image buffers are not shared between different
+Image data-blocks, and they are not duplicated when copying an image.
+So until a modified image buffer is saved on disk, duplicating its Image
+data-block will not propagate the underlying buffer changes to the new Image.
 
-```../examples/bpy.types.Menu.0.py```
+This example script generates an Image data-block with a given size,
+change its first pixel, rescale it, and duplicates the image.
 
+The duplicated image still has the same size and colors as the original image
+at its creation, all editing in the original image's buffer is 'lost' in its copy.
 
---------------------
-
-This menu demonstrates some different functions.
-
-```../examples/bpy.types.Menu.1.py```
-
-
---------------------
-
-When creating menus for add-ons you can't reference menus
-in Blender's default scripts.
-Instead, the add-on can add menu items to existing menus.
-
-The function menu_draw acts like Menu.draw.
-
-```../examples/bpy.types.Menu.2.py```
-
-
---------------------
-
-Preset menus are simply a convention that uses a menu sub-class
-to perform the common task of managing presets.
-
-This example shows how you can add a preset menu.
-
-This example uses the object display options,
-however you can use properties defined by your own scripts too.
-
-```../examples/bpy.types.Menu.3.py```
-
-
---------------------
-
-This example enables you to insert your own menu entry into the common
-right click menu that you get while hovering over a UI button (e.g. operator,
-value field, color, string, etc.)
-
-To make the example work, you have to first select an object
-then right click on an user interface element (maybe a color in the
-material properties) and choose *Execute Custom Action*.
-
-Executing the operator will then print all values.
-
-```../examples/bpy.types.Menu.4.py```
+```../examples/bpy.types.Image.0.py```
 
 """
 
@@ -1248,39 +1248,6 @@ import bl_ui.space_view3d_toolbar
 import bpy.stub_internal.rna_enums
 import idprop.types
 import mathutils
-
-class bpy_prop:
-    """built-in base class for all property classes."""
-
-    data: typing.Any
-    """ The data this property is using, type `bpy.types.bpy_struct`"""
-
-    id_data: ID | None
-    """ The `bpy.types.ID` object this data-block is from or None, (not available for all data types) (readonly)"""
-
-    rna_type: typing.Any
-    """ The property type for introspection."""
-
-    def as_bytes(self) -> bytes:
-        """Returns this string property as a byte rather than a Python string.
-
-        :return: The string as bytes.
-        """
-
-    def path_from_id(self) -> str:
-        """Returns the data path from the ID to this property (string).
-
-        :return: The path from `bpy.types.bpy_struct.id_data` to this property.
-        """
-
-    def path_from_module(self) -> str:
-        """Returns the full data path to this struct (as a string) from the bpy module.
-
-        :return: The full path to the data.
-        """
-
-    def update(self) -> None:
-        """Execute the properties update callback."""
 
 class bpy_struct[_GenericType1]:
     """built-in base class for all classes in bpy.types."""
@@ -1601,6 +1568,39 @@ class bpy_struct[_GenericType1]:
 
         :param key:
         """
+
+class bpy_prop:
+    """built-in base class for all property classes."""
+
+    data: typing.Any
+    """ The data this property is using, type `bpy.types.bpy_struct`"""
+
+    id_data: ID | None
+    """ The `bpy.types.ID` object this data-block is from or None, (not available for all data types) (readonly)"""
+
+    rna_type: typing.Any
+    """ The property type for introspection."""
+
+    def as_bytes(self) -> bytes:
+        """Returns this string property as a byte rather than a Python string.
+
+        :return: The string as bytes.
+        """
+
+    def path_from_id(self) -> str:
+        """Returns the data path from the ID to this property (string).
+
+        :return: The path from `bpy.types.bpy_struct.id_data` to this property.
+        """
+
+    def path_from_module(self) -> str:
+        """Returns the full data path to this struct (as a string) from the bpy module.
+
+        :return: The full path to the data.
+        """
+
+    def update(self) -> None:
+        """Execute the properties update callback."""
 
 class bpy_prop_collection[_GenericType1](bpy_prop):
     """built-in class used for all collections."""
@@ -53479,6 +53479,9 @@ class GreasePencilLineartModifier(Modifier, bpy_struct):
     crease_threshold: float
     """ Angles smaller than this will be treated as creases. Crease angle priority: object Line Art crease override > mesh auto smooth angle > Line Art default crease. (in [0, 3.14159], default 2.44346)"""
 
+    fill_strokes: bool
+    """ Generate filled strokes instead of only outline (default False)"""
+
     invert_source_vertex_group: bool
     """ Invert source vertex group values (default False)"""
 
@@ -56531,7 +56534,8 @@ class Image(ID, bpy_struct):
     """ Generate floating-point buffer (default False)"""
 
     use_half_precision: bool
-    """ Use 16 bits per channel to lower the memory usage during rendering (default True)"""
+    """ Use 16 bits per channel to lower the memory usage during rendering.
+Note: Not supported by Cycles(default True)"""
 
     use_multiview: bool
     """ Use Multiple Views (when available) (default False)"""
@@ -63750,6 +63754,7 @@ class Menu(bpy_struct):
         add_operator=None,
         add_operator_props=None,
         translate=True,
+        recursive_paths=False,
     ) -> None:
         """Populate a menu from a list of paths.
 
@@ -63765,6 +63770,7 @@ class Menu(bpy_struct):
                 :param add_operator:
                 :param add_operator_props:
                 :param translate:
+                :param recursive_paths:
         """
 
     @classmethod
@@ -79538,12 +79544,6 @@ class Paint(bpy_struct):
     cavity_curve: CurveMapping | None
     """ Editable cavity curve (readonly, never None)"""
 
-    eraser_brush: Brush | None
-    """ Default eraser brush for quickly alternating with the main brush"""
-
-    eraser_brush_asset_reference: AssetWeakReference | None
-    """ A weak reference to the matching brush asset, used e.g. to restore the last used brush on file load (readonly)"""
-
     palette: Palette | None
     """ Active Palette"""
 
@@ -82815,6 +82815,9 @@ class PreferencesFilePaths(bpy_struct):
     render_output_directory: str
     """ The default directory for rendering output, for new scenes (default "", never None, blend relative // prefix supported)"""
 
+    save_modified_images: typing.Literal["ASK", "ALWAYS_SAVE", "NEVER_SAVE"]
+    """ How modified images should be handled when saving the .blend file (default 'ASK')"""
+
     save_version: int
     """ The number of old versions to maintain in the current directory, when manually saving (in [0, 32], default 1)"""
 
@@ -85266,7 +85269,7 @@ class RenderSettings(bpy_struct):
     """ Process the render (and composited) result through the video sequence editor pipeline, if sequencer strips exist (default True)"""
 
     use_sequencer_override_scene_strip: bool
-    """ Use workbench render settings from the sequencer scene, instead of each individual scene used in the strip (default False)"""
+    """ Use workbench render and world settings from the sequencer scene, instead of each strip's scene (default False)"""
 
     use_simplify: bool
     """ Enable simplification of scene for quicker preview renders (default False)"""
@@ -99184,9 +99187,6 @@ class Strip(bpy_struct):
 
     use_default_fade: bool
     """ Fade effect using the built-in default (usually makes the transition as long as the effect strip) (default False)"""
-
-    use_linear_modifiers: bool
-    """ Calculate modifiers in linear space instead of sequencer's space (default False)"""
 
     def bl_system_properties_get(
         self, *, do_create: bool | None = False
@@ -115311,6 +115311,8 @@ MASK_MT_animation: bl_ui.properties_mask_common.MASK_MT_animation
 
 MASK_MT_mask: bl_ui.properties_mask_common.MASK_MT_mask
 
+MASK_MT_move_to_layer: bl_ui.properties_mask_common.MASK_MT_move_to_layer
+
 MASK_MT_select: bl_ui.properties_mask_common.MASK_MT_select
 
 MASK_MT_transform: bl_ui.properties_mask_common.MASK_MT_transform
@@ -118055,10 +118057,6 @@ VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover: (
 
 VIEW3D_PT_tools_grease_pencil_v3_brush_advanced: (
     bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_advanced
-)
-
-VIEW3D_PT_tools_grease_pencil_v3_brush_eraser: (
-    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_eraser
 )
 
 VIEW3D_PT_tools_grease_pencil_v3_brush_fill_advanced: (

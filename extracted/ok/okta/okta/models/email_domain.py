@@ -37,6 +37,8 @@ class EmailDomain(BaseModel):
     EmailDomain
     """  # noqa: E501
 
+    display_name: StrictStr = Field(alias="displayName")
+    user_name: StrictStr = Field(alias="userName")
     brand_id: StrictStr = Field(alias="brandId")
     domain: StrictStr
     validation_subdomain: Optional[StrictStr] = Field(
@@ -45,9 +47,13 @@ class EmailDomain(BaseModel):
         "mail domain.",
         alias="validationSubdomain",
     )
-    display_name: StrictStr = Field(alias="displayName")
-    user_name: StrictStr = Field(alias="userName")
-    __properties: ClassVar[List[str]] = ["displayName", "userName"]
+    __properties: ClassVar[List[str]] = [
+        "displayName",
+        "userName",
+        "brandId",
+        "domain",
+        "validationSubdomain",
+    ]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -98,6 +104,16 @@ class EmailDomain(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate(
-            {"displayName": obj.get("displayName"), "userName": obj.get("userName")}
+            {
+                "displayName": obj.get("displayName"),
+                "userName": obj.get("userName"),
+                "brandId": obj.get("brandId"),
+                "domain": obj.get("domain"),
+                "validationSubdomain": (
+                    obj.get("validationSubdomain")
+                    if obj.get("validationSubdomain") is not None
+                    else "mail"
+                ),
+            }
         )
         return _obj

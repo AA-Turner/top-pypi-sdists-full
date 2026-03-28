@@ -19,13 +19,15 @@ const std::string XMLToolCallingConverter::kXMLObject = "xml_object";
 const std::string XMLToolCallingConverter::kXMLVariableName = "xml_variable_name";
 const std::unordered_map<JSONFormat, XMLToolCallingConverter::XMLWrapper>
     XMLToolCallingConverter::kKeyWrapperMap = {
-        {JSONFormat::kQwenXML, {"<parameter=", ">", "</parameter>"}},
-        {JSONFormat::kMiniMaxXML, {"<parameter name=\\\"", "\\\">", "</parameter>"}},
+        {JSONFormat::kQwenXML, {"<parameter=", ">", "", "</parameter>"}},
+        {JSONFormat::kMiniMaxXML, {"<parameter name=\\\"", "\\\">", "", "</parameter>"}},
         {JSONFormat::kDeepSeekXML,
          {"<｜DSML｜parameter name=\\\"",
           "\\\" string=\\\"\" (\"true\" | \"false\") \"\\\">",
+          "",
           // TODO(Linzhang): we do not validate the string's value, and we accept both.
           "</｜DSML｜parameter>"}},
+        {JSONFormat::kGlmXML, {"<arg_key>", "</arg_key>", "<arg_value>", "</arg_value>"}},
 };
 
 XMLToolCallingConverter::XMLToolCallingConverter(
@@ -60,8 +62,6 @@ void XMLToolCallingConverter::AddBasicRules() {
   ebnf_script_creator_.AddRule(
       kXMLString,
       "TagDispatch("
-      "stop_eos=true,"
-      "stop_str=(),"
       "loop_after_dispatch=false,"
       "excludes=(\"" +
           xml_wrapper_.parameter_suffix +
@@ -108,7 +108,7 @@ std::string XMLToolCallingConverter::GetBasicAnyRuleName() const {
 
 std::string XMLToolCallingConverter::NextSeparator(bool is_end) {
   if (nested_object_level_ <= 1) {
-    return "";
+    return GetWhitespacePattern();
   }
   return JSONSchemaConverter::NextSeparator(is_end);
 }
@@ -218,6 +218,11 @@ std::string XMLToolCallingConverter::FormatProperty(
 ) {
   if (nested_object_level_ <= 1) {
     std::string whitespace = GetWhitespacePattern();
+    if (!xml_wrapper_.value_wrapper_prefix.empty()) {
+      return "\"" + xml_wrapper_.key_wrapper_prefix + key + xml_wrapper_.key_wrapper_suffix +
+             "\" " + whitespace + " \"" + xml_wrapper_.value_wrapper_prefix + "\" " + whitespace +
+             " " + value_rule + " " + whitespace + " \"" + xml_wrapper_.parameter_suffix + "\"";
+    }
     return "\"" + xml_wrapper_.key_wrapper_prefix + key + xml_wrapper_.key_wrapper_suffix + "\" " +
            whitespace + " " + value_rule + " " + whitespace + " \"" +
            xml_wrapper_.parameter_suffix + "\"";
@@ -233,6 +238,12 @@ std::string XMLToolCallingConverter::FormatOtherProperty(
 ) {
   if (nested_object_level_ <= 1) {
     std::string whitespace = GetWhitespacePattern();
+    if (!xml_wrapper_.value_wrapper_prefix.empty()) {
+      return "\"" + xml_wrapper_.key_wrapper_prefix + "\" " + key_pattern + " \"" +
+             xml_wrapper_.key_wrapper_suffix + "\" " + whitespace + " \"" +
+             xml_wrapper_.value_wrapper_prefix + "\" " + whitespace + " " + value_rule + " " +
+             whitespace + " \"" + xml_wrapper_.parameter_suffix + "\"";
+    }
     return "\"" + xml_wrapper_.key_wrapper_prefix + "\" " + key_pattern + " \"" +
            xml_wrapper_.key_wrapper_suffix + "\" " + whitespace + " " + value_rule + " " +
            whitespace + " \"" + xml_wrapper_.parameter_suffix + "\"";

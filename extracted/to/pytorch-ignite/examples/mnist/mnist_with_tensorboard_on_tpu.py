@@ -1,18 +1,18 @@
 """
- MNIST example with training and validation monitoring using Tensorboard on TPU
- Requirements:
-    - PyTorch >= 1.5
-    - PyTorch XLA >= 1.5
-    - Tensorboard: `pip install tensorflow` (or just install tensorboard without the rest of tensorflow)
- Usage:
-    Start tensorboard:
-    ```bash
-    tensorboard --logdir=/tmp/tensorboard_logs/
-    ```
-    Run the example:
-    ```bash
-    python mnist_with_tensorboard_on_tpu.py --log_dir=/tmp/tensorboard_logs
-    ```
+MNIST example with training and validation monitoring using Tensorboard on TPU
+Requirements:
+   - PyTorch >= 1.5
+   - PyTorch XLA >= 1.5
+   - Tensorboard: `pip install tensorflow` (or just install tensorboard without the rest of tensorflow)
+Usage:
+   Start tensorboard:
+   ```bash
+   tensorboard --logdir=/tmp/tensorboard_logs/
+   ```
+   Run the example:
+   ```bash
+   python mnist_with_tensorboard_on_tpu.py --log_dir=/tmp/tensorboard_logs
+   ```
 """
 
 from argparse import ArgumentParser
@@ -40,7 +40,7 @@ except ImportError:
 
 class Net(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
         self.conv2_drop = nn.Dropout2d()

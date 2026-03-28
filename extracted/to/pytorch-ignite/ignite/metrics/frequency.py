@@ -1,4 +1,4 @@
-from typing import Callable, Union
+from collections.abc import Callable
 
 import torch
 
@@ -20,7 +20,7 @@ class Frequency(Metric):
             device to be the same as your ``update`` arguments ensures the ``update`` method is non-blocking. By
             default, CPU.
         skip_unrolling: specifies whether output should be unrolled before being fed to update method. Should be
-            true for multi-output model, for example, if ``y_pred`` contains multi-ouput as ``(y_pred_a, y_pred_b)``
+            true for multi-output model, for example, if ``y_pred`` contains multi-output as ``(y_pred_a, y_pred_b)``
             Alternatively, ``output_transform`` can be used to handle this.
 
     Examples:
@@ -56,10 +56,10 @@ class Frequency(Metric):
     def __init__(
         self,
         output_transform: Callable = lambda x: x,
-        device: Union[str, torch.device] = torch.device("cpu"),
+        device: str | torch.device = torch.device("cpu"),
         skip_unrolling: bool = False,
     ) -> None:
-        super(Frequency, self).__init__(output_transform=output_transform, device=device, skip_unrolling=skip_unrolling)
+        super().__init__(output_transform=output_transform, device=device, skip_unrolling=skip_unrolling)
 
     @reinit__is_reduced
     def reset(self) -> None:
@@ -67,7 +67,7 @@ class Frequency(Metric):
         self._acc = 0
         self._n = 0
         self._elapsed = 0.0
-        super(Frequency, self).reset()  # type: ignore
+        super().reset()  # type: ignore
 
     @reinit__is_reduced
     def update(self, output: int) -> None:

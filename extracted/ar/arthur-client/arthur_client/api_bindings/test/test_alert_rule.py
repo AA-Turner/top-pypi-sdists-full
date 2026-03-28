@@ -65,7 +65,9 @@ class TestAlertRule(unittest.TestCase):
                     arthur_client.api_bindings.models.alert_rule_notification_webhook.AlertRuleNotificationWebhook(
                         id = '', 
                         name = '', )
-                    ]
+                    ],
+                policy_alert_rule_id = '',
+                policy_model_assignment_id = ''
             )
         else:
             return AlertRule(
