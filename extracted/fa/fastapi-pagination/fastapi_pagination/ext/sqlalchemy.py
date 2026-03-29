@@ -73,8 +73,8 @@ try:
     from sqlakeyset import asyncio as apaging
     from sqlakeyset import paging
 except ImportError:  # pragma: no cover
-    paging = None  # type: ignore[assignment]
-    apaging = None  # type: ignore[assignment]
+    paging = None  # type: ignore[ty:invalid-assignment]
+    apaging = None  # type: ignore[ty:invalid-assignment]
 
 
 AsyncConn: TypeAlias = "AsyncSession | AsyncConnection | async_scoped_session[Any]"
@@ -108,7 +108,7 @@ def _prepare_query(query: Select[TupleAny] | None) -> Select[TupleAny] | None:
         return None
 
     with suppress(AttributeError):
-        query = query._statement_20()  # type: ignore[attr-defined]
+        query = query._statement_20()  # type: ignore[ty:unresolved-attribute]
 
     return query
 
@@ -128,7 +128,7 @@ _selectable_classes = (Select, TextClause, FromStatement, CompoundSelect)
 
 
 def _should_unwrap_scalars_for_query(query: Selectable) -> bool:
-    cols_desc = query.column_descriptions  # type: ignore[union-attr]
+    cols_desc = query.column_descriptions  # type: ignore[ty:unresolved-attribute]
     all_cols = [*query._all_selected_columns]
 
     # we have select(a, b, c) no need to unwrap
@@ -210,7 +210,7 @@ def create_count_query(query: Selectable, *, use_subquery: bool = True) -> Selec
     if use_subquery:
         return select(func.count()).select_from(query.subquery())
 
-    return query.with_only_columns(  # type: ignore[union-attr]
+    return query.with_only_columns(  # type: ignore[ty:unresolved-attribute]
         func.count(),
         maintain_column_froms=True,
     )
@@ -246,13 +246,13 @@ def _unwrap_items(
         unwrap_mode = unwrap_mode or "auto"
 
     if unwrap_mode == "legacy":
-        items = unwrap_scalars(items)  # type: ignore[assignment]
+        items = unwrap_scalars(items)  # type: ignore[ty:invalid-assignment]
     elif unwrap_mode == "no-unwrap":
         pass
     elif unwrap_mode == "unwrap":
-        items = unwrap_scalars(items, force_unwrap=True)  # type: ignore[assignment]
+        items = unwrap_scalars(items, force_unwrap=True)  # type: ignore[ty:invalid-assignment]
     elif unwrap_mode == "auto" and _should_unwrap_scalars(query):
-        items = unwrap_scalars(items, force_unwrap=True)  # type: ignore[assignment]
+        items = unwrap_scalars(items, force_unwrap=True)  # type: ignore[ty:invalid-assignment]
 
     return items
 
@@ -280,7 +280,13 @@ def _limit_offset_flow(query: Selectable, conn: AnyConn, raw_params: RawParams) 
 
 
 @flow
-def _cursor_flow(query: Selectable, conn: AnyConn, is_async: bool, raw_params: CursorRawParams) -> CursorFlow:
+def _cursor_flow(
+    query: Selectable,
+    conn: AnyConn,
+    unique: bool,
+    is_async: bool,
+    raw_params: CursorRawParams,
+) -> CursorFlow:
     query = _prepare_query_for_cursor(query)
 
     if isinstance(query, TextClause):
@@ -295,10 +301,11 @@ def _cursor_flow(query: Selectable, conn: AnyConn, is_async: bool, raw_params: C
     _select_page = apaging.select_page if is_async else paging.select_page
 
     page = yield _select_page(
-        conn,  # type: ignore[arg-type]
-        selectable=query,  # type: ignore[arg-type]
+        conn,  # type: ignore[ty:invalid-argument-type]
+        selectable=query,  # type: ignore[ty:invalid-argument-type]
+        unique=unique,
         per_page=raw_params.size,
-        page=raw_params.cursor,  # type: ignore[arg-type]
+        page=raw_params.cursor,  # type: ignore[ty:invalid-argument-type]
     )
     items = [*page]
 
@@ -335,7 +342,7 @@ def _sqlalchemy_flow(
         async_=is_async,
         total_flow=partial(_total_flow, query, conn, count_query, subquery_count),
         limit_offset_flow=partial(_limit_offset_flow, query, conn),
-        cursor_flow=partial(_cursor_flow, query, conn, is_async),
+        cursor_flow=partial(_cursor_flow, query, conn, unique, is_async),
         params=params,
         inner_transformer=partial(_inner_transformer, query=query, unwrap_mode=unwrap_mode, unique=unique),
         transformer=transformer,
@@ -502,7 +509,7 @@ def _old_paginate_sign(
         raise ValueError("query.session is None")
 
     session = query.session
-    query = _prepare_query(query)  # type: ignore[call-overload]
+    query = _prepare_query(query)  # type: ignore[ty:no-matching-overload]
 
     return query, None, session, params, transformer, additional_data, unique, subquery_count, unwrap_mode, config
 
@@ -532,7 +539,7 @@ def _new_paginate_sign(
     Config | None,
 ]:
     query = _prepare_query(query)
-    count_query = _prepare_query(count_query)  # type: ignore[arg-type]
+    count_query = _prepare_query(count_query)  # type: ignore[ty:no-matching-overload]
 
     return query, count_query, conn, params, transformer, additional_data, unique, subquery_count, unwrap_mode, config
 
@@ -550,8 +557,8 @@ async def apaginate(
     unique: bool = True,
     config: Config | None = None,
 ) -> Any:
-    query = _prepare_query(query)  # type: ignore[arg-type]
-    count_query = _prepare_query(count_query)  # type: ignore[arg-type]
+    query = _prepare_query(query)  # type: ignore[ty:no-matching-overload]
+    count_query = _prepare_query(count_query)  # type: ignore[ty:no-matching-overload]
 
     return await run_async_flow(
         _sqlalchemy_flow(

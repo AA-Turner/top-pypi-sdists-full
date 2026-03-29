@@ -1,11 +1,9 @@
 """
 flask_httpauth
-==================
+===============
 
-This module provides Basic and Digest HTTP authentication for Flask routes.
-
-:copyright: (C) 2014 by Miguel Grinberg.
-:license:   MIT, see LICENSE for more details.
+This module provides Basic, Digest and Token HTTP authentication for Flask
+routes.
 """
 import hmac
 from base64 import b64decode
@@ -16,7 +14,8 @@ from flask import request, make_response, session, g, Response, current_app
 from werkzeug.datastructures import Authorization
 
 
-class HTTPAuth(object):
+class HTTPAuth:
+    """Base authentication class."""
     def __init__(self, scheme=None, realm=None, header=None):
         self.scheme = scheme
         self.realm = realm or "Authentication Required"
@@ -47,14 +46,48 @@ class HTTPAuth(object):
             return self.header in headers
 
     def get_password(self, f):
+        """*Deprecated* Decorator for a function that will be called by the
+        framework to obtain the password for a given user. Example::
+
+            @auth.get_password
+            def get_password(username):
+                return db.get_user_password(username)
+        """
         self.get_password_callback = f
         return f
 
     def get_user_roles(self, f):
+        """Decorator for a function that will be called by the framework
+        to obtain the roles assigned to a given user. The callback function
+        takes a single argument, the user for which roles are requested. The
+        user object passed to this function will be the one returned by the
+        "verify" callback. If the verify callback returned ``True`` instead of
+        a user object, then the ``Authorization`` object provided by Flask will
+        be passed to this function. The function should return the role or list
+        of roles that belong to the user. Example::
+
+            @auth.get_user_roles
+            def get_user_roles(user):
+                return user.get_roles()
+        """
         self.get_user_roles_callback = f
         return f
 
     def error_handler(self, f):
+        """Decorator for a function that will be called by the framework
+        when it is necessary to send an authentication error back to the
+        client. The function can take one argument, the status code of the
+        error, which can be 401 (incorrect credentials) or 403 (correct, but
+        insufficient credentials). To preserve compatiiblity with older
+        releases of this package, the function can also be defined without
+        arguments. The return value from this function must by any accepted
+        response type in Flask routes. If this callback isn't provided a
+        default error response is generated. Example::
+
+            @auth.error_handler
+            def auth_error(status):
+                return "Access Denied", status
+        """
         @wraps(f)
         def decorated(*args, **kwargs):
             res = self.ensure_sync(f)(*args, **kwargs)
@@ -70,7 +103,7 @@ class HTTPAuth(object):
         return decorated
 
     def authenticate_header(self):
-        return '{0} realm="{1}"'.format(self.scheme, self.realm)
+        return f'{self.scheme} realm="{self.realm}"'
 
     def get_auth(self):
         auth = None
@@ -139,6 +172,34 @@ class HTTPAuth(object):
                 return True
 
     def login_required(self, f=None, role=None, optional=None):
+        """Decorator for a function that will be called when authentication is
+        successful. This will typically be a Flask view function. Example::
+
+            @app.route('/private')
+            @auth.login_required
+            def private_page():
+                return "Only for authorized people!"
+
+        An optional ``role`` argument can be given to further restrict access
+        by roles. Example::
+
+            @app.route('/private')
+            @auth.login_required(role='admin')
+            def private_page():
+                return "Only for admins!"
+
+        An optional ``optional`` argument can be set to ``True`` to allow the
+        route to execute also when authentication is not included with the
+        request, in which case ``auth.current_user()`` will be set to ``None``.
+        Example::
+
+            @app.route('/private')
+            @auth.login_required(optional=True)
+            def private_page():
+                user = auth.current_user()
+                return "Hello {}!".format(
+                    user.name if user is not None else 'anonymous')
+        """
         if f is not None and \
                 (role is not None or optional is not None):  # pragma: no cover
             raise ValueError(
@@ -179,12 +240,30 @@ class HTTPAuth(object):
         return login_required_internal
 
     def username(self):
+        """*Deprecated* A view function that is protected with this class can
+        access the logged username through this method. Example::
+
+            @app.route('/')
+            @auth.login_required
+            def index():
+                return "Hello, {}!".format(auth.username())
+        """
         auth = self.get_auth()
         if not auth:
             return ""
         return auth.username
 
     def current_user(self):
+        """The user object returned by the ``verify_password`` callback on
+        successful authentication. If no user is returned by the callback, this
+        is set to the username passed by the client. Example::
+
+            @app.route('/')
+            @auth.login_required
+            def index():
+                user = auth.current_user()
+                return "Hello, {}!".format(user.name)
+        """
         if hasattr(g, 'flask_httpauth_user'):
             return g.flask_httpauth_user
 
@@ -196,17 +275,73 @@ class HTTPAuth(object):
 
 
 class HTTPBasicAuth(HTTPAuth):
+    """Create a basic authentication object.
+
+    If the optional ``scheme`` argument is provided, it will be used instead of
+    the standard "Basic" scheme in the ``WWW-Authenticate`` response. A fairly
+    common practice is to use a custom scheme to prevent browsers from
+    prompting the user to login.
+
+    The ``realm`` argument can be used to provide an application defined realm
+    with the ``WWW-Authenticate`` header.
+    """
     def __init__(self, scheme=None, realm=None):
-        super(HTTPBasicAuth, self).__init__(scheme or 'Basic', realm)
+        super().__init__(scheme or 'Basic', realm)
 
         self.hash_password_callback = None
         self.verify_password_callback = None
 
     def hash_password(self, f):
+        """*Deprecated* Decorator for a function that will be called by
+        the framework to apply a custom hashing algorithm to the password
+        provided by the client. If this callback isn't provided the password
+        will be checked unchanged. The callback can take one or two arguments.
+        The one argument version receives the password to hash, while the two
+        argument version receives the username and the password in that order.
+        Example single argument callback::
+
+            @auth.hash_password
+            def hash_password(password):
+                return md5(password).hexdigest()
+
+        Example two argument callback::
+
+            @auth.hash_password
+            def hash_pw(username, password):
+                salt = get_salt(username)
+                return hash(password, salt)
+        """
         self.hash_password_callback = f
         return f
 
     def verify_password(self, f):
+        """Decorator for a function that will be called by the framework
+        to verify that the username and password combination provided by the
+        client are valid. The callback function takes two arguments, the
+        username and the password. It must return the user object if
+        credentials are valid, or ``True`` if a user object is not available.
+        In case of failed authentication, it should return ``None`` or
+        ``False``. Example usage::
+
+            @auth.verify_password
+            def verify_password(username, password):
+                user = User.query.filter_by(username).first()
+                if user and passlib.hash.sha256_crypt.verify(
+                        password, user.password_hash):
+                    return user
+
+        If this callback is defined, it is also invoked when the request does
+        not have the ``Authorization`` header with user credentials, and in
+        this case both the ``username`` and ``password`` arguments are set to
+        empty strings. The application can opt to return ``True`` in this case
+        and that will allow anonymous users access to the route. The callback
+        function can indicate that the user is anonymous by writing a state
+        variable to ``flask.g`` or by checking if ``auth.current_user()`` is
+        ``None``.
+
+        Note that when a ``verify_password`` callback is provided the
+        ``get_password`` and ``hash_password`` callbacks are not used.
+        """
         self.verify_password_callback = f
         return f
 
@@ -259,9 +394,35 @@ class HTTPBasicAuth(HTTPAuth):
 
 
 class HTTPDigestAuth(HTTPAuth):
+    """Create a digest authentication object.
+
+    If the optional ``scheme`` argument is provided, it will be used instead of
+    the "Digest" scheme in the ``WWW-Authenticate`` response. A fairly common
+    practice is to use a custom scheme to prevent browsers from prompting the
+    user to login.
+
+    The ``realm`` argument can be used to provide an application defined realm
+    with the ``WWW-Authenticate`` header.
+
+    If ``use_ha1_pw`` is False, then the ``get_password`` callback needs to
+    return the plain text password for the given user. If ``use_ha1_pw`` is
+    True, the ``get_password`` callback needs to return the HA1 value for the
+    given user. The advantage of setting ``use_ha1_pw`` to ``True`` is that it
+    allows the application to store the HA1 hash of the password in the user
+    database.
+
+    The ``qop`` option configures a list of accepted quality of protection
+    extensions. This argument can be given as a comma-separated string, a list
+    of strings, or ``None`` to disable. The default is ``auth``. The
+    ``auth-int`` option is currently not implemented.
+
+    The ``algorithm`` option configures the hash generation algorithm to use.
+    The default is ``MD5``. The two algorithms that are implemented are ``MD5``
+    and ``MD5-Sess``.
+    """
     def __init__(self, scheme=None, realm=None, use_ha1_pw=False, qop='auth',
                  algorithm='MD5'):
-        super(HTTPDigestAuth, self).__init__(scheme or 'Digest', realm)
+        super().__init__(scheme or 'Digest', realm)
         self.use_ha1_pw = use_ha1_pw
         if isinstance(qop, str):
             self.qop = [v.strip() for v in qop.split(',')]
@@ -313,18 +474,46 @@ class HTTPDigestAuth(HTTPAuth):
         self.verify_opaque(default_verify_opaque)
 
     def generate_nonce(self, f):
+        """If defined, this callback function will be called by the framework
+        to generate a nonce.  If this is defined, ``verify_nonce`` should also
+        be defined.
+
+        This can be used to use a state storage mechanism other than the
+        session.
+        """
         self.generate_nonce_callback = f
         return f
 
     def verify_nonce(self, f):
+        """Decorator for a function that will be called by the framework
+        to verify that a nonce is valid.  It will be called with a single
+        argument: the nonce to be verified.
+
+        This can be used to use a state storage mechanism other than the
+        session.
+        """
         self.verify_nonce_callback = f
         return f
 
     def generate_opaque(self, f):
+        """Decorator for a function that will be called by the framework
+        to generate an opaque value.  If this is defined, ``verify_opaque``
+        should also be defined.
+
+        This can be used to use a state storage mechanism other than the
+        session.
+        """
         self.generate_opaque_callback = f
         return f
 
     def verify_opaque(self, f):
+        """Decorator for a function that will be called by the framework
+        to verify that an opaque value is valid.  It will be called with a
+        single argument: the opaque value to be verified.
+
+        This can be used to use a state storage mechanism other than the
+        session.
+        """
         self.verify_opaque_callback = f
         return f
 
@@ -335,6 +524,9 @@ class HTTPDigestAuth(HTTPAuth):
         return self.generate_opaque_callback()
 
     def generate_ha1(self, username, password):
+        """Generate the HA1 hash that can be stored in the user database when
+        ``use_ha1_pw`` is set to True in the constructor.
+        """
         a1 = username + ":" + self.realm + ":" + password
         a1 = a1.encode('utf-8')
         return md5(a1).hexdigest()
@@ -343,14 +535,17 @@ class HTTPDigestAuth(HTTPAuth):
         nonce = self.get_nonce()
         opaque = self.get_opaque()
         if self.qop:
-            return ('{0} realm="{1}",nonce="{2}",opaque="{3}",algorithm="{4}"'
-                    ',qop="{5}"').format(
-                self.scheme, self.realm, nonce,
-                opaque, self.algorithm, ','.join(self.qop))
+            qop_str = ','.join(self.qop)
+            return (
+                f'{self.scheme} realm="{self.realm}",nonce="{nonce}",'
+                f'opaque="{opaque}",algorithm="{self.algorithm}"'
+                f',qop="{qop_str}"'
+            )
         else:
-            return '{0} realm="{1}",nonce="{2}",opaque="{3}"'.format(
-                self.scheme, self.realm, nonce,
-                opaque)
+            return (
+                f'{self.scheme} realm="{self.realm}",nonce="{nonce}",'
+                f'opaque="{opaque}"'
+            )
 
     def authenticate(self, auth, stored_password_or_ha1):
         if not auth or not auth.username or not auth.realm or not auth.uri \
@@ -384,26 +579,68 @@ class HTTPDigestAuth(HTTPAuth):
 
 class HTTPTokenAuth(HTTPAuth):
     def __init__(self, scheme='Bearer', realm=None, header=None):
-        super(HTTPTokenAuth, self).__init__(scheme, realm, header)
+        """Create a token authentication object.
+
+        The ``scheme`` argument can be use to specify the scheme to be used in
+        the ``WWW-Authenticate`` response. The ``Authorization`` header sent by
+        the client must include this scheme followed by the token. Example::
+
+            Authorization: Bearer this-is-my-token
+
+        The ``realm`` argument can be used to provide an application defined
+        realm with the ``WWW-Authenticate`` header.
+
+        The ``header`` argument can be used to specify a custom header instead
+        of ``Authorization`` from where to obtain the token. If a custom header
+        is used, the ``scheme`` should not be included. Example::
+
+            X-API-Key: this-is-my-token
+        """
+        super().__init__(scheme, realm, header)
 
         self.verify_token_callback = None
 
     def verify_token(self, f):
+        """Decorator for a function that will be called by the framework to
+        verify that the credentials sent by the client with the
+        ``Authorization`` header are valid. The callback function takes one
+        argument, the token provided by the client. The function must return
+        the user object if the token is valid, or ``True`` if a user object is
+        not available. In case of a failed authentication, the function should
+        return ``None`` or ``False``. Example usage::
+
+            @auth.verify_token
+            def verify_token(token):
+                return User.query.filter_by(token=token).first()
+
+        Note that a ``verify_token`` callback is required when using this
+        class.
+        """
         self.verify_token_callback = f
         return f
 
     def authenticate(self, auth, stored_password):
-        token = getattr(auth, 'token', '')
-        if self.verify_token_callback:
+        token = getattr(auth, 'token', None)
+        if token and self.verify_token_callback:
             return self.ensure_sync(self.verify_token_callback)(token)
 
 
-class MultiAuth(object):
-    def __init__(self, main_auth, *args):
+class MultiAuth:
+    """Create a multiple authentication object.
+
+    The arguments are one or more instances of ``HTTPBasicAuth``,
+    ``HTTPDigestAuth`` or ``HTTPTokenAuth``. A route protected with this
+    authentication method will try all the given authentication objects until
+    one succeeds.
+    """
+    def __init__(self, main_auth, *additional_auths):
         self.main_auth = main_auth
-        self.additional_auth = args
+        self.additional_auths = additional_auths
 
     def login_required(self, f=None, role=None, optional=None):
+        """Decorator for a function that will be called when authentication is
+        successful. This will typically be a Flask view function.
+        """
         if f is not None and \
                 (role is not None or optional is not None):  # pragma: no cover
             raise ValueError(
@@ -414,7 +651,7 @@ class MultiAuth(object):
             def decorated(*args, **kwargs):
                 selected_auth = self.main_auth
                 if not self.main_auth.is_compatible_auth(request.headers):
-                    for auth in self.additional_auth:
+                    for auth in self.additional_auths:
                         if auth.is_compatible_auth(request.headers):
                             selected_auth = auth
                             break
@@ -427,5 +664,6 @@ class MultiAuth(object):
         return login_required_internal
 
     def current_user(self):
+        """The authenticated user."""
         if hasattr(g, 'flask_httpauth_user'):  # pragma: no cover
             return g.flask_httpauth_user

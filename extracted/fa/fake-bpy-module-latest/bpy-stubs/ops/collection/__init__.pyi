@@ -9,7 +9,7 @@ def create(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create an object collection from selected objects
 
@@ -32,7 +32,7 @@ def exporter_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add exporter to the exporter list
 
@@ -84,7 +84,7 @@ def importer_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add Importer
 

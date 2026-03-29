@@ -2,6 +2,7 @@
 Copyright 2019-2022 DataRobot, Inc. and its affiliates.
 All rights reserved.
 """
+
 import logging
 import os
 import posixpath
@@ -10,6 +11,15 @@ from mkdocs import utils
 from mkdocs.config import config_options
 from mkdocs.plugins import BasePlugin
 from mkdocs.structure.files import File
+
+try:
+    import properdocs.replacement_warning
+
+    # Warn when this plugin is being used from the mkdocs executable.
+    properdocs.replacement_warning.setup()
+except ImportError:
+    pass
+
 
 log = logging.getLogger("mkdocs.plugin.redirects")
 

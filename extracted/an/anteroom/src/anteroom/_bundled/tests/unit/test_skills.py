@@ -9,12 +9,12 @@ import pytest
 import yaml
 
 from anteroom.cli.skills import (
-    _BUILTIN_COMMANDS,
     MAX_PROMPT_SIZE,
     MAX_SKILLS,
     Skill,
     SkillRegistry,
     _expand_args,
+    _get_builtin_commands,
     _load_skills_from_dir,
     _validate_skill_name,
     _yaml_error_hint,
@@ -530,10 +530,10 @@ class TestBuiltinCommandBlocklist:
             assert warning is None
 
     def test_builtin_set_is_nonempty(self) -> None:
-        assert len(_BUILTIN_COMMANDS) > 20
+        assert len(_get_builtin_commands()) > 20
 
     def test_clear_in_builtin_commands(self) -> None:
-        assert "clear" in _BUILTIN_COMMANDS
+        assert "clear" in _get_builtin_commands()
 
 
 class TestExpandArgsCodeFences:

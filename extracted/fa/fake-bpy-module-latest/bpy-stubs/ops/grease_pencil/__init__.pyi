@@ -558,7 +558,7 @@ def layer_add(
     undo: bool | None = None,
     /,
     *,
-    new_layer_name: str | None = "Layer",
+    new_layer_name: str = "Layer",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new Grease Pencil layer in the active object
 
@@ -599,7 +599,7 @@ def layer_group_add(
     undo: bool | None = None,
     /,
     *,
-    new_layer_group_name: str | None = "",
+    new_layer_group_name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new Grease Pencil layer group in the active object
 
@@ -688,7 +688,7 @@ def layer_mask_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new layer as masking
 
@@ -881,8 +881,8 @@ def move_to_layer(
     undo: bool | None = None,
     /,
     *,
-    target_layer_name: str | None = "",
-    target_group_name: str | None = "",
+    target_layer_name: str = "",
+    target_group_name: str = "",
     add_new_layer: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected strokes to another layer
@@ -1594,7 +1594,7 @@ def stroke_material_set(
     undo: bool | None = None,
     /,
     *,
-    material: str | None = "",
+    material: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Assign the active material slot to the selected strokes
 

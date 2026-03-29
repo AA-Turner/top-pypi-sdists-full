@@ -152,25 +152,45 @@ class DeviceCommandQueue:
                 if item.skip_if_saga_active and self.is_saga_active and item.priority > Priority.EXCLUSIVE:
                     continue
 
-                self._current_work_task = asyncio.get_running_loop().create_task(
-                    item.work()  # type: ignore[arg-type]
-                )
-                try:
-                    await self._current_work_task
-                finally:
-                    self._current_work_task = None
+                from pymammotion.aliyun.exceptions import GatewayTimeoutException
+
+                _GATEWAY_TIMEOUT_MAX = 3
+                for _attempt in range(1, _GATEWAY_TIMEOUT_MAX + 1):
+                    self._current_work_task = asyncio.get_running_loop().create_task(
+                        item.work()  # type: ignore[arg-type]
+                    )
+                    try:
+                        await self._current_work_task
+                        break  # success — exit retry loop
+                    except GatewayTimeoutException:
+                        if _attempt < _GATEWAY_TIMEOUT_MAX:
+                            _logger.warning(
+                                "DeviceCommandQueue: gateway timeout (attempt %d/%d) — retrying",
+                                _attempt,
+                                _GATEWAY_TIMEOUT_MAX,
+                            )
+                        else:
+                            _logger.warning(
+                                "DeviceCommandQueue: gateway timeout after %d attempts — dropping command",
+                                _attempt,
+                            )
+                    finally:
+                        self._current_work_task = None
             except asyncio.CancelledError:
                 break
             except Exception as exc:
-                _logger.exception("DeviceCommandQueue: unhandled error in work item")
-                if self.on_critical_error is not None:
-                    from pymammotion.transport.base import AuthError, SagaFailedError
+                from pymammotion.aliyun.exceptions import DeviceOfflineException
+                from pymammotion.transport.base import AuthError, NoTransportAvailableError, SagaFailedError
 
-                    if isinstance(exc, (AuthError, SagaFailedError)):
-                        try:
-                            await self.on_critical_error(exc)
-                        except Exception:
-                            _logger.exception("on_critical_error callback failed")
+                if isinstance(exc, (AuthError, SagaFailedError, DeviceOfflineException, NoTransportAvailableError)):
+                    _logger.warning("DeviceCommandQueue: %s", exc)
+                else:
+                    _logger.exception("DeviceCommandQueue: unhandled error in work item")
+                if self.on_critical_error is not None and isinstance(exc, (AuthError, SagaFailedError)):
+                    try:
+                        await self.on_critical_error(exc)
+                    except Exception:
+                        _logger.exception("on_critical_error callback failed")
             finally:
                 with contextlib.suppress(ValueError):
                     self._queue.task_done()

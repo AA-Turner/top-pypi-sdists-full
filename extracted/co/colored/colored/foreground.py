@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import NoReturn
+
 from .exceptions import InvalidColor
 from .library import Library
 from .utilities import Utilities
@@ -10,7 +12,7 @@ from .utilities import Utilities
 
 class MetaFore(type):
     """Metaclass to customize attribute access."""
-    def __getattr__(cls, color: str) -> None:
+    def __getattr__(cls, color: str) -> NoReturn:
         """Override __getattr__ to raise InvalidColor when an invalid color is accessed."""
         raise InvalidColor(f"InvalidColor: {color}")
 

@@ -110,16 +110,14 @@ class TestMissionUnknown:
 
 class TestMissionDiscoverability:
     def test_mission_in_command_descriptions(self) -> None:
-        """Ensure /mission appears in tab-completion command descriptions."""
-        import anteroom.cli.repl as repl_mod
+        """Ensure /mission appears in command descriptions."""
+        from anteroom.cli.commands import COMMAND_DESCRIPTIONS
 
-        source = open(repl_mod.__file__).read()  # noqa: SIM115
-        assert '"mission": "manage missions"' in source
-        assert '"missions": "list missions"' in source
+        assert COMMAND_DESCRIPTIONS.get("mission") == "manage missions"
+        assert COMMAND_DESCRIPTIONS.get("missions") == "list missions"
 
     def test_mission_in_subcommand_completions(self) -> None:
         """Ensure /mission subcommands appear in tab-completion."""
-        import anteroom.cli.repl as repl_mod
+        from anteroom.cli.commands import SUBCOMMAND_COMPLETIONS
 
-        source = open(repl_mod.__file__).read()  # noqa: SIM115
-        assert '"mission": ["list", "status", "talk"]' in source
+        assert SUBCOMMAND_COMPLETIONS.get("mission") == ["list", "status", "talk"]

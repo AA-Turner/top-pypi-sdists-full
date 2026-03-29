@@ -295,7 +295,7 @@ def export_layout(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     export_all: bool | None = False,
     export_tiles: typing.Literal["NONE", "UDIM", "UV"] | None = "NONE",
     modified: bool | None = False,
@@ -1272,7 +1272,7 @@ def unwrap(
     no_flip: bool | None = False,
     iterations: int | None = 10,
     use_weights: bool | None = False,
-    weight_group: str | None = "uv_importance",
+    weight_group: str = "uv_importance",
     weight_factor: float | None = 1.0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unwrap the mesh of the object being edited

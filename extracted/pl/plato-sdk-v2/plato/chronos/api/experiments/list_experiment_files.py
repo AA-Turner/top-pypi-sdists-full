@@ -14,6 +14,7 @@ def _build_request_args(
     created_by: str | None = None,
     tags: list[str] | None = None,
     tags_mode: str | None = "or",
+    folder: str | None = None,
     exclude_hillclimb: bool | None = False,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
@@ -27,6 +28,8 @@ def _build_request_args(
         params["tags"] = tags
     if tags_mode is not None:
         params["tags_mode"] = tags_mode
+    if folder is not None:
+        params["folder"] = folder
     if exclude_hillclimb is not None:
         params["exclude_hillclimb"] = exclude_hillclimb
 
@@ -47,6 +50,7 @@ def sync(
     created_by: str | None = None,
     tags: list[str] | None = None,
     tags_mode: str | None = "or",
+    folder: str | None = None,
     exclude_hillclimb: bool | None = False,
     x_api_key: str | None = None,
 ) -> ExperimentFileListResponse:
@@ -56,6 +60,7 @@ def sync(
         created_by=created_by,
         tags=tags,
         tags_mode=tags_mode,
+        folder=folder,
         exclude_hillclimb=exclude_hillclimb,
         x_api_key=x_api_key,
     )
@@ -70,6 +75,7 @@ async def asyncio(
     created_by: str | None = None,
     tags: list[str] | None = None,
     tags_mode: str | None = "or",
+    folder: str | None = None,
     exclude_hillclimb: bool | None = False,
     x_api_key: str | None = None,
 ) -> ExperimentFileListResponse:
@@ -79,6 +85,7 @@ async def asyncio(
         created_by=created_by,
         tags=tags,
         tags_mode=tags_mode,
+        folder=folder,
         exclude_hillclimb=exclude_hillclimb,
         x_api_key=x_api_key,
     )

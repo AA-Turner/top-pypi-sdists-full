@@ -5,6 +5,7 @@ import sys
 from typing import TypedDict
 from urllib.parse import urlparse
 
+import git
 import requests
 import semver
 import typer
@@ -32,6 +33,14 @@ def get_os_details():
     return os_name, os_version
 
 
+def _pip_install_torch(python: str, index_args: list[str]) -> subprocess.CompletedProcess:
+    """Install torch, torchvision, and torchaudio with the given index arguments."""
+    return subprocess.run(
+        [python, "-m", "pip", "install", "torch", "torchvision", "torchaudio"] + index_args,
+        check=False,
+    )
+
+
 def pip_install_comfyui_dependencies(
     repo_dir,
     gpu: GPU_OPTION,
@@ -48,80 +57,23 @@ def pip_install_comfyui_dependencies(
     if not skip_torch_or_directml:
         # install torch for AMD Linux
         if gpu == GPU_OPTION.AMD and plat == constants.OS.LINUX:
-            pip_url = ["--index-url", f"https://download.pytorch.org/whl/rocm{rocm_version.value}"]
-            result = subprocess.run(
-                [
-                    python,
-                    "-m",
-                    "pip",
-                    "install",
-                    "torch",
-                    "torchvision",
-                    "torchaudio",
-                ]
-                + pip_url,
-                check=False,
+            result = _pip_install_torch(
+                python, ["--index-url", f"https://download.pytorch.org/whl/rocm{rocm_version.value}"]
             )
 
         # install torch for NVIDIA
         if gpu == GPU_OPTION.NVIDIA:
             cuda_tag = f"cu{cuda_version.value.replace('.', '')}"
-            pip_url = ["--index-url", f"https://download.pytorch.org/whl/{cuda_tag}"]
-            result = subprocess.run(
-                [
-                    python,
-                    "-m",
-                    "pip",
-                    "install",
-                    "torch",
-                    "torchvision",
-                    "torchaudio",
-                ]
-                + pip_url,
-                check=False,
-            )
-        # Update installation to use upstream torch xpu. ipex is no longer needed for Intel Arc GPUs
+            result = _pip_install_torch(python, ["--index-url", f"https://download.pytorch.org/whl/{cuda_tag}"])
+
+        # install torch for Intel Arc GPUs (upstream torch xpu)
         # https://github.com/comfyanonymous/ComfyUI/pull/7767
         if gpu == GPU_OPTION.INTEL_ARC:
-            pip_url = [
-                "--extra-index-url",
-                "https://download.pytorch.org/whl/xpu",
-            ]
-
-            # TODO: wrap pip install in a function
-            result = subprocess.run(
-                [
-                    python,
-                    "-m",
-                    "pip",
-                    "install",
-                    "torch",
-                    "torchvision",
-                    "torchaudio",
-                ]
-                + pip_url,
-                check=False,
-            )
+            result = _pip_install_torch(python, ["--extra-index-url", "https://download.pytorch.org/whl/xpu"])
 
         # install torch for CPU
-        if gpu is None:  # Currently, when install for CPU, gpu is None
-            pip_url = [
-                "--extra-index-url",
-                "https://download.pytorch.org/whl/cpu",
-            ]
-            result = subprocess.run(
-                [
-                    python,
-                    "-m",
-                    "pip",
-                    "install",
-                    "torch",
-                    "torchvision",
-                    "torchaudio",
-                ]
-                + pip_url,
-                check=False,
-            )
+        if gpu is None:
+            result = _pip_install_torch(python, ["--extra-index-url", "https://download.pytorch.org/whl/cpu"])
 
         if result and result.returncode != 0:
             rprint("Failed to install PyTorch dependencies. Please check your environment (`comfy env`) and try again")
@@ -129,11 +81,11 @@ def pip_install_comfyui_dependencies(
 
         # install directml for AMD windows
         if gpu == GPU_OPTION.AMD and plat == constants.OS.WINDOWS:
-            result = subprocess.run([python, "-m", "pip", "install", "torch-directml"], check=True)
+            subprocess.run([python, "-m", "pip", "install", "torch-directml"], check=True)
 
         # install torch for Mac M Series
         if gpu == GPU_OPTION.MAC_M_SERIES:
-            result = subprocess.run(
+            subprocess.run(
                 [
                     python,
                     "-m",
@@ -158,21 +110,42 @@ def pip_install_comfyui_dependencies(
         sys.exit(1)
 
 
-# install requirements for manager
-def pip_install_manager_dependencies(repo_dir, python=sys.executable):
-    os.chdir(os.path.join(repo_dir, "custom_nodes", "ComfyUI-Manager"))
-    subprocess.run([python, "-m", "pip", "install", "-r", "requirements.txt"], check=True)
+def pip_install_manager(repo_dir, python=sys.executable):
+    """Install ComfyUI-Manager via manager_requirements.txt."""
+    from comfy_cli.command.custom_nodes.cm_cli_util import find_cm_cli
+
+    manager_req_path = os.path.join(repo_dir, constants.MANAGER_REQUIREMENTS_FILE)
+    if not os.path.exists(manager_req_path):
+        rprint(
+            f"[bold yellow]Warning: {constants.MANAGER_REQUIREMENTS_FILE} not found. "
+            "Skipping manager installation (older ComfyUI version?).[/bold yellow]"
+        )
+        return False
+    result = subprocess.run(
+        [python, "-m", "pip", "install", "-r", constants.MANAGER_REQUIREMENTS_FILE],
+        cwd=repo_dir,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        rprint("[bold red]Failed to install ComfyUI-Manager.[/bold red]")
+        if result.stderr:
+            rprint(f"[dim]{result.stderr.strip()}[/dim]")
+        return False
+
+    # Clear cache so find_cm_cli() picks up the newly installed module
+    find_cm_cli.cache_clear()
+    return True
 
 
 def execute(
     url: str,
-    manager_url: str,
     comfy_path: str,
     restore: bool,
     skip_manager: bool,
     version: str,
     commit: str | None = None,
-    manager_commit: str | None = None,
     gpu: constants.GPU_OPTION = None,
     cuda_version: constants.CUDAVersion = constants.CUDAVersion.v12_6,
     rocm_version: constants.ROCmVersion = constants.ROCmVersion.v6_3,
@@ -218,9 +191,22 @@ def execute(
             sys.exit(1)
 
     elif not check_comfy_repo(repo_dir)[0]:
-        rprint(
-            f"[bold red]'{repo_dir}' already exists. But it is an invalid ComfyUI repository. Remove it and retry.[/bold red]"
-        )
+        # Get actual remote URL for better error message
+        try:
+            repo = git.Repo(repo_dir)
+            remote_urls = [r.url for r in repo.remotes]
+            rprint(
+                f"[bold red]'{repo_dir}' exists but its remote URL is not a recognized ComfyUI repository.[/bold red]"
+            )
+            if remote_urls:
+                rprint(f"[yellow]Found remotes: {', '.join(remote_urls)}[/yellow]")
+            rprint("[yellow]Recognized sources: Comfy-Org, comfyanonymous, drip-art, ltdrdata[/yellow]")
+        except git.InvalidGitRepositoryError:
+            rprint(f"[bold red]'{repo_dir}' exists but is not a valid git repository.[/bold red]")
+        except Exception:
+            rprint(
+                f"[bold red]'{repo_dir}' already exists. But it is an invalid ComfyUI repository. Remove it and retry.[/bold red]"
+            )
         sys.exit(-1)
 
     # checkout specified commit
@@ -251,36 +237,25 @@ def execute(
     # install ComfyUI-Manager
     if skip_manager:
         rprint("Skipping installation of ComfyUI-Manager. (by --skip-manager)")
+        # Save to config so launch doesn't inject --enable-manager
+        from comfy_cli.config_manager import ConfigManager
+
+        ConfigManager().set(constants.CONFIG_KEY_MANAGER_GUI_MODE, "disable")
     else:
-        manager_repo_dir = os.path.join(repo_dir, "custom_nodes", "ComfyUI-Manager")
+        rprint("\nInstalling ComfyUI-Manager..")
+        if not fast_deps:
+            if not pip_install_manager(repo_dir, python=python):
+                # Manager installation failed - disable to prevent launch issues
+                from comfy_cli.config_manager import ConfigManager
 
-        if os.path.exists(manager_repo_dir):
-            if restore and not fast_deps:
-                pip_install_manager_dependencies(repo_dir, python=python)
-            else:
-                rprint(
-                    f"Directory {manager_repo_dir} already exists. Skipping installation of ComfyUI-Manager.\nIf you want to restore dependencies, add the '--restore' option."
-                )
-        else:
-            rprint("\nInstalling ComfyUI-Manager..")
-
-            if "@" in manager_url:
-                # clone specific branch
-                manager_url, manager_branch = manager_url.rsplit("@", 1)
-                subprocess.run(
-                    ["git", "clone", "-b", manager_branch, manager_url, manager_repo_dir],
-                    check=True,
-                )
-            else:
-                subprocess.run(["git", "clone", manager_url, manager_repo_dir], check=True)
-                if manager_commit is not None:
-                    subprocess.run(["git", "checkout", manager_commit], check=True, cwd=manager_repo_dir)
-
-            if not fast_deps:
-                pip_install_manager_dependencies(repo_dir, python=python)
+                ConfigManager().set(constants.CONFIG_KEY_MANAGER_GUI_MODE, "disable")
+                rprint("[yellow]Manager not installed. Launch will run without manager flags.[/yellow]")
 
     if fast_deps:
-        DependencyCompiler.Install_Build_Deps(executable=python)
+        if python != sys.executable:
+            # Workspace venv needs uv bootstrapped; for the global Python
+            # uv is already available as a comfy-cli dependency.
+            DependencyCompiler.Install_Build_Deps(executable=python)
         depComp = DependencyCompiler(
             cwd=repo_dir,
             executable=python,
@@ -291,11 +266,18 @@ def execute(
         )
         depComp.compile_deps()
         depComp.install_deps()
+        # Install manager separately (not included in DependencyCompiler)
+        if not skip_manager:
+            if not pip_install_manager(repo_dir, python=python):
+                from comfy_cli.config_manager import ConfigManager
+
+                ConfigManager().set(constants.CONFIG_KEY_MANAGER_GUI_MODE, "disable")
+                rprint("[yellow]Manager not installed. Launch will run without manager flags.[/yellow]")
 
     if not skip_manager:
         try:
             update_node_id_cache()
-        except subprocess.CalledProcessError as e:
+        except (FileNotFoundError, subprocess.CalledProcessError) as e:
             rprint(f"Failed to update node id cache: {e}")
 
     os.chdir(repo_dir)
@@ -402,7 +384,7 @@ def handle_github_rate_limit(response):
     remaining = int(response.headers.get("x-ratelimit-remaining", 0))
     if remaining == 0:
         reset_time = int(response.headers.get("x-ratelimit-reset", 0))
-        message = f"Primary rate limit from Github exceeded! Please retry after: {reset_time})"
+        message = f"Primary rate limit from Github exceeded! Please retry after: {reset_time}"
         raise GitHubRateLimitError(message)
 
     if "retry-after" in response.headers:
@@ -498,15 +480,17 @@ def get_latest_release(repo_owner: str, repo_name: str) -> GithubRelease | None:
         return None
 
 
-def parse_pr_reference(pr_ref: str) -> tuple[str, str, int | None]:
-    """
-    support formats：
-    - username:branch-name
-    - #123
-    - https://github.com/comfyanonymous/ComfyUI/pull/123
+def _parse_pr_reference(
+    pr_ref: str,
+    default_owner: str,
+    default_repo: str,
+) -> tuple[str, str, int | None]:
+    """Parse a GitHub PR reference into (repo_owner, repo_name, pr_number).
 
-    Returns:
-        (repo_owner, repo_name, pr_number)
+    Supported formats:
+    - #123                                          → (default_owner, default_repo, 123)
+    - username:branch-name                          → (username, default_repo, None)
+    - https://github.com/owner/repo/pull/123        → (owner, repo, 123)
     """
     pr_ref = pr_ref.strip()
 
@@ -522,14 +506,18 @@ def parse_pr_reference(pr_ref: str) -> tuple[str, str, int | None]:
 
     elif pr_ref.startswith("#"):
         pr_number = int(pr_ref[1:])
-        return "comfyanonymous", "ComfyUI", pr_number
+        return default_owner, default_repo, pr_number
 
     elif ":" in pr_ref:
         username, branch = pr_ref.split(":", 1)
-        return username, "ComfyUI", None
+        return username, default_repo, None
 
     else:
         raise ValueError(f"Invalid PR reference format: {pr_ref}")
+
+
+def parse_pr_reference(pr_ref: str) -> tuple[str, str, int | None]:
+    return _parse_pr_reference(pr_ref, "comfyanonymous", "ComfyUI")
 
 
 def fetch_pr_info(repo_owner: str, repo_name: str, pr_number: int) -> PRInfo:
@@ -806,7 +794,7 @@ def handle_temporary_frontend_pr(frontend_pr: str) -> str | None:
             pr_info = fetch_pr_info(repo_owner, repo_name, pr_number)
         else:
             username, branch = frontend_pr.split(":", 1)
-            pr_info = find_pr_by_branch(repo_owner, repo_name, username, branch)
+            pr_info = find_pr_by_branch("Comfy-Org", "ComfyUI_frontend", username, branch)
 
         if not pr_info:
             rprint(f"[bold red]Frontend PR not found: {frontend_pr}[/bold red]")
@@ -890,28 +878,4 @@ def handle_temporary_frontend_pr(frontend_pr: str) -> str | None:
 
 
 def parse_frontend_pr_reference(pr_ref: str) -> tuple[str, str, int | None]:
-    """
-    Parse frontend PR reference. Similar to parse_pr_reference but defaults to Comfy-Org/ComfyUI_frontend
-    """
-    pr_ref = pr_ref.strip()
-
-    if pr_ref.startswith("https://github.com/"):
-        parsed = urlparse(pr_ref)
-        if "/pull/" in parsed.path:
-            path_parts = parsed.path.strip("/").split("/")
-            if len(path_parts) >= 4:
-                repo_owner = path_parts[0]
-                repo_name = path_parts[1]
-                pr_number = int(path_parts[3])
-                return repo_owner, repo_name, pr_number
-
-    elif pr_ref.startswith("#"):
-        pr_number = int(pr_ref[1:])
-        return "Comfy-Org", "ComfyUI_frontend", pr_number
-
-    elif ":" in pr_ref:
-        username, branch = pr_ref.split(":", 1)
-        return "Comfy-Org", "ComfyUI_frontend", None
-
-    else:
-        raise ValueError(f"Invalid frontend PR reference format: {pr_ref}")
+    return _parse_pr_reference(pr_ref, "Comfy-Org", "ComfyUI_frontend")

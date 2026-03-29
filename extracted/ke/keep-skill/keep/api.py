@@ -62,6 +62,7 @@ from .types import (
 )
 from .context_cache import ContextCache
 from .flow_env import LocalFlowEnvironment
+from .tracing import get_tracer as _get_tracer
 from ._background_processing import BackgroundProcessingMixin
 from ._provider_lifecycle import ProviderLifecycleMixin
 from ._search_augmentation import SearchAugmentationMixin
@@ -211,6 +212,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         self._reconcile_lock = threading.Lock()
         self._reconcile_done = threading.Event()
         self._closing = threading.Event()  # signals reconcile to abort
+        self._closed = False
         self._provider_init_lock = threading.RLock()
         self._last_spawn_time: float = 0.0
         self._tagdoc_cache: dict[str, Optional[dict[str, str]]] = {}
@@ -529,6 +531,16 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             )
         finally:
             recon_ds.close()
+
+    def _ensure_sysdocs(self) -> None:
+        """Run deferred system-doc migration if needed (idempotent, best-effort)."""
+        if not self._needs_sysdoc_migration:
+            return
+        try:
+            self._migrate_system_documents()
+            self._needs_sysdoc_migration = False  # clear AFTER success only
+        except Exception as e:
+            logger.warning("System doc migration deferred: %s", e, exc_info=True)
 
     def _migrate_system_documents(self, progress=None) -> dict:
         """Migrate system documents to stable IDs and current version."""
@@ -1554,6 +1566,27 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         queue_summarize: bool = True,
     ) -> Item:
         """Core upsert logic used by put()."""
+        with _get_tracer("keeper").start_as_current_span(
+            "keeper.put", attributes={"item_id": id},
+        ):
+            return self.__upsert_impl(
+                id, content, tags=tags, summary=summary,
+                system_tags=system_tags, created_at=created_at,
+                force=force, queue_summarize=queue_summarize,
+            )
+
+    def __upsert_impl(
+        self,
+        id: str,
+        content: str,
+        *,
+        tags: Optional[dict] = None,
+        summary: Optional[str] = None,
+        system_tags: dict[str, str],
+        created_at: Optional[str] = None,
+        force: bool = False,
+        queue_summarize: bool = True,
+    ) -> Item:
         # Wait for background reconciliation to finish before writing.
         # The reconcile thread and main thread both access the embedding
         # provider, ChromaDB, and SQLite — concurrent access causes hangs
@@ -1564,12 +1597,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         chroma_coll = self._resolve_chroma_collection()
 
         # Deferred init tasks (best-effort — don't block user writes)
-        if self._needs_sysdoc_migration:
-            self._needs_sysdoc_migration = False  # Clear before call (migration calls remember → _upsert)
-            try:
-                self._migrate_system_documents()
-            except Exception as e:
-                logger.warning("System doc migration deferred: %s", e, exc_info=True)
+        self._ensure_sysdocs()
 
         # Get existing item to preserve tags (check document store first, fall back to ChromaDB)
         existing_tags = {}
@@ -1728,27 +1756,36 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         # Local mode: compute embedding synchronously
         # If no embedding provider, write to document store only (data is safe;
         # embeddings are filled in by reconciliation when a provider appears).
+        _tracer = _get_tracer("keeper")
         _has_embeddings = self._config.embedding is not None
         embedding = None
         if _has_embeddings:
-            if content_unchanged:
-                embedding = self._store.get_embedding(chroma_coll, id)
-                if embedding is None:
-                    embedding = self._try_dedup_embedding(
-                        doc_coll, chroma_coll, new_hash, id, content,
-                    )
-                if embedding is None:
-                    embedding = self._get_embedding_provider().embed(final_summary)
-            else:
-                embedding = self._try_dedup_embedding(doc_coll, chroma_coll, new_hash, id, content)
-                if embedding is None:
-                    embedding = self._get_embedding_provider().embed(final_summary)
+            with _tracer.start_as_current_span("embed", attributes={"item_id": id}) as _embed_span:
+                _embed_source = "compute"
+                if content_unchanged:
+                    embedding = self._store.get_embedding(chroma_coll, id)
+                    if embedding is not None:
+                        _embed_source = "existing"
+                    if embedding is None:
+                        embedding = self._try_dedup_embedding(
+                            doc_coll, chroma_coll, new_hash, id, content,
+                        )
+                        if embedding is not None:
+                            _embed_source = "dedup"
+                    if embedding is None:
+                        embedding = self._get_embedding_provider().embed(final_summary)
+                else:
+                    embedding = self._try_dedup_embedding(doc_coll, chroma_coll, new_hash, id, content)
+                    if embedding is not None:
+                        _embed_source = "dedup"
+                    if embedding is None:
+                        embedding = self._get_embedding_provider().embed(final_summary)
+                _embed_span.set_attribute("source", _embed_source)
 
         # Detect _inverse changes on tagdocs BEFORE storage overwrites old state
         if id.startswith(".tag/"):
             old_tagdoc_tags = existing_doc.tags if existing_doc else {}
             self._process_tagdoc_inverse_change(id, merged_tags, old_tagdoc_tags, doc_coll)
-            # Invalidate cached tagdoc for this key
             tag_key = id.removeprefix(".tag/").split("/")[0]
             self._tagdoc_cache.pop(tag_key, None)
 
@@ -1758,42 +1795,52 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             old_embedding = self._store.get_embedding(chroma_coll, id)
 
         # Dual-write: document store (canonical) + ChromaDB (embedding index)
-        result, content_changed = self._document_store.upsert(
-            collection=doc_coll,
-            id=id,
-            summary=final_summary,
-            tags=merged_tags,
-            content_hash=new_hash,
-            content_hash_full=_content_hash_full(content),
-            created_at=created_at,
-        )
-
-        if _has_embeddings:
-            self._store.upsert(
-                collection=chroma_coll,
+        with _tracer.start_as_current_span("doc_store.upsert"):
+            result, content_changed = self._document_store.upsert(
+                collection=doc_coll,
                 id=id,
-                embedding=embedding,
                 summary=final_summary,
-                tags=casefold_tags_for_index(merged_tags),
+                tags=merged_tags,
+                content_hash=new_hash,
+                content_hash_full=_content_hash_full(content),
+                created_at=created_at,
             )
 
-            # If content changed and we archived a version, also store versioned embedding
-            if existing_doc is not None and content_changed:
-                max_ver = self._document_store.max_version(doc_coll, id)
-                if max_ver > 0:
+        if _has_embeddings:
+            # If content changed and we have a version to archive, batch both
+            # ChromaDB writes into a single call (one lock, one epoch bump).
+            max_ver = (
+                self._document_store.max_version(doc_coll, id)
+                if existing_doc is not None and content_changed else 0
+            )
+            if max_ver > 0:
+                with _tracer.start_as_current_span("chroma.upsert_batch"):
                     if old_embedding is None:
                         old_embedding = self._get_embedding_provider().embed(existing_doc.summary)
-                    self._store.upsert_version(
+                    self._store.upsert_with_version(
                         collection=chroma_coll,
                         id=id,
+                        embedding=embedding,
+                        summary=final_summary,
+                        tags=casefold_tags_for_index(merged_tags),
+                        version_id=f"{id}@v{max_ver}",
                         version=max_ver,
-                        embedding=old_embedding,
-                        summary=existing_doc.summary,
-                        tags=casefold_tags_for_index(existing_doc.tags),
+                        version_embedding=old_embedding,
+                        version_summary=existing_doc.summary,
+                        version_tags=casefold_tags_for_index(existing_doc.tags),
+                    )
+            else:
+                with _tracer.start_as_current_span("chroma.upsert"):
+                    self._store.upsert(
+                        collection=chroma_coll,
+                        id=id,
+                        embedding=embedding,
+                        summary=final_summary,
+                        tags=casefold_tags_for_index(merged_tags),
                     )
 
-        # Process tag-driven edges (_inverse on tagdocs)
-        self._process_edge_tags(id, merged_tags, existing_tags, doc_coll)
+        with _tracer.start_as_current_span("edge_tags"):
+            self._process_edge_tags(id, merged_tags, existing_tags, doc_coll)
 
         # .ignore update: purge items matching current patterns
         if id == ".ignore":
@@ -1848,6 +1895,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             tags: Tag map to attach to the item.
             created_at: Override creation timestamp (ISO 8601).
             force: Re-process even if content is unchanged.
+            queue_background_tasks: Enqueue summarization/analysis after write.
+            capture_write_context: Attach write-time context as tags.
         """
         if content is not None and uri is not None:
             raise ValueError("Provide content or uri, not both")
@@ -2237,14 +2286,11 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         # enqueued edge-backfill tasks, process them synchronously so
         # edges are available for this query.
         if deep and self._needs_sysdoc_migration:
-            try:
-                self._migrate_system_documents()
-                # Drain any edge-backfill tasks that migration enqueued
-                # so edges are ready for this search.
+            self._ensure_sysdocs()
+            if not self._needs_sysdoc_migration:
+                # Migration succeeded — drain edge-backfill tasks so
+                # edges are ready for this search.
                 self._flush_edge_backfill(doc_coll)
-                self._needs_sysdoc_migration = False
-            except Exception as e:
-                logger.warning("System doc migration deferred: %s", e, exc_info=True)
 
         embedding = None  # Set in semantic/similar_to branches
 
@@ -2267,14 +2313,14 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
 
             embedding = self._store.get_embedding(chroma_coll, similar_to)
             if embedding is None:
-                with perf.timer("find", "embed"):
+                with perf.timer("find", "embed"), _get_tracer("keeper").start_as_current_span("embed"):
                     embedding = self._get_embedding_provider().embed(item.summary)
             actual_limit = (limit + 1 if not include_self else limit) * 3
             if deep:
                 actual_limit = max(actual_limit, 30)
             if scope_ids is not None:
                 actual_limit = max(actual_limit, len(scope_ids))
-            with perf.timer("find", "semantic"):
+            with perf.timer("find", "semantic"), _get_tracer("keeper").start_as_current_span("chroma.query"):
                 results = self._store.query_embedding(chroma_coll, embedding, limit=actual_limit, where=where)
 
             if not include_self:
@@ -2287,7 +2333,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             # Hybrid search: semantic + FTS5, fused with RRF.
             # Each list over-fetches independently so RRF can discover
             # items that rank well in one signal but poorly in the other.
-            with perf.timer("find", "embed"):
+            with perf.timer("find", "embed"), _get_tracer("keeper").start_as_current_span("embed"):
                 embedding = self._get_embedding_provider().embed(query)
             sem_fetch = max(limit * 10, 200)
             fts_fetch = max(limit * 10, 100)
@@ -2296,14 +2342,14 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             if scope_ids is not None:
                 sem_fetch = max(sem_fetch, len(scope_ids))
 
-            with perf.timer("find", "semantic"):
+            with perf.timer("find", "semantic"), _get_tracer("keeper").start_as_current_span("chroma.query"):
                 sem_results = self._store.query_embedding(
                     chroma_coll, embedding, limit=sem_fetch, where=where,
                 )
             sem_items = [r.to_item() for r in sem_results]
             sem_items = self._apply_recency_decay(sem_items)
 
-            with perf.timer("find", "fts"):
+            with perf.timer("find", "fts"), _get_tracer("keeper").start_as_current_span("fts.query"):
                 if scope_ids is not None:
                     fts_rows = self._document_store.query_fts_scoped(
                         doc_coll, query, list(scope_ids),
@@ -2316,7 +2362,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             fts_items = [Item(id=r[0], summary=r[1]) for r in fts_rows]
 
             if fts_items:
-                with perf.timer("find", "rrf"):
+                with perf.timer("find", "rrf"), _get_tracer("keeper").start_as_current_span("rrf"):
                     items = self._rrf_fuse(sem_items, fts_items)
             else:
                 # FTS unavailable or no matches — use semantic results as-is
@@ -2338,7 +2384,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
 
         # Hydrate search hits from canonical SQLite tags so user tags remain
         # available even when Chroma metadata stores marker fields only.
-        with perf.timer("find", "hydrate"):
+        with perf.timer("find", "hydrate"), _get_tracer("keeper").start_as_current_span("hydrate"):
             hydrated: list[Item] = []
             for item in items:
                 base_id = item.tags.get(
@@ -2906,6 +2952,23 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             return None
         return result.to_item()
 
+    def peek(self, id: str) -> Optional[Item]:
+        """Read an item without updating accessed_at.
+
+        Used for cache hydration where context items shouldn't count
+        as direct accesses.
+        """
+        id = normalize_id(id)
+        doc_coll = self._resolve_doc_collection()
+        doc_record = self._document_store.get(doc_coll, id)
+        if doc_record:
+            return _record_to_item(doc_record)
+        # Fall back to ChromaDB for legacy data
+        result = self._store.get(self._resolve_chroma_collection(), id)
+        if result is None:
+            return None
+        return result.to_item()
+
     def get_version(
         self,
         id: str,
@@ -3432,12 +3495,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         chroma_coll = self._resolve_chroma_collection()
 
         # Deferred system doc migration (normally runs on first _upsert)
-        if self._needs_sysdoc_migration:
-            self._needs_sysdoc_migration = False
-            try:
-                self._migrate_system_documents()
-            except Exception as e:
-                logger.warning("System doc migration deferred: %s", e, exc_info=True)
+        self._ensure_sysdocs()
 
         # Validate inputs
         id = normalize_id(id)
@@ -4776,6 +4834,10 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         an atexit handler during interpreter shutdown, when C extension
         modules (sqlite3, chromadb) may already be partially finalized.
         """
+        if getattr(self, '_closed', False):
+            return
+        self._closed = True
+
         # Signal reconcile thread to stop and wait for it
         if hasattr(self, '_closing'):
             self._closing.set()
@@ -4831,7 +4893,10 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
 
         # Close task delegation client
         if hasattr(self, '_task_client') and self._task_client is not None:
-            self._task_client.close()
+            try:
+                self._task_client.close()
+            except Exception:
+                pass
             self._task_client = None
 
         # Close work queue
@@ -4866,8 +4931,26 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         return False
 
     def __del__(self):
-        """Cleanup on deletion."""
-        try:
-            self.close()
-        except Exception:
-            pass  # Suppress errors during garbage collection
+        """Release file handles during GC — no logging, no I/O beyond close."""
+        if getattr(self, '_closed', False):
+            return
+        self._closed = True
+        # Release resources that hold OS file descriptors.
+        # Skip perf logging, model releases, reconcile waits — the
+        # filesystem may already be gone (temp stores, test teardown).
+        for attr in ('_document_store', '_store', '_pending_queue', '_work_queue'):
+            obj = getattr(self, attr, None)
+            if obj is not None:
+                try:
+                    obj.close()
+                except Exception:
+                    pass
+        # Remove log handler to avoid handler accumulation
+        handler = getattr(self, '_ops_log_handler', None)
+        if handler:
+            try:
+                import logging
+                logging.getLogger("keep").removeHandler(handler)
+                handler.close()
+            except Exception:
+                pass

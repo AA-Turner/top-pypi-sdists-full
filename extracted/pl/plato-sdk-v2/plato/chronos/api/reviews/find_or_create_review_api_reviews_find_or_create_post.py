@@ -7,11 +7,11 @@ from typing import Any
 import httpx
 
 from plato.chronos.errors import raise_for_status
-from plato.chronos.models import FindOrCreateReviewRequest, ReviewResponse
+from plato.chronos.models import FindOrCreateReviewBody, ReviewResponse
 
 
 def _build_request_args(
-    body: FindOrCreateReviewRequest,
+    body: FindOrCreateReviewBody,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
@@ -31,7 +31,7 @@ def _build_request_args(
 
 def sync(
     client: httpx.Client,
-    body: FindOrCreateReviewRequest,
+    body: FindOrCreateReviewBody,
     x_api_key: str | None = None,
 ) -> ReviewResponse:
     """Find the current user's human review for a session, or create one."""
@@ -48,7 +48,7 @@ def sync(
 
 async def asyncio(
     client: httpx.AsyncClient,
-    body: FindOrCreateReviewRequest,
+    body: FindOrCreateReviewBody,
     x_api_key: str | None = None,
 ) -> ReviewResponse:
     """Find the current user's human review for a session, or create one."""

@@ -45,7 +45,7 @@ def sync(
     SIM_CREATOR: not_started <-> env_in_progress <-> env_review_requested
     ENV_REVIEWER: env_in_progress <-> env_review_requested <-> env_approved
     SIM_DATA_GENERATOR: env_approved -> data_in_progress -> data_review_requested
-    DATA_REVIEWER: data_in_progress <-> data_review_requested <-> ready"""
+    DATA_REVIEWER: data_in_progress <-> data_review_requested <-> ready, {data_review_requested,data_in_progress} -> out_of_service, data_in_progress -> env_approved -> env_review_requested -> env_in_progress"""
 
     request_args = _build_request_args(
         simulator_id=simulator_id,
@@ -71,7 +71,7 @@ async def asyncio(
     SIM_CREATOR: not_started <-> env_in_progress <-> env_review_requested
     ENV_REVIEWER: env_in_progress <-> env_review_requested <-> env_approved
     SIM_DATA_GENERATOR: env_approved -> data_in_progress -> data_review_requested
-    DATA_REVIEWER: data_in_progress <-> data_review_requested <-> ready"""
+    DATA_REVIEWER: data_in_progress <-> data_review_requested <-> ready, {data_review_requested,data_in_progress} -> out_of_service, data_in_progress -> env_approved -> env_review_requested -> env_in_progress"""
 
     request_args = _build_request_args(
         simulator_id=simulator_id,

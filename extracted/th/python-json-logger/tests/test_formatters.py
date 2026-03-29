@@ -13,13 +13,10 @@ import logging
 import sys
 import traceback
 from types import TracebackType
-from typing import Any, Generator
+from typing import Any
+from collections.abc import Generator
 import uuid
-
-if sys.version_info >= (3, 9):
-    import zoneinfo
-else:
-    from backports import zoneinfo
+import zoneinfo
 
 ## Installed
 import freezegun
@@ -63,7 +60,7 @@ class LoggingEnvironment:
 
 
 @pytest.fixture
-def env() -> Generator[LoggingEnvironment, None, None]:
+def env() -> Generator[LoggingEnvironment]:
     global _LOGGER_COUNT  # pylint: disable=global-statement
     _LOGGER_COUNT += 1
     logger = logging.getLogger(f"pythonjsonlogger.tests.{_LOGGER_COUNT}")
@@ -558,6 +555,7 @@ def test_default_encoder_with_timestamp(env: LoggingEnvironment, class_: type[Ba
         (False, bool, False),
         (None, type(None), None),
         (b"some-bytes", str, "c29tZS1ieXRlcw=="),
+        (b"fancy-bytes-\xf0\xf1", str, "ZmFuY3ktYnl0ZXMt8PE="),
         (datetime.time(16, 45, 30, 100), str, "16:45:30.000100"),
         (datetime.date(2024, 5, 5), str, "2024-05-05"),
         (datetime.datetime(2024, 5, 5, 16, 45, 30, 100), str, "2024-05-05T16:45:30.000100"),

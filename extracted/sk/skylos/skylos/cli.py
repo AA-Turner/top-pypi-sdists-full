@@ -19,6 +19,7 @@ from skylos.gatekeeper import run_gate_interaction
 from skylos.api import upload_report
 from skylos.sarif_exporter import SarifExporter
 from skylos.pipeline import run_pipeline
+from skylos.file_discovery import discover_source_files
 
 from pathlib import Path
 import pathlib
@@ -607,16 +608,29 @@ def _generate_llm_report(result: dict, project_root: pathlib.Path) -> str:
         for f in result.get(category, []):
             all_findings.append((f, label))
 
-    for category, label in [
-        ("unused_functions", "Dead Code"),
-        ("unused_imports", "Dead Code"),
-        ("unused_classes", "Dead Code"),
-        ("unused_variables", "Dead Code"),
-        ("unused_parameters", "Dead Code"),
-        ("unused_files", "Dead Code"),
-    ]:
+    _dead_code_meta = {
+        "unused_functions": ("SKY-DC001", "MEDIUM", "Unused function"),
+        "unused_imports": ("SKY-DC002", "LOW", "Unused import"),
+        "unused_classes": ("SKY-DC003", "MEDIUM", "Unused class"),
+        "unused_variables": ("SKY-DC004", "LOW", "Unused variable"),
+        "unused_parameters": ("SKY-DC005", "LOW", "Unused parameter"),
+        "unused_files": ("SKY-DC006", "LOW", "Empty file"),
+    }
+    for category in _dead_code_meta:
+        rule_id, sev, human_label = _dead_code_meta[category]
         for f in result.get(category, []):
-            all_findings.append((f, label))
+            if not f.get("message"):
+                name = f.get("name") or f.get("simple_name") or ""
+                why = f.get("why_unused")
+                if why:
+                    f["message"] = f"{human_label} '{name}' is never used ({', '.join(why)})"
+                else:
+                    f["message"] = f"{human_label} '{name}' is never used"
+            if not f.get("rule_id"):
+                f["rule_id"] = rule_id
+            if not f.get("severity"):
+                f["severity"] = sev
+            all_findings.append((f, "Dead Code"))
 
     if not all_findings:
         return "# Skylos Report\n\nNo findings.\n"
@@ -1623,13 +1637,16 @@ def run_whitelist(pattern=None, reason=None, show=False):
 
 
 def get_git_changed_files(root_path):
-    def _collect_py(output):
+    supported_exts = {".py", ".go", ".ts", ".tsx", ".java"}
+
+    def _collect_supported(output):
         files = []
         for line in output.splitlines():
-            if line.endswith(".py"):
-                full_path = pathlib.Path(root_path) / line
-                if full_path.exists():
-                    files.append(full_path)
+            full_path = pathlib.Path(root_path) / line
+            if full_path.suffix.lower() not in supported_exts:
+                continue
+            if full_path.exists():
+                files.append(full_path)
         return files
 
     try:
@@ -1644,7 +1661,7 @@ def get_git_changed_files(root_path):
             cwd=root_path,
             timeout=30,
         ).decode("utf-8")
-        files = _collect_py(output)
+        files = _collect_supported(output)
         if files:
             return files
 
@@ -1657,7 +1674,7 @@ def get_git_changed_files(root_path):
             output = subprocess.check_output(
                 cmd, cwd=root_path, stderr=subprocess.DEVNULL, timeout=30
             ).decode("utf-8")
-            return _collect_py(output)
+            return _collect_supported(output)
         except Exception:
             return []
     except Exception:
@@ -2446,7 +2463,11 @@ def main() -> None:
         ) as progress:
             progress.add_task("Analyzing codebase...", total=None)
 
-            exclude_folders = list(parse_exclude_folders())
+            exclude_folders = list(
+                parse_exclude_folders(
+                    config_exclude_folders=load_config(target).get("exclude")
+                )
+            )
             if city_args.exclude:
                 exclude_folders.extend(city_args.exclude)
 
@@ -3296,13 +3317,18 @@ def main() -> None:
         p_scan.add_argument(
             "--verification-mode",
             choices=["judge_all", "production"],
-            default="judge_all",
+            default="production",
             help="Dead-code verifier mode: judge_all sends nearly every refs==0 candidate to the LLM",
+        )
+        p_scan.add_argument(
+            "--with-fixes",
+            action="store_true",
+            help="Generate fix suggestions for findings (slower)",
         )
         p_scan.add_argument(
             "--no-fixes",
             action="store_true",
-            help="Skip fix suggestions (faster)",
+            help="Disable fix suggestions (compatibility alias; fixes are off by default)",
         )
         p_scan.add_argument(
             "--changed",
@@ -3902,7 +3928,14 @@ def main() -> None:
                 console.print("[bad]No API key provided.[/bad]")
                 sys.exit(1)
 
-        agent_exclude_folders = list(parse_exclude_folders(use_defaults=True))
+        agent_exclude_folders = list(
+            parse_exclude_folders(
+                use_defaults=True,
+                config_exclude_folders=load_config(
+                    getattr(agent_args, "path", Path.cwd())
+                ).get("exclude"),
+            )
+        )
 
         if cmd == "scan":
             if getattr(agent_args, "security", False):
@@ -3914,11 +3947,11 @@ def main() -> None:
                 if path.is_file():
                     files = [path]
                 else:
-                    files = [
-                        f
-                        for f in path.rglob("*.py")
-                        if not any(ex in f.parts for ex in agent_exclude_folders)
-                    ]
+                    files = discover_source_files(
+                        path,
+                        [".py"],
+                        exclude_folders=agent_exclude_folders,
+                    )
 
                 if not files:
                     console.print("[warn]No Python files found[/warn]")
@@ -3981,8 +4014,9 @@ def main() -> None:
 
                 console.print(f"Found {len(changed_files)} changed files")
 
-            if not getattr(agent_args, "no_fixes", False):
-                agent_args.with_fixes = True
+            agent_args.with_fixes = bool(getattr(agent_args, "with_fixes", False))
+            if getattr(agent_args, "no_fixes", False):
+                agent_args.with_fixes = False
 
             path = pathlib.Path(agent_args.path)
             if not path.exists():
@@ -3994,6 +4028,7 @@ def main() -> None:
             import time as _time
 
             _scan_start = _time.time()
+            pipeline_stats = {}
             merged_findings = run_pipeline(
                 path=str(path),
                 model=model,
@@ -4002,6 +4037,7 @@ def main() -> None:
                 console=console,
                 changed_files=changed_files,
                 exclude_folders=agent_exclude_folders,
+                stats_out=pipeline_stats,
             )
 
             merged_findings = _normalize_agent_findings(merged_findings, project_root)
@@ -4026,6 +4062,15 @@ def main() -> None:
             console.print(
                 f"  [yellow]MEDIUM (LLM only, needs review):[/yellow] {llm_only}"
             )
+            if pipeline_stats:
+                console.print("[dim]Timings:[/dim]")
+                console.print(
+                    f"  static={pipeline_stats.get('phase_1_seconds', 0):.1f}s "
+                    f"verify={pipeline_stats.get('phase_2a_seconds', 0):.1f}s "
+                    f"audit={pipeline_stats.get('phase_2b_seconds', 0):.1f}s "
+                    f"fixes={pipeline_stats.get('phase_3_seconds', 0):.1f}s "
+                    f"total={pipeline_stats.get('elapsed_seconds', 0):.1f}s"
+                )
 
             if agent_args.format == "json":
                 output = json.dumps(merged_findings, indent=2, default=str)
@@ -4519,6 +4564,7 @@ def main() -> None:
 
         exclude_folders = parse_exclude_folders(
             user_exclude_folders=run_exclude_folders or None,
+            config_exclude_folders=load_config(Path.cwd()).get("exclude"),
             use_defaults=not no_defaults,
             include_folders=run_include_folders or None,
         )
@@ -4847,8 +4893,10 @@ Run 'skylos tour' for a guided walkthrough of capabilities.
             logger.debug(f"Excluding folders: {args.exclude_folders}")
 
     use_defaults = not args.no_default_excludes
+    project_cfg = load_config(project_root)
     final_exclude_folders = parse_exclude_folders(
         user_exclude_folders=args.exclude_folders,
+        config_exclude_folders=project_cfg.get("exclude"),
         use_defaults=use_defaults,
         include_folders=args.include_folders,
     )

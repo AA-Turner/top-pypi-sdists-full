@@ -201,8 +201,11 @@ class Colored:  # pylint: disable=[R0902]
         all other color support checks.
         """
         if 'FORCE_COLOR' in os.environ:
-            if int(os.environ['FORCE_COLOR']) == 0:
-                return False
+            try:
+                if int(os.environ['FORCE_COLOR']) == 0:
+                    return False
+            except ValueError:
+                pass
             return True
 
         # https://no-color.org/

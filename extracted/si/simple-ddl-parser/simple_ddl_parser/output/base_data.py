@@ -35,6 +35,9 @@ class BaseData:
     if_not_exists: Optional[bool] = field(
         default=False, metadata={"exclude_if_not_provided": True}
     )
+    if_exists: Optional[bool] = field(
+        default=False, metadata={"exclude_if_not_provided": True}
+    )
     partition_by: Optional[dict] = field(
         default_factory=dict, metadata={"exclude_if_not_provided": True}
     )
@@ -87,6 +90,7 @@ class BaseData:
         self.set_unique_columns()
         self.populate_keys()
         self.normalize_ref_columns_in_final_output()
+        self.normalize_indexes_in_final_output()
         self.post_process()
 
     def set_unique_columns(self) -> None:
@@ -117,6 +121,26 @@ class BaseData:
                 if name == column["name"]:
                     del col_ref["name"]
                     column["references"] = col_ref
+
+    def normalize_indexes_in_final_output(self) -> None:
+        for index in self.index:
+            columns = index.get("columns") or []
+            if not columns or not isinstance(columns[0], str):
+                continue
+            if self.output_mode == "mysql":
+                continue
+            if index.get("index_name") is not None and self.output_mode != "snowflake":
+                continue
+            detailed_columns = index.get("detailed_columns") or []
+            index["columns"] = [[deepcopy(column)] for column in detailed_columns]
+            index["detailed_columns"] = [
+                {
+                    "name": [deepcopy(column)],
+                    "nulls": column["nulls"],
+                    "order": column["order"],
+                }
+                for column in detailed_columns
+            ]
 
     def populate_keys(self) -> None:
         """primary_key - list of column names, example: "primary_key": ["data_sync_id", "sync_start"],"""
@@ -262,16 +286,24 @@ class BaseData:
             self.alter_rename_columns(statement)
         elif "columns_to_drop" in statement:
             self.alter_drop_columns(statement)
+        elif "foreign_keys_to_drop" in statement:
+            if not self.alter.get("foreign_keys_to_drop"):
+                self.alter["foreign_keys_to_drop"] = []
+            self.alter["foreign_keys_to_drop"].extend(statement["foreign_keys_to_drop"])
         elif "columns_to_modify" in statement:
             self.alter_modify_columns(statement)
         elif "check" in statement:
             self.process_check_in_statement(statement)
+        elif "default_charset" in statement or "collate" in statement:
+            self.set_table_properties_from_alter(statement)
         elif "unique" in statement:
             self.set_alter_to_table_data("unique", statement)
             self.set_unique_columns_from_alter(statement)
         elif "default" in statement:
             self.set_alter_to_table_data("default", statement)
             self.set_default_columns_from_alter(statement)
+        elif "auto_increment" in statement:
+            self.set_auto_increment_from_alter(statement)
         elif "primary_key" in statement:
             self.set_alter_to_table_data("primary_key", statement)
         elif "comment_on" in statement:
@@ -301,6 +333,31 @@ class BaseData:
                     if column["name"] == column_name:
                         column["default"] = statement["default"]["value"]
 
+    def set_table_properties_from_alter(self, statement: Dict) -> None:
+        alter_entry = {}
+
+        if "default_charset" in statement:
+            alter_entry["default_charset"] = statement["default_charset"]
+            if hasattr(self, "default_charset"):
+                self.default_charset = statement["default_charset"]
+            if isinstance(self.init_data, dict):
+                self.init_data["default_charset"] = statement["default_charset"]
+
+        collate = statement.get("collate")
+        if collate is not None:
+            alter_entry["collate"] = collate
+            if self.table_properties is None:
+                self.table_properties = {}
+            self.table_properties["collate"] = collate
+            if isinstance(self.init_data, dict):
+                self.init_data["table_properties"] = self.table_properties
+                self.init_data["collate"] = collate
+
+        if alter_entry:
+            if not self.alter.get("table_properties"):
+                self.alter["table_properties"] = []
+            self.alter["table_properties"].append(alter_entry)
+
     def set_unique_columns_from_alter(self, statement: Dict) -> None:
         for column in self.columns:
             if len(statement["unique"]["columns"]) == 1:
@@ -318,15 +375,16 @@ class BaseData:
 
         for modified_column in statement[alter_key]:
             index = None
+            target_name = modified_column.get("old_name") or modified_column["name"]
             for num, column in enumerate(self.columns):
-                if normalize_name(modified_column["name"]) == normalize_name(
-                    column["name"]
-                ):
+                if normalize_name(target_name) == normalize_name(column["name"]):
                     index = num
                     break
             if index is not None:
                 self.alter[table_alter_key].append(self.columns[index])
-                self.columns[index] = modified_column
+                updated_column = dict(modified_column)
+                updated_column.pop("old_name", None)
+                self.columns[index] = updated_column
 
     def alter_drop_columns(self, statement) -> None:
         alter_key = "columns_to_drop"
@@ -367,3 +425,12 @@ class BaseData:
         if "using" in statement:
             statement[key]["using"] = statement["using"]
         self.alter[key + "s"].append(statement[key])
+
+    def set_auto_increment_from_alter(self, statement: Dict) -> None:
+        if not self.alter.get("auto_increments"):
+            self.alter["auto_increments"] = []
+        self.alter["auto_increments"].append(statement["auto_increment"])
+        if hasattr(self, "auto_increment"):
+            self.auto_increment = statement["auto_increment"]
+        if isinstance(self.init_data, dict):
+            self.init_data["auto_increment"] = statement["auto_increment"]

@@ -106,7 +106,16 @@ def launch(
     if prerelease:
         raw["allow_prerelease"] = True
 
-    # Validate with Pydantic model
+    # Auto-inject parent_session_id from env if not set (same as Chronos.launch)
+    if not raw.get("parent_session_id"):
+        parent_sid = os.environ.get("SESSION_ID")
+        if parent_sid:
+            raw["parent_session_id"] = parent_sid
+
+    # Normalize tags (same as Chronos.launch → _build_launch_body)
+    if raw.get("tags"):
+        raw["tags"] = [t.replace("-", "_").replace(":", ".").replace(" ", "_") for t in raw["tags"]]
+
     try:
         request = LaunchJobRequest.model_validate(raw)
     except ValidationError as e:
@@ -117,17 +126,14 @@ def launch(
     console.print(f"   World: {request.world.package}")
     if prerelease:
         console.print("   Prerelease: enabled")
+    if request.retry:
+        console.print(f"   Retries: {request.retry.max_retries}")
 
     try:
+        from plato.chronos.api.jobs import launch_job
+
         with Chronos(base_url=chronos_url, api_key=api_key) as client:
-            resp = client.launch(
-                package=request.world.package,
-                config=request.world.config,
-                tags=request.tags,
-                runtime=request.world.runtime.model_dump() if request.world.runtime else None,
-                allow_prerelease=request.allow_prerelease or False,
-                world_name=request.world.world_name,
-            )
+            resp = launch_job.sync(client._client, body=request)
 
         console.print("\n[green]Job launched successfully![/green]")
         console.print(f"   Session ID: {resp.session_id}")

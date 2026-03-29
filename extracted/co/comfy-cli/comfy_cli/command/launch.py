@@ -13,6 +13,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from comfy_cli import constants, utils
+from comfy_cli.command.custom_nodes.cm_cli_util import find_cm_cli, resolve_manager_gui_mode
 from comfy_cli.config_manager import ConfigManager
 from comfy_cli.env_checker import check_comfy_server_running
 from comfy_cli.resolve_python import resolve_workspace_python
@@ -21,6 +22,32 @@ from comfy_cli.workspace_manager import WorkspaceManager, WorkspaceType
 
 workspace_manager = WorkspaceManager()
 console = Console()
+
+
+def _get_manager_flags() -> list[str]:
+    """Get manager flags based on config mode."""
+    mode = resolve_manager_gui_mode(not_installed_value=None)
+
+    if mode is None or mode == "disable":
+        return []
+
+    # For enable-* modes, verify cm-cli is available
+    if not find_cm_cli():
+        print(
+            "[bold yellow]Warning: ComfyUI-Manager (cm-cli) not found. "
+            "Manager flags will not be injected.[/bold yellow]"
+        )
+        return []
+
+    if mode == "enable-gui":
+        return ["--enable-manager"]
+    elif mode == "disable-gui":
+        return ["--enable-manager", "--disable-manager-ui"]
+    elif mode == "enable-legacy-gui":
+        return ["--enable-manager", "--enable-manager-legacy-ui"]
+    else:
+        print(f"[bold yellow]Warning: Unknown manager mode '{mode}'. Falling back to --enable-manager.[/bold yellow]")
+        return ["--enable-manager"]  # fallback to default
 
 
 def launch_comfyui(extra, frontend_pr=None, python=sys.executable):
@@ -60,7 +87,7 @@ def launch_comfyui(extra, frontend_pr=None, python=sys.executable):
 
             if reboot_path is None:
                 print("[bold red]ComfyUI is not installed.[/bold red]\n")
-                exit(res)
+                exit(res.returncode)
 
             if not os.path.exists(reboot_path):
                 exit(res.returncode)
@@ -108,10 +135,10 @@ def launch_comfyui(extra, frontend_pr=None, python=sys.executable):
 
                 if reboot_path is None:
                     print("[bold red]ComfyUI is not installed.[/bold red]\n")
-                    os._exit(process.pid)
+                    os._exit(1)
 
                 if not os.path.exists(reboot_path):
-                    os._exit(process.pid)
+                    os._exit(process.returncode)
 
                 os.remove(reboot_path)
         except KeyboardInterrupt:
@@ -149,6 +176,12 @@ def launch(
 
     os.chdir(resolved_workspace)
     python = resolve_workspace_python(resolved_workspace)
+
+    # Inject manager flags based on config mode
+    manager_flags = _get_manager_flags()
+    if manager_flags:
+        extra = (extra or []) + manager_flags
+
     if background:
         background_launch(extra, frontend_pr)
     else:

@@ -20,6 +20,7 @@ from gspread_formatting import (
 )
 
 WORKAROUND = "___workaround"
+BATCH_UPDATE_CHUNK_SIZE = 500
 CURSOR_FUNCTIONS = (
     "add_block",
     "hblock",
@@ -521,6 +522,38 @@ def col_to_a(col):
     return rowcol_to_a1(row=1, col=col).replace("1", "")
 
 
+class _StubWs:
+    """Placeholder for a worksheet not yet created in Google Sheets.
+
+    Supports the subset of gspread.Worksheet attributes used during the
+    data-building phase (before submit).  After _flush_worksheet_ops the
+    stub is replaced with a real gspread Worksheet object.
+
+    Each stub gets a unique negative ``id`` so that GridRange objects
+    created during data building can be patched to the real sheet ID
+    after the sheets are actually created.
+    """
+
+    _next_id = -1
+
+    def __init__(self, title):
+        self.title = title
+        self.id = _StubWs._next_id
+        _StubWs._next_id -= 1
+        self.col_count = 60
+        self.row_count = 200
+
+
+def _set_sheet_size(ws, row_count, col_count):
+    """Update the cached grid dimensions on a worksheet (real or stub)."""
+    if isinstance(ws, _StubWs):
+        ws.row_count = row_count
+        ws.col_count = col_count
+    else:
+        ws._properties["gridProperties"]["rowCount"] = row_count
+        ws._properties["gridProperties"]["columnCount"] = col_count
+
+
 class GoogleSheetWriter:
     def __init__(self, gc, spreadsheet_id, throttle=1, submit_order=None):
         self.gc = gc
@@ -532,51 +565,152 @@ class GoogleSheetWriter:
         self.formatter = batch_updater(self.spreadsheet)
         self.fmt = defaultdict(lambda: new_fmt())
         self.throttle = throttle
-        self.workaround = False
         self.ignore = set()  # this is for debugging large tables, where you generate the cells, but don't submit them, preserving user-entered data
         self.submit_order = submit_order
+        self._pending_deletes = []  # (name, real_gspread_ws) to delete
+        self._pending_creates = []  # names to create
 
     def batch_clear(self):
+        if not self.batch_clear_ranges:
+            return
         body = {"ranges": self.batch_clear_ranges}
         response = self.spreadsheet.values_batch_clear(body=body)
         self.batch_clear_ranges = []
         return response
 
     def get_worksheet(self, name, remove=False, defer=False, hidden=False):
-        def wrap_ws(ws):
-            return Worksheet(ws, self, defer=defer, hidden=hidden)
-
         if self.worksheets is None:
             self.worksheets = {
-                ws.title: wrap_ws(ws) for ws in self.spreadsheet.worksheets()
+                ws.title: Worksheet(ws, self) for ws in self.spreadsheet.worksheets()
             }
+
         if name in self.worksheets and remove and name not in self.ignore:
-            if len(self.worksheets) == 1:
-                self.workaround = True
-                new_ws = self.spreadsheet.add_worksheet(WORKAROUND, 5, 5)
-                self.worksheets[WORKAROUND] = wrap_ws(new_ws)
-            print(f"Removing worksheet {name}...")
-            self.spreadsheet.del_worksheet(self.worksheets[name].ws)
+            real_ws = self.worksheets[name].ws
+            if not isinstance(real_ws, _StubWs):
+                self._pending_deletes.append((name, real_ws))
             self.worksheets.pop(name, None)
-            self.sleep()
+
         if name not in self.worksheets:
-            print(f"Adding worksheet {name}...")
-            new_ws = self.spreadsheet.add_worksheet(name, 200, 60)
-            self.worksheets[name] = wrap_ws(new_ws)
-            self.sleep()
+            stub = _StubWs(name)
+            self.worksheets[name] = Worksheet(stub, self, defer=defer, hidden=hidden)
+            self._pending_creates.append(name)
+        else:
+            ws_wrapper = self.worksheets[name]
+            ws_wrapper.defer = defer
+            ws_wrapper.hidden = hidden
+
         return self.worksheets[name]
+
+    def _flush_worksheet_ops(self):
+        """Batch all pending worksheet creates/deletes into one API call.
+
+        Uses rename-then-delete to avoid name conflicts when recreating
+        sheets (remove=True).  After the batch, refreshes the worksheet
+        list so all Worksheet wrappers hold real gspread objects.
+        """
+        if not self._pending_deletes and not self._pending_creates:
+            return
+
+        reqs = []
+
+        # Rename sheets scheduled for deletion to avoid name collisions
+        # with newly created sheets that reuse the same name.
+        for i, (name, real_ws) in enumerate(self._pending_deletes):
+            reqs.append(
+                {
+                    "updateSheetProperties": {
+                        "properties": {
+                            "sheetId": real_ws.id,
+                            "title": f"___to_delete_{i}",
+                        },
+                        "fields": "title",
+                    }
+                }
+            )
+
+        # Create new sheets large enough for data (min 200x60 so that
+        # conditional formatting ranges aren't clipped — shrinking to
+        # exact data size happens later in _format via delete_req).
+        for name in self._pending_creates:
+            cells = self.cells.get(name, [])
+            ws_wrapper = self.worksheets[name]
+            if cells:
+                max_col = max(max(c.col for c in cells), ws_wrapper.force_max_col, 60)
+                max_row = max(max(c.row for c in cells), ws_wrapper.force_max_row, 200)
+            else:
+                max_col = max(60, ws_wrapper.force_max_col)
+                max_row = max(200, ws_wrapper.force_max_row)
+            reqs.append(
+                {
+                    "addSheet": {
+                        "properties": {
+                            "title": name,
+                            "sheetType": "GRID",
+                            "gridProperties": {
+                                "rowCount": max_row,
+                                "columnCount": max_col,
+                            },
+                        }
+                    }
+                }
+            )
+
+        # Delete the renamed sheets
+        for _name, real_ws in self._pending_deletes:
+            reqs.append({"deleteSheet": {"sheetId": real_ws.id}})
+
+        n_create = len(self._pending_creates)
+        n_delete = len(self._pending_deletes)
+        print(f"Batch worksheet management: {n_create} create, {n_delete} delete...")
+        self._chunked_batch_update(reqs)
+
+        # Refresh worksheet objects so stubs are replaced with real
+        # gspread Worksheet objects (needed by gspread_formatting).
+        if self._pending_creates:
+            real_ws_map = {ws.title: ws for ws in self.spreadsheet.worksheets()}
+            for name in self._pending_creates:
+                if name in real_ws_map and name in self.worksheets:
+                    stub = self.worksheets[name].ws
+                    real_ws = real_ws_map[name]
+                    self.worksheets[name].ws = real_ws
+                    # Patch GridRange.sheetId in conditional formatting
+                    # rules that were built against the stub's temporary
+                    # negative ID.
+                    if isinstance(stub, _StubWs):
+                        self._patch_stub_ids(name, stub.id, real_ws.id)
+
+        self._pending_deletes = []
+        self._pending_creates = []
+        self.sleep()
+
+    def _patch_stub_ids(self, ws_name, stub_id, real_id):
+        """Replace temporary stub sheet IDs with real IDs in stored format rules."""
+        fmt = self.fmt.get(ws_name)
+        if not fmt:
+            return
+        for rule in fmt.get("conditional_format_rules", []):
+            for grid_range in getattr(rule, "ranges", []):
+                if grid_range.sheetId == stub_id:
+                    grid_range.sheetId = real_id
+
+    def _chunked_batch_update(self, reqs):
+        """Execute batch_update in chunks to stay within API limits."""
+        if not reqs:
+            return
+        for i in range(0, len(reqs), BATCH_UPDATE_CHUNK_SIZE):
+            chunk = reqs[i : i + BATCH_UPDATE_CHUNK_SIZE]
+            self.spreadsheet.batch_update({"requests": chunk})
 
     def sleep(self):
         if self.throttle:
             time.sleep(self.throttle)
 
-    def format(self):
-        reqs = []
-        do_format = False
+    def _format(self, extra_reqs=None):
+        reqs = list(extra_reqs or [])
         for name in self.fmt:
             if name in self.ignore:
                 continue
-            ws = self.get_worksheet(name)
+            ws = self.worksheets[name]
             fmt_dict = self.fmt[name]
             cells = self.cells[name]
             max_cells_col = max(max([c.col for c in cells]), ws.force_max_col)
@@ -585,13 +719,10 @@ class GoogleSheetWriter:
             row_count = ws.ws.row_count
             if col_count > max_cells_col:
                 reqs.append(delete_req(ws, max_cells_col, col_count))
-                do_format = True
             if row_count > max_cells_row:
                 reqs.append(delete_req(ws, max_cells_row, row_count, rows=True))
-                do_format = True
             if ws.init_format:
                 ws.init_format(ws, max_col=max_cells_col, max_row=max_cells_row)
-                do_format = True
 
             hidden_cols = fmt_dict["hidden_cols"]
             if hidden_cols:
@@ -609,13 +740,11 @@ class GoogleSheetWriter:
             column_widths = [(col_to_a(col), cw[col]) for col in cw]
             if column_widths:
                 self.formatter.set_column_widths(ws.ws, column_widths)
-                do_format = True
 
             rh = fmt_dict["row_heights"]
             row_heights = [(f"{row}:{row}", rh[row]) for row in rh]
             if row_heights:
                 self.formatter.set_row_heights(ws.ws, row_heights)
-                do_format = True
 
             merged_cells = fmt_dict["merged_cells"]
             if merged_cells:
@@ -629,20 +758,17 @@ class GoogleSheetWriter:
 
                         pdb.set_trace()
                     self.formatter.format_cell_range(ws.ws, rng[0], rng[1])
-                    do_format = True
 
             if dv := fmt_dict["dv_cell_ranges"]:
                 for rng in dv:
                     self.formatter.set_data_validation_for_cell_range(
                         ws.ws, rng[0], rng[1]
                     )
-                    do_format = True
 
             if fmt_dict["freeze_col"] or fmt_dict["freeze_row"]:
                 self.formatter.set_frozen(
                     ws.ws, rows=fmt_dict["freeze_row"], cols=fmt_dict["freeze_col"]
                 )
-                do_format = True
 
             if fmt_dict["conditional_format_rules"]:
                 print(f"Applying conditional formatting for {ws.ws.title}...")
@@ -652,58 +778,32 @@ class GoogleSheetWriter:
                 rules.save()
                 self.sleep()
 
-        if do_format:
-            print("Applying formatting...")
-            self.formatter.execute()
-            self.sleep()
-
-        if reqs:
-            print("Hiding columns and rows...")
-            self.spreadsheet.batch_update({"requests": reqs})
-            self.sleep()
-
-    def submit_ws(self, name):
-        if name in self.ignore:
-            return
-        cells = self.cells[name]
-        if cells:
-            print(f"Writing cells for worksheet {name}...")
-            self.worksheets[name].ws.clear()
-            self.worksheets[name].ws.update_cells(
-                cells, value_input_option="USER_ENTERED"
-            )
-            self.sleep()
-        if self.worksheets[name].hidden:
-            print(f"Hiding {name}...")
-            self.worksheets[name].ws.hide()
+        # Merge gspread_formatting's accumulated requests with our
+        # structural requests into a single batch_update call.
+        format_reqs = list(self.formatter.requests)
+        del self.formatter.requests[:]
+        all_reqs = format_reqs + reqs
+        if all_reqs:
+            print(f"Applying formatting and structure ({len(all_reqs)} requests)...")
+            self._chunked_batch_update(all_reqs)
             self.sleep()
 
     def submit(self):
-        print("Clearing cells...")
-        self.batch_clear()
-        if self.workaround:
-            self.spreadsheet.del_worksheet(self.worksheets[WORKAROUND].ws)
+        # Phase 1: Batch worksheet creation/deletion (1-2 API calls)
+        self._flush_worksheet_ops()
+
+        # Phase 2: Batch clear user-specified ranges (1 API call)
+        if self.batch_clear_ranges:
+            print("Clearing user-specified ranges...")
+            self.batch_clear()
+
+        # Phase 3: Determine submission order
         self.submit_order = self.submit_order or []
         deferred = []
         normal = []
         for name in self.worksheets:
             if name not in self.cells:
                 continue
-            cells = self.cells[name]
-            max_col = -1
-            max_row = -1
-            for cell in cells:
-                if cell.row > max_row:
-                    max_row = cell.row
-                if cell.col > max_col:
-                    max_col = cell.col
-            cells = []
-            for row in range(1, max_row + 1):
-                for col in range(1, max_col + 1):
-                    cells.append(Cell(row=row, col=col, value=""))
-            print(f"Setting sheet size for {name} to row={max_row}, col={max_col}...")
-            self.worksheets[name].ws.update_cells(cells)
-            self.sleep()
             if name in self.submit_order:
                 continue
             elif self.worksheets[name].defer:
@@ -712,9 +812,107 @@ class GoogleSheetWriter:
                 normal.append(name)
         self.submit_order.extend(normal)
         self.submit_order.extend(deferred)
+
+        # Phase 4: Expand sheets that are too small for their data.
+        # Only expand here — shrinking to exact size happens later in
+        # _format (via delete_req) AFTER conditional formatting is applied.
+        size_reqs = []
         for name in self.submit_order:
-            self.submit_ws(name)
-        self.format()
+            if name in self.ignore:
+                continue
+            cells = self.cells.get(name, [])
+            if not cells:
+                continue
+            ws = self.worksheets[name]
+            max_col = max(max(c.col for c in cells), ws.force_max_col)
+            max_row = max(max(c.row for c in cells), ws.force_max_row)
+            needs_expand = ws.ws.col_count < max_col or ws.ws.row_count < max_row
+            if needs_expand:
+                new_col = max(ws.ws.col_count, max_col)
+                new_row = max(ws.ws.row_count, max_row)
+                size_reqs.append(
+                    {
+                        "updateSheetProperties": {
+                            "properties": {
+                                "sheetId": ws.ws.id,
+                                "gridProperties": {
+                                    "rowCount": new_row,
+                                    "columnCount": new_col,
+                                },
+                            },
+                            "fields": "gridProperties.rowCount,gridProperties.columnCount",
+                        }
+                    }
+                )
+                _set_sheet_size(ws.ws, new_row, new_col)
+
+        if size_reqs:
+            print(f"Setting sheet sizes ({len(size_reqs)} sheets)...")
+            self._chunked_batch_update(size_reqs)
+            self.sleep()
+
+        # Phase 5: Batch write all cell values (2 API calls: clear + update)
+        clear_ranges = []
+        value_data = []
+        total_cells = 0
+        sheets_to_write = []
+        for name in self.submit_order:
+            if name in self.ignore:
+                continue
+            cells = self.cells.get(name, [])
+            if not cells:
+                continue
+            ws_title = self.worksheets[name].ws.title
+            clear_ranges.append(f"'{ws_title}'")
+
+            max_row = max(c.row for c in cells)
+            max_col = max(c.col for c in cells)
+            n_cells = max_row * max_col
+            total_cells += n_cells
+            print(f"  Preparing {ws_title} ({max_row}x{max_col} = {n_cells} cells)...")
+            grid = [["" for _ in range(max_col)] for _ in range(max_row)]
+            for cell in cells:
+                if cell.value is not None:
+                    grid[cell.row - 1][cell.col - 1] = cell.value
+
+            range_str = f"'{ws_title}'!A1:{rowcol_to_a1(max_row, max_col)}"
+            value_data.append({"range": range_str, "values": grid})
+            sheets_to_write.append(ws_title)
+
+        if clear_ranges:
+            print(f"Clearing {len(clear_ranges)} sheets...")
+            self.spreadsheet.values_batch_clear(body={"ranges": clear_ranges})
+
+        if value_data:
+            print(f"Writing {len(value_data)} sheets ({total_cells} cells total)...")
+            self.spreadsheet.values_batch_update(
+                body={
+                    "valueInputOption": "USER_ENTERED",
+                    "data": value_data,
+                }
+            )
+            self.sleep()
+
+        # Phase 6: Batch formatting + hide worksheets (1 API call)
+        hide_reqs = []
+        for name in self.submit_order:
+            if name in self.ignore:
+                continue
+            if self.worksheets[name].hidden:
+                hide_reqs.append(
+                    {
+                        "updateSheetProperties": {
+                            "properties": {
+                                "sheetId": self.worksheets[name].ws.id,
+                                "hidden": True,
+                            },
+                            "fields": "hidden",
+                        }
+                    }
+                )
+
+        self._format(extra_reqs=hide_reqs)
+
         print(
             f"Finished! View results at https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/edit"
         )

@@ -390,6 +390,58 @@ twine = "*"
         assert new_toml[-1] == "\n"
 
     @pytest.mark.utils
+    def test_cleanup_toml_preserves_single_blank_lines_within_sections(this):
+        """Blank lines placed by the user within a section survive cleanup. (#5914)"""
+        toml_data = (
+            "[packages]\n"
+            "requests = \"==2.31.0\"\n"
+            "\n"
+            "flask = \"==2.0.0\"\n"
+            "\n"
+            "[dev-packages]\n"
+            "pytest = \"*\"\n"
+        )
+        result = toml.cleanup_toml(toml_data)
+        lines = result.split("\n")
+        # The blank line between requests and flask must be preserved.
+        assert "" in lines[: lines.index("[dev-packages]")]
+
+    @pytest.mark.utils
+    def test_cleanup_toml_collapses_multiple_blank_lines(this):
+        """Multiple consecutive blank lines are collapsed to a single one. (#5914)"""
+        toml_data = (
+            "[packages]\n"
+            "requests = \"==2.31.0\"\n"
+            "\n"
+            "\n"
+            "\n"
+            "flask = \"==2.0.0\"\n"
+        )
+        result = toml.cleanup_toml(toml_data)
+        lines = result.split("\n")
+        # No two consecutive blank lines should remain.
+        for i in range(len(lines) - 1):
+            assert not (lines[i] == "" and lines[i + 1] == ""), (
+                f"Found consecutive blank lines at indices {i} and {i+1}"
+            )
+
+    @pytest.mark.utils
+    def test_cleanup_toml_adds_blank_line_before_section_header(this):
+        """A blank line is inserted before a section header if one is missing. (#5914)"""
+        toml_data = (
+            "[packages]\n"
+            "requests = \"==2.31.0\"\n"
+            "[dev-packages]\n"  # no blank line before this
+            "pytest = \"*\"\n"
+        )
+        result = toml.cleanup_toml(toml_data)
+        lines = result.split("\n")
+        dev_idx = lines.index("[dev-packages]")
+        assert lines[dev_idx - 1] == "", (
+            "Expected a blank line before [dev-packages]"
+        )
+
+    @pytest.mark.utils
     @pytest.mark.parametrize(
         "input_path, expected",
         [
@@ -816,7 +868,7 @@ class TestEnsureProjectPythonVersionMismatch:
         )
         monkeypatch.setattr(
             "pipenv.utils.project.find_a_system_python",
-            lambda x: None,
+            lambda x, pyenv_only=False: None,
         )
         ensure_virtualenv_calls = []
         monkeypatch.setattr(
@@ -849,7 +901,7 @@ class TestEnsureProjectPythonVersionMismatch:
         )
         monkeypatch.setattr(
             "pipenv.utils.project.find_a_system_python",
-            lambda x: None,
+            lambda x, pyenv_only=False: None,
         )
         ensure_virtualenv_calls = []
         monkeypatch.setattr(
@@ -1025,13 +1077,27 @@ class TestPipfilePythonOverride:
 
     @pytest.mark.utils
     def test_override_python_version_only(self, monkeypatch):
-        """python_version = '3.11' should produce python_full_version = '3.11.0'."""
+        """Matching major.minor should reuse the running interpreter patch version."""
         from pipenv.utils.resolver import _get_pipfile_python_override
 
+        monkeypatch.setattr("platform.python_version", lambda: "3.11.15")
         proj = self._make_project(monkeypatch, {"python_version": "3.11"})
         override = _get_pipfile_python_override(proj)
         assert override is not None
         assert override["python_version"] == "3.11"
+        assert override["python_full_version"] == "3.11.15"
+
+    @pytest.mark.utils
+    def test_override_python_version_only_falls_back_to_dot_zero_for_other_minor(
+        self, monkeypatch
+    ):
+        """A different running minor version should fall back to major.minor.0."""
+        from pipenv.utils.resolver import _get_pipfile_python_override
+
+        monkeypatch.setattr("platform.python_version", lambda: "3.12.1")
+        proj = self._make_project(monkeypatch, {"python_version": "3.11"})
+        override = _get_pipfile_python_override(proj)
+        assert override is not None
         assert override["python_full_version"] == "3.11.0"
 
     @pytest.mark.utils
@@ -1051,6 +1117,16 @@ class TestPipfilePythonOverride:
         from pipenv.utils.resolver import _get_pipfile_python_override
 
         proj = self._make_project(monkeypatch, {"python_version": "*"})
+        override = _get_pipfile_python_override(proj)
+        assert override is None
+
+    @pytest.mark.utils
+    def test_override_major_only_returns_none(self, monkeypatch):
+        """python_version = '3' (major-only) is too imprecise and should not
+        produce an override — the running interpreter's version is used instead."""
+        from pipenv.utils.resolver import _get_pipfile_python_override
+
+        proj = self._make_project(monkeypatch, {"python_version": "3"})
         override = _get_pipfile_python_override(proj)
         assert override is None
 
@@ -1117,6 +1193,53 @@ class TestPipfilePythonOverride:
         with _patched_marker_environment(override_high):
             # 3.11.5 <= 3.11.2 → False
             assert marker.evaluate() is False
+
+    @pytest.mark.utils
+    def test_resolver_target_py_version_info_uses_override(self, monkeypatch):
+        from pipenv.utils.resolver import Resolver
+
+        monkeypatch.setattr("platform.python_version", lambda: "3.11.15")
+        project = self._make_project(monkeypatch, {"python_version": "3.11"})
+        resolver = Resolver(set(), ".", project, sources=[])
+
+        assert resolver.target_py_version_info == (3, 11, 15)
+
+    @pytest.mark.utils
+    def test_resolver_package_finder_uses_target_python_filtering(self, monkeypatch):
+        import tempfile
+
+        from pipenv.utils.resolver import Resolver
+
+        project = self._make_project(monkeypatch, {"python_full_version": "3.11.15"})
+        # Use os.path.join(tempfile.gettempdir(), ...) so the path is an absolute
+        # path on all platforms.  A bare "/tmp/..." prefix is not considered
+        # absolute by os.path.isabs() on Windows, which causes pip's
+        # _build_session() to raise an AssertionError.
+        cache_dir = os.path.join(tempfile.gettempdir(), "pipenv-cache")
+        project.s = mock.MagicMock(
+            PIPENV_CACHE_DIR=cache_dir,
+            PIPENV_KEYRING_PROVIDER=None,
+        )
+        project.settings = {}
+
+        resolver = Resolver(set(), ".", project, sources=[])
+        captured = {}
+
+        def fake_get_package_finder(**kwargs):
+            captured.update(kwargs)
+            return mock.sentinel.finder
+
+        monkeypatch.setattr("pipenv.utils.resolver.get_package_finder", fake_get_package_finder)
+        # Mock the session property so that _build_session() is never invoked;
+        # this unit test only needs to verify that package_finder passes the
+        # correct py_version_info, not that a real PipSession is created.
+        monkeypatch.setattr(Resolver, "session", property(lambda self: mock.MagicMock()))
+
+        finder = resolver.package_finder
+
+        assert finder is mock.sentinel.finder
+        assert captured["py_version_info"] == (3, 11, 15)
+        assert captured["options"].ignore_requires_python is False
 
 
 class TestFormatRequirementForLockfile:
@@ -1230,6 +1353,9 @@ class TestFormatRequirementForLockfile:
         req = self._make_install_req(
             "atomicwrites", link_url=cache_path, specifier="==1.4.1"
         )
+        # Index-resolved packages have no req.req.url (no PEP 508 @ URL);
+        # explicitly set to None so the PEP 508 file:// branch is not triggered.
+        req.req.url = None
 
         name, entry = format_requirement_for_lockfile(
             req=req,
@@ -1245,6 +1371,46 @@ class TestFormatRequirementForLockfile:
             "Local pip cache paths must not bleed into the lockfile"
         )
         assert entry.get("version") == "==1.4.1"
+
+    @pytest.mark.utils
+    def test_transitive_pep508_file_url_stored_in_lockfile(self):
+        """Transitive dependencies declared via PEP 508 ``pkg @ file:///...``
+        in upstream package metadata must have their ``file`` URL recorded in
+        the lockfile.
+
+        Regression test for https://github.com/pypa/pipenv/issues/6521.
+
+        When a top-level package depends on ``local-child-pkg @
+        file:///vendor/local-child-pkg``, pipenv used to write an empty entry
+        ``"local-child-pkg": {}`` because the package was not in the Pipfile
+        and the file:// path was silently dropped.  On the next ``pipenv
+        install`` pip then tried to satisfy ``local-child-pkg`` from PyPI and
+        failed with "No matching distribution found".
+        """
+        from pipenv.utils.locking import format_requirement_for_lockfile
+
+        file_url = "file:///home/user/my-project/vendor/local-child-pkg"
+        req = self._make_install_req("local-child-pkg", link_url=file_url)
+        # Simulate a PEP 508 direct URL reference: req.req.url is set to the
+        # file:// URL (as pip sets it when the requirement is ``pkg @ file://...``).
+        req.req.url = file_url
+
+        name, entry = format_requirement_for_lockfile(
+            req=req,
+            markers_lookup={},
+            index_lookup={},
+            original_deps={},
+            # Transitive dep: not in the Pipfile, so pipfile_entries is empty.
+            pipfile_entries={},
+        )
+
+        assert name == "local-child-pkg"
+        assert entry.get("file") == file_url, (
+            "PEP 508 file:// transitive deps must have their URL recorded in the lockfile"
+        )
+        # version and index should be removed (same as https:// direct URL deps)
+        assert "version" not in entry
+        assert "index" not in entry
 
     @pytest.mark.utils
     def test_regular_pypi_package_no_file_key(self):
@@ -1353,3 +1519,601 @@ class TestIsDownloadStatusLine:
         assert _is_download_status_line(line) is False
 
 
+# ---------------------------------------------------------------------------
+# Tests for create_pipfile Python-version consistency (GitHub issue #6571)
+# ---------------------------------------------------------------------------
+
+
+class TestCreatePipfileVersionConsistency:
+    """Regression tests for GH-6571.
+
+    When ``pipenv install`` creates both the virtualenv and the Pipfile in the
+    same invocation, ``create_pipfile`` must record the Python version that is
+    actually *inside the virtualenv*, not the version discovered by scanning
+    PATH (which may differ when pyenv, asdf, or similar managers are in use).
+
+    The bug was that:
+    1. ``ensure_virtualenv`` called ``find_all_python_versions()`` and picked
+       the highest installed interpreter (e.g. CPython 3.14).
+    2. ``create_pipfile`` subsequently called ``self.which("python")`` which
+       resolved ``python`` via PATH / pyenv shims and found the pyenv *global*
+       interpreter (e.g. CPython 3.13).
+    3. The Pipfile was written with ``python_version = "3.13"`` while the
+       virtualenv contained CPython 3.14 — every subsequent pipenv invocation
+       printed a spurious "Pipfile requires 3.13 but you are using 3.14" warning.
+
+    The fix: when the virtualenv already exists, ``create_pipfile`` uses
+    ``self._which("python")`` (looks directly in the venv's scripts dir)
+    instead of ``self.which("python")`` (searches PATH globally).
+    """
+
+    @staticmethod
+    def _make_project(tmp_path, venv_python_version, global_python_version):
+        """Return a (mock_project, fake_python_version_fn) pair.
+
+        mock_project has:
+        * ``_which("python")`` → venv interpreter path
+        * ``which("python")`` → PATH/pyenv-shim interpreter path
+        * ``virtualenv_exists`` set to True by default (tests can override)
+
+        fake_python_version_fn maps each path to its version string.
+        """
+        from unittest.mock import MagicMock
+
+        venv_python_path = str(tmp_path / "bin" / "python")
+        global_python_path = f"/usr/bin/python{global_python_version}"
+
+        settings = MagicMock()
+        settings.PIPENV_DEFAULT_PYTHON_VERSION = None
+
+        project = MagicMock()
+        project.s = settings
+        project._which.return_value = venv_python_path
+        project.which.return_value = global_python_path
+        project.virtualenv_exists = True
+        project.default_source = {
+            "url": "https://pypi.org/simple",
+            "verify_ssl": True,
+            "name": "pypi",
+        }
+        project.write_toml = MagicMock()
+
+        def _fake_python_version(path):
+            if path == venv_python_path:
+                return venv_python_version
+            if path == global_python_path:
+                return global_python_version
+            return None
+
+        return project, _fake_python_version
+
+    def _call_create_pipfile(self, project, python, fake_pv):
+        """Invoke the real create_pipfile on *project* with all side-effects patched."""
+        from unittest.mock import MagicMock, patch
+
+        from pipenv.project import Project
+
+        # InstallCommand instantiation pulls in pip internals we don't want in unit tests.
+        fake_cmd = MagicMock()
+        fake_cmd.cmd_opts.get_option.return_value.default = []
+
+        written_data = {}
+
+        def capture_write_toml(data):
+            written_data.update(data)
+
+        project.write_toml.side_effect = capture_write_toml
+
+        with patch("pipenv.project.python_version", side_effect=fake_pv), \
+             patch("pipenv.project.InstallCommand", return_value=fake_cmd):
+            Project.create_pipfile(project, python=python)
+
+        return written_data
+
+    def test_uses_venv_python_when_venv_exists(self, tmp_path):
+        """create_pipfile must record the venv's Python, not the PATH one."""
+        venv_ver = "3.14.3"
+        global_ver = "3.13.12"
+
+        project, fake_pv = self._make_project(tmp_path, venv_ver, global_ver)
+        written_data = self._call_create_pipfile(project, python=None, fake_pv=fake_pv)
+
+        requires = written_data.get("requires", {})
+        assert requires.get("python_version") == "3.14", (
+            f"Expected '3.14' (venv) but got {requires.get('python_version')!r}; "
+            "create_pipfile is resolving the PATH Python instead of the venv's interpreter."
+        )
+
+    def test_no_venv_falls_back_to_which(self, tmp_path):
+        """When no venv exists, which('python') is used as the pre-fix fallback."""
+        project, fake_pv = self._make_project(tmp_path, "3.14.3", "3.13.12")
+        project.virtualenv_exists = False  # No venv yet.
+
+        written_data = self._call_create_pipfile(project, python=None, fake_pv=fake_pv)
+
+        requires = written_data.get("requires", {})
+        # Falls back to which() → global/PATH Python.
+        assert requires.get("python_version") == "3.13", (
+            f"Expected '3.13' (PATH fallback) but got {requires.get('python_version')!r}"
+        )
+
+    def test_explicit_python_argument_always_wins(self, tmp_path):
+        """An explicit python= path overrides both venv and PATH discovery."""
+        explicit_ver = "3.12.10"
+        explicit_path = f"/opt/python{explicit_ver}/bin/python"
+
+        project, _ = self._make_project(tmp_path, "3.14.3", "3.13.12")
+
+        def fake_pv(path):
+            return explicit_ver if path == explicit_path else None
+
+        written_data = self._call_create_pipfile(project, python=explicit_path, fake_pv=fake_pv)
+
+        requires = written_data.get("requires", {})
+        assert requires.get("python_version") == "3.12"
+        # python_full_version is only written when an explicit path is provided.
+        assert requires.get("python_full_version") == "3.12.10"
+
+
+class TestAddPipfileEntryPreservesVersionSpecifiers:
+    """Regression tests for https://github.com/pypa/pipenv/issues/5865.
+
+    Installing a failing/nonexistent package must not strip version specifiers
+    from unrelated entries already present in the Pipfile.
+    """
+
+    @pytest.mark.utils
+    def test_convert_toml_preserves_inline_table_version(self):
+        """convert_toml_outline_tables must not drop the 'version' key from an
+        existing inline-table package entry when rewriting the Pipfile.
+        """
+        import textwrap
+        from unittest.mock import MagicMock
+
+        from pipenv.utils.toml import convert_toml_outline_tables
+        from pipenv.vendor import tomlkit
+
+        pipfile_content = textwrap.dedent("""\
+            [[source]]
+            url = "https://pypi.org/simple"
+            verify_ssl = true
+            name = "pypi"
+
+            [packages]
+            pydantic = {extras = ["email"], version = "<2.0"}
+
+            [dev-packages]
+
+            [requires]
+            python_version = "3.11"
+        """)
+
+        parsed = tomlkit.parse(pipfile_content)
+        # Simulate adding a new dev package (as add_pipfile_entry_to_pipfile does)
+        parsed["dev-packages"]["some-random-package"] = "*"
+
+        project = MagicMock()
+        project.get_package_categories.return_value = ["packages", "dev-packages"]
+
+        result = convert_toml_outline_tables(parsed, project)
+
+        pydantic_entry = result.get("packages", {}).get("pydantic")
+        assert pydantic_entry is not None, "pydantic entry was removed entirely"
+        assert "version" in pydantic_entry, (
+            "version key was stripped from pydantic entry after convert_toml_outline_tables"
+        )
+        assert str(pydantic_entry["version"]) == "<2.0", (
+            f"version specifier corrupted: expected '<2.0', got {pydantic_entry['version']!r}"
+        )
+        assert "extras" in pydantic_entry, "extras key was stripped from pydantic entry"
+
+    @pytest.mark.utils
+    def test_add_dev_package_preserves_packages_version_specifier(self, tmp_path, monkeypatch):
+        """add_pipfile_entry_to_pipfile must not corrupt version specifiers in
+        unrelated sections (e.g. adding to [dev-packages] must leave [packages] intact).
+        """
+        import textwrap
+
+        from pipenv.project import Project
+        from pipenv.vendor import tomlkit
+
+        pipfile_content = textwrap.dedent("""\
+            [[source]]
+            url = "https://pypi.org/simple"
+            verify_ssl = true
+            name = "pypi"
+
+            [packages]
+            pydantic = {extras = ["email"], version = "<2.0"}
+
+            [dev-packages]
+
+            [requires]
+            python_version = "3.11"
+        """)
+
+        pipfile_path = tmp_path / "Pipfile"
+        pipfile_path.write_text(pipfile_content)
+
+        monkeypatch.chdir(tmp_path)
+
+        project = Project(chdir=False)
+
+        # Add an unrelated dev package
+        project.add_pipfile_entry_to_pipfile(
+            "some-random-package",
+            "some-random-package",
+            "*",
+            category="dev-packages",
+        )
+
+        # Read back what was written
+        result = tomlkit.parse(pipfile_path.read_text())
+        pydantic_entry = result.get("packages", {}).get("pydantic")
+
+        assert pydantic_entry is not None, "pydantic entry was removed from [packages]"
+        assert "version" in pydantic_entry, (
+            "version key '<2.0' was stripped from pydantic when adding an unrelated dev package "
+            "(regression of https://github.com/pypa/pipenv/issues/5865)"
+        )
+        assert str(pydantic_entry["version"]) == "<2.0", (
+            f"version specifier corrupted: expected '<2.0', got {pydantic_entry['version']!r}"
+        )
+        assert "extras" in pydantic_entry, "extras key was stripped from pydantic entry"
+
+
+class TestCreateBuiltinVenvCmd:
+    """Tests for _create_builtin_venv_cmd (issue #5601).
+
+    When virtualenv fails for an alternative interpreter (e.g. RustPython),
+    pipenv should fall back to the interpreter's own built-in ``venv`` module.
+    The command produced must invoke the *target* interpreter, not sys.executable.
+    """
+
+    def _make_project(self, tmp_path):
+        """Return a minimal project-like object sufficient for cmd-building tests."""
+        project = mock.MagicMock()
+        project.name = "myproject"
+        project.s.PIPENV_VIRTUALENV_CREATOR = ""
+        project.s.PIPENV_VIRTUALENV_COPIES = False
+        venv_dest = str(tmp_path / "myproject-venv")
+        project.get_location_for_virtualenv.return_value = venv_dest
+        return project, venv_dest
+
+    @pytest.mark.utils
+    def test_uses_target_interpreter_not_sys_executable(self, tmp_path):
+        """The first element of the command must be the *target* python, not sys.executable."""
+        from pipenv.utils.virtualenv import _create_builtin_venv_cmd
+
+        project, _ = self._make_project(tmp_path)
+        python = "/home/user/rustpython/target/release/rustpython"
+        cmd = _create_builtin_venv_cmd(project, python)
+        assert cmd[0] == python, (
+            f"Expected target interpreter {python!r} as first arg, got {cmd[0]!r}"
+        )
+
+    @pytest.mark.utils
+    def test_invokes_venv_module(self, tmp_path):
+        """The command must use ``-m venv``, not ``-m virtualenv``."""
+        from pipenv.utils.virtualenv import _create_builtin_venv_cmd
+
+        project, _ = self._make_project(tmp_path)
+        cmd = _create_builtin_venv_cmd(project, "/usr/bin/python3")
+        assert "-m" in cmd
+        assert "venv" in cmd
+        assert "virtualenv" not in cmd
+
+    @pytest.mark.utils
+    def test_includes_prompt(self, tmp_path):
+        """The --prompt flag should be set to the project name."""
+        from pipenv.utils.virtualenv import _create_builtin_venv_cmd
+
+        project, _ = self._make_project(tmp_path)
+        cmd = _create_builtin_venv_cmd(project, "/usr/bin/python3")
+        assert any("--prompt=myproject" == arg for arg in cmd)
+
+    @pytest.mark.utils
+    def test_destination_path_appended(self, tmp_path):
+        """The virtualenv destination directory must be the last argument."""
+        from pipenv.utils.virtualenv import _create_builtin_venv_cmd
+
+        project, venv_dest = self._make_project(tmp_path)
+        cmd = _create_builtin_venv_cmd(project, "/usr/bin/python3")
+        assert cmd[-1] == venv_dest
+
+    @pytest.mark.utils
+    def test_system_site_packages_flag(self, tmp_path):
+        """--system-site-packages is included only when site_packages=True."""
+        from pipenv.utils.virtualenv import _create_builtin_venv_cmd
+
+        project, _ = self._make_project(tmp_path)
+        cmd_no = _create_builtin_venv_cmd(project, "/usr/bin/python3", site_packages=False)
+        cmd_yes = _create_builtin_venv_cmd(project, "/usr/bin/python3", site_packages=True)
+        assert "--system-site-packages" not in cmd_no
+        assert "--system-site-packages" in cmd_yes
+
+
+class TestDoCreateVirtualenvFallback:
+    """Tests for the venv fallback logic in do_create_virtualenv (issue #5601).
+
+    When ``virtualenv`` exits with a non-zero code and the user has not set
+    PIPENV_VIRTUALENV_CREATOR, pipenv should automatically retry using the
+    target interpreter's built-in ``venv`` module.
+    """
+
+    def _make_project(self, tmp_path):
+        project = mock.MagicMock()
+        project.name = "myproject"
+        project.pipfile_location = str(tmp_path / "Pipfile")
+        project.virtualenv_location = str(tmp_path / "venv")
+        project.project_directory = str(tmp_path)
+        project.get_location_for_virtualenv.return_value = str(tmp_path / "venv")
+        project.pipfile_sources.return_value = []
+        project.parsed_pipfile = {}
+        project.s.PIPENV_SPINNER = "dots"
+        project.s.PIPENV_VIRTUALENV_CREATOR = ""
+        project.s.PIPENV_VIRTUALENV_COPIES = False
+        project.s.is_verbose.return_value = False
+        # Create the virtualenv dir so .project file write succeeds
+        (tmp_path / "venv").mkdir(parents=True, exist_ok=True)
+        return project
+
+    @pytest.mark.utils
+    def test_fallback_to_builtin_venv_on_virtualenv_failure(self, tmp_path, monkeypatch):
+        """When virtualenv fails, do_create_virtualenv retries with python -m venv."""
+        from pipenv.utils import virtualenv as venv_mod
+
+        project = self._make_project(tmp_path)
+
+        fail_result = mock.MagicMock()
+        fail_result.returncode = 1
+        fail_result.stdout = ""
+        fail_result.stderr = "TypeError: 'NoneType' object is not callable"
+
+        success_result = mock.MagicMock()
+        success_result.returncode = 0
+        success_result.stdout = ""
+        success_result.stderr = ""
+
+        call_count = {"n": 0}
+
+        def fake_subprocess_run(cmd, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return fail_result  # virtualenv attempt
+            return success_result  # venv fallback
+
+        monkeypatch.setattr(venv_mod, "subprocess_run", fake_subprocess_run)
+        monkeypatch.setattr(venv_mod, "create_tracked_tempdir", lambda: str(tmp_path))
+        monkeypatch.setattr(venv_mod, "python_version", lambda p: "3.10.0")
+        monkeypatch.setattr(venv_mod, "do_where", lambda *a, **kw: None)
+        # Environment is imported lazily inside do_create_virtualenv; patch at source.
+        monkeypatch.setattr("pipenv.environment.Environment.__init__", lambda *a, **kw: None)
+
+        # Should not raise — the fallback succeeded
+        venv_mod.do_create_virtualenv(project, python="/usr/bin/python3")
+        assert call_count["n"] == 2, "Expected two subprocess calls (virtualenv + venv fallback)"
+
+    @pytest.mark.utils
+    def test_raises_if_both_virtualenv_and_venv_fail(self, tmp_path, monkeypatch):
+        """If both virtualenv and the venv fallback fail, VirtualenvCreationException is raised."""
+        from pipenv.exceptions import VirtualenvCreationException
+        from pipenv.utils import virtualenv as venv_mod
+
+        project = self._make_project(tmp_path)
+
+        bad_result = mock.MagicMock()
+        bad_result.returncode = 1
+        bad_result.stdout = ""
+        bad_result.stderr = "something went wrong"
+
+        monkeypatch.setattr(venv_mod, "subprocess_run", lambda cmd, **kw: bad_result)
+        monkeypatch.setattr(venv_mod, "create_tracked_tempdir", lambda: str(tmp_path))
+        monkeypatch.setattr(venv_mod, "python_version", lambda p: "3.10.0")
+
+        with pytest.raises(VirtualenvCreationException):
+            venv_mod.do_create_virtualenv(project, python="/usr/bin/python3")
+
+    @pytest.mark.utils
+    def test_no_fallback_when_creator_explicitly_set(self, tmp_path, monkeypatch):
+        """When PIPENV_VIRTUALENV_CREATOR is set, the fallback must NOT be attempted."""
+        from pipenv.exceptions import VirtualenvCreationException
+        from pipenv.utils import virtualenv as venv_mod
+
+        project = self._make_project(tmp_path)
+        project.s.PIPENV_VIRTUALENV_CREATOR = "builtin"  # user chose explicitly
+
+        bad_result = mock.MagicMock()
+        bad_result.returncode = 1
+        bad_result.stdout = ""
+        bad_result.stderr = "virtualenv error"
+
+        call_count = {"n": 0}
+
+        def fake_subprocess_run(cmd, **kwargs):
+            call_count["n"] += 1
+            return bad_result
+
+        monkeypatch.setattr(venv_mod, "subprocess_run", fake_subprocess_run)
+        monkeypatch.setattr(venv_mod, "create_tracked_tempdir", lambda: str(tmp_path))
+        monkeypatch.setattr(venv_mod, "python_version", lambda p: "3.10.0")
+
+        with pytest.raises(VirtualenvCreationException):
+            venv_mod.do_create_virtualenv(project, python="/usr/bin/python3")
+
+        assert call_count["n"] == 1, "Fallback must not be attempted when creator is explicit"
+
+
+class TestResolverCreateCrossGroupIndexLookup:
+    """Tests for issue #5782: When locking a non-default category (e.g.
+    dev-packages), transitive dependencies that are explicitly declared with a
+    private ``index`` in another Pipfile section (e.g. [packages]) must still
+    be resolvable from that private index.
+
+    The fix populates ``index_lookup`` in ``Resolver.create()`` with entries
+    from all other Pipfile sections so that the pip SearchScope (which is
+    ``index_restricted=True``) can route transitive deps to the correct index.
+    """
+
+    def _make_project(self, packages, dev_packages, extra_categories=None):
+        """Return a minimal mock project whose ``get_pipfile_section`` and
+        ``get_package_categories`` behave like a real project with the given
+        Pipfile sections."""
+        project = mock.MagicMock()
+        section_map = {
+            "packages": packages,
+            "dev-packages": dev_packages,
+        }
+        if extra_categories:
+            section_map.update(extra_categories)
+
+        project.get_pipfile_section.side_effect = lambda sec: section_map.get(sec, {})
+
+        all_categories = list(section_map.keys())
+
+        project.get_package_categories.return_value = all_categories
+
+        project.sources = [
+            {"name": "pypi", "url": "https://pypi.org/simple", "verify_ssl": True},
+            {"name": "private", "url": "https://private.example.com/simple", "verify_ssl": True},
+        ]
+        project.get_default_index.return_value = {"name": "pypi", "url": "https://pypi.org/simple"}
+        project.s.PIPENV_CACHE_DIR = "/tmp/cache"
+        project.s.PIPENV_SPINNER = "dots"
+        project.settings.get.return_value = True
+        return project
+
+    @pytest.mark.utils
+    def test_private_packages_index_propagated_to_dev_lookup(self, tmp_path):
+        """index entries from [packages] must appear in index_lookup when
+        locking [dev-packages] so that transitive deps can be resolved.
+
+        Reproduces: https://github.com/pypa/pipenv/issues/5782
+        """
+        from unittest.mock import patch
+
+        from pipenv.utils.resolver import Resolver
+
+        packages = {
+            "private-lib": {"version": "*", "index": "private"},
+        }
+        dev_packages = {
+            "dev-tool": {"version": "*", "index": "private"},
+        }
+
+        project = self._make_project(packages, dev_packages)
+
+        # Patch out the heavy parts of Resolver.create that need a real
+        # environment (tempdir, pip internals) so we can test just the
+        # index_lookup construction logic.
+        fake_resolver = mock.MagicMock(spec=Resolver)
+        fake_resolver.index_lookup = {}
+        fake_resolver.markers_lookup = {}
+        fake_resolver.skipped = {}
+        fake_resolver.initial_constraints = set()
+
+        with patch(
+            "pipenv.utils.resolver.create_tracked_tempdir",
+            return_value=str(tmp_path),
+        ), patch.object(Resolver, "__init__", return_value=None) as mock_init:
+            # We call create() and capture what index_lookup ends up as.
+            # __init__ is stubbed so no real Resolver object is built.
+            captured = {}
+
+            def capture_init(self_inner, *args, **kwargs):
+                captured["index_lookup"] = kwargs.get("index_lookup", {})
+
+            mock_init.side_effect = capture_init
+
+            # Provide a minimal dep string for the dev category
+            deps = {"dev-tool": "dev-tool -i https://private.example.com/simple"}
+
+            with patch(
+                "pipenv.utils.resolver.expansive_install_req_from_line"
+            ) as mock_eirl, patch(
+                "pipenv.utils.resolver.parse_indexes",
+                return_value=(None, None, None, []),
+            ):
+                mock_req = mock.MagicMock()
+                mock_req.markers = None
+                mock_eirl.return_value = (mock_req, None)
+
+                try:
+                    Resolver.create(
+                        deps=deps,
+                        project=project,
+                        pipfile_category="dev-packages",
+                        req_dir=str(tmp_path),
+                    )
+                except Exception:
+                    pass  # __init__ is stubbed; downstream AttributeError is expected
+
+        index_lookup = captured.get("index_lookup", {})
+        # The key assertion: private-lib (from [packages]) must be in the
+        # index_lookup even though we are locking [dev-packages].
+        assert "private-lib" in index_lookup, (
+            "index_lookup for dev-packages resolution must include packages from "
+            "[packages] that have an explicit 'index' so that transitive "
+            "dependencies can be found on the correct private index. "
+            "(See https://github.com/pypa/pipenv/issues/5782)"
+        )
+        assert index_lookup["private-lib"] == "private"
+
+    @pytest.mark.utils
+    def test_current_category_entries_not_overridden(self, tmp_path):
+        """An explicit index in [dev-packages] must NOT be overridden by an
+        entry for the same package in [packages] with a different index."""
+        from unittest.mock import patch
+
+        from pipenv.utils.resolver import Resolver
+
+        # Same package in both sections, but different indexes
+        packages = {
+            "shared-lib": {"version": "*", "index": "private"},
+        }
+        dev_packages = {
+            "shared-lib": {"version": "*", "index": "testpypi"},
+        }
+
+        project = self._make_project(packages, dev_packages)
+
+        captured = {}
+
+        with patch(
+            "pipenv.utils.resolver.create_tracked_tempdir",
+            return_value=str(tmp_path),
+        ), patch.object(Resolver, "__init__", return_value=None) as mock_init:
+
+            def capture_init(self_inner, *args, **kwargs):
+                captured["index_lookup"] = kwargs.get("index_lookup", {})
+
+            mock_init.side_effect = capture_init
+
+            deps = {"shared-lib": "shared-lib -i https://test.pypi.org/simple"}
+
+            with patch(
+                "pipenv.utils.resolver.expansive_install_req_from_line"
+            ) as mock_eirl, patch(
+                "pipenv.utils.resolver.parse_indexes",
+                return_value=(None, None, None, []),
+            ):
+                mock_req = mock.MagicMock()
+                mock_req.markers = None
+                mock_eirl.return_value = (mock_req, None)
+
+                try:
+                    Resolver.create(
+                        deps=deps,
+                        project=project,
+                        pipfile_category="dev-packages",
+                        req_dir=str(tmp_path),
+                    )
+                except Exception:
+                    pass
+
+        index_lookup = captured.get("index_lookup", {})
+        # The dev-packages entry for shared-lib (testpypi) must win over the
+        # packages entry (private).
+        assert index_lookup.get("shared-lib") == "testpypi", (
+            "Current category's index must not be overridden by another section's entry."
+        )

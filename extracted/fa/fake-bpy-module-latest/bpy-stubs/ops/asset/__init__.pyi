@@ -30,7 +30,7 @@ def bundle_install(
     /,
     *,
     asset_library_reference: str | None = "",
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = True,
     filter_blender: bool | None = True,
@@ -101,7 +101,7 @@ def catalog_delete(
     undo: bool | None = None,
     /,
     *,
-    catalog_id: str | None = "",
+    catalog_id: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove an asset catalog from the asset library (contained assets will not be affected and show up as unassigned)
 
@@ -114,7 +114,7 @@ def catalog_new(
     undo: bool | None = None,
     /,
     *,
-    parent_path: str | None = "",
+    parent_path: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new catalog to put assets in
 

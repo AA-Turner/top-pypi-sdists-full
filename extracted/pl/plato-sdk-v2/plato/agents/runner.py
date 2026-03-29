@@ -16,7 +16,7 @@ from opentelemetry import trace
 
 from plato.agents.runtime import DockerRuntime, PlatoVMRuntime
 from plato.agents.runtime.base import AgentContext, PreparedAgent, Runtime
-from plato.agents.runtime.transport import NFSTransport, Transport
+from plato.agents.runtime.transport import NFSTransport, SSHFSTransport, Transport
 from plato.agents.runtime.vm import VMConfig
 from plato.chronos.models import AuditEventInput, Operation
 from plato.runtime import VMRuntimeConfig
@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 class AuditScope:
     """Per-workspace audit collection scope for a single agent run."""
 
-    transport: NFSTransport
+    transport: NFSTransport | SSHFSTransport
     workspace_name: str
     repo_root: Path
     mount_path: str
@@ -252,7 +252,7 @@ class AgentRunner:
         return fallback
 
     def _configure_audit_scopes(self, display_name: str | None = None) -> list[AuditScope]:
-        """Create one audit scope per tracked NFS-mounted workspace.
+        """Create one audit scope per tracked NFS/SSHFS-mounted workspace.
 
         Each scope gets its own *copy* of the transport so that parallel
         ``AgentRunner`` instances don't overwrite each other's ``audit_key``
@@ -262,7 +262,7 @@ class AgentRunner:
         scopes: list[AuditScope] = []
 
         for transport in self._all_transports():
-            if not isinstance(transport, NFSTransport):
+            if not isinstance(transport, (NFSTransport, SSHFSTransport)):
                 continue
             if not getattr(transport, "workspace_tracked", False):
                 continue

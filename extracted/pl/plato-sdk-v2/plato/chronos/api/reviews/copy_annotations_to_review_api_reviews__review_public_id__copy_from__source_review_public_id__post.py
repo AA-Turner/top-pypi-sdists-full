@@ -38,9 +38,7 @@ def sync(
     body: CopyAnnotationsRequest,
     x_api_key: str | None = None,
 ) -> list[AnnotationResponse]:
-    """Copy top-level annotations from a source review into a human review.
-
-    Each copied annotation gets source_annotation_id set for provenance."""
+    """Copy top-level annotations from a source review."""
 
     request_args = _build_request_args(
         review_public_id=review_public_id,
@@ -61,9 +59,7 @@ async def asyncio(
     body: CopyAnnotationsRequest,
     x_api_key: str | None = None,
 ) -> list[AnnotationResponse]:
-    """Copy top-level annotations from a source review into a human review.
-
-    Each copied annotation gets source_annotation_id set for provenance."""
+    """Copy top-level annotations from a source review."""
 
     request_args = _build_request_args(
         review_public_id=review_public_id,

@@ -206,3 +206,7 @@ def get_percentage(owner_balance, address_balance):
     retained_div = divide_it(owner_balance, address_balance)
     retained_mul = multiply_it(retained_div, 100)
     return round(retained_mul, 2)
+
+def zero_buff_int(i, j=4):
+    j = if_type_default(j, 4, int)
+    return str(i).zfill(j)

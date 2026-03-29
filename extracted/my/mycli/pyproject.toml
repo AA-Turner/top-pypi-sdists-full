@@ -9,6 +9,7 @@ authors = [{ name = "Mycli Core Team" }]
 
 dependencies = [
     "click ~= 8.3.1",
+    "clickdc ~= 0.1.1",
     "cryptography ~= 46.0.5",
     "Pygments ~= 2.19.2",
     "prompt_toolkit>=3.0.6,<4.0.0",
@@ -119,3 +120,34 @@ warn_no_return = true
 warn_unused_configs = true
 show_column_numbers = true
 exclude = ['^build/', '^dist/']
+
+[tool.tox]
+env_list = ['python']
+requires = ['tox>=4.20']
+
+[tool.tox.env_run_base]
+skip_install = true
+deps = ['uv']
+passenv = ['PYTEST_HOST',
+           'PYTEST_USER',
+           'PYTEST_PASSWORD',
+           'PYTEST_PORT',
+           'PYTEST_CHARSET']
+commands = [['uv', 'pip', 'install', '-e', '.[dev,ssh,llm]'],
+            ['coverage', 'run', '-m', 'pytest', '-v', 'test'],
+            ['coverage', 'report', '-m'],
+            ['behave', 'test/features']]
+commands_post = [['rm', '-f', '--', './.myclirc']]
+allowlist_externals = ['rm']
+
+[tool.tox.env.style]
+skip_install = true
+deps = ['ruff']
+commands = [['ruff', 'check'],
+            ['ruff', 'format', '--diff']]
+
+[tool.pytest]
+addopts = ['--ignore=mycli/packages/paramiko_stub/__init__.py']
+
+[tool.coverage.run]
+source = ['mycli']

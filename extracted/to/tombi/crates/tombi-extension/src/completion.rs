@@ -315,23 +315,47 @@ impl CompletionContent {
     pub fn new_key(
         key_name: &str,
         position: tombi_text::Position,
+        replace_range: Option<tombi_text::Range>,
         detail: Option<String>,
         documentation: Option<String>,
         required_keys: Option<&Vec<String>>,
         schema_uri: Option<&SchemaUri>,
         deprecated: Option<bool>,
         completion_hint: Option<CompletionHint>,
+        singleton_value_label: Option<String>,
     ) -> Self {
-        let label = key_name.to_string();
         let required = required_keys
-            .map(|required_keys| required_keys.contains(&label))
+            .map(|required_keys| {
+                required_keys
+                    .iter()
+                    .any(|required_key| required_key == key_name)
+            })
             .unwrap_or_default();
 
         let key_range = match completion_hint {
             Some(
                 CompletionHint::DotTrigger { range } | CompletionHint::EqualTrigger { range, .. },
             ) => tombi_text::Range::new(range.end, position),
-            _ => tombi_text::Range::at(position),
+            _ => replace_range.unwrap_or_else(|| tombi_text::Range::at(position)),
+        };
+
+        let escaped_key_name = escape_toml_key(key_name);
+        let label = if let Some(value_label) = &singleton_value_label {
+            format!("{key_name} = {value_label}")
+        } else {
+            key_name.to_string()
+        };
+
+        let edit = if let Some(value_label) = singleton_value_label {
+            CompletionEdit::new_key_with_literal(
+                &escaped_key_name,
+                key_range,
+                &value_label,
+                completion_hint,
+            )
+            .or_else(|| CompletionEdit::new_key(&escaped_key_name, key_range, completion_hint))
+        } else {
+            CompletionEdit::new_key(&escaped_key_name, key_range, completion_hint)
         };
 
         Self {
@@ -346,7 +370,7 @@ impl CompletionContent {
             detail,
             documentation,
             filter_text: None,
-            edit: CompletionEdit::new_key(key_name, key_range, completion_hint),
+            edit,
             schema_uri: schema_uri.cloned(),
             deprecated,
             preselect: None,
@@ -477,6 +501,20 @@ impl CompletionContent {
     pub fn with_position(mut self, position: tombi_text::Position) -> Self {
         self.edit = self.edit.map(|edit| edit.with_position(position));
         self
+    }
+}
+
+fn escape_toml_key(key_name: &str) -> String {
+    if key_name
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+    {
+        key_name.to_string()
+    } else {
+        format!(
+            "\"{}\"",
+            key_name.replace('\\', "\\\\").replace('"', "\\\"")
+        )
     }
 }
 

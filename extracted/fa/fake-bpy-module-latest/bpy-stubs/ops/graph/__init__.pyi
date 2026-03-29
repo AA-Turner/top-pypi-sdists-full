@@ -1015,7 +1015,7 @@ def sound_to_samples(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,

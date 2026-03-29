@@ -97,6 +97,7 @@ pub async fn handle_hover(
                 .as_ref()
                 .and_then(|s| s.root_schema.as_deref()),
             sub_schema_uri_map: source_schema.as_ref().map(|s| &s.sub_schema_uri_map),
+            deprecated_lint_level: source_schema.as_ref().and_then(|s| s.deprecated_lint_level),
             schema_visits: Default::default(),
             store: &schema_store,
             strict: None,
@@ -106,6 +107,55 @@ pub async fn handle_hover(
 
     if let Some(HoverContent::Value(hover_value_content)) = &mut hover_content {
         hover_value_content.range = range;
+
+        let accessors = tombi_document_tree::get_accessors(&document_tree, &keys, position);
+        let offline = schema_store.offline();
+        let cache_options = schema_store.cache_options();
+
+        let extension_hover = if let Some(metadata) = tombi_extension_tombi::hover(
+            &text_document_uri,
+            &document_tree,
+            &accessors,
+            toml_version,
+            offline,
+        )
+        .await?
+        {
+            Some(metadata)
+        } else if let Some(metadata) = tombi_extension_cargo::hover(
+            &text_document_uri,
+            &document_tree,
+            &accessors,
+            toml_version,
+            offline,
+            cache_options,
+        )
+        .await?
+        {
+            Some(metadata)
+        } else if let Some(metadata) = tombi_extension_pyproject::hover(
+            &text_document_uri,
+            &document_tree,
+            &accessors,
+            toml_version,
+            offline,
+            cache_options,
+        )
+        .await?
+        {
+            Some(metadata)
+        } else {
+            None
+        };
+
+        if let Some(metadata) = extension_hover {
+            if metadata.title.is_some() {
+                hover_value_content.title = metadata.title;
+            }
+            if metadata.description.is_some() {
+                hover_value_content.description = metadata.description;
+            }
+        }
     }
     Ok(hover_content)
 }

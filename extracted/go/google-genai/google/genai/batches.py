@@ -1052,6 +1052,9 @@ def _GenerateContentConfig_to_mldev(
         'model_armor_config parameter is not supported in Gemini API.'
     )
 
+  if getv(from_object, ['service_tier']) is not None:
+    setv(parent_object, ['serviceTier'], getv(from_object, ['service_tier']))
+
   return to_object
 
 
@@ -1086,6 +1089,9 @@ def _GenerateContentResponse_from_mldev(
 
   if getv(from_object, ['usageMetadata']) is not None:
     setv(to_object, ['usage_metadata'], getv(from_object, ['usageMetadata']))
+
+  if getv(from_object, ['modelStatus']) is not None:
+    setv(to_object, ['model_status'], getv(from_object, ['modelStatus']))
 
   return to_object
 
@@ -1459,6 +1465,9 @@ def _Part_to_mldev(
 
   if getv(from_object, ['tool_response']) is not None:
     setv(to_object, ['toolResponse'], getv(from_object, ['tool_response']))
+
+  if getv(from_object, ['part_metadata']) is not None:
+    setv(to_object, ['partMetadata'], getv(from_object, ['part_metadata']))
 
   return to_object
 

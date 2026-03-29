@@ -1,13 +1,15 @@
 import os
 from tempfile import TemporaryDirectory
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from pipenv.project import NON_CATEGORY_SECTIONS
 from pipenv.shells import _get_activate_script, _get_deactivate_wrapper_script
 from pipenv.utils.environment import load_dot_env
 from pipenv.utils.shell import temp_environ
 from pipenv.utils.virtualenv import warn_in_virtualenv
+from pipenv.vendor import shellingham
 
 
 @pytest.mark.core
@@ -430,6 +432,181 @@ def test_get_activate_script_windows_full_path():
 
 
 @pytest.mark.core
+@pytest.mark.skipif(os.name == "nt", reason="PTY/pexpect not available on Windows")
+def test_fork_compat_sentinel_restores_echo():
+    """Regression test for GH-6572 and GH-3615.
+
+    GH-6572: fork_compat must re-enable PTY echo.  In Docker / pty-over-pty
+    environments the shell's own readline initialisation can race with our
+    setecho(True) call, leaving echo permanently disabled.
+
+    GH-3615: fork_compat must wait for the shell to finish its startup
+    (including any interactive prompts like oh-my-zsh's update dialogue)
+    before sending the activate script.
+
+    The fix sends a startup sentinel ``echo __PIPENV_STARTUP_READY__`` and
+    blocks on ``c.expect(sentinel)`` *before* activating, then sends a
+    second sentinel ``echo __PIPENV_SHELL_READY__`` *after* all setup
+    commands and blocks again before re-enabling echo.
+
+    This test verifies both sentinels are performed and that setecho is
+    called in the correct order (False → startup sentinel → activate →
+    ready sentinel → True) using a mock pexpect child.
+    """
+    from pipenv.shells import Shell
+
+    shell = Shell("/bin/bash")
+
+    # Build a mock pexpect child that simulates the sentinel handshake.
+    mock_child = MagicMock()
+    mock_child.setecho.return_value = None
+    mock_child.expect.return_value = 0  # sentinel found
+    mock_child.interact.return_value = None
+    mock_child.exitstatus = 0
+
+    call_order = []
+
+    def _setecho(state):
+        call_order.append(("setecho", state))
+
+    def _sendline(line):
+        call_order.append(("sendline", line))
+
+    def _expect(pattern, timeout=30):
+        call_order.append(("expect", pattern))
+        return 0
+
+    mock_child.setecho.side_effect = _setecho
+    mock_child.sendline.side_effect = _sendline
+    mock_child.expect.side_effect = _expect
+
+    with patch("pipenv.vendor.pexpect.spawn", return_value=mock_child), \
+         patch("pipenv.shells._get_activate_script", return_value="source /venv/bin/activate"), \
+         patch("pipenv.shells._get_deactivate_wrapper_script", return_value=""), \
+         patch("pipenv.shells.get_terminal_size") as mock_size, \
+         patch("pipenv.shells.temp_environ"), \
+         patch("pipenv.shells.signal.signal"), \
+         patch("sys.exit"):
+        mock_size.return_value = MagicMock(lines=24, columns=80)
+
+        shell.fork_compat("/path/to/venv", "/project", [])
+
+    # Verify setecho(False) was called before any sendline.
+    setecho_false_idx = next(
+        i for i, item in enumerate(call_order) if item == ("setecho", False)
+    )
+    first_sendline_idx = next(
+        i for i, item in enumerate(call_order) if item[0] == "sendline"
+    )
+    assert setecho_false_idx < first_sendline_idx, (
+        "setecho(False) must be called before any sendline"
+    )
+
+    # Verify the startup sentinel was sent and expected *before* activate.
+    startup_send = [item for item in call_order if item[0] == "sendline" and "__PIPENV_STARTUP_READY__" in item[1]]
+    assert startup_send, "Startup sentinel must be sent via sendline"
+
+    startup_expect = [item for item in call_order if item[0] == "expect" and "__PIPENV_STARTUP_READY__" in str(item[1])]
+    assert startup_expect, "Startup sentinel must be waited for via expect"
+
+    startup_expect_idx = next(
+        i for i, item in enumerate(call_order) if item[0] == "expect" and "__PIPENV_STARTUP_READY__" in str(item[1])
+    )
+    activate_idx = next(
+        i for i, item in enumerate(call_order) if item == ("sendline", "source /venv/bin/activate")
+    )
+    assert startup_expect_idx < activate_idx, (
+        "Startup sentinel expect must complete before the activate script is sent (GH-3615)"
+    )
+
+    # Verify the ready sentinel was sent and expected *after* activate.
+    ready_send = [item for item in call_order if item[0] == "sendline" and "__PIPENV_SHELL_READY__" in item[1]]
+    assert ready_send, "Ready sentinel must be sent via sendline"
+
+    ready_expect = [item for item in call_order if item[0] == "expect" and "__PIPENV_SHELL_READY__" in str(item[1])]
+    assert ready_expect, "Ready sentinel must be waited for via expect"
+
+    ready_expect_idx = next(
+        i for i, item in enumerate(call_order) if item[0] == "expect" and "__PIPENV_SHELL_READY__" in str(item[1])
+    )
+    assert activate_idx < ready_expect_idx, (
+        "Ready sentinel expect must happen after the activate script"
+    )
+
+    # Verify ready sentinel expect happens before setecho(True).
+    setecho_true_idx = next(
+        i for i, item in enumerate(call_order) if item == ("setecho", True)
+    )
+    assert ready_expect_idx < setecho_true_idx, (
+        "Ready sentinel expect must complete before setecho(True) to avoid the race condition"
+    )
+
+
+@pytest.mark.core
+def test_install_uses_metadata_name_for_headers():
+    """Regression test for GH-5717: headers directory must use the wheel's
+    own metadata name (original casing) rather than the canonicalised/
+    lowercased requirement name that comes from the lockfile.
+
+    Example: CPyCppyy is stored as 'cpycppyy' in the lockfile (due to
+    normalize_name() in format_requirement_for_lockfile), so self.req.name
+    is 'cpycppyy'.  But the wheel's METADATA has 'Name: CPyCppyy'.
+    The headers must land in …/include/site/pythonX.Y/CPyCppyy/ not
+    …/cpycppyy/ so that downstream consumers (cppyy) can find them.
+
+    The fix reads self.metadata["Name"] from the wheel and passes that as
+    dist_name to get_scheme() and install_wheel(), overriding the lowercase
+    req.name.
+    """
+    from pipenv.patched.pip._internal.req.req_install import InstallRequirement
+
+    captured = {}
+
+    def fake_get_scheme(dist_name, **kwargs):
+        captured["dist_name"] = dist_name
+        return MagicMock()
+
+    def fake_install_wheel(name, *args, **kwargs):
+        captured["install_name"] = name
+
+    mock_req = MagicMock()
+    mock_req.name = "cpycppyy"  # lowercase — as stored in the lockfile
+
+    ireq = InstallRequirement.__new__(InstallRequirement)
+    ireq.req = mock_req
+    ireq.isolated = False
+    ireq.local_file_path = "/fake/CPyCppyy-1.12.13-cp312-cp312-linux_x86_64.whl"
+    ireq.install_succeeded = None
+    ireq.user_supplied = True
+
+    # is_wheel, is_direct, and metadata are all read-only properties on
+    # InstallRequirement, so they must be patched at the class level.
+    # metadata returns a dict-like object mimicking the wheel's METADATA file.
+    metadata_mock = {"Name": "CPyCppyy"}
+    with patch.object(
+        InstallRequirement, "is_wheel", new_callable=PropertyMock, return_value=True
+    ), patch.object(
+        InstallRequirement, "is_direct", new_callable=PropertyMock, return_value=False
+    ), patch.object(
+        InstallRequirement, "metadata", new_callable=PropertyMock, return_value=metadata_mock
+    ), patch(
+        "pipenv.patched.pip._internal.req.req_install.get_scheme",
+        side_effect=fake_get_scheme,
+    ), patch(
+        "pipenv.patched.pip._internal.req.req_install.install_wheel",
+        side_effect=fake_install_wheel,
+    ):
+        ireq.install()
+
+    assert captured["dist_name"] == "CPyCppyy", (
+        f"get_scheme should receive 'CPyCppyy' (from wheel metadata) not {captured['dist_name']!r}"
+    )
+    assert captured["install_name"] == "CPyCppyy", (
+        f"install_wheel should receive 'CPyCppyy' (from wheel metadata) not {captured['install_name']!r}"
+    )
+
+
+@pytest.mark.core
 def test_get_deactivate_wrapper_script_windows_full_path():
     """Test that _get_deactivate_wrapper_script handles Windows full paths with .exe extension.
 
@@ -448,3 +625,312 @@ def test_get_deactivate_wrapper_script_windows_full_path():
     )
     assert "PIPENV_ACTIVE" in script
     assert "Remove-Item" in script
+
+
+# ── Tests for [build-system] support (issue #3651) ──────────────────────────
+
+
+@pytest.mark.core
+def test_build_system_excluded_from_non_category_sections():
+    """[build-system] must be listed in NON_CATEGORY_SECTIONS so it is never
+    treated as a package category by get_package_categories."""
+    assert "build-system" in NON_CATEGORY_SECTIONS
+
+
+@pytest.mark.core
+def test_pipfile_build_requires_empty_when_no_section(project):
+    """pipfile_build_requires returns [] when Pipfile has no [build-system]."""
+    with patch.object(
+        type(project),
+        "pipfile_exists",
+        new_callable=PropertyMock,
+        return_value=True,
+    ), patch.object(
+        type(project),
+        "parsed_pipfile",
+        new_callable=PropertyMock,
+        return_value={},
+    ):
+        assert project.pipfile_build_requires == []
+
+
+@pytest.mark.core
+def test_pipfile_build_requires_empty_when_no_pipfile(project):
+    """pipfile_build_requires returns [] when there is no Pipfile at all."""
+    with patch.object(
+        type(project),
+        "pipfile_exists",
+        new_callable=PropertyMock,
+        return_value=False,
+    ):
+        assert project.pipfile_build_requires == []
+
+
+@pytest.mark.core
+def test_pipfile_build_requires_reads_requires_list(project):
+    """pipfile_build_requires returns the list of packages from [build-system].requires."""
+    fake_pipfile = {
+        "build-system": {
+            "requires": ["stwrapper>=1.0", "setuptools>=40.8.0", "wheel"],
+        }
+    }
+    with patch.object(
+        type(project),
+        "pipfile_exists",
+        new_callable=PropertyMock,
+        return_value=True,
+    ), patch.object(
+        type(project),
+        "parsed_pipfile",
+        new_callable=PropertyMock,
+        return_value=fake_pipfile,
+    ):
+        result = project.pipfile_build_requires
+        assert result == ["stwrapper>=1.0", "setuptools>=40.8.0", "wheel"]
+
+
+@pytest.mark.core
+def test_build_system_not_in_package_categories(project):
+    """get_package_categories must never include 'build-system' (or its lockfile
+    counterpart) in the returned list."""
+    fake_pipfile = {
+        "source": [{"url": "https://pypi.org/simple", "verify_ssl": True, "name": "pypi"}],
+        "packages": {"requests": "*"},
+        "dev-packages": {"pytest": "*"},
+        "build-system": {"requires": ["setuptools"]},
+    }
+    with patch.object(
+        type(project),
+        "pipfile_exists",
+        new_callable=PropertyMock,
+        return_value=True,
+    ), patch.object(
+        type(project),
+        "parsed_pipfile",
+        new_callable=PropertyMock,
+        return_value=fake_pipfile,
+    ):
+        categories = project.get_package_categories()
+        assert "build-system" not in categories
+        lockfile_categories = project.get_package_categories(for_lockfile=True)
+        assert "build-system" not in lockfile_categories
+
+
+@pytest.mark.core
+def test_install_build_system_packages_no_op_when_empty(project):
+    """install_build_system_packages does nothing when pipfile_build_requires is []."""
+    from pipenv.routines.install import install_build_system_packages
+
+    with patch.object(
+        type(project),
+        "pipfile_build_requires",
+        new_callable=PropertyMock,
+        return_value=[],
+    ), patch(
+        "pipenv.routines.install.pip_install_deps"
+    ) as mock_pip_install:
+        install_build_system_packages(project)
+        mock_pip_install.assert_not_called()
+
+
+@pytest.mark.core
+def test_install_build_system_packages_calls_pip_install(project):
+    """install_build_system_packages calls pip_install_deps with the build requires."""
+    from pipenv.routines.install import install_build_system_packages
+
+    build_requires = ["stwrapper>=1.0", "setuptools"]
+
+    # Create a fake subprocess result that succeeds
+    fake_proc = MagicMock()
+    fake_proc.returncode = 0
+    fake_proc.communicate.return_value = (b"", b"")
+
+    with patch.object(
+        type(project),
+        "pipfile_build_requires",
+        new_callable=PropertyMock,
+        return_value=build_requires,
+    ), patch.object(
+        type(project),
+        "settings",
+        new_callable=PropertyMock,
+        return_value={},
+    ), patch(
+        "pipenv.routines.install.get_source_list",
+        return_value=[{"url": "https://pypi.org/simple", "verify_ssl": True, "name": "pypi"}],
+    ), patch(
+        "pipenv.routines.install.pip_install_deps",
+        return_value=[fake_proc],
+    ) as mock_pip_install:
+        install_build_system_packages(project)
+
+    mock_pip_install.assert_called_once()
+    call_kwargs = mock_pip_install.call_args
+    assert call_kwargs[1]["deps"] == build_requires
+    assert call_kwargs[1]["ignore_hashes"] is True
+
+
+
+# --- Tests for --extras CLI option ---
+
+
+@pytest.mark.core
+def test_parse_extras_single():
+    """Test that extras_option parses a single extra category."""
+    from pipenv.cli.options import parse_categories
+
+    result = parse_categories("systemd")
+    assert result == ["systemd"]
+
+
+@pytest.mark.core
+def test_parse_extras_multiple_comma():
+    """Test that extras_option parses comma-separated extras."""
+    from pipenv.cli.options import parse_categories
+
+    result = parse_categories("systemd,monitoring")
+    assert result == ["systemd", "monitoring"]
+
+
+@pytest.mark.core
+def test_parse_extras_multiple_space():
+    """Test that extras_option parses space-separated extras."""
+    from pipenv.cli.options import parse_categories
+
+    result = parse_categories("systemd monitoring")
+    assert result == ["systemd", "monitoring"]
+
+
+@pytest.mark.core
+def test_extras_option_adds_packages_category():
+    """Test that --extras ensures 'packages' is in the categories list."""
+    from pipenv.cli.options import InstallState
+
+    state = InstallState()
+    assert state.categories == []
+
+    # Simulate what extras_option callback does
+    extras = ["systemd"]
+    if "packages" not in state.categories:
+        state.categories.insert(0, "packages")
+    state.categories += extras
+
+    assert state.categories == ["packages", "systemd"]
+
+
+@pytest.mark.core
+def test_extras_option_does_not_duplicate_packages():
+    """Test that --extras doesn't duplicate 'packages' if already present."""
+    from pipenv.cli.options import InstallState
+
+    state = InstallState()
+    state.categories = ["packages"]
+
+    # Simulate what extras_option callback does
+    extras = ["systemd"]
+    if "packages" not in state.categories:
+        state.categories.insert(0, "packages")
+    state.categories += extras
+
+    assert state.categories == ["packages", "systemd"]
+
+
+@pytest.mark.core
+def test_extras_with_dev_categories():
+    """Test that --extras works alongside --dev categories."""
+    from pipenv.cli.options import InstallState
+
+    state = InstallState()
+    state.categories = ["dev-packages"]  # Simulates --dev being set first
+
+    # Simulate what extras_option callback does
+    extras = ["systemd"]
+    if "packages" not in state.categories:
+        state.categories.insert(0, "packages")
+    state.categories += extras
+
+    assert state.categories == ["packages", "dev-packages", "systemd"]
+
+
+# --- Tests for shell detection (GH-5478) ---
+
+
+@pytest.mark.core
+def test_detect_info_prefers_shell_env_on_windows():
+    """On Windows, detect_info should prefer $SHELL over shellingham to avoid
+    shellingham returning 'cmd' when pyenv shims are in the process tree.
+
+    See: https://github.com/pypa/pipenv/issues/5478
+    """
+    from pathlib import PurePosixPath
+
+    from pipenv.shells import detect_info
+
+    mock_project = MagicMock()
+    mock_project.s.PIPENV_SHELL_EXPLICIT = None
+    mock_project.s.PIPENV_SHELL = "/usr/bin/bash"
+
+    # Patch both os.name and Path to avoid WindowsPath instantiation on Linux.
+    with patch("pipenv.shells.os.name", "nt"), \
+         patch("pipenv.shells.Path", PurePosixPath):
+        name, path = detect_info(mock_project)
+        assert name == "bash"
+        assert path == "/usr/bin/bash"
+
+
+@pytest.mark.core
+def test_detect_info_explicit_takes_priority_over_shell_env():
+    """PIPENV_SHELL_EXPLICIT should always win, even on Windows."""
+    from pathlib import PurePosixPath
+
+    from pipenv.shells import detect_info
+
+    mock_project = MagicMock()
+    mock_project.s.PIPENV_SHELL_EXPLICIT = "/usr/bin/cmd"
+    mock_project.s.PIPENV_SHELL = "/usr/bin/bash"
+
+    # Patch both os.name and Path to avoid WindowsPath instantiation on Linux.
+    with patch("pipenv.shells.os.name", "nt"), \
+         patch("pipenv.shells.Path", PurePosixPath):
+        name, path = detect_info(mock_project)
+        assert name == "cmd"
+        assert path == "/usr/bin/cmd"
+
+
+@pytest.mark.core
+def test_detect_info_falls_through_to_shellingham_on_posix():
+    """On POSIX, shellingham should be used even if $SHELL is set."""
+    from pathlib import PurePosixPath
+
+    from pipenv.shells import detect_info
+
+    mock_project = MagicMock()
+    mock_project.s.PIPENV_SHELL_EXPLICIT = None
+    mock_project.s.PIPENV_SHELL = "/bin/bash"
+
+    with patch("pipenv.shells.os.name", "posix"), \
+         patch("pipenv.shells.Path", PurePosixPath), \
+         patch("pipenv.shells.shellingham.detect_shell", return_value=("zsh", "/bin/zsh")):
+        name, path = detect_info(mock_project)
+        assert name == "zsh"
+        assert path == "/bin/zsh"
+
+
+@pytest.mark.core
+def test_detect_info_falls_back_to_shell_env_when_shellingham_fails():
+    """When shellingham fails, detect_info should fall back to PIPENV_SHELL."""
+    from pathlib import PurePosixPath
+
+    from pipenv.shells import detect_info
+
+    mock_project = MagicMock()
+    mock_project.s.PIPENV_SHELL_EXPLICIT = None
+    mock_project.s.PIPENV_SHELL = "/bin/bash"
+
+    with patch("pipenv.shells.os.name", "posix"), \
+         patch("pipenv.shells.Path", PurePosixPath), \
+         patch("pipenv.shells.shellingham.detect_shell",
+               side_effect=shellingham.ShellDetectionFailure()):
+        name, path = detect_info(mock_project)
+        assert name == "bash"
+        assert path == "/bin/bash"

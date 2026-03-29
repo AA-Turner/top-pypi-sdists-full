@@ -81,7 +81,7 @@ def freestyle_fill_range_by_selection(
     /,
     *,
     type: typing.Literal["COLOR", "ALPHA", "THICKNESS"] | None = "COLOR",
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fill the Range Min/Max entries by the min/max distance between selected mesh objects and the source object (either a user-specified object or the active camera)
 
@@ -237,7 +237,7 @@ def freestyle_module_open(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     make_internal: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a style module file
@@ -298,7 +298,7 @@ def gpencil_brush_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -315,7 +315,7 @@ def gpencil_material_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -459,7 +459,7 @@ def view_layer_add_lightgroup(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a Light Group
 

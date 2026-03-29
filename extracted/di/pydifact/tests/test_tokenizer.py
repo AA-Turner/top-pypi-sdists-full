@@ -15,19 +15,20 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import pytest
 
+from pydifact.exceptions import EDISyntaxError
 from pydifact.token import Token
 from pydifact.tokenizer import Tokenizer
 
-from pydifact.control import Characters
-
 
 @pytest.fixture
-def tokenizer():
+def tokenizer() -> Tokenizer:
     return Tokenizer()
 
 
 def _assert_tokens(
-    collection: str, expected: list = None, error_message: str = None
+    collection: str,
+    expected: list | None = None,
+    error_message: str | None = None,
 ) -> None:
     """Helper function to accelerate tokenizer testing."""
 
@@ -164,6 +165,37 @@ def test_ignore_long_whitespace(expected_crlf):
 
 
 def test_no_terminator():
-    with pytest.raises(RuntimeError):
-        list(Tokenizer().get_tokens("TEST", Characters()))
-        pytest.fail("Unexpected end of EDI message")
+    with pytest.raises(EDISyntaxError):
+        list(Tokenizer().get_tokens("TEST"))
+
+    with pytest.raises(EDISyntaxError) as excinfo:
+        list(
+            Tokenizer().get_tokens(
+                "UNB+IBMA:1+FACHARZT A+PRAKTIKER X+950402+1200+1'"
+                "UNH+000001+MEDRPT:1:901:UN'UNT+7+000002'"
+                "UNZ+2+1"  # <-- no terminator char here
+            )
+        )
+    assert "Unexpected end of EDI messages." in str(excinfo.value)
+
+
+def test_escaped_newline_char():
+    with pytest.raises(EDISyntaxError) as excinfo:
+        # must raise a EDISyntaxError as there is no newline after an escape char
+        # "?" allowed.
+        list(
+            Tokenizer().get_tokens(
+                """UNB+?
+FOO'"""
+            )
+        )
+    assert "Newlines after escape characters are not allowed." in str(excinfo.value)
+    assert "line 0, column 5" in str(excinfo.value)
+
+    # a "\n" must do the same as a real newline
+    with pytest.raises(EDISyntaxError) as excinfo:
+        # must raise a EDISyntaxError as there is no newline after an escape char
+        # "?" allowed.
+        list(Tokenizer().get_tokens("UNB+?\nFOO'"))
+    assert "Newlines after escape characters are not allowed." in str(excinfo.value)
+    assert "line 0, column 5" in str(excinfo.value)

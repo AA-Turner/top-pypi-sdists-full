@@ -1,23 +1,20 @@
 """Handles all file writing and post-installation processing."""
 
-import compileall
 import io
 import os
+from collections.abc import Collection, Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     BinaryIO,
-    Collection,
-    Dict,
-    Iterable,
-    Optional,
-    Tuple,
     Union,
 )
 
 from installer.records import Hash, RecordEntry
 from installer.scripts import Script
 from installer.utils import (
+    _WINDOWS,
     Scheme,
     construct_record_file,
     copyfileobj_with_hashing,
@@ -83,7 +80,7 @@ class WheelDestination:
         self,
         scheme: Scheme,
         record_file_path: str,
-        records: Iterable[Tuple[Scheme, RecordEntry]],
+        records: Iterable[tuple[Scheme, RecordEntry]],
     ) -> None:
         """Finalize installation, after all the files are written.
 
@@ -101,47 +98,55 @@ class WheelDestination:
         raise NotImplementedError
 
 
+@dataclass
 class SchemeDictionaryDestination(WheelDestination):
     """Destination, based on a mapping of {scheme: file-system-path}."""
 
-    def __init__(
-        self,
-        scheme_dict: Dict[str, str],
-        interpreter: str,
-        script_kind: "LauncherKind",
-        hash_algorithm: str = "sha256",
-        bytecode_optimization_levels: Collection[int] = (),
-        destdir: Optional[str] = None,
-    ) -> None:
-        """Construct a ``SchemeDictionaryDestination`` object.
+    scheme_dict: dict[str, str]
+    """A mapping of {scheme: file-system-path}"""
 
-        :param scheme_dict: a mapping of {scheme: file-system-path}
-        :param interpreter: the interpreter to use for generating scripts
-        :param script_kind: the "kind" of launcher script to use
-        :param hash_algorithm: the hashing algorithm to use, which is a member
-            of :any:`hashlib.algorithms_available` (ideally from
-            :any:`hashlib.algorithms_guaranteed`).
-        :param bytecode_optimization_levels: Compile cached bytecode for
-            installed .py files with these optimization levels. The bytecode
-            is specific to the minor version of Python (e.g. 3.10) used to
-            generate it.
-        :param destdir: A staging directory in which to write all files. This
-            is expected to be the filesystem root at runtime, so embedded paths
-            will be written as though this was the root.
-        """
-        self.scheme_dict = scheme_dict
-        self.interpreter = interpreter
-        self.script_kind = script_kind
-        self.hash_algorithm = hash_algorithm
-        self.bytecode_optimization_levels = bytecode_optimization_levels
-        self.destdir = destdir
+    interpreter: str
+    """The interpreter to use for generating scripts."""
 
-    def _path_with_destdir(self, scheme: Scheme, path: str) -> str:
-        file = os.path.join(self.scheme_dict[scheme], path)
+    script_kind: "LauncherKind"
+    """The "kind" of launcher script to use."""
+
+    hash_algorithm: str = "sha256"
+    """
+    The hashing algorithm to use, which is a member of
+    :any:`hashlib.algorithms_available` (ideally from
+    :any:`hashlib.algorithms_guaranteed`).
+    """
+
+    bytecode_optimization_levels: Collection[int] = ()
+    """
+    Compile cached bytecode for installed .py files with these optimization
+    levels. The bytecode is specific to the minor version of Python (e.g. 3.10)
+    used to generate it.
+    """
+
+    destdir: str | None = None
+    """
+    A staging directory in which to write all files. This is expected to be the
+    filesystem root at runtime, so embedded paths will be written as though
+    this was the root.
+    """
+
+    overwrite_existing: bool = False
+    """Silently overwrite existing files."""
+
+    def _path_with_destdir(self, scheme: Scheme, path: str) -> Path:
+        target_dir = Path(self.scheme_dict[scheme]).resolve()
+        file = (target_dir / path).resolve()
+
+        if not file.is_relative_to(target_dir):
+            raise ValueError(
+                f"Attempting to write {path} outside of the target directory"
+            )
+
         if self.destdir is not None:
-            file_path = Path(file)
-            rel_path = file_path.relative_to(file_path.anchor)
-            return os.path.join(self.destdir, rel_path)
+            rel_path = file.relative_to(file.anchor)
+            return Path(self.destdir) / rel_path
         return file
 
     def write_to_fs(
@@ -162,15 +167,15 @@ class SchemeDictionaryDestination(WheelDestination):
         - Hashes the written content, to determine the entry in the ``RECORD`` file.
         """
         target_path = self._path_with_destdir(scheme, path)
-        if os.path.exists(target_path):
-            message = f"File already exists: {target_path}"
+        if not self.overwrite_existing and target_path.exists():
+            message = f"File already exists: {target_path!s}"
             raise FileExistsError(message)
 
-        parent_folder = os.path.dirname(target_path)
-        if not os.path.exists(parent_folder):
-            os.makedirs(parent_folder)
+        parent_folder = target_path.parent
+        if not parent_folder.exists():
+            parent_folder.mkdir(parents=True)
 
-        with open(target_path, "wb") as f:
+        with target_path.open("wb") as f:
             hash_, size = copyfileobj_with_hashing(stream, f, self.hash_algorithm)
 
         if is_executable:
@@ -232,9 +237,9 @@ class SchemeDictionaryDestination(WheelDestination):
             )
 
             path = self._path_with_destdir(Scheme("scripts"), script_name)
-            mode = os.stat(path).st_mode
+            mode = path.stat().st_mode
             mode |= (mode & 0o444) >> 2
-            os.chmod(path, mode)
+            path.chmod(mode)
 
             return entry
 
@@ -243,10 +248,11 @@ class SchemeDictionaryDestination(WheelDestination):
         if scheme not in ("purelib", "platlib"):
             return
 
+        import compileall
+
         target_path = self._path_with_destdir(scheme, record.path)
-        dir_path_to_embed = os.path.dirname(  # Without destdir
-            os.path.join(self.scheme_dict[scheme], record.path)
-        )
+        dir_path_to_embed = (Path(self.scheme_dict[scheme]) / record.path).parent
+
         for level in self.bytecode_optimization_levels:
             compileall.compile_file(
                 target_path, optimize=level, quiet=1, ddir=dir_path_to_embed
@@ -256,7 +262,7 @@ class SchemeDictionaryDestination(WheelDestination):
         self,
         scheme: Scheme,
         record_file_path: str,
-        records: Iterable[Tuple[Scheme, RecordEntry]],
+        records: Iterable[tuple[Scheme, RecordEntry]],
     ) -> None:
         """Finalize installation, by writing the ``RECORD`` file & compiling bytecode.
 
@@ -265,13 +271,16 @@ class SchemeDictionaryDestination(WheelDestination):
         :param records: entries to write to the ``RECORD`` file
         """
 
-        def prefix_for_scheme(file_scheme: str) -> Optional[str]:
+        def prefix_for_scheme(file_scheme: str) -> str | None:
             if file_scheme == scheme:
                 return None
-            path = os.path.relpath(
-                self.scheme_dict[file_scheme],
-                start=self.scheme_dict[scheme],
-            )
+            if _WINDOWS:  # pragma: no cover
+                path = os.path.abspath(self.scheme_dict[file_scheme])  # noqa: PTH100
+            else:  # pragma: no cover
+                path = os.path.relpath(
+                    self.scheme_dict[file_scheme],
+                    start=self.scheme_dict[scheme],
+                )
             return path + "/"
 
         record_list = list(records)

@@ -12,6 +12,5 @@ if free_threaded:
 
 setup(
     ext_modules=[Extension('regex._regex', ['src/_regex.c',
-      'src/_regex_unicode.c'])],
-      define_macros=macros,
+      'src/_regex_unicode.c'], define_macros=macros)],
 )

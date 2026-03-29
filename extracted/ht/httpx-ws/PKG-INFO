@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httpx-ws
-Version: 0.8.2
+Version: 0.9.0
 Summary: WebSockets support for HTTPX
 Project-URL: Documentation, https://frankie567.github.io/httpx-ws/
 Project-URL: Source, https://github.com/frankie567/httpx-ws
@@ -90,6 +90,8 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://runsisi.com"><img src="https://avatars.githubusercontent.com/u/2339258?v=4?s=100" width="100px;" alt="runsisi"/><br /><sub><b>runsisi</b></sub></a><br /><a href="https://github.com/frankie567/httpx-ws/issues?q=author%3Arunsisi" title="Bug reports">🐛</a> <a href="#research-runsisi" title="Research">🔬</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/lulingar"><img src="https://avatars.githubusercontent.com/u/4201057?v=4?s=100" width="100px;" alt="Luis Linares"/><br /><sub><b>Luis Linares</b></sub></a><br /><a href="https://github.com/frankie567/httpx-ws/issues?q=author%3Alulingar" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="http://gra.emeholli.day"><img src="https://avatars.githubusercontent.com/u/4185684?v=4?s=100" width="100px;" alt="Graeme Holliday"/><br /><sub><b>Graeme Holliday</b></sub></a><br /><a href="https://github.com/frankie567/httpx-ws/issues?q=author%3AGraeme22" title="Bug reports">🐛</a> <a href="https://github.com/frankie567/httpx-ws/commits?author=Graeme22" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="http://flamefork.ru/"><img src="https://avatars.githubusercontent.com/u/20203?v=4?s=100" width="100px;" alt="Ilia Ablamonov"/><br /><sub><b>Ilia Ablamonov</b></sub></a><br /><a href="https://github.com/frankie567/httpx-ws/issues?q=author%3AFlamefork" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>

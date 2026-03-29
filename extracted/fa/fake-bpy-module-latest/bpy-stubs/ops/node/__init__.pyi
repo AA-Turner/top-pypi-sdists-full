@@ -39,7 +39,7 @@ def add_collection(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a collection info node to the current node editor
@@ -105,7 +105,7 @@ def add_group(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
     show_datablock_in_node: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -126,8 +126,8 @@ def add_group_asset(
         bpy.stub_internal.rna_enums.AssetLibraryTypeItems
     ]
     | None = "LOCAL",
-    asset_library_identifier: str | None = "",
-    relative_asset_identifier: str | None = "",
+    asset_library_identifier: str = "",
+    relative_asset_identifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a node group asset to the active node tree
 
@@ -142,7 +142,7 @@ def add_group_input_node(
     undo: bool | None = None,
     /,
     *,
-    socket_identifier: str | None = "",
+    socket_identifier: str = "",
     panel_identifier: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a Group Input node with selected sockets to the current node editor
@@ -157,8 +157,8 @@ def add_image(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
+    filepath: str = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     hide_props_region: bool | None = True,
@@ -196,7 +196,7 @@ def add_image(
         "ASSET_CATALOG",
     ]
     | None = "",
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a image/movie file as node to the current node editor
@@ -268,7 +268,7 @@ def add_import_node(
     undo: bool | None = None,
     /,
     *,
-    directory: str | None = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -284,7 +284,7 @@ def add_mask(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a mask node to the current node editor
@@ -299,7 +299,7 @@ def add_material(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a material node to the current node editor
@@ -317,8 +317,8 @@ def add_node(
     settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
     | None = None,
     use_transform: bool | None = False,
-    type: str | None = "",
-    visible_output: str | None = "",
+    type: str = "",
+    visible_output: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a node to the active tree
 
@@ -334,7 +334,7 @@ def add_object(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an object info node to the current node editor
@@ -404,8 +404,8 @@ def add_zone(
     | None = None,
     use_transform: bool | None = False,
     offset: collections.abc.Sequence[float] | None = (150.0, 0.0),
-    input_node_type: str | None = "",
-    output_node_type: str | None = "",
+    input_node_type: str = "",
+    output_node_type: str = "",
     add_default_geometry_link: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
@@ -1764,7 +1764,7 @@ def new_compositing_node_group(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new compositing node group and initialize it with default nodes
 
@@ -1777,7 +1777,7 @@ def new_compositor_sequencer_node_group(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "Sequencer Compositor Nodes",
+    name: str = "Sequencer Compositor Nodes",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new compositor node group for sequencer
 
@@ -1821,7 +1821,7 @@ def new_node_tree(
     /,
     *,
     type: str | None = "",
-    name: str | None = "NodeTree",
+    name: str = "NodeTree",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new node tree
 
@@ -1835,7 +1835,7 @@ def node_color_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -2266,7 +2266,7 @@ def sockets_sync(
     undo: bool | None = None,
     /,
     *,
-    node_name: str | None = "",
+    node_name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update sockets to match what is actually used
 
@@ -2297,8 +2297,8 @@ def swap_group_asset(
         bpy.stub_internal.rna_enums.AssetLibraryTypeItems
     ]
     | None = "LOCAL",
-    asset_library_identifier: str | None = "",
-    relative_asset_identifier: str | None = "",
+    asset_library_identifier: str = "",
+    relative_asset_identifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Swap selected nodes with the specified node group asset
 
@@ -2315,8 +2315,8 @@ def swap_node(
     *,
     settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
     | None = None,
-    type: str | None = "",
-    visible_output: str | None = "",
+    type: str = "",
+    visible_output: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Replace the selected nodes with the specified type
 
@@ -2334,8 +2334,8 @@ def swap_zone(
     settings: bpy.types.bpy_prop_collection[bl_operators.node.NodeSetting]
     | None = None,
     offset: collections.abc.Sequence[float] | None = (150.0, 0.0),
-    input_node_type: str | None = "",
-    output_node_type: str | None = "",
+    input_node_type: str = "",
+    output_node_type: str = "",
     add_default_geometry_link: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.

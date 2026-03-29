@@ -31,7 +31,7 @@ def camera_background_image_add(
     *,
     filepath: str | None = "",
     relative_path: bool | None = True,
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new background image to the active camera
@@ -168,7 +168,7 @@ def drop_world(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drop a world into the scene

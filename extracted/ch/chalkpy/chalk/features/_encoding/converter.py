@@ -32,7 +32,7 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.feather as pf
-from typing_extensions import Final, get_args, get_origin
+from typing_extensions import get_args, get_origin
 
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.json import (
@@ -66,8 +66,108 @@ _TRichCon = TypeVar("_TRichCon", contravariant=True)
 _TPrim = TypeVar("_TPrim", bound=TPrimitive)
 _TPrimCo = TypeVar("_TPrimCo", bound=TPrimitive, covariant=True)
 _TPrimCon = TypeVar("_TPrimCon", bound=TPrimitive, contravariant=True)
+_TScalar = TypeVar("_TScalar", bound=TPrimitive)
 
 _DEFAULT_FEATURE_ENCODING_OPTIONS = FeatureEncodingOptions()
+
+
+class FeatureConverter(Protocol[_TPrim, _TRich]):
+    @property
+    def polars_dtype(self) -> Any: ...
+
+    @property
+    def pyarrow_dtype(self) -> pa.DataType: ...
+
+    @property
+    def pyarrow_default(self) -> ellipsis | pa.Array | pa.ChunkedArray: ...
+
+    @property
+    def is_nullable(self) -> bool: ...
+
+    @property
+    def primitive_type(self) -> Type[TPrimitive]: ...
+
+    @property
+    def has_default(self) -> bool: ...
+
+    @property
+    def primitive_default(self) -> _TPrim: ...
+
+    @property
+    def rich_type(self) -> Type[_TRich]: ...
+
+    @property
+    def rich_default(self) -> _TRich: ...
+
+    @property
+    def encoder(self) -> Optional[TEncoder[_TPrim, _TRich]]: ...
+
+    @property
+    def decoder(self) -> Optional[TDecoder[_TPrim, _TRich]]: ...
+
+    def from_pyarrow_to_json(
+        self,
+        values: Union[pa.Array, pa.ChunkedArray],
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> Sequence[TJSON]: ...
+
+    def from_pyarrow_to_primitive(self, values: Union[pa.Array, pa.ChunkedArray]) -> Sequence[_TPrim]: ...
+
+    def from_primitive_to_pyarrow(self, value: Iterable[_TPrim]) -> Union[pa.Array, pa.ChunkedArray]: ...
+
+    def from_primitive_to_json(
+        self,
+        value: TPrimitive,
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON: ...
+
+    def from_json_to_pyarrow(self, values: Sequence[TJSON]) -> Union[pa.Array, pa.ChunkedArray]: ...
+
+    def from_json_to_primitive(self, value: Union[TJSON, TPrimitive]) -> _TPrim: ...
+
+    def is_value_missing(self, value: Any) -> bool: ...
+
+    def from_primitive_to_protobuf(self, value: _TPrim) -> pb.ScalarValue: ...
+
+    def is_rich_valid(self, value: _TRich) -> bool: ...
+
+    def from_rich_to_pyarrow(
+        self,
+        values: Sequence[Union[_TRich, ellipsis, None]],
+        /,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> Union[pa.Array, pa.ChunkedArray]: ...
+
+    def from_rich_to_protobuf(
+        self,
+        value: Union[_TRich, ellipsis, None],
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> pb.ScalarValue: ...
+
+    def from_rich_to_primitive(
+        self,
+        value: Union[_TRich, ellipsis, None],
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> _TPrim: ...
+
+    def from_rich_to_json(
+        self,
+        value: Union[_TRich, ellipsis, None],
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON: ...
+
+    def from_pyarrow_to_rich(self, values: Union[pa.Array, pa.ChunkedArray], /) -> Sequence[_TRich]: ...
+
+    def from_primitive_to_rich(self, value: Union[_TPrim, _TRich]) -> _TRich: ...
+
+    def from_json_to_rich(self, value: TJSON) -> _TRich: ...
+
+    def has_nontrivial_rich_type(self) -> bool: ...
+
+    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar: ...
+
+    def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue: ...
 
 
 def _recursively_unwrap(x: Any, dtype: pa.DataType) -> Any:
@@ -100,7 +200,7 @@ class MissingValueError(TypeError):
     pass
 
 
-class PrimitiveFeatureConverter(Generic[_TPrim]):
+class PrimitiveFeatureConverter(FeatureConverter[_TPrim, _TRich], Generic[_TPrim, _TRich]):
     """Feature converter that can only deal with primitive types. This means it can be constructed from a serialized graph,
     but it cannot convert to/from rich types"""
 
@@ -153,9 +253,9 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
             pass
         else:
             del pl
-            self.polars_dtype: Final = pyarrow_to_polars(self.pyarrow_dtype, self._name)
+            self._polars_dtype = pyarrow_to_polars(self.pyarrow_dtype, self._name)
 
-    __slots__ = ("_name", "_pyarrow_dtype", "_is_nullable", "_primitive_type", "polars_dtype", "_pyarrow_default")
+    __slots__ = ("_name", "_pyarrow_dtype", "_is_nullable", "_primitive_type", "_polars_dtype", "_pyarrow_default")
 
     def __eq__(self, other: object):
         if not isinstance(other, PrimitiveFeatureConverter):
@@ -205,9 +305,11 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
             pass
         else:
             del pl  # unused
-            self.polars_dtype = pyarrow_to_polars(  # pyright: ignore[reportAttributeAccessIssue] -- ok to modify final variables in getstate / setstate
-                self.pyarrow_dtype, self._name
-            )
+            self._polars_dtype = pyarrow_to_polars(self.pyarrow_dtype, self._name)
+
+    @property
+    def polars_dtype(self) -> Any:
+        return self._polars_dtype
 
     def from_pyarrow_to_json(
         self,
@@ -296,7 +398,23 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
             raise ValueError(f"Feature '{self._name}' has no default value")
         return cast(_TPrim, self._pyarrow_default.to_pylist()[0])
 
-    def is_value_missing(self, value: Any):
+    @property
+    def rich_type(self) -> Type[_TRich]:
+        return cast(Type[_TRich], self._primitive_type)
+
+    @property
+    def rich_default(self) -> _TRich:
+        return cast(_TRich, self.primitive_default)
+
+    @property
+    def encoder(self) -> Optional[TEncoder[_TPrim, _TRich]]:
+        return None
+
+    @property
+    def decoder(self) -> Optional[TDecoder[_TPrim, _TRich]]:
+        return None
+
+    def is_value_missing(self, value: Any) -> bool:
         """Returns whether the ``value`` should be treated as a "missing" value"""
         if value is ...:
             # Ellipsis is always missing
@@ -309,16 +427,90 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
             return not self._is_nullable
         return False
 
-    @classmethod
-    def from_protobuf_to_pyarrow(cls, pb_value: pb.ScalarValue) -> pa.Scalar:
+    def is_rich_valid(self, value: _TRich) -> bool:
+        try:
+            prim = self.from_rich_to_primitive(value, "default_or_error")
+            pa.scalar(prim, type=self.pyarrow_dtype)
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    def from_rich_to_pyarrow(
+        self,
+        values: Sequence[Union[_TRich, ellipsis, None]],
+        /,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> Union[pa.Array, pa.ChunkedArray]:
+        prim_values = [self.from_rich_to_primitive(x, missing_value_strategy) for x in values]
+        return self.from_primitive_to_pyarrow(prim_values)
+
+    def from_rich_to_protobuf(
+        self,
+        value: Union[_TRich, ellipsis, None],
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> pb.ScalarValue:
+        return self.from_primitive_to_protobuf(self.from_rich_to_primitive(value, missing_value_strategy))
+
+    def from_rich_to_primitive(
+        self,
+        value: Union[_TRich, ellipsis, None],
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> _TPrim:
+        if self.is_value_missing(value):
+            if missing_value_strategy == "allow":
+                return cast(_TPrim, value)
+            elif missing_value_strategy in ("default_or_error", "default_or_allow"):
+                if self.has_default:
+                    return self.primitive_default
+                elif missing_value_strategy == "default_or_error":
+                    raise TypeError(
+                        f"The value for feature '{self._name}' is missing, and this feature has no default value."
+                    )
+                else:
+                    return cast(_TPrim, value)
+            elif missing_value_strategy == "error":
+                raise MissingValueError(
+                    f"The value for feature '{self._name}' is missing, but `replace_missing_with_defaults` was set to `False`."
+                )
+            else:
+                raise ValueError(
+                    (
+                        f"Unsupported missing value strategy: {missing_value_strategy}. "
+                        "It must be one of 'allow', 'default_or_allow', 'default_or_error', or 'error'."
+                    )
+                )
+        return cast(_TPrim, value)
+
+    def from_rich_to_json(
+        self,
+        value: Union[_TRich, ellipsis, None],
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        prim_val = self.from_rich_to_primitive(value, missing_value_strategy)
+        return self.from_primitive_to_json(prim_val, options=options)
+
+    def from_pyarrow_to_rich(self, values: Union[pa.Array, pa.ChunkedArray], /) -> Sequence[_TRich]:
+        return cast(Sequence[_TRich], self.from_pyarrow_to_primitive(values))
+
+    def from_primitive_to_rich(self, value: Union[_TPrim, _TRich]) -> _TRich:
+        return cast(_TRich, value)
+
+    def from_json_to_rich(self, value: TJSON) -> _TRich:
+        return cast(_TRich, self.from_json_to_primitive(value))
+
+    def has_nontrivial_rich_type(self) -> bool:
+        return False
+
+    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
         if pb_value.HasField("extension_value"):
-            storage_val = cls.from_protobuf_to_pyarrow(pb_value.extension_value.storage_value)
-            logical_type = cls.convert_proto_dtype_to_pa_dtype(
+            storage_val = self.from_protobuf_to_pyarrow(pb_value.extension_value.storage_value)
+            logical_type = type(self).convert_proto_dtype_to_pa_dtype(
                 pb.ArrowType(extension=pb_value.extension_value.extension_type)
             )
             return pa.ExtensionScalar.from_storage(logical_type, storage_val)
         if pb_value.HasField("null_value"):
-            return pa.nulls(1, type=cls.convert_proto_dtype_to_pa_dtype(pb_value.null_value))[0]
+            return pa.nulls(1, type=type(self).convert_proto_dtype_to_pa_dtype(pb_value.null_value))[0]
         if pb_value.HasField("bool_value"):
             return pa.scalar(pb_value.bool_value, pa.bool_())
         if pb_value.HasField("int8_value"):
@@ -437,7 +629,7 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
             )
         if pb_value.HasField("struct_value"):
             name_to_pa_scalar = {
-                field.name: cls.from_protobuf_to_pyarrow(field_value)
+                field.name: self.from_protobuf_to_pyarrow(field_value)
                 for field, field_value in zip(pb_value.struct_value.fields, pb_value.struct_value.field_values)
             }
             # TODO: Add test using `v.as_py()` values that evaluate to 0 for testing `if (o := v.as_py()) is not None`
@@ -450,7 +642,7 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
             or pb_value.HasField("fixed_size_list_value")
             or pb_value.HasField("map_value")
         ):
-            return cls._deserialize_pb_list_to_pa(pb_value)
+            return type(self)._deserialize_pb_list_to_pa(pb_value)
         if pb_value.HasField("duration_second_value"):
             return pa.scalar(timedelta(seconds=pb_value.duration_second_value), pa.duration("s"))
         if pb_value.HasField("duration_millisecond_value"):
@@ -460,17 +652,16 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
         if pb_value.HasField("duration_nanosecond_value"):
             return pa.scalar(timedelta(microseconds=pb_value.duration_nanosecond_value / 1000), pa.duration("ns"))
         if pb_value.HasField("decimal128_value"):
-            return cls._deserialize_pb_to_pa_decimal(pb_value)
+            return type(self)._deserialize_pb_to_pa_decimal(pb_value)
         if pb_value.HasField("decimal256_value"):
-            return cls._deserialize_pb_to_pa_decimal(pb_value)
+            return type(self)._deserialize_pb_to_pa_decimal(pb_value)
         raise ValueError(f"Unsupported Protobuf type: {pb_value}")
 
-    @classmethod
-    def from_pyarrow_to_protobuf(cls, value: pa.Scalar) -> pb.ScalarValue:
+    def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
         if value.as_py() is None:
-            return pb.ScalarValue(null_value=cls.convert_pa_dtype_to_proto_dtype(value.type))
+            return pb.ScalarValue(null_value=type(self).convert_pa_dtype_to_proto_dtype(value.type))
         if pa.types.is_null(value.type):
-            return pb.ScalarValue(null_value=cls.convert_pa_dtype_to_proto_dtype(value.type))
+            return pb.ScalarValue(null_value=type(self).convert_pa_dtype_to_proto_dtype(value.type))
         if pa.types.is_boolean(value.type):
             return pb.ScalarValue(bool_value=value.as_py())
         if pa.types.is_int8(value.type):
@@ -616,24 +807,24 @@ class PrimitiveFeatureConverter(Generic[_TPrim]):
             fields = []
             field_values = []
             for name, pa_scalar in value.items():
-                pb_scalar = cls.from_pyarrow_to_protobuf(pa_scalar)
+                pb_scalar = self.from_pyarrow_to_protobuf(pa_scalar)
                 fields.append(
                     pb.Field(
                         name=name,
-                        arrow_type=cls.convert_pa_dtype_to_proto_dtype(pa_scalar.type),
+                        arrow_type=type(self).convert_pa_dtype_to_proto_dtype(pa_scalar.type),
                         nullable=True,
                     )
                 )
                 field_values.append(pb_scalar)
             return pb.ScalarValue(struct_value=pb.StructValue(fields=fields, field_values=field_values))
         if isinstance(value, pa.MapScalar):
-            return cls._serialize_pa_list_to_pb(value)
+            return type(self)._serialize_pa_list_to_pb(value)
         if isinstance(value, pa.ListScalar):
-            return cls._serialize_pa_list_to_pb(value)
+            return type(self)._serialize_pa_list_to_pb(value)
         if isinstance(value, pa.Decimal128Scalar):
-            return cls._serialize_pa_decimal_to_pb(value)
+            return type(self)._serialize_pa_decimal_to_pb(value)
         if isinstance(value, pa.Decimal256Scalar):
-            return cls._serialize_pa_decimal_to_pb(value)
+            return type(self)._serialize_pa_decimal_to_pb(value)
 
         raise ValueError(f"Unsupported type: {value.type}")
 
@@ -1185,7 +1376,7 @@ class JSONCodec:
     decode: TDecoder[str, JSON] = _decode_json
 
 
-class FeatureConverter(PrimitiveFeatureConverter[_TPrim], Generic[_TPrim, _TRich]):
+class GenericFeatureConverter(PrimitiveFeatureConverter[_TPrim, _TRich], Generic[_TPrim, _TRich]):
     """Feature converter that deals with rich types. It supports everything that the primitive feature converter supports.
 
     However, since it deals with Rich types, it can only be constructed from the source code, since rich type information
@@ -1267,7 +1458,7 @@ class FeatureConverter(PrimitiveFeatureConverter[_TPrim], Generic[_TPrim, _TRich
     def rich_type(self) -> Type[_TRich]:
         if self._rich_type is ...:
             raise ValueError(
-                "Rich types cannot be used as the FeatureConverter was created without providing a `rich_type`"
+                "Rich types cannot be used as the GenericFeatureConverter was created without providing a `rich_type`"
             )
         return cast(Type[_TRich], self._rich_type)
 
@@ -1384,7 +1575,7 @@ class FeatureConverter(PrimitiveFeatureConverter[_TPrim], Generic[_TPrim, _TRich
     def _from_prim(self, val: Union[_TPrim, _TRich]) -> _TRich:
         if self._rich_type is ...:
             raise ValueError(
-                "Rich types cannot be used as the FeatureConverter was created without providing a `rich_type`"
+                "Rich types cannot be used as the GenericFeatureConverter was created without providing a `rich_type`"
             )
         if val is None:
             # Structuring null values to the primitive type to ensure that a singular null for an entire struct

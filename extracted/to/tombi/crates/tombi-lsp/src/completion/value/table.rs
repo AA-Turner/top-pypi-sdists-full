@@ -250,6 +250,7 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                                         self,
                                                         &key_name,
                                                         position,
+                                                        current_editing_key_range(keys, position),
                                                         accessors,
                                                         table_schema,
                                                         &current_schema,
@@ -459,12 +460,14 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                     completion_contents.push(CompletionContent::new_key(
                                         &key_name,
                                         position,
+                                        current_editing_key_range(keys, position),
                                         title,
                                         description,
                                         table_schema.required.as_ref(),
                                         Some(current_schema.schema_uri.as_ref()),
                                         deprecated,
                                         completion_hint,
+                                        None,
                                     ));
                                     continue;
                                 }
@@ -482,6 +485,7 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                         self,
                                         &key_name,
                                         position,
+                                        current_editing_key_range(keys, position),
                                         accessors,
                                         table_schema,
                                         &current_schema,
@@ -511,9 +515,23 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                             && let Some(value_schema) =
                                                 &document_schema.value_schema
                                         {
+                                            let (schema_candidates, errors) = value_schema
+                                                .find_schema_candidates(
+                                                    accessors,
+                                                    &document_schema.schema_uri,
+                                                    &document_schema.definitions,
+                                                    schema_context.store,
+                                                )
+                                                .await;
+
+                                            for error in errors {
+                                                log::warn!("{}", error);
+                                            }
+
                                             completion_contents.push(CompletionContent::new_key(
                                                 last_key,
                                                 position,
+                                                current_editing_key_range(keys, position),
                                                 value_schema
                                                     .detail(
                                                         &current_schema.schema_uri,
@@ -534,6 +552,7 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                                 Some(current_schema.schema_uri.as_ref()),
                                                 value_schema.deprecated().await,
                                                 completion_hint,
+                                                key_singleton_literal_label(&schema_candidates),
                                             ));
                                         }
                                     }
@@ -706,6 +725,7 @@ impl FindCompletionContents for TableSchema {
                     log::warn!("{}", error);
                 }
 
+                let singleton_value_label = key_singleton_literal_label(&schema_candidates);
                 for schema_candidate in schema_candidates {
                     if let Some(CompletionHint::InTableHeader) = completion_hint
                         && count_table_or_array_schema(&current_schema, schema_context.store).await
@@ -717,6 +737,7 @@ impl FindCompletionContents for TableSchema {
                     completion_items.push(CompletionContent::new_key(
                         &label,
                         position,
+                        current_editing_key_range(keys, position),
                         schema_candidate
                             .detail(
                                 &current_schema.schema_uri,
@@ -737,6 +758,7 @@ impl FindCompletionContents for TableSchema {
                         Some(current_schema.schema_uri.as_ref()),
                         current_schema.value_schema.deprecated().await,
                         completion_hint,
+                        singleton_value_label.clone(),
                     ));
                 }
             }
@@ -919,6 +941,7 @@ fn collect_table_key_completion_contents<'a: 'b, 'b>(
     table: &'a tombi_document_tree::Table,
     key_name: &'a String,
     position: tombi_text::Position,
+    replace_range: Option<tombi_text::Range>,
     accessors: &'a [Accessor],
     table_schema: &'a TableSchema,
     current_schema: &'a CurrentSchema<'a>,
@@ -942,6 +965,7 @@ fn collect_table_key_completion_contents<'a: 'b, 'b>(
             log::warn!("{}", error);
         }
 
+        let singleton_value_label = key_singleton_literal_label(&schema_candidates);
         for schema_candidate in schema_candidates {
             match &schema_candidate {
                 ValueSchema::Boolean(_)
@@ -995,6 +1019,7 @@ fn collect_table_key_completion_contents<'a: 'b, 'b>(
             completion_contents.push(CompletionContent::new_key(
                 key_name,
                 position,
+                replace_range,
                 schema_candidate
                     .detail(
                         &current_schema.schema_uri,
@@ -1015,10 +1040,94 @@ fn collect_table_key_completion_contents<'a: 'b, 'b>(
                 Some(&current_schema.schema_uri),
                 current_schema.value_schema.deprecated().await,
                 completion_hint,
+                singleton_value_label.clone(),
             ));
         }
 
         Some(completion_contents)
     }
     .boxed()
+}
+
+fn key_singleton_literal_label(schema_candidates: &[ValueSchema]) -> Option<String> {
+    let labels = schema_candidates
+        .iter()
+        .map(|schema_candidate| {
+            fn singleton_label<T>(
+                const_value: &Option<T>,
+                enum_values: &Option<Vec<T>>,
+                format: impl Fn(&T) -> String,
+            ) -> Option<String> {
+                if let Some(const_value) = const_value {
+                    return Some(format(const_value));
+                }
+
+                enum_values.as_ref().and_then(|values| {
+                    if values.len() == 1 {
+                        values.first().map(format)
+                    } else {
+                        None
+                    }
+                })
+            }
+
+            match schema_candidate {
+                ValueSchema::String(schema) => {
+                    singleton_label(&schema.const_value, &schema.r#enum, |v| format!("\"{v}\""))
+                }
+                ValueSchema::Boolean(schema) => {
+                    singleton_label(&schema.const_value, &schema.r#enum, |v| v.to_string())
+                }
+                ValueSchema::Integer(schema) => {
+                    singleton_label(&schema.const_value, &schema.r#enum, |v| v.to_string())
+                }
+                ValueSchema::Float(schema) => {
+                    singleton_label(&schema.const_value, &schema.r#enum, |v| v.to_string())
+                }
+                ValueSchema::LocalDate(schema) => {
+                    singleton_label(&schema.const_value, &schema.r#enum, |v| v.to_string())
+                }
+                ValueSchema::LocalDateTime(schema) => {
+                    singleton_label(&schema.const_value, &schema.r#enum, |v| v.to_string())
+                }
+                ValueSchema::OffsetDateTime(schema) => {
+                    singleton_label(&schema.const_value, &schema.r#enum, |v| v.to_string())
+                }
+                ValueSchema::LocalTime(_)
+                | ValueSchema::Array(_)
+                | ValueSchema::Table(_)
+                | ValueSchema::OneOf(_)
+                | ValueSchema::AnyOf(_)
+                | ValueSchema::AllOf(_)
+                | ValueSchema::Null
+                | ValueSchema::Anything(_)
+                | ValueSchema::Nothing(_) => None,
+            }
+        })
+        .collect_vec();
+
+    if labels.iter().any(Option::is_none) {
+        return None;
+    }
+
+    let unique_labels = labels
+        .into_iter()
+        .flatten()
+        .collect::<tombi_hashmap::HashSet<_>>();
+
+    if unique_labels.len() == 1 {
+        unique_labels.into_iter().next()
+    } else {
+        None
+    }
+}
+
+fn current_editing_key_range(
+    keys: &[tombi_document_tree::Key],
+    position: tombi_text::Position,
+) -> Option<tombi_text::Range> {
+    keys.last().and_then(|key| {
+        let range = key.range();
+        (range.start <= position && position <= range.end).then_some(range)
+    })
 }

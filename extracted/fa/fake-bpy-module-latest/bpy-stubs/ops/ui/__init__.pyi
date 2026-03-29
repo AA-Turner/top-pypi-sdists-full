@@ -131,7 +131,7 @@ def drop_name(
     undo: bool | None = None,
     /,
     *,
-    string: str | None = "",
+    string: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drop name to button
 
@@ -164,7 +164,7 @@ def eyedropper_color(
     undo: bool | None = None,
     /,
     *,
-    prop_data_path: str | None = "",
+    prop_data_path: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sample a color from the Blender window to store in a property
 
@@ -197,7 +197,7 @@ def eyedropper_depth(
     undo: bool | None = None,
     /,
     *,
-    prop_data_path: str | None = "",
+    prop_data_path: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sample depth from the 3D view
 

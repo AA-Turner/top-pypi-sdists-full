@@ -23,9 +23,7 @@ def _build_request_args() -> dict[str, Any]:
 def sync(
     client: httpx.Client,
 ) -> ReviewWidgetSchemaResponse:
-    """Return the available render and feedback widgets for review models.
-
-    Used by SDK codegen to keep widget type definitions in sync."""
+    """Return available render and feedback widgets."""
 
     request_args = _build_request_args()
 
@@ -37,9 +35,7 @@ def sync(
 async def asyncio(
     client: httpx.AsyncClient,
 ) -> ReviewWidgetSchemaResponse:
-    """Return the available render and feedback widgets for review models.
-
-    Used by SDK codegen to keep widget type definitions in sync."""
+    """Return available render and feedback widgets."""
 
     request_args = _build_request_args()
 

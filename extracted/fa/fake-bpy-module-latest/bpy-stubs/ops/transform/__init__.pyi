@@ -81,7 +81,7 @@ def create_orientation(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     use_view: bool | None = False,
     use: bool | None = False,
     overwrite: bool | None = False,

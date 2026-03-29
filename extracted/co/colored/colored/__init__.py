@@ -10,7 +10,7 @@ from .convert import Convert
 from .cprint import cprint
 from .foreground import Fore
 
-__version__: str = '2.3.1'
+__version__: str = '2.3.2'
 
 __all__ = [
     'Colored', 'fore', 'back', 'style', 'fore_rgb', 'back_rgb',

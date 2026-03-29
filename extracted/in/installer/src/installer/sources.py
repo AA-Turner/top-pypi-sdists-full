@@ -1,20 +1,30 @@
 """Source of information about a wheel file."""
 
-import os
 import posixpath
 import stat
 import zipfile
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import BinaryIO, ClassVar, Iterator, List, Optional, Tuple, Type, cast
+from functools import cached_property
+from pathlib import Path
+from typing import (
+    TYPE_CHECKING,
+    BinaryIO,
+    ClassVar,
+    cast,
+)
 
 from installer.exceptions import InstallerError
-from installer.records import RecordEntry, parse_record_file
+from installer.records import InvalidRecordEntry, RecordEntry, parse_record_file
 from installer.utils import canonicalize_name, parse_wheel_filename
 
-WheelContentElement = Tuple[Tuple[str, str, str], BinaryIO, bool]
+if TYPE_CHECKING:
+    import os
+
+WheelContentElement = tuple[tuple[str, str, str], BinaryIO, bool]
 
 
-__all__ = ["WheelSource", "WheelFile"]
+__all__ = ["WheelFile", "WheelSource"]
 
 
 class WheelSource:
@@ -23,7 +33,13 @@ class WheelSource:
     This is an abstract class, whose methods have to be implemented by subclasses.
     """
 
-    validation_error: ClassVar[Type[Exception]] = ValueError
+    validation_error: ClassVar[type[Exception]] = ValueError  #: :meta hide-value:
+    """
+    .. versionadded:: 0.7.0
+
+    Exception to be raised by :py:meth:`validate_record` when validation fails.
+    This is expected to be a subclass of :py:class:`ValueError`.
+    """
 
     def __init__(self, distribution: str, version: str) -> None:
         """Initialize a WheelSource object.
@@ -36,17 +52,17 @@ class WheelSource:
         self.version = version
 
     @property
-    def dist_info_dir(self):
+    def dist_info_dir(self) -> str:
         """Name of the dist-info directory."""
         return f"{self.distribution}-{self.version}.dist-info"
 
     @property
-    def data_dir(self):
+    def data_dir(self) -> str:
         """Name of the data directory."""
         return f"{self.distribution}-{self.version}.data"
 
     @property
-    def dist_info_filenames(self) -> List[str]:
+    def dist_info_filenames(self) -> list[str]:
         """Get names of all files in the dist-info directory.
 
         Sample usage/behaviour::
@@ -70,6 +86,8 @@ class WheelSource:
 
     def validate_record(self) -> None:
         """Validate ``RECORD`` of the wheel.
+
+        .. versionadded:: 0.7.0
 
         This method should be called before :py:func:`install <installer.install>`
         if validation is required.
@@ -105,7 +123,7 @@ class WheelSource:
 class _WheelFileValidationError(ValueError, InstallerError):
     """Raised when a wheel file fails validation."""
 
-    def __init__(self, issues: List[str]) -> None:
+    def __init__(self, issues: list[str]) -> None:
         super().__init__(repr(issues))
         self.issues = issues
 
@@ -116,7 +134,7 @@ class _WheelFileValidationError(ValueError, InstallerError):
 class _WheelFileBadDistInfo(ValueError, InstallerError):
     """Raised when a wheel file has issues around `.dist-info`."""
 
-    def __init__(self, *, reason: str, filename: Optional[str], dist_info: str) -> None:
+    def __init__(self, *, reason: str, filename: str | None, dist_info: str) -> None:
         super().__init__(reason)
         self.reason = reason
         self.filename = filename
@@ -147,13 +165,12 @@ class WheelFile(WheelSource):
         self._zipfile = f
         assert f.filename
 
-        basename = os.path.basename(f.filename)
+        basename = Path(f.filename).name
         parsed_name = parse_wheel_filename(basename)
         super().__init__(
             version=parsed_name.version,
             distribution=parsed_name.distribution,
         )
-        self._dist_info_dir: Optional[str] = None
 
     @classmethod
     @contextmanager
@@ -162,12 +179,9 @@ class WheelFile(WheelSource):
         with zipfile.ZipFile(path) as f:
             yield cls(f)
 
-    @property
+    @cached_property
     def dist_info_dir(self) -> str:
         """Name of the dist-info directory."""
-        if self._dist_info_dir is not None:
-            return self._dist_info_dir
-
         top_level_directories = {
             path.split("/", 1)[0] for path in self._zipfile.namelist()
         }
@@ -196,11 +210,10 @@ class WheelFile(WheelSource):
                 dist_info=dist_info_dir,
             )
 
-        self._dist_info_dir = dist_info_dir
         return dist_info_dir
 
     @property
-    def dist_info_filenames(self) -> List[str]:
+    def dist_info_filenames(self) -> list[str]:
         """Get names of all files in the dist-info directory."""
         base = self.dist_info_dir
         return [
@@ -238,7 +251,7 @@ class WheelFile(WheelSource):
                 [f"Unable to retrieve `RECORD` from {self._zipfile.filename}: {exc!r}"]
             ) from exc
 
-        issues: List[str] = []
+        issues: list[str] = []
 
         for item in self._zipfile.infolist():
             if item.filename[-1:] == "/":  # looks like a directory
@@ -263,7 +276,15 @@ class WheelFile(WheelSource):
                 )
                 continue
 
-            record = RecordEntry.from_elements(*record_args)
+            try:
+                record = RecordEntry.from_elements(*record_args)
+            except InvalidRecordEntry as e:
+                for issue in e.issues:
+                    issues.append(
+                        f"In {self._zipfile.filename}, entry in RECORD file for "
+                        f"{item.filename} is invalid: {issue}"
+                    )
+                continue
 
             if item.filename == f"{self.dist_info_dir}/RECORD":
                 # Assert that RECORD doesn't have size and hash.
@@ -279,11 +300,11 @@ class WheelFile(WheelSource):
                     f"In {self._zipfile.filename}, hash / size of {item.filename} is not included in RECORD"
                 )
             if validate_contents:
-                data = self._zipfile.read(item)
-                if not record.validate(data):
-                    issues.append(
-                        f"In {self._zipfile.filename}, hash / size of {item.filename} didn't match RECORD"
-                    )
+                with self._zipfile.open(item, "r") as stream:
+                    if not record.validate_stream(cast("BinaryIO", stream)):
+                        issues.append(
+                            f"In {self._zipfile.filename}, hash / size of {item.filename} didn't match RECORD"
+                        )
 
         if issues:
             raise _WheelFileValidationError(issues)

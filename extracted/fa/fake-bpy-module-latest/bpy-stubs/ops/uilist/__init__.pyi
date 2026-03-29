@@ -9,8 +9,8 @@ def entry_add(
     undo: bool | None = None,
     /,
     *,
-    list_path: str | None = "",
-    active_index_path: str | None = "",
+    list_path: str = "",
+    active_index_path: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an entry to the list after the current active item
 
@@ -24,8 +24,8 @@ def entry_move(
     undo: bool | None = None,
     /,
     *,
-    list_path: str | None = "",
-    active_index_path: str | None = "",
+    list_path: str = "",
+    active_index_path: str = "",
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move an entry in the list up or down
@@ -47,8 +47,8 @@ def entry_remove(
     undo: bool | None = None,
     /,
     *,
-    list_path: str | None = "",
-    active_index_path: str | None = "",
+    list_path: str = "",
+    active_index_path: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the selected entry from the list
 

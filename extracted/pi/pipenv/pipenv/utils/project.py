@@ -9,6 +9,7 @@ from pipenv.utils.dependencies import python_version
 from pipenv.utils.pipfile import ensure_pipfile
 from pipenv.utils.shell import shorten_path
 from pipenv.utils.virtualenv import ensure_virtualenv, find_a_system_python
+from pipenv.vendor.packaging.specifiers import InvalidSpecifier, SpecifierSet
 
 if TYPE_CHECKING:
     STRING_TYPE = str
@@ -23,26 +24,27 @@ def _python_version_matches_required(actual_ver_str, required_ver_str):
     """Return True if *actual_ver_str* satisfies *required_ver_str*.
 
     ``required_ver_str`` comes from the Pipfile ``[requires]`` section and may
-    be either a ``python_version`` (``"X.Y"``, major.minor only) or a
-    ``python_full_version`` (``"X.Y.Z"``).
+    be either:
+
+    * A PEP 440 version specifier string like ``">=3.8"`` or ``">=3.9,<4"``
+      (the ``python_version`` field contains an operator).
+    * A plain ``"X.Y"`` (major.minor) or ``"X.Y.Z"`` (full version) string.
 
     ``actual_ver_str`` is the full version string reported by the Python
-    interpreter (e.g. ``"3.13.11"``).
-
-    A simple substring/``in`` check is **wrong** here: ``"3.11" in "3.13.11"``
-    is ``True`` because ``"3.11"`` happens to appear as a substring of
-    ``"3.13.11"``, causing an incompatible Python version to be silently
-    accepted.  See https://github.com/pypa/pipenv/issues/6514.
-
-    Instead, this function:
-    * When *required_ver_str* has fewer than three dot-separated components
-      (i.e. only ``major.minor``), compares just the ``major`` and ``minor``
-      fields of both parsed versions.
-    * When *required_ver_str* has three or more components (``major.minor.patch``),
-      requires an exact match of the parsed versions.
+    interpreter (e.g. ``"3.13.1"``).
     """
     if not actual_ver_str or not required_ver_str:
         return False
+
+    # If the required string contains a PEP 440 operator, treat it as a
+    # SpecifierSet (e.g. ">=3.8", ">=3.9,<4").
+    if any(op in required_ver_str for op in (">=", "<=", "!=", "~=", ">", "<")):
+        try:
+            spec = SpecifierSet(required_ver_str)
+            return actual_ver_str in spec
+        except InvalidSpecifier:
+            pass
+
     try:
         actual = parse_version(actual_ver_str)
         required = parse_version(required_ver_str)
@@ -69,6 +71,7 @@ def ensure_project(
     pypi_mirror=None,
     clear=False,
     pipfile_categories=None,
+    lockfile_only=False,
 ):
     """Ensures both Pipfile and virtualenv exist for the project."""
 
@@ -81,13 +84,21 @@ def ensure_project(
         raise exceptions.PipfileNotFound
 
     # When --system is used with --python, validate that the Python can be found
+    # and store the resolved path so pip uses the correct interpreter.
     if system and python:
-        path_to_python = find_a_system_python(python)
+        path_to_python = find_a_system_python(
+            python, pyenv_only=project.s.PIPENV_PYENV_ONLY
+        )
         if not path_to_python:
             raise exceptions.PipenvUsageError(
                 message=f"Python version '{python}' was not found on your system. "
                 "Please ensure Python is installed and available in PATH.",
             )
+        # Store the resolved Python path so project_python() and
+        # get_environment() can use the correct interpreter for --system
+        # installs targeting a specific Python (#3593).
+        os.environ["PIP_PYTHON_PATH"] = path_to_python
+        project.s.PIPENV_PYTHON = path_to_python
 
     # If --python was explicitly specified and the existing virtualenv uses a different
     # Python version, allow ensure_virtualenv to handle recreation.
@@ -132,7 +143,11 @@ def ensure_project(
     if warn and project.required_python_version:
         if system or project.s.PIPENV_USE_SYSTEM:
             # For --system, check the system Python
-            path_to_python = find_a_system_python(python) if python else None
+            path_to_python = (
+                find_a_system_python(python, pyenv_only=project.s.PIPENV_PYENV_ONLY)
+                if python
+                else None
+            )
             if not path_to_python:
                 from pipenv.utils.shell import system_which
 
@@ -159,14 +174,16 @@ def ensure_project(
             else:
                 raise exceptions.DeployException
 
-    # Ensure the Pipfile exists.
-    ensure_pipfile(
-        project,
-        validate=validate,
-        skip_requirements=skip_requirements,
-        system=system,
-        pipfile_categories=pipfile_categories,
-    )
+    # Ensure the Pipfile exists (skip when installing from lockfile only,
+    # e.g. ``pipenv sync`` — we don't need or want to create a blank Pipfile).
+    if not lockfile_only:
+        ensure_pipfile(
+            project,
+            validate=validate,
+            skip_requirements=skip_requirements,
+            system=system,
+            pipfile_categories=pipfile_categories,
+        )
     os.environ["PIP_PYTHON_PATH"] = project.python(system=system)
 
 

@@ -63,6 +63,7 @@ class MQTTTransport(Transport):
                            Specific to Mammotion direct-MQTT (post-2025 devices).
 
         """
+        super().__init__()
         self._config = config
         self._http = mammotion_http
         self._jwt_refresher = jwt_refresher
@@ -147,12 +148,21 @@ class MQTTTransport(Transport):
 
         """
         from pymammotion.aliyun.exceptions import DeviceOfflineException, GatewayTimeoutException
+        from pymammotion.http.model.http import UnauthorizedException
 
         if not iot_id:
             msg = "MQTTTransport.send() requires a non-empty iot_id"
             raise TransportError(msg)
         content = base64.b64encode(payload).decode()
-        res = await self._http.mqtt_invoke(content, "", iot_id)
+        try:
+            res = await self._http.mqtt_invoke(content, "", iot_id)
+        except UnauthorizedException:
+            _logger.warning("MQTTTransport.send: HTTP access token expired — refreshing and retrying")
+            try:
+                await self._http.refresh_login()
+                res = await self._http.mqtt_invoke(content, "", iot_id)
+            except Exception as refresh_exc:
+                raise AuthError("Access token expired and refresh failed") from refresh_exc
         if res.code in (401, 460):
             raise AuthError(f"Access token expired (code={res.code})")
         if res.code in (6205, 50104):
@@ -168,13 +178,9 @@ class MQTTTransport(Transport):
     # ------------------------------------------------------------------
 
     async def _notify_availability(self, state: TransportAvailability) -> None:
-        """Update internal state and notify the availability callback."""
+        """Update internal state and notify all availability listeners."""
         self._availability = state
-        if self.on_availability_changed is not None:
-            try:
-                await self.on_availability_changed(state)
-            except Exception:
-                _logger.exception("on_availability_changed callback failed")
+        await self._fire_availability_listeners(state)
 
     async def _refresh_jwt(self) -> bool:
         """Attempt to refresh the JWT via the jwt_refresher callback.
@@ -199,6 +205,8 @@ class MQTTTransport(Transport):
     async def _run(self) -> None:
         """Run the main connection loop, reconnecting with exponential backoff."""
         backoff = 1
+        _bad_credentials_attempts = 0
+        _BAD_CREDENTIALS_MAX = 3
 
         while not self._stop_event.is_set():
             await self._notify_availability(TransportAvailability.CONNECTING)
@@ -225,6 +233,7 @@ class MQTTTransport(Transport):
                 ) as client:
                     self._client = client
                     backoff = 1
+                    _bad_credentials_attempts = 0
                     await self._notify_availability(TransportAvailability.CONNECTED)
 
                     for topic in self._topics:
@@ -237,6 +246,24 @@ class MQTTTransport(Transport):
 
             except aiomqtt.MqttCodeError as exc:
                 rc = exc.rc
+                if rc == 134 or "bad user name" in str(exc).lower():
+                    # rc=134 = Bad User Name or Password — JWT is expired/invalid
+                    _bad_credentials_attempts += 1
+                    if _bad_credentials_attempts <= _BAD_CREDENTIALS_MAX:
+                        _logger.warning(
+                            "MQTT rc=134 (bad credentials), JWT refresh attempt %d/%d",
+                            _bad_credentials_attempts,
+                            _BAD_CREDENTIALS_MAX,
+                        )
+                        if await self._refresh_jwt():
+                            continue
+                    _logger.error(
+                        "MQTT auth failed after %d JWT refresh attempt(s) — stopping",
+                        _bad_credentials_attempts,
+                    )
+                    self._stop_event.set()
+                    await self._notify_availability(TransportAvailability.DISCONNECTED)
+                    raise AuthError(str(exc)) from exc
                 if rc in (4, 5, 135) or "not authorized" in str(exc).lower():
                     _logger.error("MQTT auth refused (rc=%s): %s — attempting JWT refresh", rc, exc)
                     if await self._refresh_jwt():
@@ -265,6 +292,9 @@ class MQTTTransport(Transport):
     async def _dispatch(self, topic: str, raw: bytes) -> None:
         """Route an incoming message to the appropriate callback.
 
+        thing/status messages are dispatched to on_device_status regardless of
+        which other callbacks are registered.
+
         If ``on_device_message`` is set, the topic is parsed to derive the
         iot_id, the JSON envelope is unwrapped, and the raw protobuf bytes
         are forwarded together with the iot_id.
@@ -272,6 +302,10 @@ class MQTTTransport(Transport):
         Falls back to the plain ``on_message`` callback (raw bytes, no routing)
         when ``on_device_message`` is not set.
         """
+        if topic.endswith("/thing/status"):
+            await self._dispatch_device_status(topic, raw)
+            return
+
         if self.on_device_message is not None:
             # Extract (product_key, device_name) from topic: /sys/<pk>/<dn>/...
             parts = topic.split("/")
@@ -288,6 +322,21 @@ class MQTTTransport(Transport):
 
         if self.on_message is not None:
             await self.on_message(raw)
+
+    async def _dispatch_device_status(self, topic: str, raw: bytes) -> None:
+        """Parse a thing/status message and notify on_device_status."""
+        if self.on_device_status is None:
+            return
+        try:
+            from pymammotion.data.mqtt.status import StatusType, ThingStatusMessage
+
+            msg = ThingStatusMessage.from_json(raw)
+            iot_id = msg.params.iot_id
+            status = "online" if msg.params.status.value is StatusType.CONNECTED else "offline"
+            if iot_id:
+                await self.on_device_status(iot_id, status)
+        except Exception:
+            _logger.debug("MQTTTransport: failed to parse thing/status on %s", topic, exc_info=True)
 
     @staticmethod
     def _unwrap_envelope(topic: str, raw: bytes) -> bytes | None:

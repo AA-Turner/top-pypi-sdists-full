@@ -20,11 +20,11 @@ def package_install(
     undo: bool | None = None,
     /,
     *,
-    repo_directory: str | None = "",
+    repo_directory: str = "",
     repo_index: int | None = -1,
-    pkg_id: str | None = "",
+    pkg_id: str = "",
     enable_on_install: bool | None = True,
-    url: str | None = "",
+    url: str = "",
     do_legacy_replace: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Download and install the extension
@@ -43,16 +43,16 @@ def package_install_files(
     undo: bool | None = None,
     /,
     *,
-    filter_glob: str | None = "*.zip;*.py",
-    directory: str | None = "",
+    filter_glob: str = "*.zip;*.py",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
-    filepath: str | None = "",
+    filepath: str = "",
     repo: str | None = "",
     enable_on_install: bool | None = True,
     target: str | None = "",
     overwrite: bool | None = True,
-    url: str | None = "",
+    url: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Install extensions from files into a locally managed repository
 
@@ -86,7 +86,7 @@ def package_mark_clear(
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str | None = "",
+    pkg_id: str = "",
     repo_index: int | None = -1,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
@@ -111,7 +111,7 @@ def package_mark_set(
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str | None = "",
+    pkg_id: str = "",
     repo_index: int | None = -1,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
@@ -146,7 +146,7 @@ def package_show_clear(
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str | None = "",
+    pkg_id: str = "",
     repo_index: int | None = -1,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
@@ -161,7 +161,7 @@ def package_show_set(
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str | None = "",
+    pkg_id: str = "",
     repo_index: int | None = -1,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
@@ -176,7 +176,7 @@ def package_show_settings(
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str | None = "",
+    pkg_id: str = "",
     repo_index: int | None = -1,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
@@ -191,7 +191,7 @@ def package_theme_disable(
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str | None = "",
+    pkg_id: str = "",
     repo_index: int | None = -1,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset to the default theme if this theme is active
@@ -206,7 +206,7 @@ def package_theme_enable(
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str | None = "",
+    pkg_id: str = "",
     repo_index: int | None = -1,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Turn on this theme
@@ -221,9 +221,9 @@ def package_uninstall(
     undo: bool | None = None,
     /,
     *,
-    repo_directory: str | None = "",
+    repo_directory: str = "",
     repo_index: int | None = -1,
-    pkg_id: str | None = "",
+    pkg_id: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Disable and uninstall the extension
 
@@ -307,7 +307,7 @@ def repo_sync(
     undo: bool | None = None,
     /,
     *,
-    repo_directory: str | None = "",
+    repo_directory: str = "",
     repo_index: int | None = -1,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
@@ -416,7 +416,7 @@ def userpref_tags_set(
     /,
     *,
     value: bool | None = False,
-    data_path: str | None = "",
+    data_path: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the value of all tags
 

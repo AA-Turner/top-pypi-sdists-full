@@ -146,7 +146,7 @@ def insert(
     undo: bool | None = None,
     /,
     *,
-    text: str | None = "",
+    text: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert text at cursor position
 
@@ -172,7 +172,7 @@ def jump_to_file_at_point(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     line: int | None = 0,
     column: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -296,7 +296,7 @@ def open(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -486,7 +486,7 @@ def save_as(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = True,
     filter_blender: bool | None = False,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mem0ai
-Version: 1.0.8
+Version: 1.0.9
 Summary: Long-term memory for AI Agents
 Author-email: Mem0 <support@mem0.ai>
 License-Expression: Apache-2.0
@@ -165,6 +165,20 @@ Install sdk via npm:
 ```bash
 npm install mem0ai
 ```
+
+### CLI
+
+Manage memories from your terminal:
+
+```bash
+npm install -g @mem0/cli   # or: pip install mem0-cli
+
+mem0 init
+mem0 add "Prefers dark mode and vim keybindings" --user-id alice
+mem0 search "What does Alice prefer?" --user-id alice
+```
+
+See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full command reference.
 
 ### Basic Usage
 

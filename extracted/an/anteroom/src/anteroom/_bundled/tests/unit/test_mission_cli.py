@@ -410,6 +410,75 @@ class TestHandleCreate:
         # The adapter override should take effect — item should show "workflow"
         assert "workflow" in output
 
+    def test_launch_flag_persists_active_session(self, db: Any) -> None:
+        from anteroom.services.mission_storage import get_session
+
+        config = MagicMock()
+        console, buf = _capture_console()
+        with patch("anteroom.cli.mission_cli.console", console):
+            from anteroom.cli.mission_cli import _handle_create
+            from anteroom.services.mission_compiler import CompiledItem, CompiledPlan
+
+            with patch(
+                "anteroom.services.mission_compiler.compile_from_spec",
+                return_value=CompiledPlan(items=[CompiledItem(summary="Task", temp_id="t1")], title="Plan"),
+            ):
+                _handle_create(
+                    config,
+                    db,
+                    _make_args(
+                        spec="@test/spec/auth",
+                        prompt=None,
+                        adapter="noop",
+                        workflow_path=None,
+                        profile=None,
+                        launch=True,
+                    ),
+                )
+
+        output = buf.getvalue()
+        assert "Mission created" in output
+        session_id = output.split("Mission created:")[-1].splitlines()[0].strip()
+        session = get_session(db, session_id)
+        assert session is not None
+        assert session["status"] == "active"
+
+    def test_interactive_yes_persists_active_session(self, db: Any) -> None:
+        from anteroom.services.mission_storage import get_session
+
+        config = MagicMock()
+        console, buf = _capture_console()
+        with (
+            patch("anteroom.cli.mission_cli.console", console),
+            patch("builtins.input", return_value="y"),
+        ):
+            from anteroom.cli.mission_cli import _handle_create
+            from anteroom.services.mission_compiler import CompiledItem, CompiledPlan
+
+            with patch(
+                "anteroom.services.mission_compiler.compile_from_spec",
+                return_value=CompiledPlan(items=[CompiledItem(summary="Task", temp_id="t1")], title="Plan"),
+            ):
+                _handle_create(
+                    config,
+                    db,
+                    _make_args(
+                        spec="@test/spec/auth",
+                        prompt=None,
+                        adapter="noop",
+                        workflow_path=None,
+                        profile=None,
+                        launch=False,
+                    ),
+                )
+
+        output = buf.getvalue()
+        assert "Mission created" in output
+        session_id = output.split("Mission created:")[-1].splitlines()[0].strip()
+        session = get_session(db, session_id)
+        assert session is not None
+        assert session["status"] == "active"
+
 
 # ---------------------------------------------------------------------------
 # _handle_update

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strawberry-graphql-django
-Version: 0.82.0
+Version: 0.82.1
 Summary: Strawberry GraphQL Django extension
 Project-URL: homepage, https://strawberry.rocks/docs/django
 Project-URL: repository, https://github.com/strawberry-graphql/strawberry-django
@@ -35,6 +35,8 @@ Provides-Extra: debug-toolbar
 Requires-Dist: django-debug-toolbar>=6.0.0; extra == 'debug-toolbar'
 Provides-Extra: enum
 Requires-Dist: django-choices-field>=2.2.2; extra == 'enum'
+Provides-Extra: polymorphic
+Requires-Dist: django-polymorphic>=4.0.0; extra == 'polymorphic'
 Description-Content-Type: text/markdown
 
 # Strawberry GraphQL Django Integration

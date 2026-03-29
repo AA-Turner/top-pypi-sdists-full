@@ -7,11 +7,12 @@ from typing import Any
 import httpx
 
 from plato.chronos.errors import raise_for_status
-from plato.chronos.models import LaunchJobResponse
+from plato.chronos.models import LaunchJobResponse, RerunWithConfigRequest
 
 
 def _build_request_args(
     public_id: str,
+    body: RerunWithConfigRequest,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
@@ -24,6 +25,7 @@ def _build_request_args(
     return {
         "method": "POST",
         "url": url,
+        "json": body.model_dump(mode="json", exclude_none=True),
         "headers": headers,
     }
 
@@ -31,12 +33,17 @@ def _build_request_args(
 def sync(
     client: httpx.Client,
     public_id: str,
+    body: RerunWithConfigRequest,
     x_api_key: str | None = None,
 ) -> LaunchJobResponse:
-    """Re-run a previous session with the same stored config and runtime settings."""
+    """Re-run a previous session with the same stored config and runtime settings.
+
+    If ``config_override`` is provided in the body, it replaces the world config
+    for the rerun (e.g. to inject updated workspace refs)."""
 
     request_args = _build_request_args(
         public_id=public_id,
+        body=body,
         x_api_key=x_api_key,
     )
 
@@ -48,12 +55,17 @@ def sync(
 async def asyncio(
     client: httpx.AsyncClient,
     public_id: str,
+    body: RerunWithConfigRequest,
     x_api_key: str | None = None,
 ) -> LaunchJobResponse:
-    """Re-run a previous session with the same stored config and runtime settings."""
+    """Re-run a previous session with the same stored config and runtime settings.
+
+    If ``config_override`` is provided in the body, it replaces the world config
+    for the rerun (e.g. to inject updated workspace refs)."""
 
     request_args = _build_request_args(
         public_id=public_id,
+        body=body,
         x_api_key=x_api_key,
     )
 

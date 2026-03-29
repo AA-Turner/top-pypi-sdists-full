@@ -7,19 +7,15 @@ from github_heatmap.config import (
     COLOR_TUPLE,
     DEFAULT_DOM_COLOR,
     DOM_BOX_DICT,
-    DOM_BOX_TUPLE,
-    MONTH_NAMES,
-    YEAR_FONT_SIZE,
-    MONTH_FONT_SIZE,
     DOM_BOX_PADING,
     DOM_BOX_RADIUS,
+    DOM_BOX_TUPLE,
+    MONTH_FONT_SIZE,
+    MONTH_NAMES,
+    YEAR_FONT_SIZE,
 )
 from github_heatmap.err import BaseDrawError
-from github_heatmap.utils import (
-    interpolate_color,
-    make_key_times,
-    resolve_github_level,
-)
+from github_heatmap.utils import interpolate_color, make_key_times, resolve_github_level
 
 
 class Drawer:
@@ -81,7 +77,7 @@ class Drawer:
         return self.poster.level_thresholds
 
     def _make_github_level_color(self, length, type_name=None):
-        level = resolve_github_level(length, self._resolve_level_thresholds(type_name))
+        level = resolve_github_level(length, self._resolve_level_thresholds(type_name), self.poster.use_raw_level)
         if level == 0:
             return self.poster.colors.get("dom")
         return self.poster.level_colors[level - 1]
@@ -269,7 +265,11 @@ class Drawer:
                         style=self.month_names_style,
                     )
                 )
-            if index > 0 and index < 53 and month!=MONTH_NAMES[github_rect_day.month - 1]:
+            if (
+                index > 0
+                and index < 53
+                and month != MONTH_NAMES[github_rect_day.month - 1]
+            ):
                 month = MONTH_NAMES[github_rect_day.month - 1]
                 dr.add(
                     dr.text(

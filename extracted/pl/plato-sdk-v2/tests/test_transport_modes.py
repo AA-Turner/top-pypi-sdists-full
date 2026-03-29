@@ -37,13 +37,14 @@ class _RuntimeEnv:
 async def test_create_transport_stores_mesh_ip(monkeypatch):
     """_create_transport should store mesh IP without creating transport yet."""
     world = _TestWorld()
+    world.config = RunConfig()
     world.session = SessionConfig(session_id="s1")
     world._ssh_key_path = Path("/tmp/test-key")
     world.plato_session = SimpleNamespace(envs=[_RuntimeEnv()])
 
     await world._create_transport()
 
-    assert world._nfs_mesh_ip == "10.100.0.9"
+    assert world._mesh_ip == "10.100.0.9"
     assert world._transport is None
 
 
@@ -51,7 +52,8 @@ async def test_create_transport_stores_mesh_ip(monkeypatch):
 async def test_start_transport_creates_and_initializes(monkeypatch, tmp_path):
     """_start_transport should create NFSTransport from workspace paths and initialize."""
     world = _TestWorld()
-    world._nfs_mesh_ip = "10.100.0.9"
+    world._mesh_ip = "10.100.0.9"
+    world._transport_mode = "nfs_kernel"
     world._ssh_key_path = Path("/tmp/test-key")
 
     # Simulate a workspace
@@ -126,6 +128,39 @@ async def test_untracked_workspace_uses_empty_manifest_fuse_mount(monkeypatch, t
 def test_session_config_transport_mode_defaults_to_nfs_kernel():
     cfg = SessionConfig(session_id="s1")
     assert cfg.transport_mode == "nfs_kernel"
+
+
+def test_run_config_transport_mode_defaults_to_none():
+    cfg = RunConfig()
+    assert cfg.transport_mode is None
+
+
+@pytest.mark.asyncio
+async def test_create_transport_prefers_world_config_transport_mode():
+    """World config transport_mode should override session config."""
+    world = _TestWorld()
+    world.config = RunConfig(transport_mode="sshfs")
+    world.session = SessionConfig(session_id="s1", transport_mode="nfs_kernel")
+    world._ssh_key_path = Path("/tmp/test-key")
+    world.plato_session = SimpleNamespace(envs=[_RuntimeEnv()])
+
+    await world._create_transport()
+
+    assert world._transport_mode == "sshfs"
+
+
+@pytest.mark.asyncio
+async def test_create_transport_falls_back_to_session_config():
+    """When world config transport_mode is None, use session config."""
+    world = _TestWorld()
+    world.config = RunConfig()
+    world.session = SessionConfig(session_id="s1", transport_mode="nfs_kernel")
+    world._ssh_key_path = Path("/tmp/test-key")
+    world.plato_session = SimpleNamespace(envs=[_RuntimeEnv()])
+
+    await world._create_transport()
+
+    assert world._transport_mode == "nfs_kernel"
 
 
 # ---------------------------------------------------------------------------

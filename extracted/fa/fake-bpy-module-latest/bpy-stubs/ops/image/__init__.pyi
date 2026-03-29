@@ -182,7 +182,7 @@ def external_edit(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit image in an external application
 
@@ -195,7 +195,7 @@ def file_browse(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -298,7 +298,7 @@ def import_as_mesh_planes(
     use_backface_culling: bool | None = False,
     show_transparent_back: bool | None = True,
     overwrite_material: bool | None = True,
-    filepath: str | None = "",
+    filepath: str = "",
     align: typing.Literal["WORLD", "VIEW", "CURSOR"] | None = "WORLD",
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (
         0.0,
@@ -312,7 +312,7 @@ def import_as_mesh_planes(
     ),
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
-    directory: str | None = "",
+    directory: str = "",
     filter_image: bool | None = True,
     filter_movie: bool | None = True,
     filter_folder: bool | None = True,
@@ -536,7 +536,7 @@ def new(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "Untitled",
+    name: str = "Untitled",
     width: int | None = 1024,
     height: int | None = 1024,
     color: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0, 1.0),
@@ -567,8 +567,8 @@ def open(
     /,
     *,
     allow_path_tokens: bool | None = True,
-    filepath: str | None = "",
-    directory: str | None = "",
+    filepath: str = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     hide_props_region: bool | None = True,
@@ -653,7 +653,7 @@ def open_images(
     undo: bool | None = None,
     /,
     *,
-    directory: str | None = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     relative_path: bool | None = True,
@@ -756,7 +756,7 @@ def replace(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -928,7 +928,7 @@ def save_as(
     save_as_render: bool | None = False,
     copy: bool | None = False,
     allow_path_tokens: bool | None = True,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -1017,7 +1017,7 @@ def tile_add(
     *,
     number: int | None = 1002,
     count: int | None = 1,
-    label: str | None = "",
+    label: str = "",
     fill: bool | None = True,
     color: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0, 1.0),
     generated_type: typing.Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
@@ -1083,7 +1083,7 @@ def unpack(
     *,
     method: typing.Literal[bpy.stub_internal.rna_enums.UnpackMethodItems]
     | None = "USE_LOCAL",
-    id: str | None = "",
+    id: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save an image packed in the .blend file to disk
 

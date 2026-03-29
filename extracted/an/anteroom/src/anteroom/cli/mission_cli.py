@@ -120,8 +120,8 @@ def _handle_create(config: AppConfig, db: Any, args: argparse.Namespace) -> None
         )
     console.print(table)
 
-    launch = getattr(args, "launch", False)
-    if not launch:
+    launch_requested = getattr(args, "launch", False)
+    if not launch_requested:
         try:
             answer = input("Launch? [y/N] ").strip().lower()
         except (EOFError, KeyboardInterrupt):
@@ -129,6 +129,7 @@ def _handle_create(config: AppConfig, db: Any, args: argparse.Namespace) -> None
         if answer not in ("y", "yes"):
             console.print("Aborted")
             return
+        launch_requested = True
 
     # Compute lane_limits from profile for session persistence
     lane_limits: dict[str, int] | None = None
@@ -137,7 +138,14 @@ def _handle_create(config: AppConfig, db: Any, args: argparse.Namespace) -> None
 
     source_type = "spec" if spec_fqn else "prompt"
     try:
-        session = apply_plan(db, plan, source_type=source_type, source_fqn=spec_fqn, lane_limits=lane_limits)
+        session = apply_plan(
+            db,
+            plan,
+            source_type=source_type,
+            source_fqn=spec_fqn,
+            lane_limits=lane_limits,
+            session_status="active" if launch_requested else "pending",
+        )
     except ValueError as exc:
         console.print(f"[red]Error:[/red] {exc}")
         return

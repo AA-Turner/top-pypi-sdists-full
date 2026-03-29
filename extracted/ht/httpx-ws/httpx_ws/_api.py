@@ -6,7 +6,6 @@ import queue
 import secrets
 import threading
 import typing
-from types import TracebackType
 
 import anyio
 import httpcore
@@ -564,9 +563,31 @@ class WebSocketSession:
         return data
 
 
-class AsyncWebSocketSession:
+class AsyncWebSocketSession(anyio.AsyncContextManagerMixin):
     """
     Async context manager representing an opened WebSocket session.
+
+    Internally, this session uses an anyio task group to manage background tasks.
+    As a result, exceptions that are not caught inside the context manager
+    and propagate out of the `async with` block will be wrapped
+    in an [ExceptionGroup][ExceptionGroup].
+
+    To handle them, use the `except*` syntax:
+
+        async with AsyncWebSocketSession(stream) as ws:
+            try:
+                data = await ws.receive_text()
+            except WebSocketDisconnect:
+                # Caught inside the context manager: plain exception.
+                print("Connection closed")
+
+        # If not caught inside:
+        try:
+            async with AsyncWebSocketSession(stream) as ws:
+                data = await ws.receive_text()
+        except* WebSocketDisconnect:
+            # Propagated out of the context manager: wrapped in ExceptionGroup.
+            print("Connection closed")
 
     Attributes:
         subprotocol (typing.Optional[str]):
@@ -615,17 +636,16 @@ class AsyncWebSocketSession:
             self._keepalive_ping_interval_seconds = keepalive_ping_interval_seconds
             self._keepalive_ping_timeout_seconds = keepalive_ping_timeout_seconds
 
-    async def __aenter__(self) -> "AsyncWebSocketSession":
-        async with contextlib.AsyncExitStack() as exit_stack:
-            self._send_event, self._receive_event = anyio.create_memory_object_stream[
-                wsproto.events.Event | HTTPXWSException
-            ]()
-            exit_stack.enter_context(self._send_event)
-            exit_stack.enter_context(self._receive_event)
+    @contextlib.asynccontextmanager
+    async def __asynccontextmanager__(
+        self,
+    ) -> "typing.AsyncGenerator[AsyncWebSocketSession, None]":
+        self._send_event, self._receive_event = anyio.create_memory_object_stream[
+            wsproto.events.Event | HTTPXWSException
+        ]()
+        self._background_task_group = anyio.create_task_group()
 
-            self._background_task_group = anyio.create_task_group()
-            await exit_stack.enter_async_context(self._background_task_group)
-
+        async with self._send_event, self._receive_event, self._background_task_group:
             self._background_task_group.start_soon(
                 self._background_receive, self._max_message_size_bytes
             )
@@ -636,19 +656,12 @@ class AsyncWebSocketSession:
                     self._keepalive_ping_timeout_seconds,
                 )
 
-            exit_stack.callback(self._background_task_group.cancel_scope.cancel)
-            exit_stack.push_async_callback(self.close)
-            self._exit_stack = exit_stack.pop_all()
-
-        return self
-
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        tb: TracebackType | None,
-    ) -> None:
-        await self._exit_stack.aclose()
+            try:
+                yield self
+            finally:
+                self._background_task_group.cancel_scope.cancel()
+                with anyio.CancelScope(shield=True):
+                    await self.close()
 
     async def ping(self, payload: bytes = b"") -> anyio.Event:
         """
@@ -691,6 +704,11 @@ class AsyncWebSocketSession:
         Raises:
             WebSocketNetworkError: A network error occured.
 
+        Note:
+            Exceptions not caught inside the context manager will be
+            wrapped in an [ExceptionGroup][ExceptionGroup]. Use `except*` to catch them
+            outside the `async with` block.
+
         Examples:
             Send an event.
 
@@ -715,6 +733,11 @@ class AsyncWebSocketSession:
         Raises:
             WebSocketNetworkError: A network error occured.
 
+        Note:
+            Exceptions not caught inside the context manager will be
+            wrapped in an [ExceptionGroup][ExceptionGroup]. Use `except*` to catch them
+            outside the `async with` block.
+
         Examples:
             Send a text message.
 
@@ -732,6 +755,11 @@ class AsyncWebSocketSession:
 
         Raises:
             WebSocketNetworkError: A network error occured.
+
+        Note:
+            Exceptions not caught inside the context manager will be
+            wrapped in an [ExceptionGroup][ExceptionGroup]. Use `except*` to catch them
+            outside the `async with` block.
 
         Examples:
             Send a bytes message.
@@ -753,6 +781,11 @@ class AsyncWebSocketSession:
 
         Raises:
             WebSocketNetworkError: A network error occured.
+
+        Note:
+            Exceptions not caught inside the context manager will be
+            wrapped in an [ExceptionGroup][ExceptionGroup]. Use `except*` to catch them
+            outside the `async with` block.
 
         Examples:
             Send JSON data.
@@ -788,6 +821,11 @@ class AsyncWebSocketSession:
             TimeoutError: No event was received before the timeout delay.
             WebSocketDisconnect: The server closed the websocket.
             WebSocketNetworkError: A network error occured.
+
+        Note:
+            Exceptions not caught inside the context manager will be
+            wrapped in an [ExceptionGroup][ExceptionGroup]. Use `except*` to catch them
+            outside the `async with` block.
 
         Examples:
             Wait for an event until one is available.
@@ -832,6 +870,11 @@ class AsyncWebSocketSession:
             WebSocketNetworkError: A network error occured.
             WebSocketInvalidTypeReceived: The received event was not a text message.
 
+        Note:
+            Exceptions not caught inside the context manager will be
+            wrapped in an [ExceptionGroup][ExceptionGroup]. Use `except*` to catch them
+            outside the `async with` block.
+
         Examples:
             Wait for text until available.
 
@@ -871,6 +914,11 @@ class AsyncWebSocketSession:
             WebSocketDisconnect: The server closed the websocket.
             WebSocketNetworkError: A network error occured.
             WebSocketInvalidTypeReceived: The received event was not a bytes message.
+
+        Note:
+            Exceptions not caught inside the context manager will be
+            wrapped in an [ExceptionGroup][ExceptionGroup]. Use `except*` to catch them
+            outside the `async with` block.
 
         Examples:
             Wait for bytes until available.
@@ -918,6 +966,11 @@ class AsyncWebSocketSession:
             WebSocketNetworkError: A network error occured.
             WebSocketInvalidTypeReceived: The received event
                 didn't correspond to the specified mode.
+
+        Note:
+            Exceptions not caught inside the context manager will be
+            wrapped in an [ExceptionGroup][ExceptionGroup]. Use `except*` to catch them
+            outside the `async with` block.
 
         Examples:
             Wait for data until available.
@@ -1311,7 +1364,7 @@ class AsyncWebSocketClient(typing.Generic[AsyncSession]):
             Maximum delay the client will wait for an answer to its Ping event.
             If the delay is exceeded,
             [WebSocketNetworkError][httpx_ws.WebSocketNetworkError]
-            will be raised and the connection closed.
+            will be raised in an [ExceptionGroup][ExceptionGroup] and the connection closed.
             Defaults to 20 seconds.
         session_class:
             The session class to use.
@@ -1436,7 +1489,7 @@ async def aconnect_ws(
             Maximum delay the client will wait for an answer to its Ping event.
             If the delay is exceeded,
             [WebSocketNetworkError][httpx_ws.WebSocketNetworkError]
-            will be raised and the connection closed.
+            will be raised in an [ExceptionGroup][ExceptionGroup] and the connection closed.
             Defaults to 20 seconds.
         subprotocols:
             Optional list of subprotocols to negotiate with the server.

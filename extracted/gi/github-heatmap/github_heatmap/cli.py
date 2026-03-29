@@ -7,22 +7,22 @@ import os
 import sys
 
 from github_heatmap.circluar_drawer import CircularDrawer
-from github_heatmap.config import TYPE_INFO_DICT
+from github_heatmap.config import (
+    DOM_BOX_PADING,
+    DOM_BOX_TUPLE,
+    GITHUB_LEVEL_COLORS,
+    HEAD_FONT_SIZE,
+    MARGIN_LEFT,
+    MARGIN_TOP,
+    MONTH_FONT_SIZE,
+    TYPE_INFO_DICT,
+    YEAR_FONT_SIZE,
+)
 from github_heatmap.drawer import Drawer
 from github_heatmap.err import DepNotInstalledError
 from github_heatmap.loader import LOADER_DICT
 from github_heatmap.poster import Poster
 from github_heatmap.utils import build_level_colors, parse_years, reduce_year_list
-from github_heatmap.config import (
-    GITHUB_LEVEL_COLORS,
-    HEAD_FONT_SIZE,
-    YEAR_FONT_SIZE,
-    MONTH_FONT_SIZE,
-    DOM_BOX_PADING,
-    DOM_BOX_TUPLE,
-    MARGIN_TOP,
-    MARGIN_LEFT
-)
 
 OUT_FOLDER = os.path.join(os.getcwd(), "OUT_FOLDER")
 
@@ -76,6 +76,7 @@ def run():
     }
     p.level_colors = level_colors
     p.use_github_level_mapping = not (args.special_number1 or args.special_number2)
+    p.use_raw_level = args.use_raw_level
 
     p.tooltip_template = args.tooltip_template or None
 
@@ -142,6 +143,16 @@ def run():
             for child_loader in loader.loader_list
         }
 
+    # explicit level thresholds override quartile calculation
+    if args.level_thresholds:
+        p.level_thresholds = tuple(float(v) for v in args.level_thresholds.split(","))
+        p.use_github_level_mapping = True
+
+    # explicit level colors override computed colors
+    if args.level_colors:
+        p.level_colors = [c.strip() for c in args.level_colors.split(",")]
+        p.use_github_level_mapping = True
+
     # set title
     # we don't know issue content so use name
     p.title = (
@@ -166,7 +177,12 @@ def run():
         MARGIN_TOP
         + HEAD_FONT_SIZE
         + poster_length
-        * (YEAR_FONT_SIZE + MONTH_FONT_SIZE+DOM_BOX_PADING*3 + (DOM_BOX_PADING + DOM_BOX_TUPLE[0]) * 7)
+        * (
+            YEAR_FONT_SIZE
+            + MONTH_FONT_SIZE
+            + DOM_BOX_PADING * 3
+            + (DOM_BOX_PADING + DOM_BOX_TUPLE[0]) * 7
+        )
     )
     if not os.path.exists(OUT_FOLDER):
         os.mkdir(OUT_FOLDER)

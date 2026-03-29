@@ -347,6 +347,7 @@ def do_install(
         pypi_mirror=pypi_mirror,
         site_packages=site_packages,
         pipfile_categories=pipfile_categories,
+        lockfile_only=ignore_pipfile,
     )
 
     do_install_validations(
@@ -429,7 +430,9 @@ def do_install_validations(
     if not project.pipfile_exists and not (package_args or dev):
         if not (ignore_pipfile or deploy):
             raise exceptions.PipfileNotFound(project.path_to("Pipfile"))
-        elif ((skip_lock and deploy) or ignore_pipfile) and not project.lockfile_exists:
+        elif (
+            (skip_lock and deploy) or ignore_pipfile
+        ) and not project.any_lockfile_exists:
             raise exceptions.LockfileNotFound(project.path_to("Pipfile.lock"))
     # Load the --pre settings from the Pipfile.
     if not pre:
@@ -506,6 +509,69 @@ def do_install_validations(
                 sys.exit(1)
 
 
+def install_build_system_packages(
+    project,
+    allow_global=False,
+    pypi_mirror=None,
+    requirements_dir=None,
+):
+    """Install packages specified in [build-system].requires from the Pipfile.
+
+    These packages are installed before any other packages are resolved or installed,
+    so they are available when building packages that import non-standard tools in
+    their setup.py (e.g. custom setuptools wrappers).
+
+    Example Pipfile::
+
+        [build-system]
+        requires = ["stwrapper", "setuptools>=40.8.0", "wheel"]
+
+    :param project: The pipenv project instance.
+    :param allow_global: Whether to use the global Python environment.
+    :param pypi_mirror: Optional PyPI mirror URL.
+    :param requirements_dir: Optional temporary directory for requirements files.
+    """
+    build_requires = project.pipfile_build_requires
+    if not build_requires:
+        return
+
+    if not requirements_dir:
+        requirements_dir = fileutils.create_tracked_tempdir(
+            suffix="-requirements", prefix="pipenv-"
+        )
+
+    if not project.s.is_quiet():
+        err.print(
+            "Installing [build-system] dependencies...",
+            style="bold",
+        )
+
+    sources = get_source_list(
+        project,
+        index=None,
+        extra_indexes=None,
+        trusted_hosts=get_trusted_hosts(),
+        pypi_mirror=pypi_mirror,
+    )
+
+    procs = queue.Queue(maxsize=1)
+    cmds = pip_install_deps(
+        project,
+        deps=build_requires,
+        sources=sources,
+        allow_global=allow_global,
+        ignore_hashes=True,  # Build deps are not hashed
+        no_deps=False,
+        requirements_dir=requirements_dir,
+        use_pep517=True,
+        extra_pip_args=None,
+    )
+
+    for c in cmds:
+        procs.put(c)
+        _cleanup_procs(project, procs)
+
+
 def do_install_dependencies(
     project,
     dev=False,
@@ -522,6 +588,14 @@ def do_install_dependencies(
     Executes the installation functionality.
 
     """
+    # Install any build-system packages first so they are available when
+    # building packages that use non-standard setup.py tooling.
+    install_build_system_packages(
+        project,
+        allow_global=allow_global,
+        pypi_mirror=pypi_mirror,
+        requirements_dir=requirements_dir,
+    )
     procs = queue.Queue(maxsize=1)
     if not categories:
         if dev:
@@ -545,12 +619,15 @@ def do_install_dependencies(
                 )
                 lockfile_type = (
                     "pylock.toml"
-                    if project.use_pylock and project.pylock_location
+                    if project.pylock_exists
+                    and (project.use_pylock or not project.lockfile_exists)
                     else "Pipfile.lock"
                 )
+                lockfile_hash = lockfile["_meta"].get("hash", {}).get("sha256", "") or ""
+                hash_suffix = f"({lockfile_hash[-6:]})" if lockfile_hash else ""
                 console.print(
-                    f"Installing dependencies from {lockfile_type} [{lockfile_category}]"
-                    f"({lockfile['_meta'].get('hash', {}).get('sha256')[-6:]})...",
+                    f"Installing dependencies from {lockfile_type} "
+                    f"[{lockfile_category}]{hash_suffix}...",
                     style="bold",
                 )
         if skip_lock:
@@ -782,7 +859,7 @@ def do_init(
     """Initialize the project, ensuring that the Pipfile and Pipfile.lock are in place.
     Returns True if packages were updated + installed.
     """
-    if not deploy:
+    if not deploy and not ignore_pipfile:
         ensure_pipfile(project, system=system)
 
     handle_lockfile(

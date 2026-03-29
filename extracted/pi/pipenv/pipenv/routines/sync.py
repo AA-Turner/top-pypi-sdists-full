@@ -20,10 +20,12 @@ def do_sync(
     site_packages=False,
 ):
     # The lock file needs to exist because sync won't write to it.
-    if not project.lockfile_exists:
+    # Accept either Pipfile.lock or pylock.toml.
+    if not project.any_lockfile_exists:
         raise exceptions.LockfileNotFound("Pipfile.lock")
 
     # Ensure that virtualenv is available if not system.
+    # sync only needs the lockfile, so skip Pipfile creation.
     ensure_project(
         project,
         python=python,
@@ -33,6 +35,7 @@ def do_sync(
         pypi_mirror=pypi_mirror,
         clear=clear,
         site_packages=site_packages,
+        lockfile_only=True,
     )
 
     # Install everything.

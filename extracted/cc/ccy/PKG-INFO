@@ -1,27 +1,21 @@
 Metadata-Version: 2.4
 Name: ccy
-Version: 1.7.2
+Version: 2.0.0
 Summary: Python currencies
+Author-email: Luca Sbardella <luca@quantmind.com>
 License: BSD
 License-File: LICENSE
-Author: Luca Sbardella
-Author-email: luca@quantmind.com
-Requires-Python: >=3.10
-Classifier: License :: Other/Proprietary License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
+Requires-Dist: pycountry>=24.6.1
+Requires-Dist: pydantic>=2.0
+Requires-Dist: python-dateutil>=2.9.0
+Requires-Dist: typing-extensions>=4.12
 Provides-Extra: cli
+Requires-Dist: click>=8.1.7; extra == 'cli'
+Requires-Dist: pandas>=3.0.1; extra == 'cli'
+Requires-Dist: rich>=13.7.1; extra == 'cli'
 Provides-Extra: holidays
-Requires-Dist: click (>=8.1.7,<9.0.0) ; extra == "cli"
-Requires-Dist: holidays (>=0.63,<0.64) ; extra == "holidays"
-Requires-Dist: pandas (>=2.0.3,<3.0.0) ; extra == "cli"
-Requires-Dist: pycountry (>=24.6.1,<25.0.0)
-Requires-Dist: python-dateutil (>=2.9.0,<3.0.0)
-Requires-Dist: rich (>=13.7.1,<14.0.0) ; extra == "cli"
+Requires-Dist: holidays>=0.93; extra == 'holidays'
 Description-Content-Type: text/markdown
 
 # Python CCY
@@ -37,11 +31,9 @@ currency objects containing information useful in financial analysis.
 Not all currencies in the world are supported yet. You are welcome to
 join and add more.
 
-* Documentation is available as [ccy jupyter book](https://quantmind.github.io/ccy/).
 * Install the command line tool with `pip install ccy[cli]`.
 * Show all currencies in the command line via `ccys show`
 * Trading centres are available when installing the `holidays` extra via
   ```
   pip install ccy[holidays]
   ```
-

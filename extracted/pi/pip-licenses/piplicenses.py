@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # vim:fenc=utf-8 ff=unix ft=python ts=4 sw=4 sts=4 si et
 """
 pip-licenses
 
 MIT License
 
-Copyright (c) 2018 raimon
+Copyright (c) 2018-2025 raimon
+Copyright (c) 2025-2026 Mr. Walls
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -36,7 +36,7 @@ import re
 import subprocess
 import sys
 from collections import Counter
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
 from enum import Enum, auto
 from functools import partial
 from importlib import metadata as importlib_metadata
@@ -49,7 +49,7 @@ from prettytable import HRuleStyle, PrettyTable, RowType
 if sys.version_info >= (3, 11):
     import tomllib
 else:
-    import tomli as tomllib  # type: ignore[import-not-found]
+    import tomli as tomllib  # type: ignore[import-not-found]  # ty: ignore[unused-type-ignore-comment]
 
 if TYPE_CHECKING:  # pragma: no cover
     from email.message import Message
@@ -58,13 +58,13 @@ if TYPE_CHECKING:  # pragma: no cover
 open = open  # allow monkey patching
 
 __pkgname__ = "pip-licenses"
-__version__ = "5.5.1"
+__version__ = "5.5.5"
 __summary__ = (
     "Dump the software license list of Python packages installed with pip."
 )
 
 
-FIELD_NAMES = (
+FIELD_NAMES: set[str] = {
     "Name",
     "Version",
     "License",
@@ -76,44 +76,36 @@ FIELD_NAMES = (
     "Maintainer",
     "Description",
     "URL",
-)
+}
 
-
-SUMMARY_FIELD_NAMES = (
+SUMMARY_FIELD_NAMES: set[str] = {
     "Count",
     "License",
-)
+}
+
+# Morally, this should be typed as an ordered-set
+DEFAULT_OUTPUT_FIELDS: Sequence[str] = ("Name", "Version")
 
 
-DEFAULT_OUTPUT_FIELDS = (
-    "Name",
-    "Version",
-)
-
-
-SUMMARY_OUTPUT_FIELDS = (
+SUMMARY_OUTPUT_FIELDS: set[str] = {
     "Count",
     "License",
-)
+}
 
 
 def extract_homepage(metadata: Message) -> str | None:
-    """Extracts the homepage attribute from the package metadata.
+    """Extracts a homepage attribute from the package metadata.
 
-    Not all python packages have defined a home-page attribute.
-    As a fallback, the `Project-URL` metadata can be used.
-    The python core metadata supports multiple (free text) values for
-    the `Project-URL` field that are comma separated.
+    Retrieve home page from the PEP 753 `Project-URL` metadata.
+    As a fallback, try the Core Metadata 1.0 home-page attribute.
+    If all else fails, try other PEP 753 `Project-URL` labels.
 
     Args:
-        metadata: The package metadata to extract the homepage from.
+        metadata: The package metadata to extract the home page from.
 
     Returns:
         The home page if applicable, None otherwise.
     """
-    homepage = metadata.get("home-page", None)
-    if homepage is not None:
-        return homepage
 
     candidates: dict[str, str] = {}
 
@@ -121,13 +113,27 @@ def extract_homepage(metadata: Message) -> str | None:
         key, value = entry.split(",", 1)
         candidates[key.strip().lower()] = value.strip()
 
-    for priority_key in [
-        "homepage",
+    # start with Core Metadata 1.2 (PEP 753)
+    # https://packaging.python.org/en/latest/specifications/core-metadata/#core-metadata-project-url
+    homepage = candidates.get("homepage")
+    if homepage is not None:
+        return homepage
+
+    # fall back to deprecated Core Metadata 1.0
+    # https://packaging.python.org/en/latest/specifications/core-metadata/#home-page
+    homepage = metadata.get("home-page", None)
+    if homepage is not None:
+        return homepage
+
+    # if all else fails, try alternative Core Metadata 1.2 labels
+    # https://packaging.python.org/en/latest/specifications/well-known-project-urls/#well-known-labels
+    for priority_key in (
         "source",
         "repository",
         "changelog",
+        "documentation",
         "bug tracker",
-    ]:
+    ):
         if priority_key in candidates:
             return candidates[priority_key]
 
@@ -185,7 +191,7 @@ VERSION_PATTERN = r"""
 """
 
 
-def normalize_version(version_string):
+def normalize_version(version_string: None | str) -> str:
     """
     Normalize a version string to a PEP 440 compliant format.
 
@@ -196,10 +202,10 @@ def normalize_version(version_string):
         str: A normalized version string in PEP 440 format or empty if invalid.
     """
     _regex = re.compile(
-        r"^\s*" + VERSION_PATTERN + r"\s*$",
+        rf"^\s*{VERSION_PATTERN}\s*$",
         re.VERBOSE | re.IGNORECASE,
     )
-    match = _regex.match(version_string)
+    match = _regex.match(version_string) if version_string else None
     if not match:
         return ""
     epoch = match.group("epoch") or "0"
@@ -245,6 +251,35 @@ def normalize_pkg_name_and_version(pkg_name_version: str) -> str:
     return normalize_pkg_name(pkg_name) + sep + normalize_version(version)
 
 
+def deduplicate_and_normalize(
+    packages: Iterable[str],
+) -> Generator[str, None, None]:
+    """Normalize and deduplicate a list of package names.
+
+    This generator function takes an iterable of package names,
+    normalizes each package name, and yields only unique normalized
+    names, preserving the order of their first occurrence.
+
+    Args:
+        packages (Iterable[str]): An iterable containing package names
+                                  that need to be normalized. The input
+                                  can be a list, tuple, or any other
+                                  iterable of strings.
+
+    Yields:
+        str: A unique normalized package name each time this
+             function is called. The normalization is performed
+             by the `normalize_pkg_name` function.
+
+    """
+    seen: set[str] = set()
+    for pkg in packages:
+        norm_pkg: str = normalize_pkg_name(pkg)
+        if norm_pkg not in seen:
+            seen.add(norm_pkg)
+            yield norm_pkg
+
+
 METADATA_KEYS: dict[str, list[Callable[[Message], str | None]]] = {
     "home-page": [extract_homepage],
     "author": [
@@ -263,7 +298,7 @@ METADATA_KEYS: dict[str, list[Callable[[Message], str | None]]] = {
 }
 
 # Mapping of FIELD_NAMES to METADATA_KEYS where they differ by more than case
-FIELDS_TO_METADATA_KEYS = {
+FIELDS_TO_METADATA_KEYS: dict[str, str] = {
     "URL": "home-page",
     "Description": "summary",
     "License-Metadata": "license",
@@ -272,7 +307,7 @@ FIELDS_TO_METADATA_KEYS = {
 }
 
 
-SYSTEM_PACKAGES = [
+SYSTEM_PACKAGES: list[str] = [
     __pkgname__,
     "pip",
     "prettytable",
@@ -283,7 +318,7 @@ SYSTEM_PACKAGES = [
 if sys.version_info < (3, 11):
     SYSTEM_PACKAGES.append("tomli")
 
-LICENSE_UNKNOWN = "UNKNOWN"
+LICENSE_UNKNOWN: str = "UNKNOWN"
 
 
 def get_packages(
@@ -318,9 +353,14 @@ def get_packages(
 
     def get_pkg_info(pkg: Distribution) -> dict[str, str | list[str]]:
         license_file, license_text = get_pkg_included_file(
-            pkg, "LICEN[CS]E.*|COPYING.*"
+            pkg,
+            "[Ll][Ii][Cc][Ee][Nn][CScs][Ee].*|[Cc][Oo][Pp][Yy][Ii][Nn][Gg].*",
         )
         notice_file, notice_text = get_pkg_included_file(pkg, "NOTICE.*")
+        other_file, other_text = get_pkg_included_file(
+            pkg,
+            "[Aa][Uu][Tt][Hh][Oo][Rr][Ss].*",
+        )
         pkg_info: dict[str, str | list[str]] = {
             "name": pkg.metadata["name"],
             "version": pkg.version,
@@ -329,6 +369,8 @@ def get_packages(
             "licensetext": license_text,
             "noticefile": notice_file,
             "noticetext": notice_text,
+            "otherfile": other_file,
+            "othertext": other_text,
         }
         metadata = pkg.metadata
         for field_name, field_selector_fns in METADATA_KEYS.items():
@@ -336,7 +378,7 @@ def get_packages(
             for field_selector_fn in field_selector_fns:
                 # Type hint of `Distribution.metadata` states `PackageMetadata`
                 # but it's actually of type `email.Message`
-                value = field_selector_fn(metadata)  # type: ignore
+                value = field_selector_fn(metadata)  # type: ignore[arg-type]
                 if value:
                     break
             pkg_info[field_name] = value or LICENSE_UNKNOWN
@@ -353,11 +395,11 @@ def get_packages(
                     args.filter_code_page, errors="ignore"
                 ).decode(args.filter_code_page)
 
-            for k in pkg_info:
-                if isinstance(pkg_info[k], list):
-                    pkg_info[k] = list(map(filter_string, pkg_info[k]))
+            for k, v in pkg_info.items():
+                if isinstance(v, list):
+                    pkg_info[k] = list(map(filter_string, v))
                 else:
-                    pkg_info[k] = filter_string(cast(str, pkg_info[k]))
+                    pkg_info[k] = filter_string(cast(str, v))
 
         return pkg_info
 
@@ -379,19 +421,26 @@ def get_packages(
     ignore_pkgs_as_normalize = [
         normalize_pkg_name_and_version(pkg) for pkg in args.ignore_packages
     ]
-    pkgs_as_normalize = [normalize_pkg_name(pkg) for pkg in args.packages]
+    pkgs_as_normalize = list(deduplicate_and_normalize(args.packages))
 
     fail_on_licenses = set()
     if args.fail_on:
-        fail_on_licenses = set(map(str.strip, args.fail_on.split(";")))
+        # filter None types out
+        fail_on_licenses = set(
+            filter(None, map(str.strip, args.fail_on.split(";")))
+        )
 
     allow_only_licenses = set()
     if args.allow_only:
-        allow_only_licenses = set(map(str.strip, args.allow_only.split(";")))
+        # filter None types out
+        allow_only_licenses = set(
+            filter(None, map(str.strip, args.allow_only.split(";")))
+        )
 
     for pkg in pkgs:
         pkg_name = normalize_pkg_name(pkg.metadata["name"])
-        pkg_name_and_version = pkg_name + ":" + pkg.metadata["version"]
+        pkg_version = pkg.metadata["version"]
+        pkg_name_and_version = f"{pkg_name}:{pkg_version}"
 
         if (
             pkg_name.lower() in ignore_pkgs_as_normalize
@@ -426,8 +475,7 @@ def get_packages(
                 )
             if failed_licenses:
                 sys.stderr.write(
-                    "fail-on license {} was found for package "
-                    "{}:{}\n".format(
+                    "fail-on license {} was found for package {}:{}\n".format(
                         "; ".join(sorted(failed_licenses)),
                         pkg_info["name"],
                         pkg_info["version"],
@@ -442,8 +490,10 @@ def get_packages(
                     license_names, allow_only_licenses
                 )
             else:
-                uncommon_licenses = case_insensitive_partial_match_set_diff(
-                    license_names, allow_only_licenses
+                uncommon_licenses = set(
+                    case_insensitive_partial_match_set_diff(
+                        license_names, allow_only_licenses
+                    )
                 )
 
             if len(uncommon_licenses) == len(license_names):
@@ -462,7 +512,7 @@ def get_packages(
 
 def create_licenses_table(
     args: CustomNamespace,
-    output_fields: Sequence[str] = DEFAULT_OUTPUT_FIELDS,
+    output_fields: set[str] | Sequence[str] = DEFAULT_OUTPUT_FIELDS,
 ) -> PrettyTable:
     table = factory_styled_table_with_args(args, output_fields)
 
@@ -513,7 +563,10 @@ def create_summary_table(args: CustomNamespace) -> PrettyTable:
     return table
 
 
-def case_insensitive_set_intersect(set_a, set_b):
+def case_insensitive_set_intersect(
+    set_a: set[str] | list[str] | tuple | frozenset,
+    set_b: set[str] | list[str] | tuple | frozenset,
+) -> set:
     """Same as set.intersection() but case-insensitive"""
     common_items = set()
     set_b_lower = {item.lower() for item in set_b}
@@ -523,7 +576,10 @@ def case_insensitive_set_intersect(set_a, set_b):
     return common_items
 
 
-def case_insensitive_partial_match_set_intersect(set_a, set_b):
+def case_insensitive_partial_match_set_intersect(
+    set_a: set[str] | list[str] | tuple | frozenset,
+    set_b: set[str] | list[str] | tuple | frozenset,
+) -> set:
     common_items = set()
     for item_a in set_a:
         for item_b in set_b:
@@ -532,7 +588,10 @@ def case_insensitive_partial_match_set_intersect(set_a, set_b):
     return common_items
 
 
-def case_insensitive_partial_match_set_diff(set_a, set_b):
+def case_insensitive_partial_match_set_diff(
+    set_a: set,
+    set_b: set[str],
+) -> set[str]:
     """
     Return items from set_a without case-insensitive partial matches
     from items in set_b.
@@ -547,12 +606,15 @@ def case_insensitive_partial_match_set_diff(set_a, set_b):
     return uncommon_items
 
 
-def case_insensitive_set_diff(set_a, set_b):
+def case_insensitive_set_diff(
+    set_a: set | list | tuple | frozenset,
+    set_b: set[str] | list[str] | tuple | frozenset,
+) -> set:
     """Same as set.difference() but case-insensitive"""
     uncommon_items = set()
     set_b_lower = {item.lower() for item in set_b}
     for elem in set_a:
-        if not elem.lower() in set_b_lower:
+        if elem.lower() not in set_b_lower:
             uncommon_items.add(elem)
     return uncommon_items
 
@@ -561,11 +623,7 @@ class JsonPrettyTable(PrettyTable):
     """PrettyTable-like class exporting to JSON"""
 
     def format_row(self, row: RowType) -> dict[str, str | list[str]]:
-        resrow: dict[str, str | list[str]] = {}
-        for field, value in zip(self._field_names, row):
-            resrow[field] = value
-
-        return resrow
+        return dict(zip(self._field_names, row))
 
     def get_string(self, **kwargs: str | list[str]) -> str:
         # import included here in order to limit dependencies
@@ -621,7 +679,7 @@ class CSVPrettyTable(PrettyTable):
                 return cast(bytes, val).decode("utf-8").replace('"', '""')
             except UnicodeEncodeError:  # pragma: no cover
                 return str(
-                    cast(str, val).encode("unicode_escape").replace('"', '""')  # type: ignore[arg-type] # noqa: E501
+                    cast(str, val).encode("unicode_escape").replace('"', '""')  # type: ignore[arg-type]
                 )
 
         options = self._get_options(kwargs)
@@ -630,12 +688,12 @@ class CSVPrettyTable(PrettyTable):
 
         lines: list[str] = []
         formatted_header = ",".join(
-            ['"%s"' % (esc_quotes(val),) for val in self._field_names]
+            [f'"{esc_quotes(val)}"' for val in self._field_names]
         )
         lines.append(formatted_header)
         lines.extend(
             [
-                ",".join(['"%s"' % (esc_quotes(val),) for val in row])
+                ",".join([f'"{esc_quotes(val)}"' for val in row])
                 for row in formatted_rows
             ]
         )
@@ -657,7 +715,7 @@ class PlainVerticalTable(PrettyTable):
         output = ""
         for row in rows:
             for v in row:
-                output += "{}\n".format(v)
+                output += f"{v}\n"
             output += "\n"
 
         return output
@@ -665,7 +723,7 @@ class PlainVerticalTable(PrettyTable):
 
 def factory_styled_table_with_args(
     args: CustomNamespace,
-    output_fields: Sequence[str] = DEFAULT_OUTPUT_FIELDS,
+    output_fields: set[str] | Sequence[str] = DEFAULT_OUTPUT_FIELDS,
 ) -> PrettyTable:
     table = PrettyTable()
     table.field_names = output_fields  # type: ignore[assignment]
@@ -811,23 +869,19 @@ def create_warn_string(args: CustomNamespace) -> str:
     warn_messages = []
     warn = partial(output_colored, "33")
 
-    if args.with_license_file and not args.format_ == FormatArg.JSON:
+    if args.with_license_file and args.format_ != FormatArg.JSON:
         message = warn(
-            (
-                "Due to the length of these fields, this option is "
-                "best paired with --format=json."
-            )
+            "Due to the length of these fields, this option is "
+            "best paired with --format=json."
         )
         warn_messages.append(message)
 
     if args.summary and (args.with_authors or args.with_urls):
         message = warn(
-            (
-                "When using this option, only --order=count or "
-                "--order=license has an effect for the --order "
-                "option. And using --with-authors and --with-urls "
-                "will be ignored."
-            )
+            "When using this option, only --order=count or "
+            "--order=license has an effect for the --order "
+            "option. And using --with-authors and --with-urls "
+            "will be ignored."
         )
         warn_messages.append(message)
 
@@ -929,16 +983,16 @@ class CompatibleArgumentParser(argparse.ArgumentParser):
             codecs.lookup(args.filter_code_page)
         except LookupError:
             self.error(
-                "invalid code page '%s' given for '--filter-code-page, "
-                "check https://docs.python.org/3/library/codecs.html"
-                "#standard-encodings for valid code pages"
-                % args.filter_code_page
+                f"invalid code page '{args.filter_code_page}' given "
+                "for '--filter-code-page, check "
+                "https://docs.python.org/3/library/codecs.html#standard-encodings "
+                "for valid code pages"
             )
 
 
 class NoValueEnum(Enum):
     def __repr__(self) -> str:  # pragma: no cover
-        return "<%s.%s>" % (self.__class__.__name__, self.name)
+        return f"<{self.__class__.__name__}.{self.name}>"
 
 
 class FromArg(NoValueEnum):
@@ -979,9 +1033,7 @@ def enum_key_to_value(enum_key: Enum) -> str:
 
 
 def choices_from_enum(enum_cls: type[NoValueEnum]) -> list[str]:
-    return [
-        key.replace("_", "-").lower() for key in enum_cls.__members__.keys()
-    ]
+    return [key.replace("_", "-").lower() for key in enum_cls.__members__]
 
 
 def get_value_from_enum(
@@ -990,7 +1042,7 @@ def get_value_from_enum(
     return getattr(enum_cls, value_to_enum_key(value))
 
 
-MAP_DEST_TO_ENUM = {
+MAP_DEST_TO_ENUM: dict[str, type[NoValueEnum]] = {
     "from_": FromArg,
     "order": OrderArg,
     "format_": FormatArg,
@@ -1009,7 +1061,7 @@ class SelectAction(argparse.Action):
         setattr(namespace, self.dest, get_value_from_enum(enum_cls, values))
 
 
-def load_config_from_file(pyproject_path: str):
+def load_config_from_file(pyproject_path: str) -> dict:
     if Path(pyproject_path).exists():
         with open(pyproject_path, "rb") as f:
             return tomllib.load(f).get("tool", {}).get(__pkgname__, {})
@@ -1029,8 +1081,12 @@ def create_parser(
     format_options = parser.add_argument_group("Format options")
     verify_options = parser.add_argument_group("Verify options")
 
+    lit_prog_pat = "%(prog)s"
     parser.add_argument(
-        "-v", "--version", action="version", version="%(prog)s " + __version__
+        "-v",
+        "--version",
+        action="version",
+        version=f"{lit_prog_pat} {__version__}",
     )
 
     common_options.add_argument(
@@ -1199,7 +1255,7 @@ def create_parser(
         type=str,
         default=config_from_file.get("filter-code-page", "latin1"),
         metavar="CODE",
-        help="I|specify code page for filtering " "(default: %(default)s)",
+        help="I|specify code page for filtering (default: %(default)s)",
     )
 
     verify_options.add_argument(
@@ -1233,9 +1289,9 @@ def output_colored(code: str, text: str, is_bold: bool = False) -> str:
     Create function to output with color sequence
     """
     if is_bold:
-        code = "1;%s" % code
+        code = f"1;{code}"
 
-    return "\033[%sm%s\033[0m" % (code, text)
+    return f"\033[{code}m{text}\033[0m"
 
 
 def save_if_needs(output_file: None | str, output_string: str) -> None:
@@ -1252,9 +1308,9 @@ def save_if_needs(output_file: None | str, output_string: str) -> None:
                 # Always end output files with a new line
                 f.write("\n")
 
-        sys.stdout.write("created path: " + output_file + "\n")
+        sys.stdout.write(f"created path: {output_file}\n")
         sys.exit(0)
-    except IOError:
+    except OSError:
         sys.stderr.write("check path: --output-file\n")
         sys.exit(1)
 

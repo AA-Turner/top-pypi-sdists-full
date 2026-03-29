@@ -49,7 +49,10 @@ def convert_literal_to_proto_expr(value: Union[TPrimitive, pa.DataType]) -> expr
 def convert_proto_expr_to_literal(node: expr_pb.LogicalExprNode) -> TPrimitive:
     if not node.HasField("literal_value"):
         raise ValueError("Expected a literal expression")
-    scalar_val = PrimitiveFeatureConverter.from_protobuf_to_pyarrow(node.literal_value.value)
+    converter = PrimitiveFeatureConverter(
+        name="convert_proto_expr_to_literal", is_nullable=True, pyarrow_dtype=pa.null()
+    )
+    scalar_val = converter.from_protobuf_to_pyarrow(node.literal_value.value)
     if node.literal_value.is_arrow_scalar_object:
         return scalar_val
     else:

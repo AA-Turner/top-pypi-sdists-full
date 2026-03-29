@@ -1,3 +1,4 @@
+import re
 from typing import Dict, List, Optional
 
 from ply.lex import LexToken
@@ -47,6 +48,8 @@ class DDLParser(Parser, Dialects):
     tokens = tok.tokens
     t_ignore = "\t  \r"
 
+    SIMPLE_GENERIC_TYPE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*<[^,<>]+>$")
+
     def get_tag_symbol_value_and_increment(self, t: LexToken) -> LexToken:
         # todo: need to find less hacky way to parse HQL structure types
         if "<" in t.value:
@@ -66,9 +69,11 @@ class DDLParser(Parser, Dialects):
         return t
 
     def process_body_tokens(self, t: LexToken) -> LexToken:
-        if (self.lexer.last_par == "RP" and not self.lexer.lp_open) or (
-            self.lexer.after_columns and not self.lexer.columns_def
-        ):
+        if (
+            self.lexer.last_par == "RP"
+            and not self.lexer.lp_open
+            and not self.lexer.in_alter_column_definition
+        ) or (self.lexer.after_columns and not self.lexer.columns_def):
             t = self.after_columns_tokens(t)
         elif self.lexer.columns_def:
             t.type = tok.columns_definition.get(t.value.upper(), t.type)
@@ -208,6 +213,13 @@ class DDLParser(Parser, Dialects):
             self.lexer.columns_def = True
             self.lexer.last_token = "LP"
             return t
+        elif (
+            self.lexer.is_table
+            and self.lexer.lp_open
+            and self.lexer.last_token != "COMMA"
+            and self.SIMPLE_GENERIC_TYPE_RE.match(t.value)
+        ):
+            t.type = "ID"
         elif self.is_token_column_name(t) or self.lexer.last_token == "DOT":
             t.type = "ID"
         elif t.type != "DQ_STRING" and self.is_creation_name(t):
@@ -239,7 +251,7 @@ class DDLParser(Parser, Dialects):
         if t.type in ["RP", "LP"]:
             if t.type == "RP" and self.lexer.lp_open:
                 self.lexer.lp_open -= 1
-                if not self.lexer.lp_open:
+                if not self.lexer.lp_open and not self.lexer.in_alter_column_definition:
                     self.lexer.after_columns = True
             self.lexer.last_par = t.type
 
@@ -248,6 +260,10 @@ class DDLParser(Parser, Dialects):
 
         if t.type == "ALTER":
             self.lexer.is_alter = True
+        elif t.type in ["CHANGE", "MODIFY"] and self.lexer.is_alter:
+            self.lexer.columns_def = True
+            self.lexer.after_columns = False
+            self.lexer.in_alter_column_definition = True
         if t.type == "LIKE":
             self.lexer.is_like = True
         elif t.type in ["TYPE", "DOMAIN", "TABLESPACE"]:

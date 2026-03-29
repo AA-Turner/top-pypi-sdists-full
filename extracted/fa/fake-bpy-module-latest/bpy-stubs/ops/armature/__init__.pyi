@@ -20,7 +20,7 @@ def assign_to_collection(
     /,
     *,
     collection_index: int | None = -1,
-    new_collection_name: str | None = "",
+    new_collection_name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Assign all selected bones to a collection, or unassign them, depending on whether the active bone is already assigned or not
 
@@ -56,7 +56,7 @@ def bone_primitive_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "Bone",
+    name: str = "Bone",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new bone located at the 3D cursor
 
@@ -121,7 +121,7 @@ def collection_assign(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add selected bones to the chosen bone collection
 
@@ -134,7 +134,7 @@ def collection_create_and_assign(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new bone collection and assign all selected bones
 
@@ -210,7 +210,7 @@ def collection_unassign(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove selected bones from the active bone collection
 
@@ -223,8 +223,8 @@ def collection_unassign_named(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
-    bone_name: str | None = "",
+    name: str = "",
+    bone_name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unassign the named bone from this bone collection
 
@@ -398,7 +398,7 @@ def move_to_collection(
     /,
     *,
     collection_index: int | None = -1,
-    new_collection_name: str | None = "",
+    new_collection_name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move bones to a collection
 

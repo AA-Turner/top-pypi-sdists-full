@@ -464,18 +464,31 @@ def dependency_as_pip_install_line(
         elif not COMPARE_OP.match(dep):
             return f"{dep_name}=={dep}"
         return f"{dep_name}{dep}"
+    # Translate shorthand marker keys (e.g. sys_platform, platform_machine, os_name)
+    # into the canonical "markers" key so that the pip line includes them and the
+    # resolver / installer can evaluate them.  See #5884.
+    dep = translate_markers(dep)
     line = []
     is_constraint = False
     vcs = next(iter([vcs for vcs in VCS_LIST if vcs in dep]), None)
     if not vcs:
         for k in ["file", "path"]:
             if k in dep:
-                if dep.get("editable") and is_editable_path(dep[k]):
-                    line.append("-e")
                 extras = ""
                 if "extras" in dep:
                     extras = f"[{','.join(dep['extras'])}]"
                 location = dep["file"] if "file" in dep else dep["path"]
+                # Prepend -e for editable local-path deps.  We intentionally
+                # avoid an is_editable_path() filesystem check here because:
+                #  1. The directory may not exist in the current environment
+                #     (e.g. CI machines that only run `pipenv sync`).
+                #  2. The `editable` flag in the dep dict is the authoritative
+                #     source of truth, set at `pipenv install` time.
+                # Remote HTTP/HTTPS URLs are never editable.
+                if dep.get("editable") and not location.startswith(
+                    ("http:", "https:", "ftp:")
+                ):
+                    line.append("-e")
                 if location.startswith(("http:", "https:")):
                     req_str = f"{dep_name}{extras} @ {location}"
                 else:
@@ -793,19 +806,33 @@ def find_package_name_from_directory(directory):
 
 
 def ensure_path_is_relative(file_path):
+    """Return *file_path* as a path relative to the current working directory.
+
+    Local paths that are the same directory as, or a subdirectory of, the
+    current working directory are prefixed with ``./`` so that pip and pipenv
+    always treat them as local filesystem paths rather than package names.
+    Paths that traverse upward (``../sibling``) are returned as-is because
+    they already carry the necessary ``..`` prefix.
+    """
     abs_path = Path(file_path).resolve()
     current_dir = Path.cwd()
 
-    # Check if the paths are on different drives
+    # On Windows, different drives cannot share a relative path.
     if abs_path.drive != current_dir.drive:
-        # If on different drives, return the absolute path
         return str(abs_path)
 
     try:
-        # Try to create a relative path
-        return str(abs_path.relative_to(current_dir))
+        # Normalise to forward slashes for cross-platform pip compatibility.
+        rel = abs_path.relative_to(current_dir).as_posix()
+        # "." means the current directory itself — leave it unchanged.
+        # Paths starting with ".." are already unambiguous.
+        # Everything else (same-dir or subdirectory) gets a "./" prefix so
+        # pip treats it as a filesystem path, not a bare package name.
+        if rel != "." and not rel.startswith(".."):
+            rel = "./" + rel
+        return rel
     except ValueError:
-        # If the direct relative_to fails, manually compute the relative path
+        # Path is not a subdirectory of current_dir — compute manually.
         common_parts = 0
         for part_a, part_b in zip(abs_path.parts, current_dir.parts):
             if part_a == part_b:
@@ -813,14 +840,11 @@ def ensure_path_is_relative(file_path):
             else:
                 break
 
-        # Number of ".." needed are the extra parts in the current directory
-        # beyond the common parts
         up_levels = [".."] * (len(current_dir.parts) - common_parts)
-        # The relative path is constructed by going up as needed and then
-        # appending the non-common parts of the absolute path
         rel_parts = up_levels + list(abs_path.parts[common_parts:])
         relative_path = Path(*rel_parts)
-        return str(relative_path)
+        # Use POSIX separators to stay consistent with the try branch above.
+        return relative_path.as_posix()
 
 
 def determine_path_specifier(package: InstallRequirement):
@@ -1338,6 +1362,13 @@ def handle_non_vcs_requirement(
         version = get_version(_pipfile)
         if is_star(version) or version == "==*":
             version = ""
+        elif version and not any(
+            version.startswith(op) for op in ("==", ">=", "<=", "~=", "!=", ">", "<")
+        ):
+            # A bare version like "2.23.0" has no operator; normalise to "==2.23.0"
+            # so that pip/the resolver treats it as a pinned constraint rather
+            # than silently ignoring it.
+            version = f"=={version}"
 
         req_str = f"{name}{extras_str}{version}"
         markers = PipenvMarkers.from_pipfile(name, _pipfile)
@@ -1394,6 +1425,31 @@ def get_constraints_from_deps(deps):
                 c = canonicalize_name(dep_name)
         if c:
             constraints.add(c)
+    return constraints
+
+
+def get_constraints_from_resolved_deps(resolved_deps):
+    """Get pinned constraints from resolved lockfile data (including transitive deps).
+
+    Unlike get_constraints_from_deps which uses Pipfile specs (only direct deps),
+    this extracts exact version pins from already-resolved lockfile entries,
+    which includes transitive dependencies.
+
+    :param dict resolved_deps: A lockfile section dict, e.g. lockfile["default"]
+    :return: A set of constraint strings like {"sqlalchemy==1.4.5", "greenlet==1.0.0"}
+    :rtype: set
+    """
+    constraints = set()
+    for dep_name, dep_info in resolved_deps.items():
+        if not isinstance(dep_info, dict):
+            continue
+        # Skip path/file/VCS deps - they can't be expressed as simple constraints
+        if any(k in dep_info for k in ("path", "file", "git", "hg", "svn", "bzr")):
+            continue
+        version = dep_info.get("version")
+        if version:
+            canonical = canonicalize_name(dep_name)
+            constraints.add(f"{canonical}{version}")
     return constraints
 
 

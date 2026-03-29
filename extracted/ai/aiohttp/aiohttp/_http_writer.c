@@ -2320,7 +2320,6 @@ static CYTHON_INLINE void __pyx_f_7aiohttp_12_http_writer__init_writer(struct __
 static CYTHON_INLINE void __pyx_f_7aiohttp_12_http_writer__release_writer(struct __pyx_t_7aiohttp_12_http_writer_Writer *); /*proto*/
 static CYTHON_INLINE int __pyx_f_7aiohttp_12_http_writer__write_byte(struct __pyx_t_7aiohttp_12_http_writer_Writer *, uint8_t); /*proto*/
 static CYTHON_INLINE int __pyx_f_7aiohttp_12_http_writer__write_utf8(struct __pyx_t_7aiohttp_12_http_writer_Writer *, Py_UCS4); /*proto*/
-static CYTHON_INLINE int __pyx_f_7aiohttp_12_http_writer__write_str(struct __pyx_t_7aiohttp_12_http_writer_Writer *, PyObject *); /*proto*/
 static CYTHON_INLINE int __pyx_f_7aiohttp_12_http_writer__write_str_raise_on_nlcr(struct __pyx_t_7aiohttp_12_http_writer_Writer *, PyObject *); /*proto*/
 /* #### Code section: typeinfo ### */
 /* #### Code section: before_global_var ### */
@@ -2362,9 +2361,9 @@ static const char __pyx_k_asyncio_coroutines[] = "asyncio.coroutines";
 static const char __pyx_k_cline_in_traceback[] = "cline_in_traceback";
 static const char __pyx_k_aiohttp__http_writer[] = "aiohttp._http_writer";
 static const char __pyx_k_aiohttp__http_writer_pyx[] = "aiohttp/_http_writer.pyx";
+static const char __pyx_k_1AX_A_aq_r_aq_r_E_vQ_q_b_1HF_A[] = "\200\001\360\014\000\005\021\220\001\220\021\220(\230!\340\004\005\330\010\013\320\013#\2401\240A\240X\250]\270\"\270A\330\014\r\330\010\013\210;\220a\220q\230\010\240\007\240r\250\021\330\014\r\330\010\013\210;\220a\220q\230\010\240\007\240r\250\021\330\014\r\340\010\014\210E\220\027\230\007\230v\240Q\330\014\017\320\017'\240q\250\001\250\030\260\025\260b\270\001\330\020\021\330\014\017\210{\230!\2301\230H\240F\250\"\250A\330\020\021\330\014\017\210{\230!\2301\230H\240F\250\"\250A\330\020\021\330\014\017\320\017'\240q\250\001\250\030\260\025\260b\270\001\330\020\021\330\014\017\210{\230!\2301\230H\240G\2502\250Q\330\020\021\330\014\017\210{\230!\2301\230H\240G\2502\250Q\330\020\021\340\010\013\210;\220a\220q\230\010\240\007\240r\250\021\330\014\r\330\010\013\210;\220a\220q\230\010\240\007\240r\250\021\330\014\r\340\010\017\320\017(\250\001\250\026\250v\260V\2701\340\010\027\220q\230\001\230\021";
 static const char __pyx_k_Cannot_serialize_non_str_key_r[] = "Cannot serialize non-str key {!r}";
-static const char __pyx_k_Qax_Ba_aq_r_aq_r_E_vQ_q_b_1HF_A[] = "\200\001\360\014\000\005\021\220\001\220\021\220(\230!\340\004\005\330\010\013\210:\220Q\220a\220x\230}\250B\250a\330\014\r\330\010\013\210;\220a\220q\230\010\240\007\240r\250\021\330\014\r\330\010\013\210;\220a\220q\230\010\240\007\240r\250\021\330\014\r\340\010\014\210E\220\027\230\007\230v\240Q\330\014\017\320\017'\240q\250\001\250\030\260\025\260b\270\001\330\020\021\330\014\017\210{\230!\2301\230H\240F\250\"\250A\330\020\021\330\014\017\210{\230!\2301\230H\240F\250\"\250A\330\020\021\330\014\017\320\017'\240q\250\001\250\030\260\025\260b\270\001\330\020\021\330\014\017\210{\230!\2301\230H\240G\2502\250Q\330\020\021\330\014\017\210{\230!\2301\230H\240G\2502\250Q\330\020\021\340\010\013\210;\220a\220q\230\010\240\007\240r\250\021\330\014\r\330\010\013\210;\220a\220q\230\010\240\007\240r\250\021\330\014\r\340\010\017\320\017(\250\001\250\026\250v\260V\2701\340\010\027\220q\230\001\230\021";
-static const char __pyx_k_Newline_or_carriage_return_detec[] = "Newline or carriage return detected in headers. Potential header injection attack.";
+static const char __pyx_k_Newline_carriage_return_or_null[] = "Newline, carriage return, or null byte detected in headers. Potential header injection attack.";
 static const char __pyx_k_Note_that_Cython_is_deliberately[] = "Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.";
 /* #### Code section: decls ### */
 static PyObject *__pyx_pf_7aiohttp_12_http_writer__serialize_headers(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_status_line, PyObject *__pyx_v_headers); /* proto */
@@ -2449,7 +2448,7 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 /* #### Code section: constant_name_defines ### */
 #define __pyx_kp_u_ __pyx_string_tab[0]
 #define __pyx_kp_u_Cannot_serialize_non_str_key_r __pyx_string_tab[1]
-#define __pyx_kp_u_Newline_or_carriage_return_detec __pyx_string_tab[2]
+#define __pyx_kp_u_Newline_carriage_return_or_null __pyx_string_tab[2]
 #define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[3]
 #define __pyx_n_u_TypeError __pyx_string_tab[4]
 #define __pyx_n_u_ValueError __pyx_string_tab[5]
@@ -3563,7 +3562,7 @@ static CYTHON_INLINE int __pyx_f_7aiohttp_12_http_writer__write_str_raise_on_nlc
  *         out_str = str(s)
  * 
  *     for ch in out_str:             # <<<<<<<<<<<<<<
- *         if ch == 0x0D or ch == 0x0A:
+ *         if ch in {0x0D, 0x0A, 0x00}:
  *             raise ValueError(
 */
   if (unlikely(__pyx_v_out_str == Py_None)) {
@@ -3580,19 +3579,20 @@ static CYTHON_INLINE int __pyx_f_7aiohttp_12_http_writer__write_str_raise_on_nlc
     /* "aiohttp/_http_writer.pyx":114
  * 
  *     for ch in out_str:
- *         if ch == 0x0D or ch == 0x0A:             # <<<<<<<<<<<<<<
+ *         if ch in {0x0D, 0x0A, 0x00}:             # <<<<<<<<<<<<<<
  *             raise ValueError(
- *                 "Newline or carriage return detected in headers. "
+ *                 "Newline, carriage return, or null byte detected in headers. "
 */
     switch (__pyx_v_ch) {
       case 0x0D:
       case 0x0A:
+      case 0x00:
 
       /* "aiohttp/_http_writer.pyx":115
  *     for ch in out_str:
- *         if ch == 0x0D or ch == 0x0A:
+ *         if ch in {0x0D, 0x0A, 0x00}:
  *             raise ValueError(             # <<<<<<<<<<<<<<
- *                 "Newline or carriage return detected in headers. "
+ *                 "Newline, carriage return, or null byte detected in headers. "
  *                 "Potential header injection attack."
 */
       __pyx_t_5 = NULL;
@@ -3600,7 +3600,7 @@ static CYTHON_INLINE int __pyx_f_7aiohttp_12_http_writer__write_str_raise_on_nlc
       __pyx_t_6 = __pyx_builtin_ValueError; 
       __pyx_t_8 = 1;
       {
-        PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_kp_u_Newline_or_carriage_return_detec};
+        PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_kp_u_Newline_carriage_return_or_null};
         __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -3614,9 +3614,9 @@ static CYTHON_INLINE int __pyx_f_7aiohttp_12_http_writer__write_str_raise_on_nlc
       /* "aiohttp/_http_writer.pyx":114
  * 
  *     for ch in out_str:
- *         if ch == 0x0D or ch == 0x0A:             # <<<<<<<<<<<<<<
+ *         if ch in {0x0D, 0x0A, 0x00}:             # <<<<<<<<<<<<<<
  *             raise ValueError(
- *                 "Newline or carriage return detected in headers. "
+ *                 "Newline, carriage return, or null byte detected in headers. "
 */
       break;
       default: break;
@@ -3832,7 +3832,7 @@ static PyObject *__pyx_pf_7aiohttp_12_http_writer__serialize_headers(CYTHON_UNUS
  *     _init_writer(&writer, buf)
  * 
  *     try:             # <<<<<<<<<<<<<<
- *         if _write_str(&writer, status_line) < 0:
+ *         if _write_str_raise_on_nlcr(&writer, status_line) < 0:
  *             raise
 */
   /*try:*/ {
@@ -3840,17 +3840,17 @@ static PyObject *__pyx_pf_7aiohttp_12_http_writer__serialize_headers(CYTHON_UNUS
     /* "aiohttp/_http_writer.pyx":134
  * 
  *     try:
- *         if _write_str(&writer, status_line) < 0:             # <<<<<<<<<<<<<<
+ *         if _write_str_raise_on_nlcr(&writer, status_line) < 0:             # <<<<<<<<<<<<<<
  *             raise
  *         if _write_byte(&writer, b'\r') < 0:
 */
-    __pyx_t_1 = __pyx_f_7aiohttp_12_http_writer__write_str((&__pyx_v_writer), __pyx_v_status_line); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 134, __pyx_L4_error)
+    __pyx_t_1 = __pyx_f_7aiohttp_12_http_writer__write_str_raise_on_nlcr((&__pyx_v_writer), __pyx_v_status_line); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 134, __pyx_L4_error)
     __pyx_t_2 = (__pyx_t_1 < 0);
     if (unlikely(__pyx_t_2)) {
 
       /* "aiohttp/_http_writer.pyx":135
  *     try:
- *         if _write_str(&writer, status_line) < 0:
+ *         if _write_str_raise_on_nlcr(&writer, status_line) < 0:
  *             raise             # <<<<<<<<<<<<<<
  *         if _write_byte(&writer, b'\r') < 0:
  *             raise
@@ -3861,14 +3861,14 @@ static PyObject *__pyx_pf_7aiohttp_12_http_writer__serialize_headers(CYTHON_UNUS
       /* "aiohttp/_http_writer.pyx":134
  * 
  *     try:
- *         if _write_str(&writer, status_line) < 0:             # <<<<<<<<<<<<<<
+ *         if _write_str_raise_on_nlcr(&writer, status_line) < 0:             # <<<<<<<<<<<<<<
  *             raise
  *         if _write_byte(&writer, b'\r') < 0:
 */
     }
 
     /* "aiohttp/_http_writer.pyx":136
- *         if _write_str(&writer, status_line) < 0:
+ *         if _write_str_raise_on_nlcr(&writer, status_line) < 0:
  *             raise
  *         if _write_byte(&writer, b'\r') < 0:             # <<<<<<<<<<<<<<
  *             raise
@@ -3889,7 +3889,7 @@ static PyObject *__pyx_pf_7aiohttp_12_http_writer__serialize_headers(CYTHON_UNUS
       __PYX_ERR(0, 137, __pyx_L4_error)
 
       /* "aiohttp/_http_writer.pyx":136
- *         if _write_str(&writer, status_line) < 0:
+ *         if _write_str_raise_on_nlcr(&writer, status_line) < 0:
  *             raise
  *         if _write_byte(&writer, b'\r') < 0:             # <<<<<<<<<<<<<<
  *             raise
@@ -4794,7 +4794,7 @@ static const char * const __pyx_string_tab_encodings[] = { 0 };
 static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_, sizeof(__pyx_k_), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_ */
   {__pyx_k_Cannot_serialize_non_str_key_r, sizeof(__pyx_k_Cannot_serialize_non_str_key_r), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Cannot_serialize_non_str_key_r */
-  {__pyx_k_Newline_or_carriage_return_detec, sizeof(__pyx_k_Newline_or_carriage_return_detec), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Newline_or_carriage_return_detec */
+  {__pyx_k_Newline_carriage_return_or_null, sizeof(__pyx_k_Newline_carriage_return_or_null), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Newline_carriage_return_or_null */
   {__pyx_k_Note_that_Cython_is_deliberately, sizeof(__pyx_k_Note_that_Cython_is_deliberately), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Note_that_Cython_is_deliberately */
   {__pyx_k_TypeError, sizeof(__pyx_k_TypeError), 0, 1, 1}, /* PyObject cname: __pyx_n_u_TypeError */
   {__pyx_k_ValueError, sizeof(__pyx_k_ValueError), 0, 1, 1}, /* PyObject cname: __pyx_n_u_ValueError */
@@ -4885,9 +4885,9 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 125, 278};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 125, 279};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_status_line, __pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_writer, __pyx_mstate->__pyx_n_u_key, __pyx_mstate->__pyx_n_u_val, __pyx_mstate->__pyx_n_u_buf};
-    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_aiohttp__http_writer_pyx, __pyx_mstate->__pyx_n_u_serialize_headers, __pyx_k_Qax_Ba_aq_r_aq_r_E_vQ_q_b_1HF_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_aiohttp__http_writer_pyx, __pyx_mstate->__pyx_n_u_serialize_headers, __pyx_k_1AX_A_aq_r_aq_r_E_vQ_q_b_1HF_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;

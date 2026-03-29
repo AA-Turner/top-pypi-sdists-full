@@ -2440,9 +2440,9 @@ https://docs.chalk.ai/cli/apply
                 raise ValueError(
                     f"Cannot specify `input_sql` and `input_times` together. Instead, the ChalkSQL query may output a `{TS_COL_NAME}` column"
                 )
-            if num_shards is not None:
+            if num_shards is not None and not use_metaplanner:
                 raise ValueError("Cannot specify `input_sql` and `num_shards` together.")
-            if num_workers is not None:
+            if num_workers is not None and not use_metaplanner:
                 raise ValueError("Cannot specify `input_sql` and `num_workers` together.")
 
         # Set query_input

@@ -1,5 +1,6 @@
-import requests
 from threading import Thread
+
+import requests
 
 from github_heatmap.html_parser import GitHubParser
 from github_heatmap.loader.base_loader import BaseLoader, LoadError

@@ -12,7 +12,7 @@ def alembic_export(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -36,7 +36,7 @@ def alembic_export(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-    filter_glob: str | None = "*.abc",
+    filter_glob: str = "*.abc",
     start: int | None = -2147483648,
     end: int | None = -2147483648,
     xsamples: int | None = 1,
@@ -45,7 +45,7 @@ def alembic_export(
     sh_close: float | None = 1.0,
     selected: bool | None = False,
     flatten: bool | None = False,
-    collection: str | None = "",
+    collection: str = "",
     uvs: bool | None = True,
     packuv: bool | None = True,
     normals: bool | None = True,
@@ -152,8 +152,8 @@ def alembic_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
+    filepath: str = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     check_existing: bool | None = False,
@@ -180,7 +180,7 @@ def alembic_import(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-    filter_glob: str | None = "*.abc",
+    filter_glob: str = "*.abc",
     scale: float | None = 1.0,
     set_frame_range: bool | None = True,
     validate_meshes: bool | None = False,
@@ -241,9 +241,9 @@ def append(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
-    filename: str | None = "",
+    filepath: str = "",
+    directory: str = "",
+    filename: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     check_existing: bool | None = False,
@@ -384,7 +384,7 @@ def call_asset_shelf_popover(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a predefined asset shelf in a popup
 
@@ -397,7 +397,7 @@ def call_menu(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a predefined menu
 
@@ -410,7 +410,7 @@ def call_menu_pie(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a predefined pie menu
 
@@ -423,7 +423,7 @@ def call_panel(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     keep_open: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a predefined panel
@@ -461,8 +461,8 @@ def context_collection_boolean_set(
     undo: bool | None = None,
     /,
     *,
-    data_path_iter: str | None = "",
-    data_path_item: str | None = "",
+    data_path_iter: str = "",
+    data_path_item: str = "",
     type: typing.Literal["TOGGLE", "ENABLE", "DISABLE"] | None = "TOGGLE",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set boolean values for a collection of items
@@ -478,7 +478,7 @@ def context_cycle_array(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
+    data_path: str = "",
     reverse: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context array value (useful for cycling the active mesh edit mode)
@@ -493,7 +493,7 @@ def context_cycle_enum(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
+    data_path: str = "",
     reverse: bool | None = False,
     wrap: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -510,7 +510,7 @@ def context_cycle_int(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
+    data_path: str = "",
     reverse: bool | None = False,
     wrap: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -527,7 +527,7 @@ def context_menu_enum(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
+    data_path: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
@@ -540,9 +540,9 @@ def context_modal_mouse(
     undo: bool | None = None,
     /,
     *,
-    data_path_iter: str | None = "",
-    data_path_item: str | None = "",
-    header_text: str | None = "",
+    data_path_iter: str = "",
+    data_path_item: str = "",
+    header_text: str = "",
     input_scale: float | None = 0.01,
     invert: bool | None = False,
     initial_x: int | None = 0,
@@ -563,7 +563,7 @@ def context_pie_enum(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
+    data_path: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
@@ -576,7 +576,7 @@ def context_scale_float(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
+    data_path: str = "",
     value: float | None = 1.0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scale a float context value
@@ -591,7 +591,7 @@ def context_scale_int(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
+    data_path: str = "",
     value: float | None = 1.0,
     always_step: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -608,7 +608,7 @@ def context_set_boolean(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
+    data_path: str = "",
     value: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
@@ -623,8 +623,8 @@ def context_set_enum(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
-    value: str | None = "",
+    data_path: str = "",
+    value: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
@@ -638,7 +638,7 @@ def context_set_float(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
+    data_path: str = "",
     value: float | None = 0.0,
     relative: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -655,8 +655,8 @@ def context_set_id(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
-    value: str | None = "",
+    data_path: str = "",
+    value: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value to an ID data-block
 
@@ -670,7 +670,7 @@ def context_set_int(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
+    data_path: str = "",
     value: int | None = 0,
     relative: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -687,8 +687,8 @@ def context_set_string(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
-    value: str | None = "",
+    data_path: str = "",
+    value: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
@@ -702,8 +702,8 @@ def context_set_value(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
-    value: str | None = "",
+    data_path: str = "",
+    value: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
@@ -717,8 +717,8 @@ def context_toggle(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
-    module: str | None = "",
+    data_path: str = "",
+    module: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle a context value
 
@@ -732,9 +732,9 @@ def context_toggle_enum(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
-    value_1: str | None = "",
-    value_2: str | None = "",
+    data_path: str = "",
+    value_1: str = "",
+    value_2: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle a context value
 
@@ -762,7 +762,7 @@ def doc_view(
     undo: bool | None = None,
     /,
     *,
-    doc_id: str | None = "",
+    doc_id: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open online reference docs in a web browser
 
@@ -775,7 +775,7 @@ def doc_view_manual(
     undo: bool | None = None,
     /,
     *,
-    doc_id: str | None = "",
+    doc_id: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load online manual
 
@@ -798,7 +798,7 @@ def drop_blend_file(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
@@ -811,7 +811,7 @@ def drop_import_file(
     undo: bool | None = None,
     /,
     *,
-    directory: str | None = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -827,8 +827,8 @@ def fbx_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
+    filepath: str = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     check_existing: bool | None = False,
@@ -866,7 +866,7 @@ def fbx_import(
     validate_meshes: bool | None = True,
     use_anim: bool | None = True,
     anim_offset: float | None = 1.0,
-    filter_glob: str | None = "*.fbx",
+    filter_glob: str = "*.fbx",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import FBX file into current scene
 
@@ -940,7 +940,7 @@ def grease_pencil_export_pdf(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -1037,7 +1037,7 @@ def grease_pencil_export_svg(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -1136,8 +1136,8 @@ def grease_pencil_import_svg(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
+    filepath: str = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     check_existing: bool | None = False,
@@ -1218,9 +1218,9 @@ def id_linked_relocate(
     /,
     *,
     id_session_uid: int | None = 0,
-    filepath: str | None = "",
-    directory: str | None = "",
-    filename: str | None = "",
+    filepath: str = "",
+    directory: str = "",
+    filename: str = "",
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
     filter_backup: bool | None = False,
@@ -1307,7 +1307,7 @@ def interface_theme_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -1324,7 +1324,7 @@ def interface_theme_preset_remove(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -1341,7 +1341,7 @@ def interface_theme_preset_save(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -1358,7 +1358,7 @@ def keyconfig_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -1375,7 +1375,7 @@ def keyconfig_preset_remove(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -1392,10 +1392,10 @@ def lib_reload(
     undo: bool | None = None,
     /,
     *,
-    library: str | None = "",
-    filepath: str | None = "",
-    directory: str | None = "",
-    filename: str | None = "",
+    library: str = "",
+    filepath: str = "",
+    directory: str = "",
+    filename: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
@@ -1470,10 +1470,10 @@ def lib_relocate(
     undo: bool | None = None,
     /,
     *,
-    library: str | None = "",
-    filepath: str | None = "",
-    directory: str | None = "",
-    filename: str | None = "",
+    library: str = "",
+    filepath: str = "",
+    directory: str = "",
+    filename: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     hide_props_region: bool | None = True,
@@ -1551,9 +1551,9 @@ def link(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
-    filename: str | None = "",
+    filepath: str = "",
+    directory: str = "",
+    filename: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     check_existing: bool | None = False,
@@ -1652,7 +1652,7 @@ def obj_export(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -1705,8 +1705,8 @@ def obj_export(
     export_vertex_groups: bool | None = False,
     export_smooth_groups: bool | None = False,
     smooth_group_bitflags: bool | None = False,
-    filter_glob: str | None = "*.obj;*.mtl",
-    collection: str | None = "",
+    filter_glob: str = "*.obj;*.mtl",
+    collection: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the scene to a Wavefront OBJ file
 
@@ -1836,8 +1836,8 @@ def obj_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
+    filepath: str = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     check_existing: bool | None = False,
@@ -1876,10 +1876,10 @@ def obj_import(
     import_vertex_groups: bool | None = False,
     validate_meshes: bool | None = True,
     close_spline_loops: bool | None = True,
-    collection_separator: str | None = "",
+    collection_separator: str = "",
     mtl_name_collision_mode: typing.Literal["MAKE_UNIQUE", "REFERENCE_EXISTING"]
     | None = "MAKE_UNIQUE",
-    filter_glob: str | None = "*.obj;*.mtl",
+    filter_glob: str = "*.obj;*.mtl",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a Wavefront OBJ scene
 
@@ -1980,7 +1980,7 @@ def open_mainfile(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
@@ -2078,8 +2078,8 @@ def operator_pie_enum(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
-    prop_string: str | None = "",
+    data_path: str = "",
+    prop_string: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
@@ -2093,10 +2093,10 @@ def operator_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-    operator: str | None = "",
+    operator: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove an Operator Preset
 
@@ -2112,7 +2112,7 @@ def operator_presets_cleanup(
     undo: bool | None = None,
     /,
     *,
-    operator: str | None = "",
+    operator: str = "",
     properties: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -2128,7 +2128,7 @@ def owner_disable(
     undo: bool | None = None,
     /,
     *,
-    owner_id: str | None = "",
+    owner_id: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Disable add-on for workspace
 
@@ -2141,7 +2141,7 @@ def owner_enable(
     undo: bool | None = None,
     /,
     *,
-    owner_id: str | None = "",
+    owner_id: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enable add-on for workspace
 
@@ -2154,7 +2154,7 @@ def path_open(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a path in a file browser
 
@@ -2167,7 +2167,7 @@ def ply_export(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -2200,14 +2200,14 @@ def ply_export(
     global_scale: float | None = 1.0,
     apply_modifiers: bool | None = True,
     export_selected_objects: bool | None = False,
-    collection: str | None = "",
+    collection: str = "",
     export_uv: bool | None = True,
     export_normals: bool | None = False,
     export_colors: typing.Literal["NONE", "SRGB", "LINEAR"] | None = "SRGB",
     export_attributes: bool | None = True,
     export_triangulated_mesh: bool | None = False,
     ascii_format: bool | None = False,
-    filter_glob: str | None = "*.ply",
+    filter_glob: str = "*.ply",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the scene to a PLY file
 
@@ -2310,8 +2310,8 @@ def ply_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
+    filepath: str = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     check_existing: bool | None = False,
@@ -2348,7 +2348,7 @@ def ply_import(
     merge_verts: bool | None = False,
     import_colors: typing.Literal["NONE", "SRGB", "LINEAR"] | None = "SRGB",
     import_attributes: bool | None = True,
-    filter_glob: str | None = "*.ply",
+    filter_glob: str = "*.ply",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import an PLY file as an object
 
@@ -2450,7 +2450,7 @@ def previews_batch_clear(
     *,
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
-    directory: str | None = "",
+    directory: str = "",
     filter_blender: bool | None = True,
     filter_folder: bool | None = True,
     use_scenes: bool | None = True,
@@ -2482,7 +2482,7 @@ def previews_batch_generate(
     *,
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
-    directory: str | None = "",
+    directory: str = "",
     filter_blender: bool | None = True,
     filter_folder: bool | None = True,
     use_scenes: bool | None = True,
@@ -2583,7 +2583,7 @@ def properties_add(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
+    data_path: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add your own property to the data-block
 
@@ -2596,7 +2596,7 @@ def properties_context_change(
     undo: bool | None = None,
     /,
     *,
-    context: str | None = "",
+    context: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to a different tab inside the properties editor
 
@@ -2609,8 +2609,8 @@ def properties_edit(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
-    property_name: str | None = "",
+    data_path: str = "",
+    property_name: str = "",
     property_type: typing.Literal[
         "FLOAT",
         "FLOAT_ARRAY",
@@ -2624,7 +2624,7 @@ def properties_edit(
     ]
     | None = "FLOAT",
     is_overridable_library: bool | None = False,
-    description: str | None = "",
+    description: str = "",
     use_soft_limits: bool | None = False,
     array_length: int | None = 3,
     default_int: collections.abc.Sequence[int] | None = (
@@ -2741,7 +2741,7 @@ def properties_edit(
     precision: int | None = 3,
     step_float: float | None = 0.1,
     subtype: str | None = "",
-    default_string: str | None = "",
+    default_string: str = "",
     id_type: typing.Literal[
         "ACTION",
         "ARMATURE",
@@ -2784,7 +2784,7 @@ def properties_edit(
         "WORLD",
     ]
     | None = "OBJECT",
-    eval_string: str | None = "",
+    eval_string: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change a custom propertys type, or adjust how it is displayed in the interface
 
@@ -2848,9 +2848,9 @@ def properties_edit_value(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
-    property_name: str | None = "",
-    eval_string: str | None = "",
+    data_path: str = "",
+    property_name: str = "",
+    eval_string: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit the value of a custom property
 
@@ -2865,8 +2865,8 @@ def properties_remove(
     undo: bool | None = None,
     /,
     *,
-    data_path: str | None = "",
-    property_name: str | None = "",
+    data_path: str = "",
+    property_name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Internal use (edit a property data_path)
 
@@ -2890,16 +2890,16 @@ def radial_control(
     undo: bool | None = None,
     /,
     *,
-    data_path_primary: str | None = "",
-    data_path_secondary: str | None = "",
-    use_secondary: str | None = "",
-    rotation_path: str | None = "",
-    color_path: str | None = "",
-    fill_color_path: str | None = "",
-    fill_color_override_path: str | None = "",
-    fill_color_override_test_path: str | None = "",
-    zoom_path: str | None = "",
-    image_id: str | None = "",
+    data_path_primary: str = "",
+    data_path_secondary: str = "",
+    use_secondary: str = "",
+    rotation_path: str = "",
+    color_path: str = "",
+    fill_color_path: str = "",
+    fill_color_override_path: str = "",
+    fill_color_override_test_path: str = "",
+    zoom_path: str = "",
+    image_id: str = "",
     secondary_tex: bool | None = False,
     release_confirm: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -2926,7 +2926,7 @@ def read_factory_settings(
     /,
     *,
     use_factory_startup_app_template_only: bool | None = False,
-    app_template: str | None = "Template",
+    app_template: str = "Template",
     use_empty: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load factory default startup file and preferences. To make changes permanent, use "Save Startup File" and "Save Preferences"
@@ -2965,12 +2965,12 @@ def read_homefile(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     load_ui: bool | None = True,
     use_splash: bool | None = False,
     use_factory_startup: bool | None = False,
     use_factory_startup_app_template_only: bool | None = False,
-    app_template: str | None = "Template",
+    app_template: str = "Template",
     use_empty: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open the default file
@@ -3000,7 +3000,7 @@ def recover_auto_save(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
@@ -3145,7 +3145,7 @@ def save_as_mainfile(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = True,
     filter_blender: bool | None = True,
@@ -3233,7 +3233,7 @@ def save_mainfile(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = True,
     filter_blender: bool | None = True,
@@ -3343,8 +3343,8 @@ def search_single_menu(
     undo: bool | None = None,
     /,
     *,
-    menu_idname: str | None = "",
-    initial_query: str | None = "",
+    menu_idname: str = "",
+    initial_query: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pop-up a search for a menu in current context
 
@@ -3419,7 +3419,7 @@ def stl_export(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -3446,7 +3446,7 @@ def stl_export(
     ascii_format: bool | None = False,
     use_batch: bool | None = False,
     export_selected_objects: bool | None = False,
-    collection: str | None = "",
+    collection: str = "",
     global_scale: float | None = 1.0,
     use_scene_unit: bool | None = False,
     forward_axis: typing.Literal[
@@ -3456,7 +3456,7 @@ def stl_export(
     up_axis: typing.Literal["X", "Y", "Z", "NEGATIVE_X", "NEGATIVE_Y", "NEGATIVE_Z"]
     | None = "Z",
     apply_modifiers: bool | None = True,
-    filter_glob: str | None = "*.stl",
+    filter_glob: str = "*.stl",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the scene to an STL file
 
@@ -3547,8 +3547,8 @@ def stl_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
+    filepath: str = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     check_existing: bool | None = False,
@@ -3584,7 +3584,7 @@ def stl_import(
     up_axis: typing.Literal["X", "Y", "Z", "NEGATIVE_X", "NEGATIVE_Y", "NEGATIVE_Z"]
     | None = "Z",
     use_mesh_validate: bool | None = True,
-    filter_glob: str | None = "*.stl",
+    filter_glob: str = "*.stl",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import an STL file as an object
 
@@ -3674,7 +3674,7 @@ def sysinfo(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Generate system information, saved into a text file
 
@@ -3687,7 +3687,7 @@ def tool_set_by_brush_type(
     undo: bool | None = None,
     /,
     *,
-    brush_type: str | None = "",
+    brush_type: str = "",
     space_type: typing.Literal[
         "EMPTY",
         "VIEW_3D",
@@ -3723,7 +3723,7 @@ def tool_set_by_id(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     cycle: bool | None = False,
     as_fallback: bool | None = False,
     space_type: typing.Literal[
@@ -3835,7 +3835,7 @@ def url_open(
     undo: bool | None = None,
     /,
     *,
-    url: str | None = "",
+    url: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a website in the web browser
 
@@ -3861,7 +3861,7 @@ def usd_export(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -3885,9 +3885,9 @@ def usd_export(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-    filter_glob: str | None = "*.usd",
+    filter_glob: str = "*.usd",
     selected_objects_only: bool | None = False,
-    collection: str | None = "",
+    collection: str = "",
     export_animation: bool | None = False,
     export_hair: bool | None = False,
     export_uvmaps: bool | None = True,
@@ -3917,11 +3917,11 @@ def usd_export(
     overwrite_textures: bool | None = False,
     relative_paths: bool | None = True,
     xform_op_mode: typing.Literal["TRS", "TOS", "MAT"] | None = "TRS",
-    root_prim_path: str | None = "/root",
+    root_prim_path: str = "/root",
     export_custom_properties: bool | None = True,
-    custom_properties_namespace: str | None = "userProperties",
-    accessibility_label: str | None = "",
-    accessibility_description: str | None = "",
+    custom_properties_namespace: str = "userProperties",
+    accessibility_label: str = "",
+    accessibility_description: str = "",
     author_blender_name: bool | None = True,
     convert_world_material: bool | None = True,
     allow_unicode: bool | None = True,
@@ -4164,7 +4164,7 @@ def usd_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -4189,7 +4189,7 @@ def usd_import(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-    filter_glob: str | None = "*.usd",
+    filter_glob: str = "*.usd",
     scale: float | None = 1.0,
     set_frame_range: bool | None = True,
     import_cameras: bool | None = True,
@@ -4209,7 +4209,7 @@ def usd_import(
     read_mesh_uvs: bool | None = True,
     read_mesh_colors: bool | None = True,
     read_mesh_attributes: bool | None = True,
-    prim_path_mask: str | None = "",
+    prim_path_mask: str = "",
     import_guide: bool | None = False,
     import_proxy: bool | None = False,
     import_render: bool | None = True,
@@ -4223,7 +4223,7 @@ def usd_import(
     | None = "MAKE_UNIQUE",
     import_textures_mode: typing.Literal["IMPORT_NONE", "IMPORT_PACK", "IMPORT_COPY"]
     | None = "IMPORT_PACK",
-    import_textures_dir: str | None = "//textures/",
+    import_textures_dir: str = "//textures/",
     tex_name_collision_mode: typing.Literal["USE_EXISTING", "OVERWRITE"]
     | None = "USE_EXISTING",
     property_import_mode: typing.Literal["NONE", "USER", "ALL"] | None = "ALL",

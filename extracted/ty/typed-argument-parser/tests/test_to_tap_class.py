@@ -7,7 +7,7 @@ import dataclasses
 import io
 import re
 import sys
-from typing import Any, Callable, List, Literal, Optional, Type, Union
+from typing import Annotated, Any, Callable, List, Literal, Optional, Type, Union
 
 import pytest
 
@@ -23,8 +23,8 @@ else:
     _IS_PYDANTIC_V1 = pydantic.VERSION.startswith("1.")
 
 
-# To properly test the help message, we need to know how argparse formats it. It changed from 3.9 -> 3.10 -> 3.13
-_OPTIONS_TITLE = "options" if not sys.version_info < (3, 10) else "optional arguments"
+# To properly test the help message, we need to know how argparse formats it. It changed from 3.10 -> 3.13
+_OPTIONS_TITLE = "options"
 _ARG_LIST_DOTS = "..."
 _ARG_WITH_ALIAS = (
     "-arg, --argument_with_really_long_name ARGUMENT_WITH_REALLY_LONG_NAME"
@@ -157,7 +157,6 @@ else:
         ),  # to_tap_class also works on instances of data models. It ignores the attribute values
     ]
     + ([] if _IS_PYDANTIC_V1 is None else [DataclassPydantic, Model]),
-    # NOTE: instances of DataclassPydantic and Model can be tested for pydantic v2 but not v1
 )
 def class_or_function_(request: pytest.FixtureRequest):
     """
@@ -299,11 +298,27 @@ def _test_subclasser_message(
     def replace_whitespace(string: str) -> str:
         return re.sub(r"\s+", " ", string).strip()  # FYI this line was written by an LLM
 
+    def normalize_prog_name(string: str) -> str:
+        """Normalize the program name in usage line to handle platform differences.
+        
+        On Windows with Python 3.14, sys.argv[0] may include the full path like:
+        'python.exe C:\\path\\to\\pytest' instead of just 'pytest'
+        """
+        # Find where "pytest" appears and keep everything from "pytest" onwards
+        if "usage: " in string and "pytest" in string:
+            usage_start = string.index("usage: ")
+            pytest_start = string.index("pytest", usage_start)
+            # Reconstruct: everything before "usage: " + "usage: pytest" + everything after "pytest"
+            return string[:usage_start] + "usage: pytest" + string[pytest_start + len("pytest"):]
+        return string
+
     TapSubclass = subclasser(class_or_function)
     tap = TapSubclass(description=description)
     message = _test_raises_system_exit(tap, args_string)
     # Standardize to ignore trivial differences due to terminal settings
-    assert replace_whitespace(message) == replace_whitespace(message_expected)
+    message_normalized = normalize_prog_name(replace_whitespace(message))
+    expected_normalized = normalize_prog_name(replace_whitespace(message_expected))
+    assert message_normalized == expected_normalized
 
 
 # Test sublcasser_simple
@@ -547,3 +562,137 @@ def test_subclasser_subparser_help_message(
     _test_subclasser_message(
         subclasser_subparser, class_or_function_, expected_message, description=description, args_string=args_string
     )
+
+class TestMethodResolutionOrder:
+    @staticmethod
+    def _assert_all_two(class_or_function: Any) -> None:
+        class ParserClass(to_tap_class(class_or_function)):
+            a: int = 2
+
+        assert ParserClass.a == ParserClass().a == ParserClass().parse_args([]).a == 2
+
+    def test_function(self):
+        def foo(a: int = 0):
+            ...
+
+        self._assert_all_two(foo)
+
+    def test_plain_class(self):
+        class Foo:
+            def __init__(self, a: int = 0):
+                self.a = a
+
+        self._assert_all_two(Foo)
+
+    @pytest.mark.skipif(_IS_PYDANTIC_V1 is None, reason="Pydantic not installed")
+    def test_pydantic_model(self):
+        class Foo(pydantic.BaseModel):
+            a: int = 0
+
+        self._assert_all_two(Foo)
+
+    def test_dataclass(self):
+        @dataclasses.dataclass
+        class Foo:
+            a: int = 0
+
+        self._assert_all_two(Foo)
+
+    def test_configure_in_leaf(self):
+        def foo(a: int = 0):
+            ...
+
+        class Leaf(to_tap_class(foo)):
+            a: int = 2
+
+            def configure(self) -> None:
+                # Add an extra argument to validate that leaf.configure runs after _configure in foo
+                self.add_argument("--a", default=3)
+
+        assert Leaf.a == Leaf().a == 2
+        assert Leaf().parse_args([]).a == 3
+
+    def test_class_to_tap_class_thats_subclassed(self):
+        class Parent:
+            def __init__(self, a: int = 0):
+                self.a = a
+
+        class TapChild(to_tap_class(Parent)):
+            a: int = 1
+
+        class TapGrandchild(TapChild):
+            a: int = 2
+
+        assert TapChild.a == TapChild().a == TapChild().parse_args([]).a == 1
+        assert TapGrandchild.a == TapGrandchild().a == TapGrandchild().parse_args([]).a == 2
+
+    def test_class_subclass_to_tap_class(self):
+        class Parent:
+            def __init__(self, a: int = 0):
+                self.a = a
+
+        class TapChild(Parent):
+            a: int = 1
+
+        class TapGrandchild(to_tap_class(TapChild)):
+            a: int = 2
+
+        assert TapGrandchild.a == TapGrandchild().a == TapGrandchild().parse_args([]).a == 2
+
+    def test_inheritance(self):
+        class Parent:
+            def __init__(self, a: int = 0, b: int = 5):
+                self.a = a
+                self.b = b
+
+        class TapChild(Parent):
+            def __init__(self, a: int = 0, b: int = 5, c: int = 3):
+                super().__init__(a=a, b=b)
+                self.c = c
+
+        class TapGrandchild(to_tap_class(TapChild)):
+            a: int = 2
+
+        assert TapGrandchild.a == TapGrandchild().a == TapGrandchild().parse_args([]).a == 2
+        assert TapGrandchild().parse_args([]).b == 5
+        assert TapGrandchild().parse_args([]).c == 3
+
+    def test_defaults_and_required(self):
+        class Parent:
+            def __init__(self, a: int, e: int, b: int = 5):
+                self.a = a
+                self.b = b
+                self.e = e
+
+        class TapChild(Parent):
+            def __init__(self, b: int, a: int = 0, c: int = 3):
+                super().__init__(a=a, b=b, e=6)
+                self.c = c
+
+        class TapGrandchild(to_tap_class(TapChild)):
+            a: int = 2
+            d: int
+
+        args = ["--b", "6", "--c", "5", "--d", "4"]
+        assert TapGrandchild.a == TapGrandchild().a == TapGrandchild().parse_args(args).a == 2
+        assert TapGrandchild().parse_args(args).b == 6
+        assert TapGrandchild().parse_args(args).c == 5
+        assert TapGrandchild().parse_args(args).d == 4
+        with pytest.raises(AttributeError):
+            TapGrandchild().parse_args(args).e
+
+        args = ["--b", "6"]
+        with pytest.raises(SystemExit):
+            TapGrandchild().parse_args(args)
+        args = ["--d", "4"]
+        with pytest.raises(SystemExit):
+            TapGrandchild().parse_args(args)
+
+def test_extras_removal():
+    class Parent:
+        def __init__(self, an_int: Annotated[int, "metadata"] = 1):
+            pass
+
+    tapped = to_tap_class(Parent)
+    assert tapped()._annotations["an_int"] == int
+    assert tapped()._annotations_with_extras["an_int"] == Annotated[int, "metadata"]

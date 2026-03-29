@@ -94,7 +94,8 @@ from .math_utils import (convert_to_percentage,
                          add_it,
                          divide_it,
                          exp_it,
-                         return_0)
+                         return_0,
+                         zero_buff_int)
 from .compare_utils import (create_new_name,
                             get_last_comp_list,
                             get_closest_match_from_list,

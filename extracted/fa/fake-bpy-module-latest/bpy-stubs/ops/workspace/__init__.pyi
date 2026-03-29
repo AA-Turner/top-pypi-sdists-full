@@ -19,7 +19,7 @@ def append_activate(
     undo: bool | None = None,
     /,
     *,
-    idname: str | None = "",
+    idname: str = "",
     filepath: str | None = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Append a workspace and make it the active one in the current window

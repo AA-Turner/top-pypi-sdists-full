@@ -71,8 +71,13 @@ impl SchemaStore {
     }
 
     /// Offline mode
-    fn offline(&self) -> bool {
+    pub fn offline(&self) -> bool {
         self.options.offline.unwrap_or(false)
+    }
+
+    /// Cache options
+    pub fn cache_options(&self) -> Option<&tombi_cache::Options> {
+        self.options.cache.as_ref()
     }
 
     /// Strict mode
@@ -188,6 +193,7 @@ impl SchemaStore {
             self.schemas.write().await.push(crate::Schema {
                 title: None,
                 description: None,
+                deprecated_lint_level: schema.deprecated_lint_level(),
                 schema_uri,
                 catalog_uri: None,
                 include: schema.include().to_vec(),
@@ -329,6 +335,7 @@ impl SchemaStore {
                 schemas.push(crate::Schema {
                     title: Some(schema.name),
                     description: Some(schema.description),
+                    deprecated_lint_level: None,
                     schema_uri: schema.url,
                     catalog_uri: Some(catalog_uri.clone()),
                     include: schema.file_match,
@@ -641,16 +648,17 @@ impl SchemaStore {
             None
         };
 
-        let (root_schema, sub_schema_uri_map, toml_version) =
+        let (root_schema, sub_schema_uri_map, toml_version, deprecated_lint_level) =
             if let Some(source_schema) = source_schema {
                 let toml_version = source_schema.toml_version();
                 (
                     source_schema.root_schema,
                     source_schema.sub_schema_uri_map,
                     toml_version,
+                    source_schema.deprecated_lint_level,
                 )
             } else {
-                (None, Default::default(), None)
+                (None, Default::default(), None, None)
             };
 
         Ok(Some(SourceSchema::new(
@@ -659,6 +667,7 @@ impl SchemaStore {
                 .or(root_schema),
             sub_schema_uri_map,
             toml_version,
+            deprecated_lint_level,
         )))
     }
 
@@ -773,11 +782,13 @@ impl SchemaStore {
                             let mut sub_schema_uri_map = SubSchemaUriMap::default();
                             sub_schema_uri_map
                                 .insert(sub_root_keys.clone(), document_schema.schema_uri.clone());
-                            source_schema = Some(SourceSchema::new(
+                            let new_source = SourceSchema::new(
                                 None,
                                 sub_schema_uri_map,
                                 matching_schema.toml_version,
-                            ));
+                                matching_schema.deprecated_lint_level,
+                            );
+                            source_schema = Some(new_source);
                         }
                     },
                     None => match source_schema {
@@ -791,15 +802,18 @@ impl SchemaStore {
                                     Some(document_schema),
                                     sub_schema_uri_map,
                                     toml_version,
+                                    matching_schema.deprecated_lint_level,
                                 );
                             }
                         }
                         None => {
-                            source_schema = Some(SourceSchema::new(
+                            let new_source = SourceSchema::new(
                                 Some(document_schema),
                                 Default::default(),
                                 matching_schema.toml_version,
-                            ));
+                                matching_schema.deprecated_lint_level,
+                            );
+                            source_schema = Some(new_source);
                         }
                     },
                 },
@@ -874,6 +888,7 @@ impl SchemaStore {
         let new_schema = crate::Schema {
             title: options.title.clone(),
             description: options.description.clone(),
+            deprecated_lint_level: None,
             schema_uri,
             catalog_uri: None,
             include,
@@ -925,12 +940,11 @@ async fn load_catalog_from_cache_ignoring_ttl(
     cache_options: Option<tombi_cache::Options>,
 ) -> Result<Option<JsonCatalog>, crate::Error> {
     if let Some(catalog_cache_path) = catalog_cache_path {
-        let mut cache_options = cache_options.clone();
-        if let Some(options) = &mut cache_options {
-            options.cache_ttl = None;
-        }
+        let mut owned_cache_options = cache_options.unwrap_or_default();
+        owned_cache_options.cache_ttl = None;
         if let Ok(Some(catalog)) =
-            load_catalog_from_cache(tagalog_uri, catalog_cache_path, cache_options.as_ref()).await
+            load_catalog_from_cache(tagalog_uri, catalog_cache_path, Some(&owned_cache_options))
+                .await
         {
             return Ok(Some(catalog));
         }
@@ -967,12 +981,11 @@ async fn load_json_schema_from_cache_ignoring_ttl(
     cache_options: Option<tombi_cache::Options>,
 ) -> Result<Option<tombi_json::ValueNode>, crate::Error> {
     if let Some(schema_cache_path) = schema_cache_path {
-        let mut cache_options = cache_options.clone();
-        if let Some(options) = &mut cache_options {
-            options.cache_ttl = None;
-        }
+        let mut owned_cache_options = cache_options.unwrap_or_default();
+        owned_cache_options.cache_ttl = None;
         if let Ok(Some(schema_value)) =
-            load_json_schema_from_cache(schema_uri, schema_cache_path, cache_options.as_ref()).await
+            load_json_schema_from_cache(schema_uri, schema_cache_path, Some(&owned_cache_options))
+                .await
         {
             return Ok(Some(schema_value));
         }
@@ -1019,11 +1032,26 @@ fn canonicalize_path_for_matching(path: &std::path::Path) -> std::path::PathBuf 
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, str::FromStr};
+    use std::{
+        path::{Path, PathBuf},
+        str::FromStr,
+        time::Duration,
+    };
 
-    use super::{SchemaStore, matches_schema_include};
-    use crate::ValueSchema;
+    use super::{
+        SchemaStore, load_catalog_from_cache_ignoring_ttl,
+        load_json_schema_from_cache_ignoring_ttl, matches_schema_include,
+    };
+    use crate::{CatalogUri, ValueSchema};
     use tombi_uri::SchemaUri;
+
+    fn temp_cache_path(test_name: &str) -> PathBuf {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("tombi-schema-store-{test_name}-{unique}.json"))
+    }
 
     #[test]
     fn schema_include_matches_user_config_path_via_absolute_suffix() {
@@ -1063,9 +1091,11 @@ mod tests {
         )
         .unwrap();
 
-        let schema_uri =
-            SchemaUri::from_str(&format!("{}#/$defs/allowAll", SchemaUri::from_file_path(&schema_path).unwrap()))
-                .unwrap();
+        let schema_uri = SchemaUri::from_str(&format!(
+            "{}#/$defs/allowAll",
+            SchemaUri::from_file_path(&schema_path).unwrap()
+        ))
+        .unwrap();
         let schema_store = SchemaStore::new();
 
         let document_schema = schema_store
@@ -1106,9 +1136,11 @@ mod tests {
         )
         .unwrap();
 
-        let schema_uri =
-            SchemaUri::from_str(&format!("{}#nameSchema", SchemaUri::from_file_path(&schema_path).unwrap()))
-                .unwrap();
+        let schema_uri = SchemaUri::from_str(&format!(
+            "{}#nameSchema",
+            SchemaUri::from_file_path(&schema_path).unwrap()
+        ))
+        .unwrap();
         let schema_store = SchemaStore::new();
 
         let document_schema = schema_store
@@ -1123,5 +1155,57 @@ mod tests {
         ));
 
         let _ = std::fs::remove_file(schema_path);
+    }
+
+    #[tokio::test]
+    async fn ignores_ttl_for_catalog_cache_without_cache_options() {
+        let cache_path = temp_cache_path("catalog-cache-offline-default-options");
+        std::fs::write(
+            &cache_path,
+            r#"{"schemas":[{"name":"test","description":"desc","url":"https://example.invalid/schema.json"}]}"#,
+        )
+        .unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&cache_path)
+            .unwrap()
+            .set_modified(std::time::SystemTime::now() - Duration::from_secs(60 * 60 * 25))
+            .unwrap();
+
+        let catalog = load_catalog_from_cache_ignoring_ttl(
+            &CatalogUri::from_str("https://example.invalid/catalog.json").unwrap(),
+            Some(&cache_path),
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(catalog.unwrap().schemas.len(), 1);
+
+        let _ = std::fs::remove_file(cache_path);
+    }
+
+    #[tokio::test]
+    async fn ignores_ttl_for_schema_cache_without_cache_options() {
+        let cache_path = temp_cache_path("schema-cache-offline-default-options");
+        std::fs::write(&cache_path, r#"{"type":"string"}"#).unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(&cache_path)
+            .unwrap()
+            .set_modified(std::time::SystemTime::now() - Duration::from_secs(60 * 60 * 25))
+            .unwrap();
+
+        let schema = load_json_schema_from_cache_ignoring_ttl(
+            &SchemaUri::from_str("https://example.invalid/schema.json").unwrap(),
+            Some(&cache_path),
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert!(schema.is_some());
+
+        let _ = std::fs::remove_file(cache_path);
     }
 }

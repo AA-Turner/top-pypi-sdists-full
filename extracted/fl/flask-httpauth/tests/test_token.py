@@ -15,11 +15,13 @@ class HTTPAuthTestCase(unittest.TestCase):
 
         @token_auth.verify_token
         def verify_token(token):
+            assert token
             if token == 'this-is-the-token!':
                 return 'user'
 
         @token_auth3.verify_token
         def verify_token3(token):
+            assert token
             if token == 'this-is-the-token!':
                 return 'user'
 
@@ -92,6 +94,15 @@ class HTTPAuthTestCase(unittest.TestCase):
         self.assertEqual(response.headers['WWW-Authenticate'],
                          'MyToken realm="Foo"')
 
+    def test_token_auth_login_empty_token(self):
+        response = self.client.get(
+            '/protected', headers={'Authorization':
+                                   'MyToken '})
+        self.assertEqual(response.status_code, 401)
+        self.assertTrue('WWW-Authenticate' in response.headers)
+        self.assertEqual(response.headers['WWW-Authenticate'],
+                         'MyToken realm="Foo"')
+
     def test_token_auth_login_invalid_scheme(self):
         response = self.client.get(
             '/protected', headers={'Authorization': 'Foo this-is-the-token!'})
@@ -126,6 +137,12 @@ class HTTPAuthTestCase(unittest.TestCase):
     def test_token_auth_custom_header_invalid_token(self):
         response = self.client.get(
             '/protected3', headers={'X-API-Key': 'invalid-token-should-fail'})
+        self.assertEqual(response.status_code, 401)
+        self.assertTrue('WWW-Authenticate' in response.headers)
+
+    def test_token_auth_custom_header_empty_token(self):
+        response = self.client.get(
+            '/protected3', headers={'X-API-Key': ''})
         self.assertEqual(response.status_code, 401)
         self.assertTrue('WWW-Authenticate' in response.headers)
 

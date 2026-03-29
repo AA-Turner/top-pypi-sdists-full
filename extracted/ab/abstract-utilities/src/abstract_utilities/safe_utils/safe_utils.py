@@ -12,6 +12,14 @@ _BASE_DIR = get_caller_dir()
 
 class PathOutsideBase(Exception):
     pass
+def is_safe_instance(obj, *types):
+    is_type=False
+    if obj and types:
+        try:
+            is_type = isinstance(obj, types)
+        except Exception as e:
+            print(f"{e}")
+    return is_type
 
 def safe_join_base(base: Union[str, Path], *parts: Union[str, Path], must_exist: bool = False) -> Path:
     """
@@ -163,4 +171,16 @@ def get_slash(path):
         return '/'
     else:
         return '//'
+def if_none_default(obj,default=None):
+    if obj == None:
+        obj = default
+    return obj
+def if_type_default(obj,default,*types):
+    if not is_safe_instance(obj, types):
+        obj = default
+    return obj
+def find_first(iterable, predicate, default=None):
+    """Return first item matching predicate, or default if none found."""
+    return next((item for item in iterable if predicate(item)), default)
+
 join_path=safe_join

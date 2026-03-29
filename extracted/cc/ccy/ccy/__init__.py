@@ -1,7 +1,8 @@
 """Python currencies"""
 
-__version__ = "1.7.2"
+from importlib.metadata import version
 
+__version__ = version("ccy")
 
 from .core.country import (
     CountryError,
@@ -14,13 +15,14 @@ from .core.country import (
     set_new_country,
 )
 from .core.currency import (
+    CCY,
     ccypair,
     currency,
     currency_pair,
     currencydb,
     dump_currency_table,
 )
-from .core.daycounter import alldc, getdc
+from .core.daycounter import DayCounter
 from .dates.converters import (
     date2juldate,
     date2timestamp,
@@ -36,14 +38,14 @@ from .dates.futures import future_date_to_code, future_month_dict
 from .dates.period import Period, period
 
 __all__ = [
+    "CCY",
     "currency",
     "currencydb",
     "ccypair",
     "currency_pair",
     "dump_currency_table",
     #
-    "getdc",
-    "alldc",
+    "DayCounter",
     #
     "country",
     "countryccy",

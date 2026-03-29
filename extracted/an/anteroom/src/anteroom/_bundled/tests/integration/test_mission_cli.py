@@ -35,6 +35,7 @@ def _run_aroom(
     *args: str,
     timeout: int = 30,
     env_override: dict[str, str] | None = None,
+    input_text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run ``aroom`` CLI via subprocess and capture output."""
     import os
@@ -48,6 +49,7 @@ def _run_aroom(
         text=True,
         timeout=timeout,
         env=env,
+        input=input_text,
     )
 
 
@@ -434,7 +436,7 @@ class TestMissionCLICreateSpec:
         output = result.stdout + result.stderr
         # The mission title is the artifact name
         assert "auth" in output
-        assert "active" in output or "pending" in output
+        assert "active" in output
 
     def test_create_from_spec_then_status(self, tmp_path: Path) -> None:
         fqn = _seed_spec(tmp_path)
@@ -449,6 +451,8 @@ class TestMissionCLICreateSpec:
         assert session_id is not None, f"Could not extract session ID from: {create_output}"
         result = _run_aroom("mission", "status", session_id)
         output = result.stdout + result.stderr
+        assert "Status:" in output
+        assert "active" in output
         assert "Implement login endpoint" in output
         assert "3" in output  # 3 items
 
@@ -468,6 +472,25 @@ class TestMissionCLICreateSpec:
         output = result.stdout + result.stderr
         assert "Mission created" in output
         assert "workflow" in output
+
+    def test_create_from_spec_interactive_yes_sets_active(self, tmp_path: Path) -> None:
+        fqn = _seed_spec(tmp_path)
+        create_result = _run_aroom("mission", "create", "--spec", fqn, input_text="y\n")
+        create_output = create_result.stdout + create_result.stderr
+        assert create_result.returncode == 0
+        assert "Mission created" in create_output
+
+        session_id = None
+        for line in create_output.splitlines():
+            if "Mission created" in line:
+                session_id = line.split(":")[-1].strip()
+                break
+        assert session_id is not None, f"Could not extract session ID from: {create_output}"
+
+        result = _run_aroom("mission", "status", session_id)
+        output = result.stdout + result.stderr
+        assert "Status:" in output
+        assert "active" in output
 
 
 # ---------------------------------------------------------------------------

@@ -10,9 +10,9 @@ def svg(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    filter_glob: str | None = "*.svg",
-    directory: str | None = "",
+    filepath: str = "",
+    filter_glob: str = "*.svg",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:

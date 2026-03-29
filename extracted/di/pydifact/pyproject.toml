@@ -2,14 +2,13 @@
 name = "pydifact"
 dynamic = ["version"]
 authors = [{ name = "Christian González", email = "christian.gonzalez@nerdocs.at" }]
-license = { "file" = "LICENSE" }
+license = "MIT"
 description = "Pydifact is a library that aims to provide complete support for reading and writing EDIFACT files. These file format, despite being old, is still a standard in many business cases. In Austria e.g., it is used for the transfer of medical reports between medical doctors."
 readme = "README.md"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: Microsoft :: Windows",
@@ -17,10 +16,8 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Software Development :: Libraries"
 ]
-requires-python = ">=3.8"
-
-[dependencies]
-# none
+requires-python = ">=3.10"
+dependencies = []
 
 [project.optional-dependencies]
 dev = [
@@ -31,9 +28,15 @@ dev = [
     "Sphinx>=7.2.0",
     "setuptools>=69.1.0",
     "wheel>=0.42.0",
-    "black>=24.0.0",
-    "sphinx-rtd-theme>=2.0.0"
+    "black>=25.1.0",
+    "sphinx-rtd-theme>=2.0.0",
+    "build",
+    "twine",
+    "mypy>=1.15.0"
  ]
+
+[tool.black]
+target_version = ["py310", "py311", "py312", "py313"]
 
 [project.urls]
 Documentation = "https://pydifact.readthedocs.io"
@@ -46,3 +49,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]
 version = {attr = "pydifact.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["."]  # TODO use src layout
+include = ["pydifact*"]
+exclude = ["pydifact.generator*"]

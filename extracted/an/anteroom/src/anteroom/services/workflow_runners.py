@@ -24,7 +24,7 @@ class TranscriptCallback(Protocol):
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_WORKFLOW_AGENT_MAX_ITERATIONS = 100
+_DEFAULT_WORKFLOW_AGENT_MAX_ITERATIONS = 30
 
 
 def _trim_transcript_value(value: Any, max_chars: int) -> Any:

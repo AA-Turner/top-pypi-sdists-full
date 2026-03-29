@@ -67,10 +67,7 @@ def test_drawer_tooltip_formatting():
     assert drawer._format_tooltip("2024-01-01") == "2024-01-01"
 
     poster.tooltip_template = "{date} {value} for {type}"
-    assert (
-        drawer._format_tooltip("2024-01-01", 7, "run")
-        == "2024-01-01 7 for run"
-    )
+    assert drawer._format_tooltip("2024-01-01", 7, "run") == "2024-01-01 7 for run"
 
     poster.tooltip_by_date = {"2024-01-01": "Custom"}
     assert drawer._format_tooltip("2024-01-01", 5) == "Custom"

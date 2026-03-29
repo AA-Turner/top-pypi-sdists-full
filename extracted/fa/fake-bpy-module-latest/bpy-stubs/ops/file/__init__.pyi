@@ -97,7 +97,7 @@ def directory_new(
     undo: bool | None = None,
     /,
     *,
-    directory: str | None = "",
+    directory: str = "",
     open: bool | None = False,
     confirm: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -222,7 +222,7 @@ def filepath_drop(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "Path",
+    filepath: str = "Path",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
@@ -236,7 +236,7 @@ def find_missing_files(
     /,
     *,
     find_all: bool | None = False,
-    directory: str | None = "",
+    directory: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -503,7 +503,7 @@ def select_bookmark(
     undo: bool | None = None,
     /,
     *,
-    dir: str | None = "",
+    dir: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select a bookmarked directory
 
@@ -613,7 +613,7 @@ def unpack_item(
     *,
     method: typing.Literal["USE_LOCAL", "WRITE_LOCAL", "USE_ORIGINAL", "WRITE_ORIGINAL"]
     | None = "USE_LOCAL",
-    id_name: str | None = "",
+    id_name: str = "",
     id_type: int | None = 19785,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unpack this file to an external file

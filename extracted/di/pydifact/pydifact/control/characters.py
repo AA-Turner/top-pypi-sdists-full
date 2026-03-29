@@ -23,28 +23,38 @@
 
 from copy import copy
 
+from pydifact.exceptions import ValidationError
+
 
 class Characters:
     """A set of control characters to use."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        component_separator=None,
+        data_separator=None,
+        decimal_point=None,
+        escape_character=None,
+        reserved=None,
+        segment_terminator=None,
+    ):
         # The control character used to separate components.
-        self.component_separator = ":"
+        self.component_separator = component_separator or ":"
 
         # The control character used to separate data elements.
-        self.data_separator = "+"
+        self.data_separator = data_separator or "+"
 
         # The control character used as a decimal point.
-        self.decimal_point = ","
+        self.decimal_point = decimal_point or ","
 
         # The control character used as an escape character.
-        self.escape_character = "?"
+        self.escape_character = escape_character or "?"
 
         # Reserved for future use
-        self.reserved_character = " "
+        self.reserved_character = reserved or " "
 
         # The control character used as an segment terminator.
-        self.segment_terminator = "'"
+        self.segment_terminator = segment_terminator or "'"
 
         self.line_terminators = [" ", "\r", "\n"]
 
@@ -55,15 +65,18 @@ class Characters:
         """
         if string[0:3] == "UNA":
             string = string[3:9]
-        assert len(string) >= 6
+        if len(string) != 6:
+            raise ValidationError("Control character length must be 6.")
 
-        characters = cls()
-        characters.component_separator = string[0]
-        characters.data_separator = string[1]
-        characters.decimal_point = string[2]
-        characters.escape_character = string[3]
-        characters.reserved_character = string[4]
-        characters.segment_terminator = string[5]
+        characters = cls(
+            component_separator=string[0],
+            data_separator=string[1],
+            decimal_point=string[2],
+            escape_character=string[3],
+            reserved=string[4],
+            segment_terminator=string[5],
+        )
+        # characters.reserved_character = string[4]
         return characters
 
     def with_control_character(self, cc_type: str, char: str):
@@ -82,13 +95,12 @@ class Characters:
         # set the attribute dynamically.
         if not hasattr(self, cc_type):
             raise AttributeError(
-                "{} doesn't have an attribute with the name '{}'".format(self, cc_type)
+                f"{self} doesn't have an attribute with the name '{cc_type}'"
             )
 
         other = copy(self)
         setattr(other, cc_type, char)
 
-        # return clone
         return other
 
     @property
@@ -114,11 +126,11 @@ class Characters:
             + self.segment_terminator
         )
 
-    def __repr__(self):
-        return "'{}'".format(self.__str__())
+    def __repr__(self) -> str:
+        return str(self)
 
     def __eq__(self, other):
-        if type(other) == str:
+        if isinstance(other, str):
             other = Characters.from_str(other)
         return (
             (self.component_separator == other.component_separator)
@@ -128,3 +140,8 @@ class Characters:
             and (self.reserved_character == other.reserved_character)
             and (self.segment_terminator == other.segment_terminator)
         )
+
+    def __len__(self):
+        """Return the number of control characters in the string representation,
+        which is always 6"""
+        return 6

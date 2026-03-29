@@ -1,0 +1,64 @@
+name: build
+
+on:
+  push:
+    branches-ignore:
+      - deploy
+    tags-ignore:
+      - v*
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_ENV: ci
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+    - name: Install dependencies
+      run: uv sync --all-extras
+    - name: Install taplo
+      uses: uncenter/setup-taplo@v1
+    - name: run lint
+      run: make lint
+    - name: run tests
+      run: make test
+    - name: upload coverage reports to codecov
+      if: matrix.python-version == '3.14'
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./build/coverage.xml
+
+  book:
+    runs-on: ubuntu-latest
+    env:
+      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+    needs:
+      - build
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+    - name: Install dependencies
+      run: uv sync --all-extras --group book
+    - name: build docs
+      run: make docs
+    - name: publish docs
+      if: github.ref == 'refs/heads/main'
+      run: make publish-docs
+    - name: publish
+      if: ${{ github.ref == 'refs/heads/main' && github.event.head_commit.message == 'release' }}
+      run: make publish

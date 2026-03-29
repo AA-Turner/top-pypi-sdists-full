@@ -55,6 +55,12 @@ class TestSessionCRUD:
         assert fetched is not None
         assert fetched["title"] == "Get me"
 
+    def test_create_session_with_explicit_active_status(self, db: Any) -> None:
+        s = ms.create_session(db, title="Launch me", status="active")
+        fetched = ms.get_session(db, s["id"])
+        assert fetched is not None
+        assert fetched["status"] == "active"
+
     def test_get_session_not_found(self, db: Any) -> None:
         assert ms.get_session(db, "nonexistent") is None
 

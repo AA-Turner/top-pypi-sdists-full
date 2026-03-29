@@ -100,7 +100,7 @@ def camera_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
     use_focal_length: bool | None = True,
@@ -626,7 +626,7 @@ def open(
     undo: bool | None = None,
     /,
     *,
-    directory: str | None = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     hide_props_region: bool | None = True,
@@ -1178,7 +1178,7 @@ def track_color_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -1270,7 +1270,7 @@ def tracking_settings_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:

@@ -48,7 +48,7 @@ class Controls:  # pylint: disable=[R0903]
             raise TypeError(f"The 'name' argument must be a string, got {type(name).__name__}")
         self._utils.is_control_exist(name)
 
-        if column:
+        if column is not None:
             if name.lower() == 'position':
                 return f'{self._ESC}{row};{column}{self._CONTROLS[name.lower()]}'
 

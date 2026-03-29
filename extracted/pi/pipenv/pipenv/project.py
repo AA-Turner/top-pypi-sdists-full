@@ -62,6 +62,7 @@ from pipenv.utils.pylock import PylockFile, find_pylock_file
 from pipenv.utils.project import get_default_pyproject_backend
 from pipenv.utils.requirements import normalize_name
 from pipenv.utils.shell import (
+    expand_url_credentials,
     find_requirements,
     find_windows_executable,
     get_workon_home,
@@ -99,6 +100,7 @@ if is_type_checking():
 
 DEFAULT_NEWLINES = "\n"
 NON_CATEGORY_SECTIONS = {
+    "build-system",
     "pipenv",
     "requires",
     "scripts",
@@ -355,10 +357,6 @@ class Project:
                 collected_hashes.add(release["digests"][FAVORITE_HASH])
             return self.prepend_hash_types(collected_hashes, FAVORITE_HASH)
         except (ValueError, KeyError, ConnectionError):
-            if self.s.is_verbose():
-                err.print(
-                    f"[bold][red]Warning[/red][/bold]: Error generating hash for {ireq.name}."
-                )
             return None
 
     def get_hashes_from_remote_index_urls(self, ireq, source):
@@ -421,10 +419,6 @@ class Project:
             return self.prepend_hash_types(collected_hashes, FAVORITE_HASH)
 
         except Exception:
-            if self.s.is_verbose():
-                err.print(
-                    f"[bold red]Warning[/bold red]: Error generating hash for {ireq.name}"
-                )
             return None
 
     @staticmethod
@@ -823,6 +817,26 @@ class Project:
         return self._build_system.get("build-backend", get_default_pyproject_backend())
 
     @property
+    def pipfile_build_requires(self) -> list[str]:
+        """Returns a list of build-system requirements from the Pipfile [build-system] section.
+
+        Reads the 'requires' key from the [build-system] section of the Pipfile.
+        This allows specifying packages that must be installed before other packages
+        can be resolved or installed (e.g., custom setuptools wrappers used in setup.py).
+
+        Example Pipfile::
+
+            [build-system]
+            requires = ["stwrapper", "setuptools>=40.8.0", "wheel"]
+
+        Returns an empty list if no [build-system] section or requires key is present.
+        """
+        if not self.pipfile_exists:
+            return []
+        build_system = self.parsed_pipfile.get("build-system", {})
+        return list(build_system.get("requires", []))
+
+    @property
     def settings(self) -> tomlkit.items.Table | dict[str, str | bool]:
         """A dictionary of the settings added to the Pipfile."""
         return self.parsed_pipfile.get("pipenv", {})
@@ -864,6 +878,14 @@ class Project:
                 lockfile_loaded = True
             except LockfileCorruptException:
                 raise
+            except Exception:
+                pass
+        if not lockfile_loaded and self.pylock_exists:
+            # Try loading from pylock.toml when Pipfile.lock isn't available.
+            try:
+                pylock = PylockFile.from_path(self.pylock_location)
+                lockfile = pylock.convert_to_pipenv_lockfile()
+                lockfile_loaded = True
             except Exception:
                 pass
         if not lockfile_loaded:
@@ -909,6 +931,11 @@ class Project:
     @property
     def lockfile_exists(self):
         return Path(self.lockfile_location).is_file()
+
+    @property
+    def any_lockfile_exists(self):
+        """Returns True if either Pipfile.lock or pylock.toml exists."""
+        return self.lockfile_exists or self.pylock_exists
 
     @property
     def lockfile_content(self):
@@ -993,7 +1020,19 @@ class Project:
         # Default requires.
         required_python = python
         if not python:
-            required_python = self.which("python")
+            # When the virtualenv already exists (created moments ago by
+            # ensure_virtualenv, or pre-existing), ask *its* interpreter for
+            # the version.  Using self.which("python") instead resolves
+            # "python" via PATH / pyenv shims and can return a *different*
+            # Python than the one actually inside the virtualenv (e.g. the
+            # pyenv global vs. the highest installed version that
+            # find_all_python_versions() chose).  That disagreement causes a
+            # spurious "Pipfile requires X but you are using Y" warning on
+            # every subsequent pipenv invocation.  See GH-6571.
+            if self.virtualenv_exists:
+                required_python = self._which("python") or self.which("python")
+            else:
+                required_python = self.which("python")
         version = python_version(required_python) or self.s.PIPENV_DEFAULT_PYTHON_VERSION
         if version:
             data["requires"] = {"python_version": ".".join(version.split(".")[:2])}
@@ -1033,6 +1072,22 @@ class Project:
                 lockfile = Req_Lockfile.from_data(
                     self.lockfile_location, self.lockfile_content
                 )
+        elif self.pylock_exists:
+            # Load from pylock.toml when no Pipfile.lock exists.
+            # lockfile_content already handles pylock.toml → internal format conversion.
+            lockfile_dict = self.lockfile_content.copy()
+            sources = lockfile_dict.get("_meta", {}).get("sources", [])
+            if not sources and self.pipfile_exists:
+                sources = self.pipfile_sources(expand_vars=False)
+            elif not isinstance(sources, list):
+                sources = [sources]
+            if sources:
+                lockfile_dict["_meta"]["sources"] = [
+                    self.populate_source(s) for s in sources
+                ]
+            lockfile = Req_Lockfile.from_data(
+                path=self.lockfile_location, data=lockfile_dict, meta_from_project=False
+            )
         else:
             lockfile = Req_Lockfile.from_data(
                 path=self.lockfile_location,
@@ -1041,14 +1096,17 @@ class Project:
             )
         if lockfile.lockfile is not None:
             return lockfile
-        if self.lockfile_exists and self.lockfile_content:
+        if self.any_lockfile_exists and self.lockfile_content:
             lockfile_dict = self.lockfile_content.copy()
             sources = lockfile_dict.get("_meta", {}).get("sources", [])
-            if not sources:
+            if not sources and self.pipfile_exists:
                 sources = self.pipfile_sources(expand_vars=False)
             elif not isinstance(sources, list):
                 sources = [sources]
-            lockfile_dict["_meta"]["sources"] = [self.populate_source(s) for s in sources]
+            if sources:
+                lockfile_dict["_meta"]["sources"] = [
+                    self.populate_source(s) for s in sources
+                ]
             _created_lockfile = Req_Lockfile.from_data(
                 path=self.lockfile_location, data=lockfile_dict, meta_from_project=False
             )
@@ -1152,8 +1210,18 @@ class Project:
                 sources[0]["url"] = os.environ["PIPENV_PYPI_MIRROR"]
             return sources
         # Expand environment variables in the source URLs.
+        # For the "url" field we use expand_url_credentials() which URL-encodes
+        # the expanded credential values so that passwords with special characters
+        # (e.g. '@', ':', '%') produce a valid URL (#4868).
         sources = [
-            {k: safe_expandvars(v) if expand_vars else v for k, v in source.items()}
+            {
+                k: (
+                    (expand_url_credentials(v) if k == "url" else safe_expandvars(v))
+                    if expand_vars
+                    else v
+                )
+                for k, v in source.items()
+            }
             for source in self.parsed_pipfile["source"]
         ]
         for source in sources:
@@ -1176,7 +1244,7 @@ class Project:
 
     @property
     def sources(self):
-        if self.lockfile_exists and hasattr(self.lockfile_content, "keys"):
+        if self.any_lockfile_exists and hasattr(self.lockfile_content, "keys"):
             meta_ = self.lockfile_content.get("_meta", {})
             sources_ = meta_.get("sources")
             if sources_:
@@ -1232,9 +1300,15 @@ class Project:
         sources = (self.sources, self.pipfile_sources())
         if refresh:
             sources = reversed(sources)
-        found = next(
-            iter(find_source(source, name=name, url=url) for source in sources), None
-        )
+        # Iterate explicitly so that a None result from the first source list
+        # does not short-circuit the search in the second list.
+        # (Avoids the walrus operator to stay compatible with Python 3.7.)
+        found = None
+        for _src in sources:
+            _result = find_source(_src, name=name, url=url)
+            if _result is not None:
+                found = _result
+                break
         target = next(iter(t for t in (name, url) if t is not None))
         if found is None:
             raise SourceNotFound(target)
@@ -1641,11 +1715,22 @@ class Project:
             j = {}
 
         if not j.get("_meta"):
-            with pipfile_path.open() as pf:
-                default_lockfile = plette.Lockfile.with_meta_from(
-                    plette.Pipfile.load(pf), categories=[]
-                )
-                j["_meta"] = default_lockfile._data["_meta"]
+            if pipfile_path.exists():
+                with pipfile_path.open() as pf:
+                    default_lockfile = plette.Lockfile.with_meta_from(
+                        plette.Pipfile.load(pf), categories=[]
+                    )
+                    j["_meta"] = default_lockfile._data["_meta"]
+                    lockfile_modified = True
+            else:
+                # No Pipfile available; provide minimal _meta so callers
+                # don't break.  This can happen when only pylock.toml exists.
+                j["_meta"] = {
+                    "hash": {"sha256": ""},
+                    "pipfile-spec": 6,
+                    "requires": {},
+                    "sources": [],
+                }
                 lockfile_modified = True
 
         if j.get("default") is None:
@@ -1661,9 +1746,10 @@ class Project:
 
         if expand_env_vars:
             # Expand environment variables in Pipfile.lock at runtime.
+            # Use expand_url_credentials() so that passwords with special
+            # characters are URL-encoded after expansion (#4868).
             for i, _ in enumerate(j["_meta"].get("sources", {})):
-                # Path doesn't have expandvars method, so we need to use os.path.expandvars
-                j["_meta"]["sources"][i]["url"] = os.path.expandvars(
+                j["_meta"]["sources"][i]["url"] = expand_url_credentials(
                     j["_meta"]["sources"][i]["url"]
                 )
 
@@ -1685,10 +1771,64 @@ class Project:
         return ""
 
     def calculate_pipfile_hash(self):
-        # Update the lockfile if it is out-of-date.
+        """Compute a SHA-256 hash of the Pipfile that is stable regardless of
+        package-name casing or separator style (PEP 503 / #4699).
+
+        ``Sphinx`` and ``sphinx``, ``my_pkg`` and ``my-pkg``, etc. all hash to
+        the same value so that minor edits to a Pipfile that don't change the
+        resolved environment don't trigger unnecessary re-locks.
+
+        The hash algorithm mirrors plette's ``Pipfile.get_hash()`` exactly,
+        except that every package-name key in ``[packages]``, ``[dev-packages]``
+        and any custom categories is replaced by its PEP 503 canonical form
+        before serialisation.
+        """
+        import hashlib
+        import json
+
+        from pipenv.patched.pip._vendor.packaging.utils import canonicalize_name
+
+        _PIPFILE_SECTIONS = frozenset(
+            (
+                "source",
+                "packages",
+                "dev-packages",
+                "requires",
+                "scripts",
+                "pipfile",
+                "pipenv",
+            )
+        )
+
+        def _normalize_section(section):
+            """Return a new dict with all keys canonicalized (PEP 503)."""
+            return {canonicalize_name(k): v for k, v in section.items()}
+
         with open(self.pipfile_location) as pf:
             p = plette.Pipfile.load(pf)
-        return p.get_hash().value
+
+        raw = p._data
+        data = {
+            "_meta": {
+                "sources": raw.get("source", {}),
+                "requires": raw.get("requires", {}),
+            },
+            "default": _normalize_section(raw.get("packages", {})),
+            "develop": _normalize_section(raw.get("dev-packages", {})),
+        }
+        for category, values in raw.items():
+            if category in _PIPFILE_SECTIONS or category in (
+                "default",
+                "develop",
+                "pipenv",
+            ):
+                continue
+            data[category] = _normalize_section(values)
+
+        content = json.dumps(data, sort_keys=True, separators=(",", ":"))
+        if isinstance(content, str):
+            content = content.encode("utf-8")
+        return hashlib.sha256(content).hexdigest()
 
     def ensure_proper_casing(self):
         """Ensures proper casing of Pipfile packages"""

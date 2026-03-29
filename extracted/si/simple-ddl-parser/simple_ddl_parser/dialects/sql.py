@@ -33,32 +33,80 @@ class AfterColumns:
         | expr PARTITION BY pid
         | expr PARTITION BY id pid
         | expr PARTITION BY id LP pid COMMA f_call RP
+        | expr PARTITION BY LP pid RP partition_definition_block
+        | expr PARTITION BY id LP pid RP partition_definition_block
+        | expr PARTITION BY pid partition_definition_block
+        | expr PARTITION BY id pid partition_definition_block
+        | expr PARTITION BY id LP pid COMMA f_call RP partition_definition_block
         """
         p[0] = p[1]
-        p_list = remove_par(list(p))
+        p_list = list(p)
+        if isinstance(p_list[-1], dict) and p_list[-1].get("partition_definitions"):
+            p_list = p_list[:-1]
         _type, range, trunc_by = None, None, None
 
-        if isinstance(p_list[4], list):
+        if len(p_list) == 5:
             columns = p_list[4]
-        elif "_TRUNC" in p_list[4]:
-            # bigquery
+        elif len(p_list) == 6:
             _type = p_list[4]
-            trunc_by = p_list[5][-1]
-            p_list[5].pop(-1)
             columns = p_list[5]
-        elif p_list[4].upper() == "RANGE_BUCKET":
-            # bigquery RANGE_BUCKET with GENERATE_ARRAY
+        elif len(p_list) == 7:
+            columns = p_list[5]
+        elif len(p_list) == 8:
             _type = p_list[4]
-            columns, range = self._parse_range_bucket(p_list[5:])
+            columns = p_list[6]
+            if isinstance(_type, str) and "_TRUNC" in _type:
+                trunc_by = columns[-1]
+                columns = columns[:-1]
+            elif isinstance(_type, str) and _type.upper() == "RANGE_BUCKET":
+                columns, range = self._parse_range_bucket(columns)
+        elif len(p_list) == 10:
+            _type = p_list[4]
+            if isinstance(p_list[4], str) and "_TRUNC" in p_list[4]:
+                trunc_by = p_list[7][-1]
+                p_list[6].pop(-1)
+                columns = p_list[6]
+            elif isinstance(p_list[4], str) and p_list[4].upper() == "RANGE_BUCKET":
+                columns, range = self._parse_range_bucket([p_list[6], ",", p_list[8]])
+            else:
+                columns = p_list[6]
         else:
             columns = p_list[-1]
-        if not _type and isinstance(p_list[4], str):
-            _type = p_list[4]
+        if (
+            _type is None
+            and isinstance(columns, list)
+            and len(columns) == 1
+            and isinstance(columns[0], dict)
+            and columns[0].get("func_name")
+            and columns[0].get("args")
+        ):
+            _type = columns[0]["func_name"]
+            columns = [columns[0]["args"][1:-1]]
         p[0]["partition_by"] = {"columns": columns, "type": _type}
         if range:
             p[0]["partition_by"]["range"] = range
         if trunc_by:
             p[0]["partition_by"]["trunc_by"] = trunc_by
+
+    def p_partition_definition_block(self, p: List) -> None:
+        """partition_definition_block : LP partition_definition_items RP"""
+        p[0] = {"partition_definitions": True}
+
+    def p_partition_definition_items(self, p: List) -> None:
+        """partition_definition_items : partition_definition_item
+        | partition_definition_items partition_definition_item
+        """
+        p[0] = None
+
+    def p_partition_definition_item(self, p: List) -> None:
+        """partition_definition_item : id
+        | STRING
+        | WITH
+        | EQ
+        | COMMA
+        | LP partition_definition_items RP
+        """
+        p[0] = None
 
 
 class Database:
@@ -153,6 +201,19 @@ class TableSpaces:
 
 
 class Table:
+    @staticmethod
+    def extract_default_charset_properties(data: Dict) -> Dict:
+        normalized = dict(data)
+        default_charset = (
+            normalized.pop("CHARSET", None)
+            or normalized.pop("charset", None)
+            or normalized.pop("CHARACTER", None)
+            or normalized.pop("character", None)
+        )
+        if default_charset:
+            normalized["default_charset"] = default_charset
+        return normalized
+
     @staticmethod
     def add_if_not_exists(data: Dict, p_list: List):
         if "EXISTS" in p_list:
@@ -301,6 +362,7 @@ class Column:
         _type = _type.strip().replace(" . ", ".")
 
         _type = self.process_array_types(_type, p_list)
+        _type = self.restore_inner_type_comments(_type)
         return _type
 
     @staticmethod
@@ -745,18 +807,32 @@ class Schema:
 class Drop:
     def p_expression_drop_table(self, p: List) -> None:
         """expr : DROP TABLE id
+        | DROP TABLE IF EXISTS id
         | DROP TABLE id DOT id
+        | DROP TABLE IF EXISTS id DOT id
+        | TRUNCATE TABLE id
+        | TRUNCATE TABLE id DOT id
         """
         # get schema & table name
         p_list = list(p)
         schema = None
-        if len(p) > 4:
-            if "." in p:
-                schema = p_list[-3]
-                table_name = p_list[-1]
+        if "." in p:
+            schema = p_list[-3]
+            table_name = p_list[-1]
         else:
             table_name = p_list[-1]
         p[0] = {"schema": schema, "table_name": table_name}
+        if "IF" in p_list and "EXISTS" in p_list:
+            p[0]["if_exists"] = True
+
+    def p_expression_drop_database(self, p: List) -> None:
+        """expr : DROP DATABASE id
+        | DROP DATABASE IF EXISTS id
+        """
+        p_list = list(p)
+        p[0] = {"drop_database_name": p_list[-1]}
+        if "IF" in p_list and "EXISTS" in p_list:
+            p[0]["if_exists"] = True
 
 
 class Type:
@@ -876,30 +952,92 @@ class AlterTable:
     def p_expression_alter(self, p: List) -> None:
         """expr : alter_foreign ref
         | alter_drop_column
+        | alter_drop_foreign
         | alter_check
         | alter_unique
         | alter_default
         | alter_primary_key
         | alter_primary_key using_tablespace
         | alter_column_add
+        | alter_auto_increment
         | alter_rename_column
         | alter_column_sql_server
         | alter_column_modify
         | alter_column_modify_oracle
+        | alter_column_change
         """
         p[0] = p[1]
         if len(p) == 3:
             p[0].update(p[2])
 
+    @staticmethod
+    def init_altered_column(column_data: Dict) -> Dict:
+        column = dict(column_data)
+        column.setdefault("references", None)
+        column.setdefault("unique", False)
+        column.setdefault("primary_key", False)
+        column.setdefault("nullable", True)
+        column.setdefault("default", None)
+        column.setdefault("check", None)
+        return column
+
+    @staticmethod
+    def apply_modifier_to_altered_column(column: Dict, modifier: Dict) -> None:
+        if "property" in modifier:
+            for key, value in modifier["property"].items():
+                if key == "SET" and "CHARACTER" in column["type"].upper():
+                    column["type"] = column["type"].split("CHARACTER")[0].strip()
+                    key = "character_set"
+                column[key] = value
+            return
+
+        column.update(modifier)
+
     def p_alter_column_modify(self, p: List) -> None:
-        """alter_column_modify : alt_table MODIFY COLUMN defcolumn
-        | alter_column_modify COMMA MODIFY COLUMN defcolumn
+        """alter_column_modify : alt_table MODIFY COLUMN column
+        | alter_column_modify COMMA MODIFY COLUMN column
+        | alter_column_modify null
+        | alter_column_modify default
+        | alter_column_modify collate
+        | alter_column_modify c_property
+        | alter_column_modify comment
+        | alter_column_modify on_update
+        | alter_column_modify autoincrement
         """
         p[0] = p[1]
         p_list = list(p)
         if not p[0].get("columns_to_modify"):
             p[0]["columns_to_modify"] = []
-        p[0]["columns_to_modify"].append(p_list[-1])
+        if isinstance(p_list[-1], dict) and "name" in p_list[-1]:
+            p[0]["columns_to_modify"].append(self.init_altered_column(p_list[-1]))
+        else:
+            self.apply_modifier_to_altered_column(
+                p[0]["columns_to_modify"][-1], p_list[-1]
+            )
+
+    def p_alter_column_change(self, p: List) -> None:
+        """alter_column_change : alt_table CHANGE id column
+        | alter_column_change COMMA CHANGE id column
+        | alter_column_change null
+        | alter_column_change default
+        | alter_column_change collate
+        | alter_column_change c_property
+        | alter_column_change comment
+        | alter_column_change on_update
+        | alter_column_change autoincrement
+        """
+        p[0] = p[1]
+        p_list = list(p)
+        if not p[0].get("columns_to_modify"):
+            p[0]["columns_to_modify"] = []
+        if isinstance(p_list[-1], dict) and "name" in p_list[-1]:
+            changed_column = self.init_altered_column(p_list[-1])
+            changed_column["old_name"] = p_list[-2]
+            p[0]["columns_to_modify"].append(changed_column)
+        else:
+            self.apply_modifier_to_altered_column(
+                p[0]["columns_to_modify"][-1], p_list[-1]
+            )
 
     def p_alter_drop_column(self, p: List) -> None:
         """alter_drop_column : alt_table DROP COLUMN id
@@ -912,6 +1050,16 @@ class AlterTable:
         if not p[0].get("columns_to_drop"):
             p[0]["columns_to_drop"] = []
         p[0]["columns_to_drop"].append(p_list[-1])
+
+    def p_alter_drop_foreign(self, p: List) -> None:
+        """alter_drop_foreign : alt_table DROP FOREIGN KEY id
+        | alter_drop_foreign COMMA DROP FOREIGN KEY id
+        """
+        p[0] = p[1]
+        p_list = list(p)
+        if not p[0].get("foreign_keys_to_drop"):
+            p[0]["foreign_keys_to_drop"] = []
+        p[0]["foreign_keys_to_drop"].append(p_list[-1])
 
     def p_alter_rename_column(self, p: List) -> None:
         """alter_rename_column : alt_table RENAME COLUMN id id id"""
@@ -930,6 +1078,11 @@ class AlterTable:
         if not p[0].get("columns"):
             p[0]["columns"] = []
         p[0]["columns"].append(p_list[-1])
+
+    def p_alter_auto_increment(self, p: List) -> None:
+        """alter_auto_increment : alt_table AUTOINCREMENT EQ id"""
+        p[0] = p[1]
+        p[0]["auto_increment"] = p[4]
 
     def p_alter_primary_key(self, p: List) -> None:
         """alter_primary_key : alt_table ADD PRIMARY KEY LP pid RP
@@ -970,14 +1123,30 @@ class AlterTable:
 
     def p_alter_default(self, p: List) -> None:
         """alter_default : alt_table DEFAULT id
+        | alt_table DEFAULT id_equals
         | alt_table ADD constraint DEFAULT id
         | alt_table ADD DEFAULT STRING
         | alt_table ADD constraint DEFAULT STRING
         | alter_default id
+        | alter_default collate
         | alter_default FOR pid
         """
+        p_list = list(p)
         p[0] = p[1]
+        if isinstance(p_list[-1], dict):
+            charset_data = self.extract_default_charset_properties(p_list[-1])
+            if charset_data.get("default_charset") or charset_data.get("collate"):
+                p[0].update(charset_data)
+                return
+
         column, value = self.get_column_and_value_from_alter(p)
+        if column is None and isinstance(value, str):
+            charset_match = re.match(
+                r"^CHARACTER\s+SET\s+(.+)$", value, flags=re.IGNORECASE
+            )
+            if charset_match:
+                p[0]["default_charset"] = charset_match.group(1)
+                return
 
         if "default" not in p[0]:
             p[0]["default"] = {
@@ -992,7 +1161,7 @@ class AlterTable:
                     "value": value or p[0]["default"].get("value"),
                 }
             )
-        if "constraint" in p[3]:
+        if len(p) > 3 and isinstance(p[3], dict) and "constraint" in p[3]:
             p[0]["default"]["constraint_name"] = p[3]["constraint"]["name"]
 
     def p_alter_check(self, p: List) -> None:
@@ -1034,7 +1203,7 @@ class AlterTable:
     def p_alt_table_name(self, p: List) -> None:
         """alt_table : ALTER TABLE t_name
         | ALTER TABLE IF EXISTS t_name
-        | ALTER TABLE ID t_name"""
+        | ALTER TABLE ONLY t_name"""
         p_list = list(p)
         table_data = p_list[-1]
         p[0] = {
@@ -1057,7 +1226,7 @@ class Comment:
         if isinstance(p[1], str) and p[1].upper() == "NULL":
             p[0] = None
         else:
-            p[0] = p[1][1:-1].replace("''", "'")
+            p[0] = check_spec(p[1]).replace("pars_m_n", r"\n")[1:-1].replace("''", "'")
 
     def p_expression_comment_on(self, p: List):
         """expr : COMMENT ON TABLE id IS comment_value
@@ -1185,10 +1354,19 @@ class BaseSQL(
         | id EQ ID LP pid RP ID
         | id EQ LP RP
         | id EQ STRING_BASE
+        | id SET id_or_string
+        | id SET EQ id_or_string
+        | id SET id_or_string collate
+        | id SET EQ id_or_string collate
         """
         p_list = list(p)
 
-        if p_list[-1] not in [")", "]"]:
+        if "SET" in p_list:
+            property_name = "CHARSET" if p[1].upper() == "CHARACTER" else p[1]
+            p[0] = {property_name: p_list[-1]}
+            if isinstance(p_list[-1], dict):
+                p[0] = {property_name: p_list[-2], **p_list[-1]}
+        elif p_list[-1] not in [")", "]"]:
             p[0] = {p[1]: p_list[-1]}
         else:
             if len(p_list) > 6 and isinstance(p_list[5], list):
@@ -1226,6 +1404,10 @@ class BaseSQL(
     def p_c_index(self, p: List) -> None:
         """c_index : INDEX LP index_pid RP
         | INDEX id LP index_pid RP
+        | KEY LP index_pid RP
+        | KEY id LP index_pid RP
+        | UNIQUE INDEX LP index_pid RP
+        | UNIQUE INDEX id LP index_pid RP
         | c_index INVISIBLE
         | c_index VISIBLE"""
         p_list = remove_par(p_list=list(p))
@@ -1233,14 +1415,21 @@ class BaseSQL(
             p[0] = p_list[1]
             p[0]["details"] = {p_list[-1].lower(): True}
         else:
-            if len(p_list) == 3:
+            if len(p) in {5, 6} and p[1] in {"INDEX", "KEY"}:
+                name = p[2] if len(p) == 6 else None
+            elif p[1] == "UNIQUE":
+                name = p[3] if len(p) == 7 else None
+            elif len(p_list) in {3, 4}:
                 name = None
             else:
-                name = p_list[2]
+                name = p_list[3] if p_list[1] == "UNIQUE" else p_list[2]
             p[0] = {
                 "index_stmt": True,
                 "name": name,
-                "columns": p_list[-1]["detailed_columns"],
+                "columns": p_list[-1]["columns"],
+                "detailed_columns": p_list[-1]["detailed_columns"],
+                "unique": "UNIQUE" in p_list,
+                "keyword": p[1] if p[1] != "UNIQUE" else "INDEX",
             }
 
     def p_create_index(self, p: List) -> None:
@@ -1319,22 +1508,9 @@ class BaseSQL(
                     p[0]["index"] = []
                 index_data = p_list[-1]
                 index_columns = index_data["columns"]
-                if (
-                    isinstance(index_columns, list)
-                    and index_columns
-                    and isinstance(index_columns[0], dict)
-                ):
-                    columns = [index_columns]
-                    detailed_columns = [
-                        {
-                            "name": index_columns,
-                            "nulls": "LAST",
-                            "order": "ASC",
-                        }
-                    ]
-                elif isinstance(index_columns, list):
+                if isinstance(index_columns, list):
                     columns = index_columns
-                    detailed_columns = [
+                    detailed_columns = index_data.get("detailed_columns") or [
                         {"name": col, "nulls": "LAST", "order": "ASC"}
                         for col in index_columns
                     ]
@@ -1352,7 +1528,7 @@ class BaseSQL(
                     "columns": columns,
                     "detailed_columns": detailed_columns,
                     "index_name": index_data["name"],
-                    "unique": False,
+                    "unique": index_data.get("unique", False),
                 }
                 _index.update(index_data.get("details", {}))
                 p[0]["index"].append(_index)
@@ -1363,10 +1539,14 @@ class BaseSQL(
                 p[0].update({"primary_key_enforced": p_list[-1]["enforced"]})
             elif "DEFAULT" in p_list:
                 if isinstance(p_list[-1], dict):
-                    value = p_list[-1].get("CHARSET") or p_list[-1].get("charset")
+                    charset_data = self.extract_default_charset_properties(p_list[-1])
+                    value = charset_data.pop("default_charset", None)
                 else:
                     value = p_list[-1]
+                    charset_data = {}
                 p[0].update({"default_charset": value})
+                if charset_data:
+                    p[0].update(charset_data)
             elif isinstance(p_list[-1], dict):
                 p[0].update(p_list[-1])
 
@@ -2008,25 +2188,36 @@ class BaseSQL(
     def p_pid(self, p: List) -> None:
         """pid :  id
         | STRING
+        | id LP id RP
         | pid id
         | pid STRING
         | STRING LP RP
         | id LP RP
         | pid COMMA id
+        | pid COMMA id LP id RP
         | pid COMMA STRING
         """
         p_list = list(p)
 
         if len(p_list) == 4 and isinstance(p[1], str):
             p[0] = ["".join(p[1:])]
+        elif len(p_list) == 5 and isinstance(p[1], str):
+            if str(p[3]).isnumeric():
+                p[0] = [p[1]]
+            else:
+                p[0] = [{"func_name": p[1], "args": f"({p[3]})"}]
         elif not isinstance(p_list[1], list):
             p[0] = [p_list[1]]
         else:
             p[0] = p_list[1]
-            p[0].append(p_list[-1])
+            if len(p_list) == 7:
+                p[0].append(p_list[3])
+            else:
+                p[0].append(p_list[-1])
 
     def p_index_pid(self, p: List) -> None:
         """index_pid :  id
+        | id LP id RP
         | index_pid id
         | index_pid COMMA index_pid
         """
@@ -2035,6 +2226,14 @@ class BaseSQL(
             detailed_column = {"name": p_list[1], "order": "ASC", "nulls": "LAST"}
             column = p_list[1]
             p[0] = {"detailed_columns": [detailed_column], "columns": [column]}
+        elif len(p_list) == 5:
+            detailed_column = {
+                "name": p_list[1],
+                "order": "ASC",
+                "nulls": "LAST",
+                "length": int(p_list[3]) if str(p_list[3]).isnumeric() else p_list[3],
+            }
+            p[0] = {"detailed_columns": [detailed_column], "columns": [p_list[1]]}
         else:
             p[0] = p[1]
             if len(p) == 3:
@@ -2053,9 +2252,10 @@ class BaseSQL(
     def p_foreign(self, p):
         # todo: need to redone id lists
         """foreign : FOREIGN KEY LP pid RP
+        | FOREIGN KEY id LP pid RP
         | FOREIGN KEY"""
         p_list = remove_par(list(p))
-        if len(p_list) == 4:
+        if isinstance(p_list[-1], list):
             columns = p_list[-1]
             p[0] = columns
 
@@ -2125,6 +2325,7 @@ class BaseSQL(
     def p_uniq(self, p: List) -> None:
         """uniq : UNIQUE LP pid RP
         | UNIQUE id LP pid RP
+        | UNIQUE KEY LP pid RP
         | UNIQUE KEY id LP pid RP
         """
         p_list = remove_par(list(p))

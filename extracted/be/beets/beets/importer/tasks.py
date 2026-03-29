@@ -27,7 +27,9 @@ from typing import TYPE_CHECKING, Any
 
 import mediafile
 
-from beets import autotag, config, library, plugins, util
+from beets import config, library, plugins, util
+from beets.autotag.hooks import AlbumMatch
+from beets.autotag.match import tag_album, tag_item
 from beets.dbcore.query import PathQuery
 
 from .state import ImportState
@@ -35,6 +37,7 @@ from .state import ImportState
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
+    from beets.autotag.hooks import TrackMatch
     from beets.autotag.match import Recommendation
 
     from .session import ImportSession
@@ -159,12 +162,12 @@ class ImportTask(BaseImportTask):
     """
 
     choice_flag: Action | None = None
-    match: autotag.AlbumMatch | autotag.TrackMatch | None = None
+    match: AlbumMatch | TrackMatch | None = None
 
     # Keep track of the current task item
     cur_album: str | None = None
     cur_artist: str | None = None
-    candidates: Sequence[autotag.AlbumMatch | autotag.TrackMatch] = []
+    candidates: Sequence[AlbumMatch | TrackMatch] | None = None
     rec: Recommendation | None = None
 
     def __init__(
@@ -178,9 +181,7 @@ class ImportTask(BaseImportTask):
         self.should_merge_duplicates = False
         self.is_album = True
 
-    def set_choice(
-        self, choice: Action | autotag.AlbumMatch | autotag.TrackMatch
-    ):
+    def set_choice(self, choice: Action | AlbumMatch | TrackMatch):
         """Given an AlbumMatch or TrackMatch object or an action constant,
         indicates that an action has been selected for this task.
 
@@ -249,19 +250,16 @@ class ImportTask(BaseImportTask):
         if self.choice_flag in (Action.ASIS, Action.RETAG):
             return self.items
         elif self.choice_flag == Action.APPLY and isinstance(
-            self.match, autotag.AlbumMatch
+            self.match, AlbumMatch
         ):
             return self.match.items
         else:
             return []
 
-    def apply_metadata(self):
+    def apply_metadata(self) -> None:
         """Copy metadata from match info to the items."""
-        if config["import"]["from_scratch"]:
-            for item in self.match.items:
-                item.clear()
-
-        autotag.apply_metadata(self.match.info, self.match.item_info_pairs)
+        if self.match:  # TODO: redesign to remove the conditional
+            self.match.apply_metadata()
 
     def duplicate_items(self, lib: library.Library):
         duplicate_items = []
@@ -366,7 +364,7 @@ class ImportTask(BaseImportTask):
         restricted to only those IDs.
         """
         self.cur_artist, self.cur_album, (self.candidates, self.rec) = (
-            autotag.tag_album(self.items, search_ids=search_ids)
+            tag_album(self.items, search_ids=search_ids)
         )
 
     def find_duplicates(self, lib: library.Library) -> list[library.Album]:
@@ -430,14 +428,17 @@ class ImportTask(BaseImportTask):
         elif self.choice_flag in (Action.APPLY, Action.RETAG):
             # Applying autotagged metadata. Just get AA from the first
             # item.
-            if not self.items[0].albumartist:
-                changes["albumartist"] = self.items[0].artist
-            if not self.items[0].albumartists:
-                changes["albumartists"] = self.items[0].artists
-            if not self.items[0].mb_albumartistid:
-                changes["mb_albumartistid"] = self.items[0].mb_artistid
-            if not self.items[0].mb_albumartistids:
-                changes["mb_albumartistids"] = self.items[0].mb_artistids
+            first = self.items[0]
+            if not first.albumartist:
+                changes["albumartist"] = first.artist
+            if not first.albumartists:
+                changes["albumartists"] = first.artists or [first.artist]
+            if not first.mb_albumartistid:
+                changes["mb_albumartistid"] = first.mb_artistid
+            if not first.mb_albumartistids:
+                changes["mb_albumartistids"] = first.mb_artistids or [
+                    first.mb_artistid
+                ]
 
         # Apply new metadata.
         for item in self.items:
@@ -500,13 +501,13 @@ class ImportTask(BaseImportTask):
 
             self.album = lib.add_album(self.imported_items())
             if self.choice_flag == Action.APPLY and isinstance(
-                self.match, autotag.AlbumMatch
+                self.match, AlbumMatch
             ):
                 # Copy album flexible fields to the DB
                 # TODO: change the flow so we create the `Album` object earlier,
                 #   and we can move this into `self.apply_metadata`, just like
                 #   is done for tracks.
-                autotag.apply_album_metadata(self.match.info, self.album)
+                self.match.apply_album_metadata(self.album)
                 self.album.store()
 
             self.reimport_metadata(lib)
@@ -679,19 +680,12 @@ class SingletonImportTask(ImportTask):
     def imported_items(self):
         return [self.item]
 
-    def apply_metadata(self):
-        if config["import"]["from_scratch"]:
-            self.item.clear()
-        autotag.apply_item_metadata(self.item, self.match.info)
-
     def _emit_imported(self, lib):
         for item in self.imported_items():
             plugins.send("item_imported", lib=lib, item=item)
 
     def lookup_candidates(self, search_ids: list[str]) -> None:
-        self.candidates, self.rec = autotag.tag_item(
-            self.item, search_ids=search_ids
-        )
+        self.candidates, self.rec = tag_item(self.item, search_ids=search_ids)
 
     def find_duplicates(self, lib: library.Library) -> list[library.Item]:  # type: ignore[override] # Need splitting Singleton and Album tasks into separate classes
         """Return a list of items from `lib` that have the same artist

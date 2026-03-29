@@ -29,7 +29,7 @@ def directory_browse(
     undo: bool | None = None,
     /,
     *,
-    directory: str | None = "",
+    directory: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -101,7 +101,7 @@ def file_browse(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -127,7 +127,7 @@ def file_browse(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-    filter_glob: str | None = "",
+    filter_glob: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a file browser, hold Shift to open the file, Alt to browse containing directory
 

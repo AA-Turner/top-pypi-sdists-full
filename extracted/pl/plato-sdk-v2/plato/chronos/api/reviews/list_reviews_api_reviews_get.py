@@ -54,7 +54,7 @@ def sync(
     analyzer_session_id: str | None = None,
     x_api_key: str | None = None,
 ) -> ReviewListResponse:
-    """List reviews, optionally filtered by session and/or tags."""
+    """List reviews, optionally filtered."""
 
     request_args = _build_request_args(
         session_id=session_id,
@@ -79,7 +79,7 @@ async def asyncio(
     analyzer_session_id: str | None = None,
     x_api_key: str | None = None,
 ) -> ReviewListResponse:
-    """List reviews, optionally filtered by session and/or tags."""
+    """List reviews, optionally filtered."""
 
     request_args = _build_request_args(
         session_id=session_id,

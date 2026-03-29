@@ -35,7 +35,13 @@ import pyarrow as pa
 from chalk._lsp.error_builder import FeatureClassErrorBuilder
 from chalk._validation.feature_validation import FeatureValidation
 from chalk._validation.validation import Validation
-from chalk.features._encoding.converter import FeatureConverter, JSONCodec, TDecoder, TEncoder
+from chalk.features._encoding.converter import (
+    FeatureConverter,
+    GenericFeatureConverter,
+    JSONCodec,
+    TDecoder,
+    TEncoder,
+)
 from chalk.features._encoding.primitive import TPrimitive
 from chalk.features.feature_set import CURRENT_FEATURE_REGISTRY, FeatureRegistryProtocol
 from chalk.features.feature_wrapper import FeatureWrapper, NearestNeighborException
@@ -379,7 +385,7 @@ class Feature(Generic[_TPrim, _TRich]):
         self.description = description
         self.owner = owner
         # The encoder, decoder, pyarrow dtype, and default are marked as final,
-        # as they are forwarded to the FeatureConverter, which is constructed
+        # as they are forwarded to the concrete feature converter, which is constructed
         # on first use to get around forward references.
         self._encoder: Final = encoder
         self._decoder: Final = decoder
@@ -506,7 +512,7 @@ class Feature(Generic[_TPrim, _TRich]):
             return self.underlying.is_feature_time
 
     @property
-    def converter(self) -> FeatureConverter:
+    def converter(self) -> FeatureConverter[_TPrim, _TRich]:
         from chalk.features import DataFrame, Tensor, Vector
 
         self._converter_entered += 1
@@ -771,7 +777,7 @@ class Feature(Generic[_TPrim, _TRich]):
             decoder = cast(TDecoder[_TPrim, _TRich], feature_typ.converter.decoder)
             pyarrow_dtype = feature_typ.converter.pyarrow_dtype
 
-        self._converter = FeatureConverter(
+        self._converter = GenericFeatureConverter(
             name=self.fqn,
             rich_type=rich_type,
             is_nullable=self.typ.is_nullable,
@@ -1698,7 +1704,7 @@ class Feature(Generic[_TPrim, _TRich]):
 
     def __getstate__(self):
         """
-        FeatureConverter is sometimes not serializable, so don't include it when (un)pickling
+        The concrete feature converter is sometimes not serializable, so don't include it when (un)pickling
         """
         return {
             slot: None if slot == "_converter" else getattr(self, slot)

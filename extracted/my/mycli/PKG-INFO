@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 1.66.0
+Version: 1.67.1
 Summary: CLI for MySQL Database. With auto-completion and syntax highlighting.
 Author: Mycli Core Team
 License-Expression: BSD-3-Clause
@@ -14,6 +14,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
 Requires-Dist: click~=8.3.1
+Requires-Dist: clickdc~=0.1.1
 Requires-Dist: cryptography~=46.0.5
 Requires-Dist: Pygments~=2.19.2
 Requires-Dist: prompt_toolkit<4.0.0,>=3.0.6
@@ -64,8 +65,8 @@ A command line client for MySQL that can do auto-completion and syntax highlight
 Homepage: [https://mycli.net](https://mycli.net)
 Documentation: [https://mycli.net/docs](https://mycli.net/docs)
 
-![Completion](screenshots/tables.png)
-![CompletionGif](screenshots/main.gif)
+![Completion](doc/screenshots/tables.png)
+![CompletionGif](doc/screenshots/main.gif)
 
 Postgres Equivalent: [https://pgcli.com](https://pgcli.com)
 

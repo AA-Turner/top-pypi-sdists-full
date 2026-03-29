@@ -9,7 +9,7 @@ def color_management_white_balance_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -26,7 +26,7 @@ def cycles_integrator_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -43,7 +43,7 @@ def cycles_performance_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -60,7 +60,7 @@ def cycles_sampling_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -77,7 +77,7 @@ def cycles_viewport_sampling_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -94,7 +94,7 @@ def eevee_raytracing_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -103,6 +103,16 @@ def eevee_raytracing_preset_add(
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
     :param remove_name: remove_name, (optional)
     :param remove_active: remove_active, (optional)
+    :return: Result of the operator call.
+    """
+
+def generate_texture_cache(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Generate Cycles texture cache files for all images used in shader nodes
+
     :return: Result of the operator call.
     """
 
@@ -142,7 +152,7 @@ def preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -163,8 +173,8 @@ def render(
     write_still: bool | None = False,
     use_viewport: bool | None = False,
     use_sequencer_scene: bool | None = False,
-    layer: str | None = "",
-    scene: str | None = "",
+    layer: str = "",
+    scene: str = "",
     frame_start: int | None = 0,
     frame_end: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:

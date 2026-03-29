@@ -123,10 +123,14 @@ def decode_cursor(token: str) -> Optional[FlowCursor]:
 
 
 class StateDocLoader(Protocol):
+    """Callable that loads a compiled StateDoc by name."""
+
     def __call__(self, name: str) -> Optional[StateDoc]: ...
 
 
 class ActionRunner(Protocol):
+    """Callable that executes a named action and returns its output."""
+
     def __call__(self, name: str, params: dict[str, Any]) -> dict[str, Any]: ...
 
 
@@ -456,6 +460,8 @@ def make_action_runner(
         item_content: Full content text for the item (not stored in the
             document store, so must be passed explicitly for actions
             like summarize that need it).
+        context_cache: Optional action-result cache that deduplicates
+            repeated action calls within a single flow execution.
     """
     from .actions import get_action
 
@@ -464,16 +470,21 @@ def make_action_runner(
     )
 
     def _run(action_name: str, params: dict[str, Any]) -> dict[str, Any]:
-        if context_cache is not None:
-            cached = context_cache.check(action_name, params, ctx)
-            if cached is not None:
-                return cached
-        act = get_action(action_name)
-        output = act.run(params, ctx)
-        result = dict(output) if isinstance(output, dict) else {}
-        if context_cache is not None:
-            context_cache.store(action_name, params, result)
-        return result
+        from .tracing import get_tracer
+        _tracer = get_tracer("flow")
+        with _tracer.start_as_current_span(f"action:{action_name}") as _span:
+            if context_cache is not None:
+                cached = context_cache.check(action_name, params, ctx)
+                if cached is not None:
+                    _span.set_attribute("cache", "hit")
+                    return cached
+                _span.set_attribute("cache", "miss")
+            act = get_action(action_name)
+            output = act.run(params, ctx)
+            result = dict(output) if isinstance(output, dict) else {}
+            if context_cache is not None:
+                context_cache.store(action_name, params, result)
+            return result
 
     return _run
 
@@ -496,6 +507,11 @@ class _EnvActionContext:
 
     def get(self, id: str) -> Any:
         return self._env.get(id)
+
+    def peek(self, id: str) -> Any:
+        """Read without updating accessed_at (for cache hydration)."""
+        peek_fn = getattr(self._env, "peek", None)
+        return peek_fn(id) if peek_fn else self._env.get(id)
 
     def find(
         self,

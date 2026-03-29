@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import scipy
 
-from pingouin import _check_dataframe, _postprocess_dataframe, remove_na
+from .utils import _check_dataframe, _postprocess_dataframe, remove_na
 
 __all__ = [
     "mad",
@@ -880,8 +880,7 @@ def cochran(data=None, dv=None, within=None, subject=None):
 
 
 def harrelldavis(x, quantile=0.5, axis=-1):
-    """Harrell-Davis robust estimate of the :math:`q^{th}` quantile(s) of the
-    data.
+    """Harrell-Davis robust estimate of the :math:`q^{th}` quantile(s) of the data.
 
     .. versionadded:: 0.2.9
 
@@ -907,13 +906,7 @@ def harrelldavis(x, quantile=0.5, axis=-1):
     -----
     The Harrell-Davis method [1]_ estimates the :math:`q^{th}` quantile by a
     linear combination of  the  order statistics. Results have been tested
-    against a Matlab implementation [2]_. Note that this method is also
-    used to measure the confidence intervals of the difference between
-    quantiles of two groups, as implemented in the shift function [3]_.
-
-    See Also
-    --------
-    plot_shift
+    against a Matlab implementation [2]_.
 
     References
     ----------

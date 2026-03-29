@@ -1885,7 +1885,7 @@ class AOVs(bpy_prop, bpy_prop_collection[AOV], bpy_struct):
         :return: Newly created AOV
         """
 
-    def remove(self, aov: AOV | None) -> None:
+    def remove(self, aov: AOV) -> None:
         """Remove an AOV
 
         :param aov: AOV to remove (never None)
@@ -1923,11 +1923,7 @@ class ActionChannelbagFCurves(bpy_prop, bpy_prop_collection[FCurve], bpy_struct)
     """Collection of F-Curves for a specific action slot, on a specific strip"""
 
     def new(
-        self,
-        data_path: str | None,
-        *,
-        index: int | None = 0,
-        group_name: str | None = "",
+        self, data_path: str, *, index: int | None = 0, group_name: str = ""
     ) -> FCurve:
         """Add an F-Curve to the channelbag
 
@@ -1937,9 +1933,7 @@ class ActionChannelbagFCurves(bpy_prop, bpy_prop_collection[FCurve], bpy_struct)
         :return: Newly created F-Curve
         """
 
-    def new_from_fcurve(
-        self, source: FCurve | None, *, data_path: str | None = ""
-    ) -> FCurve:
+    def new_from_fcurve(self, source: FCurve | None, *, data_path: str = "") -> FCurve:
         """Copy an F-Curve into the channelbag. The original F-Curve is unchanged
 
         :param source: Source F-Curve, The F-Curve to copy
@@ -1948,11 +1942,7 @@ class ActionChannelbagFCurves(bpy_prop, bpy_prop_collection[FCurve], bpy_struct)
         """
 
     def ensure(
-        self,
-        data_path: str | None,
-        *,
-        index: int | None = 0,
-        group_name: str | None = "",
+        self, data_path: str, *, index: int | None = 0, group_name: str = ""
     ) -> FCurve:
         """Returns the F-Curve if it already exists, and creates it if necessary
 
@@ -1962,7 +1952,7 @@ class ActionChannelbagFCurves(bpy_prop, bpy_prop_collection[FCurve], bpy_struct)
         :return: Found or newly created F-Curve
         """
 
-    def find(self, data_path: str | None, *, index: int | None = 0) -> FCurve:
+    def find(self, data_path: str, *, index: int | None = 0) -> FCurve:
         """Find an F-Curve. Note that this function performs a linear scan of all F-Curves in the channelbag.
 
         :param data_path: Data Path, F-Curve data path (never None)
@@ -1970,7 +1960,7 @@ class ActionChannelbagFCurves(bpy_prop, bpy_prop_collection[FCurve], bpy_struct)
         :return: The found F-Curve, or None if it does not exist
         """
 
-    def remove(self, fcurve: FCurve | None) -> None:
+    def remove(self, fcurve: FCurve) -> None:
         """Remove F-Curve
 
         :param fcurve: F-Curve to remove (never None)
@@ -2010,14 +2000,14 @@ class ActionChannelbagFCurves(bpy_prop, bpy_prop_collection[FCurve], bpy_struct)
 class ActionChannelbagGroups(bpy_prop, bpy_prop_collection[ActionGroup], bpy_struct):
     """Collection of f-curve groups"""
 
-    def new(self, name: str | None) -> ActionGroup:
+    def new(self, name: str) -> ActionGroup:
         """Create a new action group and add it to the action
 
         :param name: New name for the action group (never None)
         :return: Newly created action group
         """
 
-    def remove(self, action_group: ActionGroup | None) -> None:
+    def remove(self, action_group: ActionGroup) -> None:
         """Remove action group
 
         :param action_group: Action group to remove (never None)
@@ -2098,7 +2088,7 @@ class ActionChannelbags(bpy_prop, bpy_prop_collection[ActionChannelbag], bpy_str
 class ActionLayers(bpy_prop, bpy_prop_collection[ActionLayer], bpy_struct):
     """Collection of animation layers"""
 
-    def new(self, name: str | None) -> ActionLayer:
+    def new(self, name: str) -> ActionLayer:
         """Add a layer to the Animation. Currently an Animation can only have at most one layer.
 
         :param name: Name, Name of the layer, will be made unique within the Action (never None)
@@ -2148,14 +2138,14 @@ class ActionPoseMarkers(bpy_prop, bpy_prop_collection[TimelineMarker], bpy_struc
     active_index: int | None
     """ Index of active pose marker (in [0, inf], default 0)"""
 
-    def new(self, name: str | None) -> TimelineMarker:
+    def new(self, name: str) -> TimelineMarker:
         """Add a pose marker to the action
 
         :param name: New name for the marker (not unique) (never None)
         :return: Newly created marker
         """
 
-    def remove(self, marker: TimelineMarker | None) -> None:
+    def remove(self, marker: TimelineMarker) -> None:
         """Remove a timeline marker
 
         :param marker: Timeline marker to remove (never None)
@@ -2198,7 +2188,7 @@ class ActionSlots(bpy_prop, bpy_prop_collection[ActionSlot], bpy_struct):
     def new(
         self,
         id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None,
-        name: str | None,
+        name: str,
     ) -> ActionSlot:
         """Add a slot to the Action
 
@@ -2301,7 +2291,7 @@ class Addons(bpy_prop, bpy_prop_collection[Addon], bpy_struct):
         """
 
     @classmethod
-    def remove(cls, addon: Addon | None) -> None:
+    def remove(cls, addon: Addon) -> None:
         """Remove add-on
 
         :param addon: Add-on to remove (never None)
@@ -2338,7 +2328,7 @@ class Addons(bpy_prop, bpy_prop_collection[Addon], bpy_struct):
 class AnimDataDrivers(bpy_prop, bpy_prop_collection[FCurve], bpy_struct):
     """Collection of Driver F-Curves"""
 
-    def new(self, data_path: str | None, *, index: int | None = 0) -> FCurve:
+    def new(self, data_path: str, *, index: int | None = 0) -> FCurve:
         """new
 
         :param data_path: Data Path, F-Curve data path to use (never None)
@@ -2346,7 +2336,7 @@ class AnimDataDrivers(bpy_prop, bpy_prop_collection[FCurve], bpy_struct):
         :return: Newly Driver F-Curve
         """
 
-    def remove(self, driver: FCurve | None) -> None:
+    def remove(self, driver: FCurve) -> None:
         """remove
 
         :param driver: (never None)
@@ -2359,7 +2349,7 @@ class AnimDataDrivers(bpy_prop, bpy_prop_collection[FCurve], bpy_struct):
         :return: New Driver F-Curve
         """
 
-    def find(self, data_path: str | None, *, index: int | None = 0) -> FCurve:
+    def find(self, data_path: str, *, index: int | None = 0) -> FCurve:
         """Find a driver F-Curve. Note that this function performs a linear scan of all driver F-Curves.
 
         :param data_path: Data Path, F-Curve data path (never None)
@@ -2408,13 +2398,13 @@ class AnnotationFrames(bpy_prop, bpy_prop_collection[AnnotationFrame], bpy_struc
         :return: The newly created frame
         """
 
-    def remove(self, frame: AnnotationFrame | None) -> None:
+    def remove(self, frame: AnnotationFrame) -> None:
         """Remove an annotation frame
 
         :param frame: Frame, The frame to remove (never None)
         """
 
-    def copy(self, source: AnnotationFrame | None) -> AnnotationFrame:
+    def copy(self, source: AnnotationFrame) -> AnnotationFrame:
         """Copy an annotation frame
 
         :param source: Source, The source frame (never None)
@@ -2458,9 +2448,7 @@ class AnnotationLayers(bpy_prop, bpy_prop_collection[AnnotationLayer], bpy_struc
     active_note: typing.Literal["DEFAULT"] | None
     """ Note/Layer to add annotation strokes to (default 'DEFAULT')"""
 
-    def new(
-        self, name: str | None, *, set_active: bool | None = True
-    ) -> AnnotationLayer:
+    def new(self, name: str, *, set_active: bool | None = True) -> AnnotationLayer:
         """Add a new annotation layer
 
         :param name: Name, Name of the layer (never None)
@@ -2468,7 +2456,7 @@ class AnnotationLayers(bpy_prop, bpy_prop_collection[AnnotationLayer], bpy_struc
         :return: The newly created layer
         """
 
-    def remove(self, layer: AnnotationLayer | None) -> None:
+    def remove(self, layer: AnnotationLayer) -> None:
         """Remove a annotation layer
 
         :param layer: The layer to remove (never None)
@@ -2564,7 +2552,7 @@ class AnnotationStrokes(bpy_prop, bpy_prop_collection[AnnotationStroke], bpy_str
         :return: The newly created stroke
         """
 
-    def remove(self, stroke: AnnotationStroke | None) -> None:
+    def remove(self, stroke: AnnotationStroke) -> None:
         """Remove an annotation stroke
 
         :param stroke: The stroke to remove (never None)
@@ -2677,7 +2665,7 @@ class ArmatureConstraintTargets(
         :return: New target bone
         """
 
-    def remove(self, target: ConstraintTargetBone | None) -> None:
+    def remove(self, target: ConstraintTargetBone) -> None:
         """Delete target from the constraint
 
         :param target: Target to remove (never None)
@@ -2720,14 +2708,14 @@ class ArmatureEditBones(bpy_prop, bpy_prop_collection[EditBone], bpy_struct):
     active: EditBone | None
     """ Armatures active edit bone"""
 
-    def new(self, name: str | None) -> EditBone:
+    def new(self, name: str) -> EditBone:
         """Add a new bone
 
         :param name: New name for the bone (never None)
         :return: Newly created edit bone
         """
 
-    def remove(self, bone: EditBone | None) -> None:
+    def remove(self, bone: EditBone) -> None:
         """Remove an existing bone from the armature
 
         :param bone: EditBone to remove (never None)
@@ -2767,9 +2755,7 @@ class AssetLibraryCollection(
     """Collection of user asset libraries"""
 
     @classmethod
-    def new(
-        cls, *, name: str | None = "", directory: str | None = ""
-    ) -> UserAssetLibrary:
+    def new(cls, *, name: str = "", directory: str = "") -> UserAssetLibrary:
         """Add a new Asset Library
 
         :param name: Name, (optional, never None)
@@ -2778,7 +2764,7 @@ class AssetLibraryCollection(
         """
 
     @classmethod
-    def remove(cls, library: UserAssetLibrary | None) -> None:
+    def remove(cls, library: UserAssetLibrary) -> None:
         """Remove an Asset Library
 
         :param library: (never None)
@@ -2815,7 +2801,7 @@ class AssetLibraryCollection(
 class AssetTags(bpy_prop, bpy_prop_collection[AssetTag], bpy_struct):
     """Collection of custom asset tags"""
 
-    def new(self, name: str | None, *, skip_if_exists: bool | None = False) -> AssetTag:
+    def new(self, name: str, *, skip_if_exists: bool | None = False) -> AssetTag:
         """Add a new tag to this asset
 
         :param name: Name, (never None)
@@ -2823,7 +2809,7 @@ class AssetTags(bpy_prop, bpy_prop_collection[AssetTag], bpy_struct):
         :return: New tag
         """
 
-    def remove(self, tag: AssetTag | None) -> None:
+    def remove(self, tag: AssetTag) -> None:
         """Remove an existing tag from this asset
 
         :param tag: Removed tag (never None)
@@ -2868,7 +2854,7 @@ class AttributeGroupCurves(bpy_prop, bpy_prop_collection[Attribute], bpy_struct)
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
         domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> Attribute:
@@ -2880,7 +2866,7 @@ class AttributeGroupCurves(bpy_prop, bpy_prop_collection[Attribute], bpy_struct)
         :return: New geometry attribute
         """
 
-    def remove(self, attribute: Attribute | None) -> None:
+    def remove(self, attribute: Attribute) -> None:
         """Remove attribute from geometry
 
         :param attribute: Geometry Attribute (never None)
@@ -2935,7 +2921,7 @@ class AttributeGroupGreasePencil(bpy_prop, bpy_prop_collection[Attribute], bpy_s
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
         domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> Attribute:
@@ -2947,7 +2933,7 @@ class AttributeGroupGreasePencil(bpy_prop, bpy_prop_collection[Attribute], bpy_s
         :return: New geometry attribute
         """
 
-    def remove(self, attribute: Attribute | None) -> None:
+    def remove(self, attribute: Attribute) -> None:
         """Remove attribute from geometry
 
         :param attribute: Geometry Attribute (never None)
@@ -3004,7 +2990,7 @@ class AttributeGroupGreasePencilDrawing(
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
         domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> Attribute:
@@ -3016,7 +3002,7 @@ class AttributeGroupGreasePencilDrawing(
         :return: New geometry attribute
         """
 
-    def remove(self, attribute: Attribute | None) -> None:
+    def remove(self, attribute: Attribute) -> None:
         """Remove attribute from geometry
 
         :param attribute: Geometry Attribute (never None)
@@ -3086,7 +3072,7 @@ class AttributeGroupMesh(bpy_prop, bpy_prop_collection[Attribute], bpy_struct):
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
         domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> Attribute:
@@ -3098,7 +3084,7 @@ class AttributeGroupMesh(bpy_prop, bpy_prop_collection[Attribute], bpy_struct):
         :return: New geometry attribute
         """
 
-    def remove(self, attribute: Attribute | None) -> None:
+    def remove(self, attribute: Attribute) -> None:
         """Remove attribute from geometry
 
         :param attribute: Geometry Attribute (never None)
@@ -3153,7 +3139,7 @@ class AttributeGroupPointCloud(bpy_prop, bpy_prop_collection[Attribute], bpy_str
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
         domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> Attribute:
@@ -3165,7 +3151,7 @@ class AttributeGroupPointCloud(bpy_prop, bpy_prop_collection[Attribute], bpy_str
         :return: New geometry attribute
         """
 
-    def remove(self, attribute: Attribute | None) -> None:
+    def remove(self, attribute: Attribute) -> None:
         """Remove attribute from geometry
 
         :param attribute: Geometry Attribute (never None)
@@ -3212,7 +3198,7 @@ class AttributeGroupPointCloud(bpy_prop, bpy_prop_collection[Attribute], bpy_str
 class BlendDataActions(bpy_prop, bpy_prop_collection[Action], bpy_struct):
     """Collection of actions"""
 
-    def new(self, name: str | None) -> Action:
+    def new(self, name: str) -> Action:
         """Add a new action to the main database
 
         :param name: New name for the data-block (never None)
@@ -3221,7 +3207,7 @@ class BlendDataActions(bpy_prop, bpy_prop_collection[Action], bpy_struct):
 
     def remove(
         self,
-        action: Action | None,
+        action: Action,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -3278,7 +3264,7 @@ class BlendDataAnnotations(bpy_prop, bpy_prop_collection[Annotation], bpy_struct
         :param value: Value
         """
 
-    def new(self, name: str | None) -> Annotation:
+    def new(self, name: str) -> Annotation:
         """Add a new annotation data-block to the main database
 
         :param name: New name for the data-block (never None)
@@ -3287,7 +3273,7 @@ class BlendDataAnnotations(bpy_prop, bpy_prop_collection[Annotation], bpy_struct
 
     def remove(
         self,
-        annotation: Annotation | None,
+        annotation: Annotation,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -3332,7 +3318,7 @@ class BlendDataAnnotations(bpy_prop, bpy_prop_collection[Annotation], bpy_struct
 class BlendDataArmatures(bpy_prop, bpy_prop_collection[Armature], bpy_struct):
     """Collection of armatures"""
 
-    def new(self, name: str | None) -> Armature:
+    def new(self, name: str) -> Armature:
         """Add a new armature to the main database
 
         :param name: New name for the data-block (never None)
@@ -3341,7 +3327,7 @@ class BlendDataArmatures(bpy_prop, bpy_prop_collection[Armature], bpy_struct):
 
     def remove(
         self,
-        armature: Armature | None,
+        armature: Armature,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -3394,7 +3380,7 @@ class BlendDataBrushes(bpy_prop, bpy_prop_collection[Brush], bpy_struct):
 
     def new(
         self,
-        name: str | None,
+        name: str,
         *,
         mode: typing.Literal[bpy.stub_internal.rna_enums.ObjectModeItems]
         | None = "TEXTURE_PAINT",
@@ -3408,7 +3394,7 @@ class BlendDataBrushes(bpy_prop, bpy_prop_collection[Brush], bpy_struct):
 
     def remove(
         self,
-        brush: Brush | None,
+        brush: Brush,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -3428,7 +3414,7 @@ class BlendDataBrushes(bpy_prop, bpy_prop_collection[Brush], bpy_struct):
         :param value: Value
         """
 
-    def create_gpencil_data(self, brush: Brush | None) -> None:
+    def create_gpencil_data(self, brush: Brush) -> None:
         """Add Grease Pencil brush settings
 
         :param brush: Brush (never None)
@@ -3502,7 +3488,7 @@ class BlendDataCacheFiles(bpy_prop, bpy_prop_collection[CacheFile], bpy_struct):
 class BlendDataCameras(bpy_prop, bpy_prop_collection[Camera], bpy_struct):
     """Collection of cameras"""
 
-    def new(self, name: str | None) -> Camera:
+    def new(self, name: str) -> Camera:
         """Add a new camera to the main database
 
         :param name: New name for the data-block (never None)
@@ -3511,7 +3497,7 @@ class BlendDataCameras(bpy_prop, bpy_prop_collection[Camera], bpy_struct):
 
     def remove(
         self,
-        camera: Camera | None,
+        camera: Camera,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -3562,7 +3548,7 @@ class BlendDataCameras(bpy_prop, bpy_prop_collection[Camera], bpy_struct):
 class BlendDataCollections(bpy_prop, bpy_prop_collection[Collection], bpy_struct):
     """Collection of collections"""
 
-    def new(self, name: str | None) -> Collection:
+    def new(self, name: str) -> Collection:
         """Add a new collection to the main database
 
         :param name: New name for the data-block (never None)
@@ -3571,7 +3557,7 @@ class BlendDataCollections(bpy_prop, bpy_prop_collection[Collection], bpy_struct
 
     def remove(
         self,
-        collection: Collection | None,
+        collection: Collection,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -3624,7 +3610,7 @@ class BlendDataCurves(bpy_prop, bpy_prop_collection[Curve], bpy_struct):
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.ObjectTypeCurveItems] | None,
     ) -> Curve:
         """Add a new curve to the main database
@@ -3636,7 +3622,7 @@ class BlendDataCurves(bpy_prop, bpy_prop_collection[Curve], bpy_struct):
 
     def remove(
         self,
-        curve: Curve | None,
+        curve: Curve,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -3699,7 +3685,7 @@ class BlendDataFonts(bpy_prop, bpy_prop_collection[VectorFont], bpy_struct):
 
     def remove(
         self,
-        vfont: VectorFont | None,
+        vfont: VectorFont,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -3756,7 +3742,7 @@ class BlendDataGreasePencilsV3(bpy_prop, bpy_prop_collection[GreasePencil], bpy_
         :param value: Value
         """
 
-    def new(self, name: str | None) -> GreasePencil:
+    def new(self, name: str) -> GreasePencil:
         """Add a new Grease Pencil data-block to the main database
 
         :param name: New name for the data-block (never None)
@@ -3765,7 +3751,7 @@ class BlendDataGreasePencilsV3(bpy_prop, bpy_prop_collection[GreasePencil], bpy_
 
     def remove(
         self,
-        grease_pencil: GreasePencil | None,
+        grease_pencil: GreasePencil,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -3810,7 +3796,7 @@ class BlendDataGreasePencilsV3(bpy_prop, bpy_prop_collection[GreasePencil], bpy_
 class BlendDataHairCurves(bpy_prop, bpy_prop_collection[Curves], bpy_struct):
     """Collection of hair curves"""
 
-    def new(self, name: str | None) -> Curves:
+    def new(self, name: str) -> Curves:
         """Add a new hair to the main database
 
         :param name: New name for the data-block (never None)
@@ -3819,7 +3805,7 @@ class BlendDataHairCurves(bpy_prop, bpy_prop_collection[Curves], bpy_struct):
 
     def remove(
         self,
-        curves: Curves | None,
+        curves: Curves,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -3872,7 +3858,7 @@ class BlendDataImages(bpy_prop, bpy_prop_collection[Image], bpy_struct):
 
     def new(
         self,
-        name: str | None,
+        name: str,
         width: int | None,
         height: int | None,
         *,
@@ -3907,7 +3893,7 @@ class BlendDataImages(bpy_prop, bpy_prop_collection[Image], bpy_struct):
 
     def remove(
         self,
-        image: Image | None,
+        image: Image,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -3958,7 +3944,7 @@ class BlendDataImages(bpy_prop, bpy_prop_collection[Image], bpy_struct):
 class BlendDataLattices(bpy_prop, bpy_prop_collection[Lattice], bpy_struct):
     """Collection of lattices"""
 
-    def new(self, name: str | None) -> Lattice:
+    def new(self, name: str) -> Lattice:
         """Add a new lattice to the main database
 
         :param name: New name for the data-block (never None)
@@ -3967,7 +3953,7 @@ class BlendDataLattices(bpy_prop, bpy_prop_collection[Lattice], bpy_struct):
 
     def remove(
         self,
-        lattice: Lattice | None,
+        lattice: Lattice,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4026,7 +4012,7 @@ class BlendDataLibraries(bpy_prop, bpy_prop_collection[Library], bpy_struct):
 
     def remove(
         self,
-        library: Library | None,
+        library: Library,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4135,7 +4121,7 @@ class BlendDataLights(bpy_prop, bpy_prop_collection[Light], bpy_struct):
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.LightTypeItems] | None,
     ) -> Light:
         """Add a new light to the main database
@@ -4147,7 +4133,7 @@ class BlendDataLights(bpy_prop, bpy_prop_collection[Light], bpy_struct):
 
     def remove(
         self,
-        light: Light | None,
+        light: Light,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4206,7 +4192,7 @@ class BlendDataLineStyles(
         :param value: Value
         """
 
-    def new(self, name: str | None) -> FreestyleLineStyle:
+    def new(self, name: str) -> FreestyleLineStyle:
         """Add a new line style instance to the main database
 
         :param name: New name for the data-block (never None)
@@ -4215,7 +4201,7 @@ class BlendDataLineStyles(
 
     def remove(
         self,
-        linestyle: FreestyleLineStyle | None,
+        linestyle: FreestyleLineStyle,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4266,7 +4252,7 @@ class BlendDataMasks(bpy_prop, bpy_prop_collection[Mask], bpy_struct):
         :param value: Value
         """
 
-    def new(self, name: str | None) -> Mask:
+    def new(self, name: str) -> Mask:
         """Add a new mask with a given name to the main database
 
         :param name: Mask, Name of new mask data-block (never None)
@@ -4275,7 +4261,7 @@ class BlendDataMasks(bpy_prop, bpy_prop_collection[Mask], bpy_struct):
 
     def remove(
         self,
-        mask: Mask | None,
+        mask: Mask,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4320,20 +4306,20 @@ class BlendDataMasks(bpy_prop, bpy_prop_collection[Mask], bpy_struct):
 class BlendDataMaterials(bpy_prop, bpy_prop_collection[Material], bpy_struct):
     """Collection of materials"""
 
-    def new(self, name: str | None) -> Material:
+    def new(self, name: str) -> Material:
         """Add a new material to the main database
 
         :param name: New name for the data-block (never None)
         :return: New material data-block
         """
 
-    def create_gpencil_data(self, material: Material | None) -> None:
+    def create_gpencil_data(self, material: Material) -> None:
         """Add Grease Pencil material settings
 
         :param material: Material (never None)
         """
 
-    def remove_gpencil_data(self, material: Material | None) -> None:
+    def remove_gpencil_data(self, material: Material) -> None:
         """Remove Grease Pencil material settings
 
         :param material: Material (never None)
@@ -4341,7 +4327,7 @@ class BlendDataMaterials(bpy_prop, bpy_prop_collection[Material], bpy_struct):
 
     def remove(
         self,
-        material: Material | None,
+        material: Material,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4392,7 +4378,7 @@ class BlendDataMaterials(bpy_prop, bpy_prop_collection[Material], bpy_struct):
 class BlendDataMeshes(bpy_prop, bpy_prop_collection[Mesh], bpy_struct):
     """Collection of meshes"""
 
-    def new(self, name: str | None) -> Mesh:
+    def new(self, name: str) -> Mesh:
         """Add a new mesh to the main database
 
         :param name: New name for the data-block (never None)
@@ -4401,7 +4387,7 @@ class BlendDataMeshes(bpy_prop, bpy_prop_collection[Mesh], bpy_struct):
 
     def new_from_object(
         self,
-        object: Object | None,
+        object: Object,
         *,
         preserve_all_data_layers: bool | None = False,
         depsgraph: Depsgraph | None = None,
@@ -4416,7 +4402,7 @@ class BlendDataMeshes(bpy_prop, bpy_prop_collection[Mesh], bpy_struct):
 
     def remove(
         self,
-        mesh: Mesh | None,
+        mesh: Mesh,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4467,7 +4453,7 @@ class BlendDataMeshes(bpy_prop, bpy_prop_collection[Mesh], bpy_struct):
 class BlendDataMetaBalls(bpy_prop, bpy_prop_collection[MetaBall], bpy_struct):
     """Collection of metaballs"""
 
-    def new(self, name: str | None) -> MetaBall:
+    def new(self, name: str) -> MetaBall:
         """Add a new metaball to the main database
 
         :param name: New name for the data-block (never None)
@@ -4476,7 +4462,7 @@ class BlendDataMetaBalls(bpy_prop, bpy_prop_collection[MetaBall], bpy_struct):
 
     def remove(
         self,
-        metaball: MetaBall | None,
+        metaball: MetaBall,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4535,7 +4521,7 @@ class BlendDataMovieClips(bpy_prop, bpy_prop_collection[MovieClip], bpy_struct):
 
     def remove(
         self,
-        clip: MovieClip | None,
+        clip: MovieClip,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4592,7 +4578,7 @@ class BlendDataNodeTrees(bpy_prop, bpy_prop_collection[NodeTree], bpy_struct):
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[
             "GeometryNodeTree",
             "CompositorNodeTree",
@@ -4622,7 +4608,7 @@ class BlendDataNodeTrees(bpy_prop, bpy_prop_collection[NodeTree], bpy_struct):
 
     def remove(
         self,
-        tree: NodeTree | None,
+        tree: NodeTree,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4673,7 +4659,7 @@ class BlendDataNodeTrees(bpy_prop, bpy_prop_collection[NodeTree], bpy_struct):
 class BlendDataObjects(bpy_prop, bpy_prop_collection[Object], bpy_struct):
     """Collection of objects"""
 
-    def new(self, name: str | None, object_data: ID | None) -> Object:
+    def new(self, name: str, object_data: ID | None) -> Object:
         """Add a new object to the main database
 
         :param name: New name for the data-block (never None)
@@ -4683,7 +4669,7 @@ class BlendDataObjects(bpy_prop, bpy_prop_collection[Object], bpy_struct):
 
     def remove(
         self,
-        object: Object | None,
+        object: Object,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4771,7 +4757,7 @@ class BlendDataPaintCurves(bpy_prop, bpy_prop_collection[PaintCurve], bpy_struct
 class BlendDataPalettes(bpy_prop, bpy_prop_collection[Palette], bpy_struct):
     """Collection of palettes"""
 
-    def new(self, name: str | None) -> Palette:
+    def new(self, name: str) -> Palette:
         """Add a new palette to the main database
 
         :param name: New name for the data-block (never None)
@@ -4780,7 +4766,7 @@ class BlendDataPalettes(bpy_prop, bpy_prop_collection[Palette], bpy_struct):
 
     def remove(
         self,
-        palette: Palette | None,
+        palette: Palette,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4831,7 +4817,7 @@ class BlendDataPalettes(bpy_prop, bpy_prop_collection[Palette], bpy_struct):
 class BlendDataParticles(bpy_prop, bpy_prop_collection[ParticleSettings], bpy_struct):
     """Collection of particle settings"""
 
-    def new(self, name: str | None) -> ParticleSettings:
+    def new(self, name: str) -> ParticleSettings:
         """Add a new particle settings instance to the main database
 
         :param name: New name for the data-block (never None)
@@ -4840,7 +4826,7 @@ class BlendDataParticles(bpy_prop, bpy_prop_collection[ParticleSettings], bpy_st
 
     def remove(
         self,
-        particle: ParticleSettings | None,
+        particle: ParticleSettings,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4891,7 +4877,7 @@ class BlendDataParticles(bpy_prop, bpy_prop_collection[ParticleSettings], bpy_st
 class BlendDataPointClouds(bpy_prop, bpy_prop_collection[PointCloud], bpy_struct):
     """Collection of point clouds"""
 
-    def new(self, name: str | None) -> PointCloud:
+    def new(self, name: str) -> PointCloud:
         """Add a new point cloud to the main database
 
         :param name: New name for the data-block (never None)
@@ -4900,7 +4886,7 @@ class BlendDataPointClouds(bpy_prop, bpy_prop_collection[PointCloud], bpy_struct
 
     def remove(
         self,
-        pointcloud: PointCloud | None,
+        pointcloud: PointCloud,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -4953,7 +4939,7 @@ class BlendDataProbes(bpy_prop, bpy_prop_collection[LightProbe], bpy_struct):
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.LightprobesTypeItems] | None,
     ) -> LightProbe:
         """Add a new light probe to the main database
@@ -4965,7 +4951,7 @@ class BlendDataProbes(bpy_prop, bpy_prop_collection[LightProbe], bpy_struct):
 
     def remove(
         self,
-        lightprobe: LightProbe | None,
+        lightprobe: LightProbe,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -5016,14 +5002,14 @@ class BlendDataProbes(bpy_prop, bpy_prop_collection[LightProbe], bpy_struct):
 class BlendDataScenes(bpy_prop, bpy_prop_collection[Scene], bpy_struct):
     """Collection of scenes"""
 
-    def new(self, name: str | None) -> Scene:
+    def new(self, name: str) -> Scene:
         """Add a new scene to the main database
 
         :param name: New name for the data-block (never None)
         :return: New scene data-block
         """
 
-    def remove(self, scene: Scene | None, *, do_unlink: bool | None = True) -> None:
+    def remove(self, scene: Scene, *, do_unlink: bool | None = True) -> None:
         """Remove a scene from the current blendfile
 
         :param scene: Scene to remove (never None)
@@ -5116,7 +5102,7 @@ class BlendDataSounds(bpy_prop, bpy_prop_collection[Sound], bpy_struct):
 
     def remove(
         self,
-        sound: Sound | None,
+        sound: Sound,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -5167,7 +5153,7 @@ class BlendDataSounds(bpy_prop, bpy_prop_collection[Sound], bpy_struct):
 class BlendDataSpeakers(bpy_prop, bpy_prop_collection[Speaker], bpy_struct):
     """Collection of speakers"""
 
-    def new(self, name: str | None) -> Speaker:
+    def new(self, name: str) -> Speaker:
         """Add a new speaker to the main database
 
         :param name: New name for the data-block (never None)
@@ -5176,7 +5162,7 @@ class BlendDataSpeakers(bpy_prop, bpy_prop_collection[Speaker], bpy_struct):
 
     def remove(
         self,
-        speaker: Speaker | None,
+        speaker: Speaker,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -5227,7 +5213,7 @@ class BlendDataSpeakers(bpy_prop, bpy_prop_collection[Speaker], bpy_struct):
 class BlendDataTexts(bpy_prop, bpy_prop_collection[Text], bpy_struct):
     """Collection of texts"""
 
-    def new(self, name: str | None) -> Text:
+    def new(self, name: str) -> Text:
         """Add a new text to the main database
 
         :param name: New name for the data-block (never None)
@@ -5236,7 +5222,7 @@ class BlendDataTexts(bpy_prop, bpy_prop_collection[Text], bpy_struct):
 
     def remove(
         self,
-        text: Text | None,
+        text: Text,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -5297,7 +5283,7 @@ class BlendDataTextures(bpy_prop, bpy_prop_collection[Texture], bpy_struct):
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.TextureTypeItems] | None,
     ) -> Texture:
         """Add a new texture to the main database
@@ -5309,7 +5295,7 @@ class BlendDataTextures(bpy_prop, bpy_prop_collection[Texture], bpy_struct):
 
     def remove(
         self,
-        texture: Texture | None,
+        texture: Texture,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -5360,7 +5346,7 @@ class BlendDataTextures(bpy_prop, bpy_prop_collection[Texture], bpy_struct):
 class BlendDataVolumes(bpy_prop, bpy_prop_collection[Volume], bpy_struct):
     """Collection of volumes"""
 
-    def new(self, name: str | None) -> Volume:
+    def new(self, name: str) -> Volume:
         """Add a new volume to the main database
 
         :param name: New name for the data-block (never None)
@@ -5369,7 +5355,7 @@ class BlendDataVolumes(bpy_prop, bpy_prop_collection[Volume], bpy_struct):
 
     def remove(
         self,
-        volume: Volume | None,
+        volume: Volume,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -5494,7 +5480,7 @@ class BlendDataWorkSpaces(bpy_prop, bpy_prop_collection[WorkSpace], bpy_struct):
 class BlendDataWorlds(bpy_prop, bpy_prop_collection[World], bpy_struct):
     """Collection of worlds"""
 
-    def new(self, name: str | None) -> World:
+    def new(self, name: str) -> World:
         """Add a new world to the main database
 
         :param name: New name for the data-block (never None)
@@ -5503,7 +5489,7 @@ class BlendDataWorlds(bpy_prop, bpy_prop_collection[World], bpy_struct):
 
     def remove(
         self,
-        world: World | None,
+        world: World,
         *,
         do_unlink: bool | None = True,
         do_id_user: bool | None = True,
@@ -5668,9 +5654,7 @@ class BoneCollections(bpy_prop, bpy_prop_collection[BoneCollection], bpy_struct)
     is_solo_active: bool
     """ Read-only flag that indicates there is at least one bone collection marked as 'solo' (default False, readonly)"""
 
-    def new(
-        self, name: str | None, *, parent: BoneCollection | None = None
-    ) -> BoneCollection:
+    def new(self, name: str, *, parent: BoneCollection | None = None) -> BoneCollection:
         """Add a new empty bone collection to the armature
 
         :param name: Name, Name of the new collection. Blender will ensure it is unique within the collections of the Armature. (never None)
@@ -5725,14 +5709,14 @@ class CacheFileLayers(bpy_prop, bpy_prop_collection[CacheFileLayer], bpy_struct)
     active: CacheFileLayer | None
     """ Active layer of the CacheFile"""
 
-    def new(self, filepath: str | None) -> CacheFileLayer:
+    def new(self, filepath: str) -> CacheFileLayer:
         """Add a new layer
 
         :param filepath: File path to the archive used as a layer (never None)
         :return: Newly created layer
         """
 
-    def remove(self, layer: CacheFileLayer | None) -> None:
+    def remove(self, layer: CacheFileLayer) -> None:
         """Remove an existing layer from the cache file
 
         :param layer: Layer to remove (never None)
@@ -5808,7 +5792,7 @@ class CameraBackgroundImages(
         :return: Image displayed as viewport background
         """
 
-    def remove(self, image: CameraBackgroundImage | None) -> None:
+    def remove(self, image: CameraBackgroundImage) -> None:
         """Remove background image
 
         :param image: Image displayed as viewport background (never None)
@@ -5854,7 +5838,7 @@ class ChannelDriverVariables(bpy_prop, bpy_prop_collection[DriverVariable], bpy_
         :return: Newly created Driver Variable
         """
 
-    def remove(self, variable: DriverVariable | None) -> None:
+    def remove(self, variable: DriverVariable) -> None:
         """Remove an existing variable from the driver
 
         :param variable: Variable to remove from the driver (never None)
@@ -5891,7 +5875,7 @@ class ChannelDriverVariables(bpy_prop, bpy_prop_collection[DriverVariable], bpy_
 class CollectionChildren(bpy_prop, bpy_prop_collection[Collection], bpy_struct):
     """Collection of child collections"""
 
-    def link(self, child: Collection | None) -> None:
+    def link(self, child: Collection) -> None:
         """Add this collection as child of this collection
 
         :param child: Collection to add (never None)
@@ -5947,7 +5931,7 @@ class CollectionExports(bpy_prop, bpy_prop_collection[CollectionExport], bpy_str
         ]
         | None,
         *,
-        name: str | None = "",
+        name: str = "",
     ) -> CollectionExport:
         """Add an export handler to the collection
 
@@ -6000,7 +5984,7 @@ class CollectionExports(bpy_prop, bpy_prop_collection[CollectionExport], bpy_str
 class CollectionObjects(bpy_prop, bpy_prop_collection[Object], bpy_struct):
     """Collection of collection objects"""
 
-    def link(self, object: Object | None) -> None:
+    def link(self, object: Object) -> None:
         """Add this object to a collection
 
         :param object: Object to add (never None)
@@ -6050,7 +6034,7 @@ class ColorRampElements(bpy_prop, bpy_prop_collection[ColorRampElement], bpy_str
         :return: New element
         """
 
-    def remove(self, element: ColorRampElement | None) -> None:
+    def remove(self, element: ColorRampElement) -> None:
         """Delete element from Color Ramp
 
         :param element: Element to remove (never None)
@@ -6115,7 +6099,7 @@ class CurveMapPoints(bpy_prop, bpy_prop_collection[CurveMapPoint], bpy_struct):
         :return: New point
         """
 
-    def remove(self, point: CurveMapPoint | None) -> None:
+    def remove(self, point: CurveMapPoint) -> None:
         """Delete point from CurveMap
 
         :param point: PointElement to remove (never None)
@@ -6160,7 +6144,7 @@ class CurveProfilePoints(bpy_prop, bpy_prop_collection[CurveProfilePoint], bpy_s
         :return: New point
         """
 
-    def remove(self, point: CurveProfilePoint | None) -> None:
+    def remove(self, point: CurveProfilePoint) -> None:
         """Delete point from the profile
 
         :param point: Point to remove (never None)
@@ -6207,7 +6191,7 @@ class CurveSplines(bpy_prop, bpy_prop_collection[Spline], bpy_struct):
         :return: The newly created spline
         """
 
-    def remove(self, spline: Spline | None) -> None:
+    def remove(self, spline: Spline) -> None:
         """Remove a spline from a curve
 
         :param spline: The spline to remove (never None)
@@ -6321,7 +6305,7 @@ class FCurveKeyframePoints(bpy_prop, bpy_prop_collection[Keyframe], bpy_struct):
         :param count: Number, Number of points to add to the spline (in [0, inf])
         """
 
-    def remove(self, keyframe: Keyframe | None, *, fast: bool | None = False) -> None:
+    def remove(self, keyframe: Keyframe, *, fast: bool | None = False) -> None:
         """Remove keyframe from an F-Curve
 
         :param keyframe: Keyframe to remove (never None)
@@ -6384,7 +6368,7 @@ class FCurveModifiers(bpy_prop, bpy_prop_collection[FModifier], bpy_struct):
         :return: New fmodifier
         """
 
-    def remove(self, modifier: FModifier | None) -> None:
+    def remove(self, modifier: FModifier) -> None:
         """Remove a modifier from this F-Curve
 
         :param modifier: Removed modifier (never None)
@@ -6430,7 +6414,7 @@ class FModifierEnvelopeControlPoints(
         :return: Newly created control-point
         """
 
-    def remove(self, point: FModifierEnvelopeControlPoint | None) -> None:
+    def remove(self, point: FModifierEnvelopeControlPoint) -> None:
         """Remove a control-point from an FModifierEnvelope
 
         :param point: Control-point to remove (never None)
@@ -6475,7 +6459,7 @@ class FreestyleModules(
         :return: Newly created style module
         """
 
-    def remove(self, module: FreestyleModuleSettings | None) -> None:
+    def remove(self, module: FreestyleModuleSettings) -> None:
         """Remove a style module from scene render layer Freestyle settings
 
         :param module: Style module to remove (never None)
@@ -6518,7 +6502,7 @@ class GeometryNodeFieldToGridItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> GeometryNodeFieldToGridItem:
         """Add an item at the end
 
@@ -6527,7 +6511,7 @@ class GeometryNodeFieldToGridItems(
         :return: Item, New item
         """
 
-    def remove(self, item: GeometryNodeFieldToGridItem | None) -> None:
+    def remove(self, item: GeometryNodeFieldToGridItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -6580,7 +6564,7 @@ class GeometryNodeFieldToListItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> GeometryNodeFieldToListItem:
         """Add an item at the end
 
@@ -6589,7 +6573,7 @@ class GeometryNodeFieldToListItems(
         :return: Item, New item
         """
 
-    def remove(self, item: GeometryNodeFieldToListItem | None) -> None:
+    def remove(self, item: GeometryNodeFieldToListItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -6636,14 +6620,14 @@ class GeometryNodeFieldToListItems(
 class Gizmos(bpy_prop, bpy_prop_collection[Gizmo], bpy_struct):
     """Collection of gizmos"""
 
-    def new(self, type: str | None) -> Gizmo:
+    def new(self, type: str) -> Gizmo:
         """Add gizmo
 
         :param type: Gizmo identifier (never None)
         :return: New gizmo
         """
 
-    def remove(self, gizmo: Gizmo | None) -> None:
+    def remove(self, gizmo: Gizmo) -> None:
         """Delete gizmo
 
         :param gizmo: New gizmo (never None)
@@ -6757,14 +6741,14 @@ class GreasePencilLayerMasks(
     active_mask_index: int | None
     """ Active index in layer mask array (in [0, inf], default 0)"""
 
-    def add(self, layer: GreasePencilLayer | None) -> GreasePencilLayerMask:
+    def add(self, layer: GreasePencilLayer) -> GreasePencilLayerMask:
         """Add an existing layer as a mask to this layer
 
         :param layer: Layer to add as a mask (never None)
         :return: The mask entry referencing the layer
         """
 
-    def remove(self, mask: GreasePencilLayerMask | None) -> None:
+    def remove(self, mask: GreasePencilLayerMask) -> None:
         """Remove a mask from the layer
 
         :param mask: Mask to remove (never None)
@@ -6807,7 +6791,7 @@ class GreasePencilv3LayerGroup(
     """ Active Grease Pencil layer group"""
 
     def new(
-        self, name: str | None, *, parent_group: GreasePencilLayerGroup | None = None
+        self, name: str, *, parent_group: GreasePencilLayerGroup | None = None
     ) -> GreasePencilLayerGroup:
         """Add a new Grease Pencil layer group
 
@@ -6817,10 +6801,7 @@ class GreasePencilv3LayerGroup(
         """
 
     def remove(
-        self,
-        layer_group: GreasePencilLayerGroup | None,
-        *,
-        keep_children: bool | None = False,
+        self, layer_group: GreasePencilLayerGroup, *, keep_children: bool | None = False
     ) -> None:
         """Remove a new Grease Pencil layer group
 
@@ -6830,7 +6811,7 @@ class GreasePencilv3LayerGroup(
 
     def move(
         self,
-        layer_group: GreasePencilLayerGroup | None,
+        layer_group: GreasePencilLayerGroup,
         type: typing.Literal["DOWN", "UP"] | None,
     ) -> None:
         """Move a layer group in the parent layer group or main stack
@@ -6839,13 +6820,13 @@ class GreasePencilv3LayerGroup(
         :param type: Direction of movement
         """
 
-    def move_top(self, layer_group: GreasePencilLayerGroup | None) -> None:
+    def move_top(self, layer_group: GreasePencilLayerGroup) -> None:
         """Move a layer group to the top of the parent layer group or main stack
 
         :param layer_group: The layer group to move (never None)
         """
 
-    def move_bottom(self, layer_group: GreasePencilLayerGroup | None) -> None:
+    def move_bottom(self, layer_group: GreasePencilLayerGroup) -> None:
         """Move a layer group to the bottom of the parent layer group or main stack
 
         :param layer_group: The layer group to move (never None)
@@ -6853,7 +6834,7 @@ class GreasePencilv3LayerGroup(
 
     def move_to_layer_group(
         self,
-        layer_group: GreasePencilLayerGroup | None,
+        layer_group: GreasePencilLayerGroup,
         parent_group: GreasePencilLayerGroup | None,
     ) -> None:
         """Move a layer group into a parent layer group
@@ -6900,7 +6881,7 @@ class GreasePencilv3Layers(
 
     def new(
         self,
-        name: str | None,
+        name: str,
         *,
         set_active: bool | None = True,
         layer_group: GreasePencilLayerGroup | None = None,
@@ -6913,14 +6894,14 @@ class GreasePencilv3Layers(
         :return: The newly created layer
         """
 
-    def remove(self, layer: GreasePencilLayer | None) -> None:
+    def remove(self, layer: GreasePencilLayer) -> None:
         """Remove a Grease Pencil layer
 
         :param layer: The layer to remove (never None)
         """
 
     def move(
-        self, layer: GreasePencilLayer | None, type: typing.Literal["DOWN", "UP"] | None
+        self, layer: GreasePencilLayer, type: typing.Literal["DOWN", "UP"] | None
     ) -> None:
         """Move a Grease Pencil layer in the layer group or main stack
 
@@ -6928,22 +6909,20 @@ class GreasePencilv3Layers(
         :param type: Direction of movement
         """
 
-    def move_top(self, layer: GreasePencilLayer | None) -> None:
+    def move_top(self, layer: GreasePencilLayer) -> None:
         """Move a Grease Pencil layer to the top of the layer group or main stack
 
         :param layer: The layer to move (never None)
         """
 
-    def move_bottom(self, layer: GreasePencilLayer | None) -> None:
+    def move_bottom(self, layer: GreasePencilLayer) -> None:
         """Move a Grease Pencil layer to the bottom of the layer group or main stack
 
         :param layer: The layer to move (never None)
         """
 
     def move_to_layer_group(
-        self,
-        layer: GreasePencilLayer | None,
-        layer_group: GreasePencilLayerGroup | None,
+        self, layer: GreasePencilLayer, layer_group: GreasePencilLayerGroup | None
     ) -> None:
         """Move a Grease Pencil layer into a layer group
 
@@ -7054,7 +7033,7 @@ class IDOverrideLibraryProperties(
 ):
     """Collection of override properties"""
 
-    def add(self, rna_path: str | None) -> IDOverrideLibraryProperty:
+    def add(self, rna_path: str) -> IDOverrideLibraryProperty:
         """Add a property to the override library when it doesnt exist yet
 
         :param rna_path: RNA Path, RNA-Path of the property to add (never None)
@@ -7114,8 +7093,8 @@ class IDOverrideLibraryPropertyOperations(
         | None,
         *,
         use_id: bool | None = False,
-        subitem_reference_name: str | None = "",
-        subitem_local_name: str | None = "",
+        subitem_reference_name: str = "",
+        subitem_local_name: str = "",
         subitem_reference_id: ID | None = None,
         subitem_local_id: ID | None = None,
         subitem_reference_index: int | None = -1,
@@ -7204,14 +7183,14 @@ class KeyConfigurations(bpy_prop, bpy_prop_collection[KeyConfig], bpy_struct):
     user: KeyConfig | None
     """ Final key configuration that combines keymaps from the active and add-on configurations, and can be edited by the user (readonly)"""
 
-    def new(self, name: str | None) -> KeyConfig:
+    def new(self, name: str) -> KeyConfig:
         """new
 
         :param name: Name, (never None)
         :return: Key Configuration, Added key configuration
         """
 
-    def remove(self, keyconfig: KeyConfig | None) -> None:
+    def remove(self, keyconfig: KeyConfig) -> None:
         """remove
 
         :param keyconfig: Key Configuration, Removed key configuration (never None)
@@ -7219,7 +7198,7 @@ class KeyConfigurations(bpy_prop, bpy_prop_collection[KeyConfig], bpy_struct):
 
     def find_item_from_operator(
         self,
-        idname: str | None,
+        idname: str,
         *,
         context: typing.Literal[bpy.stub_internal.rna_enums.OperatorContextItems]
         | None = "INVOKE_DEFAULT",
@@ -7280,7 +7259,7 @@ class KeyMapItems(bpy_prop, bpy_prop_collection[KeyMapItem], bpy_struct):
 
     def new(
         self,
-        idname: str | None,
+        idname: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.EventTypeItems] | None,
         value: typing.Literal[bpy.stub_internal.rna_enums.EventValueItems] | None,
         *,
@@ -7317,7 +7296,7 @@ class KeyMapItems(bpy_prop, bpy_prop_collection[KeyMapItem], bpy_struct):
 
     def new_modal(
         self,
-        propvalue: str | None,
+        propvalue: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.EventTypeItems] | None,
         value: typing.Literal[bpy.stub_internal.rna_enums.EventValueItems] | None,
         *,
@@ -7351,7 +7330,7 @@ class KeyMapItems(bpy_prop, bpy_prop_collection[KeyMapItem], bpy_struct):
         """
 
     def new_from_item(
-        self, item: KeyMapItem | None, *, head: bool | None = False
+        self, item: KeyMapItem, *, head: bool | None = False
     ) -> KeyMapItem:
         """new_from_item
 
@@ -7360,7 +7339,7 @@ class KeyMapItems(bpy_prop, bpy_prop_collection[KeyMapItem], bpy_struct):
         :return: Item, Added key map item
         """
 
-    def remove(self, item: KeyMapItem | None) -> None:
+    def remove(self, item: KeyMapItem) -> None:
         """remove
 
         :param item: Item, (never None)
@@ -7375,7 +7354,7 @@ class KeyMapItems(bpy_prop, bpy_prop_collection[KeyMapItem], bpy_struct):
 
     def find_from_operator(
         self,
-        idname: str | None,
+        idname: str,
         *,
         properties: OperatorProperties | None = None,
         include: set[typing.Literal[bpy.stub_internal.rna_enums.EventTypeMaskItems]]
@@ -7440,7 +7419,7 @@ class KeyMaps(bpy_prop, bpy_prop_collection[KeyMap], bpy_struct):
 
     def new(
         self,
-        name: str | None,
+        name: str,
         *,
         space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
         | None = "EMPTY",
@@ -7459,7 +7438,7 @@ class KeyMaps(bpy_prop, bpy_prop_collection[KeyMap], bpy_struct):
         :return: Key Map, Added key map
         """
 
-    def remove(self, keymap: KeyMap | None) -> None:
+    def remove(self, keymap: KeyMap) -> None:
         """remove
 
         :param keymap: Key Map, Removed key map (never None)
@@ -7470,7 +7449,7 @@ class KeyMaps(bpy_prop, bpy_prop_collection[KeyMap], bpy_struct):
 
     def find(
         self,
-        name: str | None,
+        name: str,
         *,
         space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
         | None = "EMPTY",
@@ -7492,7 +7471,7 @@ class KeyMaps(bpy_prop, bpy_prop_collection[KeyMap], bpy_struct):
         :return: Key Map, Corresponding key map
         """
 
-    def find_modal(self, name: str | None) -> KeyMap:
+    def find_modal(self, name: str) -> KeyMap:
         """find_modal
 
         :param name: Operator Name, (never None)
@@ -7539,14 +7518,14 @@ class KeyingSetPaths(bpy_prop, bpy_prop_collection[KeyingSetPath], bpy_struct):
     def add(
         self,
         target_id: ID | None,
-        data_path: str | None,
+        data_path: str,
         *,
         index: int | None = -1,
         group_method: typing.Literal[
             bpy.stub_internal.rna_enums.KeyingsetPathGroupingItems
         ]
         | None = "KEYINGSET",
-        group_name: str | None = "",
+        group_name: str = "",
     ) -> KeyingSetPath:
         """Add a new path for the Keying Set
 
@@ -7558,7 +7537,7 @@ class KeyingSetPaths(bpy_prop, bpy_prop_collection[KeyingSetPath], bpy_struct):
         :return: New Path, Path created and added to the Keying Set
         """
 
-    def remove(self, path: KeyingSetPath | None) -> None:
+    def remove(self, path: KeyingSetPath) -> None:
         """Remove the given path from the Keying Set
 
         :param path: Path, (never None)
@@ -7604,9 +7583,7 @@ class KeyingSets(bpy_prop, bpy_prop_collection[KeyingSet], bpy_struct):
     active_index: int | None
     """ Current Keying Set index (negative for 'builtin' and positive for 'absolute') (in [-inf, inf], default 0)"""
 
-    def new(
-        self, *, idname: str | None = "KeyingSet", name: str | None = "KeyingSet"
-    ) -> KeyingSet:
+    def new(self, *, idname: str = "KeyingSet", name: str = "KeyingSet") -> KeyingSet:
         """Add a new Keying Set to Scene
 
         :param idname: IDName, Internal identifier of Keying Set (optional, never None)
@@ -7719,14 +7696,14 @@ class LayerObjects(bpy_prop, bpy_prop_collection[Object], bpy_struct):
 class Lightgroups(bpy_prop, bpy_prop_collection[Lightgroup], bpy_struct):
     """Collection of Lightgroups"""
 
-    def add(self, *, name: str | None = "") -> Lightgroup:
+    def add(self, *, name: str = "") -> Lightgroup:
         """add
 
         :param name: Name, Name of newly created lightgroup (optional, never None)
         :return: Newly created Lightgroup
         """
 
-    def remove(self, lightgroup: Lightgroup | None) -> None:
+    def remove(self, lightgroup: Lightgroup) -> None:
         """Remove given light group
 
         :param lightgroup: Lightgroup to remove (never None)
@@ -7767,7 +7744,7 @@ class LineStyleAlphaModifiers(
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[
             bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems
         ]
@@ -7780,7 +7757,7 @@ class LineStyleAlphaModifiers(
         :return: Newly added alpha modifier
         """
 
-    def remove(self, modifier: LineStyleAlphaModifier | None) -> None:
+    def remove(self, modifier: LineStyleAlphaModifier) -> None:
         """Remove a alpha modifier from line style
 
         :param modifier: Alpha modifier to remove (never None)
@@ -7821,7 +7798,7 @@ class LineStyleColorModifiers(
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[
             bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems
         ]
@@ -7834,7 +7811,7 @@ class LineStyleColorModifiers(
         :return: Newly added color modifier
         """
 
-    def remove(self, modifier: LineStyleColorModifier | None) -> None:
+    def remove(self, modifier: LineStyleColorModifier) -> None:
         """Remove a color modifier from line style
 
         :param modifier: Color modifier to remove (never None)
@@ -7875,7 +7852,7 @@ class LineStyleGeometryModifiers(
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[
             bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems
         ]
@@ -7888,7 +7865,7 @@ class LineStyleGeometryModifiers(
         :return: Newly added geometry modifier
         """
 
-    def remove(self, modifier: LineStyleGeometryModifier | None) -> None:
+    def remove(self, modifier: LineStyleGeometryModifier) -> None:
         """Remove a geometry modifier from line style
 
         :param modifier: Geometry modifier to remove (never None)
@@ -7984,7 +7961,7 @@ class LineStyleThicknessModifiers(
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[
             bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems
         ]
@@ -7997,7 +7974,7 @@ class LineStyleThicknessModifiers(
         :return: Newly added thickness modifier
         """
 
-    def remove(self, modifier: LineStyleThicknessModifier | None) -> None:
+    def remove(self, modifier: LineStyleThicknessModifier) -> None:
         """Remove a thickness modifier from line style
 
         :param modifier: Thickness modifier to remove (never None)
@@ -8040,14 +8017,14 @@ class Linesets(bpy_prop, bpy_prop_collection[FreestyleLineSet], bpy_struct):
     active_index: int | None
     """ Index of active line set slot (in [0, inf], default 0)"""
 
-    def new(self, name: str | None) -> FreestyleLineSet:
+    def new(self, name: str) -> FreestyleLineSet:
         """Add a line set to scene render layer Freestyle settings
 
         :param name: New name for the line set (not unique) (never None)
         :return: Newly created line set
         """
 
-    def remove(self, lineset: FreestyleLineSet | None) -> None:
+    def remove(self, lineset: FreestyleLineSet) -> None:
         """Remove a line set from scene render layer Freestyle settings
 
         :param lineset: Line set to remove (never None)
@@ -8091,7 +8068,7 @@ class LoopColors(bpy_prop, bpy_prop_collection[MeshLoopColorLayer], bpy_struct):
     """ Active vertex color index (in [0, inf], default 0)"""
 
     def new(
-        self, *, name: str | None = "Col", do_init: bool | None = True
+        self, *, name: str = "Col", do_init: bool | None = True
     ) -> MeshLoopColorLayer:
         """Add a vertex color layer to Mesh
 
@@ -8100,7 +8077,7 @@ class LoopColors(bpy_prop, bpy_prop_collection[MeshLoopColorLayer], bpy_struct):
         :return: The newly created layer
         """
 
-    def remove(self, layer: MeshLoopColorLayer | None) -> None:
+    def remove(self, layer: MeshLoopColorLayer) -> None:
         """Remove a vertex color layer
 
         :param layer: The layer to remove (never None)
@@ -8140,14 +8117,14 @@ class MaskLayers(bpy_prop, bpy_prop_collection[MaskLayer], bpy_struct):
     active: MaskLayer | None
     """ Active layer in this mask"""
 
-    def new(self, *, name: str | None = "") -> MaskLayer:
+    def new(self, *, name: str = "") -> MaskLayer:
         """Add layer to this mask
 
         :param name: Name, Name of new layer (optional, never None)
         :return: New mask layer
         """
 
-    def remove(self, layer: MaskLayer | None) -> None:
+    def remove(self, layer: MaskLayer) -> None:
         """Remove layer from this mask
 
         :param layer: Shape to be removed (never None)
@@ -8193,7 +8170,7 @@ class MaskSplinePoints(bpy_prop, bpy_prop_collection[MaskSplinePoint], bpy_struc
         :param count: Number, Number of points to add to the spline (in [0, inf])
         """
 
-    def remove(self, point: MaskSplinePoint | None) -> None:
+    def remove(self, point: MaskSplinePoint) -> None:
         """Remove a point from a spline
 
         :param point: The point to remove (never None)
@@ -8242,7 +8219,7 @@ class MaskSplines(bpy_prop, bpy_prop_collection[MaskSpline], bpy_struct):
         :return: The newly created spline
         """
 
-    def remove(self, spline: MaskSpline | None) -> None:
+    def remove(self, spline: MaskSpline) -> None:
         """Remove a spline from a layer
 
         :param spline: The spline to remove (never None)
@@ -8476,7 +8453,7 @@ class MetaBallElements(bpy_prop, bpy_prop_collection[MetaElement], bpy_struct):
         :return: The newly created metaball element
         """
 
-    def remove(self, element: MetaElement | None) -> None:
+    def remove(self, element: MetaElement) -> None:
         """Remove an element from the metaball
 
         :param element: The element to remove (never None)
@@ -8619,9 +8596,7 @@ class MovieTrackingObjectTracks(
     active: MovieTrackingTrack | None
     """ Active track in this tracking data object"""
 
-    def new(
-        self, *, name: str | None = "", frame: int | None = 1
-    ) -> MovieTrackingTrack:
+    def new(self, *, name: str = "", frame: int | None = 1) -> MovieTrackingTrack:
         """create new motion track in this movie clip
 
         :param name: Name of new track (optional, never None)
@@ -8665,14 +8640,14 @@ class MovieTrackingObjects(
     active: MovieTrackingObject | None
     """ Active object in this tracking data object"""
 
-    def new(self, name: str | None) -> MovieTrackingObject:
+    def new(self, name: str) -> MovieTrackingObject:
         """Add tracking object to this movie clip
 
         :param name: Name of new object (never None)
         :return: New motion tracking object
         """
 
-    def remove(self, object: MovieTrackingObject | None) -> None:
+    def remove(self, object: MovieTrackingObject) -> None:
         """Remove tracking object from this movie clip
 
         :param object: Motion tracking object to be removed (never None)
@@ -8853,9 +8828,7 @@ class MovieTrackingTracks(
     active: MovieTrackingTrack | None
     """ Active track in this tracking data object. Deprecated, use objects[name].tracks.active"""
 
-    def new(
-        self, *, name: str | None = "", frame: int | None = 1
-    ) -> MovieTrackingTrack:
+    def new(self, *, name: str = "", frame: int | None = 1) -> MovieTrackingTrack:
         """Create new motion track in this movie clip
 
         :param name: Name of new track (optional, never None)
@@ -8894,7 +8867,7 @@ class MovieTrackingTracks(
 class NlaStripFCurves(bpy_prop, bpy_prop_collection[FCurve], bpy_struct):
     """Collection of NLA strip F-Curves"""
 
-    def find(self, data_path: str | None, *, index: int | None = 0) -> FCurve:
+    def find(self, data_path: str, *, index: int | None = 0) -> FCurve:
         """Find an F-Curve. Note that this function performs a linear scan of all F-Curves in the NLA strip.
 
         :param data_path: Data Path, F-Curve data path (never None)
@@ -8933,9 +8906,7 @@ class NlaStripFCurves(bpy_prop, bpy_prop_collection[FCurve], bpy_struct):
 class NlaStrips(bpy_prop, bpy_prop_collection[NlaStrip], bpy_struct):
     """Collection of NLA Strips"""
 
-    def new(
-        self, name: str | None, start: int | None, action: Action | None
-    ) -> NlaStrip:
+    def new(self, name: str, start: int | None, action: Action) -> NlaStrip:
         """Add a new Action-Clip strip to the track
 
         :param name: Name for the NLA Strip (never None)
@@ -8944,7 +8915,7 @@ class NlaStrips(bpy_prop, bpy_prop_collection[NlaStrip], bpy_struct):
         :return: New NLA Strip
         """
 
-    def remove(self, strip: NlaStrip | None) -> None:
+    def remove(self, strip: NlaStrip) -> None:
         """Remove a NLA Strip
 
         :param strip: NLA Strip to remove (never None)
@@ -8991,7 +8962,7 @@ class NlaTracks(bpy_prop, bpy_prop_collection[NlaTrack], bpy_struct):
         :return: New NLA Track
         """
 
-    def remove(self, track: NlaTrack | None) -> None:
+    def remove(self, track: NlaTrack) -> None:
         """Remove a NLA Track
 
         :param track: NLA Track to remove (never None)
@@ -9032,7 +9003,7 @@ class NodeClosureInputItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> NodeClosureInputItem:
         """Add an item at the end
 
@@ -9041,7 +9012,7 @@ class NodeClosureInputItems(
         :return: Item, New item
         """
 
-    def remove(self, item: NodeClosureInputItem | None) -> None:
+    def remove(self, item: NodeClosureInputItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9092,7 +9063,7 @@ class NodeClosureOutputItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> NodeClosureOutputItem:
         """Add an item at the end
 
@@ -9101,7 +9072,7 @@ class NodeClosureOutputItems(
         :return: Item, New item
         """
 
-    def remove(self, item: NodeClosureOutputItem | None) -> None:
+    def remove(self, item: NodeClosureOutputItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9154,7 +9125,7 @@ class NodeCombineBundleItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> NodeCombineBundleItem:
         """Add an item at the end
 
@@ -9163,7 +9134,7 @@ class NodeCombineBundleItems(
         :return: Item, New item
         """
 
-    def remove(self, item: NodeCombineBundleItem | None) -> None:
+    def remove(self, item: NodeCombineBundleItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9216,7 +9187,7 @@ class NodeCompositorFileOutputItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> NodeCompositorFileOutputItem:
         """Add an item at the end
 
@@ -9225,7 +9196,7 @@ class NodeCompositorFileOutputItems(
         :return: Item, New item
         """
 
-    def remove(self, item: NodeCompositorFileOutputItem | None) -> None:
+    def remove(self, item: NodeCompositorFileOutputItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9276,7 +9247,7 @@ class NodeEvaluateClosureInputItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> NodeEvaluateClosureInputItem:
         """Add an item at the end
 
@@ -9285,7 +9256,7 @@ class NodeEvaluateClosureInputItems(
         :return: Item, New item
         """
 
-    def remove(self, item: NodeEvaluateClosureInputItem | None) -> None:
+    def remove(self, item: NodeEvaluateClosureInputItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9336,7 +9307,7 @@ class NodeEvaluateClosureOutputItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> NodeEvaluateClosureOutputItem:
         """Add an item at the end
 
@@ -9345,7 +9316,7 @@ class NodeEvaluateClosureOutputItems(
         :return: Item, New item
         """
 
-    def remove(self, item: NodeEvaluateClosureOutputItem | None) -> None:
+    def remove(self, item: NodeEvaluateClosureOutputItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9398,7 +9369,7 @@ class NodeFunctionFormatStringItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> NodeFunctionFormatStringItem:
         """Add an item at the end
 
@@ -9407,7 +9378,7 @@ class NodeFunctionFormatStringItems(
         :return: Item, New item
         """
 
-    def remove(self, item: NodeFunctionFormatStringItem | None) -> None:
+    def remove(self, item: NodeFunctionFormatStringItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9460,7 +9431,7 @@ class NodeGeometryBakeItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> NodeGeometryBakeItem:
         """Add an item at the end
 
@@ -9469,7 +9440,7 @@ class NodeGeometryBakeItems(
         :return: Item, New item
         """
 
-    def remove(self, item: NodeGeometryBakeItem | None) -> None:
+    def remove(self, item: NodeGeometryBakeItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9522,7 +9493,7 @@ class NodeGeometryCaptureAttributeItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> NodeGeometryCaptureAttributeItem:
         """Add an item at the end
 
@@ -9531,7 +9502,7 @@ class NodeGeometryCaptureAttributeItems(
         :return: Item, New item
         """
 
-    def remove(self, item: NodeGeometryCaptureAttributeItem | None) -> None:
+    def remove(self, item: NodeGeometryCaptureAttributeItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9584,7 +9555,7 @@ class NodeGeometryForeachGeometryElementGenerationItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> ForeachGeometryElementGenerationItem:
         """Add an item at the end
 
@@ -9593,7 +9564,7 @@ class NodeGeometryForeachGeometryElementGenerationItems(
         :return: Item, New item
         """
 
-    def remove(self, item: ForeachGeometryElementGenerationItem | None) -> None:
+    def remove(self, item: ForeachGeometryElementGenerationItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9646,7 +9617,7 @@ class NodeGeometryForeachGeometryElementInputItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> ForeachGeometryElementInputItem:
         """Add an item at the end
 
@@ -9655,7 +9626,7 @@ class NodeGeometryForeachGeometryElementInputItems(
         :return: Item, New item
         """
 
-    def remove(self, item: ForeachGeometryElementInputItem | None) -> None:
+    def remove(self, item: ForeachGeometryElementInputItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9708,7 +9679,7 @@ class NodeGeometryForeachGeometryElementMainItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> ForeachGeometryElementMainItem:
         """Add an item at the end
 
@@ -9717,7 +9688,7 @@ class NodeGeometryForeachGeometryElementMainItems(
         :return: Item, New item
         """
 
-    def remove(self, item: ForeachGeometryElementMainItem | None) -> None:
+    def remove(self, item: ForeachGeometryElementMainItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9770,7 +9741,7 @@ class NodeGeometryRepeatOutputItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> RepeatItem:
         """Add an item at the end
 
@@ -9779,7 +9750,7 @@ class NodeGeometryRepeatOutputItems(
         :return: Item, New item
         """
 
-    def remove(self, item: RepeatItem | None) -> None:
+    def remove(self, item: RepeatItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9832,7 +9803,7 @@ class NodeGeometrySimulationOutputItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> SimulationStateItem:
         """Add an item at the end
 
@@ -9841,7 +9812,7 @@ class NodeGeometrySimulationOutputItems(
         :return: Item, New item
         """
 
-    def remove(self, item: SimulationStateItem | None) -> None:
+    def remove(self, item: SimulationStateItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9894,7 +9865,7 @@ class NodeGeometryViewerItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> NodeGeometryViewerItem:
         """Add an item at the end
 
@@ -9903,7 +9874,7 @@ class NodeGeometryViewerItems(
         :return: Item, New item
         """
 
-    def remove(self, item: NodeGeometryViewerItem | None) -> None:
+    def remove(self, item: NodeGeometryViewerItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -9956,7 +9927,7 @@ class NodeIndexSwitchItems(bpy_prop, bpy_prop_collection[IndexSwitchItem], bpy_s
         :return: Item, New item
         """
 
-    def remove(self, item: IndexSwitchItem | None) -> None:
+    def remove(self, item: IndexSwitchItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -10005,10 +9976,10 @@ class NodeInputs(bpy_prop, bpy_prop_collection[NodeSocket], bpy_struct):
 
     def new(
         self,
-        type: str | None,
-        name: str | None,
+        type: str,
+        name: str,
         *,
-        identifier: str | None = "",
+        identifier: str = "",
         use_multi_input: bool | None = False,
     ) -> NodeSocket:
         """Add a socket to this node
@@ -10069,8 +10040,8 @@ class NodeLinks(bpy_prop, bpy_prop_collection[NodeLink], bpy_struct):
 
     def new(
         self,
-        input: NodeSocket | None,
-        output: NodeSocket | None,
+        input: NodeSocket,
+        output: NodeSocket,
         *,
         verify_limits: bool | None = True,
         handle_dynamic_sockets: bool | None = False,
@@ -10084,7 +10055,7 @@ class NodeLinks(bpy_prop, bpy_prop_collection[NodeLink], bpy_struct):
         :return: New node link
         """
 
-    def remove(self, link: NodeLink | None) -> None:
+    def remove(self, link: NodeLink) -> None:
         """remove a node link from the node tree
 
         :param link: The node link to remove (never None)
@@ -10124,14 +10095,14 @@ class NodeLinks(bpy_prop, bpy_prop_collection[NodeLink], bpy_struct):
 class NodeMenuSwitchItems(bpy_prop, bpy_prop_collection[NodeEnumItem], bpy_struct):
     """Collection of items that make up an enum"""
 
-    def new(self, name: str | None) -> NodeEnumItem:
+    def new(self, name: str) -> NodeEnumItem:
         """Add an a new enum item
 
         :param name: Name, (never None)
         :return: Item, New item
         """
 
-    def remove(self, item: NodeEnumItem | None) -> None:
+    def remove(self, item: NodeEnumItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -10180,10 +10151,10 @@ class NodeOutputs(bpy_prop, bpy_prop_collection[NodeSocket], bpy_struct):
 
     def new(
         self,
-        type: str | None,
-        name: str | None,
+        type: str,
+        name: str,
         *,
-        identifier: str | None = "",
+        identifier: str = "",
         use_multi_input: bool | None = False,
     ) -> NodeSocket:
         """Add a socket to this node
@@ -10248,7 +10219,7 @@ class NodeSeparateBundleItems(
         self,
         socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
-        name: str | None,
+        name: str,
     ) -> NodeSeparateBundleItem:
         """Add an item at the end
 
@@ -10257,7 +10228,7 @@ class NodeSeparateBundleItems(
         :return: Item, New item
         """
 
-    def remove(self, item: NodeSeparateBundleItem | None) -> None:
+    def remove(self, item: NodeSeparateBundleItem) -> None:
         """Remove an item
 
         :param item: Item, The item to remove (never None)
@@ -10307,14 +10278,14 @@ class Nodes(bpy_prop, bpy_prop_collection[Node], bpy_struct):
     active: Node | None
     """ Active node in this tree"""
 
-    def new(self, type: str | None) -> Node:
+    def new(self, type: str) -> Node:
         """Add a node to this node tree
 
         :param type: Type, Type of node to add (Warning: should be same as node.bl_idname, not node.type!) (never None)
         :return: New node
         """
 
-    def remove(self, node: Node | None) -> None:
+    def remove(self, node: Node) -> None:
         """Remove a node from this node tree
 
         :param node: The node to remove (never None)
@@ -10467,7 +10438,7 @@ class ObjectConstraints(bpy_prop, bpy_prop_collection[Constraint], bpy_struct):
         :return: New constraint
         """
 
-    def remove(self, constraint: Constraint | None) -> None:
+    def remove(self, constraint: Constraint) -> None:
         """Remove a constraint from this object
 
         :param constraint: Removed constraint (never None)
@@ -10483,7 +10454,7 @@ class ObjectConstraints(bpy_prop, bpy_prop_collection[Constraint], bpy_struct):
         :param to_index: To Index, Target index (in [-inf, inf])
         """
 
-    def copy(self, constraint: Constraint | None) -> Constraint:
+    def copy(self, constraint: Constraint) -> Constraint:
         """Add a new constraint that is a copy of the given one
 
         :param constraint: Constraint to copy - may belong to a different object (never None)
@@ -10526,7 +10497,7 @@ class ObjectModifiers(bpy_prop, bpy_prop_collection[Modifier], bpy_struct):
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.ObjectModifierTypeItems]
         | None,
     ) -> Modifier:
@@ -10537,7 +10508,7 @@ class ObjectModifiers(bpy_prop, bpy_prop_collection[Modifier], bpy_struct):
         :return: Newly created modifier
         """
 
-    def remove(self, modifier: Modifier | None) -> None:
+    def remove(self, modifier: Modifier) -> None:
         """Remove an existing modifier from the object
 
         :param modifier: Modifier to remove (never None)
@@ -10586,7 +10557,7 @@ class ObjectShaderFx(bpy_prop, bpy_prop_collection[ShaderFx], bpy_struct):
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.ObjectShaderfxTypeItems]
         | None,
     ) -> ShaderFx:
@@ -10597,7 +10568,7 @@ class ObjectShaderFx(bpy_prop, bpy_prop_collection[ShaderFx], bpy_struct):
         :return: Newly created effect
         """
 
-    def remove(self, shader_fx: ShaderFx | None) -> None:
+    def remove(self, shader_fx: ShaderFx) -> None:
         """Remove an existing effect from the object
 
         :param shader_fx: Effect to remove (never None)
@@ -10645,7 +10616,7 @@ class PaletteColors(bpy_prop, bpy_prop_collection[PaletteColor], bpy_struct):
         :return: The newly created color
         """
 
-    def remove(self, color: PaletteColor | None) -> None:
+    def remove(self, color: PaletteColor) -> None:
         """Remove a color from the palette
 
         :param color: The color to remove (never None)
@@ -10785,7 +10756,7 @@ class PathCompareCollection(bpy_prop, bpy_prop_collection[PathCompare], bpy_stru
         """
 
     @classmethod
-    def remove(cls, pathcmp: PathCompare | None) -> None:
+    def remove(cls, pathcmp: PathCompare) -> None:
         """Remove path
 
         :param pathcmp: (never None)
@@ -10869,7 +10840,7 @@ class PoseBoneConstraints(bpy_prop, bpy_prop_collection[Constraint], bpy_struct)
         :return: New constraint
         """
 
-    def remove(self, constraint: Constraint | None) -> None:
+    def remove(self, constraint: Constraint) -> None:
         """Remove a constraint from this object
 
         :param constraint: Removed constraint (never None)
@@ -10882,7 +10853,7 @@ class PoseBoneConstraints(bpy_prop, bpy_prop_collection[Constraint], bpy_struct)
         :param to_index: To Index, Target index (in [-inf, inf])
         """
 
-    def copy(self, constraint: Constraint | None) -> Constraint:
+    def copy(self, constraint: Constraint) -> Constraint:
         """Add a new constraint that is a copy of the given one
 
         :param constraint: Constraint to copy - may belong to a different object (never None)
@@ -10920,7 +10891,7 @@ class PoseBoneConstraints(bpy_prop, bpy_prop_collection[Constraint], bpy_struct)
 class RenderPasses(bpy_prop, bpy_prop_collection[RenderPass], bpy_struct):
     """Collection of render passes"""
 
-    def find_by_name(self, name: str | None, view: str | None) -> RenderPass:
+    def find_by_name(self, name: str, view: str) -> RenderPass:
         """Get the render pass for a given name and view
 
         :param name: Pass, (never None)
@@ -10965,7 +10936,7 @@ class RenderSlots(bpy_prop, bpy_prop_collection[RenderSlot], bpy_struct):
     active_index: int | None
     """ Active render slot of the image (in [0, 32767], default 0)"""
 
-    def new(self, *, name: str | None = "") -> RenderSlot:
+    def new(self, *, name: str = "") -> RenderSlot:
         """Add a render slot to the image
 
         :param name: Name, New name for the render slot (optional, never None)
@@ -11009,14 +10980,14 @@ class RenderViews(bpy_prop, bpy_prop_collection[SceneRenderView], bpy_struct):
     active_index: int | None
     """ Active index in render view array (in [0, 32767], default 0)"""
 
-    def new(self, name: str | None) -> SceneRenderView:
+    def new(self, name: str) -> SceneRenderView:
         """Add a render view to scene
 
         :param name: New name for the marker (not unique) (never None)
         :return: Newly created render view
         """
 
-    def remove(self, view: SceneRenderView | None) -> None:
+    def remove(self, view: SceneRenderView) -> None:
         """Remove a render view
 
         :param view: Render view to remove (never None)
@@ -11133,7 +11104,7 @@ class ScriptDirectoryCollection(
         """
 
     @classmethod
-    def remove(cls, script_directory: ScriptDirectory | None) -> None:
+    def remove(cls, script_directory: ScriptDirectory) -> None:
         """Remove a Python script directory
 
         :param script_directory: (never None)
@@ -11331,7 +11302,7 @@ class SpreadsheetTables(bpy_prop, bpy_prop_collection[SpreadsheetTable], bpy_str
 class StripElements(bpy_prop, bpy_prop_collection[StripElement], bpy_struct):
     """Collection of StripElement"""
 
-    def append(self, filename: str | None) -> StripElement:
+    def append(self, filename: str) -> StripElement:
         """Push an image from ImageStrip.directory
 
         :param filename: Filepath to image (never None)
@@ -11380,7 +11351,7 @@ class StripModifiers(bpy_prop, bpy_prop_collection[StripModifier], bpy_struct):
 
     def new(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[bpy.stub_internal.rna_enums.StripModifierTypeItems] | None,
     ) -> StripModifier:
         """Add a new modifier
@@ -11390,7 +11361,7 @@ class StripModifiers(bpy_prop, bpy_prop_collection[StripModifier], bpy_struct):
         :return: Newly created modifier
         """
 
-    def remove(self, modifier: StripModifier | None) -> None:
+    def remove(self, modifier: StripModifier) -> None:
         """Remove an existing modifier from the strip
 
         :param modifier: Modifier to remove (never None)
@@ -11431,11 +11402,7 @@ class StripsMeta(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
     """Collection of Strips"""
 
     def new_clip(
-        self,
-        name: str | None,
-        clip: MovieClip | None,
-        channel: int | None,
-        frame_start: int | None,
+        self, name: str, clip: MovieClip, channel: int | None, frame_start: int | None
     ) -> Strip:
         """Add a new movie clip strip
 
@@ -11447,11 +11414,7 @@ class StripsMeta(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
         """
 
     def new_mask(
-        self,
-        name: str | None,
-        mask: Mask | None,
-        channel: int | None,
-        frame_start: int | None,
+        self, name: str, mask: Mask, channel: int | None, frame_start: int | None
     ) -> Strip:
         """Add a new mask strip
 
@@ -11463,11 +11426,7 @@ class StripsMeta(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
         """
 
     def new_scene(
-        self,
-        name: str | None,
-        scene: Scene | None,
-        channel: int | None,
-        frame_start: int | None,
+        self, name: str, scene: Scene, channel: int | None, frame_start: int | None
     ) -> Strip:
         """Add a new scene strip
 
@@ -11480,8 +11439,8 @@ class StripsMeta(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
 
     def new_image(
         self,
-        name: str | None,
-        filepath: str | None,
+        name: str,
+        filepath: str,
         channel: int | None,
         frame_start: int | None,
         *,
@@ -11500,8 +11459,8 @@ class StripsMeta(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
 
     def new_movie(
         self,
-        name: str | None,
-        filepath: str | None,
+        name: str,
+        filepath: str,
         channel: int | None,
         frame_start: int | None,
         *,
@@ -11519,11 +11478,7 @@ class StripsMeta(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
         """
 
     def new_sound(
-        self,
-        name: str | None,
-        filepath: str | None,
-        channel: int | None,
-        frame_start: int | None,
+        self, name: str, filepath: str, channel: int | None, frame_start: int | None
     ) -> Strip:
         """Add a new sound strip
 
@@ -11535,7 +11490,7 @@ class StripsMeta(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
         """
 
     def new_meta(
-        self, name: str | None, channel: int | None, frame_start: int | None
+        self, name: str, channel: int | None, frame_start: int | None
     ) -> Strip:
         """Add a new meta strip
 
@@ -11547,7 +11502,7 @@ class StripsMeta(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
 
     def new_effect(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[
             "CROSS",
             "ADD",
@@ -11638,7 +11593,7 @@ class StripsMeta(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
                 :return: New Strip
         """
 
-    def remove(self, sequence: Strip | None) -> None:
+    def remove(self, sequence: Strip) -> None:
         """Remove a Strip
 
         :param sequence: Strip to remove (never None)
@@ -11676,11 +11631,7 @@ class StripsTopLevel(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
     """Collection of Strips"""
 
     def new_clip(
-        self,
-        name: str | None,
-        clip: MovieClip | None,
-        channel: int | None,
-        frame_start: int | None,
+        self, name: str, clip: MovieClip, channel: int | None, frame_start: int | None
     ) -> Strip:
         """Add a new movie clip strip
 
@@ -11692,11 +11643,7 @@ class StripsTopLevel(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
         """
 
     def new_mask(
-        self,
-        name: str | None,
-        mask: Mask | None,
-        channel: int | None,
-        frame_start: int | None,
+        self, name: str, mask: Mask, channel: int | None, frame_start: int | None
     ) -> Strip:
         """Add a new mask strip
 
@@ -11708,11 +11655,7 @@ class StripsTopLevel(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
         """
 
     def new_scene(
-        self,
-        name: str | None,
-        scene: Scene | None,
-        channel: int | None,
-        frame_start: int | None,
+        self, name: str, scene: Scene, channel: int | None, frame_start: int | None
     ) -> Strip:
         """Add a new scene strip
 
@@ -11725,8 +11668,8 @@ class StripsTopLevel(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
 
     def new_image(
         self,
-        name: str | None,
-        filepath: str | None,
+        name: str,
+        filepath: str,
         channel: int | None,
         frame_start: int | None,
         *,
@@ -11745,8 +11688,8 @@ class StripsTopLevel(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
 
     def new_movie(
         self,
-        name: str | None,
-        filepath: str | None,
+        name: str,
+        filepath: str,
         channel: int | None,
         frame_start: int | None,
         *,
@@ -11764,11 +11707,7 @@ class StripsTopLevel(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
         """
 
     def new_sound(
-        self,
-        name: str | None,
-        filepath: str | None,
-        channel: int | None,
-        frame_start: int | None,
+        self, name: str, filepath: str, channel: int | None, frame_start: int | None
     ) -> Strip:
         """Add a new sound strip
 
@@ -11780,7 +11719,7 @@ class StripsTopLevel(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
         """
 
     def new_meta(
-        self, name: str | None, channel: int | None, frame_start: int | None
+        self, name: str, channel: int | None, frame_start: int | None
     ) -> Strip:
         """Add a new meta strip
 
@@ -11792,7 +11731,7 @@ class StripsTopLevel(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
 
     def new_effect(
         self,
-        name: str | None,
+        name: str,
         type: typing.Literal[
             "CROSS",
             "ADD",
@@ -11883,7 +11822,7 @@ class StripsTopLevel(bpy_prop, bpy_prop_collection[Strip], bpy_struct):
                 :return: New Strip
         """
 
-    def remove(self, sequence: Strip | None) -> None:
+    def remove(self, sequence: Strip) -> None:
         """Remove a Strip
 
         :param sequence: Strip to remove (never None)
@@ -11921,7 +11860,7 @@ class StudioLights(bpy_prop, bpy_prop_collection[StudioLight], bpy_struct):
     """Collection of studio lights"""
 
     def load(
-        self, path: str | None, type: typing.Literal["STUDIO", "WORLD", "MATCAP"] | None
+        self, path: str, type: typing.Literal["STUDIO", "WORLD", "MATCAP"] | None
     ) -> StudioLight:
         """Load studiolight from file
 
@@ -11930,14 +11869,14 @@ class StudioLights(bpy_prop, bpy_prop_collection[StudioLight], bpy_struct):
         :return: Newly created StudioLight
         """
 
-    def new(self, path: str | None) -> StudioLight:
+    def new(self, path: str) -> StudioLight:
         """Create studiolight from default lighting
 
         :param path: Path, Path to the file that will contain the lighting info (without extension) (never None)
         :return: Newly created StudioLight
         """
 
-    def remove(self, studio_light: StudioLight | None) -> None:
+    def remove(self, studio_light: StudioLight) -> None:
         """Remove a studio light
 
         :param studio_light: The studio light to remove (never None)
@@ -11977,7 +11916,7 @@ class StudioLights(bpy_prop, bpy_prop_collection[StudioLight], bpy_struct):
 class TimelineMarkers(bpy_prop, bpy_prop_collection[TimelineMarker], bpy_struct):
     """Collection of timeline markers"""
 
-    def new(self, name: str | None, *, frame: int | None = 1) -> TimelineMarker:
+    def new(self, name: str, *, frame: int | None = 1) -> TimelineMarker:
         """Add a timeline marker
 
         :param name: New name for the marker (not unique) (never None)
@@ -11985,7 +11924,7 @@ class TimelineMarkers(bpy_prop, bpy_prop_collection[TimelineMarker], bpy_struct)
         :return: Newly created timeline marker
         """
 
-    def remove(self, marker: TimelineMarker | None) -> None:
+    def remove(self, marker: TimelineMarker) -> None:
         """Remove a timeline marker
 
         :param marker: Timeline marker to remove (never None)
@@ -12031,7 +11970,7 @@ class UDIMTiles(bpy_prop, bpy_prop_collection[UDIMTile], bpy_struct):
     active_index: int | None
     """ Active index in tiles array (in [0, inf], default 0)"""
 
-    def new(self, tile_number: int | None, *, label: str | None = "") -> UDIMTile:
+    def new(self, tile_number: int | None, *, label: str = "") -> UDIMTile:
         """Add a tile to the image
 
         :param tile_number: Number of the newly created tile (in [1, inf])
@@ -12046,7 +11985,7 @@ class UDIMTiles(bpy_prop, bpy_prop_collection[UDIMTile], bpy_struct):
         :return: The tile
         """
 
-    def remove(self, tile: UDIMTile | None) -> None:
+    def remove(self, tile: UDIMTile) -> None:
         """Remove an image tile
 
         :param tile: Image tile to remove (never None)
@@ -12090,7 +12029,7 @@ class UVLoopLayers(bpy_prop, bpy_prop_collection[MeshUVLoopLayer], bpy_struct):
     """ Active UV map index (in [0, inf], default 0)"""
 
     def new(
-        self, *, name: str | None = "UVMap", do_init: bool | None = True
+        self, *, name: str = "UVMap", do_init: bool | None = True
     ) -> MeshUVLoopLayer:
         """Add a UV map layer to Mesh
 
@@ -12099,7 +12038,7 @@ class UVLoopLayers(bpy_prop, bpy_prop_collection[MeshUVLoopLayer], bpy_struct):
         :return: The newly created layer
         """
 
-    def remove(self, layer: MeshUVLoopLayer | None) -> None:
+    def remove(self, layer: MeshUVLoopLayer) -> None:
         """Remove a UV map layer
 
         :param layer: The layer to remove (never None)
@@ -12142,10 +12081,10 @@ class UserExtensionRepoCollection(
     def new(
         cls,
         *,
-        name: str | None = "",
-        module: str | None = "",
-        custom_directory: str | None = "",
-        remote_url: str | None = "",
+        name: str = "",
+        module: str = "",
+        custom_directory: str = "",
+        remote_url: str = "",
         source: typing.Literal["USER", "SYSTEM"] | None = "USER",
     ) -> UserExtensionRepo:
         """Add a new repository
@@ -12165,7 +12104,7 @@ class UserExtensionRepoCollection(
         """
 
     @classmethod
-    def remove(cls, repo: UserExtensionRepo | None) -> None:
+    def remove(cls, repo: UserExtensionRepo) -> None:
         """Remove repos
 
         :param repo: Repository to remove (never None)
@@ -12208,14 +12147,14 @@ class VertexGroups(bpy_prop, bpy_prop_collection[VertexGroup], bpy_struct):
     active_index: int | None
     """ Active index in vertex group array (in [0, inf], default 0)"""
 
-    def new(self, *, name: str | None = "Group") -> VertexGroup:
+    def new(self, *, name: str = "Group") -> VertexGroup:
         """Add vertex group to object
 
         :param name: Vertex group name (optional, never None)
         :return: New vertex group
         """
 
-    def remove(self, group: VertexGroup | None) -> None:
+    def remove(self, group: VertexGroup) -> None:
         """Delete vertex group from object
 
         :param group: Vertex group to remove (never None)
@@ -12255,14 +12194,14 @@ class VertexGroups(bpy_prop, bpy_prop_collection[VertexGroup], bpy_struct):
 class ViewLayers(bpy_prop, bpy_prop_collection[ViewLayer], bpy_struct):
     """Collection of render layers"""
 
-    def new(self, name: str | None) -> ViewLayer:
+    def new(self, name: str) -> ViewLayer:
         """Add a view layer to scene
 
         :param name: New name for the view layer (not unique) (never None)
         :return: Newly created view layer
         """
 
-    def remove(self, layer: ViewLayer | None) -> None:
+    def remove(self, layer: ViewLayer) -> None:
         """Remove a view layer
 
         :param layer: View layer to remove (never None)
@@ -12330,7 +12269,7 @@ class VolumeGrids(bpy_prop, bpy_prop_collection[VolumeGrid], bpy_struct):
     def unload(self) -> None:
         """Unload all grid and voxel data from memory"""
 
-    def save(self, filepath: str | None) -> bool:
+    def save(self, filepath: str) -> bool:
         """Save grids and metadata to file
 
         :param filepath: File path to save to (never None)
@@ -12408,9 +12347,7 @@ class XrActionMapBindings(
 ):
     """Collection of XR action map bindings"""
 
-    def new(
-        self, name: str | None, replace_existing: bool | None
-    ) -> XrActionMapBinding:
+    def new(self, name: str, replace_existing: bool | None) -> XrActionMapBinding:
         """new
 
         :param name: Name of the action map binding, (never None)
@@ -12418,22 +12355,20 @@ class XrActionMapBindings(
         :return: Binding, Added action map binding
         """
 
-    def new_from_binding(
-        self, binding: XrActionMapBinding | None
-    ) -> XrActionMapBinding:
+    def new_from_binding(self, binding: XrActionMapBinding) -> XrActionMapBinding:
         """new_from_binding
 
         :param binding: Binding, Binding to use as a reference (never None)
         :return: Binding, Added action map binding
         """
 
-    def remove(self, binding: XrActionMapBinding | None) -> None:
+    def remove(self, binding: XrActionMapBinding) -> None:
         """remove
 
         :param binding: Binding, (never None)
         """
 
-    def find(self, name: str | None) -> XrActionMapBinding:
+    def find(self, name: str) -> XrActionMapBinding:
         """find
 
         :param name: Name, (never None)
@@ -12471,7 +12406,7 @@ class XrActionMapBindings(
 class XrActionMapItems(bpy_prop, bpy_prop_collection[XrActionMapItem], bpy_struct):
     """Collection of XR action map items"""
 
-    def new(self, name: str | None, replace_existing: bool | None) -> XrActionMapItem:
+    def new(self, name: str, replace_existing: bool | None) -> XrActionMapItem:
         """new
 
         :param name: Name of the action map item, (never None)
@@ -12479,20 +12414,20 @@ class XrActionMapItems(bpy_prop, bpy_prop_collection[XrActionMapItem], bpy_struc
         :return: Item, Added action map item
         """
 
-    def new_from_item(self, item: XrActionMapItem | None) -> XrActionMapItem:
+    def new_from_item(self, item: XrActionMapItem) -> XrActionMapItem:
         """new_from_item
 
         :param item: Item, Item to use as a reference (never None)
         :return: Item, Added action map item
         """
 
-    def remove(self, item: XrActionMapItem | None) -> None:
+    def remove(self, item: XrActionMapItem) -> None:
         """remove
 
         :param item: Item, (never None)
         """
 
-    def find(self, name: str | None) -> XrActionMapItem:
+    def find(self, name: str) -> XrActionMapItem:
         """find
 
         :param name: Name, (never None)
@@ -12532,10 +12467,7 @@ class XrActionMaps(bpy_prop, bpy_prop_collection[XrActionMap], bpy_struct):
 
     @classmethod
     def new(
-        cls,
-        xr_session_state: XrSessionState | None,
-        name: str | None,
-        replace_existing: bool | None,
+        cls, xr_session_state: XrSessionState, name: str, replace_existing: bool | None
     ) -> XrActionMap:
         """new
 
@@ -12547,7 +12479,7 @@ class XrActionMaps(bpy_prop, bpy_prop_collection[XrActionMap], bpy_struct):
 
     @classmethod
     def new_from_actionmap(
-        cls, xr_session_state: XrSessionState | None, actionmap: XrActionMap | None
+        cls, xr_session_state: XrSessionState, actionmap: XrActionMap
     ) -> XrActionMap:
         """new_from_actionmap
 
@@ -12557,9 +12489,7 @@ class XrActionMaps(bpy_prop, bpy_prop_collection[XrActionMap], bpy_struct):
         """
 
     @classmethod
-    def remove(
-        cls, xr_session_state: XrSessionState | None, actionmap: XrActionMap | None
-    ) -> None:
+    def remove(cls, xr_session_state: XrSessionState, actionmap: XrActionMap) -> None:
         """remove
 
         :param xr_session_state: XR Session State, (never None)
@@ -12567,9 +12497,7 @@ class XrActionMaps(bpy_prop, bpy_prop_collection[XrActionMap], bpy_struct):
         """
 
     @classmethod
-    def find(
-        cls, xr_session_state: XrSessionState | None, name: str | None
-    ) -> XrActionMap:
+    def find(cls, xr_session_state: XrSessionState, name: str) -> XrActionMap:
         """find
 
         :param xr_session_state: XR Session State, (never None)
@@ -12608,20 +12536,20 @@ class XrActionMaps(bpy_prop, bpy_prop_collection[XrActionMap], bpy_struct):
 class XrComponentPaths(bpy_prop, bpy_prop_collection[XrComponentPath], bpy_struct):
     """Collection of OpenXR component paths"""
 
-    def new(self, path: str | None) -> XrComponentPath:
+    def new(self, path: str) -> XrComponentPath:
         """new
 
         :param path: Path, OpenXR component path (never None)
         :return: Component Path, Added component path
         """
 
-    def remove(self, component_path: XrComponentPath | None) -> None:
+    def remove(self, component_path: XrComponentPath) -> None:
         """remove
 
         :param component_path: Component Path, (never None)
         """
 
-    def find(self, path: str | None) -> XrComponentPath:
+    def find(self, path: str) -> XrComponentPath:
         """find
 
         :param path: Path, OpenXR component path (never None)
@@ -12659,20 +12587,20 @@ class XrComponentPaths(bpy_prop, bpy_prop_collection[XrComponentPath], bpy_struc
 class XrUserPaths(bpy_prop, bpy_prop_collection[XrUserPath], bpy_struct):
     """Collection of OpenXR user paths"""
 
-    def new(self, path: str | None) -> XrUserPath:
+    def new(self, path: str) -> XrUserPath:
         """new
 
         :param path: Path, OpenXR user path (never None)
         :return: User Path, Added user path
         """
 
-    def remove(self, user_path: XrUserPath | None) -> None:
+    def remove(self, user_path: XrUserPath) -> None:
         """remove
 
         :param user_path: User Path, (never None)
         """
 
-    def find(self, path: str | None) -> XrUserPath:
+    def find(self, path: str) -> XrUserPath:
         """find
 
         :param path: Path, OpenXR user path (never None)
@@ -12708,14 +12636,14 @@ class XrUserPaths(bpy_prop, bpy_prop_collection[XrUserPath], bpy_struct):
         """
 
 class wmOwnerIDs(bpy_prop, bpy_prop_collection[wmOwnerID], bpy_struct):
-    def new(self, name: str | None) -> wmOwnerID:
+    def new(self, name: str) -> wmOwnerID:
         """Add ui tag
 
         :param name: New name for the tag (never None)
         :return:
         """
 
-    def remove(self, owner_id: wmOwnerID | None) -> None:
+    def remove(self, owner_id: wmOwnerID) -> None:
         """Remove ui tag
 
         :param owner_id: Tag to remove (never None)
@@ -12942,13 +12870,13 @@ class Action(ID, bpy_struct):
     is_empty: bool
     """ False when there is any Layer, Slot, or legacy F-Curve (default False, readonly)"""
 
-    layers: ActionLayers | None
+    layers: ActionLayers
     """ The list of layers that make up this Action (default None, readonly)"""
 
-    pose_markers: ActionPoseMarkers | None
+    pose_markers: ActionPoseMarkers
     """ Markers specific to this action, for labeling poses (default None, readonly)"""
 
-    slots: ActionSlots | None
+    slots: ActionSlots
     """ The list of slots in this Action (default None, readonly)"""
 
     use_cyclic: bool
@@ -12962,11 +12890,11 @@ class Action(ID, bpy_struct):
 
     def fcurve_ensure_for_datablock(
         self,
-        datablock: ID | None,
-        data_path: str | None,
+        datablock: ID,
+        data_path: str,
         *,
         index: int | None = 0,
-        group_name: str | None = "",
+        group_name: str = "",
     ) -> FCurve:
         """Ensure that an F-Curve exists, with the given data path and array index, for the given data-block. This action must already be assigned to the data-block. This function will also create the layer, keyframe strip, and action slot if necessary, and take care of assigning the action slot too
 
@@ -12977,7 +12905,7 @@ class Action(ID, bpy_struct):
         :return: The found or created F-Curve
         """
 
-    def flip_with_pose(self, object: Object | None) -> None:
+    def flip_with_pose(self, object: Object) -> None:
         """Flip the action around the X axis using a pose
 
         :param object: The reference armature object to use when flipping (never None)
@@ -13014,10 +12942,10 @@ class Action(ID, bpy_struct):
 class ActionChannelbag(bpy_struct):
     """Collection of animation channels, typically associated with an action slot"""
 
-    fcurves: ActionChannelbagFCurves | None
+    fcurves: ActionChannelbagFCurves
     """ The individual F-Curves that animate the slot (default None, readonly)"""
 
-    groups: ActionChannelbagGroups | None
+    groups: ActionChannelbagGroups
     """ Groupings of F-Curves for display purposes, in e.g. the dopesheet and graph editor (default None, readonly)"""
 
     slot: ActionSlot | None
@@ -13160,7 +13088,7 @@ class ActionGroup(bpy_struct):
     color_set: typing.Literal[bpy.stub_internal.rna_enums.ColorSetsItems]
     """ Custom color set to use (default 'DEFAULT')"""
 
-    colors: ThemeBoneColorSet | None
+    colors: ThemeBoneColorSet
     """ Copy of the colors associated with the group's color set (readonly, never None)"""
 
     is_custom_color_set: bool
@@ -13218,7 +13146,7 @@ class ActionGroup(bpy_struct):
 class ActionKeyframeStrip(ActionStrip, bpy_struct):
     """Strip with a set of F-Curves for each action slot"""
 
-    channelbags: ActionChannelbags | None
+    channelbags: ActionChannelbags
     """ (default None, readonly)"""
 
     def channelbag(
@@ -13234,7 +13162,7 @@ class ActionKeyframeStrip(ActionStrip, bpy_struct):
     def key_insert(
         self,
         slot: ActionSlot | None,
-        data_path: str | None,
+        data_path: str,
         array_index: int | None,
         value: float | None,
         time: float | None,
@@ -13281,7 +13209,7 @@ class ActionLayer(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    strips: ActionStrips | None
+    strips: ActionStrips
     """ The list of strips that are on this animation layer (default None, readonly)"""
 
     @classmethod
@@ -13456,10 +13384,10 @@ class ActionStrip(bpy_struct):
 class AddStrip(EffectStrip, Strip, bpy_struct):
     """Add Strip"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
-    input_2: Strip | None
+    input_2: Strip
     """ Second input for the effect strip (never None)"""
 
     input_count: int
@@ -13622,10 +13550,10 @@ class AdjustmentStrip(EffectStrip, Strip, bpy_struct):
 class AlphaOverStrip(EffectStrip, Strip, bpy_struct):
     """Alpha Over Strip"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
-    input_2: Strip | None
+    input_2: Strip
     """ Second input for the effect strip (never None)"""
 
     input_count: int
@@ -13662,10 +13590,10 @@ class AlphaOverStrip(EffectStrip, Strip, bpy_struct):
 class AlphaUnderStrip(EffectStrip, Strip, bpy_struct):
     """Alpha Under Strip"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
-    input_2: Strip | None
+    input_2: Strip
     """ Second input for the effect strip (never None)"""
 
     input_count: int
@@ -13731,13 +13659,13 @@ class AnimData(bpy_struct):
     action_tweak_storage: Action | None
     """ Storage to temporarily hold the main action while in tweak mode"""
 
-    drivers: AnimDataDrivers | None
+    drivers: AnimDataDrivers
     """ The Drivers/Expressions for this data-block (default None, readonly)"""
 
     last_slot_identifier: str
     """ The identifier of the most recently assigned action slot. The slot identifies which sub-set of the Action is considered to be for this data-block, and its identifier is used to find the right slot when assigning an Action. (default "", never None)"""
 
-    nla_tracks: NlaTracks | None
+    nla_tracks: NlaTracks
     """ NLA Tracks (i.e. Animation Layers) (default None, readonly)"""
 
     use_nla: bool
@@ -13760,11 +13688,7 @@ class AnimData(bpy_struct):
         """
 
     def fix_paths_rename_all(
-        self,
-        *,
-        prefix: str | None = "",
-        old_name: str | None = "",
-        new_name: str | None = "",
+        self, *, prefix: str = "", old_name: str = "", new_name: str = ""
     ) -> None:
         """Rename the property paths in the animation system, since properties are animated via string paths, its needed to keep them valid after properties has been renamed
 
@@ -13804,7 +13728,7 @@ class AnimData(bpy_struct):
 class AnimViz(bpy_struct):
     """Settings for the visualization of motion"""
 
-    motion_path: AnimVizMotionPaths | None
+    motion_path: AnimVizMotionPaths
     """ Motion Path settings for visualization (readonly, never None)"""
 
     @classmethod
@@ -13916,7 +13840,7 @@ class Annotation(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    layers: AnnotationLayers | None
+    layers: AnnotationLayers
     """ (default None, readonly)"""
 
     @classmethod
@@ -13956,7 +13880,7 @@ class AnnotationFrame(bpy_struct):
     select: bool
     """ Frame is selected for editing in the Dope Sheet (default False)"""
 
-    strokes: AnnotationStrokes | None
+    strokes: AnnotationStrokes
     """ Freehand curves defining the sketch on this frame (default None, readonly)"""
 
     @classmethod
@@ -14017,7 +13941,7 @@ class AnnotationLayer(bpy_struct):
     color: mathutils.Color
     """ Color for all strokes in this layer (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    frames: AnnotationFrames | None
+    frames: AnnotationFrames
     """ Sketches for this layer on different frames (default None, readonly)"""
 
     info: str
@@ -14078,7 +14002,7 @@ class AnnotationStroke(bpy_struct):
     display_mode: typing.Literal["3DSPACE", "2DSPACE", "2DIMAGE"]
     """ Coordinate space that stroke is in (default '3DSPACE')"""
 
-    points: AnnotationStrokePoints | None
+    points: AnnotationStrokePoints
     """ Stroke data points (default None, readonly)"""
 
     @classmethod
@@ -14186,7 +14110,7 @@ class Area(bpy_struct):
     show_menus: bool
     """ Show menus in the header (default True)"""
 
-    spaces: AreaSpaces | None
+    spaces: AreaSpaces
     """ Spaces contained in this area, the first being the active space (NOTE: Useful for example to restore a previously used 3D view space in a certain area to get the old view orientation) (default None, readonly)"""
 
     type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
@@ -14324,10 +14248,10 @@ class Armature(ID, bpy_struct):
     axes_position: float
     """ The position for the axes on the bone. Increasing the value moves it closer to the tip; decreasing moves it closer to the root. (in [0, 1], default 0.0)"""
 
-    bones: ArmatureBones | None
+    bones: ArmatureBones
     """ (default None, readonly)"""
 
-    collections: BoneCollections | None
+    collections: BoneCollections
     """ (default None)"""
 
     collections_all: bpy_prop_collection[BoneCollection]
@@ -14336,7 +14260,7 @@ class Armature(ID, bpy_struct):
     display_type: typing.Literal["OCTAHEDRAL", "STICK", "BBONE", "ENVELOPE", "WIRE"]
     """ (default 'OCTAHEDRAL')"""
 
-    edit_bones: ArmatureEditBones | None
+    edit_bones: ArmatureEditBones
     """ (default None, readonly)"""
 
     is_editmode: bool
@@ -14405,7 +14329,7 @@ class Armature(ID, bpy_struct):
 class ArmatureConstraint(Constraint, bpy_struct):
     """Applies transformations done by the Armature modifier"""
 
-    targets: ArmatureConstraintTargets | None
+    targets: ArmatureConstraintTargets
     """ Target Bones (default None, readonly)"""
 
     use_bone_envelopes: bool
@@ -14634,7 +14558,7 @@ class AssetMetaData(bpy_struct):
     license: str
     """ The type of license this asset is distributed under. An empty license name does not necessarily indicate that this is free of licensing terms. Contact the author if any clarification is needed. (default "", never None)"""
 
-    tags: AssetTags | None
+    tags: AssetTags
     """ Custom tags (name tokens) for the asset, used for filtering and general asset management (default None, readonly)"""
 
     @classmethod
@@ -15068,7 +14992,7 @@ class BakeSettings(bpy_struct):
     height: int
     """ Vertical dimension of the baking map (in [4, 10000], default 512)"""
 
-    image_settings: ImageFormatSettings | None
+    image_settings: ImageFormatSettings
     """ (readonly, never None)"""
 
     margin: int
@@ -15360,49 +15284,49 @@ class BezierSplinePoint(bpy_struct):
 class BlendData(bpy_struct):
     """Main data structure representing a .blend file and all its data-blocks"""
 
-    actions: BlendDataActions | None
+    actions: BlendDataActions
     """ Action data-blocks (default None, readonly)"""
 
     all_ids: bpy_prop_collection[ID]
     """ Read-only list of all IDs listed in Blender data-base (default None, readonly)"""
 
-    annotations: BlendDataAnnotations | None
+    annotations: BlendDataAnnotations
     """ Annotation data-blocks (legacy Grease Pencil) (default None, readonly)"""
 
-    armatures: BlendDataArmatures | None
+    armatures: BlendDataArmatures
     """ Armature data-blocks (default None, readonly)"""
 
-    brushes: BlendDataBrushes | None
+    brushes: BlendDataBrushes
     """ Brush data-blocks (default None, readonly)"""
 
-    cache_files: BlendDataCacheFiles | None
+    cache_files: BlendDataCacheFiles
     """ Cache Files data-blocks (default None, readonly)"""
 
-    cameras: BlendDataCameras | None
+    cameras: BlendDataCameras
     """ Camera data-blocks (default None, readonly)"""
 
-    collections: BlendDataCollections | None
+    collections: BlendDataCollections
     """ Collection data-blocks (default None, readonly)"""
 
-    colorspace: BlendFileColorspace | None
+    colorspace: BlendFileColorspace
     """ Information about the color space used for data-blocks in a blend file (readonly, never None)"""
 
-    curves: BlendDataCurves | None
+    curves: BlendDataCurves
     """ Curve data-blocks (default None, readonly)"""
 
     filepath: str
     """ Path to the .blend file (default "", readonly, never None)"""
 
-    fonts: BlendDataFonts | None
+    fonts: BlendDataFonts
     """ Vector font data-blocks (default None, readonly)"""
 
-    grease_pencils: BlendDataGreasePencilsV3 | None
+    grease_pencils: BlendDataGreasePencilsV3
     """ Grease Pencil data-blocks (default None, readonly)"""
 
-    hair_curves: BlendDataHairCurves | None
+    hair_curves: BlendDataHairCurves
     """ Hair curve data-blocks (default None, readonly)"""
 
-    images: BlendDataImages | None
+    images: BlendDataImages
     """ Image data-blocks (default None, readonly)"""
 
     is_dirty: bool
@@ -15411,73 +15335,73 @@ class BlendData(bpy_struct):
     is_saved: bool
     """ Has the current session been saved to disk as a .blend file (default False, readonly)"""
 
-    lattices: BlendDataLattices | None
+    lattices: BlendDataLattices
     """ Lattice data-blocks (default None, readonly)"""
 
-    libraries: BlendDataLibraries | None
+    libraries: BlendDataLibraries
     """ Library data-blocks (default None, readonly)"""
 
-    lightprobes: BlendDataProbes | None
+    lightprobes: BlendDataProbes
     """ Light Probe data-blocks (default None, readonly)"""
 
-    lights: BlendDataLights | None
+    lights: BlendDataLights
     """ Light data-blocks (default None, readonly)"""
 
-    linestyles: BlendDataLineStyles | None
+    linestyles: BlendDataLineStyles
     """ Line Style data-blocks (default None, readonly)"""
 
-    masks: BlendDataMasks | None
+    masks: BlendDataMasks
     """ Masks data-blocks (default None, readonly)"""
 
-    materials: BlendDataMaterials | None
+    materials: BlendDataMaterials
     """ Material data-blocks (default None, readonly)"""
 
-    meshes: BlendDataMeshes | None
+    meshes: BlendDataMeshes
     """ Mesh data-blocks (default None, readonly)"""
 
-    metaballs: BlendDataMetaBalls | None
+    metaballs: BlendDataMetaBalls
     """ Metaball data-blocks (default None, readonly)"""
 
-    movieclips: BlendDataMovieClips | None
+    movieclips: BlendDataMovieClips
     """ Movie Clip data-blocks (default None, readonly)"""
 
-    node_groups: BlendDataNodeTrees | None
+    node_groups: BlendDataNodeTrees
     """ Node group data-blocks (default None, readonly)"""
 
-    objects: BlendDataObjects | None
+    objects: BlendDataObjects
     """ Object data-blocks (default None, readonly)"""
 
-    paint_curves: BlendDataPaintCurves | None
+    paint_curves: BlendDataPaintCurves
     """ Paint Curves data-blocks (default None, readonly)"""
 
-    palettes: BlendDataPalettes | None
+    palettes: BlendDataPalettes
     """ Palette data-blocks (default None, readonly)"""
 
-    particles: BlendDataParticles | None
+    particles: BlendDataParticles
     """ Particle data-blocks (default None, readonly)"""
 
-    pointclouds: BlendDataPointClouds | None
+    pointclouds: BlendDataPointClouds
     """ Point cloud data-blocks (default None, readonly)"""
 
-    scenes: BlendDataScenes | None
+    scenes: BlendDataScenes
     """ Scene data-blocks (default None, readonly)"""
 
-    screens: BlendDataScreens | None
+    screens: BlendDataScreens
     """ Screen data-blocks (default None, readonly)"""
 
     shape_keys: bpy_prop_collection[Key]
     """ Shape Key data-blocks (default None, readonly)"""
 
-    sounds: BlendDataSounds | None
+    sounds: BlendDataSounds
     """ Sound data-blocks (default None, readonly)"""
 
-    speakers: BlendDataSpeakers | None
+    speakers: BlendDataSpeakers
     """ Speaker data-blocks (default None, readonly)"""
 
-    texts: BlendDataTexts | None
+    texts: BlendDataTexts
     """ Text data-blocks (default None, readonly)"""
 
-    textures: BlendDataTextures | None
+    textures: BlendDataTextures
     """ Texture data-blocks (default None, readonly)"""
 
     use_autopack: bool
@@ -15486,16 +15410,16 @@ class BlendData(bpy_struct):
     version: bpy_prop_array[int]
     """ File format version the .blend file was saved with (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
-    volumes: BlendDataVolumes | None
+    volumes: BlendDataVolumes
     """ Volume data-blocks (default None, readonly)"""
 
-    window_managers: BlendDataWindowManagers | None
+    window_managers: BlendDataWindowManagers
     """ Window manager data-blocks (default None, readonly)"""
 
-    workspaces: BlendDataWorkSpaces | None
+    workspaces: BlendDataWorkSpaces
     """ Workspace data-blocks (default None, readonly)"""
 
-    worlds: BlendDataWorlds | None
+    worlds: BlendDataWorlds
     """ World data-blocks (default None, readonly)"""
 
     def pack_linked_ids_hierarchy(self, root_id: ID | None) -> ID:
@@ -15654,7 +15578,7 @@ class BlendFileColorspace(bpy_struct):
 class BlendImportContext(bpy_struct):
     """Contextual data for a blendfile library/linked-data related operation. Currently only exposed as read-only data for the pre/post blendimport handlers"""
 
-    import_items: BlendImportContextItems | None
+    import_items: BlendImportContextItems
     """ (default None, readonly)"""
 
     options: set[
@@ -15736,7 +15660,7 @@ class BlendImportContextItem(bpy_struct):
     reusable_local_id: ID | None
     """ The already existing local ID that may be reused in append & reuse case. None until it has been found (readonly)"""
 
-    source_libraries: BlendImportContextLibraries | None
+    source_libraries: BlendImportContextLibraries
     """ List of libraries to search and import that ID from. The ID will be imported from the first file in that list that contains it (default None, readonly)"""
 
     source_library: Library | None
@@ -16393,7 +16317,7 @@ class Bone(bpy_struct):
     children: bpy_prop_collection[Bone]
     """ Bones which are children of this bone (default None, readonly)"""
 
-    collections: BoneCollectionMemberships | None
+    collections: BoneCollectionMemberships
     """ Bone Collections that contain this bone (default None, readonly)"""
 
     color: BoneColor | None
@@ -16743,7 +16667,7 @@ class BoneCollection(bpy_struct):
 class BoneColor(bpy_struct):
     """Theme color or custom color of a bone"""
 
-    custom: ThemeBoneColorSet | None
+    custom: ThemeBoneColorSet
     """ The custom bone colors, used when palette is 'CUSTOM' (readonly, never None)"""
 
     is_custom: bool
@@ -17096,7 +17020,7 @@ class Brush(ID, bpy_struct):
     boundary_offset: float
     """ Offset of the boundary origin in relation to the brush radius (in [0, 30], default 0.0)"""
 
-    brush_capabilities: BrushCapabilities | None
+    brush_capabilities: BrushCapabilities
     """ Brush's capabilities (readonly, never None)"""
 
     cloth_constraint_softbody_strength: float
@@ -17150,7 +17074,7 @@ class Brush(ID, bpy_struct):
     cursor_overlay_alpha: int
     """ (in [0, 100], default 33)"""
 
-    curve_distance_falloff: CurveMapping | None
+    curve_distance_falloff: CurveMapping
     """ Editable falloff curve (readonly, never None)"""
 
     curve_distance_falloff_preset: typing.Literal[
@@ -17274,7 +17198,7 @@ class Brush(ID, bpy_struct):
     ]
     """ (default 'DRAW')"""
 
-    image_paint_capabilities: BrushCapabilitiesImagePaint | None
+    image_paint_capabilities: BrushCapabilitiesImagePaint
     """ (readonly, never None)"""
 
     input_samples: int
@@ -17387,7 +17311,7 @@ class Brush(ID, bpy_struct):
     ]
     """ (default 'DRAW')"""
 
-    sculpt_capabilities: BrushCapabilitiesSculpt | None
+    sculpt_capabilities: BrushCapabilitiesSculpt
     """ (readonly, never None)"""
 
     sculpt_plane: typing.Literal["AREA", "VIEW", "X", "Y", "Z"]
@@ -17695,7 +17619,7 @@ class Brush(ID, bpy_struct):
     ]
     """ (default 'DRAW')"""
 
-    vertex_paint_capabilities: BrushCapabilitiesVertexPaint | None
+    vertex_paint_capabilities: BrushCapabilitiesVertexPaint
     """ (readonly, never None)"""
 
     weight: float
@@ -17706,7 +17630,7 @@ class Brush(ID, bpy_struct):
     ]
     """ (default 'DRAW')"""
 
-    weight_paint_capabilities: BrushCapabilitiesWeightPaint | None
+    weight_paint_capabilities: BrushCapabilitiesWeightPaint
     """ (readonly, never None)"""
 
     wet_mix: float
@@ -18750,10 +18674,10 @@ class CacheFile(ID, bpy_struct):
     is_sequence: bool
     """ Whether the cache is separated in a series of files (default False)"""
 
-    layers: CacheFileLayers | None
+    layers: CacheFileLayers
     """ Layers of the cache (default None, readonly)"""
 
-    object_paths: CacheObjectPaths | None
+    object_paths: CacheObjectPaths
     """ Paths of the objects inside the Alembic archive (default None, readonly)"""
 
     override_frame: bool
@@ -18885,7 +18809,7 @@ class Camera(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    background_images: CameraBackgroundImages | None
+    background_images: CameraBackgroundImages
     """ List of background images (default None, readonly)"""
 
     central_cylindrical_radius: float
@@ -19055,7 +18979,7 @@ class Camera(ID, bpy_struct):
     show_sensor: bool
     """ Show sensor size (film gate) in Camera view (default False)"""
 
-    stereo: CameraStereoData | None
+    stereo: CameraStereoData
     """ (readonly, never None)"""
 
     type: typing.Literal["PERSP", "ORTHO", "PANO", "CUSTOM"]
@@ -19113,7 +19037,7 @@ class CameraBackgroundImage(bpy_struct):
     clip: MovieClip | None
     """ Movie clip displayed and edited in this space"""
 
-    clip_user: MovieClipUser | None
+    clip_user: MovieClipUser
     """ Parameters defining which frame of the movie clip is displayed (readonly, never None)"""
 
     display_depth: typing.Literal["BACK", "FRONT"]
@@ -19125,7 +19049,7 @@ class CameraBackgroundImage(bpy_struct):
     image: Image | None
     """ Image displayed and edited in this space"""
 
-    image_user: ImageUser | None
+    image_user: ImageUser
     """ Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
 
     is_override_data: bool
@@ -19617,7 +19541,7 @@ class ClothCollisionSettings(bpy_struct):
 class ClothModifier(Modifier, bpy_struct):
     """Cloth simulation modifier"""
 
-    collision_settings: ClothCollisionSettings | None
+    collision_settings: ClothCollisionSettings
     """ (readonly, never None)"""
 
     hair_grid_max: bpy_prop_array[float]
@@ -19629,10 +19553,10 @@ class ClothModifier(Modifier, bpy_struct):
     hair_grid_resolution: bpy_prop_array[int]
     """ (array of 3 items, in [-inf, inf], default (0, 0, 0), readonly)"""
 
-    point_cache: PointCache | None
+    point_cache: PointCache
     """ (readonly, never None)"""
 
-    settings: ClothSettings | None
+    settings: ClothSettings
     """ (readonly, never None)"""
 
     solver_result: ClothSolverResult | None
@@ -19997,7 +19921,7 @@ class Collection(ID, bpy_struct):
     all_objects: bpy_prop_collection[Object]
     """ Objects that are in this collection and its child collections (default None, readonly)"""
 
-    children: CollectionChildren | None
+    children: CollectionChildren
     """ Collections that are immediate children of this collection (default None, readonly)"""
 
     collection_children: bpy_prop_collection[CollectionChild]
@@ -20009,7 +19933,7 @@ class Collection(ID, bpy_struct):
     color_tag: typing.Literal[bpy.stub_internal.rna_enums.CollectionColorItems]
     """ Color tag for a collection (default 'COLOR_01')"""
 
-    exporters: CollectionExports | None
+    exporters: CollectionExports
     """ Export Handlers configured for the collection (default None, readonly)"""
 
     hide_render: bool
@@ -20043,7 +19967,7 @@ class Collection(ID, bpy_struct):
     lineart_use_intersection_mask: bool
     """ Use custom intersection mask for faces in this collection (default False)"""
 
-    objects: CollectionObjects | None
+    objects: CollectionObjects
     """ Objects that are directly in this collection (default None, readonly)"""
 
     use_lineart_intersection_priority: bool
@@ -20086,7 +20010,7 @@ class Collection(ID, bpy_struct):
 class CollectionChild(bpy_struct):
     """Child collection with its collection related settings"""
 
-    light_linking: CollectionLightLinking | None
+    light_linking: CollectionLightLinking
     """ Light linking settings of the collection object (readonly, never None)"""
 
     @classmethod
@@ -20232,7 +20156,7 @@ class CollectionLightLinking(bpy_struct):
 class CollectionObject(bpy_struct):
     """Object of a collection with its collection related settings"""
 
-    light_linking: CollectionLightLinking | None
+    light_linking: CollectionLightLinking
     """ Light linking settings of the collection (readonly, never None)"""
 
     @classmethod
@@ -20300,7 +20224,7 @@ class CollectionProperty(Property, bpy_struct):
 class CollisionModifier(Modifier, bpy_struct):
     """Collision modifier defining modifier stack position used for collision"""
 
-    settings: CollisionSettings | None
+    settings: CollisionSettings
     """ (readonly, never None)"""
 
     @classmethod
@@ -20725,10 +20649,10 @@ class ColorMixStrip(EffectStrip, Strip, bpy_struct):
     factor: float
     """ Percentage of how much the strip's colors affect other strips (in [0, 1], default 0.0)"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
-    input_2: Strip | None
+    input_2: Strip
     """ Second input for the effect strip (never None)"""
 
     input_count: int
@@ -20768,7 +20692,7 @@ class ColorRamp(bpy_struct):
     color_mode: typing.Literal["RGB", "HSV", "HSL"]
     """ Set color mode to use for interpolation (default 'RGB')"""
 
-    elements: ColorRampElements | None
+    elements: ColorRampElements
     """ (default None, readonly)"""
 
     hue_interpolation: typing.Literal["NEAR", "FAR", "CW", "CCW"]
@@ -24406,7 +24330,7 @@ class CompositorNodeOutputFile(CompositorNode, NodeInternal, Node, bpy_struct):
     file_name: str
     """ The base name of the file. Other information might be included in the final file name depending on the node options (default "", never None, Supports template expressions)"""
 
-    file_output_items: NodeCompositorFileOutputItems | None
+    file_output_items: NodeCompositorFileOutputItems
     """ (default None, readonly)"""
 
     format: ImageFormatSettings | None
@@ -25951,10 +25875,10 @@ class CompositorNodeZcombine(CompositorNode, NodeInternal, Node, bpy_struct):
 class CompositorStrip(EffectStrip, Strip, bpy_struct):
     """Compositor Strip"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
-    input_2: Strip | None
+    input_2: Strip
     """ Second input for the effect strip (never None)"""
 
     input_count: int
@@ -26739,10 +26663,10 @@ class CorrectiveSmoothModifier(Modifier, bpy_struct):
 class CrossStrip(EffectStrip, Strip, bpy_struct):
     """Crossfade Strip"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
-    input_2: Strip | None
+    input_2: Strip
     """ Second input for the effect strip (never None)"""
 
     input_count: int
@@ -26868,7 +26792,7 @@ class Curve(ID, bpy_struct):
     is_editmode: bool
     """ True when used in editmode (default False, readonly)"""
 
-    materials: IDMaterials | None
+    materials: IDMaterials
     """ (default None, readonly)"""
 
     offset: float
@@ -26892,7 +26816,7 @@ class Curve(ID, bpy_struct):
     shape_keys: Key | None
     """ (readonly)"""
 
-    splines: CurveSplines | None
+    splines: CurveSplines
     """ Collection of splines in this curve data object (default None, readonly)"""
 
     taper_object: Object | None
@@ -26994,7 +26918,7 @@ class Curve(ID, bpy_struct):
 class CurveMap(bpy_struct):
     """Curve in a curve mapping"""
 
-    points: CurveMapPoints | None
+    points: CurveMapPoints
     """ (default None, readonly)"""
 
     @classmethod
@@ -27107,7 +27031,7 @@ class CurveMapping(bpy_struct):
     def initialize(self) -> None:
         """Initialize curve"""
 
-    def evaluate(self, curve: CurveMap | None, position: float | None) -> float:
+    def evaluate(self, curve: CurveMap, position: float | None) -> float:
         """Evaluate curve at given location
 
         :param curve: curve, Curve to evaluate (never None)
@@ -27306,7 +27230,7 @@ class CurvePoint(bpy_struct):
 class CurveProfile(bpy_struct):
     """Profile Path editor used to build a profile path"""
 
-    points: CurveProfilePoints | None
+    points: CurveProfilePoints
     """ Profile control points (default None, readonly)"""
 
     preset: typing.Literal["LINE", "SUPPORTS", "CORNICE", "CROWN", "STEPS"]
@@ -27463,10 +27387,10 @@ class Curves(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    attributes: AttributeGroupCurves | None
+    attributes: AttributeGroupCurves
     """ Geometry attributes (default None, readonly)"""
 
-    color_attributes: AttributeGroupCurves | None
+    color_attributes: AttributeGroupCurves
     """ Geometry color attributes (default None, readonly)"""
 
     curve_offset_data: bpy_prop_collection[IntAttributeValue]
@@ -27475,7 +27399,7 @@ class Curves(ID, bpy_struct):
     curves: bpy_prop_collection[CurveSlice]
     """ All curves in the data-block (default None, readonly)"""
 
-    materials: IDMaterials | None
+    materials: IDMaterials
     """ (default None, readonly)"""
 
     normals: bpy_prop_collection[FloatVectorValueReadOnly]
@@ -28011,16 +27935,14 @@ class Depsgraph(bpy_struct):
     view_layer_eval: ViewLayer | None
     """ View layer at its evaluated state (readonly)"""
 
-    def debug_relations_graphviz(self, *, filepath: str | None = "") -> str:
+    def debug_relations_graphviz(self, *, filepath: str = "") -> str:
         """debug_relations_graphviz
 
         :param filepath: File Name, Optional output path for the graphviz debug file (optional, never None)
         :return: Dot Graph, Graph in dot format
         """
 
-    def debug_stats_gnuplot(
-        self, filepath: str | None, output_filepath: str | None
-    ) -> None:
+    def debug_stats_gnuplot(self, filepath: str, output_filepath: str) -> None:
         """debug_stats_gnuplot
 
         :param filepath: File Name, Output path for the gnuplot debug file (never None)
@@ -28545,7 +28467,7 @@ class Driver(bpy_struct):
     use_self: bool
     """ Include a 'self' variable in the name-space, so drivers can easily reference the data being modified (object, bone, etc...) (default False)"""
 
-    variables: ChannelDriverVariables | None
+    variables: ChannelDriverVariables
     """ Properties acting as inputs for this driver (default None, readonly)"""
 
     @classmethod
@@ -28819,7 +28741,7 @@ class DynamicPaintBrushSettings(bpy_struct):
 class DynamicPaintCanvasSettings(bpy_struct):
     """Dynamic Paint canvas settings"""
 
-    canvas_surfaces: DynamicPaintSurfaces | None
+    canvas_surfaces: DynamicPaintSurfaces
     """ Paint surface list (default None, readonly)"""
 
     @classmethod
@@ -28978,7 +28900,7 @@ class DynamicPaintSurface(bpy_struct):
     output_name_b: str
     """ Name used to save output from this surface (default "", never None)"""
 
-    point_cache: PointCache | None
+    point_cache: PointCache
     """ (readonly, never None)"""
 
     shrink_speed: float
@@ -29050,7 +28972,7 @@ class DynamicPaintSurface(bpy_struct):
     wave_timescale: float
     """ Wave time scaling factor (in [0.01, 3], default 0.0)"""
 
-    def output_exists(self, object: Object | None, index: int | None) -> bool:
+    def output_exists(self, object: Object, index: int | None) -> bool:
         """Checks if surface output layer of given name exists
 
         :param object: (never None)
@@ -29977,13 +29899,13 @@ class FCurve(bpy_struct):
     is_valid: bool
     """ False when F-Curve could not be evaluated in past, so should be skipped when evaluating (default True)"""
 
-    keyframe_points: FCurveKeyframePoints | None
+    keyframe_points: FCurveKeyframePoints
     """ User-editable keyframes (default None, readonly)"""
 
     lock: bool
     """ F-Curve's settings cannot be edited (default False)"""
 
-    modifiers: FCurveModifiers | None
+    modifiers: FCurveModifiers
     """ Modifiers affecting the shape of the F-Curve (default None, readonly)"""
 
     mute: bool
@@ -30011,7 +29933,7 @@ class FCurve(bpy_struct):
         :return: Range, Min/Max values (array of 2 items, in [-inf, inf])
         """
 
-    def update_autoflags(self, data: typing.Any | None) -> None:
+    def update_autoflags(self, data: typing.Any) -> None:
         """Update FCurve flags set automatically from affected property (currently, integer/discrete flags set when the property is not a float)
 
         :param data: Data, Data containing the property controlled by given FCurve (never None)
@@ -30435,7 +30357,7 @@ class FModifierCycles(FModifier, bpy_struct):
 class FModifierEnvelope(FModifier, bpy_struct):
     """Scale the values of the modified F-Curve"""
 
-    control_points: FModifierEnvelopeControlPoints | None
+    control_points: FModifierEnvelopeControlPoints
     """ Control points defining the shape of the envelope (default None, readonly)"""
 
     default_max: float
@@ -31149,7 +31071,7 @@ class FileAssetSelectParams(FileSelectParams, bpy_struct):
     catalog_id: str
     """ The UUID of the catalog shown in the browser (default "", never None)"""
 
-    filter_asset_id: FileAssetSelectIDFilter | None
+    filter_asset_id: FileAssetSelectIDFilter
     """ Which asset types to show/hide, when browsing an asset library (readonly, never None)"""
 
     import_method: typing.Literal[
@@ -31516,7 +31438,7 @@ class FileSelectParams(bpy_struct):
     filter_glob: str
     """ UNIX shell-like filename patterns matching, supports wildcards ('*') and list of patterns separated by ';' (default "", never None)"""
 
-    filter_id: FileSelectIDFilter | None
+    filter_id: FileSelectIDFilter
     """ Which ID types to show/hide, when browsing a library (readonly, never None)"""
 
     filter_search: str
@@ -33224,7 +33146,7 @@ class FreestyleLineSet(bpy_struct):
     face_mark_negation: typing.Literal["INCLUSIVE", "EXCLUSIVE"]
     """ Specify either inclusion or exclusion of feature edges selected by face marks (default 'INCLUSIVE')"""
 
-    linestyle: FreestyleLineStyle | None
+    linestyle: FreestyleLineStyle
     """ Line style settings (never None)"""
 
     name: str
@@ -33324,7 +33246,7 @@ class FreestyleLineStyle(ID, bpy_struct):
     alpha: float
     """ Base alpha transparency, possibly modified by alpha transparency modifiers (in [0, 1], default 1.0)"""
 
-    alpha_modifiers: LineStyleAlphaModifiers | None
+    alpha_modifiers: LineStyleAlphaModifiers
     """ List of alpha transparency modifiers (default None, readonly)"""
 
     angle_max: float
@@ -33348,7 +33270,7 @@ class FreestyleLineStyle(ID, bpy_struct):
     color: mathutils.Color
     """ Base line color, possibly modified by line color modifiers (array of 3 items, in [0, inf], default (0.0, 0.0, 0.0))"""
 
-    color_modifiers: LineStyleColorModifiers | None
+    color_modifiers: LineStyleColorModifiers
     """ List of line color modifiers (default None, readonly)"""
 
     dash1: int
@@ -33369,7 +33291,7 @@ class FreestyleLineStyle(ID, bpy_struct):
     gap3: int
     """ Length of the 3rd gap for dashed lines (in [0, 65535], default 0)"""
 
-    geometry_modifiers: LineStyleGeometryModifiers | None
+    geometry_modifiers: LineStyleGeometryModifiers
     """ List of stroke geometry modifiers (default None, readonly)"""
 
     integration_type: typing.Literal["MEAN", "MIN", "MAX", "FIRST", "LAST"]
@@ -33424,7 +33346,7 @@ class FreestyleLineStyle(ID, bpy_struct):
     split_length: float
     """ Curvilinear 2D length for chain splitting (in [0, 10000], default 100.0)"""
 
-    texture_slots: LineStyleTextureSlots | None
+    texture_slots: LineStyleTextureSlots
     """ Texture slots defining the mapping and influence of textures (default None, readonly)"""
 
     texture_spacing: float
@@ -33433,7 +33355,7 @@ class FreestyleLineStyle(ID, bpy_struct):
     thickness: float
     """ Base line thickness, possibly modified by line thickness modifiers (in [0, 10000], default 3.0)"""
 
-    thickness_modifiers: LineStyleThicknessModifiers | None
+    thickness_modifiers: LineStyleThicknessModifiers
     """ List of line thickness modifiers (default None, readonly)"""
 
     thickness_position: typing.Literal["CENTER", "INSIDE", "OUTSIDE", "RELATIVE"]
@@ -33558,13 +33480,13 @@ class FreestyleSettings(bpy_struct):
     kr_derivative_epsilon: float
     """ Kr derivative epsilon for computing suggestive contours (in [-1000, 1000], default 0.0)"""
 
-    linesets: Linesets | None
+    linesets: Linesets
     """ (default None, readonly)"""
 
     mode: typing.Literal["SCRIPT", "EDITOR"]
     """ Select the Freestyle control mode (default 'SCRIPT')"""
 
-    modules: FreestyleModules | None
+    modules: FreestyleModules
     """ A list of style modules (to be applied from top to bottom) (default None, readonly)"""
 
     sphere_radius: float
@@ -34444,7 +34366,7 @@ class FunctionNodeFormatString(FunctionNode, NodeInternal, Node, bpy_struct):
     active_index: int | None
     """ Index of the active item (in [0, inf], default 0)"""
 
-    format_items: NodeFunctionFormatStringItems | None
+    format_items: NodeFunctionFormatStringItems
     """ (default None, readonly)"""
 
     @classmethod
@@ -37042,10 +36964,10 @@ class GREASE_PENCIL_UL_masks(UIList, bpy_struct):
 class GammaCrossStrip(EffectStrip, Strip, bpy_struct):
     """Gamma Crossfade Strip"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
-    input_2: Strip | None
+    input_2: Strip
     """ Second input for the effect strip (never None)"""
 
     input_count: int
@@ -37082,7 +37004,7 @@ class GammaCrossStrip(EffectStrip, Strip, bpy_struct):
 class GaussianBlurStrip(EffectStrip, Strip, bpy_struct):
     """Sequence strip creating a gaussian blur"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
     input_count: int
@@ -37400,7 +37322,7 @@ class GeometryNodeBake(GeometryNode, NodeInternal, Node, bpy_struct):
     active_item: RepeatItem | None
     """ Index of the active item"""
 
-    bake_items: NodeGeometryBakeItems | None
+    bake_items: NodeGeometryBakeItems
     """ (default None, readonly)"""
 
     @classmethod
@@ -37685,7 +37607,7 @@ class GeometryNodeCaptureAttribute(GeometryNode, NodeInternal, Node, bpy_struct)
     active_item: RepeatItem | None
     """ Index of the active item"""
 
-    capture_items: NodeGeometryCaptureAttributeItems | None
+    capture_items: NodeGeometryCaptureAttributeItems
     """ (default None, readonly)"""
 
     domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
@@ -40150,7 +40072,7 @@ class GeometryNodeFieldToGrid(GeometryNode, NodeInternal, Node, bpy_struct):
     data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Data type for topology grid (default 'FLOAT')"""
 
-    grid_items: GeometryNodeFieldToGridItems | None
+    grid_items: GeometryNodeFieldToGridItems
     """ (default None, readonly)"""
 
     @classmethod
@@ -40254,7 +40176,7 @@ class GeometryNodeFieldToList(GeometryNode, NodeInternal, Node, bpy_struct):
     active_item: GeometryNodeFieldToListItem | None
     """ Index of the active item"""
 
-    list_items: GeometryNodeFieldToListItems | None
+    list_items: GeometryNodeFieldToListItems
     """ (default None, readonly)"""
 
     @classmethod
@@ -40650,16 +40572,16 @@ class GeometryNodeForeachGeometryElementOutput(
     domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Geometry domain that is iterated over (default 'POINT')"""
 
-    generation_items: NodeGeometryForeachGeometryElementGenerationItems | None
+    generation_items: NodeGeometryForeachGeometryElementGenerationItems
     """ (default None, readonly)"""
 
-    input_items: NodeGeometryForeachGeometryElementInputItems | None
+    input_items: NodeGeometryForeachGeometryElementInputItems
     """ (default None, readonly)"""
 
     inspection_index: int
     """ Iteration index that is used by inspection features like the viewer node or socket inspection (in [-inf, inf], default 0)"""
 
-    main_items: NodeGeometryForeachGeometryElementMainItems | None
+    main_items: NodeGeometryForeachGeometryElementMainItems
     """ (default None, readonly)"""
 
     @classmethod
@@ -42467,7 +42389,7 @@ class GeometryNodeIndexSwitch(GeometryNode, NodeInternal, Node, bpy_struct):
     data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'GEOMETRY')"""
 
-    index_switch_items: NodeIndexSwitchItems | None
+    index_switch_items: NodeIndexSwitchItems
     """ (default None, readonly)"""
 
     @classmethod
@@ -44947,7 +44869,7 @@ class GeometryNodeMenuSwitch(GeometryNode, NodeInternal, Node, bpy_struct):
     enum_definition: Node | None
     """ The enum definition can now be accessed directly on the node. This exists for backward compatibility. (readonly)"""
 
-    enum_items: NodeMenuSwitchItems | None
+    enum_items: NodeMenuSwitchItems
     """ (default None, readonly)"""
 
     @classmethod
@@ -46741,7 +46663,7 @@ class GeometryNodeRepeatOutput(GeometryNode, NodeInternal, Node, bpy_struct):
     inspection_index: int
     """ Iteration index that is used by inspection features like the viewer node or socket inspection (in [-inf, inf], default 0)"""
 
-    repeat_items: NodeGeometryRepeatOutputItems | None
+    repeat_items: NodeGeometryRepeatOutputItems
     """ (default None, readonly)"""
 
     @classmethod
@@ -49425,7 +49347,7 @@ class GeometryNodeSimulationOutput(GeometryNode, NodeInternal, Node, bpy_struct)
     active_item: SimulationStateItem | None
     """ Index of the active item"""
 
-    state_items: NodeGeometrySimulationOutputItems | None
+    state_items: NodeGeometrySimulationOutputItems
     """ (default None, readonly)"""
 
     @classmethod
@@ -51108,7 +51030,7 @@ class GeometryNodeViewer(GeometryNode, NodeInternal, Node, bpy_struct):
     ui_shortcut: int
     """ (in [-32768, 32767], default 0)"""
 
-    viewer_items: NodeGeometryViewerItems | None
+    viewer_items: NodeGeometryViewerItems
     """ (default None, readonly)"""
 
     @classmethod
@@ -51432,7 +51354,7 @@ class Gizmo(bpy_struct):
     matrix_world: mathutils.Matrix
     """ (multi-dimensional array of 4 * 4 items, in [-inf, inf], default ((0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)), readonly)"""
 
-    properties: GizmoProperties | None
+    properties: GizmoProperties
     """ (readonly, never None)"""
 
     scale_basis: float
@@ -51503,7 +51425,7 @@ class Gizmo(bpy_struct):
     def modal(
         self,
         context: Context,
-        event: Event | None,
+        event: Event,
         tweak: set[typing.Literal["PRECISE", "SNAP"]] | None,
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """
@@ -51516,7 +51438,7 @@ class Gizmo(bpy_struct):
 
     def setup(self) -> None: ...
     def invoke(
-        self, context: Context, event: Event | None
+        self, context: Context, event: Event
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """
 
@@ -51582,12 +51504,7 @@ class Gizmo(bpy_struct):
         """
 
     def target_set_prop(
-        self,
-        target: str | None,
-        data: typing.Any | None,
-        property: str | None,
-        *,
-        index: int | None = -1,
+        self, target: str, data: typing.Any, property: str, *, index: int | None = -1
     ) -> None:
         """
 
@@ -51598,7 +51515,7 @@ class Gizmo(bpy_struct):
         """
 
     def target_set_operator(
-        self, operator: str | None, *, index: int | None = 0
+        self, operator: str, *, index: int | None = 0
     ) -> OperatorProperties:
         """Operator to run when activating the gizmo (overrides property targets)
 
@@ -51607,7 +51524,7 @@ class Gizmo(bpy_struct):
         :return: Operator properties to fill in
         """
 
-    def target_is_valid(self, property: str | None) -> bool:
+    def target_is_valid(self, property: str) -> bool:
         """
 
         :param property: Property identifier (never None)
@@ -51741,7 +51658,7 @@ class GizmoGroup(bpy_struct):
     bl_space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
     """ The space where the panel is going to be used in (default 'EMPTY')"""
 
-    gizmos: Gizmos | None
+    gizmos: Gizmos
     """ List of gizmos in the Gizmo Map (default None, readonly)"""
 
     name: str
@@ -51756,7 +51673,7 @@ class GizmoGroup(bpy_struct):
         """
 
     @classmethod
-    def setup_keymap(cls, keyconfig: KeyConfig | None) -> KeyMap:
+    def setup_keymap(cls, keyconfig: KeyConfig) -> KeyMap:
         """Initialize keymaps for this gizmo group, use fallback keymap when not present
 
         :param keyconfig: (never None)
@@ -51781,7 +51698,7 @@ class GizmoGroup(bpy_struct):
         :param context: (never None)
         """
 
-    def invoke_prepare(self, context: Context, gizmo: Gizmo | None) -> None:
+    def invoke_prepare(self, context: Context, gizmo: Gizmo) -> None:
         """Run before invoke
 
         :param context: (never None)
@@ -51908,7 +51825,7 @@ class GlowStrip(EffectStrip, Strip, bpy_struct):
     clamp: float
     """ Brightness limit of intensity (in [0, 1], default 0.0)"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
     input_count: int
@@ -52079,13 +51996,13 @@ class GreasePencil(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    attributes: AttributeGroupGreasePencil | None
+    attributes: AttributeGroupGreasePencil
     """ Geometry attributes (default None, readonly)"""
 
     before_color: mathutils.Color
     """ Base color for ghosts before the active frame (array of 3 items, in [0, 1], default (0.145098, 0.419608, 0.137255))"""
 
-    color_attributes: AttributeGroupGreasePencil | None
+    color_attributes: AttributeGroupGreasePencil
     """ Geometry color attributes (default None, readonly)"""
 
     ghost_after_range: int
@@ -52094,13 +52011,13 @@ class GreasePencil(ID, bpy_struct):
     ghost_before_range: int
     """ Maximum number of frames to show before current frame (0 = don't show any frames before current) (in [0, 120], default 1)"""
 
-    layer_groups: GreasePencilv3LayerGroup | None
+    layer_groups: GreasePencilv3LayerGroup
     """ Grease Pencil layer groups (default None, readonly)"""
 
-    layers: GreasePencilv3Layers | None
+    layers: GreasePencilv3Layers
     """ Grease Pencil layers (default None, readonly)"""
 
-    materials: IDMaterials | None
+    materials: IDMaterials
     """ (default None, readonly)"""
 
     onion_factor: float
@@ -52676,10 +52593,10 @@ class GreasePencilDashModifierSegment(bpy_struct):
 class GreasePencilDrawing(bpy_struct):
     """A Grease Pencil drawing"""
 
-    attributes: AttributeGroupGreasePencilDrawing | None
+    attributes: AttributeGroupGreasePencilDrawing
     """ Geometry attributes (default None, readonly)"""
 
-    color_attributes: AttributeGroupGreasePencilDrawing | None
+    color_attributes: AttributeGroupGreasePencilDrawing
     """ Geometry color attributes (default None, readonly)"""
 
     curve_offsets: bpy_prop_collection[IntAttributeValue]
@@ -52746,7 +52663,7 @@ class GreasePencilDrawing(bpy_struct):
 
     def vertex_group_assign(
         self,
-        vgroup_name: str | None,
+        vgroup_name: str,
         indices_ptr: collections.abc.Sequence[int] | None,
         weight: float | None,
     ) -> None:
@@ -52758,7 +52675,7 @@ class GreasePencilDrawing(bpy_struct):
         """
 
     def vertex_group_remove(
-        self, vgroup_name: str | None, indices_ptr: collections.abc.Sequence[int] | None
+        self, vgroup_name: str, indices_ptr: collections.abc.Sequence[int] | None
     ) -> None:
         """Remove points from vertex group
 
@@ -52768,7 +52685,7 @@ class GreasePencilDrawing(bpy_struct):
 
     def set_vertex_weights(
         self,
-        vertex_group_name: str | None,
+        vertex_group_name: str,
         indices: collections.abc.Sequence[int] | None,
         weights: collections.abc.Sequence[float] | None,
         *,
@@ -53158,7 +53075,7 @@ class GreasePencilLayer(GreasePencilTreeNode, bpy_struct):
     ]
     """ Blend mode (default 'REGULAR')"""
 
-    frames: GreasePencilFrames | None
+    frames: GreasePencilFrames
     """ Grease Pencil frames (default None, readonly)"""
 
     ignore_locked_materials: bool
@@ -53167,7 +53084,7 @@ class GreasePencilLayer(GreasePencilTreeNode, bpy_struct):
     lock_frame: bool
     """ Lock current frame displayed by layer (default False)"""
 
-    mask_layers: GreasePencilLayerMasks | None
+    mask_layers: GreasePencilLayerMasks
     """ List of Masking Layers (default None, readonly)"""
 
     matrix_local: mathutils.Matrix
@@ -55714,7 +55631,7 @@ class ID(bpy_struct):
 
     def rename(
         self,
-        name: str | None,
+        name: str,
         *,
         mode: typing.Literal["NEVER", "ALWAYS", "SAME_ROOT"] | None = "NEVER",
     ) -> typing.Literal[
@@ -55755,7 +55672,7 @@ class ID(bpy_struct):
         Renamed Enforced With Collision -- The ID was renamed as requested, also renaming another ID to avoid a name collision.
         """
 
-    def evaluated_get(self, depsgraph: Depsgraph | None) -> typing_extensions.Self:
+    def evaluated_get(self, depsgraph: Depsgraph) -> typing_extensions.Self:
         """Get corresponding evaluated ID from the given dependency graph. Note that this does not ensure the dependency graph is fully evaluated, it just returns the result of the last evaluation.
 
         :param depsgraph: Dependency graph to perform lookup in (never None)
@@ -55788,8 +55705,8 @@ class ID(bpy_struct):
 
     def override_hierarchy_create(
         self,
-        scene: Scene | None,
-        view_layer: ViewLayer | None,
+        scene: Scene,
+        view_layer: ViewLayer,
         *,
         reference: typing_extensions.Self | None = None,
         do_fully_editable: bool | None = False,
@@ -55809,7 +55726,7 @@ class ID(bpy_struct):
 
         """
 
-    def user_remap(self, new_id: typing_extensions.Self | None) -> None:
+    def user_remap(self, new_id: typing_extensions.Self) -> None:
         """Replace all usage in the .blend file of this ID by new given one
 
         :param new_id: New ID to use (never None)
@@ -55830,7 +55747,7 @@ class ID(bpy_struct):
         :return: This ID, or the new ID if it was copied
         """
 
-    def user_of_id(self, id: typing_extensions.Self | None) -> int:
+    def user_of_id(self, id: typing_extensions.Self) -> int:
         """Count the number of times that ID uses/references given one
 
         :param id: ID to count usages (never None)
@@ -55900,7 +55817,7 @@ class IDOverrideLibrary(bpy_struct):
     is_system_override: bool
     """ Whether this library override exists only for the override hierarchy, or if it is actually editable by the user (default False)"""
 
-    properties: IDOverrideLibraryProperties | None
+    properties: IDOverrideLibraryProperties
     """ List of overridden properties (default None, readonly)"""
 
     reference: ID | None
@@ -55929,7 +55846,7 @@ class IDOverrideLibrary(bpy_struct):
 
     def resync(
         self,
-        scene: Scene | None,
+        scene: Scene,
         *,
         view_layer: ViewLayer | None = None,
         residual_storage: Collection | None = None,
@@ -55977,7 +55894,7 @@ class IDOverrideLibrary(bpy_struct):
 class IDOverrideLibraryProperty(bpy_struct):
     """Description of an overridden property"""
 
-    operations: IDOverrideLibraryPropertyOperations | None
+    operations: IDOverrideLibraryPropertyOperations
     """ List of overriding operations for a property (default None, readonly)"""
 
     rna_path: str
@@ -56501,7 +56418,7 @@ class Image(ID, bpy_struct):
     pixels: float
     """ Image buffer pixels in floating-point values (in [-inf, inf], default 0.0)"""
 
-    render_slots: RenderSlots | None
+    render_slots: RenderSlots
     """ Render slots of the image (default None, readonly)"""
 
     resolution: mathutils.Vector
@@ -56516,10 +56433,10 @@ class Image(ID, bpy_struct):
     source: typing.Literal["FILE", "SEQUENCE", "MOVIE", "GENERATED", "VIEWER", "TILED"]
     """ Where the image comes from (default 'FILE')"""
 
-    stereo_3d_format: Stereo3dFormat | None
+    stereo_3d_format: Stereo3dFormat
     """ Settings for stereo 3d (readonly, never None)"""
 
-    tiles: UDIMTiles | None
+    tiles: UDIMTiles
     """ Tiles of the image (default None, readonly)"""
 
     type: typing.Literal[
@@ -56547,11 +56464,7 @@ Note: Not supported by Cycles(default True)"""
     """ Mode to load image views (default 'INDIVIDUAL')"""
 
     def save_render(
-        self,
-        filepath: str | None,
-        *,
-        scene: Scene | None = None,
-        quality: int | None = 0,
+        self, filepath: str, *, scene: Scene | None = None, quality: int | None = 0
     ) -> None:
         """Save image to a specific path using a scenes render settings
 
@@ -56563,7 +56476,7 @@ Note: Not supported by Cycles(default True)"""
     def save(
         self,
         *,
-        filepath: str | None = "",
+        filepath: str = "",
         quality: int | None = 0,
         save_copy: bool | None = False,
     ) -> None:
@@ -56574,7 +56487,7 @@ Note: Not supported by Cycles(default True)"""
         :param save_copy: Save Copy, Save the image as a copy, without updating current images filepath (optional)
         """
 
-    def pack(self, *, data: bytes | None = b"", data_len: int | None = 0) -> None:
+    def pack(self, *, data: bytes = b"", data_len: int | None = 0) -> None:
         """Pack an image as embedded data into the .blend file
 
         :param data: data, Raw data (bytes, exact content of the embedded file) (optional, never None)
@@ -56733,7 +56646,7 @@ class ImageFormatSettings(bpy_struct):
     quality: int
     """ Quality for image formats that support lossy compression (in [0, 100], default 90)"""
 
-    stereo_3d_format: Stereo3dFormat | None
+    stereo_3d_format: Stereo3dFormat
     """ Settings for stereo 3D (readonly, never None)"""
 
     tiff_codec: typing.Literal["NONE", "DEFLATE", "LZW", "PACKBITS"]
@@ -57032,7 +56945,7 @@ class ImageStrip(Strip, bpy_struct):
     directory: str
     """ (default "", never None, blend relative // prefix supported)"""
 
-    elements: StripElements | None
+    elements: StripElements
     """ (default None, readonly)"""
 
     multiply_alpha: bool
@@ -57041,10 +56954,10 @@ class ImageStrip(Strip, bpy_struct):
     proxy: StripProxy | None
     """ (readonly)"""
 
-    retiming_keys: RetimingKeys | None
+    retiming_keys: RetimingKeys
     """ (default None, readonly)"""
 
-    stereo_3d_format: Stereo3dFormat | None
+    stereo_3d_format: Stereo3dFormat
     """ Settings for stereo 3D (readonly, never None)"""
 
     strobe: float
@@ -57576,13 +57489,13 @@ class Key(ID, bpy_struct):
     key_blocks: bpy_prop_collection[ShapeKey]
     """ Shape keys (default None, readonly)"""
 
-    reference_key: ShapeKey | None
+    reference_key: ShapeKey
     """ (readonly, never None)"""
 
     use_relative: bool
     """ Make shape keys relative, otherwise play through shapes as a sequence using the evaluation time (default False)"""
 
-    user: ID | None
+    user: ID
     """ Data-block using these shape keys (readonly, never None)"""
 
     @classmethod
@@ -57619,7 +57532,7 @@ class KeyConfig(bpy_struct):
     is_user_defined: bool
     """ Indicates that a keyconfig was defined by the user (default False, readonly)"""
 
-    keymaps: KeyMaps | None
+    keymaps: KeyMaps
     """ Key maps configured as part of this configuration (default None, readonly)"""
 
     name: str
@@ -57709,7 +57622,7 @@ class KeyMap(bpy_struct):
     is_user_modified: bool
     """ Keymap is defined by the user (default False)"""
 
-    keymap_items: KeyMapItems | None
+    keymap_items: KeyMapItems
     """ Items in the keymap, linking an operator to an input event (default None, readonly)"""
 
     modal_event_values: bpy_prop_collection[EnumPropertyItem]
@@ -57739,7 +57652,7 @@ class KeyMap(bpy_struct):
     def restore_to_default(self) -> None:
         """restore_to_default"""
 
-    def restore_item_to_default(self, item: KeyMapItem | None) -> None:
+    def restore_item_to_default(self, item: KeyMapItem) -> None:
         """restore_item_to_default
 
         :param item: Item, (never None)
@@ -57995,7 +57908,7 @@ class KeyingSet(bpy_struct):
     is_path_absolute: bool
     """ Keying Set defines specific paths/settings to be keyframed (i.e. is not reliant on context info) (default False, readonly)"""
 
-    paths: KeyingSetPaths | None
+    paths: KeyingSetPaths
     """ Keying Set Paths to define settings that get keyframed together (default None, readonly)"""
 
     type_info: KeyingSetInfo | None
@@ -58074,7 +57987,7 @@ class KeyingSetInfo(bpy_struct):
         """
 
     def generate(
-        self, context: Context, ks: KeyingSet | None, data: typing.Any | None
+        self, context: Context, ks: KeyingSet | None, data: typing.Any
     ) -> None:
         """Add Paths to the Keying Set to keyframe the properties of the given data
 
@@ -58579,7 +58492,7 @@ class LayerCollection(bpy_struct):
     children: bpy_prop_collection[LayerCollection]
     """ Layer collection children (default None, readonly)"""
 
-    collection: Collection | None
+    collection: Collection
     """ Collection this layer collection is wrapping (readonly, never None)"""
 
     exclude: bool
@@ -62595,13 +62508,13 @@ class Macro(bpy_struct):
     name: str
     """ (default "", readonly, never None)"""
 
-    properties: OperatorProperties | None
+    properties: OperatorProperties
     """ (readonly, never None)"""
 
     def report(
         self,
         type: set[typing.Literal[bpy.stub_internal.rna_enums.WmReportItems]] | None,
-        message: str | None,
+        message: str,
     ) -> None:
         """report
 
@@ -62829,7 +62742,7 @@ class Mask(ID, bpy_struct):
     frame_start: int
     """ First frame of the mask (used for sequencer) (in [0, 1048574], default 0)"""
 
-    layers: MaskLayers | None
+    layers: MaskLayers
     """ Collection of layers which defines this mask (default None, readonly)"""
 
     @classmethod
@@ -62902,7 +62815,7 @@ class MaskLayer(bpy_struct):
     select: bool
     """ Layer is selected for editing in the Dope Sheet (default False)"""
 
-    splines: MaskSplines | None
+    splines: MaskSplines
     """ Collection of splines which defines this layer (default None, readonly)"""
 
     use_fill_holes: bool
@@ -63040,7 +62953,7 @@ class MaskSpline(bpy_struct):
     offset_mode: typing.Literal["EVEN", "SMOOTH"]
     """ The method used for calculating the feather offset (default 'EVEN')"""
 
-    points: MaskSplinePoints | None
+    points: MaskSplinePoints
     """ Collection of points (default None, readonly)"""
 
     use_cyclic: bool
@@ -63822,13 +63735,13 @@ class Mesh(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    attributes: AttributeGroupMesh | None
+    attributes: AttributeGroupMesh
     """ Geometry attributes (default None, readonly)"""
 
     auto_texspace: bool
     """ Adjust active object's texture space automatically when transforming object (default True)"""
 
-    color_attributes: AttributeGroupMesh | None
+    color_attributes: AttributeGroupMesh
     """ Geometry color attributes (default None, readonly)"""
 
     corner_normals: bpy_prop_collection[MeshNormalValue]
@@ -63837,7 +63750,7 @@ class Mesh(ID, bpy_struct):
     cycles: typing.Any
     """ Cycles mesh settings (readonly)"""
 
-    edges: MeshEdges | None
+    edges: MeshEdges
     """ Edges of the mesh (default None, readonly)"""
 
     has_custom_normals: bool
@@ -63849,13 +63762,13 @@ class Mesh(ID, bpy_struct):
     loop_triangle_polygons: bpy_prop_collection[ReadOnlyInteger]
     """ The face index for each loop triangle (default None, readonly)"""
 
-    loop_triangles: MeshLoopTriangles | None
+    loop_triangles: MeshLoopTriangles
     """ Tessellation of mesh polygons into triangles (default None, readonly)"""
 
-    loops: MeshLoops | None
+    loops: MeshLoops
     """ Loops of the mesh (face corners) (default None, readonly)"""
 
-    materials: IDMaterials | None
+    materials: IDMaterials
     """ (default None, readonly)"""
 
     normals_domain: typing.Literal["POINT", "FACE", "CORNER"]
@@ -63864,7 +63777,7 @@ class Mesh(ID, bpy_struct):
     polygon_normals: bpy_prop_collection[MeshNormalValue]
     """ The normal direction of each face, defined by the winding order and position of its vertices (default None, readonly)"""
 
-    polygons: MeshPolygons | None
+    polygons: MeshPolygons
     """ Polygons of the mesh (default None, readonly)"""
 
     radial_symmetry: bpy_prop_array[int]
@@ -63954,16 +63867,16 @@ class Mesh(ID, bpy_struct):
     uv_layer_stencil_index: int
     """ Mask UV loop layer index (in [0, inf], default 0)"""
 
-    uv_layers: UVLoopLayers | None
+    uv_layers: UVLoopLayers
     """ All UV loop layers (default None, readonly)"""
 
-    vertex_colors: LoopColors | None
+    vertex_colors: LoopColors
     """ Legacy vertex color layers. Deprecated, use color attributes instead. (default None, readonly)"""
 
     vertex_normals: bpy_prop_collection[MeshNormalValue]
     """ The normal direction of each vertex, defined as the average of the surrounding face normals (default None, readonly)"""
 
-    vertices: MeshVertices | None
+    vertices: MeshVertices
     """ Vertices of the mesh (default None, readonly)"""
 
     edge_creases: typing.Any
@@ -64004,7 +63917,7 @@ class Mesh(ID, bpy_struct):
     def split_faces(self) -> None:
         """Split faces based on the edge angle"""
 
-    def calc_tangents(self, *, uvmap: str | None = "") -> None:
+    def calc_tangents(self, *, uvmap: str = "") -> None:
         """Compute tangents and bitangent signs, to be used together with the custom normals to get a complete tangent space for normal mapping (custom normals are also computed if not yet present)
 
         :param uvmap: Name of the UV map to use for tangent space computation (optional, never None)
@@ -65037,13 +64950,13 @@ class MetaBall(ID, bpy_struct):
     cycles: typing.Any
     """ Cycles mesh settings (readonly)"""
 
-    elements: MetaBallElements | None
+    elements: MetaBallElements
     """ Metaball elements (default None, readonly)"""
 
     is_editmode: bool
     """ True when used in editmode (default False, readonly)"""
 
-    materials: IDMaterials | None
+    materials: IDMaterials
     """ (default None, readonly)"""
 
     render_resolution: float
@@ -65212,7 +65125,7 @@ class MetaStrip(Strip, bpy_struct):
     proxy: StripProxy | None
     """ (readonly)"""
 
-    strips: StripsMeta | None
+    strips: StripsMeta
     """ Strips nested in meta strip (default None, readonly)"""
 
     strobe: float
@@ -65953,10 +65866,10 @@ class MovieStrip(Strip, bpy_struct):
     proxy: StripProxy | None
     """ (readonly)"""
 
-    retiming_keys: RetimingKeys | None
+    retiming_keys: RetimingKeys
     """ (default None, readonly)"""
 
-    stereo_3d_format: Stereo3dFormat | None
+    stereo_3d_format: Stereo3dFormat
     """ Settings for stereo 3D (readonly, never None)"""
 
     stream_index: int
@@ -66044,10 +65957,10 @@ class MovieTracking(bpy_struct):
     dopesheet: MovieTrackingDopesheet | None
     """ (readonly)"""
 
-    objects: MovieTrackingObjects | None
+    objects: MovieTrackingObjects
     """ Collection of objects in this tracking data object (default None, readonly)"""
 
-    plane_tracks: MovieTrackingPlaneTracks | None
+    plane_tracks: MovieTrackingPlaneTracks
     """ Collection of plane tracks in this tracking data object. Deprecated, use objects[name].plane_tracks (default None, readonly)"""
 
     reconstruction: MovieTrackingReconstruction | None
@@ -66059,7 +65972,7 @@ class MovieTracking(bpy_struct):
     stabilization: MovieTrackingStabilization | None
     """ (readonly)"""
 
-    tracks: MovieTrackingTracks | None
+    tracks: MovieTrackingTracks
     """ Collection of tracks in this tracking data object. Deprecated, use objects[name].tracks (default None, readonly)"""
 
     @classmethod
@@ -66305,7 +66218,7 @@ class MovieTrackingObject(bpy_struct):
     name: str
     """ Unique name of object (default "", never None)"""
 
-    plane_tracks: MovieTrackingObjectPlaneTracks | None
+    plane_tracks: MovieTrackingObjectPlaneTracks
     """ Collection of plane tracks in this tracking data object (default None, readonly)"""
 
     reconstruction: MovieTrackingReconstruction | None
@@ -66314,7 +66227,7 @@ class MovieTrackingObject(bpy_struct):
     scale: float
     """ Scale of object solution in camera space (in [0.0001, 10000], default 1.0)"""
 
-    tracks: MovieTrackingObjectTracks | None
+    tracks: MovieTrackingObjectTracks
     """ Collection of tracks in this tracking data object (default None, readonly)"""
 
     @classmethod
@@ -66394,7 +66307,7 @@ class MovieTrackingPlaneTrack(bpy_struct):
     image_opacity: float
     """ Opacity of the image (in [0, 1], default 0.0)"""
 
-    markers: MovieTrackingPlaneMarkers | None
+    markers: MovieTrackingPlaneMarkers
     """ Collection of markers in track (default None, readonly)"""
 
     name: str
@@ -66440,7 +66353,7 @@ class MovieTrackingReconstruction(bpy_struct):
     average_error: float
     """ Average error of reconstruction (in [-inf, inf], default 0.0, readonly)"""
 
-    cameras: MovieTrackingReconstructedCameras | None
+    cameras: MovieTrackingReconstructedCameras
     """ Collection of solved cameras (default None, readonly)"""
 
     is_valid: bool
@@ -66703,7 +66616,7 @@ class MovieTrackingTrack(bpy_struct):
     margin: int
     """ Distance from image boundary at which marker stops tracking (in [0, 300], default 0)"""
 
-    markers: MovieTrackingMarkers | None
+    markers: MovieTrackingMarkers
     """ Collection of markers in track (default None, readonly)"""
 
     motion_model: typing.Literal[
@@ -66845,10 +66758,10 @@ class MulticamStrip(EffectStrip, Strip, bpy_struct):
 class MultiplyStrip(EffectStrip, Strip, bpy_struct):
     """Multiply Strip"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
-    input_2: Strip | None
+    input_2: Strip
     """ Second input for the effect strip (never None)"""
 
     input_count: int
@@ -67175,7 +67088,7 @@ class NlaStrip(bpy_struct):
     extrapolation: typing.Literal["NOTHING", "HOLD", "HOLD_FORWARD"]
     """ Action to take for gaps past the strip extents (default 'HOLD')"""
 
-    fcurves: NlaStripFCurves | None
+    fcurves: NlaStripFCurves
     """ F-Curves for controlling the strip's influence and timing (default None, readonly)"""
 
     frame_end: float
@@ -67299,7 +67212,7 @@ class NlaTrack(bpy_struct):
     select: bool
     """ NLA Track is selected (default False)"""
 
-    strips: NlaStrips | None
+    strips: NlaStrips
     """ NLA Strips on this NLA-track (default None, readonly)"""
 
     @classmethod
@@ -67399,7 +67312,7 @@ class Node(bpy_struct):
     hide: bool
     """ Node collapsed state (default False)"""
 
-    inputs: NodeInputs | None
+    inputs: NodeInputs
     """ (default None, readonly)"""
 
     internal_links: bpy_prop_collection[NodeLink]
@@ -67420,7 +67333,7 @@ class Node(bpy_struct):
     name: str
     """ Unique node identifier (default "", never None)"""
 
-    outputs: NodeOutputs | None
+    outputs: NodeOutputs
     """ (default None, readonly)"""
 
     parent: Node | None
@@ -67490,7 +67403,7 @@ class Node(bpy_struct):
     def update(self) -> None:
         """Update on node graph topology changes (adding or removing nodes and links)"""
 
-    def insert_link(self, link: NodeLink | None) -> None:
+    def insert_link(self, link: NodeLink) -> None:
         """Handle creation of a link to or from the node
 
         :param link: Link, Node link that will be inserted (never None)
@@ -67502,7 +67415,7 @@ class Node(bpy_struct):
         :param context: (never None)
         """
 
-    def copy(self, node: typing_extensions.Self | None) -> None:
+    def copy(self, node: typing_extensions.Self) -> None:
         """Initialize a new instance of this node from an existing node
 
         :param node: Node, Existing node to copy (never None)
@@ -67511,14 +67424,14 @@ class Node(bpy_struct):
     def free(self) -> None:
         """Clean up node on removal"""
 
-    def draw_buttons(self, context: Context, layout: UILayout | None) -> None:
+    def draw_buttons(self, context: Context, layout: UILayout) -> None:
         """Draw node buttons
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def draw_buttons_ext(self, context: Context, layout: UILayout | None) -> None:
+    def draw_buttons_ext(self, context: Context, layout: UILayout) -> None:
         """Draw node buttons in the sidebar
 
         :param context: (never None)
@@ -67686,10 +67599,10 @@ class NodeClosureOutput(NodeInternal, Node, bpy_struct):
     define_signature: bool
     """ This zone defines a closure signature that should be used by other nodes (default False)"""
 
-    input_items: NodeClosureInputItems | None
+    input_items: NodeClosureInputItems
     """ (default None, readonly)"""
 
-    output_items: NodeClosureOutputItems | None
+    output_items: NodeClosureOutputItems
     """ (default None, readonly)"""
 
     @classmethod
@@ -67792,7 +67705,7 @@ class NodeCombineBundle(NodeInternal, Node, bpy_struct):
     active_index: int | None
     """ Index of the active item (in [0, inf], default 0)"""
 
-    bundle_items: NodeCombineBundleItems | None
+    bundle_items: NodeCombineBundleItems
     """ (default None, readonly)"""
 
     define_signature: bool
@@ -68079,10 +67992,10 @@ class NodeEvaluateClosure(NodeInternal, Node, bpy_struct):
     define_signature: bool
     """ This node defines a closure signature that should be used by other nodes (default False)"""
 
-    input_items: NodeEvaluateClosureInputItems | None
+    input_items: NodeEvaluateClosureInputItems
     """ (default None, readonly)"""
 
-    output_items: NodeEvaluateClosureOutputItems | None
+    output_items: NodeEvaluateClosureOutputItems
     """ (default None, readonly)"""
 
     @classmethod
@@ -68782,14 +68695,14 @@ class NodeInternal(Node, bpy_struct):
     def update(self) -> None:
         """Update on node graph topology changes (adding or removing nodes and links)"""
 
-    def draw_buttons(self, context: Context, layout: UILayout | None) -> None:
+    def draw_buttons(self, context: Context, layout: UILayout) -> None:
         """Draw node buttons
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def draw_buttons_ext(self, context: Context, layout: UILayout | None) -> None:
+    def draw_buttons_ext(self, context: Context, layout: UILayout) -> None:
         """Draw node buttons in the sidebar
 
         :param context: (never None)
@@ -68945,7 +68858,7 @@ class NodeLink(bpy_struct):
     to_socket: NodeSocket | None
     """ (readonly)"""
 
-    def swap_multi_input_sort_id(self, other: typing_extensions.Self | None) -> None:
+    def swap_multi_input_sort_id(self, other: typing_extensions.Self) -> None:
         """Swap the order of two links connected to the same multi-input socket
 
         :param other: Other, The other link. Must link to the same multi-input socket. (never None)
@@ -69042,7 +68955,7 @@ class NodeSeparateBundle(NodeInternal, Node, bpy_struct):
     active_index: int | None
     """ Index of the active item (in [0, inf], default 0)"""
 
-    bundle_items: NodeSeparateBundleItems | None
+    bundle_items: NodeSeparateBundleItems
     """ (default None, readonly)"""
 
     define_signature: bool
@@ -69241,13 +69154,7 @@ class NodeSocket(bpy_struct):
         :return: The system properties root container, or None if there are no system properties stored in this data yet, and its creation was not requested
         """
 
-    def draw(
-        self,
-        context: Context,
-        layout: UILayout | None,
-        node: Node | None,
-        text: str | None,
-    ) -> None:
+    def draw(self, context: Context, layout: UILayout, node: Node, text: str) -> None:
         """Draw socket
 
         :param context: (never None)
@@ -69256,7 +69163,7 @@ class NodeSocket(bpy_struct):
         :param text: Text, Text label to draw alongside properties (never None)
         """
 
-    def draw_color(self, context: Context, node: Node | None) -> bpy_prop_array[float]:
+    def draw_color(self, context: Context, node: Node) -> bpy_prop_array[float]:
         """Color of the socket icon
 
         :param context: (never None)
@@ -70787,13 +70694,7 @@ class NodeSocketStandard(NodeSocket, bpy_struct):
     links: NodeLinks | None
     """ List of node links from or to this socket.(readonly)"""
 
-    def draw(
-        self,
-        context: Context,
-        layout: UILayout | None,
-        node: Node | None,
-        text: str | None,
-    ) -> None:
+    def draw(self, context: Context, layout: UILayout, node: Node, text: str) -> None:
         """Draw socket
 
         :param context: (never None)
@@ -70802,7 +70703,7 @@ class NodeSocketStandard(NodeSocket, bpy_struct):
         :param text: Text, Text label to draw alongside properties (never None)
         """
 
-    def draw_color(self, context: Context, node: Node | None) -> bpy_prop_array[float]:
+    def draw_color(self, context: Context, node: Node) -> bpy_prop_array[float]:
         """Color of the socket icon
 
         :param context: (never None)
@@ -72138,10 +72039,10 @@ class NodeTree(ID, bpy_struct):
     interface: NodeTreeInterface | None
     """ Interface declaration for this node tree (readonly)"""
 
-    links: NodeLinks | None
+    links: NodeLinks
     """ (default None, readonly)"""
 
-    nodes: Nodes | None
+    nodes: Nodes
     """ (default None, readonly)"""
 
     type: typing.Literal[
@@ -72158,7 +72059,7 @@ class NodeTree(ID, bpy_struct):
         :param context: (never None)
         """
 
-    def contains_tree(self, sub_tree: typing_extensions.Self | None) -> bool:
+    def contains_tree(self, sub_tree: typing_extensions.Self) -> bool:
         """Check if the node tree contains another. Used to avoid creating recursive node groups.
 
         :param sub_tree: Node Tree, Node tree for recursive check (never None)
@@ -72189,7 +72090,7 @@ class NodeTree(ID, bpy_struct):
         """
 
     @classmethod
-    def valid_socket_type(cls, idname: str | None) -> bool:
+    def valid_socket_type(cls, idname: str) -> bool:
         """Check if the socket type is valid for the node tree
 
         :param idname: Socket Type, Identifier of the socket type (never None)
@@ -72244,9 +72145,9 @@ class NodeTreeInterface(bpy_struct):
 
     def new_socket(
         self,
-        name: str | None,
+        name: str,
         *,
-        description: str | None = "",
+        description: str = "",
         in_out: typing.Literal["INPUT", "OUTPUT"] | None = "INPUT",
         socket_type: typing.Literal["DEFAULT"] | None = "DEFAULT",
         parent: NodeTreeInterfacePanel | None = None,
@@ -72268,11 +72169,7 @@ class NodeTreeInterface(bpy_struct):
         """
 
     def new_panel(
-        self,
-        name: str | None,
-        *,
-        description: str | None = "",
-        default_closed: bool | None = False,
+        self, name: str, *, description: str = "", default_closed: bool | None = False
     ) -> NodeTreeInterfacePanel:
         """Add a new panel to the interface
 
@@ -72282,7 +72179,7 @@ class NodeTreeInterface(bpy_struct):
         :return: Panel, New panel
         """
 
-    def copy(self, item: NodeTreeInterfaceItem | None) -> NodeTreeInterfaceItem:
+    def copy(self, item: NodeTreeInterfaceItem) -> NodeTreeInterfaceItem:
         """Add a copy of an item to the interface
 
         :param item: Item, Item to copy (never None)
@@ -72290,10 +72187,7 @@ class NodeTreeInterface(bpy_struct):
         """
 
     def remove(
-        self,
-        item: NodeTreeInterfaceItem | None,
-        *,
-        move_content_to_parent: bool | None = True,
+        self, item: NodeTreeInterfaceItem, *, move_content_to_parent: bool | None = True
     ) -> None:
         """Remove an item from the interface
 
@@ -72304,7 +72198,7 @@ class NodeTreeInterface(bpy_struct):
     def clear(self) -> None:
         """Remove all items from the interface"""
 
-    def move(self, item: NodeTreeInterfaceItem | None, to_position: int | None) -> None:
+    def move(self, item: NodeTreeInterfaceItem, to_position: int | None) -> None:
         """Move an item to another position
 
         :param item: Item, The item to move (never None)
@@ -72313,7 +72207,7 @@ class NodeTreeInterface(bpy_struct):
 
     def move_to_parent(
         self,
-        item: NodeTreeInterfaceItem | None,
+        item: NodeTreeInterfaceItem,
         parent: NodeTreeInterfacePanel | None,
         to_position: int | None,
     ) -> None:
@@ -72527,16 +72421,14 @@ Deprecated. Will be remove in 5.0.(default False)"""
         :return: The system properties root container, or None if there are no system properties stored in this data yet, and its creation was not requested
         """
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw properties of the socket interface
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -72544,7 +72436,7 @@ Deprecated. Will be remove in 5.0.(default False)"""
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -72587,16 +72479,14 @@ class NodeTreeInterfaceSocketBool(
     default_value: bool
     """ Input value used for unconnected socket (default False)"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -72604,7 +72494,7 @@ class NodeTreeInterfaceSocketBool(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -72644,16 +72534,14 @@ class NodeTreeInterfaceSocketBundle(
 ):
     """Bundle socket of a node"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -72661,7 +72549,7 @@ class NodeTreeInterfaceSocketBundle(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -72701,16 +72589,14 @@ class NodeTreeInterfaceSocketClosure(
 ):
     """Closure socket of a node"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -72718,7 +72604,7 @@ class NodeTreeInterfaceSocketClosure(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -72761,16 +72647,14 @@ class NodeTreeInterfaceSocketCollection(
     default_value: Collection | None
     """ Input value used for unconnected socket"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -72778,7 +72662,7 @@ class NodeTreeInterfaceSocketCollection(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -72821,16 +72705,14 @@ class NodeTreeInterfaceSocketColor(
     default_value: bpy_prop_array[float]
     """ Input value used for unconnected socket (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -72838,7 +72720,7 @@ class NodeTreeInterfaceSocketColor(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -72890,16 +72772,14 @@ class NodeTreeInterfaceSocketFloat(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -72907,7 +72787,7 @@ class NodeTreeInterfaceSocketFloat(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -72959,16 +72839,14 @@ class NodeTreeInterfaceSocketFloatAngle(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -72976,7 +72854,7 @@ class NodeTreeInterfaceSocketFloatAngle(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73028,16 +72906,14 @@ class NodeTreeInterfaceSocketFloatColorTemperature(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73045,7 +72921,7 @@ class NodeTreeInterfaceSocketFloatColorTemperature(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73097,16 +72973,14 @@ class NodeTreeInterfaceSocketFloatDistance(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73114,7 +72988,7 @@ class NodeTreeInterfaceSocketFloatDistance(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73166,16 +73040,14 @@ class NodeTreeInterfaceSocketFloatFactor(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73183,7 +73055,7 @@ class NodeTreeInterfaceSocketFloatFactor(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73235,16 +73107,14 @@ class NodeTreeInterfaceSocketFloatFrequency(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73252,7 +73122,7 @@ class NodeTreeInterfaceSocketFloatFrequency(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73304,16 +73174,14 @@ class NodeTreeInterfaceSocketFloatMass(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73321,7 +73189,7 @@ class NodeTreeInterfaceSocketFloatMass(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73373,16 +73241,14 @@ class NodeTreeInterfaceSocketFloatPercentage(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73390,7 +73256,7 @@ class NodeTreeInterfaceSocketFloatPercentage(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73442,16 +73308,14 @@ class NodeTreeInterfaceSocketFloatTime(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73459,7 +73323,7 @@ class NodeTreeInterfaceSocketFloatTime(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73511,16 +73375,14 @@ class NodeTreeInterfaceSocketFloatTimeAbsolute(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73528,7 +73390,7 @@ class NodeTreeInterfaceSocketFloatTimeAbsolute(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73580,16 +73442,14 @@ class NodeTreeInterfaceSocketFloatUnsigned(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73597,7 +73457,7 @@ class NodeTreeInterfaceSocketFloatUnsigned(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73649,16 +73509,14 @@ class NodeTreeInterfaceSocketFloatWavelength(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73666,7 +73524,7 @@ class NodeTreeInterfaceSocketFloatWavelength(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73742,16 +73600,14 @@ class NodeTreeInterfaceSocketGeometry(
 ):
     """Geometry socket of a node"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73759,7 +73615,7 @@ class NodeTreeInterfaceSocketGeometry(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73802,16 +73658,14 @@ class NodeTreeInterfaceSocketImage(
     default_value: Image | None
     """ Input value used for unconnected socket"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73819,7 +73673,7 @@ class NodeTreeInterfaceSocketImage(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73871,16 +73725,14 @@ class NodeTreeInterfaceSocketInt(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73888,7 +73740,7 @@ class NodeTreeInterfaceSocketInt(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -73940,16 +73792,14 @@ class NodeTreeInterfaceSocketIntFactor(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -73957,7 +73807,7 @@ class NodeTreeInterfaceSocketIntFactor(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74009,16 +73859,14 @@ class NodeTreeInterfaceSocketIntPercentage(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74026,7 +73874,7 @@ class NodeTreeInterfaceSocketIntPercentage(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74078,16 +73926,14 @@ class NodeTreeInterfaceSocketIntUnsigned(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74095,7 +73941,7 @@ class NodeTreeInterfaceSocketIntUnsigned(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74150,16 +73996,14 @@ class NodeTreeInterfaceSocketIntVector2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74167,7 +74011,7 @@ class NodeTreeInterfaceSocketIntVector2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74222,16 +74066,14 @@ class NodeTreeInterfaceSocketIntVector3D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74239,7 +74081,7 @@ class NodeTreeInterfaceSocketIntVector3D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74294,16 +74136,14 @@ class NodeTreeInterfaceSocketIntVectorFactor2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74311,7 +74151,7 @@ class NodeTreeInterfaceSocketIntVectorFactor2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74366,16 +74206,14 @@ class NodeTreeInterfaceSocketIntVectorFactor3D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74383,7 +74221,7 @@ class NodeTreeInterfaceSocketIntVectorFactor3D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74438,16 +74276,14 @@ class NodeTreeInterfaceSocketIntVectorPercentage2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74455,7 +74291,7 @@ class NodeTreeInterfaceSocketIntVectorPercentage2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74510,16 +74346,14 @@ class NodeTreeInterfaceSocketIntVectorPercentage3D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74527,7 +74361,7 @@ class NodeTreeInterfaceSocketIntVectorPercentage3D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74582,16 +74416,14 @@ class NodeTreeInterfaceSocketIntVectorUnsigned2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74599,7 +74431,7 @@ class NodeTreeInterfaceSocketIntVectorUnsigned2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74654,16 +74486,14 @@ class NodeTreeInterfaceSocketIntVectorUnsigned3D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74671,7 +74501,7 @@ class NodeTreeInterfaceSocketIntVectorUnsigned3D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74750,16 +74580,14 @@ class NodeTreeInterfaceSocketMaterial(
     default_value: Material | None
     """ Input value used for unconnected socket"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74767,7 +74595,7 @@ class NodeTreeInterfaceSocketMaterial(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74807,16 +74635,14 @@ class NodeTreeInterfaceSocketMatrix(
 ):
     """Matrix value socket of a node"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74824,7 +74650,7 @@ class NodeTreeInterfaceSocketMatrix(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74867,16 +74693,14 @@ class NodeTreeInterfaceSocketMenu(
     default_value: str
     """ Input value used for unconnected socket"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74884,7 +74708,7 @@ class NodeTreeInterfaceSocketMenu(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74927,16 +74751,14 @@ class NodeTreeInterfaceSocketObject(
     default_value: Object | None
     """ Input value used for unconnected socket"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -74944,7 +74766,7 @@ class NodeTreeInterfaceSocketObject(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -74987,16 +74809,14 @@ class NodeTreeInterfaceSocketRotation(
     default_value: mathutils.Euler
     """ Input value used for unconnected socket (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75004,7 +74824,7 @@ class NodeTreeInterfaceSocketRotation(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75080,16 +74900,14 @@ class NodeTreeInterfaceSocketShader(
 ):
     """Shader socket of a node"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75097,7 +74915,7 @@ class NodeTreeInterfaceSocketShader(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75179,16 +74997,14 @@ class NodeTreeInterfaceSocketString(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75196,7 +75012,7 @@ class NodeTreeInterfaceSocketString(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75242,16 +75058,14 @@ class NodeTreeInterfaceSocketStringFilePath(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75259,7 +75073,7 @@ class NodeTreeInterfaceSocketStringFilePath(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75338,16 +75152,14 @@ class NodeTreeInterfaceSocketTexture(
     default_value: Texture | None
     """ Input value used for unconnected socket"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75355,7 +75167,7 @@ class NodeTreeInterfaceSocketTexture(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75410,16 +75222,14 @@ class NodeTreeInterfaceSocketVector(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75427,7 +75237,7 @@ class NodeTreeInterfaceSocketVector(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75482,16 +75292,14 @@ class NodeTreeInterfaceSocketVector2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75499,7 +75307,7 @@ class NodeTreeInterfaceSocketVector2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75554,16 +75362,14 @@ class NodeTreeInterfaceSocketVector4D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75571,7 +75377,7 @@ class NodeTreeInterfaceSocketVector4D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75626,16 +75432,14 @@ class NodeTreeInterfaceSocketVectorAcceleration(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75643,7 +75447,7 @@ class NodeTreeInterfaceSocketVectorAcceleration(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75698,16 +75502,14 @@ class NodeTreeInterfaceSocketVectorAcceleration2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75715,7 +75517,7 @@ class NodeTreeInterfaceSocketVectorAcceleration2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75770,16 +75572,14 @@ class NodeTreeInterfaceSocketVectorAcceleration4D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75787,7 +75587,7 @@ class NodeTreeInterfaceSocketVectorAcceleration4D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75842,16 +75642,14 @@ class NodeTreeInterfaceSocketVectorDirection(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75859,7 +75657,7 @@ class NodeTreeInterfaceSocketVectorDirection(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75914,16 +75712,14 @@ class NodeTreeInterfaceSocketVectorDirection2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -75931,7 +75727,7 @@ class NodeTreeInterfaceSocketVectorDirection2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -75986,16 +75782,14 @@ class NodeTreeInterfaceSocketVectorDirection4D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76003,7 +75797,7 @@ class NodeTreeInterfaceSocketVectorDirection4D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76058,16 +75852,14 @@ class NodeTreeInterfaceSocketVectorEuler(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76075,7 +75867,7 @@ class NodeTreeInterfaceSocketVectorEuler(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76130,16 +75922,14 @@ class NodeTreeInterfaceSocketVectorEuler2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76147,7 +75937,7 @@ class NodeTreeInterfaceSocketVectorEuler2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76202,16 +75992,14 @@ class NodeTreeInterfaceSocketVectorEuler4D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76219,7 +76007,7 @@ class NodeTreeInterfaceSocketVectorEuler4D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76274,16 +76062,14 @@ class NodeTreeInterfaceSocketVectorFactor(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76291,7 +76077,7 @@ class NodeTreeInterfaceSocketVectorFactor(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76346,16 +76132,14 @@ class NodeTreeInterfaceSocketVectorFactor2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76363,7 +76147,7 @@ class NodeTreeInterfaceSocketVectorFactor2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76418,16 +76202,14 @@ class NodeTreeInterfaceSocketVectorFactor4D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76435,7 +76217,7 @@ class NodeTreeInterfaceSocketVectorFactor4D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76490,16 +76272,14 @@ class NodeTreeInterfaceSocketVectorPercentage(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76507,7 +76287,7 @@ class NodeTreeInterfaceSocketVectorPercentage(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76562,16 +76342,14 @@ class NodeTreeInterfaceSocketVectorPercentage2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76579,7 +76357,7 @@ class NodeTreeInterfaceSocketVectorPercentage2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76634,16 +76412,14 @@ class NodeTreeInterfaceSocketVectorPercentage4D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76651,7 +76427,7 @@ class NodeTreeInterfaceSocketVectorPercentage4D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76706,16 +76482,14 @@ class NodeTreeInterfaceSocketVectorTranslation(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76723,7 +76497,7 @@ class NodeTreeInterfaceSocketVectorTranslation(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76778,16 +76552,14 @@ class NodeTreeInterfaceSocketVectorTranslation2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76795,7 +76567,7 @@ class NodeTreeInterfaceSocketVectorTranslation2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76850,16 +76622,14 @@ class NodeTreeInterfaceSocketVectorTranslation4D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76867,7 +76637,7 @@ class NodeTreeInterfaceSocketVectorTranslation4D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76922,16 +76692,14 @@ class NodeTreeInterfaceSocketVectorVelocity(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -76939,7 +76707,7 @@ class NodeTreeInterfaceSocketVectorVelocity(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -76994,16 +76762,14 @@ class NodeTreeInterfaceSocketVectorVelocity2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -77011,7 +76777,7 @@ class NodeTreeInterfaceSocketVectorVelocity2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -77066,16 +76832,14 @@ class NodeTreeInterfaceSocketVectorVelocity4D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -77083,7 +76847,7 @@ class NodeTreeInterfaceSocketVectorVelocity4D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -77138,16 +76902,14 @@ class NodeTreeInterfaceSocketVectorXYZ(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -77155,7 +76917,7 @@ class NodeTreeInterfaceSocketVectorXYZ(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -77210,16 +76972,14 @@ class NodeTreeInterfaceSocketVectorXYZ2D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -77227,7 +76987,7 @@ class NodeTreeInterfaceSocketVectorXYZ2D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -77282,16 +77042,14 @@ class NodeTreeInterfaceSocketVectorXYZ4D(
     subtype: typing.Literal["DEFAULT"]
     """ Subtype of the default value (default 'DEFAULT')"""
 
-    def draw(self, context: Context, layout: UILayout | None) -> None:
+    def draw(self, context: Context, layout: UILayout) -> None:
         """Draw interface socket settings
 
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
 
-    def init_socket(
-        self, node: Node | None, socket: NodeSocket | None, data_path: str | None
-    ) -> None:
+    def init_socket(self, node: Node, socket: NodeSocket, data_path: str) -> None:
         """Initialize a node socket instance
 
         :param node: Node, Node of the socket to initialize (never None)
@@ -77299,7 +77057,7 @@ class NodeTreeInterfaceSocketVectorXYZ4D(
         :param data_path: Data Path, Path to specialized socket data (never None)
         """
 
-    def from_socket(self, node: Node | None, socket: NodeSocket | None) -> None:
+    def from_socket(self, node: Node, socket: NodeSocket) -> None:
         """Setup template parameters from an existing socket
 
         :param node: Node, Node of the original socket (never None)
@@ -77375,7 +77133,7 @@ class NodesModifier(Modifier, bpy_struct):
     bake_target: typing.Literal["PACKED", "DISK"]
     """ Where to store the baked data (default 'PACKED')"""
 
-    bakes: NodesModifierBakes | None
+    bakes: NodesModifierBakes
     """ (default None, readonly)"""
 
     node_group: NodeTree | None
@@ -77402,7 +77160,7 @@ class NodesModifier(Modifier, bpy_struct):
     open_warnings_panel: bool
     """ (default False)"""
 
-    panels: NodesModifierPanels | None
+    panels: NodesModifierPanels
     """ (default None, readonly)"""
 
     show_group_selector: bool
@@ -77420,14 +77178,14 @@ class NodesModifier(Modifier, bpy_struct):
         :return: The system properties root container, or None if there are no system properties stored in this data yet, and its creation was not requested
         """
 
-    def is_input_visible(self, identifier: str | None) -> bool:
+    def is_input_visible(self, identifier: str) -> bool:
         """Check whether an input is currently visible based on modifier settings.
 
         :param identifier: The identifier of the input (never None)
         :return: Result
         """
 
-    def is_input_used(self, identifier: str | None) -> bool:
+    def is_input_used(self, identifier: str) -> bool:
         """Check whether an input is currently used based on modifier settings.
 
         :param identifier: The identifier of the input (never None)
@@ -77472,7 +77230,7 @@ class NodesModifierBake(bpy_struct):
     bake_target: typing.Literal["INHERIT", "PACKED", "DISK"]
     """ Where to store the baked data (default 'INHERIT')"""
 
-    data_blocks: NodesModifierBakeDataBlocks | None
+    data_blocks: NodesModifierBakeDataBlocks
     """ (default None, readonly)"""
 
     directory: str
@@ -77751,7 +77509,7 @@ class Object(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    animation_visualization: AnimViz | None
+    animation_visualization: AnimViz
     """ Animation data for this data-block (readonly, never None)"""
 
     bound_box: bpy_prop_array[float]
@@ -77763,7 +77521,7 @@ class Object(ID, bpy_struct):
     color: bpy_prop_array[float]
     """ Object color and alpha, used when the Object Color mode is enabled (array of 4 items, in [0, inf], default (1.0, 1.0, 1.0, 1.0))"""
 
-    constraints: ObjectConstraints | None
+    constraints: ObjectConstraints
     """ Constraints affecting the transformation of the object (default None, readonly)"""
 
     cycles: typing.Any
@@ -77803,7 +77561,7 @@ class Object(ID, bpy_struct):
     """ Absolute bounding box dimensions of the object.
 Warning: Assigning to it or its members multiple consecutive times will not work correctly, as this needs up-to-date evaluated data(array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    display: ObjectDisplay | None
+    display: ObjectDisplay
     """ Object display settings for 3D viewport (readonly, never None)"""
 
     display_bounds_type: typing.Literal["BOX", "SPHERE", "CYLINDER", "CONE", "CAPSULE"]
@@ -77853,7 +77611,7 @@ Warning: Assigning to it or its members multiple consecutive times will not work
     hide_viewport: bool
     """ Globally disable in viewports (default False)"""
 
-    image_user: ImageUser | None
+    image_user: ImageUser
     """ Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
 
     instance_collection: Collection | None
@@ -77880,7 +77638,7 @@ Warning: Assigning to it or its members multiple consecutive times will not work
     is_shadow_catcher: bool
     """ Only render shadows and reflections on this object, for compositing renders into real footage. Objects with this setting are considered to already exist in the footage, objects without it are synthetic objects being composited into it. (default False)"""
 
-    light_linking: ObjectLightLinking | None
+    light_linking: ObjectLightLinking
     """ Light linking settings (readonly, never None)"""
 
     lightgroup: str
@@ -77926,7 +77684,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     mode: typing.Literal[bpy.stub_internal.rna_enums.ObjectModeItems]
     """ Object interaction mode (default 'OBJECT', readonly)"""
 
-    modifiers: ObjectModifiers | None
+    modifiers: ObjectModifiers
     """ Modifiers affecting the geometric data of the object (default None, readonly)"""
 
     motion_path: MotionPath | None
@@ -77946,7 +77704,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     parent_vertices: bpy_prop_array[int]
     """ Indices of vertices in case of a vertex parenting relation (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
-    particle_systems: ParticleSystems | None
+    particle_systems: ParticleSystems
     """ Particle systems emitted from the object (default None, readonly)"""
 
     pass_index: int
@@ -77979,7 +77737,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     selection_sets: bpy_prop_collection[bl_operators.bone_selection_sets.SelectionSet]
     """ List of groups of bones for easy selection (default None, readonly)"""
 
-    shader_effects: ObjectShaderFx | None
+    shader_effects: ObjectShaderFx
     """ Effects affecting display of object (default None, readonly)"""
 
     shadow_terminator_geometry_offset: float
@@ -78081,7 +77839,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     use_simulation_cache: bool
     """ Cache frames during simulation nodes playback (default True)"""
 
-    vertex_groups: VertexGroups | None
+    vertex_groups: VertexGroups
     """ Vertex groups of the object (default None, readonly)"""
 
     visible_camera: bool
@@ -78173,21 +77931,21 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
         :return: Object indirect only
         """
 
-    def local_view_get(self, viewport: SpaceView3D | None) -> bool:
+    def local_view_get(self, viewport: SpaceView3D) -> bool:
         """Get the local view state for this object
 
         :param viewport: Viewport in local view (never None)
         :return: Object local view state
         """
 
-    def local_view_set(self, viewport: SpaceView3D | None, state: bool | None) -> None:
+    def local_view_set(self, viewport: SpaceView3D, state: bool | None) -> None:
         """Set the local view state for this object
 
         :param viewport: Viewport in local view (never None)
         :param state: Local view state to define
         """
 
-    def visible_in_viewport_get(self, viewport: SpaceView3D | None) -> bool:
+    def visible_in_viewport_get(self, viewport: SpaceView3D) -> bool:
         """Check for local view and local collections for this viewport and object
 
         :param viewport: Viewport in local collections (never None)
@@ -78357,7 +78115,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
         """
 
     def shape_key_add(
-        self, *, name: str | None = "Key", from_mix: bool | None = True
+        self, *, name: str = "Key", from_mix: bool | None = True
     ) -> ShapeKey:
         """Add shape key to this object
 
@@ -78366,7 +78124,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
         :return: New shape key-block
         """
 
-    def shape_key_remove(self, key: ShapeKey | None) -> None:
+    def shape_key_remove(self, key: ShapeKey) -> None:
         """Remove a Shape Key from this object
 
         :param key: Key-block to be removed (never None)
@@ -78426,7 +78184,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
         """
 
     def is_modified(
-        self, scene: Scene | None, settings: typing.Literal["PREVIEW", "RENDER"] | None
+        self, scene: Scene, settings: typing.Literal["PREVIEW", "RENDER"] | None
     ) -> bool:
         """Determine if this object is modified from the base mesh data
 
@@ -78442,7 +78200,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
         """
 
     def is_deform_modified(
-        self, scene: Scene | None, settings: typing.Literal["PREVIEW", "RENDER"] | None
+        self, scene: Scene, settings: typing.Literal["PREVIEW", "RENDER"] | None
     ) -> bool:
         """Determine if this object is modified by a deformation from the base mesh data
 
@@ -78875,10 +78633,10 @@ class Operator(bpy_struct):
     name: str
     """ (default "", readonly, never None)"""
 
-    options: OperatorOptions | None
+    options: OperatorOptions
     """ Runtime options (readonly, never None)"""
 
-    properties: OperatorProperties | None
+    properties: OperatorProperties
     """ (readonly, never None)"""
 
     bl_property: str
@@ -78891,7 +78649,7 @@ expanding an operator into a menu."""
     def report(
         self,
         type: set[typing.Literal[bpy.stub_internal.rna_enums.WmReportItems]] | None,
-        message: str | None,
+        message: str,
     ) -> None:
         """report
 
@@ -78930,7 +78688,7 @@ expanding an operator into a menu."""
         """
 
     def invoke(
-        self, context: Context, event: Event | None
+        self, context: Context, event: Event
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Invoke the operator
 
@@ -78940,7 +78698,7 @@ expanding an operator into a menu."""
         """
 
     def modal(
-        self, context: Context, event: Event | None
+        self, context: Context, event: Event
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Modal operator function
 
@@ -78962,9 +78720,7 @@ expanding an operator into a menu."""
         """
 
     @classmethod
-    def description(
-        cls, context: Context, properties: OperatorProperties | None
-    ) -> str:
+    def description(cls, context: Context, properties: OperatorProperties) -> str:
         """Compute a description string that depends on parameters
 
         :param context: (never None)
@@ -79054,7 +78810,7 @@ class OperatorFileListElement(PropertyGroup, bpy_struct):
 class OperatorMacro(bpy_struct):
     """Storage of a sub operator in a macro after it has been added"""
 
-    properties: OperatorProperties | None
+    properties: OperatorProperties
     """ (readonly, never None)"""
 
     @classmethod
@@ -79541,7 +79297,7 @@ class Paint(bpy_struct):
     brush_asset_reference: AssetWeakReference | None
     """ A weak reference to the matching brush asset, used e.g. to restore the last used brush on file load (readonly)"""
 
-    cavity_curve: CurveMapping | None
+    cavity_curve: CurveMapping
     """ Editable cavity curve (readonly, never None)"""
 
     palette: Palette | None
@@ -79580,7 +79336,7 @@ class Paint(bpy_struct):
     tile_z: bool
     """ Tile along Z axis (default False)"""
 
-    unified_paint_settings: UnifiedPaintSettings | None
+    unified_paint_settings: UnifiedPaintSettings
     """ (readonly, never None)"""
 
     use_cavity: bool
@@ -79696,7 +79452,7 @@ class PaintModeSettings(bpy_struct):
         """
 
 class Palette(ID, bpy_struct):
-    colors: PaletteColors | None
+    colors: PaletteColors
     """ (default None, readonly)"""
 
     @classmethod
@@ -79961,9 +79717,7 @@ class Particle(bpy_struct):
     velocity: mathutils.Vector
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    def uv_on_emitter(
-        self, modifier: ParticleSystemModifier | None
-    ) -> mathutils.Vector:
+    def uv_on_emitter(self, modifier: ParticleSystemModifier) -> mathutils.Vector:
         """Obtain UV coordinates for a particle on an evaluated mesh.
 
         :param modifier: Particle modifier from an evaluated object (never None)
@@ -80194,10 +79948,7 @@ class ParticleHairKey(bpy_struct):
     """ Weight for cloth simulation (in [0, 1], default 0.0)"""
 
     def co_object(
-        self,
-        object: Object | None,
-        modifier: ParticleSystemModifier | None,
-        particle: Particle | None,
+        self, object: Object, modifier: ParticleSystemModifier, particle: Particle
     ) -> mathutils.Vector:
         """Obtain hairkey location with particle and modifier data
 
@@ -80209,9 +79960,9 @@ class ParticleHairKey(bpy_struct):
 
     def co_object_set(
         self,
-        object: Object | None,
-        modifier: ParticleSystemModifier | None,
-        particle: Particle | None,
+        object: Object,
+        modifier: ParticleSystemModifier,
+        particle: Particle,
         co: collections.abc.Sequence[float] | mathutils.Vector | None,
     ) -> None:
         """Set hairkey location with particle and modifier data
@@ -80786,7 +80537,7 @@ class ParticleSettings(ID, bpy_struct):
     tangent_phase: float
     """ Rotate the surface tangent (in [-1, 1], default 0.0)"""
 
-    texture_slots: ParticleSettingsTextureSlots | None
+    texture_slots: ParticleSettingsTextureSlots
     """ Texture slots defining the mapping and influence of textures (default None, readonly)"""
 
     time_tweak: float
@@ -81091,7 +80842,7 @@ class ParticleSystem(bpy_struct):
     child_seed: int
     """ Offset in the random number table for child particles, to get a different randomized result (in [0, inf], default 0)"""
 
-    cloth: ClothModifier | None
+    cloth: ClothModifier
     """ Cloth dynamics for hair (readonly, never None)"""
 
     dt_frac: float
@@ -81157,7 +80908,7 @@ class ParticleSystem(bpy_struct):
     particles: bpy_prop_collection[Particle]
     """ Particles generated by the particle system (default None, readonly)"""
 
-    point_cache: PointCache | None
+    point_cache: PointCache
     """ (readonly, never None)"""
 
     reactor_target_object: Object | None
@@ -81169,7 +80920,7 @@ class ParticleSystem(bpy_struct):
     seed: int
     """ Offset in the random number table, to get a different randomized result (in [0, inf], default 0)"""
 
-    settings: ParticleSettings | None
+    settings: ParticleSettings
     """ Particle system settings (never None)"""
 
     targets: bpy_prop_collection[ParticleTarget]
@@ -81221,11 +80972,7 @@ class ParticleSystem(bpy_struct):
     """ Vertex group to control velocity (default "", never None)"""
 
     def co_hair(
-        self,
-        object: Object | None,
-        *,
-        particle_no: int | None = 0,
-        step: int | None = 0,
+        self, object: Object, *, particle_no: int | None = 0, step: int | None = 0
     ) -> mathutils.Vector:
         """Obtain cache hair data
 
@@ -81237,8 +80984,8 @@ class ParticleSystem(bpy_struct):
 
     def uv_on_emitter(
         self,
-        modifier: ParticleSystemModifier | None,
-        particle: Particle | None,
+        modifier: ParticleSystemModifier,
+        particle: Particle,
         *,
         particle_no: int | None = 0,
         uv_no: int | None = 0,
@@ -81254,8 +81001,8 @@ class ParticleSystem(bpy_struct):
 
     def mcol_on_emitter(
         self,
-        modifier: ParticleSystemModifier | None,
-        particle: Particle | None,
+        modifier: ParticleSystemModifier,
+        particle: Particle,
         *,
         particle_no: int | None = 0,
         vcol_no: int | None = 0,
@@ -81300,7 +81047,7 @@ class ParticleSystem(bpy_struct):
 class ParticleSystemModifier(Modifier, bpy_struct):
     """Particle system simulation modifier"""
 
-    particle_system: ParticleSystem | None
+    particle_system: ParticleSystem
     """ Particle System that this modifier controls (readonly, never None)"""
 
     @classmethod
@@ -81597,7 +81344,7 @@ class PointCache(bpy_struct):
     name: str
     """ Cache name (default "", never None)"""
 
-    point_caches: PointCaches | None
+    point_caches: PointCaches
     """ (default None, readonly)"""
 
     use_disk_cache: bool
@@ -81716,13 +81463,13 @@ class PointCloud(ID, bpy_struct):
     animation_data: AnimData | None
     """ Animation data for this data-block (readonly)"""
 
-    attributes: AttributeGroupPointCloud | None
+    attributes: AttributeGroupPointCloud
     """ Geometry attributes (default None, readonly)"""
 
-    color_attributes: AttributeGroupPointCloud | None
+    color_attributes: AttributeGroupPointCloud
     """ Geometry color attributes (default None, readonly)"""
 
-    materials: IDMaterials | None
+    materials: IDMaterials
     """ (default None, readonly)"""
 
     points: bpy_prop_collection[Point]
@@ -81864,7 +81611,7 @@ class PointerProperty(Property, bpy_struct):
 class Pose(bpy_struct):
     """A collection of pose channels, including settings for animating bones"""
 
-    animation_visualization: AnimViz | None
+    animation_visualization: AnimViz
     """ Animation data for this data-block (readonly, never None)"""
 
     bones: bpy_prop_collection[PoseBone]
@@ -81995,7 +81742,7 @@ class PoseBone(bpy_struct):
     bbone_scaleout: mathutils.Vector
     """ Scale factors for the end of the B-Bone, adjusts thickness (for tapering effects) (array of 3 items, in [-inf, inf], default (1.0, 1.0, 1.0))"""
 
-    bone: Bone | None
+    bone: Bone
     """ Bone associated with this PoseBone (readonly, never None)"""
 
     child: typing_extensions.Self | None
@@ -82004,7 +81751,7 @@ class PoseBone(bpy_struct):
     color: BoneColor | None
     """ (readonly)"""
 
-    constraints: PoseBoneConstraints | None
+    constraints: PoseBoneConstraints
     """ Constraints that act on this pose channel (default None, readonly)"""
 
     custom_shape: Object | None
@@ -82308,46 +82055,46 @@ class Preferences(bpy_struct):
     )
     """ Preferences (default 'INTERFACE')"""
 
-    addons: Addons | None
+    addons: Addons
     """ (default None, readonly)"""
 
     app_template: str
     """ (default "", never None)"""
 
-    apps: PreferencesApps | None
+    apps: PreferencesApps
     """ Preferences that work only for apps (readonly, never None)"""
 
-    autoexec_paths: PathCompareCollection | None
+    autoexec_paths: PathCompareCollection
     """ (default None, readonly)"""
 
-    edit: PreferencesEdit | None
+    edit: PreferencesEdit
     """ Settings for interacting with Blender data (readonly, never None)"""
 
-    experimental: PreferencesExperimental | None
+    experimental: PreferencesExperimental
     """ Settings for features that are still early in their development stage (readonly, never None)"""
 
-    extensions: PreferencesExtensions | None
+    extensions: PreferencesExtensions
     """ Settings for extensions (readonly, never None)"""
 
-    filepaths: PreferencesFilePaths | None
+    filepaths: PreferencesFilePaths
     """ Default paths for external files (readonly, never None)"""
 
-    inputs: PreferencesInput | None
+    inputs: PreferencesInput
     """ Settings for input devices (readonly, never None)"""
 
     is_dirty: bool
     """ Preferences have changed (default False)"""
 
-    keymap: PreferencesKeymap | None
+    keymap: PreferencesKeymap
     """ Shortcut setup for keyboards and other input devices (readonly, never None)"""
 
     show_hidden_ids: bool
     """ Show data-blocks with dot-prefixed names in search menus (default False)"""
 
-    studio_lights: StudioLights | None
+    studio_lights: StudioLights
     """ (default None, readonly)"""
 
-    system: PreferencesSystem | None
+    system: PreferencesSystem
     """ Graphics driver and operating system settings (readonly, never None)"""
 
     themes: bpy_prop_collection[Theme]
@@ -82365,7 +82112,7 @@ class Preferences(bpy_struct):
     version: bpy_prop_array[int]
     """ Version of Blender the userpref.blend was saved with (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
-    view: PreferencesView | None
+    view: PreferencesView
     """ Preferences related to viewing data (readonly, never None)"""
 
     @classmethod
@@ -82740,7 +82487,7 @@ class PreferencesExtensions(bpy_struct):
     active_repo: int | None
     """ Index of the extensions repository being edited in the Preferences UI (in [-32768, 32767], default 0)"""
 
-    repos: UserExtensionRepoCollection | None
+    repos: UserExtensionRepoCollection
     """ (default None, readonly)"""
 
     use_online_access_handled: bool
@@ -82788,7 +82535,7 @@ class PreferencesFilePaths(bpy_struct):
     ]
     """ Preset configs for external animation players (default 'INTERNAL')"""
 
-    asset_libraries: AssetLibraryCollection | None
+    asset_libraries: AssetLibraryCollection
     """ (default None, readonly)"""
 
     auto_save_time: int
@@ -82821,7 +82568,7 @@ class PreferencesFilePaths(bpy_struct):
     save_version: int
     """ The number of old versions to maintain in the current directory, when manually saving (in [0, 32], default 1)"""
 
-    script_directories: ScriptDirectoryCollection | None
+    script_directories: ScriptDirectoryCollection
     """ (default None, readonly)"""
 
     show_hidden_files_datablocks: bool
@@ -82849,6 +82596,9 @@ $line The line to open at (Optional).
 $column The column to open from the beginning of the line (Optional).
 $line0 & column0 start at zero.
 Example: -f $filepath -l $line -c $column(default "", never None)"""
+
+    texture_cache_directory: str
+    """ The directory for storing tx files generated from image files, for more efficient rendering. Paths may be absolute, or relative to the image file. Leave blank to store tx files in the same directory as image files (default "", never None, blend relative // prefix supported)"""
 
     texture_directory: str
     """ The default directory to search for textures (default "", never None, blend relative // prefix supported)"""
@@ -83053,10 +82803,10 @@ class PreferencesInput(bpy_struct):
     view_zoom_method: typing.Literal["CONTINUE", "DOLLY", "SCALE"]
     """ Which style to use for viewport scaling (default 'DOLLY')"""
 
-    walk_navigation: WalkNavigation | None
+    walk_navigation: WalkNavigation
     """ Settings for walk navigation mode (readonly, never None)"""
 
-    xr_navigation: XrNavigation | None
+    xr_navigation: XrNavigation
     """ Settings for navigation in XR (readonly, never None)"""
 
     @classmethod
@@ -83560,7 +83310,7 @@ It improves shape readability of very dense meshes, but increases eye fatigue wh
     view_frame_type: typing.Literal["KEEP_RANGE", "SECONDS", "KEYFRAMES"]
     """ How zooming to frame focuses around current frame (default 'KEEP_RANGE')"""
 
-    weight_color_range: ColorRamp | None
+    weight_color_range: ColorRamp
     """ Color range used for weight visualization in weight painting mode (readonly, never None)"""
 
     @classmethod
@@ -84197,7 +83947,7 @@ class Region(bpy_struct):
     type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
     """ Type of this region (default 'WINDOW', readonly)"""
 
-    view2d: View2D | None
+    view2d: View2D
     """ 2D view of the region (readonly, never None)"""
 
     width: int
@@ -84541,8 +84291,8 @@ class RenderEngine(bpy_struct):
         w: int | None,
         h: int | None,
         *,
-        layer: str | None = "",
-        view: str | None = "",
+        layer: str = "",
+        view: str = "",
     ) -> RenderResult:
         """Create render result to write linear floating-point render layers and passes
 
@@ -84578,12 +84328,7 @@ class RenderEngine(bpy_struct):
         """
 
     def add_pass(
-        self,
-        name: str | None,
-        channels: int | None,
-        chan_id: str | None,
-        *,
-        layer: str | None = "",
+        self, name: str, channels: int | None, chan_id: str, *, layer: str = ""
     ) -> None:
         """Add a pass to the render layer
 
@@ -84605,7 +84350,7 @@ class RenderEngine(bpy_struct):
         :return: Break
         """
 
-    def pass_by_index_get(self, layer: str | None, index: int | None) -> RenderPass:
+    def pass_by_index_get(self, layer: str, index: int | None) -> RenderPass:
         """pass_by_index_get
 
         :param layer: Layer, Name of render layer to get pass for (never None)
@@ -84619,7 +84364,7 @@ class RenderEngine(bpy_struct):
         :return: View, Single view active (never None)
         """
 
-    def active_view_set(self, view: str | None) -> None:
+    def active_view_set(self, view: str) -> None:
         """active_view_set
 
         :param view: View, Single view to set as active (never None)
@@ -84652,7 +84397,7 @@ class RenderEngine(bpy_struct):
         :return: Spherical Stereo
         """
 
-    def update_stats(self, stats: str | None, info: str | None) -> None:
+    def update_stats(self, stats: str, info: str) -> None:
         """Update and signal to redraw render status text
 
         :param stats: Stats, (never None)
@@ -84684,7 +84429,7 @@ class RenderEngine(bpy_struct):
     def report(
         self,
         type: set[typing.Literal[bpy.stub_internal.rna_enums.WmReportItems]] | None,
-        message: str | None,
+        message: str,
     ) -> None:
         """Report info, warning or error messages
 
@@ -84692,7 +84437,7 @@ class RenderEngine(bpy_struct):
         :param message: Report Message, (never None)
         """
 
-    def error_set(self, message: str | None) -> None:
+    def error_set(self, message: str) -> None:
         """Set error message displaying after the render is finished
 
         :param message: Report Message, (never None)
@@ -84748,9 +84493,9 @@ class RenderEngine(bpy_struct):
         self,
         scene: Scene | None,
         view_layer: ViewLayer | None,
-        name: str | None,
+        name: str,
         channels: int | None,
-        chanid: str | None,
+        chanid: str,
         type: typing.Literal["VALUE", "VECTOR", "COLOR"] | None,
     ) -> None:
         """Register a render pass that will be part of the render with the current settings
@@ -84795,7 +84540,7 @@ class RenderLayer(bpy_struct):
     name: str
     """ View layer name (default "", readonly, never None)"""
 
-    passes: RenderPasses | None
+    passes: RenderPasses
     """ (default None, readonly)"""
 
     use_ao: bool
@@ -84895,7 +84640,7 @@ class RenderLayer(bpy_struct):
     """ Render volumes in this Layer (default False, readonly)"""
 
     def load_from_file(
-        self, filepath: str | None, *, x: int | None = 0, y: int | None = 0
+        self, filepath: str, *, x: int | None = 0, y: int | None = 0
     ) -> None:
         """Copies the pixels of this renderlayer from an image file
 
@@ -84994,13 +84739,13 @@ class RenderResult(bpy_struct):
     views: bpy_prop_collection[RenderView]
     """ (default None, readonly)"""
 
-    def load_from_file(self, filepath: str | None) -> None:
+    def load_from_file(self, filepath: str) -> None:
         """Copies the pixels of this render result from an image file
 
         :param filepath: File Name, Filename to load into this render tile, must be no smaller than the render result (never None)
         """
 
-    def stamp_data_add_field(self, field: str | None, value: str | None) -> None:
+    def stamp_data_add_field(self, field: str, value: str) -> None:
         """Add engine-specific stamp data to the result
 
         :param field: Field, Name of the stamp field to add (never None)
@@ -85043,7 +84788,7 @@ class RenderSettings(bpy_struct):
     ]
     """ Quality of anisotropic filtering in materials (default 'FILTER_2')"""
 
-    bake: BakeSettings | None
+    bake: BakeSettings
     """ (readonly, never None)"""
 
     border_max_x: float
@@ -85115,7 +84860,7 @@ class RenderSettings(bpy_struct):
     has_multiple_engines: bool
     """ More than one rendering engine is available (default False, readonly)"""
 
-    image_settings: ImageFormatSettings | None
+    image_settings: ImageFormatSettings
     """ (readonly, never None)"""
 
     is_movie_format: bool
@@ -85226,6 +84971,9 @@ class RenderSettings(bpy_struct):
     threads_mode: typing.Literal["AUTO", "FIXED"]
     """ Determine the amount of render threads used (default 'AUTO')"""
 
+    use_auto_generate_texture_cache: bool
+    """ Automatically create tx files from image files when rendering, if the files do not exist or are outdated. The path to store the texture cache files is configured in the preferences (default False)"""
+
     use_border: bool
     """ Render a user-defined render region, within the frame size (default False)"""
 
@@ -85331,7 +85079,10 @@ class RenderSettings(bpy_struct):
     use_stamp_time: bool
     """ Include the rendered frame timecode as HH:MM:SS.FF in image metadata (default True)"""
 
-    views: RenderViews | None
+    use_texture_cache: bool
+    """ Load texture tiles at appropriate resolution on demand to reduce memory usage. This avoids loading all textures into memory, at the cost of extra disk space and some performance (default True)"""
+
+    views: RenderViews
     """ (default None, readonly)"""
 
     views_format: typing.Literal["STEREO_3D", "MULTIVIEW"]
@@ -85342,7 +85093,7 @@ class RenderSettings(bpy_struct):
         *,
         frame: int | None = -2147483648,
         preview: bool | None = False,
-        view: str | None = "",
+        view: str = "",
     ) -> str:
         """Return the absolute path to the filename to be written for a given frame
 
@@ -85848,7 +85599,7 @@ class RigidBodyWorld(bpy_struct):
     enabled: bool
     """ Simulation will be evaluated (default True)"""
 
-    point_cache: PointCache | None
+    point_cache: PointCache
     """ (readonly, never None)"""
 
     solver_iterations: int
@@ -85865,7 +85616,7 @@ class RigidBodyWorld(bpy_struct):
 
     def convex_sweep_test(
         self,
-        object: Object | None,
+        object: Object,
         start: collections.abc.Sequence[float] | mathutils.Vector | None,
         end: collections.abc.Sequence[float] | mathutils.Vector | None,
     ) -> tuple[mathutils.Vector, mathutils.Vector, mathutils.Vector, int]:
@@ -86226,13 +85977,13 @@ class Scene(ID, bpy_struct):
     camera: Object | None
     """ Active camera, used for rendering the scene"""
 
-    collection: Collection | None
+    collection: Collection
     """ Scene root collection that owns all the objects and other collections instantiated in the scene (readonly, never None)"""
 
     compositing_node_group: NodeTree | None
     """ Compositor Nodes"""
 
-    cursor: View3DCursor | None
+    cursor: View3DCursor
     """ (readonly, never None)"""
 
     cycles: typing.Any
@@ -86289,16 +86040,16 @@ class Scene(ID, bpy_struct):
     is_nla_tweakmode: bool
     """ Whether there is any action referenced by NLA being edited (strictly read-only) (default False, readonly)"""
 
-    keying_sets: KeyingSets | None
+    keying_sets: KeyingSets
     """ Absolute Keying Sets for this Scene (default None, readonly)"""
 
-    keying_sets_all: KeyingSetsAll | None
+    keying_sets_all: KeyingSetsAll
     """ All Keying Sets available for use (Builtins and Absolute Keying Sets for this Scene) (default None, readonly)"""
 
     lock_frame_selection_to_range: bool
     """ Don't allow frame to be selected with mouse outside of frame range (default False)"""
 
-    objects: SceneObjects | None
+    objects: SceneObjects
     """ (default None, readonly)"""
 
     playback_loop_mode: typing.Literal[
@@ -86306,13 +86057,13 @@ class Scene(ID, bpy_struct):
     ]
     """ What to do when playback reaches the last frame (default 'INFINITE')"""
 
-    render: RenderSettings | None
+    render: RenderSettings
     """ (readonly, never None)"""
 
     rigidbody_world: RigidBodyWorld | None
     """ (readonly)"""
 
-    safe_areas: DisplaySafeAreas | None
+    safe_areas: DisplaySafeAreas
     """ (readonly, never None)"""
 
     sequence_editor: SequenceEditor | None
@@ -86342,16 +86093,16 @@ class Scene(ID, bpy_struct):
     time_jump_unit: typing.Literal["FRAME", "SECOND"]
     """ Which unit to use for time jumps in the timeline (default 'SECOND')"""
 
-    timeline_markers: TimelineMarkers | None
+    timeline_markers: TimelineMarkers
     """ Markers used in all timelines for the current scene (default None, readonly)"""
 
-    tool_settings: ToolSettings | None
+    tool_settings: ToolSettings
     """ (readonly, never None)"""
 
     transform_orientation_slots: bpy_prop_collection[TransformOrientationSlot]
     """ (default None, readonly)"""
 
-    unit_settings: UnitSettings | None
+    unit_settings: UnitSettings
     """ Unit editing settings (readonly, never None)"""
 
     use_audio: bool
@@ -86375,7 +86126,7 @@ class Scene(ID, bpy_struct):
     use_stamp_note: str
     """ User defined note for the render stamping (default "", never None)"""
 
-    view_layers: ViewLayers | None
+    view_layers: ViewLayers
     """ (default None, readonly)"""
 
     view_settings: ColorManagedViewSettings | None
@@ -86388,7 +86139,7 @@ class Scene(ID, bpy_struct):
     def update_render_engine(cls) -> None:
         """Trigger a render engine update"""
 
-    def statistics(self, view_layer: ViewLayer | None) -> str:
+    def statistics(self, view_layer: ViewLayer) -> str:
         """statistics
 
         :param view_layer: View Layer, (never None)
@@ -86402,7 +86153,7 @@ class Scene(ID, bpy_struct):
         :param subframe: Subframe time, between 0.0 and 1.0 (in [0, 1], optional)
         """
 
-    def uvedit_aspect(self, object: Object | None) -> mathutils.Vector:
+    def uvedit_aspect(self, object: Object) -> mathutils.Vector:
         """Get uv aspect for current object
 
         :param object: Object (never None)
@@ -86411,7 +86162,7 @@ class Scene(ID, bpy_struct):
 
     def ray_cast(
         self,
-        depsgraph: Depsgraph | None,
+        depsgraph: Depsgraph,
         origin: collections.abc.Sequence[float] | mathutils.Vector | None,
         direction: collections.abc.Sequence[float] | mathutils.Vector | None,
         *,
@@ -86882,7 +86633,7 @@ class SceneStrip(Strip, bpy_struct):
     proxy: StripProxy | None
     """ (readonly)"""
 
-    retiming_keys: RetimingKeys | None
+    retiming_keys: RetimingKeys
     """ (default None, readonly)"""
 
     scene: Scene | None
@@ -87400,7 +87151,7 @@ class SequenceEditor(bpy_struct):
     show_overlay_frame: bool
     """ Partial overlay on top of the sequencer with a frame offset (default False)"""
 
-    strips: StripsTopLevel | None
+    strips: StripsTopLevel
     """ Top-level strips only (default None, readonly)"""
 
     strips_all: bpy_prop_collection[Strip]
@@ -92255,7 +92006,7 @@ class ShaderNodeTangent(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexBrick(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate a procedural texture producing bricks"""
 
-    color_mapping: ColorMapping | None
+    color_mapping: ColorMapping
     """ Color mapping settings (readonly, never None)"""
 
     offset: float
@@ -92270,7 +92021,7 @@ class ShaderNodeTexBrick(ShaderNode, NodeInternal, Node, bpy_struct):
     squash_frequency: int
     """ How often rows consist of "squished" bricks (in [1, 99], default 2)"""
 
-    texture_mapping: TexMapping | None
+    texture_mapping: TexMapping
     """ Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
@@ -92327,10 +92078,10 @@ class ShaderNodeTexBrick(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexChecker(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate a checkerboard texture"""
 
-    color_mapping: ColorMapping | None
+    color_mapping: ColorMapping
     """ Color mapping settings (readonly, never None)"""
 
-    texture_mapping: TexMapping | None
+    texture_mapping: TexMapping
     """ Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
@@ -92449,11 +92200,11 @@ class ShaderNodeTexCoord(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexEnvironment(ShaderNode, NodeInternal, Node, bpy_struct):
     """Sample an image file as an environment texture. Typically used to light the scene with the background node"""
 
-    color_mapping: ColorMapping | None
+    color_mapping: ColorMapping
     """ Color mapping settings (readonly, never None)"""
 
     image: Image | None
-    image_user: ImageUser | None
+    image_user: ImageUser
     """ Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
 
     interpolation: typing.Literal["Linear", "Closest", "Cubic", "Smart"]
@@ -92462,7 +92213,7 @@ class ShaderNodeTexEnvironment(ShaderNode, NodeInternal, Node, bpy_struct):
     projection: typing.Literal["EQUIRECTANGULAR", "MIRROR_BALL"]
     """ Projection of the input image (default 'EQUIRECTANGULAR')"""
 
-    texture_mapping: TexMapping | None
+    texture_mapping: TexMapping
     """ Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
@@ -92519,13 +92270,13 @@ class ShaderNodeTexEnvironment(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexGabor(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate Gabor noise"""
 
-    color_mapping: ColorMapping | None
+    color_mapping: ColorMapping
     """ Color mapping settings (readonly, never None)"""
 
     gabor_type: typing.Literal["2D", "3D"]
     """ The type of Gabor noise to evaluate (default '2D')"""
 
-    texture_mapping: TexMapping | None
+    texture_mapping: TexMapping
     """ Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
@@ -92582,7 +92333,7 @@ class ShaderNodeTexGabor(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexGradient(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate interpolated color and intensity values based on the input vector"""
 
-    color_mapping: ColorMapping | None
+    color_mapping: ColorMapping
     """ Color mapping settings (readonly, never None)"""
 
     gradient_type: typing.Literal[
@@ -92596,7 +92347,7 @@ class ShaderNodeTexGradient(ShaderNode, NodeInternal, Node, bpy_struct):
     ]
     """ Style of the color blending (default 'LINEAR')"""
 
-    texture_mapping: TexMapping | None
+    texture_mapping: TexMapping
     """ Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
@@ -92716,14 +92467,14 @@ class ShaderNodeTexIES(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexImage(ShaderNode, NodeInternal, Node, bpy_struct):
     """Sample an image file as a texture"""
 
-    color_mapping: ColorMapping | None
+    color_mapping: ColorMapping
     """ Color mapping settings (readonly, never None)"""
 
     extension: typing.Literal["REPEAT", "EXTEND", "CLIP", "MIRROR"]
     """ How the image is extrapolated past its original bounds (default 'REPEAT')"""
 
     image: Image | None
-    image_user: ImageUser | None
+    image_user: ImageUser
     """ Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
 
     interpolation: typing.Literal["Linear", "Closest", "Cubic", "Smart"]
@@ -92735,7 +92486,7 @@ class ShaderNodeTexImage(ShaderNode, NodeInternal, Node, bpy_struct):
     projection_blend: float
     """ For box projection, amount of blend to use between sides (in [0, 1], default 0.0)"""
 
-    texture_mapping: TexMapping | None
+    texture_mapping: TexMapping
     """ Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
@@ -92792,10 +92543,10 @@ class ShaderNodeTexImage(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexMagic(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate a psychedelic color texture"""
 
-    color_mapping: ColorMapping | None
+    color_mapping: ColorMapping
     """ Color mapping settings (readonly, never None)"""
 
-    texture_mapping: TexMapping | None
+    texture_mapping: TexMapping
     """ Texture coordinate mapping settings (readonly, never None)"""
 
     turbulence_depth: int
@@ -92855,7 +92606,7 @@ class ShaderNodeTexMagic(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexNoise(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate fractal Perlin noise"""
 
-    color_mapping: ColorMapping | None
+    color_mapping: ColorMapping
     """ Color mapping settings (readonly, never None)"""
 
     noise_dimensions: typing.Literal["1D", "2D", "3D", "4D"]
@@ -92873,7 +92624,7 @@ class ShaderNodeTexNoise(ShaderNode, NodeInternal, Node, bpy_struct):
     normalize: bool
     """ Normalize outputs to 0.0 to 1.0 range (default False)"""
 
-    texture_mapping: TexMapping | None
+    texture_mapping: TexMapping
     """ Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
@@ -92941,7 +92692,7 @@ class ShaderNodeTexSky(ShaderNode, NodeInternal, Node, bpy_struct):
     altitude: float
     """ Height from sea level (in [0, 100000], default 100.0)"""
 
-    color_mapping: ColorMapping | None
+    color_mapping: ColorMapping
     """ Color mapping settings (readonly, never None)"""
 
     ground_albedo: float
@@ -92974,7 +92725,7 @@ class ShaderNodeTexSky(ShaderNode, NodeInternal, Node, bpy_struct):
     sun_size: float
     """ Size of sun disc (in [0, 1.5708], default 0.00951204)"""
 
-    texture_mapping: TexMapping | None
+    texture_mapping: TexMapping
     """ Texture coordinate mapping settings (readonly, never None)"""
 
     turbidity: float
@@ -93034,7 +92785,7 @@ class ShaderNodeTexSky(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexVoronoi(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate Worley noise based on the distance to random points. Typically used to generate textures such as stones, water, or biological cells"""
 
-    color_mapping: ColorMapping | None
+    color_mapping: ColorMapping
     """ Color mapping settings (readonly, never None)"""
 
     distance: typing.Literal["EUCLIDEAN", "MANHATTAN", "CHEBYCHEV", "MINKOWSKI"]
@@ -93048,7 +92799,7 @@ class ShaderNodeTexVoronoi(ShaderNode, NodeInternal, Node, bpy_struct):
     normalize: bool
     """ Normalize output Distance to 0.0 to 1.0 range (default False)"""
 
-    texture_mapping: TexMapping | None
+    texture_mapping: TexMapping
     """ Texture coordinate mapping settings (readonly, never None)"""
 
     voronoi_dimensions: typing.Literal["1D", "2D", "3D", "4D"]
@@ -93111,13 +92862,13 @@ class ShaderNodeTexWave(ShaderNode, NodeInternal, Node, bpy_struct):
     bands_direction: typing.Literal["X", "Y", "Z", "DIAGONAL"]
     """ (default 'X')"""
 
-    color_mapping: ColorMapping | None
+    color_mapping: ColorMapping
     """ Color mapping settings (readonly, never None)"""
 
     rings_direction: typing.Literal["X", "Y", "Z", "SPHERICAL"]
     """ (default 'X')"""
 
-    texture_mapping: TexMapping | None
+    texture_mapping: TexMapping
     """ Texture coordinate mapping settings (readonly, never None)"""
 
     wave_profile: typing.Literal["SIN", "SAW", "TRI"]
@@ -94283,7 +94034,7 @@ class ShapeKey(bpy_struct):
     points: bpy_prop_collection[ShapeKeyPoint]
     """ Optimized access to shape keys point data, when using foreach_get/foreach_set accessors. Warning: Does not support legacy Curve shape keys. (default None, readonly)"""
 
-    relative_key: typing_extensions.Self | None
+    relative_key: typing_extensions.Self
     """ Shape used as a relative key (never None)"""
 
     select: bool
@@ -94930,10 +94681,10 @@ class SmoothModifier(Modifier, bpy_struct):
 class SoftBodyModifier(Modifier, bpy_struct):
     """Soft body simulation modifier"""
 
-    point_cache: PointCache | None
+    point_cache: PointCache
     """ (readonly, never None)"""
 
-    settings: SoftBodySettings | None
+    settings: SoftBodySettings
     """ (readonly, never None)"""
 
     @classmethod
@@ -95377,7 +95128,7 @@ class SoundStrip(Strip, bpy_struct):
     pitch_correction: bool
     """ Maintain the original pitch of the audio when changing playback speed (default False)"""
 
-    retiming_keys: RetimingKeys | None
+    retiming_keys: RetimingKeys
     """ (default None, readonly)"""
 
     show_waveform: bool
@@ -95502,7 +95253,7 @@ class SpaceClipEditor(Space, bpy_struct):
     clip: MovieClip | None
     """ Movie clip displayed and edited in this space"""
 
-    clip_user: MovieClipUser | None
+    clip_user: MovieClipUser
     """ Parameters defining which frame of the movie clip is displayed (readonly, never None)"""
 
     cursor_location: mathutils.Vector
@@ -95526,7 +95277,7 @@ class SpaceClipEditor(Space, bpy_struct):
     mode: typing.Literal[bpy.stub_internal.rna_enums.ClipEditorModeItems]
     """ Editing context being displayed (default 'TRACKING')"""
 
-    overlay: SpaceClipOverlay | None
+    overlay: SpaceClipOverlay
     """ Settings for display of overlays in the Movie Clip editor (readonly, never None)"""
 
     path_length: int
@@ -95851,7 +95602,7 @@ class SpaceDopeSheetEditor(Space, bpy_struct):
     ]
     """ Editing context being displayed (default 'ACTION')"""
 
-    overlays: SpaceDopeSheetOverlay | None
+    overlays: SpaceDopeSheetOverlay
     """ Settings for display of overlays (readonly, never None)"""
 
     show_cache: bool
@@ -96051,7 +95802,7 @@ class SpaceFileBrowser(Space, bpy_struct):
         :param deferred: Whether to activate the ID immediately (false) or after the file browser refreshes (true) (optional)
         """
 
-    def activate_file_by_relative_path(self, *, relative_path: str | None = "") -> None:
+    def activate_file_by_relative_path(self, *, relative_path: str = "") -> None:
         """Set active file and add to selection based on relative path to current File Browser directory
 
         :param relative_path: relative_path, (optional, never None)
@@ -96265,7 +96016,7 @@ class SpaceImageEditor(Space, bpy_struct):
     image: Image | None
     """ Image displayed and edited in this space"""
 
-    image_user: ImageUser | None
+    image_user: ImageUser
     """ Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
 
     mask: Mask | None
@@ -96280,7 +96031,7 @@ class SpaceImageEditor(Space, bpy_struct):
     mode: typing.Literal[bpy.stub_internal.rna_enums.SpaceImageModeAllItems]
     """ Editing context being displayed (default 'VIEW')"""
 
-    overlay: SpaceImageOverlay | None
+    overlay: SpaceImageOverlay
     """ Settings for display of overlays in the UV/Image editor (readonly, never None)"""
 
     pivot_point: typing.Literal[
@@ -96361,7 +96112,7 @@ class SpaceImageEditor(Space, bpy_struct):
     use_realtime_update: bool
     """ Update other affected window spaces automatically to reflect changes during interactive operations such as transform (default False)"""
 
-    uv_editor: SpaceUVEditor | None
+    uv_editor: SpaceUVEditor
     """ UV editor settings (readonly, never None)"""
 
     zoom: bpy_prop_array[float]
@@ -96674,10 +96425,10 @@ class SpaceNodeEditor(Space, bpy_struct):
     """ Base node tree from context"""
 
     node_tree_sub_type: str
-    overlay: SpaceNodeOverlay | None
+    overlay: SpaceNodeOverlay
     """ Settings for display of overlays in the Node Editor (readonly, never None)"""
 
-    path: SpaceNodeEditorPath | None
+    path: SpaceNodeEditorPath
     """ Path from the data-block to the currently edited node tree (default None, readonly)"""
 
     pin: bool
@@ -97252,7 +97003,7 @@ class SpaceSequenceEditor(Space, bpy_struct):
     annotation: Annotation | None
     """ Annotation data for this Preview region"""
 
-    cache_overlay: SequencerCacheOverlay | None
+    cache_overlay: SequencerCacheOverlay
     """ Settings for display of overlays (readonly, never None)"""
 
     cursor_location: mathutils.Vector
@@ -97272,7 +97023,7 @@ class SpaceSequenceEditor(Space, bpy_struct):
     preview_channels: typing.Literal["COLOR_ALPHA", "COLOR"]
     """ Channels of the preview to display (default 'COLOR')"""
 
-    preview_overlay: SequencerPreviewOverlay | None
+    preview_overlay: SequencerPreviewOverlay
     """ Settings for display of overlays (readonly, never None)"""
 
     proxy_render_size: typing.Literal[
@@ -97328,7 +97079,7 @@ class SpaceSequenceEditor(Space, bpy_struct):
     show_transform_preview: bool
     """ Show a preview of the start or end frame of a strip while transforming its respective handle (default False)"""
 
-    timeline_overlay: SequencerTimelineOverlay | None
+    timeline_overlay: SequencerTimelineOverlay
     """ Settings for display of overlays (readonly, never None)"""
 
     use_clamp_view: bool
@@ -97448,7 +97199,7 @@ class SpaceSpreadsheet(Space, bpy_struct):
     show_region_ui: bool
     """ (default False)"""
 
-    tables: SpreadsheetTables | None
+    tables: SpreadsheetTables
     """ Persistent data for the tables shown in this spreadsheet editor (default None, readonly)"""
 
     use_filter: bool
@@ -97776,7 +97527,7 @@ class SpaceView3D(Space, bpy_struct):
     mirror_xr_session: bool
     """ Synchronize the viewer perspective of virtual reality sessions with this 3D viewport (default False)"""
 
-    overlay: View3DOverlay | None
+    overlay: View3DOverlay
     """ Settings for display of overlays in the 3D viewport (readonly, never None)"""
 
     region_3d: RegionView3D | None
@@ -97797,7 +97548,7 @@ class SpaceView3D(Space, bpy_struct):
     render_border_min_y: float
     """ Minimum Y value for the render region (in [0, 1], default 0.0)"""
 
-    shading: View3DShading | None
+    shading: View3DShading
     """ Settings for shading in the 3D viewport (readonly, never None)"""
 
     show_bundle_names: bool
@@ -98134,7 +97885,7 @@ class Speaker(ID, bpy_struct):
 class SpeedControlStrip(EffectStrip, Strip, bpy_struct):
     """Sequence strip to control the speed of other strips"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
     input_count: int
@@ -98186,7 +97937,7 @@ class SpeedControlStrip(EffectStrip, Strip, bpy_struct):
 class Spline(bpy_struct):
     """Element of a curve, either NURBS, Bézier or Polyline or a character with text objects"""
 
-    bezier_points: SplineBezierPoints | None
+    bezier_points: SplineBezierPoints
     """ Collection of points for Bézier curves only (default None, readonly)"""
 
     character_index: int
@@ -98210,7 +97961,7 @@ class Spline(bpy_struct):
     point_count_v: int
     """ Total number points for the surface on the V direction (in [0, inf], default 0, readonly)"""
 
-    points: SplinePoints | None
+    points: SplinePoints
     """ Collection of points that make up this poly or nurbs spline (default None, readonly)"""
 
     radius_interpolation: typing.Literal["LINEAR", "CARDINAL", "BSPLINE", "EASE"]
@@ -99130,7 +98881,7 @@ class Strip(bpy_struct):
     lock: bool
     """ Lock strip so that it cannot be transformed (default False)"""
 
-    modifiers: StripModifiers | None
+    modifiers: StripModifiers
     """ Modifiers affecting this strip (default None, readonly)"""
 
     mute: bool
@@ -99204,13 +98955,13 @@ class Strip(bpy_struct):
         :return: strip element of the current frame
         """
 
-    def swap(self, other: typing_extensions.Self | None) -> None:
+    def swap(self, other: typing_extensions.Self) -> None:
         """Swap the position of this strip with another
 
         :param other: Other, Other strip to swap with (never None)
         """
 
-    def move_to_meta(self, meta_sequence: typing_extensions.Self | None) -> None:
+    def move_to_meta(self, meta_sequence: typing_extensions.Self) -> None:
         """Move this strip into a meta Strip
 
         :param meta_sequence: Destination Meta Strip, Meta to move the strip into (never None)
@@ -99222,7 +98973,7 @@ class Strip(bpy_struct):
         :return: Parent meta strip
         """
 
-    def invalidate_cache(self, type: typing.Literal["RAW", "COMPOSITE"] | None) -> None:
+    def invalidate_cache(self, type: typing.Literal["RAW", "COMPOSITE"]) -> None:
         """Invalidate cached images for strip and all dependent strips
 
         :param type: Type, Cache Type (never None)
@@ -99231,7 +98982,7 @@ class Strip(bpy_struct):
     def split(
         self,
         frame: int | None,
-        split_method: typing.Literal["SOFT", "HARD"] | None,
+        split_method: typing.Literal["SOFT", "HARD"],
         *,
         ignore_connections: bool | None = False,
     ) -> typing_extensions.Self:
@@ -99903,10 +99654,10 @@ class SubsurfModifier(Modifier, bpy_struct):
 class SubtractStrip(EffectStrip, Strip, bpy_struct):
     """Subtract Strip"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
-    input_2: Strip | None
+    input_2: Strip
     """ Second input for the effect strip (never None)"""
 
     input_count: int
@@ -100346,7 +100097,7 @@ class Text(ID, bpy_struct):
     current_character: int
     """ Index of current character in current line, and also start index of character in selection if one exists (in [0, inf], default 0)"""
 
-    current_line: TextLine | None
+    current_line: TextLine
     """ Current line, and start line of selection if one exists (readonly, never None)"""
 
     current_line_index: int
@@ -100373,7 +100124,7 @@ class Text(ID, bpy_struct):
     select_end_character: int
     """ Index of character after end of selection in the selection end line (in [0, inf], default 0)"""
 
-    select_end_line: TextLine | None
+    select_end_line: TextLine
     """ End line of selection (readonly, never None)"""
 
     select_end_line_index: int
@@ -100385,13 +100136,13 @@ class Text(ID, bpy_struct):
     def clear(self) -> None:
         """clear the text block"""
 
-    def write(self, text: str | None) -> None:
+    def write(self, text: str) -> None:
         """write text at the cursor location and advance to the end of the text block
 
         :param text: New text for this data-block (never None)
         """
 
-    def from_string(self, text: str | None) -> None:
+    def from_string(self, text: str) -> None:
         """Replace text with this string.
 
         :param text: (never None)
@@ -102991,70 +102742,70 @@ class Theme(bpy_struct):
     bone_color_sets: bpy_prop_collection[ThemeBoneColorSet]
     """ (default None, readonly, never None)"""
 
-    clip_editor: ThemeClipEditor | None
+    clip_editor: ThemeClipEditor
     """ (readonly, never None)"""
 
     collection_color: bpy_prop_collection[ThemeCollectionColor]
     """ (default None, readonly, never None)"""
 
-    common: ThemeCommon | None
+    common: ThemeCommon
     """ Theme properties shared by different editors (readonly, never None)"""
 
-    console: ThemeConsole | None
+    console: ThemeConsole
     """ (readonly, never None)"""
 
-    dopesheet_editor: ThemeDopeSheet | None
+    dopesheet_editor: ThemeDopeSheet
     """ (readonly, never None)"""
 
-    file_browser: ThemeFileBrowser | None
+    file_browser: ThemeFileBrowser
     """ (readonly, never None)"""
 
     filepath: str
     """ The path to the preset loaded into this theme (if any) (default "", never None)"""
 
-    graph_editor: ThemeGraphEditor | None
+    graph_editor: ThemeGraphEditor
     """ (readonly, never None)"""
 
-    image_editor: ThemeImageEditor | None
+    image_editor: ThemeImageEditor
     """ (readonly, never None)"""
 
-    info: ThemeInfo | None
+    info: ThemeInfo
     """ (readonly, never None)"""
 
     name: str
     """ Name of the theme (default "", never None)"""
 
-    nla_editor: ThemeNLAEditor | None
+    nla_editor: ThemeNLAEditor
     """ (readonly, never None)"""
 
-    node_editor: ThemeNodeEditor | None
+    node_editor: ThemeNodeEditor
     """ (readonly, never None)"""
 
-    outliner: ThemeOutliner | None
+    outliner: ThemeOutliner
     """ (readonly, never None)"""
 
-    preferences: ThemePreferences | None
+    preferences: ThemePreferences
     """ (readonly, never None)"""
 
-    properties: ThemeProperties | None
+    properties: ThemeProperties
     """ (readonly, never None)"""
 
-    regions: ThemeRegions | None
+    regions: ThemeRegions
     """ Theme properties for common editor regions (readonly, never None)"""
 
-    sequence_editor: ThemeSequenceEditor | None
+    sequence_editor: ThemeSequenceEditor
     """ (readonly, never None)"""
 
-    spreadsheet: ThemeSpreadsheet | None
+    spreadsheet: ThemeSpreadsheet
     """ (readonly, never None)"""
 
-    statusbar: ThemeStatusBar | None
+    statusbar: ThemeStatusBar
     """ (readonly, never None)"""
 
     strip_color: bpy_prop_collection[ThemeStripColor]
     """ (default None, readonly, never None)"""
 
-    text_editor: ThemeTextEditor | None
+    text_editor: ThemeTextEditor
     """ (readonly, never None)"""
 
     theme_area: typing.Literal[
@@ -103084,13 +102835,13 @@ class Theme(bpy_struct):
     ]
     """ (default 'USER_INTERFACE')"""
 
-    topbar: ThemeTopBar | None
+    topbar: ThemeTopBar
     """ (readonly, never None)"""
 
-    user_interface: ThemeUserInterface | None
+    user_interface: ThemeUserInterface
     """ (readonly, never None)"""
 
-    view_3d: ThemeView3D | None
+    view_3d: ThemeView3D
     """ (readonly, never None)"""
 
     @classmethod
@@ -103206,7 +102957,7 @@ class ThemeClipEditor(bpy_struct):
     selected_marker: mathutils.Color
     """ Color of selected marker (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     @classmethod
@@ -103274,10 +103025,10 @@ class ThemeCollectionColor(bpy_struct):
 class ThemeCommon(bpy_struct):
     """Theme properties shared by different editors"""
 
-    anim: ThemeCommonAnim | None
+    anim: ThemeCommonAnim
     """ (readonly, never None)"""
 
-    curves: ThemeCommonCurves | None
+    curves: ThemeCommonCurves
     """ (readonly, never None)"""
 
     @classmethod
@@ -103499,7 +103250,7 @@ class ThemeConsole(bpy_struct):
     select: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     @classmethod
@@ -103557,7 +103308,7 @@ class ThemeDopeSheet(bpy_struct):
     simulated_frames: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     summary: bpy_prop_array[float]
@@ -103600,7 +103351,7 @@ class ThemeFileBrowser(bpy_struct):
     selected_file: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     @classmethod
@@ -103729,7 +103480,7 @@ class ThemeGraphEditor(bpy_struct):
     grid: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     vertex: mathutils.Color
@@ -103826,7 +103577,7 @@ class ThemeImageEditor(bpy_struct):
     scope_back: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     uv_shadow: bpy_prop_array[float]
@@ -103908,7 +103659,7 @@ class ThemeInfo(bpy_struct):
     info_warning_text: mathutils.Color
     """ Foreground color of Warning icon (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     @classmethod
@@ -103969,7 +103720,7 @@ class ThemeNLAEditor(bpy_struct):
     sound_strips_selected: mathutils.Color
     """ Selected Sound Strip (for timing speaker sounds) (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     strips: mathutils.Color
@@ -104099,7 +103850,7 @@ class ThemeNodeEditor(bpy_struct):
     simulation_zone: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     texture_node: mathutils.Color
@@ -104169,7 +103920,7 @@ class ThemeOutliner(bpy_struct):
     selected_object: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     @classmethod
@@ -104206,7 +103957,7 @@ class ThemePreferences(bpy_struct):
     match: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     @classmethod
@@ -104243,7 +103994,7 @@ class ThemeProperties(bpy_struct):
     match: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     @classmethod
@@ -104277,16 +104028,16 @@ class ThemeProperties(bpy_struct):
 class ThemeRegions(bpy_struct):
     """Theme settings for regions that are common among editors"""
 
-    asset_shelf: ThemeRegionsAssetShelf | None
+    asset_shelf: ThemeRegionsAssetShelf
     """ (readonly, never None)"""
 
-    channels: ThemeRegionsChannels | None
+    channels: ThemeRegionsChannels
     """ (readonly, never None)"""
 
-    scrubbing: ThemeRegionsScrubbing | None
+    scrubbing: ThemeRegionsScrubbing
     """ (readonly, never None)"""
 
-    sidebars: ThemeRegionsSidebars | None
+    sidebars: ThemeRegionsSidebars
     """ (readonly, never None)"""
 
     @classmethod
@@ -104528,7 +104279,7 @@ class ThemeSequenceEditor(bpy_struct):
     selected_text: bpy_prop_array[float]
     """ Text strip editing selection (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     text_strip: mathutils.Color
@@ -104619,7 +104370,7 @@ class ThemeSpaceGeneric(bpy_struct):
         """
 
 class ThemeSpaceGradient(bpy_struct):
-    gradients: ThemeGradientColors | None
+    gradients: ThemeGradientColors
     """ (readonly, never None)"""
 
     header: bpy_prop_array[float]
@@ -104674,7 +104425,7 @@ class ThemeSpreadsheet(bpy_struct):
     row_alternate: bpy_prop_array[float]
     """ Overlay color on every other row (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     @classmethod
@@ -104708,7 +104459,7 @@ class ThemeSpreadsheet(bpy_struct):
 class ThemeStatusBar(bpy_struct):
     """Theme settings for the Status Bar"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     @classmethod
@@ -104776,13 +104527,13 @@ class ThemeStripColor(bpy_struct):
 class ThemeStyle(bpy_struct):
     """Theme settings for style sets"""
 
-    panel_title: ThemeFontStyle | None
+    panel_title: ThemeFontStyle
     """ (readonly, never None)"""
 
-    tooltip: ThemeFontStyle | None
+    tooltip: ThemeFontStyle
     """ (readonly, never None)"""
 
-    widget: ThemeFontStyle | None
+    widget: ThemeFontStyle
     """ (readonly, never None)"""
 
     @classmethod
@@ -104828,7 +104579,7 @@ class ThemeTextEditor(bpy_struct):
     selected_text: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     syntax_builtin: mathutils.Color
@@ -104886,7 +104637,7 @@ class ThemeTextEditor(bpy_struct):
 class ThemeTopBar(bpy_struct):
     """Theme settings for the Top Bar"""
 
-    space: ThemeSpaceGeneric | None
+    space: ThemeSpaceGeneric
     """ Settings for space (readonly, never None)"""
 
     @classmethod
@@ -105034,70 +104785,70 @@ class ThemeUserInterface(bpy_struct):
     transparent_checker_size: int
     """ Size of checkerboard pattern indicating transparent areas (in [2, 48], default 0)"""
 
-    wcol_box: ThemeWidgetColors | None
+    wcol_box: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_curve: ThemeWidgetColors | None
+    wcol_curve: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_list_item: ThemeWidgetColors | None
+    wcol_list_item: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_menu: ThemeWidgetColors | None
+    wcol_menu: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_menu_back: ThemeWidgetColors | None
+    wcol_menu_back: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_menu_item: ThemeWidgetColors | None
+    wcol_menu_item: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_num: ThemeWidgetColors | None
+    wcol_num: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_numslider: ThemeWidgetColors | None
+    wcol_numslider: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_option: ThemeWidgetColors | None
+    wcol_option: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_pie_menu: ThemeWidgetColors | None
+    wcol_pie_menu: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_progress: ThemeWidgetColors | None
+    wcol_progress: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_pulldown: ThemeWidgetColors | None
+    wcol_pulldown: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_radio: ThemeWidgetColors | None
+    wcol_radio: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_regular: ThemeWidgetColors | None
+    wcol_regular: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_scroll: ThemeWidgetColors | None
+    wcol_scroll: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_state: ThemeWidgetStateColors | None
+    wcol_state: ThemeWidgetStateColors
     """ (readonly, never None)"""
 
-    wcol_tab: ThemeWidgetColors | None
+    wcol_tab: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_text: ThemeWidgetColors | None
+    wcol_text: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_toggle: ThemeWidgetColors | None
+    wcol_toggle: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_tool: ThemeWidgetColors | None
+    wcol_tool: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_toolbar_item: ThemeWidgetColors | None
+    wcol_toolbar_item: ThemeWidgetColors
     """ (readonly, never None)"""
 
-    wcol_tooltip: ThemeWidgetColors | None
+    wcol_tooltip: ThemeWidgetColors
     """ (readonly, never None)"""
 
     widget_emboss: bpy_prop_array[float]
@@ -105284,7 +105035,7 @@ class ThemeView3D(bpy_struct):
     skin_root: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGradient | None
+    space: ThemeSpaceGradient
     """ Settings for space (readonly, never None)"""
 
     speaker: mathutils.Color
@@ -105614,7 +105365,7 @@ class ToolSettings(bpy_struct):
     auto_keying_mode: typing.Literal["ADD_REPLACE_KEYS", "REPLACE_KEYS"]
     """ Can add additional constraints on when auto keying can insert keyframes (default 'ADD_REPLACE_KEYS')"""
 
-    curve_paint_settings: CurvePaintSettings | None
+    curve_paint_settings: CurvePaintSettings
     """ (readonly, never None)"""
 
     curves_sculpt: CurvesSculpt | None
@@ -105715,7 +105466,7 @@ class ToolSettings(bpy_struct):
     sculpt: Sculpt | None
     """ (readonly)"""
 
-    sequencer_tool_settings: SequencerToolSettings | None
+    sequencer_tool_settings: SequencerToolSettings
     """ (readonly, never None)"""
 
     show_uv_local_view: bool
@@ -105782,7 +105533,7 @@ class ToolSettings(bpy_struct):
     snap_uv_element: set[typing.Literal["INCREMENT", "GRID", "VERTEX"]]
     """ Type of element to snap to (default {'INCREMENT'})"""
 
-    statvis: MeshStatVis | None
+    statvis: MeshStatVis
     """ (readonly, never None)"""
 
     transform_pivot_point: typing.Literal[
@@ -106550,8 +106301,8 @@ class UILayout(bpy_struct):
         self,
         *,
         align: bool | None = False,
-        heading: str | None = "",
-        heading_ctxt: str | None = "",
+        heading: str = "",
+        heading_ctxt: str = "",
         translate: bool | None = True,
     ) -> typing_extensions.Self:
         """Sub-layout. Items placed in this sublayout are placed next to each other in a row.
@@ -106567,8 +106318,8 @@ class UILayout(bpy_struct):
         self,
         *,
         align: bool | None = False,
-        heading: str | None = "",
-        heading_ctxt: str | None = "",
+        heading: str = "",
+        heading_ctxt: str = "",
         translate: bool | None = True,
     ) -> typing_extensions.Self:
         """Sub-layout. Items placed in this sublayout are placed under each other in a column.
@@ -106581,7 +106332,7 @@ class UILayout(bpy_struct):
         """
 
     def panel(
-        self, idname: str | None, *, default_closed: bool | None = False
+        self, idname: str, *, default_closed: bool | None = False
     ) -> tuple[UILayout, UILayout]:
         """Creates a collapsible panel. Whether it is open or closed is stored in the region using the given idname. This can only be used when the panel has the full width of the panel region available to it. So it cant be used in e.g. in a box or columns.
 
@@ -106592,9 +106343,7 @@ class UILayout(bpy_struct):
         layout_body, Sub-layout to put items in. Will be none if the panel is collapsed., `UILayout`
         """
 
-    def panel_prop(
-        self, data: typing.Any | None, property: str | None
-    ) -> tuple[UILayout, UILayout]:
+    def panel_prop(self, data: typing.Any, property: str) -> tuple[UILayout, UILayout]:
         """Similar to .panel(...) but instead of storing whether it is open or closed in the region, it is stored in the provided boolean property. This should be used when multiple instances of the same panel can exist. For example one for every item in a collection property or list. This can only be used when the panel has the full width of the panel region available to it. So it cant be used in e.g. in a box or columns.
 
                 :param data: Data from which to take the open-state property (never None)
@@ -106656,7 +106405,7 @@ class UILayout(bpy_struct):
         """
 
     @classmethod
-    def icon(cls, data: typing.Any | None) -> int:
+    def icon(cls, data: typing.Any) -> int:
         """Return the custom icon for this data, use it e.g. to get materials or texture icons.
 
         :param data: Data from which to take the icon (never None)
@@ -106664,9 +106413,7 @@ class UILayout(bpy_struct):
         """
 
     @classmethod
-    def enum_item_name(
-        cls, data: typing.Any | None, property: str | None, identifier: str | None
-    ) -> str:
+    def enum_item_name(cls, data: typing.Any, property: str, identifier: str) -> str:
         """Return the UI name for this enum item
 
         :param data: Data from which to take property (never None)
@@ -106677,7 +106424,7 @@ class UILayout(bpy_struct):
 
     @classmethod
     def enum_item_description(
-        cls, data: typing.Any | None, property: str | None, identifier: str | None
+        cls, data: typing.Any, property: str, identifier: str
     ) -> str:
         """Return the UI description for this enum item
 
@@ -106688,9 +106435,7 @@ class UILayout(bpy_struct):
         """
 
     @classmethod
-    def enum_item_icon(
-        cls, data: typing.Any | None, property: str | None, identifier: str | None
-    ) -> int:
+    def enum_item_icon(cls, data: typing.Any, property: str, identifier: str) -> int:
         """Return the icon for this enum item
 
         :param data: Data from which to take property (never None)
@@ -106701,8 +106446,8 @@ class UILayout(bpy_struct):
 
     def prop(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
@@ -106741,7 +106486,7 @@ class UILayout(bpy_struct):
         :param invert_checkbox: Draw checkbox value inverted (optional)
         """
 
-    def props_enum(self, data: typing.Any | None, property: str | None) -> None:
+    def props_enum(self, data: typing.Any, property: str) -> None:
         """props_enum
 
         :param data: Data from which to take property (never None)
@@ -106750,8 +106495,8 @@ class UILayout(bpy_struct):
 
     def prop_menu_enum(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
@@ -106770,15 +106515,15 @@ class UILayout(bpy_struct):
 
     def prop_with_popover(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
         icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         icon_only: bool | None = False,
-        panel: str | None = None,
+        panel: str = None,
     ) -> None:
         """prop_with_popover
 
@@ -106794,15 +106539,15 @@ class UILayout(bpy_struct):
 
     def prop_with_menu(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
         icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         icon_only: bool | None = False,
-        menu: str | None = None,
+        menu: str = None,
     ) -> None:
         """prop_with_menu
 
@@ -106818,11 +106563,11 @@ class UILayout(bpy_struct):
 
     def prop_tabs_enum(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         *,
-        data_highlight: typing.Any | None = None,
-        property_highlight: str | None = "",
+        data_highlight: typing.Any = None,
+        property_highlight: str = "",
         icon_only: bool | None = False,
         expand_as: typing.Literal["DEFAULT", "ROW"] | None = "DEFAULT",
     ) -> None:
@@ -106838,9 +106583,9 @@ class UILayout(bpy_struct):
 
     def prop_enum(
         self,
-        data: typing.Any | None,
-        property: str | None,
-        value: str | None,
+        data: typing.Any,
+        property: str,
+        value: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
@@ -106860,17 +106605,17 @@ class UILayout(bpy_struct):
 
     def prop_search(
         self,
-        data: typing.Any | None,
-        property: str | None,
-        search_data: typing.Any | None,
-        search_property: str | None,
+        data: typing.Any,
+        property: str,
+        search_data: typing.Any,
+        search_property: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
         icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         results_are_suggestions: bool | None = False,
-        item_search_property: str | None = "",
+        item_search_property: str = "",
     ) -> None:
         """prop_search
 
@@ -106887,7 +106632,7 @@ class UILayout(bpy_struct):
         """
 
     def prop_decorator(
-        self, data: typing.Any | None, property: str | None, *, index: int | None = -1
+        self, data: typing.Any, property: str, *, index: int | None = -1
     ) -> None:
         """prop_decorator
 
@@ -106898,7 +106643,7 @@ class UILayout(bpy_struct):
 
     def operator(
         self,
-        operator: str | None,
+        operator: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
@@ -106925,7 +106670,7 @@ class UILayout(bpy_struct):
 
     def operator_menu_hold(
         self,
-        operator: str | None,
+        operator: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
@@ -106934,7 +106679,7 @@ class UILayout(bpy_struct):
         emboss: bool | None = True,
         depress: bool | None = False,
         icon_value: int | None = 0,
-        menu: str | None = None,
+        menu: str = None,
     ) -> OperatorProperties:
         """Item. Places a button into the layout to call an Operator.
 
@@ -106951,11 +106696,7 @@ class UILayout(bpy_struct):
         """
 
     def operator_enum(
-        self,
-        operator: str | None,
-        property: str | None,
-        *,
-        icon_only: bool | None = False,
+        self, operator: str, property: str, *, icon_only: bool | None = False
     ) -> None:
         """operator_enum
 
@@ -106966,8 +106707,8 @@ class UILayout(bpy_struct):
 
     def operator_menu_enum(
         self,
-        operator: str | None,
-        property: str | None,
+        operator: str,
+        property: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
@@ -107006,7 +106747,7 @@ class UILayout(bpy_struct):
     def link(
         self,
         *,
-        url: str | None = "",
+        url: str = "",
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
@@ -107025,7 +106766,7 @@ class UILayout(bpy_struct):
 
     def menu(
         self,
-        menu: str | None,
+        menu: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
@@ -107043,7 +106784,7 @@ class UILayout(bpy_struct):
         :param icon_value: Icon Value, Override automatic icon of the item (in [0, inf], optional)
         """
 
-    def menu_contents(self, menu: str | None) -> None:
+    def menu_contents(self, menu: str) -> None:
         """menu_contents
 
         :param menu: Identifier of the menu (never None)
@@ -107051,7 +106792,7 @@ class UILayout(bpy_struct):
 
     def popover(
         self,
-        panel: str | None,
+        panel: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
@@ -107081,8 +106822,8 @@ class UILayout(bpy_struct):
         self,
         space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems] | None,
         region_type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems] | None,
-        context: str | None,
-        category: str | None,
+        context: str,
+        category: str,
     ) -> None:
         """popover_group
 
@@ -107134,14 +106875,14 @@ class UILayout(bpy_struct):
         :param type: Type, The type of progress indicator (optional)
         """
 
-    def context_pointer_set(self, name: str | None, data: typing.Any | None) -> None:
+    def context_pointer_set(self, name: str, data: typing.Any | None) -> None:
         """context_pointer_set
 
         :param name: Name, Name of entry in the context (never None)
         :param data: Pointer to put in context
         """
 
-    def context_string_set(self, name: str | None, value: str | None) -> None:
+    def context_string_set(self, name: str, value: str) -> None:
         """context_string_set
 
         :param name: Name, Name of entry in the context (never None)
@@ -107153,12 +106894,12 @@ class UILayout(bpy_struct):
 
     def template_ID(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         *,
-        new: str | None = "",
-        open: str | None = "",
-        unlink: str | None = "",
+        new: str = "",
+        open: str = "",
+        unlink: str = "",
         filter: typing.Literal["ALL", "AVAILABLE"] | None = "ALL",
         live_icon: bool | None = False,
         text: str | None = "",
@@ -107181,8 +106922,8 @@ class UILayout(bpy_struct):
 
     def template_ID_session_uid(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None,
     ) -> None:
         """Template ID search menu button for session_uid Int properties
@@ -107194,12 +106935,12 @@ class UILayout(bpy_struct):
 
     def template_ID_preview(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         *,
-        new: str | None = "",
-        open: str | None = "",
-        unlink: str | None = "",
+        new: str = "",
+        open: str = "",
+        unlink: str = "",
         rows: int | None = 0,
         cols: int | None = 0,
         filter: typing.Literal["ALL", "AVAILABLE"] | None = "ALL",
@@ -107218,7 +106959,7 @@ class UILayout(bpy_struct):
         :param hide_buttons: Show only list, no buttons (optional)
         """
 
-    def template_matrix(self, data: typing.Any | None, property: str | None) -> None:
+    def template_matrix(self, data: typing.Any, property: str) -> None:
         """Insert a readonly Matrix UI. The UI displays the matrix components - translation, rotation and scale. The property argument must be the identifier of an existing 4x4 float vector property of subtype MATRIX.
 
         :param data: Data from which to take property (never None)
@@ -107227,9 +106968,9 @@ class UILayout(bpy_struct):
 
     def template_any_ID(
         self,
-        data: typing.Any | None,
-        property: str | None,
-        type_property: str | None,
+        data: typing.Any,
+        property: str,
+        type_property: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
@@ -107247,11 +106988,11 @@ class UILayout(bpy_struct):
 
     def template_ID_tabs(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         *,
-        new: str | None = "",
-        menu: str | None = "",
+        new: str = "",
+        menu: str = "",
         filter: typing.Literal["ALL", "AVAILABLE"] | None = "ALL",
     ) -> None:
         """template_ID_tabs
@@ -107265,10 +107006,10 @@ class UILayout(bpy_struct):
 
     def template_action(
         self,
-        id: ID | None,
+        id: ID,
         *,
-        new: str | None = "",
-        unlink: str | None = "",
+        new: str = "",
+        unlink: str = "",
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
@@ -107285,13 +107026,13 @@ class UILayout(bpy_struct):
 
     def template_search(
         self,
-        data: typing.Any | None,
-        property: str | None,
-        search_data: typing.Any | None,
-        search_property: str | None,
+        data: typing.Any,
+        property: str,
+        search_data: typing.Any,
+        search_property: str,
         *,
-        new: str | None = "",
-        unlink: str | None = "",
+        new: str = "",
+        unlink: str = "",
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
@@ -107311,13 +107052,13 @@ class UILayout(bpy_struct):
 
     def template_search_preview(
         self,
-        data: typing.Any | None,
-        property: str | None,
-        search_data: typing.Any | None,
-        search_property: str | None,
+        data: typing.Any,
+        property: str,
+        search_data: typing.Any,
+        search_property: str,
         *,
-        new: str | None = "",
-        unlink: str | None = "",
+        new: str = "",
+        unlink: str = "",
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
@@ -107341,8 +107082,8 @@ class UILayout(bpy_struct):
 
     def template_path_builder(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         root: ID | None,
         *,
         text: str | None = "",
@@ -107382,8 +107123,8 @@ class UILayout(bpy_struct):
 
     def template_greasepencil_color(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         *,
         rows: int | None = 0,
         cols: int | None = 0,
@@ -107400,7 +107141,7 @@ class UILayout(bpy_struct):
         :param filter: Optionally limit the items which can be selected (optional)
         """
 
-    def template_constraint_header(self, data: Constraint | None) -> None:
+    def template_constraint_header(self, data: Constraint) -> None:
         """Generates the header for constraint panels
 
         :param data: Constraint data (never None)
@@ -107413,7 +107154,7 @@ class UILayout(bpy_struct):
         show_buttons: bool | None = True,
         parent: ID | None = None,
         slot: TextureSlot | None = None,
-        preview_id: str | None = "",
+        preview_id: str = "",
     ) -> None:
         """Item. A preview window for materials, textures, lights or worlds.
 
@@ -107426,8 +107167,8 @@ class UILayout(bpy_struct):
 
     def template_curve_mapping(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         *,
         type: typing.Literal["NONE", "VECTOR", "COLOR", "HUE"] | None = "NONE",
         levels: bool | None = False,
@@ -107448,9 +107189,7 @@ class UILayout(bpy_struct):
         :param show_presets: Show preset options (optional)
         """
 
-    def template_curveprofile(
-        self, data: typing.Any | None, property: str | None
-    ) -> None:
+    def template_curveprofile(self, data: typing.Any, property: str) -> None:
         """A profile path editor used for custom profiles
 
         :param data: Data from which to take property (never None)
@@ -107458,11 +107197,7 @@ class UILayout(bpy_struct):
         """
 
     def template_color_ramp(
-        self,
-        data: typing.Any | None,
-        property: str | None,
-        *,
-        expand: bool | None = False,
+        self, data: typing.Any, property: str, *, expand: bool | None = False
     ) -> None:
         """Item. A color ramp widget.
 
@@ -107482,8 +107217,8 @@ class UILayout(bpy_struct):
 
     def template_icon_view(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         *,
         show_labels: bool | None = False,
         scale: float | None = 6.0,
@@ -107498,23 +107233,21 @@ class UILayout(bpy_struct):
         :param scale_popup: Scale, Scale the popup icon size (by the button size) (in [1, 100], optional)
         """
 
-    def template_histogram(self, data: typing.Any | None, property: str | None) -> None:
+    def template_histogram(self, data: typing.Any, property: str) -> None:
         """Item. A histogramm widget to analyze imaga data.
 
         :param data: Data from which to take property (never None)
         :param property: Identifier of property in data (never None)
         """
 
-    def template_waveform(self, data: typing.Any | None, property: str | None) -> None:
+    def template_waveform(self, data: typing.Any, property: str) -> None:
         """Item. A waveform widget to analyze imaga data.
 
         :param data: Data from which to take property (never None)
         :param property: Identifier of property in data (never None)
         """
 
-    def template_vectorscope(
-        self, data: typing.Any | None, property: str | None
-    ) -> None:
+    def template_vectorscope(self, data: typing.Any, property: str) -> None:
         """Item. A vectorscope widget to analyze imaga data.
 
         :param data: Data from which to take property (never None)
@@ -107523,10 +107256,10 @@ class UILayout(bpy_struct):
 
     def template_layers(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         used_layers_data: typing.Any | None,
-        used_layers_property: str | None,
+        used_layers_property: str,
         active_layer: int | None,
     ) -> None:
         """template_layers
@@ -107540,8 +107273,8 @@ class UILayout(bpy_struct):
 
     def template_color_picker(
         self,
-        data: typing.Any | None,
-        property: str | None,
+        data: typing.Any,
+        property: str,
         *,
         value_slider: bool | None = False,
         lock: bool | None = False,
@@ -107559,11 +107292,7 @@ class UILayout(bpy_struct):
         """
 
     def template_palette(
-        self,
-        data: typing.Any | None,
-        property: str | None,
-        *,
-        color: bool | None = False,
+        self, data: typing.Any, property: str, *, color: bool | None = False
     ) -> None:
         """Item. A palette used to pick colors.
 
@@ -107583,9 +107312,9 @@ class UILayout(bpy_struct):
 
     def template_image(
         self,
-        data: typing.Any | None,
-        property: str | None,
-        image_user: ImageUser | None,
+        data: typing.Any,
+        property: str,
+        image_user: ImageUser,
         *,
         compact: bool | None = False,
         multiview: bool | None = False,
@@ -107601,7 +107330,7 @@ class UILayout(bpy_struct):
 
     def template_image_settings(
         self,
-        image_settings: ImageFormatSettings | None,
+        image_settings: ImageFormatSettings,
         *,
         color_management: bool | None = False,
     ) -> None:
@@ -107611,24 +107340,20 @@ class UILayout(bpy_struct):
         :param color_management: Show color management settings (optional)
         """
 
-    def template_image_stereo_3d(self, stereo_3d_format: Stereo3dFormat | None) -> None:
+    def template_image_stereo_3d(self, stereo_3d_format: Stereo3dFormat) -> None:
         """User interface for setting image stereo 3d options
 
         :param stereo_3d_format: (never None)
         """
 
-    def template_image_views(self, image_settings: ImageFormatSettings | None) -> None:
+    def template_image_views(self, image_settings: ImageFormatSettings) -> None:
         """User interface for setting image views output options
 
         :param image_settings: (never None)
         """
 
     def template_movieclip(
-        self,
-        data: typing.Any | None,
-        property: str | None,
-        *,
-        compact: bool | None = False,
+        self, data: typing.Any, property: str, *, compact: bool | None = False
     ) -> None:
         """Item(s). User interface for selecting movie clips and their source paths.
 
@@ -107637,7 +107362,7 @@ class UILayout(bpy_struct):
         :param compact: Use more compact layout (optional)
         """
 
-    def template_track(self, data: typing.Any | None, property: str | None) -> None:
+    def template_track(self, data: typing.Any, property: str) -> None:
         """Item. A movie-track widget to preview tracking image.
 
         :param data: Data from which to take property (never None)
@@ -107646,10 +107371,10 @@ class UILayout(bpy_struct):
 
     def template_marker(
         self,
-        data: typing.Any | None,
-        property: str | None,
-        clip_user: MovieClipUser | None,
-        track: MovieTrackingTrack | None,
+        data: typing.Any,
+        property: str,
+        clip_user: MovieClipUser,
+        track: MovieTrackingTrack,
         *,
         compact: bool | None = False,
     ) -> None:
@@ -107663,10 +107388,7 @@ class UILayout(bpy_struct):
         """
 
     def template_movieclip_information(
-        self,
-        data: typing.Any | None,
-        property: str | None,
-        clip_user: MovieClipUser | None,
+        self, data: typing.Any, property: str, clip_user: MovieClipUser
     ) -> None:
         """Item. Movie clip information data.
 
@@ -107677,14 +107399,14 @@ class UILayout(bpy_struct):
 
     def template_list(
         self,
-        listtype_name: str | None,
-        list_id: str | None,
+        listtype_name: str,
+        list_id: str,
         dataptr: typing.Any | None,
-        propname: str | None,
-        active_dataptr: typing.Any | None,
-        active_propname: str | None,
+        propname: str,
+        active_dataptr: typing.Any,
+        active_propname: str,
         *,
-        item_dyntip_propname: str | None = "",
+        item_dyntip_propname: str = "",
         rows: int | None = 5,
         maxrows: int | None = 5,
         type: typing.Literal[bpy.stub_internal.rna_enums.UilistLayoutTypeItems]
@@ -107752,9 +107474,7 @@ class UILayout(bpy_struct):
         :param socket:
         """
 
-    def template_node_operator_registration_errors(
-        self, *, idname: str | None = ""
-    ) -> None:
+    def template_node_operator_registration_errors(self, *, idname: str = "") -> None:
         """template_node_operator_registration_errors
 
         :param idname: (optional, never None)
@@ -107763,7 +107483,7 @@ class UILayout(bpy_struct):
     def template_node_asset_menu_items(
         self,
         *,
-        catalog_path: str | None = "",
+        catalog_path: str = "",
         operator: typing.Literal["ADD", "SWAP"] | None = "ADD",
     ) -> None:
         """template_node_asset_menu_items
@@ -107779,7 +107499,7 @@ class UILayout(bpy_struct):
         """
 
     def template_modifier_asset_menu_items(
-        self, *, catalog_path: str | None = "", skip_essentials: bool | None = False
+        self, *, catalog_path: str = "", skip_essentials: bool | None = False
     ) -> None:
         """template_modifier_asset_menu_items
 
@@ -107788,7 +107508,7 @@ class UILayout(bpy_struct):
         """
 
     def template_node_operator_asset_menu_items(
-        self, *, catalog_path: str | None = ""
+        self, *, catalog_path: str = ""
     ) -> None:
         """template_node_operator_asset_menu_items
 
@@ -107801,14 +107521,14 @@ class UILayout(bpy_struct):
     def template_texture_user(self) -> None:
         """template_texture_user"""
 
-    def template_keymap_item_properties(self, item: KeyMapItem | None) -> None:
+    def template_keymap_item_properties(self, item: KeyMapItem) -> None:
         """template_keymap_item_properties
 
         :param item: (never None)
         """
 
     def template_component_menu(
-        self, data: typing.Any | None, property: str | None, *, name: str | None = ""
+        self, data: typing.Any | None, property: str, *, name: str = ""
     ) -> None:
         """Item. Display expanded property in a popup menu
 
@@ -107817,9 +107537,7 @@ class UILayout(bpy_struct):
         :param name: (optional, never None)
         """
 
-    def template_colorspace_settings(
-        self, data: typing.Any | None, property: str | None
-    ) -> None:
+    def template_colorspace_settings(self, data: typing.Any, property: str) -> None:
         """Item. A widget to control input color space settings.
 
         :param data: Data from which to take property (never None)
@@ -107827,7 +107545,7 @@ class UILayout(bpy_struct):
         """
 
     def template_colormanaged_view_settings(
-        self, data: typing.Any | None, property: str | None
+        self, data: typing.Any, property: str
     ) -> None:
         """Item. A widget to control color managed view settings.
 
@@ -107843,18 +107561,14 @@ class UILayout(bpy_struct):
         :param color: Color, (array of 4 items, in [0, 1], optional)
         """
 
-    def template_cache_file(
-        self, data: typing.Any | None, property: str | None
-    ) -> None:
+    def template_cache_file(self, data: typing.Any, property: str) -> None:
         """Item(s). User interface for selecting cache files and their source paths
 
         :param data: Data from which to take property (never None)
         :param property: Identifier of property in data (never None)
         """
 
-    def template_cache_file_velocity(
-        self, data: typing.Any | None, property: str | None
-    ) -> None:
+    def template_cache_file_velocity(self, data: typing.Any, property: str) -> None:
         """Show cache files velocity properties
 
         :param data: Data from which to take property (never None)
@@ -107862,7 +107576,7 @@ class UILayout(bpy_struct):
         """
 
     def template_cache_file_time_settings(
-        self, data: typing.Any | None, property: str | None
+        self, data: typing.Any, property: str
     ) -> None:
         """Show cache files time settings
 
@@ -107870,9 +107584,7 @@ class UILayout(bpy_struct):
         :param property: Identifier of property in data (never None)
         """
 
-    def template_cache_file_layers(
-        self, data: typing.Any | None, property: str | None
-    ) -> None:
+    def template_cache_file_layers(self, data: typing.Any, property: str) -> None:
         """Show cache files override layers properties
 
         :param data: Data from which to take property (never None)
@@ -107894,7 +107606,7 @@ class UILayout(bpy_struct):
 
     def template_event_from_keymap_item(
         self,
-        item: KeyMapItem | None,
+        item: KeyMapItem,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
@@ -107909,10 +107621,7 @@ class UILayout(bpy_struct):
         """
 
     def template_light_linking_collection(
-        self,
-        context_layout: typing_extensions.Self | None,
-        data: typing.Any | None,
-        property: str | None,
+        self, context_layout: typing_extensions.Self, data: typing.Any, property: str
     ) -> None:
         """Visualization of a content of a light linking collection
 
@@ -107927,13 +107636,13 @@ class UILayout(bpy_struct):
     def template_grease_pencil_layer_tree(self) -> None:
         """View of the active Grease Pencil layer tree"""
 
-    def template_node_tree_interface(self, interface: NodeTreeInterface | None) -> None:
+    def template_node_tree_interface(self, interface: NodeTreeInterface) -> None:
         """Show a node tree interface
 
         :param interface: Node Tree Interface, Interface of a node tree to display (never None)
         """
 
-    def template_node_inputs(self, node: Node | None) -> None:
+    def template_node_inputs(self, node: Node) -> None:
         """Show a node settings and input socket values
 
         :param node: Node, Display inputs of this node (never None)
@@ -107941,7 +107650,7 @@ class UILayout(bpy_struct):
 
     def template_asset_shelf_popover(
         self,
-        asset_shelf: str | None,
+        asset_shelf: str,
         *,
         name: str | None = "",
         icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
@@ -107957,13 +107666,13 @@ class UILayout(bpy_struct):
 
     def template_popup_confirm(
         self,
-        operator: str | None,
+        operator: str,
         *,
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
         icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
-        cancel_text: str | None = "",
+        cancel_text: str = "",
         cancel_default: bool | None = False,
     ) -> OperatorProperties:
         """Add confirm & cancel buttons into a popup which will close the popup when pressed
@@ -108057,11 +107766,11 @@ class UIList(bpy_struct):
     def draw_item(
         self,
         context: Context,
-        layout: UILayout | None,
+        layout: UILayout,
         data: typing.Any | None,
         item: typing.Any | None,
         icon: int | None,
-        active_data: typing.Any | None,
+        active_data: typing.Any,
         active_property: str | None,
         index: int | None,
         flt_flag: int | None,
@@ -108079,7 +107788,7 @@ class UIList(bpy_struct):
         :param flt_flag: The filter-flag result for this item (in [0, inf])
         """
 
-    def draw_filter(self, context: Context, layout: UILayout | None) -> None:
+    def draw_filter(self, context: Context, layout: UILayout) -> None:
         """Draw filtering options
 
         :param context:
@@ -108087,7 +107796,7 @@ class UIList(bpy_struct):
         """
 
     def filter_items(
-        self, context: Context, data: typing.Any | None, property: str | None
+        self, context: Context, data: typing.Any | None, property: str
     ) -> tuple[bpy_prop_array[int], bpy_prop_array[int]]:
         """Filter and/or re-order items of the collection (output filter results in filter_flags, and reorder results in filter_neworder arrays)
 
@@ -110949,7 +110658,7 @@ class ViewLayer(bpy_struct):
     active_lightgroup_index: int | None
     """ Index of active lightgroup (in [0, inf], default 0)"""
 
-    aovs: AOVs | None
+    aovs: AOVs
     """ (default None, readonly)"""
 
     cycles: typing.Any
@@ -110958,19 +110667,19 @@ class ViewLayer(bpy_struct):
     depsgraph: Depsgraph | None
     """ Dependencies in the scene data (readonly)"""
 
-    eevee: ViewLayerEEVEE | None
+    eevee: ViewLayerEEVEE
     """ View layer settings for EEVEE (readonly, never None)"""
 
-    freestyle_settings: FreestyleSettings | None
+    freestyle_settings: FreestyleSettings
     """ (readonly, never None)"""
 
     has_export_collections: bool
     """ At least one Collection in this View Layer has an exporter (default False, readonly)"""
 
-    layer_collection: LayerCollection | None
+    layer_collection: LayerCollection
     """ Root of collections hierarchy of this view layer, its 'collection' pointer property is the same as the scene's master collection (readonly, never None)"""
 
-    lightgroups: Lightgroups | None
+    lightgroups: Lightgroups
     """ (default None, readonly)"""
 
     material_override: Material | None
@@ -110979,7 +110688,7 @@ class ViewLayer(bpy_struct):
     name: str
     """ View layer name (default "", never None)"""
 
-    objects: LayerObjects | None
+    objects: LayerObjects
     """ All the objects in this layer (default None, readonly)"""
 
     pass_alpha_threshold: float
@@ -111331,13 +111040,13 @@ class Volume(ID, bpy_struct):
     frame_start: int
     """ Global starting frame of the sequence, assuming first has a #1 (in [-1048574, 1048574], default 1)"""
 
-    grids: VolumeGrids | None
+    grids: VolumeGrids
     """ 3D volume grids (default None, readonly)"""
 
     is_sequence: bool
     """ Whether the cache is separated in a series of files (default False)"""
 
-    materials: IDMaterials | None
+    materials: IDMaterials
     """ (default None, readonly)"""
 
     packed_file: PackedFile | None
@@ -112171,25 +111880,25 @@ class Window(bpy_struct):
     parent: Window | None
     """ Active workspace and scene follow this window (readonly)"""
 
-    scene: Scene | None
+    scene: Scene
     """ Active scene to be edited in the window (never None)"""
 
-    screen: Screen | None
+    screen: Screen
     """ Active workspace screen showing in the window (never None)"""
 
-    stereo_3d_display: Stereo3dDisplay | None
+    stereo_3d_display: Stereo3dDisplay
     """ Settings for stereo 3D display (readonly, never None)"""
 
     support_hdr_color: bool
     """ The window has a HDR graphics buffer that wide gamut and high dynamic range colors can be written to, in extended sRGB color space. (default False, readonly)"""
 
-    view_layer: ViewLayer | None
+    view_layer: ViewLayer
     """ The active workspace view layer showing in the window (never None)"""
 
     width: int
     """ Window width (in [0, 32767], default 0, readonly)"""
 
-    workspace: WorkSpace | None
+    workspace: WorkSpace
     """ Active workspace showing in the window (never None)"""
 
     x: int
@@ -112338,7 +112047,7 @@ class WindowManager(ID, bpy_struct):
     is_interface_locked: bool
     """ If true, the interface is currently locked by a running job and data should not be modified from application timers. Otherwise, the running job might conflict with the handler causing unexpected results or even crashes. (default False, readonly)"""
 
-    keyconfigs: KeyConfigurations | None
+    keyconfigs: KeyConfigurations
     """ Registered key configurations (default None, readonly)"""
 
     operators: bpy_prop_collection[Operator]
@@ -112348,10 +112057,10 @@ class WindowManager(ID, bpy_struct):
     preset_name: str
     """ Name for new preset (default "New Preset", never None)"""
 
-    windows: Windows | None
+    windows: Windows
     """ Open windows (default None, readonly)"""
 
-    xr_session_settings: XrSessionSettings | None
+    xr_session_settings: XrSessionSettings
     """ (readonly, never None)"""
 
     xr_session_state: XrSessionState | None
@@ -112386,21 +112095,21 @@ class WindowManager(ID, bpy_struct):
         :return:
         """
 
-    def event_timer_remove(self, timer: Timer | None) -> None:
+    def event_timer_remove(self, timer: Timer) -> None:
         """event_timer_remove
 
         :param timer: (never None)
         """
 
     @classmethod
-    def gizmo_group_type_ensure(cls, identifier: str | None) -> None:
+    def gizmo_group_type_ensure(cls, identifier: str) -> None:
         """Activate an existing widget group (when the persistent option isnt set)
 
         :param identifier: Gizmo group type name (never None)
         """
 
     @classmethod
-    def gizmo_group_type_unlink_delayed(cls, identifier: str | None) -> None:
+    def gizmo_group_type_unlink_delayed(cls, identifier: str) -> None:
         """Unlink a widget group (when the persistent option is set)
 
         :param identifier: Gizmo group type name (never None)
@@ -112439,8 +112148,8 @@ class WindowManager(ID, bpy_struct):
         operator: Operator | None,
         *,
         width: int | None = 300,
-        title: str | None = "",
-        confirm_text: str | None = "",
+        title: str = "",
+        confirm_text: str = "",
         cancel_default: bool | None = False,
         text_ctxt: str | None = "",
         translate: bool | None = True,
@@ -112481,9 +112190,9 @@ class WindowManager(ID, bpy_struct):
         operator: Operator | None,
         event: Event | None,
         *,
-        title: str | None = "",
-        message: str | None = "",
-        confirm_text: str | None = "",
+        title: str = "",
+        message: str = "",
+        confirm_text: str = "",
         icon: typing.Literal["NONE", "WARNING", "QUESTION", "ERROR", "INFO"]
         | None = "NONE",
         text_ctxt: str | None = "",
@@ -112505,7 +112214,7 @@ class WindowManager(ID, bpy_struct):
     @classmethod
     def popmenu_begin__internal(
         cls,
-        title: str | None,
+        title: str,
         *,
         icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
     ) -> UIPopupMenu:
@@ -112517,7 +112226,7 @@ class WindowManager(ID, bpy_struct):
         """
 
     @classmethod
-    def popmenu_end__internal(cls, menu: UIPopupMenu | None) -> None:
+    def popmenu_end__internal(cls, menu: UIPopupMenu) -> None:
         """popmenu_end__internal
 
         :param menu: (never None)
@@ -112536,7 +112245,7 @@ class WindowManager(ID, bpy_struct):
 
     @classmethod
     def popover_end__internal(
-        cls, menu: UIPopover | None, *, keymap: KeyMap | None = None
+        cls, menu: UIPopover, *, keymap: KeyMap | None = None
     ) -> None:
         """popover_end__internal
 
@@ -112547,10 +112256,10 @@ class WindowManager(ID, bpy_struct):
     @classmethod
     def piemenu_begin__internal(
         cls,
-        title: str | None,
+        title: str,
         *,
         icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
-        event: Event | None = None,
+        event: Event = None,
     ) -> UIPieMenu:
         """piemenu_begin__internal
 
@@ -112561,14 +112270,14 @@ class WindowManager(ID, bpy_struct):
         """
 
     @classmethod
-    def piemenu_end__internal(cls, menu: UIPieMenu | None) -> None:
+    def piemenu_end__internal(cls, menu: UIPieMenu) -> None:
         """piemenu_end__internal
 
         :param menu: (never None)
         """
 
     @classmethod
-    def operator_properties_last(cls, operator: str | None) -> OperatorProperties:
+    def operator_properties_last(cls, operator: str) -> OperatorProperties:
         """operator_properties_last
 
         :param operator: (never None)
@@ -112584,7 +112293,7 @@ class WindowManager(ID, bpy_struct):
 
     @classmethod
     def asset_library_status_begin_loading(
-        cls, library_url: str | None, *, timeout: float | None = 0.3
+        cls, library_url: str, *, timeout: float | None = 0.3
     ) -> None:
         """Inform the asset system that the asset library at the given URL is being loaded.
 
@@ -112593,25 +112302,21 @@ class WindowManager(ID, bpy_struct):
         """
 
     @classmethod
-    def asset_library_status_ping_still_loading(cls, library_url: str | None) -> None:
+    def asset_library_status_ping_still_loading(cls, library_url: str) -> None:
         """Inform the asset system that the loading is still ongoing. Call this regularly to prevent the loading status to timeout.
 
         :param library_url: URL, The URL identifying the asset library being loaded (never None)
         """
 
     @classmethod
-    def asset_library_status_ping_metafiles_in_place(
-        cls, library_url: str | None
-    ) -> None:
+    def asset_library_status_ping_metafiles_in_place(cls, library_url: str) -> None:
         """Inform the asset system that the asset meta files (_asset-library-meta.json, asset-listing.json, blender_assets.cats.txt) are in place and ready to be loaded
 
         :param library_url: URL, The URL identifying the asset library being loaded (never None)
         """
 
     @classmethod
-    def asset_library_status_ping_loaded_new_pages(
-        cls, library_url: str | None
-    ) -> None:
+    def asset_library_status_ping_loaded_new_pages(cls, library_url: str) -> None:
         """Inform the asset system that new content
 
         :param library_url: URL, The URL identifying the asset library being loaded (never None)
@@ -112619,7 +112324,7 @@ class WindowManager(ID, bpy_struct):
 
     @classmethod
     def asset_library_status_ping_loaded_new_preview(
-        cls, preview_full_path: str | None
+        cls, preview_full_path: str
     ) -> None:
         """Inform the asset system that a new preview is available and ready for display
 
@@ -112627,16 +112332,14 @@ class WindowManager(ID, bpy_struct):
         """
 
     @classmethod
-    def asset_library_status_ping_loaded_new_assets(
-        cls, library_url: str | None
-    ) -> None:
+    def asset_library_status_ping_loaded_new_assets(cls, library_url: str) -> None:
         """Inform the asset system that new assets were downloaded and available at the expected location on disk
 
         :param library_url: URL, The URL identifying the asset library being loaded (never None)
         """
 
     @classmethod
-    def asset_library_status_finished_loading(cls, library_url: str | None) -> None:
+    def asset_library_status_finished_loading(cls, library_url: str) -> None:
         """Inform the asset system that the asset library at the given URL has successfully finished loading.
 
         :param library_url: URL, The URL identifying the asset library being loaded (never None)
@@ -112644,7 +112347,7 @@ class WindowManager(ID, bpy_struct):
 
     @classmethod
     def asset_library_status_failed_loading(
-        cls, library_url: str | None, *, message: str | None = ""
+        cls, library_url: str, *, message: str = ""
     ) -> None:
         """Inform the asset system that the asset library at the given URL failed loading, and should be aborted.
 
@@ -112747,10 +112450,10 @@ class WipeStrip(EffectStrip, Strip, bpy_struct):
     direction: typing.Literal["OUT", "IN"]
     """ Whether to fade in or out (default 'OUT')"""
 
-    input_1: Strip | None
+    input_1: Strip
     """ First input for the effect strip (never None)"""
 
-    input_2: Strip | None
+    input_2: Strip
     """ Second input for the effect strip (never None)"""
 
     input_count: int
@@ -112935,14 +112638,14 @@ class WorkSpace(ID, bpy_struct):
     object_mode: typing.Literal[bpy.stub_internal.rna_enums.WorkspaceObjectModeItems]
     """ Switch to this object mode when activating the workspace (default 'OBJECT')"""
 
-    owner_ids: wmOwnerIDs | None
+    owner_ids: wmOwnerIDs
     """ (default None, readonly)"""
 
     screens: bpy_prop_collection[Screen]
     """ Screen layouts of a workspace (default None, readonly)"""
 
     sequencer_scene: Scene | None
-    tools: wmTools | None
+    tools: wmTools
     """ (default None, readonly)"""
 
     use_filter_by_owner: bool
@@ -113029,19 +112732,19 @@ class WorkSpaceTool(bpy_struct):
 
     def setup(
         self,
-        idname: str | None,
+        idname: str,
         *,
         cursor: typing.Literal[bpy.stub_internal.rna_enums.WindowCursorItems]
         | None = "DEFAULT",
-        keymap: str | None = "",
-        gizmo_group: str | None = "",
+        keymap: str = "",
+        gizmo_group: str = "",
         brush_type: str | None = "",
-        data_block: str | None = "",
-        operator: str | None = "",
+        data_block: str = "",
+        operator: str = "",
         index: int | None = 0,
         options: set[typing.Literal["KEYMAP_FALLBACK", "USE_BRUSHES"]] | None = set(),
-        idname_fallback: str | None = "",
-        keymap_fallback: str | None = "",
+        idname_fallback: str = "",
+        keymap_fallback: str = "",
     ) -> None:
         """Set the tool settings
 
@@ -113064,14 +112767,14 @@ class WorkSpaceTool(bpy_struct):
                 :param keymap_fallback: Fallback Key Map, (optional, never None)
         """
 
-    def operator_properties(self, operator: str | None) -> OperatorProperties:
+    def operator_properties(self, operator: str) -> OperatorProperties:
         """operator_properties
 
         :param operator: (never None)
         :return: (never None)
         """
 
-    def gizmo_group_properties(self, group: str | None) -> GizmoGroupProperties:
+    def gizmo_group_properties(self, group: str) -> GizmoGroupProperties:
         """gizmo_group_properties
 
         :param group: (never None)
@@ -113124,13 +112827,13 @@ class World(ID, bpy_struct):
     cycles_visibility: typing.Any
     """ Cycles visibility settings (readonly)"""
 
-    light_settings: WorldLighting | None
+    light_settings: WorldLighting
     """ World lighting settings (readonly, never None)"""
 
     lightgroup: str
     """ Lightgroup that the world belongs to (default "", never None)"""
 
-    mist_settings: WorldMistSettings | None
+    mist_settings: WorldMistSettings
     """ World mist settings (readonly, never None)"""
 
     node_tree: ShaderNodeTree | None
@@ -113288,7 +112991,7 @@ class WorldMistSettings(bpy_struct):
         """
 
 class XrActionMap(bpy_struct):
-    actionmap_items: XrActionMapItems | None
+    actionmap_items: XrActionMapItems
     """ Items in the action map, mapping an XR event to an operator, pose, or haptic output (default None, readonly)"""
 
     name: str
@@ -113334,7 +113037,7 @@ class XrActionMapBinding(bpy_struct):
     axis1_region: typing.Literal["ANY", "POSITIVE", "NEGATIVE"]
     """ Action execution region for the second input axis (default 'ANY')"""
 
-    component_paths: XrComponentPaths | None
+    component_paths: XrComponentPaths
     """ OpenXR component paths (default None, readonly)"""
 
     name: str
@@ -113384,7 +113087,7 @@ class XrActionMapItem(bpy_struct):
     bimanual: bool
     """ The action depends on the states/poses of both user paths (default False)"""
 
-    bindings: XrActionMapBindings | None
+    bindings: XrActionMapBindings
     """ Bindings for the action map item, mapping the action to an XR input (default None, readonly)"""
 
     haptic_amplitude: float
@@ -113432,7 +113135,7 @@ class XrActionMapItem(bpy_struct):
     type: typing.Literal["FLOAT", "VECTOR2D", "POSE", "VIBRATION"]
     """ Action type (default 'FLOAT')"""
 
-    user_paths: XrUserPaths | None
+    user_paths: XrUserPaths
     """ OpenXR user paths (default None, readonly)"""
 
     @classmethod
@@ -113642,7 +113345,7 @@ class XrSessionSettings(bpy_struct):
     icon_from_show_object_viewport: int
     """ (in [-inf, inf], default 0, readonly)"""
 
-    shading: View3DShading | None
+    shading: View3DShading
     """ (readonly, never None)"""
 
     show_annotation: bool
@@ -113802,7 +113505,7 @@ class XrSessionSettings(bpy_struct):
 class XrSessionState(bpy_struct):
     """Runtime state information about the VR session"""
 
-    actionmaps: XrActionMaps | None
+    actionmaps: XrActionMaps
     """ (default None, readonly)"""
 
     active_actionmap: int | None
@@ -113845,7 +113548,7 @@ class XrSessionState(bpy_struct):
         """
 
     @classmethod
-    def action_set_create(cls, context: Context, actionmap: XrActionMap | None) -> bool:
+    def action_set_create(cls, context: Context, actionmap: XrActionMap) -> bool:
         """Create a VR action set
 
         :param context: (never None)
@@ -113855,10 +113558,7 @@ class XrSessionState(bpy_struct):
 
     @classmethod
     def action_create(
-        cls,
-        context: Context,
-        actionmap: XrActionMap | None,
-        actionmap_item: XrActionMapItem | None,
+        cls, context: Context, actionmap: XrActionMap, actionmap_item: XrActionMapItem
     ) -> bool:
         """Create a VR action
 
@@ -113872,9 +113572,9 @@ class XrSessionState(bpy_struct):
     def action_binding_create(
         cls,
         context: Context,
-        actionmap: XrActionMap | None,
-        actionmap_item: XrActionMapItem | None,
-        actionmap_binding: XrActionMapBinding | None,
+        actionmap: XrActionMap,
+        actionmap_item: XrActionMapItem,
+        actionmap_binding: XrActionMapBinding,
     ) -> bool:
         """Create a VR action binding
 
@@ -113886,7 +113586,7 @@ class XrSessionState(bpy_struct):
         """
 
     @classmethod
-    def active_action_set_set(cls, context: Context, action_set: str | None) -> bool:
+    def active_action_set_set(cls, context: Context, action_set: str) -> bool:
         """Set the active VR action set
 
         :param context: (never None)
@@ -113896,11 +113596,7 @@ class XrSessionState(bpy_struct):
 
     @classmethod
     def controller_pose_actions_set(
-        cls,
-        context: Context,
-        action_set: str | None,
-        grip_action: str | None,
-        aim_action: str | None,
+        cls, context: Context, action_set: str, grip_action: str, aim_action: str
     ) -> bool:
         """Set the actions that determine the VR controller poses
 
@@ -113913,11 +113609,7 @@ class XrSessionState(bpy_struct):
 
     @classmethod
     def action_state_get(
-        cls,
-        context: Context,
-        action_set_name: str | None,
-        action_name: str | None,
-        user_path: str | None,
+        cls, context: Context, action_set_name: str, action_name: str, user_path: str
     ) -> bpy_prop_array[float]:
         """Get the current state of a VR action
 
@@ -113932,9 +113624,9 @@ class XrSessionState(bpy_struct):
     def haptic_action_apply(
         cls,
         context: Context,
-        action_set_name: str | None,
-        action_name: str | None,
-        user_path: str | None,
+        action_set_name: str,
+        action_name: str,
+        user_path: str,
         duration: float | None,
         frequency: float | None,
         amplitude: float | None,
@@ -113953,11 +113645,7 @@ class XrSessionState(bpy_struct):
 
     @classmethod
     def haptic_action_stop(
-        cls,
-        context: Context,
-        action_set_name: str | None,
-        action_name: str | None,
-        user_path: str | None,
+        cls, context: Context, action_set_name: str, action_name: str, user_path: str
     ) -> None:
         """Stop a VR haptic action
 

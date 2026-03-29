@@ -1,10 +1,12 @@
-from datetime import datetime, timedelta
+import argparse
+import json
 import time
+import warnings
 from collections import defaultdict
+from datetime import datetime, timedelta
 
 import pendulum
 import requests
-import json
 
 from github_heatmap.loader.base_loader import BaseLoader
 from github_heatmap.loader.config import NOTION_API_URL, NOTION_API_VERSION
@@ -17,12 +19,28 @@ class NotionLoader(BaseLoader):
     def __init__(self, from_year, to_year, _type, **kwargs):
         super().__init__(from_year, to_year, _type)
         self.number_by_date_dict = self.generate_date_dict(from_year, to_year)
-        self.notion_token = kwargs.get("notion_token", "").strip()
-        self.database_id = kwargs.get("database_id", "").strip()
-        self.date_prop_name = kwargs.get("date_prop_name", "")
-        self.value_prop_name = kwargs.get("value_prop_name", "")
-        self.database_filter = kwargs.get("database_filter", "")
-        self.tooltip_prop_name = kwargs.get("tooltip_prop_name", "").strip()
+        self.notion_token = (kwargs.get("notion_token") or "").strip()
+        self.data_source_id = (kwargs.get("data_source_id") or "").strip()
+        deprecated_database_id = (kwargs.get("database_id") or "").strip()
+        if deprecated_database_id and not self.data_source_id:
+            warnings.warn(
+                "--database_id is deprecated; use --data_source_id instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.data_source_id = deprecated_database_id
+        self.date_prop_name = kwargs.get("date_prop_name") or ""
+        self.value_prop_name = kwargs.get("value_prop_name") or ""
+        self.data_source_filter = kwargs.get("data_source_filter") or ""
+        deprecated_database_filter = kwargs.get("database_filter") or ""
+        if deprecated_database_filter and not self.data_source_filter:
+            warnings.warn(
+                "--database_filter is deprecated; use --data_source_filter instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.data_source_filter = deprecated_database_filter
+        self.tooltip_prop_name = (kwargs.get("tooltip_prop_name") or "").strip()
         self.tooltip_by_date_dict = defaultdict(list)
 
     @classmethod
@@ -34,10 +52,16 @@ class NotionLoader(BaseLoader):
             help="The Notion internal integration token.",
         )
         parser.add_argument(
+            "--data_source_id",
+            dest="data_source_id",
+            type=str,
+            help="The Notion data source id.",
+        )
+        parser.add_argument(
             "--database_id",
             dest="database_id",
             type=str,
-            help="The Notion database id.",
+            help=argparse.SUPPRESS,
         )
         parser.add_argument(
             "--date_prop_name",
@@ -45,7 +69,7 @@ class NotionLoader(BaseLoader):
             type=str,
             default="Datetime",
             required=optional,
-            help="The database property name which stored the datetime.",
+            help="The Notion data source property name that stores the date.",
         )
         parser.add_argument(
             "--value_prop_name",
@@ -53,15 +77,23 @@ class NotionLoader(BaseLoader):
             type=str,
             default="Datetime",
             required=optional,
-            help="The database property name which stored the datetime.",
-        )        
+            help="The Notion data source property name used as the heatmap value.",
+        )
+        parser.add_argument(
+            "--data_source_filter",
+            dest="data_source_filter",
+            type=str,
+            default="",
+            required=False,
+            help="Optional Notion data source query filter in JSON format.",
+        )
         parser.add_argument(
             "--database_filter",
             dest="database_filter",
             type=str,
             default="",
             required=False,
-            help="The database property name which stored the datetime.",
+            help=argparse.SUPPRESS,
         )
         parser.add_argument(
             "--tooltip_prop_name",
@@ -90,8 +122,8 @@ class NotionLoader(BaseLoader):
                 ]
             },
         }
-        if self.database_filter:
-            payload["filter"]["and"].append(json.loads(self.database_filter))
+        if self.data_source_filter:
+            payload["filter"]["and"].append(json.loads(self.data_source_filter))
         if start_cursor:
             payload.update({"start_cursor": start_cursor})
         print(payload)
@@ -104,14 +136,14 @@ class NotionLoader(BaseLoader):
         print(headers)
         try:
             resp = requests.post(
-                NOTION_API_URL.format(database_id=self.database_id),
+                NOTION_API_URL.format(data_source_id=self.data_source_id),
                 json=payload,
                 headers=headers,
             )
         except requests.RequestException:
             print("Failed to connect to Notion API.")
             return data_list
-        print(resp.text)
+        print(getattr(resp, "text", ""))
         if not resp.ok:
             # Treat non-OK responses as an empty result set so we can still draw
             # a heatmap even when the Notion API yields no rows for the period.
@@ -211,7 +243,9 @@ class NotionLoader(BaseLoader):
                 [p.get("name") or p.get("id", "") for p in item.get("people", [])]
             ).strip()
         if item_type == "relation":
-            return ", ".join([r.get("id", "") for r in item.get("relation", [])]).strip()
+            return ", ".join(
+                [r.get("id", "") for r in item.get("relation", [])]
+            ).strip()
         if item_type == "date":
             return cls._format_date(item.get("date", {}))
         if item_type in ("url", "email", "phone_number"):
@@ -274,7 +308,9 @@ class NotionLoader(BaseLoader):
         if prop_type == "date":
             return cls._format_date(prop.get("date", {}))
         if prop_type == "relation":
-            return ", ".join([r.get("id", "") for r in prop.get("relation", [])]).strip()
+            return ", ".join(
+                [r.get("id", "") for r in prop.get("relation", [])]
+            ).strip()
         if prop_type == "files":
             texts = []
             for file_obj in prop.get("files", []):
@@ -310,7 +346,9 @@ class NotionLoader(BaseLoader):
             if rollup_type == "date":
                 return cls._format_date(rollup.get("date", {}))
             if rollup_type == "array":
-                texts = [cls._extract_rollup_item(item) for item in rollup.get("array", [])]
+                texts = [
+                    cls._extract_rollup_item(item) for item in rollup.get("array", [])
+                ]
                 texts = [text for text in texts if text]
                 return ", ".join(texts)
         return ""

@@ -68,6 +68,30 @@ def test_empty_segment_list():
     assert m.serialize() == ""
 
 
+def test_trailing_empty_data_elements1():
+    m = RawSegmentCollection()
+    m.add_segment(Segment("FOO", "BAR", ""))
+    assert m.serialize() == "FOO+BAR+'"
+
+
+def test_trailing_empty_data_elements2():
+    m = RawSegmentCollection()
+    m.add_segment(Segment("FOO", "BAR", "", ""))
+    assert m.serialize() == "FOO+BAR++'"
+
+
+def test_trailing_empty_composite_data_elements1():
+    m = RawSegmentCollection()
+    m.add_segment(Segment("FOO", "BAR", ["foo", "bar", ""]))
+    assert m.serialize() == "FOO+BAR+foo:bar'"
+
+
+def test_trailing_empty_composite_data_elements2():
+    m = RawSegmentCollection()
+    m.add_segment(Segment("FOO", "BAR", ["foo", "bar", "", ""]))
+    assert m.serialize() == "FOO+BAR+foo:bar'"
+
+
 def test_basic1(serializer):
     assert_segments(serializer, "RFF+PD:50515", [Segment("RFF", ["PD", "50515"])])
 
@@ -146,6 +170,6 @@ def test_interchange_serialization_with_una(interchange_str):
     assert i.serialize() == "UNA:+.? '" + interchange_str
 
 
-def test_interchange_serialization_with_out_una(interchange_str):
+def test_interchange_serialization_without_una(interchange_str):
     i = Interchange.from_str(interchange_str)
     assert i.serialize() == interchange_str

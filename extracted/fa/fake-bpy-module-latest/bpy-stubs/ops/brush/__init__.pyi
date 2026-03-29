@@ -13,8 +13,8 @@ def asset_activate(
         bpy.stub_internal.rna_enums.AssetLibraryTypeItems
     ]
     | None = "LOCAL",
-    asset_library_identifier: str | None = "",
-    relative_asset_identifier: str | None = "",
+    asset_library_identifier: str = "",
+    relative_asset_identifier: str = "",
     use_toggle: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Activate a brush asset as current sculpt and paint tool
@@ -41,9 +41,9 @@ def asset_edit_metadata(
     undo: bool | None = None,
     /,
     *,
-    catalog_path: str | None = "",
-    author: str | None = "",
-    description: str | None = "",
+    catalog_path: str = "",
+    author: str = "",
+    description: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit asset information like the catalog, preview image, tags, or author
 
@@ -58,7 +58,7 @@ def asset_load_preview(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -152,9 +152,9 @@ def asset_save_as(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     asset_library_reference: str | None = "",
-    catalog_path: str | None = "",
+    catalog_path: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save a copy of the active brush asset into the default asset library, and make it the active brush
 

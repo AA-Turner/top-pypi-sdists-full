@@ -67,6 +67,37 @@ def _active_session_with_item(
 # ---------------------------------------------------------------------------
 
 
+class TestSessionVisibility:
+    @pytest.mark.asyncio
+    async def test_pending_session_items_are_not_launched(self, db: Any, registry: MissionAdapterRegistry) -> None:
+        adapter = _make_adapter()
+        registry.register("test", adapter)
+        session = ms.create_session(db, title="pending", status="pending")
+        item = ms.create_item(db, session_id=session["id"], summary="task", adapter_type="test")
+
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+        await worker.run_once()
+
+        refreshed = ms.get_item(db, item["id"])
+        assert refreshed is not None
+        assert refreshed["status"] == "pending"
+        adapter.create.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_active_session_items_are_launched(self, db: Any, registry: MissionAdapterRegistry) -> None:
+        adapter = _make_adapter()
+        registry.register("test", adapter)
+        _session, item = _active_session_with_item(db, adapter_type="test")
+
+        worker = MissionSchedulerWorker(db=db, adapter_registry=registry)
+        await worker.run_once()
+
+        refreshed = ms.get_item(db, item["id"])
+        assert refreshed is not None
+        assert refreshed["status"] == "completed"
+        adapter.create.assert_called_once()
+
+
 class TestEligibility:
     @pytest.mark.asyncio
     async def test_deps_satisfied_item_is_eligible(self, db: Any, registry: MissionAdapterRegistry) -> None:

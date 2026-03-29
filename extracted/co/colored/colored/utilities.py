@@ -89,10 +89,10 @@ class Utilities:
         """Convert percentages to color number with range 0-255:
 
         Args:
-            percent (str | int): Sets the percent number.
+            percent (str): Sets the percent number (e.g. '50%').
 
         Returns:
-            int | str
+            int: Color number in range [0, 255]. Returns 0 for unrecognized values.
         """
         try:  # Sets maximum range for RGB colors.
             self.RGB_MAXIMUM_COLOR = self._COLORTERM[self.colorterm]
@@ -119,7 +119,7 @@ class Utilities:
             colorterm (str, optional): Sets the  environment variable.
         """
         if not colorterm:
-            self.colorterm = os.getenv('COLORTERM') or ''
+            self.colorterm = os.getenv('COLORTERM') or self.colorterm
         else:
             self.colorterm = colorterm
             os.environ['COLORTERM'] = colorterm
@@ -139,4 +139,4 @@ class Utilities:
         g_out = self.convert_percentages(str(g_in)) if isinstance(g_in, str) and g_in.endswith('%') else int(g_in)
         b_out = self.convert_percentages(str(b_in)) if isinstance(b_in, str) and b_in.endswith('%') else int(b_in)
 
-        return (r_out, g_out, b_out)
+        return (max(0, min(255, r_out)), max(0, min(255, g_out)), max(0, min(255, b_out)))

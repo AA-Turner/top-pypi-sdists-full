@@ -25,6 +25,7 @@ from anteroom.services.mission_compiler import (
 )
 from anteroom.services.mission_storage import (
     get_dependencies,
+    get_session,
     list_items_by_session,
     list_revisions,
 )
@@ -336,6 +337,24 @@ def test_apply_plan_creates_revision(db: Any) -> None:
     assert len(revisions) == 1
     assert revisions[0]["revision_number"] == 1
     assert revisions[0]["reason"] == "initial plan"
+
+
+def test_apply_plan_defaults_session_to_pending(db: Any) -> None:
+    plan = CompiledPlan(items=[CompiledItem(summary="Solo", temp_id="t1")])
+    session = apply_plan(db, plan)
+
+    persisted = get_session(db, session["id"])
+    assert persisted is not None
+    assert persisted["status"] == "pending"
+
+
+def test_apply_plan_persists_active_session_when_requested(db: Any) -> None:
+    plan = CompiledPlan(items=[CompiledItem(summary="Solo", temp_id="t1")])
+    session = apply_plan(db, plan, session_status="active")
+
+    persisted = get_session(db, session["id"])
+    assert persisted is not None
+    assert persisted["status"] == "active"
 
 
 # ---------------------------------------------------------------------------

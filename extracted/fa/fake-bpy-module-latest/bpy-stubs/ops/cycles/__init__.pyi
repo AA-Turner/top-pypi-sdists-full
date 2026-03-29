@@ -9,8 +9,8 @@ def denoise_animation(
     undo: bool | None = None,
     /,
     *,
-    input_filepath: str | None = "",
-    output_filepath: str | None = "",
+    input_filepath: str = "",
+    output_filepath: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Denoise rendered animation sequence using current scene and view layer settings. Requires denoising data passes and output to OpenEXR multilayer files
 
@@ -24,9 +24,9 @@ def merge_images(
     undo: bool | None = None,
     /,
     *,
-    input_filepath1: str | None = "",
-    input_filepath2: str | None = "",
-    output_filepath: str | None = "",
+    input_filepath1: str = "",
+    input_filepath2: str = "",
+    output_filepath: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Combine OpenEXR multi-layer images rendered with different sample ranges into one image with reduced noise
 

@@ -115,8 +115,8 @@ JIKE_PERSON_URL = "https://web.okjike.com/u/{user_id}"
 BBDC_API_URL = "https://learnywhere.cn/bb/dashboard/profile/search?userId={user_id}"
 
 # Notion
-NOTION_API_URL = "https://api.notion.com/v1/databases/{database_id}/query"
-NOTION_API_VERSION = "2022-06-28"
+NOTION_API_URL = "https://api.notion.com/v1/data_sources/{data_source_id}/query"
+NOTION_API_VERSION = "2026-03-11"
 
 # Weread
 WEREAD_BASE_URL = "https://weread.qq.com/"

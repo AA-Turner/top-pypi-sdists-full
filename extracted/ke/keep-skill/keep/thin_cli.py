@@ -14,7 +14,9 @@ from urllib.parse import quote
 
 import typer
 
-from ._daemon_client import http_request as _http, get_port as _daemon_get_port
+from ._daemon_client import get_port as _daemon_get_port
+from ._daemon_client import http_request as _http
+from .const import DAEMON_PORT_FILE, DAEMON_TOKEN_FILE
 
 app = typer.Typer(
     name="keep",
@@ -32,6 +34,90 @@ def _q(id: str) -> str:
     """URL-encode an ID for path segments."""
     return quote(id, safe="")
 
+
+# ---------------------------------------------------------------------------
+# Stdin JSON template expansion
+# ---------------------------------------------------------------------------
+# Hooks pipe JSON on stdin.  ${.field}, ${.field|text} (strip XML tags),
+# and ${.field:N} (truncate to N chars) expand from that JSON.
+
+import re
+
+_TEMPLATE_RE = re.compile(r'\$\{\.([A-Za-z_][A-Za-z0-9_]*)(?:\|([a-z]+))?(?::(\d+))?\}')
+# Strip XML-style tags from text (used by |text template filter)
+_XML_TAG_RE = re.compile(r'<([a-z][\w-]*)[\s>].*?</\1>', re.DOTALL)
+_STDIN_JSON_SENTINEL = object()
+_stdin_json_cache = _STDIN_JSON_SENTINEL
+
+
+def _has_stdin_data() -> bool:
+    try:
+        if sys.stdin.isatty():
+            return False
+        # Use select to avoid hanging on socket stdin (exec sandboxes)
+        import select
+        return bool(select.select([sys.stdin], [], [], 0)[0])
+    except Exception:
+        return False
+
+
+def _read_stdin_json() -> dict:
+    """Read and cache JSON object from stdin.  Returns {} on failure."""
+    global _stdin_json_cache
+    if _stdin_json_cache is not _STDIN_JSON_SENTINEL:
+        return _stdin_json_cache  # type: ignore[return-value]
+    _stdin_json_cache = {}
+    if _has_stdin_data():
+        try:
+            raw = sys.stdin.read()
+            obj = json.loads(raw)
+            if isinstance(obj, dict):
+                _stdin_json_cache = obj
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+            pass
+    return _stdin_json_cache
+
+
+def _has_templates(s: str | None) -> bool:
+    return s is not None and '${.' in s
+
+
+def _expand_template(s: str, data: dict) -> str:
+    """Expand ${.field}, ${.field|filter}, and ${.field:N} in *s* from *data*.
+
+    Filters: |text — strip XML-style tags from the value.
+    """
+    def _replace(m: re.Match) -> str:
+        key, filt, limit = m.group(1), m.group(2), m.group(3)
+        val = data.get(key)
+        if val is None:
+            return ''
+        result = str(val)
+        if filt == 'text':
+            result = _XML_TAG_RE.sub('', result).strip()
+        if limit:
+            result = result[:int(limit)]
+        return result
+    return _TEMPLATE_RE.sub(_replace, s)
+
+
+def _expand_stdin_templates(*strings: str | None) -> tuple[str | None, ...]:
+    """Expand ${.field} templates in strings from stdin JSON."""
+    if not any(_has_templates(s) for s in strings):
+        return strings
+    data = _read_stdin_json()
+    return tuple(
+        _expand_template(s, data) if _has_templates(s) else s
+        for s in strings
+    )
+
+
+def _expand_stdin_tag_list(tags: list[str] | None) -> list[str] | None:
+    """Expand templates in a tag list."""
+    if not tags or not any(_has_templates(t) for t in tags):
+        return tags
+    data = _read_stdin_json()
+    return [_expand_template(t, data) if _has_templates(t) else t for t in tags]
 
 
 def _get(port: int, path: str) -> dict:
@@ -360,7 +446,7 @@ def default(
         callback=_version_callback, is_eager=True,
     )] = None,
 ):
-    """keep — reflective memory for AI agents."""
+    """Keep — reflective memory for AI agents."""
     global _global_json, _global_ids, _global_full, _global_store
     _global_json = json_output
     _global_ids = ids_only
@@ -444,7 +530,6 @@ def _get_one_item(
     tag: Optional[list[str]], json_output: bool,
 ) -> Optional[str]:
     """Fetch and render a single item. Returns formatted string or None on error."""
-
     # --similar: flat list via search endpoint
     if similar:
         data = _post(port, "/v1/search", {
@@ -714,22 +799,53 @@ def put(
         typer.echo("Error: --interval requires --watch", err=True)
         raise typer.Exit(1)
 
+    # Expand ${.field} templates from stdin JSON (hook support)
+    (source,) = _expand_stdin_templates(source)
+    tags = _expand_stdin_tag_list(tags)
+
     port = _get_port()
-    parsed_tags = {}
+    parsed_tags: dict = {}
     for t in (tags or []):
         if "=" not in t:
-            typer.echo(f"Invalid tag format: {t!r} (expected key=value)", err=True)
+            hint = f"Invalid tag format: {t!r}."
+            if ":" in t:
+                k2, v2 = t.split(":", 1)
+                hint += f" Did you mean: {k2}={v2}?"
+            else:
+                hint += " Use key=value"
+            typer.echo(hint, err=True)
             raise typer.Exit(1)
         k, v = t.split("=", 1)
-        parsed_tags[k] = v
+        key = k.casefold()
+        existing = parsed_tags.get(key)
+        if existing is None:
+            parsed_tags[key] = v
+        elif isinstance(existing, list):
+            if v not in existing:
+                existing.append(v)
+        elif existing != v:
+            parsed_tags[key] = [existing, v]
 
     # Stdin mode
-    if source == "-" or (source is None and not sys.stdin.isatty()):
-        content = sys.stdin.read()
+    if source == "-" or (source is None and _has_stdin_data()):
+        try:
+            content = sys.stdin.read()
+        except UnicodeDecodeError:
+            typer.echo("Error: stdin contains binary data (not valid UTF-8)", err=True)
+            typer.echo("Hint: for binary files, use: keep put file:///path/to/file", err=True)
+            raise typer.Exit(1)
         if summary is not None:
             typer.echo("Error: --summary cannot be used with stdin (original content would be lost)", err=True)
             raise typer.Exit(1)
-        body: dict = {"content": content, "id": id, "tags": parsed_tags or None, "force": force or None}
+        # Extract YAML frontmatter as tags (CLI tags override)
+        from keep.utils import _extract_markdown_frontmatter
+        body_text, fm_tags = _extract_markdown_frontmatter(content)
+        if fm_tags:
+            merged = {**fm_tags, **parsed_tags}
+            content = body_text
+        else:
+            merged = parsed_tags
+        body: dict = {"content": content, "id": id, "tags": merged or None, "force": force or None}
         data = _post(port, "/v1/notes", body)
     elif source is None:
         typer.echo("Error: provide content, URI, or '-' for stdin", err=True)
@@ -907,6 +1023,7 @@ def delete_alias(id: Annotated[list[str], typer.Argument(help="Item ID(s)")]):
 def now(
     content: Annotated[Optional[str], typer.Argument(help="New content")] = None,
     tags: Annotated[Optional[list[str]], typer.Option("-t", "--tag", help="Tags")] = None,
+    truncate_flag: Annotated[bool, typer.Option("--truncate", help="Truncate content to max_inline_length instead of failing")] = False,
     json_output: JsonFlag = False,
 ):
     """Get or set the current working intentions.
@@ -915,8 +1032,19 @@ def now(
     With no arguments, displays the current intentions.
     With content, replaces them (previous version is preserved).
     """
+    # Expand ${.field} templates from stdin JSON (hook support)
+    (content,) = _expand_stdin_templates(content)
+    tags = _expand_stdin_tag_list(tags)
+
     port = _get_port()
     if content:
+        if truncate_flag:
+            from .config import load_or_create_config
+            from .paths import get_config_dir
+            config_dir = Path(_global_store).resolve() if _global_store else get_config_dir()
+            cfg = load_or_create_config(config_dir)
+            if len(content) > cfg.max_inline_length:
+                content = content[:cfg.max_inline_length]
         parsed_tags, _ = _parse_tag_args(tags)
         _post(port, "/v1/notes", {"content": content, "id": "now", "tags": parsed_tags or None})
     data = _get(port, f"/v1/notes/{_q('now')}/context")
@@ -1034,6 +1162,9 @@ def prompt(
         keep prompt reflect "auth flow"           # With search context
         keep prompt reflect --since P7D           # Recent context only
     """
+    # Expand ${.field} templates from stdin JSON (hook support)
+    tag = _expand_stdin_tag_list(tag)
+
     port = _get_port()
 
     if list_prompts or not name:
@@ -1170,8 +1301,8 @@ def edit_cmd(
         keep edit .prompt/agent/reflect      # Edit a prompt template
         keep edit now                        # Edit current intentions
     """
-    import tempfile
     import subprocess as sp
+    import tempfile
 
     port = _get_port()
     data = _get(port, f"/v1/notes/{_q(id)}")
@@ -1270,6 +1401,8 @@ def pending(
     """Process pending background tasks."""
     if stop:
         import signal
+        import time as _time
+
         from ._daemon_client import resolve_store_path
         store_path = resolve_store_path(_global_store)
         pid_file = store_path / "processor.pid"
@@ -1279,18 +1412,43 @@ def pending(
         try:
             pid = int(pid_file.read_text().strip())
             os.kill(pid, signal.SIGTERM)
-            typer.echo(f"Sent stop signal to daemon (pid {pid}).", err=True)
+            typer.echo(f"Stopping daemon (pid {pid})...", err=True)
+            # Wait up to 5s for graceful shutdown
+            deadline = _time.monotonic() + 10.0
+            while _time.monotonic() < deadline:
+                try:
+                    os.kill(pid, 0)  # check if still alive
+                except ProcessLookupError:
+                    break
+                _time.sleep(0.2)
+            else:
+                # Still alive — force kill
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                    typer.echo("Force-killed (was stuck in long operation).", err=True)
+                except ProcessLookupError:
+                    pass
+            pid_file.unlink(missing_ok=True)
         except ProcessLookupError:
             typer.echo("Daemon not running (stale PID file).", err=True)
             pid_file.unlink(missing_ok=True)
         except (ValueError, OSError) as e:
             typer.echo(f"Error stopping daemon: {e}", err=True)
-        (store_path / ".daemon.port").unlink(missing_ok=True)
-        (store_path / ".daemon.token").unlink(missing_ok=True)
+        (store_path / DAEMON_PORT_FILE).unlink(missing_ok=True)
+        (store_path / DAEMON_TOKEN_FILE).unlink(missing_ok=True)
         return
 
-    from .api import Keeper
+    if list_items:
+        from ._daemon_client import get_port, resolve_store_path
+        from .cli import print_pending_list_lightweight
+        store_path = resolve_store_path(_global_store)
+        print_pending_list_lightweight(store_path)
+        # Ensure daemon is running so pending items get processed
+        get_port(_global_store)
+        return
+
     from ._daemon_client import resolve_store_path
+    from .api import Keeper
     kp = Keeper(store_path=resolve_store_path(_global_store))
 
     if daemon:
@@ -1324,11 +1482,6 @@ def pending(
         stats = kp.enqueue_reindex()
         typer.echo(f"Enqueued {stats['enqueued']} items + {stats['versions']} versions", err=True)
 
-    if list_items:
-        from .cli import print_pending_list
-        print_pending_list(kp)
-        kp.close()
-        return
 
     # Interactive mode: show status, ensure daemon running, tail log
     from .cli import print_pending_interactive
@@ -1385,17 +1538,17 @@ def config(
         return
 
     if setup:
+        from ._daemon_client import resolve_store_path
         from .paths import get_config_dir
         from .setup_wizard import run_wizard
-        from ._daemon_client import resolve_store_path
         store_path = resolve_store_path(_global_store)
         config_dir = store_path if _global_store else get_config_dir()
         run_wizard(config_dir, store_path, restart_command="keep config --setup")
         return
 
+    from .cli import _format_config_with_defaults, _get_config_value
     from .config import load_or_create_config
     from .paths import get_config_dir, get_default_store_path
-    from .cli import _get_config_value, _format_config_with_defaults
 
     config_dir = Path(_global_store).resolve() if _global_store else get_config_dir()
     cfg = load_or_create_config(config_dir)
@@ -1419,6 +1572,7 @@ def config(
     is_json = json_output or (ctx.parent and ctx.parent.params.get("json_output", False))
     if is_json:
         import importlib.resources
+
         from .cli import get_tool_directory
         result = {
             "file": str(cfg.config_path) if cfg else None,
@@ -1476,8 +1630,8 @@ def data_export(
     exclude_system: Annotated[bool, typer.Option("--exclude-system", help="Exclude system documents")] = False,
 ):
     """Export the store to JSON for backup or migration."""
-    from .api import Keeper
     from ._daemon_client import resolve_store_path
+    from .api import Keeper
     kp = Keeper(store_path=resolve_store_path(_global_store))
     it = kp.export_iter(include_system=not exclude_system)
     header = next(it)
@@ -1536,8 +1690,8 @@ def data_import(
         ):
             raise SystemExit(0)
 
-    from .api import Keeper
     from ._daemon_client import resolve_store_path
+    from .api import Keeper
     kp = Keeper(store_path=resolve_store_path(_global_store))
     stats = kp.import_data(data, mode=mode)
     kp.close()

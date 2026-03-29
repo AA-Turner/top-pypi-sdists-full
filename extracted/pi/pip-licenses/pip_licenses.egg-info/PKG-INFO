@@ -1,13 +1,15 @@
 Metadata-Version: 2.4
 Name: pip-licenses
-Version: 5.5.1
+Version: 5.5.5
 Summary: Dump the software license list of Python packages installed with pip.
+Author: Mr. Walls
 Author-email: raimon <raimon49@hotmail.com>
+Maintainer-email: "Mr. Walls" <reactive-firewall@users.noreply.github.com>
 License-Expression: MIT
 Project-URL: homepage, https://github.com/raimon49/pip-licenses
 Project-URL: releasenotes, https://github.com/raimon49/pip-licenses/releases
 Project-URL: issues, https://github.com/raimon49/pip-licenses/issues
-Keywords: pip,pypi,package,license,check
+Keywords: pip,pypi,package,license,check,audit
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
@@ -27,19 +29,16 @@ License-File: LICENSE
 Requires-Dist: prettytable>=3.12.0
 Requires-Dist: tomli>=2; python_version < "3.11"
 Provides-Extra: dev
-Requires-Dist: autopep8; extra == "dev"
-Requires-Dist: black; extra == "dev"
-Requires-Dist: docutils; extra == "dev"
-Requires-Dist: isort; extra == "dev"
+Requires-Dist: docutils>=0.19; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pip-tools; extra == "dev"
 Requires-Dist: pypandoc; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: pytest-pycodestyle; extra == "dev"
 Requires-Dist: pytest-runner; extra == "dev"
-Requires-Dist: twine; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
 Requires-Dist: tomli-w; extra == "dev"
+Requires-Dist: virtualenv>=21.1.0; extra == "dev"
 Dynamic: license-file
 
 # pip-licenses
@@ -757,6 +756,39 @@ $ pip uninstall pip-licenses prettytable wcwidth
 See [contribution guidelines](https://github.com/raimon49/pip-licenses/blob/master/CONTRIBUTING.md).
 
 ## CHANGELOG
+
+### 5.5.5
+
+* Updated cc lines and officially made note of change in maintainers
+
+### 5.5.4
+
+* Expanded typing annotations through-out codebase
+* Configured `prek`/`pre-commit` for CI linting and local developer workflows
+* Additional configuration following v5.5.2's migration of linters
+  * Fine tune ruff to enforce typing and black style opinions (Code style remains PEP-8 aligned)
+  * Cleanup/gitignore for ruff
+* Fixed a typo in previous changelog
+
+### 5.5.3
+
+* Aligned parsing logic with [PEP 753](https://peps.python.org/pep-0753/)
+* Refactored to better leverage f-strings to improve performance slightly
+* Fixed various warnings in tests
+* Got rid of historical Python 3.5 left-overs
+
+### 5.5.2
+
+* Added support for multi-line allow-only and fail-on arguments
+  * Relaxed parsing of most whitespace around semicolon delimiter
+* Added simple `SECURITY.md` policy document
+* Fixed a duplication behavior in output when a package was found at multiple paths (e.g., symlinks)
+* Fixed issue where lowercase license filenames were ignored
+* Improved project `Makefile` stability for developers
+* Migrated from the linters black and isort to ruff
+  * Code style remains PEP-8 aligned, but should be slightly more readable.
+  * Linting configuration remains in `pyproject.toml`
+* Updated `CONTRIBUTORS.md` guide with related changes
 
 ### 5.5.1
 

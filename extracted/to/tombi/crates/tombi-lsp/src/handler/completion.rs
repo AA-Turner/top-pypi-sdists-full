@@ -149,6 +149,9 @@ pub async fn handle_completion(
                 sub_schema_uri_map: source_schema
                     .as_ref()
                     .map(|schema| &schema.sub_schema_uri_map),
+                deprecated_lint_level: source_schema
+                    .as_ref()
+                    .and_then(|schema| schema.deprecated_lint_level),
                 schema_visits: Default::default(),
                 store: &schema_store,
                 strict: None,
@@ -182,42 +185,52 @@ pub async fn handle_completion(
     };
 
     let accessors = tombi_document_tree::get_accessors(&document_tree, &keys, position);
-    if let Some(items) = tombi_extension_tombi::completion(
-        &text_document_uri,
-        &document_tree,
-        position,
-        &accessors,
-        toml_version,
-        completion_hint,
-        comment_context.as_ref(),
-    )
-    .await?
+    let offline = schema_store.offline();
+    let cache_options = schema_store.cache_options();
+    if config.tombi_extension_enabled()
+        && let Some(items) = tombi_extension_tombi::completion(
+            &text_document_uri,
+            &document_tree,
+            position,
+            &accessors,
+            toml_version,
+            completion_hint,
+            comment_context.as_ref(),
+            config.tombi_extension_features(),
+        )
+        .await?
     {
         completion_items.extend(items);
     }
-    if let Some(items) = tombi_extension_cargo::completion(
-        &text_document_uri,
-        &document_tree,
-        position,
-        &accessors,
-        toml_version,
-        completion_hint,
-        comment_context.as_ref(),
-    )
-    .await?
+    if config.cargo_extension_enabled()
+        && let Some(items) = tombi_extension_cargo::completion(
+            &text_document_uri,
+            &document_tree,
+            position,
+            &accessors,
+            toml_version,
+            completion_hint,
+            comment_context.as_ref(),
+            offline,
+            cache_options,
+            config.cargo_extension_features(),
+        )
+        .await?
     {
         completion_items.extend(items);
     }
-    if let Some(items) = tombi_extension_uv::completion(
-        &text_document_uri,
-        &document_tree,
-        position,
-        &accessors,
-        toml_version,
-        completion_hint,
-        comment_context.as_ref(),
-    )
-    .await?
+    if config.pyproject_extension_enabled()
+        && let Some(items) = tombi_extension_pyproject::completion(
+            &text_document_uri,
+            &document_tree,
+            position,
+            &accessors,
+            toml_version,
+            completion_hint,
+            comment_context.as_ref(),
+            config.pyproject_extension_features(),
+        )
+        .await?
     {
         completion_items.extend(items);
     }

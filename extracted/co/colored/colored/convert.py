@@ -30,7 +30,7 @@ class Convert:
         """Convert ANSI code to HEX code string.
 
         Args:
-            ansi_code (str): ANSI number code.
+            ansi_code (int): ANSI number code.
 
         Returns:
             Union[str, None]: HEX code string.

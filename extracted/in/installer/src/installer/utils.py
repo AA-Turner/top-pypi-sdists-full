@@ -9,42 +9,37 @@ import os
 import re
 import sys
 from collections import namedtuple
+from collections.abc import Callable, Iterable, Iterator
 from configparser import ConfigParser
 from email.message import Message
 from email.parser import FeedParser
 from email.policy import compat32
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     BinaryIO,
-    Callable,
-    Iterable,
-    Iterator,
     NewType,
-    Optional,
-    Tuple,
-    Union,
     cast,
 )
 
-from installer.records import RecordEntry
-
 if TYPE_CHECKING:
+    from installer.records import RecordEntry
     from installer.scripts import LauncherKind, ScriptSection
 
 Scheme = NewType("Scheme", str)
-AllSchemes = Tuple[Scheme, ...]
+AllSchemes = tuple[Scheme, ...]
 
 __all__ = [
+    "SCHEME_NAMES",
+    "WheelFilename",
+    "construct_record_file",
+    "copyfileobj_with_hashing",
+    "fix_shebang",
+    "get_launcher_kind",
+    "make_file_executable",
+    "parse_entrypoints",
     "parse_metadata_file",
     "parse_wheel_filename",
-    "copyfileobj_with_hashing",
-    "get_launcher_kind",
-    "fix_shebang",
-    "construct_record_file",
-    "parse_entrypoints",
-    "make_file_executable",
-    "WheelFilename",
-    "SCHEME_NAMES",
 ]
 
 # Borrowed from https://github.com/python/cpython/blob/v3.9.1/Lib/shutil.py#L52
@@ -68,7 +63,7 @@ WheelFilename = namedtuple(
     "WheelFilename", ["distribution", "version", "build_tag", "tag"]
 )
 
-# Adapted from https://github.com/python/importlib_metadata/blob/v3.4.0/importlib_metadata/__init__.py#L90  # noqa
+# Adapted from https://github.com/python/importlib_metadata/blob/v3.4.0/importlib_metadata/__init__.py#L90
 _ENTRYPOINT_REGEX = re.compile(
     r"""
     (?P<module>[\w.]+)\s*
@@ -79,7 +74,7 @@ _ENTRYPOINT_REGEX = re.compile(
 )
 
 # According to https://www.python.org/dev/peps/pep-0427/#id7
-SCHEME_NAMES = cast(AllSchemes, ("purelib", "platlib", "headers", "scripts", "data"))
+SCHEME_NAMES = cast("AllSchemes", ("purelib", "platlib", "headers", "scripts", "data"))
 
 
 def parse_metadata_file(contents: str) -> Message:
@@ -118,7 +113,7 @@ def copyfileobj_with_hashing(
     source: BinaryIO,
     dest: BinaryIO,
     hash_algorithm: str,
-) -> Tuple[str, int]:
+) -> tuple[str, int]:
     """Copy a buffer while computing the content's hash and size.
 
     Copies the source buffer into the destination buffer while computing the
@@ -128,7 +123,7 @@ def copyfileobj_with_hashing(
     :param dest: destination buffer
     :param hash_algorithm: hashing algorithm
 
-    :return: size, hash digest of the contents
+    :return: hash digest of the contents, size of the contents
     """
     hasher = hashlib.new(hash_algorithm)
     size = 0
@@ -141,6 +136,22 @@ def copyfileobj_with_hashing(
         size += len(buf)
 
     return base64.urlsafe_b64encode(hasher.digest()).decode("ascii").rstrip("="), size
+
+
+def get_stream_length(source: BinaryIO) -> int:
+    """Read a buffer while computing the content's size.
+
+    :param source: buffer holding the source data
+    :return: size of the contents
+    """
+    size = 0
+    while True:
+        buf = source.read(_COPY_BUFSIZE)
+        if not buf:
+            break
+        size += len(buf)
+
+    return size
 
 
 def get_launcher_kind() -> "LauncherKind":  # pragma: no cover
@@ -191,8 +202,8 @@ def fix_shebang(stream: BinaryIO, interpreter: str) -> Iterator[BinaryIO]:
 
 
 def construct_record_file(
-    records: Iterable[Tuple[Scheme, RecordEntry]],
-    prefix_for_scheme: Callable[[Scheme], Optional[str]] = lambda _: None,
+    records: Iterable[tuple[Scheme, "RecordEntry"]],
+    prefix_for_scheme: Callable[[Scheme], str | None] = lambda _: None,
 ) -> BinaryIO:
     """Construct a RECORD file.
 
@@ -207,22 +218,22 @@ def construct_record_file(
         io.BytesIO(), encoding="utf-8", write_through=True, newline=""
     )
     writer = csv.writer(stream, delimiter=",", quotechar='"', lineterminator="\n")
-    for scheme, record in records:
+    for scheme, record in sorted(records, key=lambda x: x[1].path):
         writer.writerow(record.to_row(prefix_for_scheme(scheme)))
     stream.seek(0)
     return stream.detach()
 
 
-def parse_entrypoints(text: str) -> Iterable[Tuple[str, str, str, "ScriptSection"]]:
+def parse_entrypoints(text: str) -> Iterable[tuple[str, str, str, "ScriptSection"]]:
     """Parse ``entry_points.txt``-style files.
 
     :param text: entire contents of the file
     :return:
         name of the script, module to use, attribute to call, kind of script (cli / gui)
     """
-    # Borrowed from https://github.com/python/importlib_metadata/blob/v3.4.0/importlib_metadata/__init__.py#L115  # noqa
+    # Borrowed from https://github.com/python/importlib_metadata/blob/v3.4.0/importlib_metadata/__init__.py#L115
     config = ConfigParser(delimiters="=")
-    config.optionxform = str  # type: ignore
+    config.optionxform = str  # type: ignore[assignment, method-assign]
     config.read_string(text)
 
     for section in config.sections():
@@ -256,6 +267,6 @@ def _current_umask() -> int:
 
 # Borrowed from:
 # https://github.com/pypa/pip/blob/0f21fb92/src/pip/_internal/utils/unpacking.py#L93
-def make_file_executable(path: Union[str, "os.PathLike[str]"]) -> None:
+def make_file_executable(path: Path) -> None:
     """Make the file at the provided path executable."""
-    os.chmod(path, (0o777 & ~_current_umask() | 0o111))
+    path.chmod(0o777 & ~_current_umask() | 0o111)

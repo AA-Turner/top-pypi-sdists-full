@@ -93,9 +93,12 @@ def make_github_level_thresholds(number_list):
     return tuple(nearest_rank(p) for p in (0.25, 0.50, 0.75))
 
 
-def resolve_github_level(value, thresholds):
+def resolve_github_level(value, thresholds, use_raw_level=False):
     if value <= 0:
         return 0
+    if use_raw_level:
+        # 直接使用传入的值作为级别（1-4），跳过四分位数计算
+        return max(1, min(4, int(value)))
     if not thresholds:
         return 1
 

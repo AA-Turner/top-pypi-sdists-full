@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httpdbg
-Version: 2.1.5
+Version: 2.1.6
 Summary: A very simple tool to debug HTTP(S) client and server requests.
 Author-email: cle-b <cle@tictac.pm>
 License-Expression: Apache-2.0

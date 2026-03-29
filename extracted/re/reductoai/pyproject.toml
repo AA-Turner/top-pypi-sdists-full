@@ -1,6 +1,6 @@
 [project]
 name = "reductoai"
-version = "0.21.0"
+version = "0.22.0"
 description = "The official Python library for the reducto API"
 dynamic = ["readme"]
 license = "Apache-2.0"
@@ -130,7 +130,7 @@ replacement = '[\1](https://github.com/reductoai/reducto-python-sdk/tree/main/\g
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--tb=short -n auto"
+addopts = "--tb=short -n auto --ignore=tests/e2e"
 xfail_strict = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
@@ -150,6 +150,8 @@ exclude = [
     ".venv",
     ".nox",
     ".git",
+    "src/reducto/lib",
+    "tests/e2e",
 ]
 
 reportImplicitOverride = true
@@ -168,7 +170,7 @@ show_error_codes = true
 #
 # We also exclude our `tests` as mypy doesn't always infer
 # types correctly and Pyright will still catch any type errors.
-exclude = ['src/reducto/_files.py', '_dev/.*.py', 'tests/.*']
+exclude = ['src/reducto/_files.py', 'src/reducto/lib/.*', '_dev/.*.py', 'tests/.*']
 
 strict_equality = true
 implicit_reexport = true

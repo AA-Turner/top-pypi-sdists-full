@@ -87,13 +87,59 @@ def pip_install_deps(
         cache_dir = Path(project.s.PIPENV_CACHE_DIR)
         default_exists_action = "w"
         exists_action = project.s.PIP_EXISTS_ACTION or default_exists_action
+        # Validate PIP_EXISTS_ACTION — pip only accepts s/i/w/b/a (#5063).
+        _valid_exists_actions = {"s", "i", "w", "b", "a"}
+        if exists_action not in _valid_exists_actions:
+            err.print(
+                f"[yellow]Warning:[/yellow] PIP_EXISTS_ACTION=[cyan]{exists_action!r}[/cyan] "
+                f"is not a valid pip exists-action. "
+                f"Valid values are: {', '.join(sorted(_valid_exists_actions))}. "
+                "Falling back to [cyan]'w'[/cyan] (wipe)."
+            )
+            exists_action = default_exists_action
+        # Suppress pip.conf index configuration so that only Pipfile [[source]]
+        # entries are used.  This prevents pip.conf extra-index-url (e.g.
+        # piwheels) from injecting indexes at install time that were not
+        # declared in the Pipfile, which would bypass pipenv's index safety
+        # model and cause hash-mismatch errors.
+        # Users who need a custom index (e.g. piwheels) should declare it as a
+        # [[source]] in their Pipfile.
         pip_config = {
             "PIP_CACHE_DIR": cache_dir.as_posix(),
             "PIP_WHEEL_DIR": cache_dir.joinpath("wheels").as_posix(),
             "PIP_DESTINATION_DIR": cache_dir.joinpath("pkgs").as_posix(),
             "PIP_EXISTS_ACTION": exists_action,
+            "PIP_CONFIG_FILE": os.devnull,
             "PATH": os.environ.get("PATH"),
         }
+        # Pass through keyring provider so that credential managers
+        # (e.g. Windows Credential Manager) work during install.
+        # See https://github.com/pypa/pipenv/issues/5715
+        keyring_provider = project.s.PIPENV_KEYRING_PROVIDER or os.environ.get(
+            "PIP_KEYRING_PROVIDER"
+        )
+        if keyring_provider:
+            pip_config["PIP_KEYRING_PROVIDER"] = keyring_provider
+        # When installing to the system (--system), pass through PIP_BREAK_SYSTEM_PACKAGES
+        # to support PEP 668 externally-managed environments (e.g. Ubuntu 23.04+, Debian 12+).
+        # This can be enabled via PIPENV_BREAK_SYSTEM_PACKAGES=1 or PIP_BREAK_SYSTEM_PACKAGES=1.
+        if allow_global:
+            break_system = project.s.PIPENV_BREAK_SYSTEM_PACKAGES or os.environ.get(
+                "PIP_BREAK_SYSTEM_PACKAGES"
+            )
+            if break_system:
+                pip_config["PIP_BREAK_SYSTEM_PACKAGES"] = "1"
+            # Pass through PIP_IGNORE_INSTALLED and PIP_USER if set in the environment
+            for env_key in ("PIP_IGNORE_INSTALLED", "PIP_USER"):
+                env_val = os.environ.get(env_key)
+                if env_val:
+                    pip_config[env_key] = env_val
+        if sources:
+            pip_config["PIP_INDEX_URL"] = sources[0].get("url", "")
+            if len(sources) > 1:
+                pip_config["PIP_EXTRA_INDEX_URL"] = " ".join(
+                    s.get("url", "") for s in sources[1:]
+                )
         if src_dir:
             if project.s.is_verbose():
                 err.print(f"Using source directory: {src_dir!r}")

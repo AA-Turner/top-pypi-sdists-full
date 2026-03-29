@@ -10,9 +10,9 @@ def fbx(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
-    filter_glob: str | None = "*.fbx",
+    filepath: str = "",
+    directory: str = "",
+    filter_glob: str = "*.fbx",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     ui_tab: typing.Literal["MAIN", "ARMATURE"] | None = "MAIN",
@@ -98,11 +98,11 @@ def gltf(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     export_import_convert_lighting_mode: typing.Literal["SPEC", "COMPAT", "RAW"]
     | None = "SPEC",
-    filter_glob: str | None = "*.glb;*.gltf",
-    directory: str | None = "",
+    filter_glob: str = "*.glb;*.gltf",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     loglevel: int | None = 0,

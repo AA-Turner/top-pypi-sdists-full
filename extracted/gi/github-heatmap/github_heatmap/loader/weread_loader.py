@@ -1,22 +1,25 @@
 import json
+import os
+
 import pendulum
 import requests
-import os
 
 from github_heatmap.loader.base_loader import BaseLoader
 from github_heatmap.loader.config import WEREAD_BASE_URL, WEREAD_HISTORY_URL
 
 headers = {
-    'User-Agent': "WeRead/8.2.5 WRBrand/xiaomi Dalvik/2.1.0 (Linux; U; Android 12; Redmi Note 7 Pro Build/SQ3A.220705.004)",
-    'Connection': "Keep-Alive",
-    'Accept-Encoding': "gzip",
-    'baseapi': "32",
-    'appver': "8.2.5.10163885",
-    'osver': "12",
-    'channelId': "11",
-    'basever': "8.2.5.10163885",
-    'Content-Type': "application/json; charset=UTF-8"
+    "User-Agent": "WeRead/8.2.5 WRBrand/xiaomi Dalvik/2.1.0 (Linux; U; Android 12; Redmi Note 7 Pro Build/SQ3A.220705.004)",
+    "Connection": "Keep-Alive",
+    "Accept-Encoding": "gzip",
+    "baseapi": "32",
+    "appver": "8.2.5.10163885",
+    "osver": "12",
+    "channelId": "11",
+    "basever": "8.2.5.10163885",
+    "Content-Type": "application/json; charset=UTF-8",
 }
+
+
 class WereadLoader(BaseLoader):
     track_color = "#2EA8F7"
     unit = "mins"
@@ -45,7 +48,11 @@ class WereadLoader(BaseLoader):
         # )
 
     def refresh_token(self):
-        body = {"deviceId":self.device_id ,"refreshToken":self.token,"activationCode":self.activation_code}
+        body = {
+            "deviceId": self.device_id,
+            "refreshToken": self.token,
+            "activationCode": self.activation_code,
+        }
         r = self.session.post(
             "https://api.notionhub.app/refresh-weread-token", json=body
         )
@@ -54,13 +61,14 @@ class WereadLoader(BaseLoader):
             vid = response_data.get("vid")
             accessToken = response_data.get("accessToken")
             if vid and accessToken:
-                self.session.headers.update({"vid": str(vid), "accessToken": accessToken})
+                self.session.headers.update(
+                    {"vid": str(vid), "accessToken": accessToken}
+                )
             else:
                 print("Failed to refresh token")
         else:
             print("Failed to refresh token")
-       
-    
+
     def get_api_data(self):
         r = self.session.get(WEREAD_HISTORY_URL)
         if not r.ok:
@@ -75,7 +83,7 @@ class WereadLoader(BaseLoader):
 
     def make_track_dict(self):
         api_data = self.get_api_data()
-        if("readTimes" in api_data):
+        if "readTimes" in api_data:
             readTimes = dict(sorted(api_data["readTimes"].items(), reverse=True))
             for k, v in readTimes.items():
                 k = pendulum.from_timestamp(int(k), tz=self.time_zone)

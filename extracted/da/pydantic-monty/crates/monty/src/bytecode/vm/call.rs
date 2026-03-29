@@ -4,6 +4,8 @@
 //! functions for executing function calls. The main entry points are the `exec_*`
 //! methods which are called from the VM's main dispatch loop.
 
+use std::mem;
+
 use super::{CallFrame, VM};
 use crate::{
     args::{ArgValues, KwargsValues},
@@ -12,12 +14,12 @@ use crate::{
     bytecode::FrameExit,
     defer_drop,
     exception_private::{ExcType, RunError},
-    heap::{DropWithHeap, Heap, HeapData, HeapGuard, HeapId},
+    heap::{DropWithHeap, HeapData, HeapGuard, HeapId},
     heap_data::CellValue,
     intern::{FunctionId, StringId},
     os::OsFunction,
     resource::ResourceTracker,
-    types::{Dict, PyTrait, Type, bytes::call_bytes_method, str::call_str_method, r#type::call_type_method},
+    types::{Dict, PyTrait, Type, bytes::call_bytes_method, str::call_str_method},
     value::{EitherStr, Value},
 };
 
@@ -256,7 +258,7 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
     /// Calls an attribute on an object.
     ///
     /// For heap-allocated objects (`Value::Ref`), dispatches to the type's
-    /// attribute call implementation via `Heap::call_attr()`, which may return
+    /// attribute call implementation via `py_call_attr`, which may return
     /// `CallResult::OsCall`, `CallResult::External`, or
     /// `CallResult::MethodCall` for operations that require host involvement.
     ///
@@ -269,7 +271,7 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
         match obj {
             Value::Ref(heap_id) => {
                 defer_drop!(obj, this);
-                Heap::call_attr(this, heap_id, &attr, args)
+                this.heap.read(heap_id).py_call_attr(heap_id, this, &attr, args)
             }
             Value::InternString(string_id) => {
                 // Call string method on interned string literal using the unified dispatcher
@@ -283,11 +285,11 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
             }
             Value::Builtin(Builtins::Type(t)) => {
                 // Handle classmethods on type objects like dict.fromkeys()
-                call_type_method(t, name_id, args, this).map(CallResult::Value)
+                t.call_class_method(name_id, args, this).map(Into::into)
             }
             _ => {
                 // Non-heap values without method support
-                let type_name = obj.py_type(this.heap);
+                let type_name = obj.py_type(this);
                 args.drop_with_heap(this);
                 Err(ExcType::attribute_error(type_name, this.interns.get_str(name_id)))
             }
@@ -373,7 +375,7 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
             }
             _ => {
                 args.drop_with_heap(self);
-                let ty = callable.py_type(self.heap);
+                let ty = callable.py_type(self);
                 Err(ExcType::type_error(format!("'{ty}' object is not callable")))
             }
         }
@@ -494,13 +496,13 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
         };
         let copied_kwargs: Vec<(Value, Value)> = dict
             .iter()
-            .map(|(k, v)| (k.clone_with_heap(this.heap), v.clone_with_heap(this.heap)))
+            .map(|(k, v)| (k.clone_with_heap(this), v.clone_with_heap(this)))
             .collect();
 
         let kwargs_values = if copied_kwargs.is_empty() {
             KwargsValues::Empty
         } else {
-            let kwargs_dict = Dict::from_pairs(copied_kwargs, this.heap, this.interns)?;
+            let kwargs_dict = Dict::from_pairs(copied_kwargs, this)?;
             KwargsValues::Dict(kwargs_dict)
         };
 
@@ -571,13 +573,13 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
         };
         let copied_kwargs: Vec<(Value, Value)> = dict
             .iter()
-            .map(|(k, v)| (k.clone_with_heap(this.heap), v.clone_with_heap(this.heap)))
+            .map(|(k, v)| (k.clone_with_heap(this), v.clone_with_heap(this)))
             .collect();
 
         let kwargs_values = if copied_kwargs.is_empty() {
             KwargsValues::Empty
         } else {
-            let kwargs_dict = Dict::from_pairs(copied_kwargs, this.heap, this.interns)?;
+            let kwargs_dict = Dict::from_pairs(copied_kwargs, this)?;
             KwargsValues::Dict(kwargs_dict)
         };
 
@@ -641,8 +643,7 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
         let (namespace, this) = namespace_guard.as_parts_mut();
 
         // 2. Bind arguments to parameters
-        func.signature
-            .bind(args, defaults, this.heap, this.interns, func.name, namespace)?;
+        func.signature.bind(args, defaults, this, func.name, namespace)?;
 
         // 3. Create cells for variables captured by nested functions
         {
@@ -650,7 +651,7 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
             for (i, maybe_param_idx) in func.cell_param_indices.iter().enumerate() {
                 let cell_slot = param_count + i;
                 let cell_value = if let Some(param_idx) = maybe_param_idx {
-                    namespace[*param_idx].clone_with_heap(this.heap)
+                    namespace[*param_idx].clone_with_heap(this)
                 } else {
                     Value::Undefined
                 };
@@ -696,29 +697,27 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
         args: ArgValues,
     ) -> Result<CallResult, RunError> {
         let call_position = self.current_position();
+        let stack_base = self.stack.len();
 
         let func = self.interns.get_function(func_id);
         let namespace_size = func.namespace_size;
         let locals_count = u16::try_from(namespace_size).expect("function namespace size exceeds u16");
 
         // Track memory for this frame's locals
-        let size = namespace_size * std::mem::size_of::<Value>();
+        let size = namespace_size * mem::size_of::<Value>();
         self.heap.tracker_mut().on_allocate(|| size)?;
 
-        // 1. Build locals directly on the VM stack. The StackGuard ensures
-        //    rollback (drain + drop_with_heap) on any error path.
-        let guard = StackGuard::new(&mut self.stack, &mut *self.heap);
-        let stack_base = guard.base;
-        guard.stack.reserve(namespace_size);
+        // 1. Create namespace for the frame in a temporary vec, will extend to stack later
+        let namespace = Vec::with_capacity(func.namespace_size);
+        let mut namespace_guard = HeapGuard::new(namespace, self);
+        let (namespace, this) = namespace_guard.as_parts_mut();
 
         // 2. Bind arguments to parameters
         {
-            let bind_result = func
-                .signature
-                .bind(args, defaults, guard.heap, self.interns, func.name, guard.stack);
+            let bind_result = func.signature.bind(args, defaults, this, func.name, namespace);
 
             if let Err(e) = bind_result {
-                guard.heap.tracker_mut().on_free(|| size);
+                this.heap.tracker_mut().on_free(|| size);
                 return Err(e);
             }
         }
@@ -729,36 +728,35 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
             for (i, maybe_param_idx) in func.cell_param_indices.iter().enumerate() {
                 let cell_slot = param_count + i;
                 let cell_value = if let Some(param_idx) = maybe_param_idx {
-                    guard.stack[stack_base + *param_idx].clone_with_heap(guard.heap)
+                    namespace[*param_idx].clone_with_heap(this)
                 } else {
                     Value::Undefined
                 };
-                let cell_id = guard.heap.allocate(HeapData::Cell(CellValue(cell_value)))?;
-                guard.stack.resize_with(stack_base + cell_slot, || Value::Undefined);
-                guard.stack.push(Value::Ref(cell_id));
+                let cell_id = this.heap.allocate(HeapData::Cell(CellValue(cell_value)))?;
+                namespace.resize_with(cell_slot, || Value::Undefined);
+                namespace.push(Value::Ref(cell_id));
             }
 
             // 4. Copy captured cells (free vars) into namespace
             let free_var_start = param_count + func.cell_var_count;
             for (i, &cell_id) in cells.iter().enumerate() {
-                guard.heap.inc_ref(cell_id);
+                this.heap.inc_ref(cell_id);
                 let slot = free_var_start + i;
-                guard.stack.resize_with(stack_base + slot, || Value::Undefined);
-                guard.stack.push(Value::Ref(cell_id));
+                namespace.resize_with(slot, || Value::Undefined);
+                namespace.push(Value::Ref(cell_id));
             }
 
             // 5. Fill remaining slots with Undefined
-            guard
-                .stack
-                .resize_with(stack_base + namespace_size, || Value::Undefined);
+            namespace.resize_with(namespace_size, || Value::Undefined);
         }
 
         let code = &func.code;
 
         // 6. Commit the guard (no rollback) and push the frame
-        std::mem::forget(guard);
+        let (namespace, this) = namespace_guard.into_parts();
+        this.stack.extend(namespace);
 
-        self.push_frame(CallFrame::new_function(
+        this.push_frame(CallFrame::new_function(
             code,
             stack_base,
             locals_count,
@@ -767,41 +765,5 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
         ))?;
 
         Ok(CallResult::FramePushed)
-    }
-}
-
-/// RAII guard that protects values pushed onto a `Vec<Value>` during frame setup.
-///
-/// Records the vec's length at creation. On drop, drains all values pushed since
-/// then and properly drops them via [`DropWithHeap::drop_with_heap`]. Call [`commit`](Self::commit)
-/// on the success path to consume the guard without cleanup.
-///
-/// This enables pushing function locals directly onto the VM stack instead of
-/// building them in a temporary `Vec` — the guard guarantees rollback on any
-/// error path (`?`, early return, etc.) so partially-constructed namespaces
-/// never leak reference counts.
-struct StackGuard<'a, T: ResourceTracker> {
-    /// The stack vec being guarded — values are pushed here directly.
-    stack: &'a mut Vec<Value>,
-    /// Heap reference for dropping values on rollback.
-    heap: &'a mut Heap<T>,
-    /// Stack length when the guard was created — rollback drains from here.
-    base: usize,
-}
-
-impl<'a, T: ResourceTracker> StackGuard<'a, T> {
-    /// Creates a new guard, recording the current stack length as the rollback point.
-    #[inline]
-    fn new(stack: &'a mut Vec<Value>, heap: &'a mut Heap<T>) -> Self {
-        let base = stack.len();
-        Self { stack, heap, base }
-    }
-}
-
-impl<T: ResourceTracker> Drop for StackGuard<'_, T> {
-    fn drop(&mut self) {
-        self.stack
-            .drain(self.base..)
-            .for_each(|v| v.drop_with_heap(&mut *self.heap));
     }
 }

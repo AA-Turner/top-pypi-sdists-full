@@ -1,18 +1,16 @@
+from __future__ import annotations
+
 from collections import Counter
 from itertools import chain
 
-from beets import autotag, config, importer, logging, plugins, ui
-from beets.autotag import Recommendation
+from beets import config, importer, logging, plugins, ui
+from beets.autotag.hooks import AlbumMatch, TrackMatch
+from beets.autotag.match import Proposal, Recommendation, tag_album, tag_item
 from beets.util import PromptChoice, displayable_path
+from beets.util.color import colorize
 from beets.util.units import human_bytes, human_seconds_short
 
-from .display import (
-    disambig_string,
-    dist_colorize,
-    penalty_string,
-    show_change,
-    show_item_change,
-)
+from .display import show_change, show_item_change
 
 # Global logger.
 log = logging.getLogger("beets")
@@ -30,9 +28,9 @@ class TerminalImportSession(importer.ImportSession):
         ui.print_()
 
         path_str0 = displayable_path(task.paths, "\n")
-        path_str = ui.colorize("import_path", path_str0)
+        path_str = colorize("import_path", path_str0)
         items_str0 = f"({len(task.items)} items)"
-        items_str = ui.colorize("import_path_items", items_str0)
+        items_str = colorize("import_path_items", items_str0)
         ui.print_(" ".join([path_str, items_str]))
 
         # Let plugins display info or prompt the user before we go through the
@@ -87,7 +85,7 @@ class TerminalImportSession(importer.ImportSession):
                 post_choice = choice.callback(self, task)
                 if isinstance(post_choice, importer.Action):
                     return post_choice
-                elif isinstance(post_choice, autotag.Proposal):
+                elif isinstance(post_choice, Proposal):
                     # Use the new candidates and continue around the loop.
                     task.candidates = post_choice.candidates
                     task.rec = post_choice.recommendation
@@ -96,7 +94,7 @@ class TerminalImportSession(importer.ImportSession):
             else:
                 # We have a candidate! Finish tagging. Here, choice is an
                 # AlbumMatch object.
-                assert isinstance(choice, autotag.AlbumMatch)
+                assert isinstance(choice, AlbumMatch)
                 return choice
 
     def choose_item(self, task):
@@ -130,13 +128,13 @@ class TerminalImportSession(importer.ImportSession):
                 post_choice = choice.callback(self, task)
                 if isinstance(post_choice, importer.Action):
                     return post_choice
-                elif isinstance(post_choice, autotag.Proposal):
+                elif isinstance(post_choice, Proposal):
                     candidates = post_choice.candidates
                     rec = post_choice.recommendation
 
             else:
                 # Chose a candidate.
-                assert isinstance(choice, autotag.TrackMatch)
+                assert isinstance(choice, TrackMatch)
                 return choice
 
     def resolve_duplicate(self, task, found_duplicates):
@@ -439,26 +437,28 @@ def choose_candidate(
             ui.print_("  Candidates:")
             for i, match in enumerate(candidates):
                 # Index, metadata, and distance.
-                index0 = f"{i + 1}."
-                index = dist_colorize(index0, match.distance)
-                dist = f"({(1 - match.distance) * 100:.1f}%)"
-                distance = dist_colorize(dist, match.distance)
-                metadata = f"{match.info.artist} - {match.info.name}"
-                if i == 0:
-                    metadata = dist_colorize(metadata, match.distance)
-                else:
-                    metadata = ui.colorize("text_highlight_minor", metadata)
-                line1 = [index, distance, metadata]
-                ui.print_(f"  {' '.join(line1)}")
+                dist_color = match.distance.color
+                line_parts = [
+                    colorize(dist_color, f"{i + 1}."),
+                    match.distance.string,
+                    colorize(
+                        dist_color if i == 0 else "text_highlight_minor",
+                        f"{match.info.artist} - {match.info.name}",
+                    ),
+                ]
+                ui.print_(f"  {' '.join(line_parts)}")
 
                 # Penalties.
-                penalties = penalty_string(match.distance, 3)
-                if penalties:
-                    ui.print_(f"{' ' * 13}{penalties}")
+                if penalty_keys := match.distance.generic_penalty_keys:
+                    if len(penalty_keys) > 3:
+                        penalty_keys = [*penalty_keys[:3], "..."]
+                    penalty_text = colorize(
+                        "changed", f"\u2260 {', '.join(penalty_keys)}"
+                    )
+                    ui.print_(f"{' ' * 13}{penalty_text}")
 
                 # Disambiguation
-                disambig = disambig_string(match.info)
-                if disambig:
+                if disambig := match.disambig_string:
                     ui.print_(f"{' ' * 13}{disambig}")
 
             # Ask the user for a choice.
@@ -520,10 +520,10 @@ def manual_search(session, task):
     name = ui.input_("Album:" if task.is_album else "Track:").strip()
 
     if task.is_album:
-        _, _, prop = autotag.tag_album(task.items, artist, name)
+        _, _, prop = tag_album(task.items, artist, name)
         return prop
     else:
-        return autotag.tag_item(task.item, artist, name)
+        return tag_item(task.item, artist, name)
 
 
 def manual_id(session, task):
@@ -535,10 +535,10 @@ def manual_id(session, task):
     search_id = ui.input_(prompt).strip()
 
     if task.is_album:
-        _, _, prop = autotag.tag_album(task.items, search_ids=search_id.split())
+        _, _, prop = tag_album(task.items, search_ids=search_id.split())
         return prop
     else:
-        return autotag.tag_item(task.item, search_ids=search_id.split())
+        return tag_item(task.item, search_ids=search_id.split())
 
 
 def abort_action(session, task):

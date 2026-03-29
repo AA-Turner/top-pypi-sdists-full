@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: phono3py
-Version: 3.28.0
+Version: 3.29.0
 Summary: This is the phono3py module.
 Author-Email: Atsushi Togo <atztogo@gmail.com>
 License-Expression: BSD-3-Clause
@@ -14,7 +14,7 @@ Requires-Dist: PyYAML
 Requires-Dist: matplotlib
 Requires-Dist: h5py
 Requires-Dist: spglib>=2.5.0
-Requires-Dist: phonopy<3.2.0,>=3.1.0
+Requires-Dist: phonopy<3.5.0,>=3.4.0
 Description-Content-Type: text/markdown
 
 [![Version Badge](https://anaconda.org/conda-forge/phono3py/badges/version.svg)](https://anaconda.org/conda-forge/phono3py)

@@ -402,6 +402,7 @@ class MammotionClient:
         )
         transport = AliyunMQTTTransport(config, cloud_client)
         transport.on_device_message = self._route_device_message
+        transport.on_device_status = self._route_device_status
         self._aliyun_transport = transport
         return transport
 
@@ -421,6 +422,7 @@ class MammotionClient:
         )
         transport = MQTTTransport(config, mammotion_http)
         transport.on_device_message = self._route_device_message
+        transport.on_device_status = self._route_device_status
         self._mammotion_transport = transport
         return transport
 
@@ -503,8 +505,6 @@ class MammotionClient:
                     await self._register_aliyun_device(device.device_name, device.iot_id, transport)
                     known_ids.add(device.device_name)
 
-        await transport.connect()
-
         if check_for_new_devices:
             try:
                 fresh = await cloud_client.list_binding_by_account()
@@ -512,8 +512,16 @@ class MammotionClient:
                     for device in fresh.data.data:
                         if device.device_name and device.device_name not in known_ids:
                             await self._register_aliyun_device(device.device_name, device.iot_id, transport)
+                            known_ids.add(device.device_name)
             except Exception:
                 _logger.warning("restore_credentials: new-device discovery failed (Aliyun)", exc_info=True)
+
+        if not known_ids:
+            _logger.info("No Aliyun devices found — skipping Aliyun MQTT connection")
+            self._aliyun_transport = None
+            return
+
+        await transport.connect()
 
     async def _restore_mammotion_mqtt(
         self,
@@ -603,6 +611,31 @@ class MammotionClient:
             return
         await handle._on_raw_message(payload)  # noqa: SLF001
 
+    async def _route_device_status(self, iot_id: str, status: str) -> None:
+        """Update a device handle's MQTT availability from a thing/status message.
+
+        Args:
+            iot_id: The Aliyun / Mammotion IoT device identifier.
+            status: ``"online"`` or ``"offline"`` as decoded by the transport.
+        """
+        from pymammotion.transport.base import TransportAvailability
+
+        device_id = self._iot_id_to_device_id.get(iot_id)
+        if device_id is None:
+            _logger.debug("_route_device_status: unknown iot_id=%s (%s)", iot_id, status)
+            return
+        handle = self._device_registry.get(device_id)
+        if handle is None:
+            return
+        transport_type = (
+            TransportType.CLOUD_MAMMOTION
+            if handle.has_transport(TransportType.CLOUD_MAMMOTION)
+            else TransportType.CLOUD_ALIYUN
+        )
+        avail = TransportAvailability.CONNECTED if status == "online" else TransportAvailability.DISCONNECTED
+        handle.update_availability(transport_type, avail, mqtt_reported_offline=(status != "online"))
+        _logger.info("Device '%s' is now %s (thing/status)", device_id, status)
+
     # ------------------------------------------------------------------
     # Map sync
     # ------------------------------------------------------------------
@@ -634,10 +667,50 @@ class MammotionClient:
 
         async def _on_map_complete() -> None:
             device = self.get_device_by_name(device_name)
-            if device is not None and device.location.RTK.latitude != 0:
+            if device is None:
+                return
+            # Restore root_hash_lists from the saga result.  Reports arriving
+            # during the sync may have cleared device.map.root_hash_lists via
+            # invalidate_maps() because the partial area set didn't hash-match.
+            # Copying the completed saga's list ensures the next invalidate_maps()
+            # call sees a consistent hash and doesn't immediately clear it again.
+            if saga.result is not None:
+                device.map.root_hash_lists = saga.result.root_hash_lists
+            if device.location.RTK.latitude != 0:
                 _apply_geojson(device)
 
         await handle.enqueue_saga(saga, on_complete=_on_map_complete)
+
+    async def start_area_name_sync(self, device_name: str) -> None:
+        """Fetch area names for *device_name* without re-fetching the full map.
+
+        Enqueues a MapFetchSaga in area-names-only mode.  Use this when the
+        map hash is still valid (bol_hash matches) but area names are missing.
+        """
+        from pymammotion.messaging.map_saga import MapFetchSaga
+        from pymammotion.utility.device_type import DeviceType
+
+        handle = self._device_registry.get_by_name(device_name)
+        if handle is None:
+            _logger.warning("start_area_name_sync: device '%s' not registered", device_name)
+            return
+        if DeviceType.is_luba1(device_name):
+            return  # Luba 1 has no area names
+        commands = MammotionCommand(device_name, self._user_account)
+        transport = handle.active_transport()
+        _iot_id = handle.iot_id
+        device = self.get_device_by_name(device_name)
+        existing_area_hashes = list(device.map.area.keys()) if device is not None else []
+        saga = MapFetchSaga(
+            device_id=handle.device_id,
+            device_name=handle.device_name,
+            is_luba1=False,
+            command_builder=commands,
+            send_command=lambda cmd: transport.send(cmd, iot_id=_iot_id),
+            area_names_only=True,
+            existing_area_hashes=existing_area_hashes,
+        )
+        await handle.enqueue_saga(saga)
 
     async def start_plan_sync(self, device_name: str) -> None:
         """Enqueue a PlanFetchSaga to fetch all stored schedule plans.
@@ -895,8 +968,8 @@ class MammotionClient:
         handle = self._device_registry.get_by_name(device_name)
         if handle is not None:
             commands = MammotionCommand(device_name, self._user_account)
-            await handle.send_command(commands.device_agora_join_channel_with_position(0))
-            await handle.send_command(commands.device_agora_join_channel_with_position(1))
+            await handle.send_command(commands.device_agora_join_channel_with_position(0), "set_video_ack")
+            await handle.send_command(commands.device_agora_join_channel_with_position(1), "set_video_ack")
 
         return subscription
 
@@ -947,7 +1020,7 @@ class MammotionClient:
         _prefer_ble = prefer_ble
 
         async def _do_send() -> None:
-            await handle.active_transport(prefer_ble=_prefer_ble).send(command_bytes, iot_id=iot_id)
+            await handle.send_raw(command_bytes, prefer_ble=_prefer_ble)
 
         await handle.queue.enqueue(_do_send, priority=Priority.NORMAL)
 

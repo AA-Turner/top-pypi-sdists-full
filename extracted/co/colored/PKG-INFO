@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: colored
-Version: 2.3.1
+Version: 2.3.2
 Summary: Simple python library for color and formatting to terminal
 Keywords: xterm,color,colour,vt100,ansi,terminal,text,rgb,linux,windows
 Author-email: Dimitris Zlatanidis <dslackw@gmail.com>
@@ -20,13 +20,22 @@ Classifier: Topic :: Terminals
 License-File: LICENSE.txt
 Project-URL: homepage, https://dslackw.gitlab.io/colored/
 
-<a href="https://dslackw.gitlab.io/colored"> 
+[![Latest Release](https://gitlab.com/dslackw/colored/-/badges/release.svg)](https://gitlab.com/dslackw/colored/-/releases)
+[![pipeline status](https://img.shields.io/badge/pipeline-master-blue)](https://gitlab.com/dslackw/colored/-/commits/master)
+[![coverage report](https://gitlab.com/dslackw/colored/badges/master/coverage.svg)](https://gitlab.com/dslackw/colored/-/commits/master)
+[![Python](https://img.shields.io/badge/python-3.9+-blue)](https://www.python.org/)
+[![Code style: flake8](https://img.shields.io/badge/code%20style-flake8-orange)](https://flake8.pycqa.org/)
+[![Type checked: mypy](https://img.shields.io/badge/type%20checked-mypy-blue)](https://mypy-lang.org/)
+[![Linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://pylint.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+<a href="https://dslackw.gitlab.io/colored">
 <img src="https://gitlab.com/dslackw/colored/-/raw/site/docs/images/colored.png" title="colored"></a>
 
 ## About
 
 Colored, it's a simple Python library for color and formatting in terminal.
-Collection of color codes and names for 256 color terminal setups. 
+Collection of color codes and names for 256 color terminal setups.
 Colored now supports RGB color mode. As "true color" graphic cards with 16 to <a href="https://en.wikipedia.org/wiki/ANSI_escape_code#24-bit" target="_blank">24 bits</a> of color became common, 
 applications began to support 24-bit colors. Terminal emulators supporting setting 24-bit foreground and background 
 colors with escape sequences include Xterm, KDE's <a href="https://en.wikipedia.org/wiki/Konsole" target="_blank">Konsole</a>, and iTerm, as well as all libvte based terminals,

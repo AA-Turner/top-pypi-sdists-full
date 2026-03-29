@@ -14,11 +14,11 @@
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import datetime
-from typing import Iterable, List
+from typing import Iterable
 
 import pytest
 
-from pydifact.api import EDISyntaxError
+from pydifact.exceptions import EDISyntaxError
 from pydifact.segmentcollection import Interchange, Message, RawSegmentCollection
 from pydifact.segments import Segment
 
@@ -29,58 +29,72 @@ def test_from_file():
 
 
 def test_create_with_segments():
-    collection = RawSegmentCollection.from_segments([Segment("36CF")])
-    assert [Segment("36CF")] == collection.segments
+    collection = RawSegmentCollection.from_segments([Segment("FOO", "36CF")])
+    assert [Segment("FOO", "36CF")] == collection.segments
 
 
 def test_get_segments():
     collection = RawSegmentCollection.from_segments(
-        [Segment("36CF", 1), Segment("CPD"), Segment("36CF", 2)]
+        [Segment("FOO", "36CF", 1), Segment("BAR", "CPD"), Segment("FOO", "36CF", 2)]
     )
-    segments = list(collection.get_segments("36CF"))
-    assert [Segment("36CF", 1), Segment("36CF", 2)] == segments
+    segments = list(collection.get_segments("FOO"))
+    assert [Segment("FOO", "36CF", 1), Segment("FOO", "36CF", 2)] == segments
 
 
 def test_get_segments_doesnt_exist():
     collection = RawSegmentCollection()
-    segments = list(collection.get_segments("36CF"))
-    assert [] == segments
+    segments = list(collection.get_segments("FOO"))
+    assert segments == []
 
 
 def test_get_segments_w_predicate():
     collection = RawSegmentCollection.from_segments(
         [
-            Segment("A", "1", "a"),
-            Segment("A", "2", "b"),
-            Segment("A", "1", "c"),
+            Segment("AAA", "1", "a"),
+            Segment("AAA", "2", "b"),
+            Segment("AAA", "1", "c"),
         ]
     )
-    segments = collection.get_segments("A", lambda x: x[0] == "1")
+    segments = collection.get_segments("AAA", lambda x: x[0] == "1")
     assert [
-        Segment("A", "1", "a"),
-        Segment("A", "1", "c"),
+        Segment("AAA", "1", "a"),
+        Segment("AAA", "1", "c"),
     ] == list(segments)
 
 
 def test_get_segment():
     collection = RawSegmentCollection.from_segments(
-        [Segment("36CF", 1), Segment("36CF", 2)]
+        [Segment("6CF", 1), Segment("6CF", 2)]
     )
-    segment = collection.get_segment("36CF")
-    assert Segment("36CF", 1) == segment
+    segment = collection.get_segment("6CF")
+    assert Segment("6CF", 1) == segment
 
 
 def test_get_segment_w_predicate():
     collection = RawSegmentCollection.from_segments(
-        [Segment("36CF", "1"), Segment("36CF", "2")]
+        [
+            Segment("FOO", ["36CF", "1"], "bar"),
+            Segment("FOO", "36CF", "2", "bar"),
+            Segment("FOO", "36CF", "3"),
+        ]
     )
-    segment = collection.get_segment("36CF", lambda x: x[0] == "2")
-    assert segment == Segment("36CF", "2")
+
+    assert collection.get_segment("FOO", lambda x: x[1] == "bar") == Segment(
+        "FOO", ["36CF", "1"], "bar"
+    )
+
+    assert collection.get_segment("FOO", lambda x: x[1] == "3") == Segment(
+        "FOO", "36CF", "3"
+    )
+    # TODO: add more level or predicate search?
+    # assert collection.get_segment("FOO", lambda x: x[1][1] == "1") == Segment(
+    #     "FOO", ["36CF", "1"], "bar"
+    # )
 
 
 def test_split_by():
-    def _serialize(collections: Iterable[RawSegmentCollection]) -> List[List[str]]:
-        lst = []
+    def _serialize(collections: Iterable[RawSegmentCollection]) -> list[list[str]]:
+        lst: list[str] = []
         global_lst = []
         for collection in collections:
             if lst:
@@ -92,33 +106,41 @@ def test_split_by():
             global_lst.append(lst)
         return global_lst
 
-    assert _serialize(RawSegmentCollection.from_segments([]).split_by("A")) == []
+    assert _serialize(RawSegmentCollection.from_segments([]).split_by("AAA")) == []
     collection = RawSegmentCollection.from_segments(
-        Segment(i) for i in ["A", "B", "A", "A", "B", "D"]
+        Segment(i, "blah") for i in ["AAA", "BBB", "AAA", "AAA", "BBB", "DDD"]
     )
-    assert _serialize(collection.split_by("Z")) == []
-    assert _serialize(collection.split_by("A")) == [["A", "B"], ["A"], ["A", "B", "D"]]
-    assert _serialize(collection.split_by("A")) == [["A", "B"], ["A"], ["A", "B", "D"]]
+    assert _serialize(collection.split_by("ZZZ")) == []
+    assert _serialize(collection.split_by("AAA")) == [
+        ["AAA", "BBB"],
+        ["AAA"],
+        ["AAA", "BBB", "DDD"],
+    ]
+    assert _serialize(collection.split_by("AAA")) == [
+        ["AAA", "BBB"],
+        ["AAA"],
+        ["AAA", "BBB", "DDD"],
+    ]
 
 
 def test_str_serialize():
     collection = RawSegmentCollection.from_segments(
-        [Segment("36CF", "1"), Segment("36CF", "2")]
+        [Segment("FOO", "1"), Segment("FOO", "2")]
     )
     string = str(collection)
-    assert "36CF+1'36CF+2'" == string
+    assert "FOO+1'FOO+2'" == string
 
 
 def test_get_segment_doesnt_exist():
     collection = RawSegmentCollection()
-    segment = collection.get_segment("36CF")
+    segment = collection.get_segment("FOO")
     assert segment is None
 
 
 def test_empty_segment():
     m = RawSegmentCollection()
-    m.add_segment(Segment("", []))
-    assert m
+    with pytest.raises(ValueError):
+        m.add_segment(Segment("", []))
 
 
 def test_malformed_tag1():
@@ -166,7 +188,7 @@ def message():
 
 
 def test_empty_interchange(interchange):
-    assert str(interchange) == ("UNB+UNOC:1+1234+3333+200102:2212+42'" "UNZ+0+42'")
+    assert str(interchange) == ("UNB+UNOC:1+1234+3333+200102:2212+42'UNZ+0+42'")
 
 
 def test_empty_interchange_w_extra_header():
@@ -179,12 +201,12 @@ def test_empty_interchange_w_extra_header():
         extra_header_elements=[["66", "2"], "ZZ"],
     )
 
-    assert str(i) == ("UNB+UNOC:1+1234+3333+200102:2212+42+66:2+ZZ'" "UNZ+0+42'")
+    assert str(i) == ("UNB+UNOC:1+1234+3333+200102:2212+42+66:2+ZZ'UNZ+0+42'")
 
 
 def test_empty_interchange_from_str():
-    i = Interchange.from_str("UNB+UNOC:1+1234+3333+200102:2212+42'" "UNZ+0+42'")
-    assert str(i) == ("UNB+UNOC:1+1234+3333+200102:2212+42'" "UNZ+0+42'")
+    i = Interchange.from_str("UNB+UNOC:1+1234+3333+200102:2212+42'UNZ+0+42'")
+    assert str(i) == ("UNB+UNOC:1+1234+3333+200102:2212+42'UNZ+0+42'")
 
 
 def test_empty_interchange_w_una():
@@ -195,7 +217,7 @@ def test_empty_interchange_w_una():
             Segment("UNZ", "0", "42"),
         ]
     )
-    assert str(i) == ("UNA:+,? '" "UNB+UNOC:1+1234+3333+200102:2212+42'" "UNZ+0+42'")
+    assert str(i) == ("UNA:+,? '" "UNB+UNOC:1+1234+3333+200102:2212+42'UNZ+0+42'")
 
 
 def test_interchange_messages(interchange, message):
@@ -260,12 +282,14 @@ def test_faulty_interchange__UNT_without_UNH():
 
 
 def test_empty_message(message):
-    assert str(message) == ("UNH+42z42+PAORES:93:1:IA'" "UNT+2+42z42'")
+    assert str(message) == "UNH+42z42+PAORES:93:1:IA'UNT+2+42z42'"
 
 
 def test_add_another_footer_element(message):
     """make sure that adding another UNZ footer is ignored."""
-    assert message.add_segment(Segment("UNZ", "1", "234z45")) == message
+    expected = str(message)
+    message.add_segment(Segment("UNT", "1", "234z45"))
+    assert str(message) == expected
 
 
 def test_counting_of_messages(interchange, message):
@@ -283,7 +307,7 @@ def test_counting_of_messages(interchange, message):
 
 def test_interchange_with_extra_header_elements():
     edi_str = (
-        "UNB+UNOC:3+9901011000001:500+9900222000002:500+230314:1015+333333333++TL'"
+        "UNB+UNOC:3+9901011000001:51+9900222000002:51+230314:1015+333333333++TL'"
         "UNH+42z42+PAORES:93:1:IA'"
         "UNT+2+42z42'"
         "UNZ+1+333333333'"
@@ -292,8 +316,8 @@ def test_interchange_with_extra_header_elements():
     assert i.get_header_segment() == Segment(
         "UNB",
         ["UNOC", "3"],
-        ["9901011000001", "500"],
-        ["9900222000002", "500"],
+        ["9901011000001", "51"],
+        ["9900222000002", "51"],
         ["230314", "1015"],
         "333333333",
         "",

@@ -18,11 +18,32 @@ import pytest
 from pydifact.control import Characters
 
 
+class Setup:
+    pass
+
+
+@pytest.fixture
+def setup():
+    setup = Setup()
+    una_segment = "UNA:+.? '"
+    setup.cc = Characters.from_str(una_segment)
+    return setup
+
+
+def test_una_segment(setup):
+    assert setup.cc.component_separator == ":"
+    assert setup.cc.data_separator == "+"
+    assert setup.cc.decimal_point == "."
+    assert setup.cc.escape_character == "?"
+    assert setup.cc.reserved_character == " "
+    assert setup.cc.segment_terminator == "'"
+
+
 def test_with_separator_identity():
     one = Characters()
     other = Characters()
     # a copy of a characters object must be equal, but not the same
-    assert one == other, 'Objects differ: "{}", "{}"'.format(one, other)
+    assert one == other, f'Objects differ: "{one}", "{other}"'
     assert one is not other
 
 

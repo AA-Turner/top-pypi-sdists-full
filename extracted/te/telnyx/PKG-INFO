@@ -1,12 +1,11 @@
 Metadata-Version: 2.3
 Name: telnyx
-Version: 4.87.0
-Summary: Telnyx API SDK for global Voice, SMS, MMS, WhatsApp, Fax, Wireless IoT, SIP Trunking, and Call Control.
+Version: 4.88.1
+Summary: The official Python library for the telnyx API
 Project-URL: Homepage, https://github.com/team-telnyx/telnyx-python
 Project-URL: Repository, https://github.com/team-telnyx/telnyx-python
 Author-email: Telnyx <support@telnyx.com>
 License: MIT
-Keywords: api,communications,connectivity,fax,iot,mms,sip,sms,telephony,telnyx,trunking,voice,voip,whatsapp
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
@@ -33,7 +32,6 @@ Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
 Provides-Extra: webhooks
-Requires-Dist: pynacl>=1.5.0; extra == 'webhooks'
 Requires-Dist: standardwebhooks<2,>=1.0.1; extra == 'webhooks'
 Provides-Extra: websockets
 Requires-Dist: websockets<16,>=13; extra == 'websockets'
@@ -387,49 +385,6 @@ client.with_options(timeout=5.0).number_orders.create(
 On timeout, an `APITimeoutError` is thrown.
 
 Note that requests that time out are [retried twice by default](https://github.com/team-telnyx/telnyx-python/tree/master/#retries).
-
-## Real-time Speech-to-Text (WebSocket)
-
-Stream audio for real-time transcription using WebSocket:
-
-```python
-import telnyx
-
-client = telnyx.Telnyx()
-
-# Synchronous usage
-with client.speech_to_text.stream(
-    transcription_engine="Telnyx",
-    language="en-US",
-    interim_results=True,
-) as connection:
-    # Send audio data
-    with open("audio.wav", "rb") as f:
-        connection.send(f.read())
-
-    # Receive transcripts
-    for event in connection:
-        if event.type == "transcript":
-            status = "✓" if event.is_final else "..."
-            print(f"{status} {event.transcript}")
-        elif event.type == "error":
-            print(f"Error: {event.error}")
-```
-
-Async usage:
-
-```python
-async with client.speech_to_text.stream(
-    transcription_engine="Telnyx",
-    language="en-US",
-) as connection:
-    await connection.send(audio_data)
-    async for event in connection:
-        if event.type == "transcript":
-            print(event.transcript)
-```
-
-Supported transcription engines: `Azure`, `Deepgram`, `Google`, `Telnyx`
 
 ## Advanced
 

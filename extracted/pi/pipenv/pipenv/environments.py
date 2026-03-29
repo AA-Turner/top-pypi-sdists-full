@@ -54,8 +54,11 @@ def normalize_pipfile_path(p):
     if p is None:
         return None
     loc = Path(p)
+    # Use os.path.abspath instead of Path.resolve() so that symlinks are
+    # preserved.  When a Pipfile is symlinked into a directory, the virtualenv
+    # should be based on the symlink's location, not the target's.  See #4471.
     try:
-        loc = loc.resolve()
+        loc = Path(os.path.abspath(loc))
     except OSError:
         loc = loc.absolute()
     # Recase the path properly on Windows. From https://stackoverflow.com/a/35229734/5043728
@@ -149,6 +152,15 @@ class Setting:
         """If set, Pipenv does not attempt to install Python with pyenv.
 
         Default is to install Python automatically via pyenv when needed, if possible.
+        """
+
+        self.PIPENV_PYENV_ONLY = bool(
+            get_from_env("PYENV_ONLY", check_for_negation=False)
+        )
+        """If set, Pipenv only searches for Python interpreters installed via pyenv.
+
+        This restricts Python discovery to pyenv-managed installations only,
+        ignoring system, Homebrew, and other Python interpreters.
         """
 
         self.PIPENV_DONT_USE_ASDF = bool(
@@ -366,6 +378,19 @@ class Setting:
         Defaults to ``(w)ipe``
         """
 
+        self.PIPENV_BREAK_SYSTEM_PACKAGES = bool(
+            get_from_env("BREAK_SYSTEM_PACKAGES", check_for_negation=False)
+        )
+        """If set, passes ``--break-system-packages`` to pip when using ``--system``.
+
+        This is needed on PEP 668 compliant distributions (e.g. Ubuntu 23.04+,
+        Debian 12+) where pip refuses to install packages into the system
+        site-packages without this flag.
+
+        Default is unset.  Can also be enabled by setting the standard
+        ``PIP_BREAK_SYSTEM_PACKAGES=1`` environment variable.
+        """
+
         self.PIPENV_RESOLVE_VCS = bool(get_from_env("RESOLVE_VCS", default=True))
         """Tells Pipenv whether to resolve all VCS dependencies in full.
 
@@ -388,6 +413,17 @@ class Setting:
             "VIRTUALENV_COPIES", check_for_negation=True
         )
         """Tells Pipenv to use the virtualenv --copies to prevent symlinks when specified as Truthy."""
+
+        self.PIPENV_KEYRING_PROVIDER = get_from_env(
+            "KEYRING_PROVIDER", check_for_negation=False
+        )
+        """If set, tells pipenv which keyring provider to use for credentials lookup.
+
+        Accepts: ``auto``, ``disabled``, ``import``, ``subprocess``.
+        When set to ``import`` or ``subprocess``, keyring credentials will be
+        used even when pip input is disabled (the default).
+        Default is unset, which lets pip use its own default (``auto``).
+        """
 
         self.PIPENV_PYUP_API_KEY = get_from_env("PYUP_API_KEY", check_for_negation=False)
 

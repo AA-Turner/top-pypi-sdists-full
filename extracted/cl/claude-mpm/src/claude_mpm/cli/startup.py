@@ -189,46 +189,209 @@ def quiet_startup_context(headless: bool = False):
 
 
 def cleanup_user_level_hooks() -> bool:
-    """Remove stale user-level hooks directory.
+    """Remove stale user-level hooks directory and settings.json entries.
 
     WHY: claude-mpm previously deployed hooks to ~/.claude/hooks/claude-mpm/
     (user-level). This is now deprecated in favor of project-level hooks
     configured in .claude/settings.local.json. Stale user-level hooks can
-    cause conflicts and confusion.
+    cause conflicts and confusion, and stale entries in ~/.claude/settings.json
+    (the user-level settings) cause "SessionStart:startup hook error" on every
+    Claude Code session when the referenced script no longer exists on disk.
 
     DESIGN DECISION: Runs early in startup, before project hook sync.
     Non-blocking - failures are logged at debug level but don't prevent startup.
 
     Returns:
-        bool: True if hooks were cleaned up, False if none found or cleanup failed
+        bool: True if any cleanup was performed, False if nothing found or
+              cleanup failed
     """
     import shutil
 
+    cleaned = False
+
+    # Step 1: Remove stale user-level hooks directory
     user_hooks_dir = Path.home() / ".claude" / "hooks" / "claude-mpm"
 
-    if not user_hooks_dir.exists():
+    if user_hooks_dir.exists():
+        try:
+            from ..core.logger import get_logger
+
+            logger = get_logger("startup")
+            logger.debug(f"Removing stale user-level hooks directory: {user_hooks_dir}")
+
+            shutil.rmtree(user_hooks_dir)
+
+            logger.debug("User-level hooks directory cleanup complete")
+            cleaned = True
+        except Exception as e:
+            # Non-critical - log but don't fail startup
+            try:
+                from ..core.logger import get_logger
+
+                logger = get_logger("startup")
+                logger.debug(
+                    f"Failed to cleanup user-level hooks directory (non-fatal): {e}"
+                )
+            except Exception:  # nosec B110
+                pass  # Avoid any errors in error handling
+
+    # Step 2: Remove stale claude-mpm hook entries from ~/.claude/settings.json
+    stale_removed = _cleanup_stale_settings_json_hooks()
+    if stale_removed > 0:
+        cleaned = True
+
+    return cleaned
+
+
+def _is_stale_hook_command(command: str) -> bool:
+    """Return True if a hook command string belongs to claude-mpm and the
+    referenced script no longer exists on disk.
+
+    Stale entries are those where:
+    - The command contains "claude-mpm" or "claude-hook" (belongs to us), AND
+    - The command is an absolute path that does not exist on disk.
+
+    Entry-point style commands like "claude-hook" that are resolved via PATH
+    at runtime are NOT considered stale even if the package is not currently
+    installed, because their existence depends on PATH at execution time.
+
+    Args:
+        command: The command string from a hook entry.
+
+    Returns:
+        bool: True if this is a stale claude-mpm absolute-path hook command.
+    """
+    if not command:
         return False
+
+    is_ours = "claude-mpm" in command or "claude-hook" in command
+
+    if not is_ours:
+        return False
+
+    # Entry-point commands (no path separator) are PATH-resolved at runtime —
+    # don't remove them based on current filesystem state.
+    if not command.startswith("/"):
+        return False
+
+    # Absolute path that belongs to claude-mpm: check if it exists.
+    return not Path(command).exists()
+
+
+def _cleanup_stale_settings_json_hooks() -> int:
+    """Remove stale claude-mpm hook entries from ~/.claude/settings.json.
+
+    Reads the user-level settings file, removes hook entries where:
+    - The command path contains "claude-mpm" or "claude-hook", AND
+    - The referenced script file does not exist on disk.
+
+    Valid hook entries from other tools and entries with resolvable commands
+    are preserved. The file is only written if changes were actually made
+    (idempotent).
+
+    Returns:
+        int: Number of stale hook command entries removed.
+    """
+    user_settings = Path.home() / ".claude" / "settings.json"
+
+    if not user_settings.exists():
+        return 0
 
     try:
         from ..core.logger import get_logger
 
         logger = get_logger("startup")
-        logger.debug(f"Removing stale user-level hooks directory: {user_hooks_dir}")
+    except Exception:
+        logger = None
 
-        shutil.rmtree(user_hooks_dir)
+    def _log_debug(msg: str) -> None:
+        if logger:
+            logger.debug(msg)
 
-        logger.debug("User-level hooks cleanup complete")
-        return True
+    try:
+        with user_settings.open() as f:
+            settings = json.load(f)
     except Exception as e:
-        # Non-critical - log but don't fail startup
-        try:
-            from ..core.logger import get_logger
+        _log_debug(
+            f"Could not read {user_settings} for stale hook cleanup (non-fatal): {e}"
+        )
+        return 0
 
-            logger = get_logger("startup")
-            logger.debug(f"Failed to cleanup user-level hooks (non-fatal): {e}")
-        except Exception:  # nosec B110
-            pass  # Avoid any errors in error handling
-        return False
+    hooks = settings.get("hooks")
+    if not isinstance(hooks, dict):
+        return 0
+
+    total_removed = 0
+    events_to_delete: list[str] = []
+
+    for event_type, hook_list in hooks.items():
+        if not isinstance(hook_list, list):
+            continue
+
+        entries_to_delete: list[int] = []
+
+        for entry_idx, entry in enumerate(hook_list):
+            if not isinstance(entry, dict):
+                continue
+
+            inner_hooks = entry.get("hooks", [])
+            if not isinstance(inner_hooks, list):
+                continue
+
+            cmds_to_delete: list[int] = []
+            for cmd_idx, cmd_entry in enumerate(inner_hooks):
+                if not isinstance(cmd_entry, dict):
+                    continue
+                command = cmd_entry.get("command", "")
+                if _is_stale_hook_command(command):
+                    cmds_to_delete.append(cmd_idx)
+                    _log_debug(
+                        f"Marking stale hook for removal: {event_type} "
+                        f"entry[{entry_idx}] command '{command}'"
+                    )
+
+            if cmds_to_delete:
+                total_removed += len(cmds_to_delete)
+                # Remove stale commands in reverse order to preserve indices
+                for cmd_idx in reversed(cmds_to_delete):
+                    inner_hooks.pop(cmd_idx)
+
+            # If all commands in this entry are now gone, mark the whole entry
+            # for removal so we don't leave behind an empty hooks wrapper.
+            if not inner_hooks:
+                entries_to_delete.append(entry_idx)
+
+        if entries_to_delete:
+            # Remove entries in reverse order to preserve indices
+            for entry_idx in reversed(entries_to_delete):
+                hook_list.pop(entry_idx)
+
+        # If all entries for an event type are gone, schedule event removal
+        if not hook_list:
+            events_to_delete.append(event_type)
+
+    for event_type in events_to_delete:
+        del hooks[event_type]
+
+    if total_removed == 0:
+        # Nothing changed — don't touch the file (idempotent)
+        return 0
+
+    # Write the cleaned settings back, preserving all other keys
+    try:
+        with user_settings.open("w") as f:
+            json.dump(settings, f, indent=2)
+        _log_debug(
+            f"Removed {total_removed} stale claude-mpm hook command(s) "
+            f"from {user_settings}"
+        )
+    except Exception as e:
+        _log_debug(
+            f"Could not write cleaned settings to {user_settings} (non-fatal): {e}"
+        )
+        return 0
+
+    return total_removed
 
 
 def sync_hooks_on_startup(quiet: bool = False) -> bool:
@@ -452,6 +615,58 @@ def cleanup_legacy_agent_cache() -> None:
         logger.info(f"Cleaned up legacy agent cache: {', '.join(removed)}")
 
 
+def _check_anthropic_auth(env_changes: dict | None = None) -> None:
+    """Warn if using Anthropic backend without authentication.
+
+    Performs a lightweight, fail-open check so that users who switch to the
+    Anthropic backend are reminded to authenticate before their first session
+    fails with a confusing auth error.
+
+    Args:
+        env_changes: Dictionary returned by apply_api_provider_config(),
+                     or None if config loading failed.
+    """
+    # Only check if backend is anthropic (Bedrock uses AWS credentials instead)
+    if os.environ.get("CLAUDE_CODE_USE_BEDROCK") == "1":
+        return
+
+    # If apply_api_provider_config didn't run or returned no changes,
+    # try to determine the backend from the config file directly.
+    if env_changes is None:
+        # Cannot determine backend — skip check (fail-open)
+        return
+
+    # If API key is set, auth is handled
+    if os.environ.get("ANTHROPIC_API_KEY"):  # pragma: allowlist secret
+        return
+
+    # Check if authenticated via `claude auth status`
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["claude", "auth", "status"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and "logged in" in result.stdout.lower():
+            return
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
+
+    # Not authenticated — warn the user (only in interactive terminals)
+    if not sys.stdout.isatty():
+        return
+
+    print()
+    print("\u26a0\ufe0f  Not authenticated with Anthropic.")
+    print("  Run: claude auth login")
+    print("  Or use /login inside your session.")
+    print()
+
+
 def setup_early_environment(argv):
     """
     Set up early environment variables and logging suppression.
@@ -531,13 +746,17 @@ def setup_early_environment(argv):
 
     # Apply API provider configuration early (before Claude Code launches)
     # This sets CLAUDE_CODE_USE_BEDROCK, ANTHROPIC_MODEL, etc.
+    config: dict | None = None
     try:
         from ..config.api_provider import apply_api_provider_config
 
-        apply_api_provider_config()
+        config = apply_api_provider_config()
     except Exception:  # nosec B110
         # Non-critical - if config loading fails, use defaults
         pass
+
+    # Pre-flight auth check: warn if using Anthropic without authentication
+    _check_anthropic_auth(config)
 
     return argv
 

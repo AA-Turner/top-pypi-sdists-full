@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "beets"
-version = "2.7.1"
+version = "2.8.0"
 description = "music tagger and library organizer"
 authors = ["Adrian Sampson <adrian@radbox.org>"]
 maintainers = ["Serene-Arc"]
@@ -329,7 +329,7 @@ ignore = [
 "beets/**" = ["PT"]
 "test/plugins/test_ftintitle.py" = ["E501"]
 "test/test_util.py" = ["E501"]
-"test/ui/test_field_diff.py" = ["E501"]
+"test/util/test_diff.py" = ["E501"]
 "test/util/test_id_extractors.py" = ["E501"]
 "test/**" = ["RUF001"] # we use Unicode characters in tests
 

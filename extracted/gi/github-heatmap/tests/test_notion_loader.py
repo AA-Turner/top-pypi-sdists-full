@@ -1,3 +1,4 @@
+import pytest
 import requests
 
 from github_heatmap.loader import notion_loader
@@ -10,7 +11,7 @@ def build_loader():
         2024,
         "notion",
         notion_token="token",
-        database_id="db",
+        data_source_id="ds",
         date_prop_name="Date",
         value_prop_name="Value",
         tooltip_prop_name="Tooltip",
@@ -46,10 +47,7 @@ def test_notion_loader_make_track_dict_with_tooltips():
     loader.make_track_dict()
 
     assert loader.number_by_date_dict["2024-01-01"] == 7
-    assert (
-        loader.tooltip_by_date_dict["2024-01-01"]
-        == "Study\nRead, Write"
-    )
+    assert loader.tooltip_by_date_dict["2024-01-01"] == "Study\nRead, Write"
 
 
 def test_notion_loader_extract_property_text_variants():
@@ -133,3 +131,44 @@ def test_notion_loader_handles_request_exception(monkeypatch):
     assert tracks
     assert all(value == 0 for value in tracks.values())
     assert loader.number_list
+
+
+def test_notion_loader_queries_data_source_endpoint(monkeypatch):
+    loader = build_loader()
+    captured = {}
+
+    class DummyResp:
+        ok = True
+
+        @staticmethod
+        def json():
+            return {"results": [], "next_cursor": None, "has_more": False}
+
+    def fake_post(url, json, headers):
+        captured["url"] = url
+        captured["json"] = json
+        captured["headers"] = headers
+        return DummyResp()
+
+    monkeypatch.setattr(notion_loader.requests, "post", fake_post)
+
+    loader.get_api_data()
+
+    assert captured["url"].endswith("/v1/data_sources/ds/query")
+    assert captured["headers"]["Notion-Version"] == "2026-03-11"
+    assert captured["json"]["filter"]["and"][0]["property"] == "Date"
+
+
+def test_notion_loader_accepts_deprecated_database_id():
+    with pytest.warns(DeprecationWarning, match="--database_id is deprecated"):
+        loader = NotionLoader(
+            2024,
+            2024,
+            "notion",
+            notion_token="token",
+            database_id="legacy-db",
+            date_prop_name="Date",
+            value_prop_name="Value",
+        )
+
+    assert loader.data_source_id == "legacy-db"

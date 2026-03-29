@@ -64,7 +64,7 @@ def add_named(
     /,
     *,
     linked: bool | None = False,
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
     matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
     | mathutils.Matrix
@@ -195,7 +195,7 @@ def bake(
         typing.Literal[bpy.stub_internal.rna_enums.BakePassFilterTypeItems]
     ]
     | None = set(),
-    filepath: str | None = "",
+    filepath: str = "",
     width: int | None = 512,
     height: int | None = 512,
     margin: int | None = 16,
@@ -204,7 +204,7 @@ def bake(
     use_selected_to_active: bool | None = False,
     max_ray_distance: float | None = 0.0,
     cage_extrusion: float | None = 0.0,
-    cage_object: str | None = "",
+    cage_object: str = "",
     normal_space: typing.Literal[bpy.stub_internal.rna_enums.NormalSpaceItems]
     | None = "TANGENT",
     normal_r: typing.Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems]
@@ -221,7 +221,7 @@ def bake(
     use_cage: bool | None = False,
     use_split_materials: bool | None = False,
     use_automatic_name: bool | None = False,
-    uv_layer: str | None = "",
+    uv_layer: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake image textures of selected objects
 
@@ -379,7 +379,7 @@ def collection_instance_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "Collection",
+    name: str = "Collection",
     collection: str | None = "",
     align: typing.Literal["WORLD", "VIEW", "CURSOR"] | None = "WORLD",
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (
@@ -573,7 +573,7 @@ def correctivesmooth_bind(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bind base pose in Corrective Smooth modifier
 
@@ -658,7 +658,7 @@ def data_instance_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
     type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None = "ACTION",
     align: typing.Literal["WORLD", "VIEW", "CURSOR"] | None = "WORLD",
@@ -816,7 +816,7 @@ def datalayout_transfer(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     data_type: typing.Literal[
         "VGROUP_WEIGHTS",
         "BEVEL_WEIGHT_VERT",
@@ -937,7 +937,7 @@ def drop_named_material(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
@@ -1121,7 +1121,7 @@ def empty_image_add(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -1157,7 +1157,7 @@ def empty_image_add(
         "ASSET_CATALOG",
     ]
     | None = "",
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
     align: typing.Literal["WORLD", "VIEW", "CURSOR"] | None = "WORLD",
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (
@@ -1254,7 +1254,7 @@ def explode_refresh(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Refresh data in the Explode modifier
 
@@ -1295,7 +1295,7 @@ def geometry_node_bake_delete_single(
     /,
     *,
     session_uid: int | None = 0,
-    modifier_name: str | None = "",
+    modifier_name: str = "",
     bake_id: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete baked data of a single bake node or simulation
@@ -1312,7 +1312,7 @@ def geometry_node_bake_pack_single(
     /,
     *,
     session_uid: int | None = 0,
-    modifier_name: str | None = "",
+    modifier_name: str = "",
     bake_id: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pack baked data from disk into the .blend file
@@ -1329,7 +1329,7 @@ def geometry_node_bake_single(
     /,
     *,
     session_uid: int | None = 0,
-    modifier_name: str | None = "",
+    modifier_name: str = "",
     bake_id: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake a single bake node or simulation
@@ -1346,7 +1346,7 @@ def geometry_node_bake_unpack_single(
     /,
     *,
     session_uid: int | None = 0,
-    modifier_name: str | None = "",
+    modifier_name: str = "",
     bake_id: int | None = 0,
     method: typing.Literal["USE_LOCAL", "WRITE_LOCAL", "USE_ORIGINAL", "WRITE_ORIGINAL"]
     | None = "USE_LOCAL",
@@ -1375,8 +1375,8 @@ def geometry_nodes_input_attribute_toggle(
     undo: bool | None = None,
     /,
     *,
-    input_name: str | None = "",
-    modifier_name: str | None = "",
+    input_name: str = "",
+    modifier_name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Switch between an attribute and a single value to define the data for every element
 
@@ -1458,7 +1458,7 @@ def grease_pencil_dash_modifier_segment_add(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a segment to the dash modifier
 
@@ -1471,7 +1471,7 @@ def grease_pencil_dash_modifier_segment_move(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     type: typing.Literal["UP", "DOWN"] | None = "UP",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the active dash segment up or down
@@ -1486,7 +1486,7 @@ def grease_pencil_dash_modifier_segment_remove(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     index: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the active segment from the dash modifier
@@ -1501,7 +1501,7 @@ def grease_pencil_time_modifier_segment_add(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a segment to the time modifier
 
@@ -1514,7 +1514,7 @@ def grease_pencil_time_modifier_segment_move(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     type: typing.Literal["UP", "DOWN"] | None = "UP",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the active time segment up or down
@@ -1529,7 +1529,7 @@ def grease_pencil_time_modifier_segment_remove(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     index: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the active segment from the time modifier
@@ -1758,7 +1758,7 @@ def laplaciandeform_bind(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bind mesh to system in laplacian deform modifier
 
@@ -2074,7 +2074,7 @@ def link_to_collection(
     *,
     collection_uid: int | None = -1,
     is_new: bool | None = False,
-    new_collection_name: str | None = "",
+    new_collection_name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Link objects to a collection
 
@@ -2329,7 +2329,7 @@ def meshdeform_bind(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bind mesh to cage in mesh deform modifier
 
@@ -2439,8 +2439,8 @@ def modifier_add_node_group(
         bpy.stub_internal.rna_enums.AssetLibraryTypeItems
     ]
     | None = "LOCAL",
-    asset_library_identifier: str | None = "",
-    relative_asset_identifier: str | None = "",
+    asset_library_identifier: str = "",
+    relative_asset_identifier: str = "",
     session_uid: int | None = 0,
     use_selected_objects: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -2459,7 +2459,7 @@ def modifier_apply(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     report: bool | None = False,
     merge_customdata: bool | None = True,
     single_user: bool | None = False,
@@ -2483,7 +2483,7 @@ def modifier_apply_as_shapekey(
     /,
     *,
     keep_modifier: bool | None = False,
-    modifier: str | None = "",
+    modifier: str = "",
     report: bool | None = False,
     use_selected_objects: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -2501,7 +2501,7 @@ def modifier_convert(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert particles to a mesh object
 
@@ -2514,7 +2514,7 @@ def modifier_copy(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     use_selected_objects: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate modifier at the same position in the stack
@@ -2529,7 +2529,7 @@ def modifier_copy_to_selected(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the modifier from the active object to all selected objects
 
@@ -2542,7 +2542,7 @@ def modifier_move_down(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move modifier down in the stack
 
@@ -2555,7 +2555,7 @@ def modifier_move_to_index(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     index: int | None = 0,
     use_selected_objects: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -2572,7 +2572,7 @@ def modifier_move_up(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move modifier up in the stack
 
@@ -2585,7 +2585,7 @@ def modifier_remove(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     report: bool | None = False,
     use_selected_objects: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -2602,7 +2602,7 @@ def modifier_set_active(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Activate the modifier to use as the context
 
@@ -2637,7 +2637,7 @@ def move_to_collection(
     *,
     collection_uid: int | None = -1,
     is_new: bool | None = False,
-    new_collection_name: str | None = "",
+    new_collection_name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move objects to a collection
 
@@ -2652,7 +2652,7 @@ def multires_base_apply(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     apply_heuristic: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Modify the base mesh to conform to the displaced mesh
@@ -2677,7 +2677,7 @@ def multires_external_save(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
@@ -2703,7 +2703,7 @@ def multires_external_save(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save displacements to an external file
 
@@ -2751,7 +2751,7 @@ def multires_higher_levels_delete(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deletes the higher resolution mesh, potential loss of detail
 
@@ -2764,7 +2764,7 @@ def multires_rebuild_subdiv(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rebuilds all possible subdivisions levels to generate a lower resolution base mesh
 
@@ -2777,7 +2777,7 @@ def multires_reshape(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy vertex coordinates from other object
 
@@ -2790,7 +2790,7 @@ def multires_subdivide(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     mode: typing.Literal["CATMULL_CLARK", "SIMPLE", "LINEAR"] | None = "CATMULL_CLARK",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new level of subdivision
@@ -2814,7 +2814,7 @@ def multires_unsubdivide(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rebuild a lower subdivision level of the current base mesh
 
@@ -2827,7 +2827,7 @@ def ocean_bake(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     free: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake an image sequence of ocean data
@@ -3480,7 +3480,7 @@ def select_pattern(
     undo: bool | None = None,
     /,
     *,
-    pattern: str | None = "*",
+    pattern: str = "*",
     case_sensitive: bool | None = False,
     extend: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -3520,7 +3520,7 @@ def select_same_collection(
     undo: bool | None = None,
     /,
     *,
-    collection: str | None = "",
+    collection: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select object in the same collection
 
@@ -3603,7 +3603,7 @@ def shaderfx_copy(
     undo: bool | None = None,
     /,
     *,
-    shaderfx: str | None = "",
+    shaderfx: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate effect at the same position in the stack
 
@@ -3616,7 +3616,7 @@ def shaderfx_move_down(
     undo: bool | None = None,
     /,
     *,
-    shaderfx: str | None = "",
+    shaderfx: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move effect down in the stack
 
@@ -3629,7 +3629,7 @@ def shaderfx_move_to_index(
     undo: bool | None = None,
     /,
     *,
-    shaderfx: str | None = "",
+    shaderfx: str = "",
     index: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the effects position in the list so it evaluates after the set number of others
@@ -3644,7 +3644,7 @@ def shaderfx_move_up(
     undo: bool | None = None,
     /,
     *,
-    shaderfx: str | None = "",
+    shaderfx: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move effect up in the stack
 
@@ -3657,7 +3657,7 @@ def shaderfx_remove(
     undo: bool | None = None,
     /,
     *,
-    shaderfx: str | None = "",
+    shaderfx: str = "",
     report: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a effect from the active Grease Pencil object
@@ -3870,7 +3870,7 @@ def skin_armature_create(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create an armature that parallels the skin layout
 
@@ -3977,7 +3977,7 @@ def surfacedeform_bind(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bind mesh to target in surface deform modifier
 
@@ -4102,7 +4102,7 @@ def transform_to_mouse(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     session_uid: int | None = 0,
     matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
     | mathutils.Matrix
@@ -4628,8 +4628,8 @@ def volume_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
+    filepath: str = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     hide_props_region: bool | None = True,

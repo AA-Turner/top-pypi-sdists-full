@@ -19,7 +19,7 @@ def mixdown(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -206,7 +206,7 @@ def open(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -286,7 +286,7 @@ def open_mono(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -378,7 +378,7 @@ def unpack(
     *,
     method: typing.Literal[bpy.stub_internal.rna_enums.UnpackMethodItems]
     | None = "USE_LOCAL",
-    id: str | None = "",
+    id: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unpack the sound to the samples filename
 

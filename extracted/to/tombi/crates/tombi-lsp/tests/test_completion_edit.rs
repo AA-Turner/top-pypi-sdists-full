@@ -45,6 +45,48 @@ mod completion_edit {
                 "#
             );
         }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn tombi_extensions_key_is_quoted(
+                r#"
+                [extensions]
+                █
+                "#,
+                Select("tombi-toml/cargo"),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok(
+                r#"
+                [extensions]
+                "tombi-toml/cargo"
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn tombi_extensions_inline_table_partial_key_is_replaced(
+                r#"
+                [extensions]
+                "tombi-toml/tombi" = {
+                    lsp = {
+                        comp█
+                    },
+                }
+                "#,
+                Select("completion"),
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok(
+                r#"
+                [extensions]
+                "tombi-toml/tombi" = {
+                    lsp = {
+                        completion
+                    },
+                }
+                "#
+            );
+        }
     }
 
     mod cargo_schema {
@@ -76,12 +118,12 @@ mod completion_edit {
                 [dependencies]
                 serde.work█
                 "#,
-                Select("workspace"),
+                Select("workspace = true"),
                 SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 [dependencies]
-                serde.workspace
+                serde.workspace = true
                 "#
             );
         }
@@ -93,12 +135,29 @@ mod completion_edit {
                 [dependencies]
                 serde=work█
                 "#,
-                Select("workspace"),
+                Select("workspace = true"),
                 SchemaPath(cargo_schema_path()),
             ) -> Ok(
                 r#"
                 [dependencies]
-                serde = { workspace$1 }$0
+                serde = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_serde_dot_optional(
+                r#"
+                [dependencies]
+                serde.█
+                "#,
+                Select("optional = true"),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde.optional = true
                 "#
             );
         }
@@ -116,6 +175,66 @@ mod completion_edit {
                 r#"
                 [dependencies]
                 serde = { workspace = true }
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_workspace_inheritance_candidate(
+                r#"
+                [dependencies]
+                s█
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_workspace_inheritance_candidate_on_empty_line(
+                r#"
+                [dependencies]
+                █
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dependencies_workspace_inheritance_candidate_replaces_full_key(
+                r#"
+                [dependencies]
+                ser█de
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dependencies]
+                serde.workspace = true
                 "#
             );
         }
@@ -280,6 +399,86 @@ mod completion_edit {
                 [workspace.dependencies]
                 addr  = "0.15.6"
                 anyhow = "1.0.98"
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_target_dependencies_workspace_inheritance_candidate(
+                r#"
+                [target.'cfg(unix)'.dependencies]
+                s█
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [target.'cfg(unix)'.dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_dev_dependencies_workspace_inheritance_candidate(
+                r#"
+                [dev-dependencies]
+                s█
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [dev-dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_build_dependencies_workspace_inheritance_candidate(
+                r#"
+                [build-dependencies]
+                s█
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [build-dependencies]
+                serde.workspace = true
+                "#
+            );
+        }
+
+        test_completion_edit! {
+            #[tokio::test]
+            async fn cargo_target_build_dependencies_workspace_inheritance_candidate(
+                r#"
+                [target.'cfg(unix)'.build-dependencies]
+                s█
+                "#,
+                Select("serde"),
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok(
+                r#"
+                [target.'cfg(unix)'.build-dependencies]
+                serde.workspace = true
                 "#
             );
         }
@@ -955,6 +1154,7 @@ mod completion_edit {
                         toml_version: None,
                         path: schema_uri.to_string(),
                         include: vec!["*.toml".to_string()],
+                    lint: None,
                     }));
                 }
 

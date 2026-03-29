@@ -18,6 +18,7 @@ mod completion_labels {
                 "█",
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extensions",
                 "files",
                 "format",
                 "lint",
@@ -121,6 +122,7 @@ mod completion_labels {
                 "#,
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extensions",
                 "files",
                 "format",
                 "lint",
@@ -143,6 +145,7 @@ mod completion_labels {
                 "#,
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extensions",
                 "files",
                 "format",
                 "lint",
@@ -165,6 +168,7 @@ mod completion_labels {
                 "#,
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extensions",
                 "files",
                 "format",
                 "lint",
@@ -198,6 +202,21 @@ mod completion_labels {
 
         test_completion_labels! {
             #[tokio::test]
+            async fn tombi_extensions_table(
+                r#"
+                [extensions]
+                █
+                "#,
+                SchemaPath(tombi_schema_path()),
+            ) -> Ok([
+                "tombi-toml/cargo",
+                "tombi-toml/pyproject",
+                "tombi-toml/tombi",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
             async fn tombi_lint_rules_key_empty_equal_warn_and_space(
                 r#"
                 [lint.rules]
@@ -213,6 +232,7 @@ mod completion_labels {
                 "[█]",
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extensions",
                 "files",
                 "format",
                 "lint",
@@ -233,6 +253,7 @@ mod completion_labels {
                 "#,
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extensions",
                 "files",
                 "format",
                 "lint",
@@ -255,6 +276,7 @@ mod completion_labels {
                 "#,
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extensions",
                 "files",
                 "format",
                 "lint",
@@ -277,6 +299,7 @@ mod completion_labels {
                 "#,
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extensions",
                 "files",
                 "format",
                 "lint",
@@ -293,6 +316,7 @@ mod completion_labels {
                 "[[█]]",
                 SchemaPath(tombi_schema_path()),
             ) -> Ok([
+                "extensions",
                 "files",
                 "format",
                 "lint",
@@ -577,6 +601,7 @@ mod completion_labels {
                 "include",
                 "path",
                 "root",
+                "lint",
                 "toml-version",
             ]);
         }
@@ -615,6 +640,7 @@ mod completion_labels {
                 "dependencies-test.schema.json",
                 "dependent-required-test.schema.json",
                 "dependent-schemas-test.schema.json",
+                "deprecated-test.schema.json",
                 "format-annotation-test.schema.json",
                 "format-assertion-vocab-test.schema.json",
                 "if-then-else-test.schema.json",
@@ -625,6 +651,7 @@ mod completion_labels {
                 "recursive-defs-any-of-test.schema.json",
                 "recursive-schema.schema.json",
                 "string-format-test.schema.json",
+                "subschema-singleton-label-test.schema.json",
                 "table-const-enum-test.schema.json",
                 "tuple-items-test.schema.json",
                 "type-test.schema.json",
@@ -1208,6 +1235,94 @@ mod completion_labels {
 
         test_completion_labels! {
             #[tokio::test]
+            async fn cargo_dependencies_workspace_inheritance_candidate(
+                r#"
+                [dependencies]
+                s█
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok([
+                "serde",
+                ".",
+                "=",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_dependencies_workspace_inheritance_candidate_on_empty_line(
+                r#"
+                [dependencies]
+                █
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok([
+                "serde",
+                "$crate_name",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_dependencies_workspace_inheritance_candidate_disabled_by_extensions(
+                r#"
+                [dependencies]
+                s█
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-disabled/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok([
+                ".",
+                "=",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_dev_dependencies_workspace_inheritance_candidate(
+                r#"
+                [dev-dependencies]
+                s█
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok([
+                "serde",
+                ".",
+                "=",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_build_dependencies_workspace_inheritance_candidate(
+                r#"
+                [build-dependencies]
+                s█
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok([
+                "serde",
+                ".",
+                "=",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
             async fn cargo_package_build_path_file_completion(
                 r#"
                 [package]
@@ -1272,7 +1387,7 @@ mod completion_labels {
                 "#,
                 SchemaPath(cargo_schema_path()),
             ) -> Ok([
-                "workspace",
+                "workspace = true",
             ]);
         }
 
@@ -1300,7 +1415,6 @@ mod completion_labels {
                 SchemaPath(cargo_schema_path()),
             ) -> Ok([
                 "true",
-                "false",
             ]);
         }
 
@@ -1379,14 +1493,14 @@ mod completion_labels {
                 "default-features",
                 "features",
                 "git",
-                "optional",
+                "optional = true",
                 "package",
                 "path",
                 "registry",
                 "rev",
                 "tag",
                 "version",
-                "workspace",
+                "workspace = true",
                 "\"\"",
                 "''",
                 "{}",
@@ -1409,14 +1523,14 @@ mod completion_labels {
                 "default-features",
                 "features",
                 "git",
-                "optional",
+                "optional = true",
                 "package",
                 "path",
                 "registry",
                 "rev",
                 "tag",
                 "version",
-                "workspace",
+                "workspace = true",
                 "\"\"",
                 "''",
                 "{}",
@@ -1532,7 +1646,7 @@ mod completion_labels {
                 "default-features",
                 "features",
                 "git",
-                "optional",
+                "optional = true",
                 "package",
                 "path",
                 "registry",
@@ -1685,14 +1799,14 @@ mod completion_labels {
                 "default-features",
                 "features",
                 "git",
-                "optional",
+                "optional = true",
                 "package",
                 "path",
                 "registry",
                 "rev",
                 "tag",
                 "version",
-                "workspace",
+                "workspace = true",
             ]);
         }
 
@@ -1741,7 +1855,7 @@ mod completion_labels {
                 "\"GPL-2.0-or-later WITH Bison-exception-2.2\"",
                 "\"LGPL-2.1-only\"",
                 "\"MIT\"",
-                "workspace",
+                "workspace = true",
                 "\"\"",
                 "''",
                 "{}",
@@ -1758,6 +1872,42 @@ mod completion_labels {
                 SchemaPath(cargo_schema_path()),
             ) -> Ok([
                 "$crate_name",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_target_dependencies_workspace_inheritance_candidate(
+                r#"
+                [target.'cfg(unix)'.dependencies]
+                s█
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok([
+                "serde",
+                ".",
+                "=",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn cargo_target_build_dependencies_workspace_inheritance_candidate(
+                r#"
+                [target.'cfg(unix)'.build-dependencies]
+                s█
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/issue-1621-cargo-workspace-completion/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok([
+                "serde",
+                ".",
+                "=",
             ]);
         }
     }
@@ -1928,7 +2078,7 @@ mod completion_labels {
     }
 
     mod with_subschema {
-        use tombi_test_lib::{pyproject_schema_path, type_test_schema_path};
+        use tombi_test_lib::{project_root_path, pyproject_schema_path, type_test_schema_path};
 
         use super::*;
 
@@ -1984,6 +2134,22 @@ mod completion_labels {
                 "string",
                 "table",
                 "table-allows-empty-key",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn aaa_bbb_singleton_any_of_subschema(
+                r#"
+                [aaa.bbb]
+                fl█
+                "#,
+                SubSchema {
+                    root: "aaa.bbb",
+                    path: project_root_path().join("schemas/subschema-singleton-label-test.schema.json"),
+                },
+            ) -> Ok([
+                "flag = true",
             ]);
         }
     }
@@ -2182,6 +2348,7 @@ mod completion_labels {
                         toml_version: None,
                         path: schema_uri.to_string(),
                         include: vec!["*.toml".to_string()],
+                    lint: None,
                     }));
                 }
 
@@ -2199,6 +2366,7 @@ mod completion_labels {
                         path: subschema_uri.to_string(),
                         include: vec!["*.toml".to_string()],
                         root: subschema.root.to_string(),
+                        lint: None,
                     }));
                 }
 

@@ -9,7 +9,7 @@ def attribute_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     | None = "POINT",
     data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
@@ -57,7 +57,7 @@ def color_attribute_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     domain: typing.Literal[bpy.stub_internal.rna_enums.ColorAttributeDomainItems]
     | None = "POINT",
     data_type: typing.Literal[bpy.stub_internal.rna_enums.ColorAttributeTypeItems]
@@ -115,7 +115,7 @@ def color_attribute_render_set(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "Color",
+    name: str = "Color",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set default color attribute used for rendering
 

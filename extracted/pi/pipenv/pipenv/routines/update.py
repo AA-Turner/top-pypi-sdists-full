@@ -51,6 +51,13 @@ def do_update(
     if not outdated:
         outdated = bool(dry_run)
 
+    # Handle --system flag
+    if project.s.PIPENV_USE_SYSTEM:
+        system = True
+    if system:
+        project.s.PIPENV_USE_SYSTEM = True
+        os.environ["PIPENV_USE_SYSTEM"] = "1"
+
     ensure_project(
         project,
         python=python,
@@ -58,11 +65,12 @@ def do_update(
         warn=(not quiet),
         site_packages=site_packages,
         clear=clear,
+        system=system,
     )
 
     if not outdated:
         # Pre-sync packages for pipdeptree resolution to avoid conflicts
-        if project.lockfile_exists:
+        if project.any_lockfile_exists:
             do_sync(
                 project,
                 dev=dev,
@@ -72,6 +80,7 @@ def do_update(
                 clear=clear,
                 pypi_mirror=pypi_mirror,
                 extra_pip_args=extra_pip_args,
+                system=system,
             )
         upgrade(
             project,
@@ -96,6 +105,7 @@ def do_update(
             clear=clear,
             pypi_mirror=pypi_mirror,
             extra_pip_args=extra_pip_args,
+            system=system,
         )
     else:
         do_outdated(
@@ -411,9 +421,32 @@ def _process_package_args(
                 or category in explicitly_requested.get(normalized_name, [])
             )
         ):
-            project.add_pipfile_entry_to_pipfile(
-                name, normalized_name, pipfile_entry, category=pipfile_category
+            # Guard against cross-category contamination: if the package already
+            # exists in a *different* Pipfile section (e.g. [dev-packages]) but
+            # NOT in the current section (e.g. [packages]), skip the Pipfile write.
+            # Example: `pipenv upgrade mypy==1.5.1` without --dev must not silently
+            # add mypy to [packages] when it already lives in [dev-packages].
+            package_in_current_category = bool(
+                project.get_pipfile_entry(normalized_name, pipfile_category)
             )
+            package_in_other_category = any(
+                project.get_pipfile_entry(normalized_name, cat)
+                for cat in project.get_package_categories()
+                if cat != pipfile_category
+            )
+            if not package_in_current_category and package_in_other_category:
+                # The package lives in a different section; only update the
+                # lockfile, do not modify the Pipfile entry.
+                err.print(
+                    f"[bold][yellow]Package {normalized_name!r} found in a different "
+                    f"Pipfile section than {pipfile_category!r}; skipping Pipfile update "
+                    f"to avoid cross-category contamination. "
+                    f"Use --dev or --categories to target the correct section.[/bold][/yellow]"
+                )
+            else:
+                project.add_pipfile_entry_to_pipfile(
+                    name, normalized_name, pipfile_entry, category=pipfile_category
+                )
 
         requested_packages[pipfile_category][normalized_name] = pipfile_entry
 
@@ -441,6 +474,7 @@ def _resolve_and_update_lockfile(
     system,
     pypi_mirror,
     lockfile,
+    resolved_default_deps=None,
 ):
     """Resolve dependencies and update lockfile."""
     if not requested_packages[pipfile_category]:
@@ -467,6 +501,7 @@ def _resolve_and_update_lockfile(
         allow_global=system,
         pypi_mirror=pypi_mirror,
         pipfile=requested_packages[pipfile_category],
+        resolved_default_deps=resolved_default_deps,
     )
 
     if not upgrade_lock_data:
@@ -486,6 +521,7 @@ def _resolve_and_update_lockfile(
         allow_global=system,
         pypi_mirror=pypi_mirror,
         pipfile=complete_packages,
+        resolved_default_deps=resolved_default_deps,
     )
 
     # Update lockfile with verified resolution data
@@ -500,7 +536,12 @@ def _resolve_and_update_lockfile(
 
 
 def _clean_unused_dependencies(
-    project, lockfile, category, full_lock_resolution, original_lockfile
+    project,
+    lockfile,
+    category,
+    full_lock_resolution,
+    original_lockfile,
+    reverse_deps=None,
 ):
     """
     Remove dependencies that are no longer needed after an upgrade.
@@ -511,6 +552,10 @@ def _clean_unused_dependencies(
         category: The category to clean (e.g., 'default', 'develop')
         full_lock_resolution: The complete resolution of dependencies
         original_lockfile: The original lockfile before the upgrade
+        reverse_deps: Optional mapping of package -> set of (requiring_package, version_constraint)
+            built from the installed environment.  When provided it is used to
+            detect transitive dependencies that are still required by packages
+            whose pinned version was NOT changed by this upgrade.
     """
     if category not in lockfile or category not in original_lockfile:
         return
@@ -533,6 +578,37 @@ def _clean_unused_dependencies(
     # Remove unused packages from the lockfile
     for package_name in unused_packages:
         if package_name in lockfile[category]:
+            # Before removing, check whether this package is still needed as a
+            # transitive dependency of a package whose version was NOT changed by
+            # this upgrade.  full_lock_resolution resolves every Pipfile entry to
+            # its *latest* available version, so its transitive closure only
+            # reflects the latest versions – not the versions currently pinned in
+            # the lockfile.  If a requiring package stayed at its original pinned
+            # version its own dependencies have not changed, so we must keep P.
+            if reverse_deps is not None:
+                still_needed = False
+                for requiring_pkg, _ in reverse_deps.get(package_name, set()):
+                    if requiring_pkg not in lockfile[category]:
+                        continue
+                    current_version = lockfile[category][requiring_pkg].get("version")
+                    original_version = (
+                        original_lockfile[category].get(requiring_pkg, {}).get("version")
+                    )
+                    # If the requiring package's version is unchanged, its
+                    # transitive dependencies haven't changed either – keep P.
+                    if (
+                        current_version is not None
+                        and current_version == original_version
+                    ):
+                        still_needed = True
+                        break
+                if still_needed:
+                    if project.s.is_verbose():
+                        err.print(
+                            f"Keeping {package_name} (still needed by a package at its pinned version)"
+                        )
+                    continue
+
             if project.s.is_verbose():
                 err.print(f"Removing unused dependency: {package_name}")
             del lockfile[category][package_name]
@@ -604,9 +680,13 @@ def upgrade(
     # Flag for tracking if we have package arguments
     has_package_args = bool(package_args)
 
+    # Determine whether to enforce default constraints on non-default categories.
+    use_default_constraints = project.settings.get("use_default_constraints", True)
+
     # Process each category
     requested_packages = defaultdict(dict)
     category_resolutions = {}
+    resolved_default_deps = None
 
     for category in categories:
         pipfile_category = get_pipfile_category_using_lockfile_section(category)
@@ -632,6 +712,11 @@ def upgrade(
                 lock_only=lock_only,
             )
 
+        # For non-default categories, pass resolved default deps as constraints
+        category_default_deps = None
+        if category != "default" and use_default_constraints:
+            category_default_deps = resolved_default_deps
+
         # Resolve dependencies and update lockfile
         upgrade_lock_data = _resolve_and_update_lockfile(
             project,
@@ -643,6 +728,7 @@ def upgrade(
             system,
             pypi_mirror,
             lockfile,
+            resolved_default_deps=category_default_deps,
         )
 
         # Store the full resolution for this category
@@ -658,27 +744,42 @@ def upgrade(
                 allow_global=system,
                 pypi_mirror=pypi_mirror,
                 pipfile=complete_packages,
+                resolved_default_deps=category_default_deps,
             )
             category_resolutions[category] = full_lock_resolution
 
-            # Clean up unused dependencies
+            # Clean up unused dependencies, passing the reverse-dependency map so
+            # that transitive deps of un-upgraded (pinned) packages are preserved.
             _clean_unused_dependencies(
-                project, lockfile, category, full_lock_resolution, original_lockfile
+                project,
+                lockfile,
+                category,
+                full_lock_resolution,
+                original_lockfile,
+                reverse_deps,
             )
+
+        # After resolving default, capture resolved pins for constraining
+        # subsequent categories.
+        if category == "default":
+            resolved_default_deps = lockfile.get("default", {})
 
         # Reset package args for next category if needed
         if not has_package_args:
             package_args = []
 
-    # Overwrite any non-default category packages with default packages (if present)
-    # This ensures transitive dependencies in develop match the versions from default
-    for category in categories:
-        if category == "default":
-            continue
-        if lockfile.get(category):
-            lockfile[category].update(
-                overwrite_with_default(lockfile.get("default", {}), lockfile[category])
-            )
+    # Overwrite any non-default category packages with default packages,
+    # but only when use_default_constraints is enabled.
+    if use_default_constraints:
+        for category in categories:
+            if category == "default":
+                continue
+            if lockfile.get(category):
+                lockfile[category].update(
+                    overwrite_with_default(
+                        lockfile.get("default", {}), lockfile[category]
+                    )
+                )
 
     # Update and write lockfile
     lockfile.update({"_meta": project.get_lockfile_meta()})

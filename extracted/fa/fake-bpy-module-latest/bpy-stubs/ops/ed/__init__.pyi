@@ -49,7 +49,7 @@ def lib_id_load_custom_preview(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -186,7 +186,7 @@ def undo_push(
     undo: bool | None = None,
     /,
     *,
-    message: str | None = "Add an undo step *function may be moved*",
+    message: str = "Add an undo step *function may be moved*",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an undo state (internal use only)
 

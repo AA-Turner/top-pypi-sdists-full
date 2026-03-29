@@ -32,7 +32,7 @@ def add_texture_paint_slot(
     ]
     | None = "BASE_COLOR",
     slot_type: typing.Literal["IMAGE", "COLOR_ATTRIBUTE"] | None = "IMAGE",
-    name: str | None = "Untitled",
+    name: str = "Untitled",
     color: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0, 1.0),
     width: int | None = 1024,
     height: int | None = 1024,
@@ -392,7 +392,7 @@ def image_from_view(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make an image from biggest 3D view for reprojection
 

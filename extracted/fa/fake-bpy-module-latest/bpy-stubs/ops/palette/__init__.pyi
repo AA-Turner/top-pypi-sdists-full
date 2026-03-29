@@ -55,7 +55,7 @@ def join(
     undo: bool | None = None,
     /,
     *,
-    palette: str | None = "",
+    palette: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Join Palette Swatches
 

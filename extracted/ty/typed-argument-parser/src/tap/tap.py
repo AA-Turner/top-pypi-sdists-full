@@ -7,13 +7,28 @@ from functools import partial
 from pathlib import Path
 from pprint import pformat
 from shlex import quote, split
-from types import MethodType
-from typing import Any, Callable, List, Optional, Sequence, Set, Tuple, TypeVar, Union, get_type_hints
-from typing_inspect import is_literal_type
+from types import MethodType, UnionType
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+    get_type_hints,
+    get_args,
+)
 
 from tap.utils import (
+    _is_marked_positional,
+    _is_marked_tap_ignore,
     get_class_variables,
-    get_args,
+    is_literal_type,
     get_argument_name,
     get_dest,
     get_origin,
@@ -30,17 +45,15 @@ from tap.utils import (
     PathLike,
 )
 
-if sys.version_info >= (3, 10):
-    from types import UnionType
-
 
 # Constants
 EMPTY_TYPE = get_args(List)[0] if len(get_args(List)) > 0 else tuple()
 BOXED_COLLECTION_TYPES = {List, list, Set, set, Tuple, tuple}
-UNION_TYPES = {Union} | ({UnionType} if sys.version_info >= (3, 10) else set())
+UNION_TYPES = {Union, UnionType}
 OPTIONAL_TYPES = {Optional} | UNION_TYPES
 BOXED_TYPES = BOXED_COLLECTION_TYPES | OPTIONAL_TYPES
 
+_NO_DEFAULT = object()
 
 TapType = TypeVar("TapType", bound="Tap")
 
@@ -53,7 +66,7 @@ class Tap(ArgumentParser):
         *args,
         underscores_to_dashes: bool = False,
         explicit_bool: bool = False,
-        config_files: Optional[list[PathLike]] = None,
+        config_files: Optional[Iterable[PathLike]] = None,
         **kwargs,
     ) -> None:
         """Initializes the Tap instance.
@@ -63,7 +76,7 @@ class Tap(ArgumentParser):
         :param explicit_bool: Booleans can be specified on the command line as "--arg True" or "--arg False"
                               rather than "--arg". Additionally, booleans can be specified by prefixes of True and False
                               with any capitalization as well as 1 or 0.
-        :param config_files: A list of paths to configuration files containing the command line arguments
+        :param config_files: An iterable of paths to configuration files containing the command line arguments
                              (e.g., '--arg1 a1 --arg2 a2'). Arguments passed in from the command line
                              overwrite arguments from the configuration files. Arguments in configuration files
                              that appear later in the list overwrite the arguments in previous configuration files.
@@ -95,6 +108,7 @@ class Tap(ArgumentParser):
 
         # Get annotations from self and all super classes up through tap
         self._annotations = self._get_annotations()
+        self._annotations_with_extras = self._get_annotations(include_extras=True)
 
         # Set the default description to be the docstring
         kwargs.setdefault("description", self.__doc__)
@@ -139,8 +153,9 @@ class Tap(ArgumentParser):
             variable = variable.replace("-", "_")
 
         # Get default if not specified
-        if hasattr(self, variable):
-            kwargs["default"] = kwargs.get("default", getattr(self, variable))
+        default_value = kwargs.get("default", getattr(self, variable, _NO_DEFAULT))
+        if default_value is not _NO_DEFAULT:
+            kwargs["default"] = default_value
 
         # Set required if option arg
         if (
@@ -160,7 +175,7 @@ class Tap(ArgumentParser):
                 kwargs["help"] += type_to_str(self._annotations[variable]) + ", "
 
             # Required/default
-            if kwargs.get("required", False) or is_positional_arg(*name_or_flags):
+            if kwargs.get("required", False) or default_value is _NO_DEFAULT:
                 kwargs["help"] += "required"
             else:
                 kwargs["help"] += f'default={kwargs.get("default", None)}'
@@ -168,8 +183,8 @@ class Tap(ArgumentParser):
             kwargs["help"] += ")"
 
             # Description
-            if variable in self.class_variables:
-                kwargs["help"] += " " + self.class_variables[variable]["comment"]
+            if variable in self.class_variables and (comment := self.class_variables[variable]["comment"]):
+                kwargs["help"] += " " + comment
 
         # Set other kwargs where not provided
         if variable in self._annotations:
@@ -187,14 +202,15 @@ class Tap(ArgumentParser):
                         var_args = (str, type(None))
 
                     # Raise error if type function is not explicitly provided for Union types (not including Optionals)
+
                     if get_origin(var_type) in UNION_TYPES and not (len(var_args) == 2 and var_args[1] == type(None)):
                         raise ArgumentTypeError(
                             "For Union types, you must include an explicit type function in the configure method. "
                             "For example,\n\n"
-                            "def to_number(string: str) -> Union[float, int]:\n"
+                            "def to_number(string: str) -> float | int:\n"
                             "    return float(string) if '.' in string else int(string)\n\n"
                             "class Args(Tap):\n"
-                            "    arg: Union[float, int]\n"
+                            "    arg: float | int\n"
                             "\n"
                             "    def configure(self) -> None:\n"
                             "        self.add_argument('--arg', type=to_number)"
@@ -301,21 +317,59 @@ class Tap(ArgumentParser):
             )
 
         variable = get_argument_name(*name_or_flags).replace("-", "_")
+
+        # Check if this argument is marked as TapIgnore
+        if self._is_ignored_argument(variable):
+            raise ValueError(
+                f"Argument '{variable}' is marked as TapIgnore and cannot be added as a command line argument. "
+                "Either remove the TapIgnore annotation or remove the add_argument call."
+            )
+        is_annotated_positional = self._is_argument_annotated_positional(variable)
+        is_positional_arg_name = is_positional_arg(*name_or_flags)
+        if is_annotated_positional and not is_positional_arg_name:
+            raise ValueError(
+                f"Argument '{variable}' is marked as Positional "
+                f"and cannot be added with option flags {name_or_flags}. "
+                "Either remove the Positional annotation "
+                "or change the add_argument call to use a positional argument."
+            )
+        if (is_annotated_positional or is_positional_arg_name) and "required" in kwargs:
+            raise TypeError("'required' is an invalid argument for positionals")
+
         self.argument_buffer[variable] = (name_or_flags, kwargs)
+
+    def _is_ignored_argument(self, variable: str, annotations: Optional[dict[str, Any]] = None) -> bool:
+        annotations = self._annotations_with_extras if annotations is None else annotations
+        if variable in annotations:
+            return _is_marked_tap_ignore(annotations[variable])
+        return False
+
+    def _is_argument_annotated_positional(self, variable: str, annotations: Optional[dict[str, Any]] = None) -> bool:
+        annotations = self._annotations_with_extras if annotations is None else annotations
+        if variable in annotations:
+            return _is_marked_positional(annotations[variable])
+        return False
 
     def _add_arguments(self) -> None:
         """Add arguments to self in the order they are defined as class variables (so the help string is in order)."""
         # Add class variables (in order)
         for variable in self.class_variables:
+            if self._is_ignored_argument(variable):
+                continue
+
             if variable in self.argument_buffer:
                 name_or_flags, kwargs = self.argument_buffer[variable]
                 self._add_argument(*name_or_flags, **kwargs)
+            elif self._is_argument_annotated_positional(variable):
+                self._add_argument(variable)
             else:
                 self._add_argument(f"--{variable}")
 
         # Add any arguments that were added manually in configure but aren't class variables (in order)
         for variable, (name_or_flags, kwargs) in self.argument_buffer.items():
             if variable not in self.class_variables:
+                if self._is_ignored_argument(variable):
+                    continue
                 self._add_argument(*name_or_flags, **kwargs)
 
     def process_args(self) -> None:
@@ -486,7 +540,7 @@ class Tap(ArgumentParser):
         return self
 
     @classmethod
-    def _get_from_self_and_super(cls, extract_func: Callable[[type], dict]) -> Union[dict[str, Any], dict]:
+    def _get_from_self_and_super(cls, extract_func: Callable[[type], dict]) -> dict[str, Any]:
         """Returns a dictionary mapping variable names to values.
 
         Variables and values are extracted from classes using key starting
@@ -534,11 +588,16 @@ class Tap(ArgumentParser):
 
         return class_dict
 
-    def _get_annotations(self) -> dict[str, Any]:
-        """Returns a dictionary mapping variable names to their type annotations."""
-        return self._get_from_self_and_super(extract_func=lambda super_class: dict(get_type_hints(super_class)))
+    def _get_annotations(self, include_extras: bool = False) -> dict[str, Any]:
+        """
+        Returns a dictionary mapping variable names to their type annotations.
+        Keep Annotations and other extras if include_extras is True.
+        """
+        return self._get_from_self_and_super(
+            extract_func=lambda super_class: dict(get_type_hints(super_class, include_extras=include_extras))
+        )
 
-    def _get_class_variables(self) -> dict:
+    def _get_class_variables(self, exclude_tap_ignores: bool = True) -> dict:
         """Returns a dictionary mapping class variables names to their additional information."""
         class_variable_names = {**self._get_annotations(), **self._get_class_dict()}.keys()
 
@@ -563,7 +622,13 @@ class Tap(ArgumentParser):
             class_variables = {}
             for variable in class_variable_names:
                 class_variables[variable] = {"comment": ""}
-
+        if exclude_tap_ignores:
+            extra_annotations = self._get_annotations(include_extras=True)
+            return {
+                var: data
+                for var, data in class_variables.items()
+                if not self._is_ignored_argument(var, extra_annotations)
+            }
         return class_variables
 
     def _get_argument_names(self) -> set[str]:
@@ -689,13 +754,13 @@ class Tap(ArgumentParser):
 
         return self
 
-    def _load_from_config_files(self, config_files: Optional[list[str]]) -> list[str]:
-        """Loads arguments from a list of configuration files containing command line arguments.
+    def _load_from_config_files(self, config_files: Optional[Iterable[PathLike]]) -> list[str]:
+        """Loads arguments from an iterable of configuration files containing command line arguments.
 
-        :param config_files: A list of paths to configuration files containing the command line arguments
+        :param config_files: An iterable of paths to configuration files containing the command line arguments
                              (e.g., '--arg1 a1 --arg2 a2'). Arguments passed in from the command line
                              overwrite arguments from the configuration files. Arguments in configuration files
-                             that appear later in the list overwrite the arguments in previous configuration files.
+                             that appear later in the iterable overwrite the arguments in previous configuration files.
         :return: A list of the contents of each config file in order of increasing precedence (highest last).
         """
         args_from_config = []

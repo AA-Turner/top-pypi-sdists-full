@@ -20,6 +20,7 @@ import asyncio
 import concurrent.futures
 import logging
 import os
+import requests
 import ssl
 from unittest import mock
 
@@ -513,6 +514,43 @@ def test_vertexai_no_default_location_when_location_explicitly_set(monkeypatch):
     client = Client(vertexai=True, project=project_id, location=location)
     assert client.models._api_client.location == location
     assert client.models._api_client.project == project_id
+
+
+def test_vertexai_location_us_routing(monkeypatch):
+  # Verify that location='us' correctly routes to the us.rep endpoint
+  project_id = "fake_project_id"
+  location = "us"
+
+  with monkeypatch.context() as m:
+    m.delenv("GOOGLE_CLOUD_LOCATION", raising=False)
+    client = Client(vertexai=True, project=project_id, location=location)
+    assert client.models._api_client.location == location
+    assert client.models._api_client.project == project_id
+    assert (
+        client.models._api_client.get_read_only_http_options()["base_url"]
+        == "https://aiplatform.us.rep.googleapis.com/"
+    )
+
+
+def test_vertexai_location_us_routing_base_url_override(monkeypatch):
+  # Verify that base_url override takes precedence over location='us' routing
+  project_id = "fake_project_id"
+  location = "us"
+
+  with monkeypatch.context() as m:
+    m.delenv("GOOGLE_CLOUD_LOCATION", raising=False)
+    client = Client(
+        vertexai=True,
+        project=project_id,
+        location=location,
+        http_options={"base_url": "https://my-custom-url.com/"},
+    )
+    assert client.models._api_client.location == location
+    assert client.models._api_client.project == project_id
+    assert (
+        client.models._api_client.get_read_only_http_options()["base_url"]
+        == "https://my-custom-url.com/"
+    )
 
 
 def test_vertexai_no_default_location_when_env_location_set(monkeypatch):
@@ -1331,18 +1369,32 @@ def test_threaded_generate_content_locking(monkeypatch):
   mock_refresh = mock.Mock(side_effect=refresh_side_effect)
   mock_creds.refresh = mock_refresh
 
-  # Mock the actual request to avoid network calls
-  mock_httpx_response = httpx.Response(
-      status_code=200,
-      headers={},
-      text='{"candidates": [{"content": {"parts": [{"text": "response"}]}}]}',
-  )
-  mock_request = mock.Mock(return_value=mock_httpx_response)
-  monkeypatch.setattr(api_client.SyncHttpxClient, "request", mock_request)
-
   client = Client(
       vertexai=True, project="fake_project_id", location="fake-location"
   )
+  # Mock the actual request to avoid network calls
+  if client._api_client._use_google_auth_sync():
+    # Cloud environment enables mTLS and uses requests.Response
+    mock_http_response = requests.Response()
+    mock_http_response.status_code = 200
+    mock_http_response.headers = {}
+    mock_http_response._content = (
+        b'{"candidates": [{"content": {"parts": [{"text": "response"}]}}]}'
+    )
+    mock_request = mock.Mock(return_value=mock_http_response)
+    monkeypatch.setattr(
+       google.auth.transport.requests.AuthorizedSession, "request", mock_request
+    )
+  else:
+    # Non-cloud environment w/o certificates uses httpx.Response
+    mock_httpx_response = httpx.Response(
+        status_code=200,
+        headers={},
+        text='{"candidates": [{"content": {"parts": [{"text": "response"}]}}]}',
+    )
+    mock_request = mock.Mock(return_value=mock_httpx_response)
+    monkeypatch.setattr(api_client.SyncHttpxClient, "send", mock_request)
+
   # Reset credentials to test initialization to ensure the sync lock is tested.
   client._api_client._credentials = None
 

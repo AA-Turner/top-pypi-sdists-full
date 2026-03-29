@@ -19,59 +19,138 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-from typing import Union, List
+import warnings
+import logging
+from typing import overload
+from functools import lru_cache
+from pathlib import Path
+import xml.etree.ElementTree as ET
 
-from pydifact.api import EDISyntaxError, PluginMount
-from pydifact.control import Characters
+from pydifact.constants import (
+    EDI_DEFAULT_VERSION,
+    M,
+    EDI_DEFAULT_SYNTAX,
+    Element,
+    EDI_DEFAULT_DIRECTORY,
+    service_segments,
+)
+from pydifact.exceptions import (
+    ValidationError,
+    MissingImplementationWarning,
+    EDISyntaxError,
+)
+from pydifact.syntax.common import DataElement, CompositeDataElement
+from pydifact.utils import get_syntax_release_version
+
+logger = logging.getLogger(__name__)
 
 
-class SegmentProvider(metaclass=PluginMount):
-    """This is a plugin mount point for Segment plugins which represent a certain EDIFACT Segment.
+@lru_cache(maxsize=32)
+def _load_segments_xml(directory: str) -> ET.Element:
+    """Load and cache segments.xml from the specified directory.
 
-    Classes implementing this PluginMount should provide the following attributes:
+    Args:
+        directory: The directory name under pydifact.syntax (e.g., 'd00a', 'd96a')
+
+    Returns:
+        The root element of the parsed XML tree
+
+    Raises:
+        FileNotFoundError: If segments.xml cannot be found in the directory
+        ET.ParseError: If the XML file cannot be parsed
     """
+    # Get the path to the syntax directory
+    syntax_path = Path(__file__).parent / "syntax" / directory / "data" / "segments.xml"
 
-    def __str__(self):
-        """Returns the user readable text representation of this segment."""
+    if not syntax_path.exists():
+        syntax_path = (
+            Path(__file__).parent
+            / "syntax"
+            / directory
+            / "data"
+            / "simple_segments.xml"
+        )
+        if not syntax_path.exists():
+            raise FileNotFoundError(f"segments.xml not found in directory: {directory}")
 
-    def validate(self) -> bool:
-        """Validates the Segment."""
+    tree = ET.parse(syntax_path)
+    return tree.getroot()
 
 
-class Segment(SegmentProvider):
+class Segment:
     """Represents a low-level segment of an EDI interchange.
 
-    This class is used internally. read-world implementations of specialized should subclass Segment and provide
-    the `tag` and `validate` attributes.
+    This class is used internally. Real-world implementations of specialized should
+    subclass Segment and provide
+    the `tag` attribute and `validate()` method.
     """
 
     # tag is not a class attribute in this case, as each Segment instance could have another tag.
     __omitted__ = True
+    plugins: list = []
+    schema: list[tuple[type[CompositeDataElement | DataElement], str, int, str]] = []
+    tag = ""
+    elements: list[Element] = []
 
-    def __init__(self, tag: str, *elements: Union[str, List[str], None]):
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if "__omitted__" not in cls.__dict__ or getattr(cls, "__omitted__") is False:
+            cls.plugins.append(cls)
+
+    @overload
+    def __init__(self, tag: str, *elements: Element): ...
+
+    @overload
+    def __init__(self, *elements: Element): ...
+
+    def __init__(self, *args):
         """Create a new Segment instance.
 
-        :param str tag: The code/tag of the segment. Must not be empty.
-        :param list elements: The data elements for this segment, as (possibly empty) list.
+        Params:
+            tag: The code/tag of the segment. On Segment, must not be empty. On
+                subclasses of Segment it can be omitted
+            elements: The data elements for this segment, as (possibly empty) list.
 
         """
-        self.tag = tag
+        # if there is no tag defined in the class itself, it MUST be passed as the first
+        # argument.
+        if not self.tag:
+            if len(args) < 1:
+                raise AttributeError(
+                    f"{self}: A generic segment must provide a tag as first argument."
+                )
+            self.tag = args[0]
 
-        # The data elements for this segment.
-        # this is converted to a list (due to the fact that python creates a tuple
-        # when passing a variable arguments list to a method)
-        self.elements = list(elements)
+            self.elements = list(args[1:])
+        else:
+            self.elements = list(args)
+
+        if not self.elements:
+            warnings.warn(
+                f"Segment {self.tag} is empty, and should be omitted completely.",
+                category=SyntaxWarning,
+            )
+        # Validate segment tag is uppercase alphanumeric string
+        if (
+            not isinstance(self.tag, str)
+            or not self.tag.isalnum()
+            or len(self.tag) == 0
+            or not self.tag.isupper()
+        ):
+            raise ValueError(
+                f"Segment tag must be an uppercase alphanumeric string, not '{self.tag}'."
+            )
 
     def __str__(self) -> str:
-        """Returns the Segment in Python list printout"""
-        return "'{tag}' EDI segment: {elements}".format(
-            tag=self.tag, elements=str(self.elements)
-        )
+        """Returns the user-readable text representation of this segment."""
+        return f"'{self.tag}' EDI segment: {self.elements}"
 
     def __repr__(self) -> str:
-        return "{} segment: {}".format(self.tag, str(self.elements))
+        return f"{self.tag} segment: {str(self.elements)}"
 
     def __eq__(self, other) -> bool:
+        if isinstance(other, str):
+            return str(self) == other
         # FIXME the other way round too? isinstance(other, type(self))?
         return (
             isinstance(self, type(other))
@@ -79,27 +158,192 @@ class Segment(SegmentProvider):
             and list(self.elements) == list(other.elements)
         )
 
-    def __getitem__(self, key):
-        return self.elements[key]
+    def __getitem__(self, key: int) -> Element | None:
+        """
+        Retrieves an element from the list of elements based on the provided index.
 
-    def __setitem__(self, key, value):
+        If the index is out of bounds, the method returns `Ǹone`.
+        """
+        return self.elements[key] if len(self.elements) > key else None
+
+    def __setitem__(self, key: int, value: Element) -> None:
         self.elements[key] = value
 
-    def validate(self) -> bool:
+    def validate(self, syntax_version: str, directory: str) -> None:
         """
-        Segment validation.
+        Segment validation against a given syntax version and EDIFACT directory.
 
         The Segment class is part of the lower level interfaces of pydifact.
-        So it assumes that the given parameters are correct, there is no validation done here.
-        However, in segments derived from this class, there should be validation.
+        Args:
+            syntax_version: The EDIFACT syntax version to validate the segment against
+                (e.g., "1", "300", "402", "40219"). The correct release will be
+                determined automatically.
+            directory: The directory name to validate the segment against
+                (e.g., "d00a", "d96a")
 
-        :return: bool True if given tag and elements are a valid EDIFACT segment, False if not.
+        Raises:
+            ValidationError, if the validation fails.
         """
-        # FIXME: there should be a way of returning an error message - WHICH kind of validation failed.
+        release_version = get_syntax_release_version(syntax_version)
+        if not directory and self.tag in service_segments:
+            directory = f"service/v{release_version}"
 
-        if not self.tag:
-            return False
-        return True
+        if not directory:
+            # no directory given to compare against
+            return
+
+        try:
+            # load segments xml (or cache it)
+            xml_root = _load_segments_xml(directory)
+
+            if self.tag == "UNA":
+                # UNA is special
+                return
+
+            # Find the segment definition in XML
+            segment_def = xml_root.find(f".//segment[@id='{self.tag}']")
+
+            if segment_def is None:
+                logger.warning(f"No definition found for segment {self.tag}")
+                raise ValidationError(
+                    f"No definition found for segment "
+                    f"{self.tag} in directory {directory}."
+                )
+
+            # Validate against XML schema
+            # first get sub elements (data_element or composite_data_element)
+            xml_elements = segment_def.findall("./*")
+            # get count of required elements
+            required_element_count = len(
+                [
+                    e
+                    for e in xml_elements
+                    if e.get("required", "false").lower() == "true"
+                ]
+            )
+
+            # check if we have less than the required number of elements
+            # defined in XML
+            if len(self.elements) < required_element_count:
+                raise ValidationError(
+                    f"{self.tag}: Too few elements. Expected at least {required_element_count}, "
+                    f"got {len(self.elements)}"
+                )
+
+            # check if we have more elements than defined in XML
+            if len(self.elements) > len(xml_elements):
+                raise ValidationError(
+                    f"{self.tag}: Too many elements. Expected {len(xml_elements)}, "
+                    f"got {len(self.elements)}: {self.elements}"
+                )
+
+            for index, xml_element in enumerate(xml_elements):
+                element = self.elements[index] if index < len(self.elements) else None
+                is_mandatory = xml_element.get("required", "false").lower() == "true"
+                # repeat = int(xml_element.get("repeat", "1")) # not used yet
+
+                if is_mandatory and (element is None or element == ""):
+                    raise ValidationError(
+                        f"{self.tag} Segment, pos. {index}: "
+                        f"element {xml_element.get('id')} ({xml_element.get('name')}) "
+                        f"is required."
+                    )
+
+                if element:
+                    if xml_element.tag == "data_element":
+                        if not isinstance(element, str):
+                            raise ValidationError(
+                                f"{self.tag} Segment, pos. {index}: "
+                                f"element {xml_element.get('id')} ({xml_element.get('name')}) "
+                                f"should be a simple data element, but got: "
+                                f"{element}"
+                            )
+                        repeat = xml_element.get("repeat", "")
+                        if not repeat.isdigit():
+                            logger.warning(
+                                "'repeat' attribute missing for "
+                                f"element {directory}."
+                                f"{xml_element.get('id')}"
+                            )
+                            repeat = "1"
+                        # TODO: validate repeats
+
+                        # validate data element (length, type)
+                        # convert type and maxlength/minlength to repr string (e.g. "an..3")
+                        type_code = xml_element.get("type")
+                        length = int(xml_element.get("length", "0"))
+                        maxlength = int(xml_element.get("maxlength", "0"))
+                        match type_code:
+                            case "an":
+                                # no validation necessary, all is allowed.
+
+                                # this is dangerous, as supposedly many EDIFACT
+                                # senders do not comply to standards and send all
+                                # types of chars...
+
+                                # for char in element:
+                                #     if not char.isalnum():
+                                #         raise ValidationError(
+                                #             f"{self.tag} Segment, pos. {index}: "
+                                #             f"element {xml_element.get('id')} ({xml_element.get('name')}) "
+                                #             f"contains invalid character: {char}"
+                                #         )
+                                pass
+                            case "n":
+                                # make sure the element only consists of numbers
+                                if not element.strip().isdigit():
+                                    raise ValidationError(
+                                        f"{self.tag} Segment, pos. {index}: "
+                                        f"element {xml_element.get('id')} ({xml_element.get('name')}) "
+                                        f"should only contain numbers, but got: "
+                                        f"{element}"
+                                    )
+                            case "a":
+                                # Data element can include any letters, special
+                                # characters, and control characters but no digits.
+                                # make sure all chars are in SYNTAX_CHARACTERS
+                                for char in element:
+                                    if not char.isalpha():
+                                        raise ValidationError(
+                                            f"{self.tag} Segment, pos. {index}: "
+                                            f"element {xml_element.get('id')} ({xml_element.get('name')}) "
+                                            f"contains invalid character: {char}"
+                                        )
+
+                        if maxlength:
+                            if len(element) > maxlength:
+                                raise ValidationError(
+                                    f"{self.tag} Segment, pos. {index}: "
+                                    f"element {xml_element.get('id')} "
+                                    f"({xml_element.get('name')}) "
+                                    f"exceeds maximum length of {maxlength}: {element}"
+                                )
+                        elif length:
+                            if len(element) != length:
+                                raise ValidationError(
+                                    f"{self.tag} Segment, pos. {index}: "
+                                    f"element {xml_element.get('id')} "
+                                    f"({xml_element.get('name')}) "
+                                    f"should be {length} characters long, but is "
+                                    f"{len(element)}: {element}"
+                                )
+
+        except FileNotFoundError as e:
+            warnings.warn(
+                f"segments.xml not found for directory '{directory}'. "
+                f"Falling back to schema-based validation.",
+                category=MissingImplementationWarning,
+            )
+            if self.tag in service_segments:
+                raise ValidationError(
+                    f"Schema for service segment {self.tag} not found "
+                    f"(directory '{directory}')"
+                ) from e
+        except ET.ParseError as e:
+            warnings.warn(
+                f"Failed to parse segments.xml: {e}. ",
+                category=MissingImplementationWarning,
+            )
 
 
 class SegmentFactory:
@@ -107,13 +351,21 @@ class SegmentFactory:
 
     @staticmethod
     def create_segment(
-        name: str, *elements: Union[str, List[str]], validate: bool = True
+        name: str,
+        *elements: Element,
+        validate: bool = True,
+        version: str = EDI_DEFAULT_VERSION,
+        directory: str = EDI_DEFAULT_DIRECTORY,
     ) -> Segment:
         """Create a new instance of the relevant class type.
 
-        :param name: The name of the segment
-        :param elements: The data elements for this segment
-        :param validate: bool if True, the created segment is validated before return
+        Parameters:
+            name: The name of the segment
+            elements: The data elements for this segment
+            validate: bool if True, the created segment is validated before return
+            version: The version of the EDI standard this segment is based on
+                    (default: 4)
+            directory: The EDIFACT directory to validate against
         """
         # Basic segment type validation is done here.
         # The more special validation must be done in the corresponding Segment
@@ -121,33 +373,29 @@ class SegmentFactory:
         if not name:
             raise EDISyntaxError("The tag of a segment must not be empty.")
 
-        if type(name) != str:
+        if not isinstance(name, str):
             raise EDISyntaxError(
-                "The tag name of a segment must be a str, but is a {}: {}".format(
-                    type(name), name
-                )
+                f"The tag name of a segment must be a str, but is a {type(name)}: {name}"
             )
-
         if not name.isalnum():
             raise EDISyntaxError(
-                "Tag '{}': A tag name must only contain alphanumeric characters.".format(
-                    name
-                )
+                f"Tag '{name}': A tag name must only contain alphanumeric characters."
             )
-
-        for Plugin in SegmentProvider.plugins:
-            if getattr(Plugin, "tag", "") == name:
-                s = Plugin(name, *elements)
+        # TODO: don't iterate over plugins, use a dict to find plugins faster
+        for Plugin in Segment.plugins:
+            if (
+                getattr(Plugin, "tag", "") == name
+                and getattr(Plugin, "version", EDI_DEFAULT_VERSION) == version
+            ):
+                # use specific Segment subclass for this tag
+                segment = Plugin(*elements)
                 break
         else:
             # we don't support this kind of EDIFACT segment (yet), so
             # just create a generic Segment()
-            s = Segment(name, *elements)
+            segment = Segment(name, *elements)
 
         if validate:
-            if not s.validate():
-                raise EDISyntaxError(
-                    "could not create '{}' Segment. Validation failed.".format(name)
-                )
+            segment.validate(version, directory)
 
-        return s
+        return segment

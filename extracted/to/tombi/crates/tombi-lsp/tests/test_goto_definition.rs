@@ -296,8 +296,8 @@ mod goto_definition_tests {
                 SourcePath(project_root_path().join("Cargo.toml")),
             ) -> Ok([
                 project_root_path().join("extensions/tombi-extension-cargo/Cargo.toml"),
+                project_root_path().join("extensions/tombi-extension-pyproject/Cargo.toml"),
                 project_root_path().join("extensions/tombi-extension-tombi/Cargo.toml"),
-                project_root_path().join("extensions/tombi-extension-uv/Cargo.toml"),
             ]);
         );
 
@@ -398,12 +398,12 @@ mod goto_definition_tests {
         );
     }
 
-    mod pyproject_uv_schema {
+    mod pyproject_schema {
         use super::*;
 
         test_goto_definition!(
             #[tokio::test]
-            async fn tool_uv_sources_package_with_workspace(
+            async fn tool_pyproject_sources_package_with_workspace(
                 r#"
                 [tool.uv.sources]
                 tombi-beta█ = { workspace = true }
@@ -414,7 +414,7 @@ mod goto_definition_tests {
 
         test_goto_definition!(
             #[tokio::test]
-            async fn tool_uv_sources_package_workspace(
+            async fn tool_pyproject_sources_package_workspace(
                 r#"
                 [tool.uv.sources]
                 tombi-beta = { workspace█ = true }
@@ -425,7 +425,7 @@ mod goto_definition_tests {
 
         test_goto_definition!(
             #[tokio::test]
-            async fn tool_uv_workspace_members(
+            async fn tool_pyproject_workspace_members(
                 r#"
                 [tool.uv.workspace]
                 members█ = ["python/tombi-beta"]
@@ -436,7 +436,7 @@ mod goto_definition_tests {
 
         test_goto_definition!(
             #[tokio::test]
-            async fn tool_uv_workspace_members_python_tombi_beta(
+            async fn tool_pyproject_workspace_members_python_tombi_beta(
                 r#"
                 [tool.uv.workspace]
                 members = ["python/tombi-beta█"]
@@ -446,7 +446,7 @@ mod goto_definition_tests {
         );
     }
 
-    mod pyproject_uv_workspace_dependencies {
+    mod pyproject_workspace_dependencies {
         use super::*;
 
         fn pyproject_workspace_fixtures_path() -> std::path::PathBuf {
@@ -506,6 +506,19 @@ mod goto_definition_tests {
                 "#,
                 SourcePath(project_root_path().join("tombi.toml")),
             ) -> Ok([project_root_path().join("www.schemastore.org/tombi.json")]);
+        );
+
+        test_goto_definition!(
+            #[tokio::test]
+            async fn schema_path_disabled_by_extensions(
+                r#"
+                [[schemas]]
+                path = "█www.schemastore.org/tombi.json"
+                "#,
+                SourcePath(project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/tombi-disabled/tombi.toml"
+                )),
+            ) -> Ok([]);
         );
     }
 
@@ -608,6 +621,7 @@ mod goto_definition_tests {
                         toml_version: None,
                         path: schema_uri.to_string(),
                         include: vec!["*.toml".to_string()],
+                    lint: None,
                     }));
                 }
 
@@ -625,6 +639,7 @@ mod goto_definition_tests {
                         path: subschema_uri.to_string(),
                         include: vec!["*.toml".to_string()],
                         root: subschema.root.clone(),
+                        lint: None,
                     }));
                 }
 

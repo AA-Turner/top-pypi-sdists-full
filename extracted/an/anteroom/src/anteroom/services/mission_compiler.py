@@ -477,6 +477,7 @@ def apply_plan(
     source_fqn: str | None = None,
     source_version: int | None = None,
     lane_limits: dict[str, int] | None = None,
+    session_status: str = "pending",
 ) -> dict[str, Any]:
     _validate_dag({item.temp_id: list(item.depends_on) for item in plan.items})
 
@@ -486,6 +487,7 @@ def apply_plan(
 
     session = mission_storage.create_session(
         db,
+        status=session_status,
         title=plan.title,
         description=plan.description,
         source_type=source_type,

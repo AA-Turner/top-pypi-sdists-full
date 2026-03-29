@@ -60,8 +60,8 @@ def do_create_virtualenv(project, python=None, site_packages=None, pypi_mirror=N
         using_string = "Using default python from"
 
     err.print(
-        f"[bold]{using_string}[/bold] [bold][yellow]{python}[/yellow][/bold]"
-        f"[green]{python_version(python)}[green] "
+        f"[bold]{using_string}[/bold] [bold][yellow]{python}[/yellow][/bold] "
+        f"[green]{python_version(python)}[/green] "
         "[bold]to create virtualenv...[/bold]"
     )
 
@@ -87,14 +87,58 @@ def do_create_virtualenv(project, python=None, site_packages=None, pypi_mirror=N
 
         err.print(f"[cyan]{c.stdout}[/cyan]")
         if c.returncode != 0:
-            error = (
+            virtualenv_error = (
                 c.stderr if project.s.is_verbose() else exceptions.prettify_exc(c.stderr)
             )
-            err.print(
-                environments.PIPENV_SPINNER_FAIL_TEXT.format(
-                    "Failed creating virtual environment"
+            # Issue: https://github.com/pypa/pipenv/issues/5601
+            # virtualenv may not support alternative Python implementations (e.g.
+            # RustPython, GraalPy). Fall back to the target interpreter's own
+            # built-in `venv` module, which those implementations are more likely
+            # to ship. Only attempt the fallback when the user has not explicitly
+            # chosen a virtualenv creator via PIPENV_VIRTUALENV_CREATOR.
+            if not project.s.PIPENV_VIRTUALENV_CREATOR:
+                err.print(
+                    "[yellow]virtualenv failed; retrying with the interpreter's "
+                    "built-in venv module...[/yellow]"
                 )
-            )
+                fallback_cmd = _create_builtin_venv_cmd(
+                    project, python, site_packages=site_packages
+                )
+                c2 = subprocess_run(fallback_cmd, env=pip_config, cwd=temp_dir)
+                err.print(f"[cyan]{c2.stdout}[/cyan]")
+                if c2.returncode == 0:
+                    err.print(
+                        environments.PIPENV_SPINNER_OK_TEXT.format(
+                            "Successfully created virtual environment!"
+                        )
+                    )
+                    err.print(
+                        "[bold yellow]Note:[/bold yellow] Created using the interpreter's "
+                        "built-in [bold]venv[/bold] module because [bold]virtualenv[/bold] "
+                        "was not able to use this interpreter directly. "
+                        "Some virtualenv features (e.g. [bold]--copies[/bold]) may not be available."
+                    )
+                else:
+                    # Both strategies failed — surface the original virtualenv error
+                    # plus the venv error so the user has full context.
+                    venv_error = (
+                        c2.stderr
+                        if project.s.is_verbose()
+                        else exceptions.prettify_exc(c2.stderr)
+                    )
+                    error = f"{virtualenv_error}\n\nvenv fallback error:\n{venv_error}"
+                    err.print(
+                        environments.PIPENV_SPINNER_FAIL_TEXT.format(
+                            "Failed creating virtual environment"
+                        )
+                    )
+            else:
+                error = virtualenv_error
+                err.print(
+                    environments.PIPENV_SPINNER_FAIL_TEXT.format(
+                        "Failed creating virtual environment"
+                    )
+                )
         else:
             err.print(
                 environments.PIPENV_SPINNER_OK_TEXT.format(
@@ -146,8 +190,34 @@ def _create_virtualenv_cmd(project, python, site_packages=False):
     return cmd
 
 
+def _create_builtin_venv_cmd(project, python, site_packages=False):
+    """Build a command that uses the *target* interpreter's own built-in venv
+    module (``python -m venv``).
+
+    This is the fallback used when ``virtualenv`` fails for a given interpreter
+    (e.g. RustPython, GraalPy) because those implementations may ship their own
+    ``venv`` module even if they don't support all the C-extension hooks that
+    virtualenv probes for.  See: https://github.com/pypa/pipenv/issues/5601
+    """
+    cmd = [
+        python,
+        "-m",
+        "venv",
+        f"--prompt={project.name}",
+    ]
+    if site_packages:
+        cmd.append("--system-site-packages")
+    cmd.append(project.get_location_for_virtualenv())
+    return cmd
+
+
 def ensure_virtualenv(project, python=None, site_packages=None, pypi_mirror=None):
     """Creates a virtualenv, if one doesn't exist."""
+
+    # When --system is used, skip virtualenv creation entirely.
+    # The user explicitly wants to install to the system Python.
+    if project.s.PIPENV_USE_SYSTEM:
+        return
 
     if not project.virtualenv_exists:
         try:
@@ -160,16 +230,6 @@ def ensure_virtualenv(project, python=None, site_packages=None, pypi_mirror=None
                     python = python.path.as_posix()
                 else:  # It's a Path object
                     python = python.as_posix()
-            # Create the virtualenv.
-            # Abort if --system (or running in a virtualenv).
-            if project.s.PIPENV_USE_SYSTEM:
-                err.print(
-                    "[red]"
-                    "You are attempting to re–create a virtualenv that "
-                    "Pipenv did not create. Aborting.",
-                    "[/red]",
-                )
-                sys.exit(1)
             do_create_virtualenv(
                 project,
                 python=python,
@@ -248,16 +308,26 @@ def ensure_python(project, python=None):
         if python:
             range_pattern = r"^[<>]=?|!="
             if re.search(range_pattern, python):
-                err.print(
-                    f"[bold red]Error[/bold red]: Python version range specifier '[cyan]{python}[/cyan]' is not supported. "
-                    "[yellow]Please use an absolute version number or specify the path to the Python executable on Pipfile.[/yellow]"
+                # PEP 440 specifier like ">=3.8" — find the best installed match.
+                path_to_python = _find_python_for_specifier(
+                    python, pyenv_only=project.s.PIPENV_PYENV_ONLY
                 )
-                sys.exit(1)
+                if path_to_python:
+                    err.print(
+                        f"Found Python satisfying [cyan]{python}[/cyan]: [green]{path_to_python}[/green]"
+                    )
+                    return path_to_python
+                else:
+                    err.print(
+                        f"[bold red]Error[/bold red]: No installed Python satisfies [cyan]{python}[/cyan]. "
+                        "[yellow]Install a compatible Python via pyenv or asdf first.[/yellow]"
+                    )
+                    sys.exit(1)
 
     if not python:
         python = project.s.PIPENV_DEFAULT_PYTHON_VERSION
     # Try to find Python using system registry and default paths first
-    path_to_python = find_a_system_python(python)
+    path_to_python = find_a_system_python(python, pyenv_only=project.s.PIPENV_PYENV_ONLY)
 
     if project.s.is_verbose():
         err.print(f"Using python: {python}")
@@ -377,7 +447,9 @@ def ensure_python(project, python=None):
                     err.print(f"[cyan]{c.stdout}[/cyan]")
             # Find the newly installed Python, hopefully.
             version = str(version)
-            path_to_python = find_a_system_python(version)
+            path_to_python = find_a_system_python(
+                version, pyenv_only=project.s.PIPENV_PYENV_ONLY
+            )
             try:
                 assert python_version(path_to_python) == version
             except AssertionError:
@@ -388,6 +460,45 @@ def ensure_python(project, python=None):
                 )
                 sys.exit(1)
     return path_to_python
+
+
+def _find_python_for_specifier(specifier_str, pyenv_only=False):
+    """Return the path to the highest installed Python satisfying *specifier_str*.
+
+    *specifier_str* is a PEP 440 version-specifier string such as ``">=3.8"``
+    or ``">=3.9,<4"``.  Returns ``None`` when no installed Python satisfies the
+    constraint.
+    """
+    from pipenv.vendor.packaging.specifiers import InvalidSpecifier, SpecifierSet
+    from pipenv.vendor.pythonfinder import Finder
+
+    try:
+        spec = SpecifierSet(specifier_str)
+    except InvalidSpecifier:
+        return None
+
+    finder = Finder(system=True, global_search=True, pyenv_only=pyenv_only)
+    all_versions = finder.find_all_python_versions()
+
+    candidates = []
+    for python_info in all_versions:
+        ver_str = python_info.version_str
+        if ver_str:
+            try:
+                if ver_str in spec:
+                    candidates.append(python_info)
+            except Exception:
+                pass
+
+    if not candidates:
+        return None
+
+    # find_all_python_versions already sorts descending; pick first.
+    best = sorted(candidates, key=lambda x: x.version_sort, reverse=True)[0]
+    path = (
+        best.path if best.path else (Path(best.executable) if best.executable else None)
+    )
+    return str(path) if path else None
 
 
 def find_python_from_py_launcher(version):
@@ -420,27 +531,31 @@ def find_python_from_py_launcher(version):
         if c.returncode != 0:
             return None
 
-        # Parse the output to find the requested version
+        # Parse the output to find the requested version.
+        # The format from `py --list-paths` is one of:
+        #   -V:3.12 *        C:\...\python.exe   (default version, has *)
+        #   -V:3.11          C:\...\python.exe   (non-default, no *)
+        # split(None, 2) gives 3 parts for default entries and only 2 parts
+        # for non-default entries, so we must NOT require exactly 3 parts.
         for line in c.stdout.splitlines():
             line = line.strip()
             if not line:
                 continue
 
-            # Format is: -V:3.9 * path\to\python.exe
-            # We need to extract the version and path
             parts = line.split(None, 2)
-            if len(parts) < 3:
+            if len(parts) < 2:
                 continue
 
-            # Extract version from -V:3.9
+            # Extract version from -V:X.Y
             v_part = parts[0]
             if not v_part.startswith("-V:"):
                 continue
 
             v = v_part[3:]  # Remove -V: prefix
+            # Path is always the last token regardless of whether * is present
+            path = parts[-1]
             if v == version:
-                # Found the requested version, return the path
-                return parts[-1]
+                return path
     except Exception:
         # If anything goes wrong, fall back to other methods
         pass
@@ -448,7 +563,7 @@ def find_python_from_py_launcher(version):
     return None
 
 
-def find_a_system_python(line):
+def find_a_system_python(line, pyenv_only=False):
     """Find a Python installation from a given line.
 
     This tries to parse the line in various of ways:
@@ -461,6 +576,10 @@ def find_a_system_python(line):
     * Nothing fits, return None.
 
     Note: The Windows py launcher is handled separately in ensure_python.
+
+    Args:
+        line: The python version or path string to search for.
+        pyenv_only: If True, only search for pyenv-managed Python installations.
     """
 
     from pipenv.vendor.pythonfinder import Finder
@@ -473,7 +592,7 @@ def find_a_system_python(line):
         if path_obj.is_file() and os.access(str(path_obj), os.X_OK):
             return str(path_obj)
 
-    finder = Finder(system=True, global_search=True)
+    finder = Finder(system=True, global_search=True, pyenv_only=pyenv_only)
     if not line:
         return next(iter(finder.find_all_python_versions()), None)
     # Use the windows finder executable
@@ -493,7 +612,7 @@ def do_where(project, virtualenv=False, bare=True):
                 "No Pipfile present at project home. Consider running "
                 "[green]`pipenv install`[/green] first to automatically generate a Pipfile for you."
             )
-            return
+            sys.exit(1)
         location = project.pipfile_location
         # Shorten the virtual display of the path to the virtualenv.
         if not bare:

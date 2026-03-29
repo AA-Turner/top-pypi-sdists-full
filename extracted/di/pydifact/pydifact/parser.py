@@ -19,37 +19,88 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-from typing import Optional, Generator, Any
 
+from collections.abc import Iterator, Iterable
+
+from pydifact.constants import (
+    EDI_DEFAULT_VERSION,
+    EDI_DEFAULT_SYNTAX,
+    Element,
+    Elements,
+    EDI_DEFAULT_DIRECTORY,
+)
+from pydifact.exceptions import EDISyntaxError
 from pydifact.tokenizer import Tokenizer
 from pydifact.token import Token
 from pydifact.segments import Segment, SegmentFactory
 from pydifact.control import Characters
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class TokenIterator:
+    """Wrapper for token iterator to allow pushing back tokens."""
+
+    def __init__(self, iterable: Iterable[Token]):
+        self.iterator = iter(iterable)
+        self.pushed_back: list[Token] = []
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> Token:
+        if self.pushed_back:
+            return self.pushed_back.pop()
+        return next(self.iterator)
+
+    def push_back(self, token: Token):
+        self.pushed_back.append(token)
 
 
 class Parser:
-    """Parse EDI messages into a list of segments."""
+    """Parse EDI messages into a list of segments.
+
+    Parameters:
+        factory: The SegmentFactory to use for creating segments.
+            (default: SegmentFactory())
+        characters: The control characters to use. (default: Characters())
+        version: The EDI version to override. (default: from UNB header)
+        directory: The directory to use for segments. (default: EDI_DEFAULT_DIRECTORY)
+        syntax_identifier: The syntax identifier to use for segments. (default: from UNB header)
+    """
 
     def __init__(
         self,
-        factory: Optional[SegmentFactory] = None,
-        characters: Optional[Characters] = None,
-    ):
+        factory: SegmentFactory | None = None,
+        characters: Characters | None = None,
+        directory: str = "",
+    ) -> None:
+        """Initializes parser with segment factory and control characters"""
         self.factory = factory or SegmentFactory()
         self.characters = characters or Characters()
+        self.directory = directory
+
+        self.syntax_identifier = ""
+        self.version = ""
 
     def parse(
-        self, message: str, characters: Characters = None
-    ) -> Generator[Segment, Any, None]:
+        self,
+        message: str,
+        characters: Characters | None = None,
+    ) -> Iterator[Segment]:
         """Parse the message into a list of segments.
 
-        :param characters: the control characters to use, if there is no
-                UNA segment present
-        :param message: The EDI message
-        :rtype:
+        Args:
+            message: The EDI message string to parse.
+            characters: The control characters to use, if there is no
+                UNA segment present. Defaults to None.
+
+        Yields:
+            Segment: Parsed segment objects from the EDI message.
         """
 
-        # If there is a UNA, take the following 6 characters
+        # If there is a UNA segment, take the following 6 characters
         # unconditionally, strip them, and make control Characters()
         # for further parsing
 
@@ -73,22 +124,47 @@ class Parser:
             message = message[idx_end:].lstrip("\r\n")
 
         else:
-            # if no UNA header present, use default control characters
-            # characters given on call take precedence over the stored defaults.
+            # if no UNA header present, the default control characters
+            # given on call take precedence over the stored defaults.
             if characters is None:
                 characters = self.characters
 
+        # if UNA is available, yield the UNA segment first, even before tokenizing
+        if una_found:
+            yield self.factory.create_segment("UNA", str(characters))
+
         tokenizer = Tokenizer()
-        return self.convert_tokens_to_segments(
-            tokenizer.get_tokens(message, characters),
-            characters,
-            with_una=una_found,
-        )
+        token_iterator = TokenIterator(tokenizer.get_tokens(message, characters))
+
+        while True:
+            raw_segments = self.convert_tokens_to_raw_segments(token_iterator)
+            try:
+                raw_segment = next(raw_segments)
+            except StopIteration:
+                break
+
+            segment = self.convert_raw_segment_to_segment(
+                raw_segment, directory=self.directory
+            )
+            yield segment
+
+            # check if this segment starts a payload
+            if self.is_payload_start(segment):
+                yield from self.handle_payload(token_iterator)
+
+    def is_payload_start(self, segment: Segment) -> bool:
+        """Return True if the segment starts a non-EDIFACT payload section.
+        Override in subclasses."""
+        return False
+
+    def handle_payload(self, tokens: TokenIterator) -> Iterator[Segment]:
+        """Handle a non-EDIFACT payload. Override in subclasses."""
+        yield from []
 
     @staticmethod
     def get_control_characters(
-        message: str, characters: Characters = None
-    ) -> Optional[Characters]:
+        message: str, characters: Characters | None = None
+    ) -> Characters | None:
         """Read the UNA segment from the passed string and extract/store the control characters from it.
 
         :param message: a valid EDI message string, or UNA segment string,
@@ -112,7 +188,6 @@ class Parser:
 
         # Get the character definitions
         chars = message[3:9]
-        characters.is_extracted_from_message = True
 
         characters.component_separator = chars[0]
         characters.data_separator = chars[1]
@@ -123,25 +198,24 @@ class Parser:
 
         return characters
 
-    def convert_tokens_to_segments(
-        self, tokens: list, characters: Characters, with_una: bool = False
-    ):
+    def convert_tokens_to_raw_segments(
+        self, tokens: Iterable[Token]
+    ) -> Iterator[Elements]:
         """Convert the tokenized message into an array of segments.
-        :param tokens: The tokens that make up the message
-        :param characters: the control characters to use
-        :param with_una: whether the UNA segment should be included
-        :type tokens: list of Token
-        :rtype list of Segment
+
+        Args:
+            tokens (Iterator[Token]): The tokens that make up the message
+            characters (Characters): The control characters to use
+
+        Returns:
+            Iterator[Segment]: An iterator of Segment objects
         """
 
-        segments = []
-        current_segment = []
-        data_element = None
+        current_segment: Elements = []
+        data_element: list[str] = []
+        data_element_value: Element
         in_segment = False
         empty_component_counter = 0
-
-        if with_una:
-            yield self.factory.create_segment("UNA", str(characters))
 
         for token in tokens:
             # If we're in the middle of a segment, check if we've reached the end
@@ -149,13 +223,16 @@ class Parser:
                 if token.type == Token.Type.TERMINATOR:
                     in_segment = False
                     if len(data_element) == 0:  # empty element
-                        data_element = ""
-                    if len(data_element) == 1:
+                        data_element_value = ""
+                    elif len(data_element) == 1:
                         # use a str instead of a list
-                        data_element = data_element[0]
+                        data_element_value = data_element[0]
+                    else:
+                        data_element_value = data_element
 
-                    current_segment.append(data_element)
+                    current_segment.append(data_element_value)
                     data_element = []
+                    yield current_segment
                     continue
 
             # If we're not in a segment, then start a new empty one now
@@ -164,7 +241,7 @@ class Parser:
             # an empty string to save into the segment then.
             else:
                 current_segment = []
-                segments.append(current_segment)
+                # raw_segments.append(current_segment)
                 data_element = []
                 empty_component_counter = 0
                 in_segment = True
@@ -174,11 +251,13 @@ class Parser:
             # data_element to an empty list []
             if token.type == Token.Type.DATA_SEPARATOR:
                 if len(data_element) == 0:  # empty element
-                    data_element = ""
+                    data_element_value = ""
                 elif len(data_element) == 1:
-                    data_element = data_element[0]
+                    data_element_value = data_element[0]
+                else:
+                    data_element_value = data_element
 
-                current_segment.append(data_element)
+                current_segment.append(data_element_value)
 
                 data_element = []
                 empty_component_counter = 0
@@ -206,8 +285,125 @@ class Parser:
 
             data_element.append(token.value)
             empty_component_counter = 0
-            continue
 
-        for segment in segments:
-            name = segment.pop(0)
-            yield self.factory.create_segment(name, *segment)
+    def convert_raw_segment_to_segment(
+        self,
+        raw_segment: Elements,
+        directory: str = EDI_DEFAULT_DIRECTORY,
+    ) -> Segment:
+        name = raw_segment.pop(0)
+        if isinstance(name, list):
+            raise EDISyntaxError("Invalid segment name: {name}")
+
+        if name == "UNA":
+            # We found another UNA segment.
+            # This is not in the specs, so raise an error
+            raise EDISyntaxError("There are not multiple UNA segments allowed.")
+        if name == "UNB":
+            # here we have the chance to determine the syntax/style and version
+            # of the EDI file. We have to inform the factory about it.
+            # However, if the syntax is set by force (Parser init parameter),
+            # then we don't override it here, even if the UNB segment has another
+            # value. The user might want to override this manually.
+
+            self.syntax_identifier = raw_segment[0][0]
+            self.version = raw_segment[0][1]
+            logger.info(
+                f"Using edifact syntax identifier '{self.syntax_identifier}' with  "
+                f"syntax version {self.version} in UNB header.",
+            )
+
+        return self.factory.create_segment(
+            name,
+            *raw_segment,
+            version=self.version,
+            directory=directory,
+        )
+
+
+class AEKParser(Parser):
+    """Parser for AEK messages."""
+
+    def is_payload_start(self, segment: Segment) -> bool:
+        """The UNB segment starts the payload in AEK messages."""
+        return segment.tag == "UNB"
+
+    def handle_payload(self, tokens: TokenIterator) -> Iterator[Segment]:
+        """Parse the HL7-like payload.
+        It ends when a UNZ segment is reached.
+        """
+        # Collect tokens until we see something that looks like UNZ or UNT.
+        payload_parts = []
+        while True:
+            try:
+                token = next(tokens)
+                # print(f"DEBUG: Token type={token.type}, value={repr(token.value)}")
+                if token.type == Token.Type.CONTENT:
+                    # check if this content starts with UNZ or UNT (next segment)
+                    if token.value.startswith("UNZ") or token.value.startswith("UNT"):
+                        # Peek next to see if it's a separator
+                        try:
+                            next_token = next(tokens)
+                            if next_token.type == Token.Type.DATA_SEPARATOR:
+                                # It's a segment start!
+                                tokens.push_back(next_token)
+                                tokens.push_back(token)
+                                # print("DEBUG: Found UNZ/UNT at start of CONTENT")
+                                break
+                            else:
+                                tokens.push_back(next_token)
+                        except StopIteration:
+                            pass
+
+                    # Look for terminator + UNZ/UNT
+                    # The tokenizer might have split them if there are separators.
+
+                    payload_parts.append(token.value)
+                elif token.type == Token.Type.TERMINATOR:
+                    # After a terminator, we might have UNZ
+                    try:
+                        next_token = next(tokens)
+                        # print(f"DEBUG: Token after terminator={next_token.type}, value={repr(next_token.value)}")
+                        if next_token.type == Token.Type.CONTENT and (
+                            next_token.value.startswith("UNZ")
+                            or next_token.value.startswith("UNT")
+                        ):
+                            # Check if it's really a segment
+                            try:
+                                n2 = next(tokens)
+                                # print(f"DEBUG: Token after UNZ/UNT={n2.type}, value={repr(n2.value)}")
+                                if n2.type == Token.Type.DATA_SEPARATOR:
+                                    tokens.push_back(n2)
+                                    tokens.push_back(next_token)
+                                    tokens.push_back(token)
+                                    # print("DEBUG: Found UNZ/UNT after TERMINATOR")
+                                    break
+                                else:
+                                    tokens.push_back(n2)
+                                    payload_parts.append(token.value)
+                                    payload_parts.append(next_token.value)
+                            except StopIteration:
+                                payload_parts.append(token.value)
+                                payload_parts.append(next_token.value)
+                        else:
+                            tokens.push_back(next_token)
+                            payload_parts.append(token.value)
+                    except StopIteration:
+                        payload_parts.append(token.value)
+                else:
+                    payload_parts.append(token.value)
+
+            except StopIteration:
+                break
+
+        full_payload = "".join(payload_parts).strip()
+        # print(f"DEBUG: Full payload={repr(full_payload)}")
+        for line in full_payload.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            # AEK/HL7 segments use ` as separator
+            parts = line.split("`")
+            tag = parts[0]
+            # print(f"DEBUG: Yielding segment {tag}")
+            yield Segment(tag, *parts[1:])

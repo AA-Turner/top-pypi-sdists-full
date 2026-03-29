@@ -39,7 +39,6 @@ def sync(
     """Mark a session as completed or failed.
 
     Called by the bootstrap script when the world runner finishes.
-    Uses API key auth (no org check) since it's called from the VM.
     Also closes the Plato session to release VM resources."""
 
     request_args = _build_request_args(
@@ -62,7 +61,6 @@ async def asyncio(
     """Mark a session as completed or failed.
 
     Called by the bootstrap script when the world runner finishes.
-    Uses API key auth (no org check) since it's called from the VM.
     Also closes the Plato session to release VM resources."""
 
     request_args = _build_request_args(

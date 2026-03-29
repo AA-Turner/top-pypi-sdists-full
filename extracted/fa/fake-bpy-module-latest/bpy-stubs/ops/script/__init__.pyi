@@ -9,8 +9,8 @@ def execute_preset(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    menu_idname: str | None = "",
+    filepath: str = "",
+    menu_idname: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a preset
 
@@ -24,7 +24,7 @@ def python_file_run(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Run Python file
 

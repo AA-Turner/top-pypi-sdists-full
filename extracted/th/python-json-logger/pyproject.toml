@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "python-json-logger"
-version = "4.0.0"
+version = "4.1.0"
 description = "JSON Log Formatter for the Python Logging Package"
 authors = [
     {name = "Zakaria Zajac", email = "zak@madzak.com"},
@@ -15,26 +15,22 @@ maintainers  = [
 ]
 
 # Dependency Information
-requires-python = ">=3.8"
-dependencies = [
-    "typing_extensions;python_version<'3.10'",
-]
+requires-python = ">=3.10"
 
 # Extra information
 readme = "README.md"
-license = {text = "BSD-2-Clause License"}
+license = "BSD-2-Clause"
+license-files = ["LICENSE"]
 classifiers = [
     "Development Status :: 6 - Mature",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: System :: Logging",
     "Typing :: Typed",
 ]
@@ -56,7 +52,6 @@ dev = [
     ## Test
     "pytest",
     "freezegun",
-    "backports.zoneinfo;python_version<'3.9'",
     "tzdata",
     ## Build
     "build",

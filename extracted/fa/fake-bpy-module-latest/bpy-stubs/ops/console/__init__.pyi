@@ -106,7 +106,7 @@ def history_append(
     undo: bool | None = None,
     /,
     *,
-    text: str | None = "",
+    text: str = "",
     current_character: int | None = 0,
     remove_duplicates: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -156,7 +156,7 @@ def insert(
     undo: bool | None = None,
     /,
     *,
-    text: str | None = "",
+    text: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert text at cursor position
 
@@ -169,7 +169,7 @@ def language(
     undo: bool | None = None,
     /,
     *,
-    language: str | None = "",
+    language: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the current language for this console
 
@@ -218,7 +218,7 @@ def scrollback_append(
     undo: bool | None = None,
     /,
     *,
-    text: str | None = "",
+    text: str = "",
     type: typing.Literal["OUTPUT", "INPUT", "INFO", "ERROR"] | None = "OUTPUT",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Append scrollback text by type

@@ -7,10 +7,10 @@ import pandas_flavor as pf
 from scipy.linalg import lstsq, pinvh
 from scipy.stats import norm, t
 
-from pingouin.config import options
-from pingouin.utils import _flatten_list as _fl
-from pingouin.utils import _postprocess_dataframe
-from pingouin.utils import remove_na as rm_na
+from .config import options
+from .utils import _flatten_list as _fl
+from .utils import _postprocess_dataframe
+from .utils import remove_na as rm_na
 
 __all__ = ["linear_regression", "logistic_regression", "mediation_analysis"]
 
@@ -911,8 +911,14 @@ def logistic_regression(
         # https://stats.stackexchange.com/a/204324/253579
         # Updated in Pingouin > 0.3.6 to be consistent with R
         kwargs["solver"] = "newton-cg"
-    if "penalty" not in kwargs:
-        kwargs["penalty"] = None
+    if "penalty" not in kwargs and "C" not in kwargs:
+        import sklearn
+
+        _sklearn_v18_plus = tuple(int(x) for x in sklearn.__version__.split(".")[:2]) >= (1, 8)
+        if _sklearn_v18_plus:  # pragma: no branch
+            kwargs["C"] = np.inf  # penalty=None deprecated in sklearn 1.8; C=np.inf is equivalent
+        else:  # pragma: no cover
+            kwargs["penalty"] = None
     lom = LogisticRegression(**kwargs)
     lom.fit(X, y)
 

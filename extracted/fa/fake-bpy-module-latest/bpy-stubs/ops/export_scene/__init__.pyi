@@ -9,13 +9,13 @@ def fbx(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = True,
-    filter_glob: str | None = "*.fbx",
+    filter_glob: str = "*.fbx",
     use_selection: bool | None = False,
     use_visible: bool | None = False,
     use_active_collection: bool | None = False,
-    collection: str | None = "",
+    collection: str = "",
     global_scale: float | None = 1.0,
     apply_unit_scale: bool | None = True,
     apply_scale_options: typing.Literal[
@@ -208,11 +208,11 @@ def gltf(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     check_existing: bool | None = True,
     export_import_convert_lighting_mode: typing.Literal["SPEC", "COMPAT", "RAW"]
     | None = "SPEC",
-    gltf_export_id: str | None = "",
+    gltf_export_id: str = "",
     export_use_gltfpack: bool | None = False,
     export_gltfpack_tc: bool | None = True,
     export_gltfpack_tq: int | None = 8,
@@ -230,11 +230,11 @@ def gltf(
     export_format: str | None = "",
     ui_tab: typing.Literal["GENERAL", "MESHES", "OBJECTS", "ANIMATION"]
     | None = "GENERAL",
-    export_copyright: str | None = "",
+    export_copyright: str = "",
     export_image_format: typing.Literal["AUTO", "JPEG", "WEBP", "NONE"] | None = "AUTO",
     export_image_add_webp: bool | None = False,
     export_image_webp_fallback: bool | None = False,
-    export_texture_dir: str | None = "",
+    export_texture_dir: str = "",
     export_jpeg_quality: int | None = 75,
     export_image_quality: int | None = 75,
     export_keep_originals: bool | None = False,
@@ -255,7 +255,7 @@ def gltf(
     export_unused_textures: bool | None = False,
     export_vertex_color: typing.Literal["MATERIAL", "ACTIVE", "NAME", "NONE"]
     | None = "MATERIAL",
-    export_vertex_color_name: str | None = "Color",
+    export_vertex_color_name: str = "Color",
     export_all_vertex_colors: bool | None = True,
     export_active_vertex_color_when_no_material: bool | None = True,
     export_attributes: bool | None = False,
@@ -268,7 +268,7 @@ def gltf(
     use_active_collection_with_nested: bool | None = True,
     use_active_collection: bool | None = False,
     use_active_scene: bool | None = False,
-    collection: str | None = "",
+    collection: str = "",
     at_collection_center: bool | None = False,
     export_extras: bool | None = False,
     export_yup: bool | None = True,
@@ -285,7 +285,7 @@ def gltf(
         "ACTIONS", "ACTIVE_ACTIONS", "BROADCAST", "NLA_TRACKS", "SCENE"
     ]
     | None = "ACTIONS",
-    export_nla_strips_merged_animation_name: str | None = "Animation",
+    export_nla_strips_merged_animation_name: str = "Animation",
     export_def_bones: bool | None = False,
     export_hierarchy_flatten_bones: bool | None = False,
     export_hierarchy_flatten_objs: bool | None = False,
@@ -325,7 +325,7 @@ def gltf(
     export_hierarchy_full_collections: bool | None = False,
     export_extra_animations: bool | None = False,
     export_loglevel: int | None = -1,
-    filter_glob: str | None = "*.glb",
+    filter_glob: str = "*.glb",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export scene as glTF 2.0 file
 

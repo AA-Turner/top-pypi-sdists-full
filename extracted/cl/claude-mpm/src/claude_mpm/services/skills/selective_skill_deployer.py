@@ -50,9 +50,47 @@ logger = get_logger(__name__)
 # Deployment tracking index file
 DEPLOYED_INDEX_FILE = ".mpm-deployed-skills.json"
 
+# Canonical set of skills that belong at the USER level (~/.claude/skills/).
+# These are deployed by PMSkillsDeployerService to ~/.claude/skills/ and must
+# NOT be re-deployed at the project level (.claude/skills/); SelectiveSkillDeployer
+# will skip any skill in this set when deploying project-level skills.
+USER_LEVEL_SKILLS: frozenset[str] = frozenset(
+    {
+        # Core MPM command skills
+        "mpm",
+        "mpm-agent-update-workflow",
+        "mpm-bug-reporting",
+        "mpm-circuit-breaker-enforcement",
+        "mpm-config",
+        "mpm-delegation-patterns",
+        "mpm-doctor",
+        "mpm-git-file-tracking",
+        "mpm-help",
+        "mpm-init",
+        "mpm-message",
+        "mpm-postmortem",
+        "mpm-pr-workflow",
+        "mpm-session-management",
+        "mpm-session-pause",
+        "mpm-session-resume",
+        "mpm-status",
+        "mpm-teaching-mode",
+        "mpm-ticket-view",
+        "mpm-ticketing-integration",
+        "mpm-tool-usage-guide",
+        "mpm-verification-protocols",
+        # Universal skills deployed at user level
+        "universal-collaboration-git-workflow",
+        "universal-debugging-systematic-debugging",
+        "universal-security-security-scanning",
+        "universal-testing-test-driven-development",
+    }
+)
+
 # Core PM skills that should always be deployed
 # These are referenced in PM_INSTRUCTIONS.md with [SKILL: name] markers
 # Without these skills, PM only sees placeholders, not actual content
+# DEPRECATED: Use USER_LEVEL_SKILLS instead. Kept for backward compatibility.
 PM_CORE_SKILLS = {
     "mpm-delegation-patterns",
     "mpm-verification-protocols",
@@ -109,6 +147,60 @@ CORE_SKILLS = {
     "toolchains-ui-styling-tailwind",
     "toolchains-ui-components-headlessui",
 }
+
+
+# Claude Code native slash commands that skills should not shadow.
+# Claude Code uses prefix matching, so a skill named "mcp-builder" will intercept
+# the native "/mcp" command because "mcp-builder" starts with "mcp".
+CLAUDE_CODE_RESERVED_COMMANDS = {
+    "mcp",
+    "help",
+    "exit",
+    "quit",
+    "clear",
+    "cost",
+    "model",
+    "permissions",
+    "login",
+    "logout",
+    "doctor",
+}
+
+
+def warn_if_skill_conflicts_with_native_command(skill_name: str) -> None:
+    """Emit a warning if a skill name shadows a Claude Code native slash command.
+
+    Claude Code uses prefix matching when resolving slash commands. A skill
+    whose name starts with a reserved native command (e.g., "mcp-builder" starts
+    with "mcp") will intercept that native command, preventing users from
+    invoking the built-in handler.
+
+    This function produces a warning — it does NOT block deployment — so that
+    operators can rename the offending skill at their own pace.
+
+    Args:
+        skill_name: The skill's declared name (from SKILL.md frontmatter).
+
+    Example:
+        >>> warn_if_skill_conflicts_with_native_command("mcp-builder")
+        # emits WARNING: skill 'mcp-builder' shadows native '/mcp' command
+        >>> warn_if_skill_conflicts_with_native_command("build-mcp-server")
+        # no warning emitted
+    """
+    for reserved in CLAUDE_CODE_RESERVED_COMMANDS:
+        if skill_name == reserved or skill_name.startswith(f"{reserved}-"):
+            logger.warning(
+                "Skill '%s' shadows Claude Code native command '/%s'. "
+                "Claude Code prefix-matches skill names, so typing '/%s' will trigger "
+                "this skill instead of the built-in handler. "
+                "Rename the skill to avoid the '%s' prefix (e.g., 'build-%s-...').",
+                skill_name,
+                reserved,
+                reserved,
+                reserved,
+                reserved,
+            )
+            return
 
 
 def parse_agent_frontmatter(agent_file: Path) -> dict[str, Any]:
@@ -392,16 +484,19 @@ def get_required_skills_from_agents(agents_dir: Path) -> set[str]:
             "(converted slashes to dashes)"
         )
 
-    # Always include PM core skills to ensure PM_INSTRUCTIONS.md markers are resolved
-    # These skills are referenced in PM_INSTRUCTIONS.md and must be deployed
-    # for PM to see actual content instead of [SKILL: name] placeholders
-    before_pm_skills = len(normalized_skills)
-    normalized_skills = normalized_skills | PM_CORE_SKILLS
-    pm_skills_added = len(normalized_skills) - before_pm_skills
+    # Validate that no skill name shadows a Claude Code native slash command
+    for skill in normalized_skills:
+        warn_if_skill_conflicts_with_native_command(skill)
 
-    if pm_skills_added > 0:
-        logger.info(
-            f"Added {pm_skills_added} PM core skills to ensure PM_INSTRUCTIONS.md markers resolve"
+    # Remove skills that belong at the user level (~/.claude/skills/).
+    # USER_LEVEL_SKILLS are deployed by PMSkillsDeployerService; deploying them
+    # again at the project level creates duplicates and confusion.
+    user_level_overlap = normalized_skills & USER_LEVEL_SKILLS
+    if user_level_overlap:
+        normalized_skills -= user_level_overlap
+        logger.debug(
+            f"Skipped {len(user_level_overlap)} user-level skills at project deployment: "
+            f"{sorted(user_level_overlap)}"
         )
 
     return normalized_skills

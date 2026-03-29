@@ -1,44 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pydifact
-Version: 0.1.8
+Version: 0.2.1
 Summary: Pydifact is a library that aims to provide complete support for reading and writing EDIFACT files. These file format, despite being old, is still a standard in many business cases. In Austria e.g., it is used for the transfer of medical reports between medical doctors.
 Author-email: Christian González <christian.gonzalez@nerdocs.at>
-License: MIT License
-        
-        Copyright (c) 2017-2024 Christian González
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-        
+License-Expression: MIT
 Project-URL: Documentation, https://pydifact.readthedocs.io
 Project-URL: Repository, https://github.com/nerdocs/pydifact
 Project-URL: Issues, https://github.com/nerdocs/pydifact/issues
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: dev
@@ -49,8 +27,12 @@ Requires-Dist: keyring>=24.3.0; extra == "dev"
 Requires-Dist: Sphinx>=7.2.0; extra == "dev"
 Requires-Dist: setuptools>=69.1.0; extra == "dev"
 Requires-Dist: wheel>=0.42.0; extra == "dev"
-Requires-Dist: black>=24.0.0; extra == "dev"
+Requires-Dist: black>=25.1.0; extra == "dev"
 Requires-Dist: sphinx-rtd-theme>=2.0.0; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: mypy>=1.15.0; extra == "dev"
+Dynamic: license-file
 
 # pydifact
 
@@ -103,7 +85,7 @@ interchange = Interchange.from_str(
 )
 for message in interchange.get_messages():
     for segment in message.segments:
-        print("Segment tag: {}, content: {}".format(segment.tag, segment.elements))
+        print(f"Segment tag: {segment.tag}, content: {segment.elements}")
 ```
 
 You may also want to iterate directly on segments :
@@ -122,7 +104,7 @@ interchange = Interchange.from_str(
 )
 
 for segment in interchange.segments:
-    print("Segment tag: {}, content: {}".format(segment.tag, segment.elements))
+    print(f"Segment tag: {segment.tags}, content: {segment.elements}")
 ```
 
 Or you can create an EDI interchange on the fly:
@@ -140,7 +122,13 @@ interchange.add_segment(Segment("QTY", ["12", "3"]))
 print(interchange.serialize())
 ```
 
-You may also want to parse a « raw » segment bunch which is not an interchange :
+To include or override the Service String Advice segment (`UNA`), just specify it as a regular segment:
+
+```python
+interchange.add_segment(Segment("UNA", ":+.? '"))
+```
+
+You may also want to parse a « raw » segment bunch which is not an interchange:
 
 ```python
 from pydifact.segmentcollection import RawSegmentCollection
@@ -148,7 +136,7 @@ from pydifact.segmentcollection import RawSegmentCollection
 collection = RawSegmentCollection.from_str("UNH+1+ORDERS:D:96A:UN:EAN008'")
 
 for segment in collection.segments:
-    print("Segment tag: {}, content: {}".format(segment.tag, segment.elements))
+    print(f"Segment tag: {segment.tags}, content: {segment.elements}")
 ```
 
 
@@ -160,18 +148,20 @@ for segment in collection.segments:
 
 In python ecosystem:
 
-- [python-edifact](https://github.com/FriedrichK/python-edifact) - simpler, IMHO less cleaner code, less flexible. may be faster though (not tested). Seems unmaintained.
+- [python-edifact](https://github.com/FriedrichK/python-edifact) - simpler, IMHO less clean code, less flexible. may be faster though (not tested). Seems unmaintained.
 - [bots](https://github.com/bots-edi/bots) - huge, with webinterface (bots-monitor), webserver, bots-engine.
 - [edicat](https://github.com/notpeter/edicat) - simple, only for separating lines/segments for CLI-piping.
-
 
 ## Development
 
 ### Setup
+
 To develop pydifact, clone the repository and install the dev requirements:
 
-```
-pip install -e .[dev]
+```bash
+make dev
+# or
+# pip install -e .[dev]
 ```
 
 This installs all the python packages needed for development and testing.
@@ -185,16 +175,28 @@ Nevertheless, don't forget adding tests for every aspect you add in code.
 
 ### Testing
 
-pydifact uses [pytest](http://pytest.org) for testing.
-Just exec `pytest` within the project folder to execute the unit tests. Make sure you installed the library properly before using `pip install -e .[dev]`.
-
-There is one test to check the performance of parsing huge files, named `test_huge_message` - you can skip that test by calling
+pydifact uses [pytest](http://pytest.org) for testing. There is a shortcut in the Makefile for your convenience:
 
 ```bash
-pytest --ignore tests/test_huge_message.py
+make test
 ```
-This is recommended for fast testing.
 
+This is recommended for faster testing.
+
+
+There are some additional tests to check the performance of parsing huge files - you can include that tests by calling
+
+```bash
+make test-extended
+```
+
+## Credits
+The official formats for UN/EDIFAT provided by UN Secretariat are raw text files located [here](http://www.unece.org/tradewelcome/un-centre-for-trade-facilitation-and-e-business-uncefact/outputs/standards/unedifact/directories/download.html) and html (.htm) files located [here](http://www.unece.org/tradewelcome/un-centre-for-trade-facilitation-and-e-business-uncefact/outputs/standards/unedifact/directories/2011-present.html), similarly for service codes as text and html files located at https://www.gefeg.com/jswg/.
+
+There are many other helpful projects and people who made this possible:
+* [untid-parser](https://github.com/php-edifact/untdid-parser) by [Stefano](https://github.com/sabas) - thanks for your help.
+
+For a contributors' list, see [Contributors](https://github.com/nerdocs/pydifact/graphs/contributors).
 
 ## License
 

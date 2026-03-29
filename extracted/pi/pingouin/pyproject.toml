@@ -33,7 +33,7 @@ dependencies = [
     "pandas>=2.1.1",
     "pandas_flavor",
     "scikit-learn>=1.2.2",
-    "scipy>=1.8.0",
+    "scipy>=1.10.0",
     "seaborn",
     "statsmodels>=0.14.1",
     "tabulate",
@@ -46,9 +46,8 @@ extras = [
 
 [dependency-groups]
 dev = [
+    "pre-commit",
     "ruff>=0.15.0",
-]
-test = [
     "pytest>=6",
     "pytest-cov",
     # Ensure coverage is new enough for `source_pkgs`.
@@ -89,7 +88,7 @@ version = {attr = "pingouin.__version__"}
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "--showlocals --durations=10 --maxfail=2 --cov"
+addopts = "--showlocals --durations=10"
 doctest_optionflags= ["NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
 filterwarnings = [
     "ignore::UserWarning",

@@ -22,6 +22,13 @@ def _build_info(value):
 def detect_info(project):
     if project.s.PIPENV_SHELL_EXPLICIT:
         return _build_info(project.s.PIPENV_SHELL_EXPLICIT)
+    # On Windows, prefer $SHELL over shellingham process-tree detection.
+    # shellingham walks the process tree and can be confused by cmd.exe shims
+    # (e.g. pyenv), returning 'cmd' even when the user is in bash or powershell.
+    # $SHELL is set by POSIX-like environments (Git Bash, MSYS2, WSL) to the
+    # correct interactive shell.
+    if os.name == "nt" and project.s.PIPENV_SHELL:
+        return _build_info(project.s.PIPENV_SHELL)
     try:
         return shellingham.detect_shell()
     except (shellingham.ShellDetectionFailure, TypeError):
@@ -206,6 +213,19 @@ class Shell:
             pass  # setecho may not be supported on all platforms
 
         try:
+            # Wait for the shell to finish its startup (including any
+            # interactive prompts such as oh-my-zsh's update dialogue)
+            # before sending the activate script.  Without this, the
+            # activate command is consumed by whatever prompt appears
+            # first, and the virtualenv never gets activated.
+            # See: https://github.com/pypa/pipenv/issues/3615
+            _STARTUP_SENTINEL = "__PIPENV_STARTUP_READY__"
+            c.sendline(f"echo {_STARTUP_SENTINEL}")
+            try:
+                c.expect(_STARTUP_SENTINEL, timeout=30)
+            except Exception:
+                pass  # best-effort: continue even if the sentinel is not seen
+
             c.sendline(_get_activate_script(self.cmd, venv))
 
             # Wrap the deactivate function to also unset PIPENV_ACTIVE
@@ -215,9 +235,32 @@ class Shell:
 
             if args:
                 c.sendline(" ".join(args))
+
+            # Synchronise with the shell before re-enabling echo.
+            #
+            # Without this, there is a race condition on Docker / pty-over-pty
+            # environments (e.g. Debian 13.4 + python:3.14-slim): the shell's
+            # own readline/terminal initialisation runs asynchronously and can
+            # re-disable echo *after* our setecho(True) call, leaving the
+            # interactive session with echo permanently off so that typed
+            # characters are invisible.
+            #
+            # By sending a sentinel line and blocking until the shell echoes it
+            # back we guarantee that all previously queued commands have been
+            # fully processed and the shell is idle before we restore echo.
+            # The sentinel output is consumed by expect() and never shown to
+            # the user (PTY echo is still off at this point).
+            # See: https://github.com/pypa/pipenv/issues/6572
+            _SENTINEL = "__PIPENV_SHELL_READY__"
+            c.sendline(f"echo {_SENTINEL}")
+            try:
+                c.expect(_SENTINEL, timeout=10)
+            except Exception:
+                pass  # timeout or pattern-not-found: best-effort, continue
         finally:
-            # Re-enable echo so the interactive session behaves normally,
-            # even if an exception was raised while sending setup commands.
+            # Re-enable echo so the interactive session behaves normally.
+            # This runs after the sentinel sync (or immediately on exception),
+            # so the shell is guaranteed to be settled before echo is turned on.
             try:
                 c.setecho(True)
             except Exception:
@@ -231,6 +274,33 @@ class Shell:
             c.setwinsize(dims.lines, dims.columns)
 
         signal.signal(signal.SIGWINCH, sigwinch_passthrough)
+
+        # Handle job-control signals (Ctrl+Z / suspend) so that the pipenv
+        # process properly suspends itself when the child shell is stopped,
+        # and resumes the child when pipenv is continued.
+        # Without this, pexpect's interact() loop keeps the pipenv process
+        # in the foreground and the parent shell never regains control.
+        # See: https://github.com/pypa/pipenv/issues/5359
+        if os.name != "nt" and hasattr(signal, "SIGTSTP"):
+
+            def sigtstp_handler(sig, frame):
+                # Stop the child shell process group
+                if c.isalive():
+                    os.kill(c.pid, signal.SIGSTOP)
+                # Restore default SIGTSTP handling and re-raise so the
+                # OS stops the pipenv process itself.
+                signal.signal(signal.SIGTSTP, signal.SIG_DFL)
+                os.kill(os.getpid(), signal.SIGTSTP)
+
+            def sigcont_handler(sig, frame):
+                # Re-install our custom SIGTSTP handler after being resumed
+                signal.signal(signal.SIGTSTP, sigtstp_handler)
+                # Resume the child shell process
+                if c.isalive():
+                    os.kill(c.pid, signal.SIGCONT)
+
+            signal.signal(signal.SIGTSTP, sigtstp_handler)
+            signal.signal(signal.SIGCONT, sigcont_handler)
 
         # Interact with the new shell.
         c.interact(escape_character=None)

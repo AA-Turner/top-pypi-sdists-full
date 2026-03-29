@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typed-argument-parser
-Version: 1.11.0
+Version: 1.12.0
 Summary: Typed Argument Parser
 Author-email: Jesse Michel <jessem.michel@gmail.com>, Kyle Swanson <swansonk.14@gmail.com>
 Maintainer-email: Jesse Michel <jessem.michel@gmail.com>, Kyle Swanson <swansonk.14@gmail.com>
@@ -9,18 +9,17 @@ Project-URL: Homepage, https://github.com/swansonk14/typed-argument-parser
 Project-URL: Issues, https://github.com/swansonk14/typed-argument-parser/issues
 Keywords: typing,argument parser,python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: docstring-parser>=0.15
-Requires-Dist: typing-inspect>=0.7.1
 Provides-Extra: dev-no-pydantic
 Requires-Dist: black; extra == "dev-no-pydantic"
 Requires-Dist: pytest; extra == "dev-no-pydantic"
@@ -32,7 +31,7 @@ Requires-Dist: pydantic>=2.5.0; extra == "dev"
 Dynamic: license-file
 
 <p align="center">
-   <img src="https://raw.githubusercontent.com/swansonk14/typed-argument-parser/refs/tags/v_1.11.0/images/logo.png" width="40%" align="middle">
+   <img src="https://raw.githubusercontent.com/swansonk14/typed-argument-parser/main/images/logo.png" width="40%" align="middle">
 </p>
 
 # Typed Argument Parser (Tap)
@@ -72,18 +71,18 @@ Running `python square.py --num 2` will print `The square of your number is 4.0.
 
 ## Installation
 
-Tap requires Python 3.9+
+Tap requires Python 3.10+
 
-To install Tap from PyPI run: 
+To install Tap from PyPI run:
 
-```
+```shell
 pip install typed-argument-parser
 ```
 
 <details>
 <summary>To install Tap from source, run the following commands:</summary>
 
-```
+```shell
 git clone https://github.com/swansonk14/typed-argument-parser.git
 cd typed-argument-parser
 pip install -e .
@@ -94,7 +93,7 @@ pip install -e .
 <details>
 <summary>To develop this package, install development requirements (in a virtual environment):</summary>
 
-```
+```shell
 python -m pip install -e ".[dev]"
 ```
 
@@ -102,7 +101,7 @@ Use [`flake8`](https://github.com/PyCQA/flake8) linting.
 
 To run tests, run:
 
-```
+```shell
 pytest
 ```
 
@@ -110,35 +109,53 @@ pytest
 
 ## Table of Contents
 
-* [Installation](#installation)
-* [Table of Contents](#table-of-contents)
-* [Tap is Python-native](#tap-is-python-native)
-* [Tap features](#tap-features)
-  + [Arguments](#arguments)
-  + [Tap help](#tap-help)
-  + [Configuring arguments](#configuring-arguments)
-    - [Adding special argument behavior](#adding-special-argument-behavior)
-    - [Adding subparsers](#adding-subparsers)
-  + [Types](#types)
-  + [Argument processing](#argument-processing)
-  + [Processing known args](#processing-known-args)
-  + [Subclassing](#subclassing)
-  + [Printing](#printing)
-  + [Reproducibility](#reproducibility)
-  + [Saving and loading arguments](#saving-and-loading-arguments)
-  + [Loading from configuration files](#loading-from-configuration-files)
-* [tapify](#tapify)
-  + [Examples](#examples)
-    - [Function](#function)
-    - [Class](#class)
-    - [Dataclass](#dataclass)
-  + [tapify help](#tapify-help)
-  + [Command line vs explicit arguments](#command-line-vs-explicit-arguments)
-  + [Known args](#known-args)
-* [Convert to a `Tap` class](#convert-to-a-tap-class)
-  + [`to_tap_class` examples](#to_tap_class-examples)
-    - [Simple](#simple)
-    - [Complex](#complex)
+- [Typed Argument Parser (Tap)](#typed-argument-parser-tap)
+  - [Installation](#installation)
+  - [Table of Contents](#table-of-contents)
+  - [Tap is Python-native](#tap-is-python-native)
+  - [Tap features](#tap-features)
+    - [Arguments](#arguments)
+    - [Tap help](#tap-help)
+    - [Configuring arguments](#configuring-arguments)
+      - [Adding special argument behavior](#adding-special-argument-behavior)
+      - [Adding subparsers](#adding-subparsers)
+    - [Types](#types)
+      - [`str`, `int`, and `float`](#str-int-and-float)
+      - [`bool`](#bool)
+      - [`Optional`](#optional)
+      - [`List`](#list)
+      - [`Set`](#set)
+      - [`Tuple`](#tuple)
+      - [`Literal`](#literal)
+      - [`Union`](#union)
+      - [Complex Types](#complex-types)
+    - [Ignore Attribute](#ignore-attribute)
+    - [Argument processing](#argument-processing)
+    - [Processing known args](#processing-known-args)
+    - [Subclassing](#subclassing)
+    - [Printing](#printing)
+    - [Reproducibility](#reproducibility)
+      - [Reproducibility info](#reproducibility-info)
+    - [Conversion Tap to and from dictionaries](#conversion-tap-to-and-from-dictionaries)
+    - [Saving and loading arguments](#saving-and-loading-arguments)
+      - [Save](#save)
+      - [Load](#load)
+      - [Load from dict](#load-from-dict)
+    - [Loading from configuration files](#loading-from-configuration-files)
+  - [tapify](#tapify)
+    - [Examples](#examples)
+      - [Function](#function)
+      - [Class](#class)
+      - [Dataclass](#dataclass)
+      - [Pydantic](#pydantic)
+    - [tapify help](#tapify-help)
+    - [Command line vs explicit arguments](#command-line-vs-explicit-arguments)
+    - [Known args](#known-args)
+    - [Explicit boolean arguments](#explicit-boolean-arguments)
+  - [Convert to a `Tap` class](#convert-to-a-tap-class)
+    - [`to_tap_class` examples](#to_tap_class-examples)
+      - [Simple](#simple)
+      - [Complex](#complex)
 
 ## Tap is Python-native
 
@@ -164,7 +181,7 @@ print(f'My name is {args.name} and I give the {args.language} package '
 
 You use Tap the same way you use standard argparse.
 
-```
+```txt
 >>> python main.py --name Jesse --stars 5
 My name is Jesse and I give the Python package Tap 5/5 stars!
 ```
@@ -204,11 +221,31 @@ Now we are going to highlight some of our favorite features and give examples of
 ### Arguments
 
 Arguments are specified as class variables defined in a subclass of `Tap`. Variables defined as `name: type` are required arguments while variables defined as `name: type = value` are not required and default to the provided value.
+Additionally, positional arguments can be specified using the `Positional` type annotation.
 
 ```python
+"""main.py"""
+from tap import Tap, Positional
+
 class MyTap(Tap):
     required_arg: str
     default_arg: str = 'default value'
+    positional_arg: Positional[int]
+
+args = MyTap().parse_args()
+print(f"positional = {args.positional_arg}, required = {args.required_arg}, default = {args.default_arg}")
+```
+
+For example, running
+
+```bash
+>>> python main.py 42 --required_arg "I'm required"
+```
+
+would produce
+
+```
+positional = 42, required = I'm required, default = default value
 ```
 
 ### Tap help
@@ -230,7 +267,7 @@ args = MyTap().parse_args()
 
 Running `python main.py -h` results in the following:
 
-```
+```txt
 >>> python main.py -h
 usage: main.py --x X [--pi PI] [-h]
 
@@ -247,6 +284,7 @@ Since Tap is a wrapper around argparse, Tap provides all of the same functionali
 We detail these two functions below.
 
 #### Adding special argument behavior
+
 In the `configure` method, call `self.add_argument` just as you would use argparse's `add_argument`. For example,
 
 ```python
@@ -289,13 +327,11 @@ Tap automatically handles all the following types:
 ```python
 str, int, float, bool
 Optional, Optional[str], Optional[int], Optional[float], Optional[bool]
-List, List[str], List[int], List[float], List[bool]
-Set, Set[str], Set[int], Set[float], Set[bool]
-Tuple, Tuple[Type1, Type2, etc.], Tuple[Type, ...]  
+list, list[str], list[int], list[float], list[bool]
+set, set[str], set[int], set[float], set[bool]
+tuple, tuple[Type1, Type2, etc.], tuple[Type, ...]
 Literal
 ```
-
-If you're using Python 3.9+, then you can replace `List` with `list`, `Set` with `set`, and `Tuple` with `tuple`.
 
 Tap also supports `Union`, but this requires additional specification (see [Union](#-union-) section below).
 
@@ -396,6 +432,36 @@ args = Args().parse_args('--aged_person Tapper,27'.split())
 print(f'{args.aged_person.name} is {args.aged_person.age}')  # Tapper is 27
 ```
 
+### Ignore Attribute
+
+Sometimes you may want to define attributes that should not be parsed as command line arguments, but you still want to type them.
+This can be achieved by using `TapIgnore`.
+
+```python
+"""main.py"""
+
+from tap import Tap, TapIgnore
+
+class MyTap(Tap):
+    # Regular arguments (will be parsed)
+    package: str
+    stars: int = 5
+
+    # Ignored attributes (will not be parsed)
+    internal_counter: TapIgnore[int] = 0
+
+args = MyTap().parse_args()
+```
+
+```txt
+>>> python main.py -h
+usage: main.py --package PACKAGE [--stars STARS] [-h]
+
+options:
+  --package PACKAGE  (str, required)
+  --stars STARS      (int, default=5)
+  -h, --help         show this help message and exit
+```
 
 ### Argument processing
 
@@ -477,7 +543,7 @@ print(args)
 
 Running `python main.py --package Tap` results in:
 
-```
+```txt
 >>> python main.py
 {'awards': ['amazing', 'wow', 'incredible', 'awesome'],
  'is_cool': True,
@@ -620,7 +686,7 @@ args.from_dict({
 Note: As with `load`, all required arguments must be present in the dictionary if not already set in the Tap object. All values in the provided dictionary will overwrite values currently in the Tap object.
 
 ### Loading from configuration files
-Configuration files can be loaded along with arguments with the optional flag `config_files: List[str]`. Arguments passed in from the command line overwrite arguments from the configuration files. Arguments in configuration files that appear later in the list overwrite the arguments in previous configuration files.
+Configuration files can be loaded along with arguments with the optional flag `config_files: Iterable[str]`. Arguments passed in from the command line overwrite arguments from the configuration files. Arguments in configuration files that appear later in the list overwrite the arguments in previous configuration files.
 
 For example, if you have the config file `my_config.txt`
 ```
@@ -831,7 +897,7 @@ if __name__ == '__main__':
 
 The help string on the command line is set based on the docstring for the function or class. For example, running `python square_function.py -h` will print:
 
-```
+```txt
 usage: square_function.py [-h] --num NUM
 
 Square a number.
@@ -898,7 +964,7 @@ Running `python person.py --name Jesse --age 1` prints `My name is Jesse.` follo
 
 ### Explicit boolean arguments
 
-Tapify supports explicit specification of boolean arguments (see [bool](#bool) for more details). By default, `explicit_bool=False` and it can be set with `tapify(..., explicit_bool=True)`. 
+Tapify supports explicit specification of boolean arguments (see [bool](#bool) for more details). By default, `explicit_bool=False` and it can be set with `tapify(..., explicit_bool=True)`.
 
 ## Convert to a `Tap` class
 
@@ -907,7 +973,7 @@ special argument behavior. For example, you can override [`configure`](#configur
 [`process_args`](#argument-processing).
 
 If the object can be `tapify`d, then it can be `to_tap_class`d, and vice-versa. `to_tap_class` provides full control
-over argument parsing.
+over argument parsing. Just as in `tapify`, the data extracted from standard Python classes (not `pydantic` models or `dataclass`es) only comes from the `__init__`, not from class variables.
 
 ### `to_tap_class` examples
 
@@ -938,7 +1004,7 @@ if __name__ == "__main__":
 
 Running `python main.py --package tap` will print `Project instance: package='tap' is_cool=True stars=5`.
 
-### Complex
+#### Complex
 
 The general pattern is:
 

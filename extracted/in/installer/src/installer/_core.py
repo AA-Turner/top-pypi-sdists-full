@@ -1,8 +1,10 @@
 """Core wheel installation logic."""
 
 import posixpath
+import warnings
 from io import BytesIO
-from typing import Dict, Tuple, cast
+from pathlib import Path
+from typing import cast
 
 from installer.destinations import WheelDestination
 from installer.exceptions import InvalidWheelSource
@@ -13,7 +15,7 @@ from installer.utils import SCHEME_NAMES, Scheme, parse_entrypoints, parse_metad
 __all__ = ["install"]
 
 
-def _process_WHEEL_file(source: WheelSource) -> Scheme:
+def _process_WHEEL_file(source: WheelSource) -> Scheme:  # noqa: N802
     """Process the WHEEL file, from ``source``.
 
     Returns the scheme that the archive root should go in.
@@ -28,14 +30,14 @@ def _process_WHEEL_file(source: WheelSource) -> Scheme:
 
     # Determine where archive root should go.
     if metadata["Root-Is-Purelib"] == "true":
-        return cast(Scheme, "purelib")
+        return cast("Scheme", "purelib")
     else:
-        return cast(Scheme, "platlib")
+        return cast("Scheme", "platlib")
 
 
 def _determine_scheme(
     path: str, source: WheelSource, root_scheme: Scheme
-) -> Tuple[Scheme, str]:
+) -> tuple[Scheme, str]:
     """Determine which scheme to place given path in, from source."""
     data_dir = source.data_dir
 
@@ -58,13 +60,13 @@ def _determine_scheme(
         msg_fmt = "{path} is not contained in a valid .data subdirectory."
         raise InvalidWheelSource(source, msg_fmt.format(path=path))
 
-    return cast(Scheme, scheme_name), posixpath.join(*reversed(parts[:-1]))
+    return cast("Scheme", scheme_name), posixpath.join(*reversed(parts[:-1]))
 
 
 def install(
     source: WheelSource,
     destination: WheelDestination,
-    additional_metadata: Dict[str, bytes],
+    additional_metadata: dict[str, bytes],
 ) -> None:
     """Install wheel described by ``source`` into ``destination``.
 
@@ -98,6 +100,19 @@ def install(
         path = source_record.path
         # Skip the RECORD, which is written at the end, based on this info.
         if path == record_file_path:
+            continue
+
+        if "__pycache__" in Path(path).parts[:-1]:
+            warnings.warn(
+                (
+                    f"Skip installing {path} from {source.distribution}."
+                    " Installing files in a __pycache__ directory poses a security risk."
+                    " __pycache__ directories should not be included in wheels."
+                    f" This is probably an issue in the build process of '{source.distribution}'."
+                ),
+                RuntimeWarning,
+                stacklevel=2,
+            )
             continue
 
         # Figure out where to write this file.

@@ -255,6 +255,8 @@ class HashList(DataClassORJSONMixin):
 
     def update_hash_lists(self, hashlist: list[int], bol_hash: int | None = None) -> None:
         """Prune all map dictionaries to only retain entries whose hash is present in hashlist."""
+        if not hashlist:
+            return
         if bol_hash:
             self.invalidate_maps(bol_hash)
         self.area = {hash_id: frames for hash_id, frames in self.area.items() if hash_id in hashlist}
@@ -281,6 +283,15 @@ class HashList(DataClassORJSONMixin):
             for area_item in self.area_name
             if area_item.hash in self.area.keys() or area_item.hash in hashlist
         ]
+
+    @property
+    def area_names_stale(self) -> bool:
+        """True when area data is present but no area names have been fetched.
+
+        Used by MapStalenessWatcher to trigger a lightweight area-name-only
+        re-fetch without requiring a full map sync.
+        """
+        return bool(self.area) and not self.area_name
 
     @property
     def hashlist(self) -> list[int]:
@@ -420,8 +431,15 @@ class HashList(DataClassORJSONMixin):
         if hash_data.type == PathType.AREA and isinstance(hash_data, NavGetCommData):
             existing_name = next((area for area in self.area_name if area.hash == hash_data.hash), None)
             if not existing_name:
-                name = f"area {len(self.area_name) + 1}"
-                self.area_name.append(AreaHashNameList(name=name, hash=hash_data.hash))
+                used_numbers = {
+                    int(a.name.split()[-1])
+                    for a in self.area_name
+                    if a.name.startswith("area ") and a.name.split()[-1].isdigit()
+                }
+                n = 1
+                while n in used_numbers:
+                    n += 1
+                self.area_name.append(AreaHashNameList(name=f"area {n}", hash=hash_data.hash))
             result = self._add_hash_data(self.area, hash_data)
             self.update_hash_lists(self.hashlist)
             return result
@@ -484,8 +502,7 @@ class HashList(DataClassORJSONMixin):
         number_list = list(range(1, frame_list.total_frame + 1))
 
         current_frames = {frame.current_frame for frame in frame_list.data}
-        missing_numbers = [num for num in number_list if num not in current_frames]
-        return missing_numbers
+        return [num for num in number_list if num not in current_frames]
 
     @staticmethod
     def _add_hash_data(hash_dict: dict[int, FrameList], hash_data: NavGetCommData | SvgMessage) -> bool:
@@ -539,7 +556,7 @@ class HashList(DataClassORJSONMixin):
 
         When stale, root_hash_lists is cleared so the next MapFetchSaga starts fresh.
         """
-        if ub_zone_hash == 0 or ub_zone_hash == self.last_ub_zone_hash:
+        if ub_zone_hash in (0, self.last_ub_zone_hash):
             return False
         self.last_ub_zone_hash = ub_zone_hash
         self.root_hash_lists = []
@@ -552,7 +569,7 @@ class HashList(DataClassORJSONMixin):
         triggers a re-sync.  On a detected change, HashList.path is cleared so
         stale type-2 path frames are not served to callers.
         """
-        if ub_path_hash == 0 or ub_path_hash == self.last_ub_path_hash:
+        if ub_path_hash in (0, self.last_ub_path_hash):
             return False
         self.last_ub_path_hash = ub_path_hash
         self.path = {}

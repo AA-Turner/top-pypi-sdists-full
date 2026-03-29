@@ -31,10 +31,10 @@ from chalk._validation.feature_validation import FeatureValidation
 from chalk.features import (
     CacheStrategy,
     Feature,
-    FeatureConverter,
     Features,
     FeatureWrapper,
     Filter,
+    GenericFeatureConverter,
     TimeDelta,
     TPrimitive,
     Underscore,
@@ -447,7 +447,7 @@ class ToProtoConverter:
 
     @staticmethod
     def convert_rich_type_to_protobuf(rich_type: type[TRich]) -> arrow_pb.ArrowType:
-        converter = FeatureConverter(name="helper", is_nullable=False, rich_type=rich_type)
+        converter = GenericFeatureConverter(name="helper", is_nullable=False, rich_type=rich_type)
         return converter.convert_pa_dtype_to_proto_dtype(converter.pyarrow_dtype)
 
     @staticmethod
@@ -666,7 +666,7 @@ class ToProtoConverter:
         for i in range(len(raw_inputs)):
             raw_input = raw_inputs[i]
             if state and i == state.pos:
-                converter = FeatureConverter(
+                converter = GenericFeatureConverter(
                     name="state", is_nullable=False, rich_type=state.typ, rich_default=state.initial
                 )
                 inputs.append(
@@ -720,26 +720,27 @@ class ToProtoConverter:
             return None
 
         res: list[pb.FeatureValidation] = []
+        converter = PrimitiveFeatureConverter(name="validation_helper", is_nullable=True, pyarrow_dtype=pa.null())
         for val in validations:
             # For backwards compat, store both the arrow and non-arrow versions (modern servers will prefer reading the arrow-based field)
             if val.min is not None:
                 res.append(pb.FeatureValidation(min=val.min, strict=val.strict))
-                proto_scalar = PrimitiveFeatureConverter.from_pyarrow_to_protobuf(pa.scalar(val.min))
+                proto_scalar = converter.from_pyarrow_to_protobuf(pa.scalar(val.min))
                 res.append(pb.FeatureValidation(min_arrow=proto_scalar, strict=val.strict))
             if val.max is not None:
                 res.append(pb.FeatureValidation(max=val.max, strict=val.strict))
-                proto_scalar = PrimitiveFeatureConverter.from_pyarrow_to_protobuf(pa.scalar(val.max))
+                proto_scalar = converter.from_pyarrow_to_protobuf(pa.scalar(val.max))
                 res.append(pb.FeatureValidation(max_arrow=proto_scalar, strict=val.strict))
             if val.min_length is not None:
                 res.append(pb.FeatureValidation(min_length=val.min_length, strict=val.strict))
-                proto_scalar = PrimitiveFeatureConverter.from_pyarrow_to_protobuf(pa.scalar(val.min_length))
+                proto_scalar = converter.from_pyarrow_to_protobuf(pa.scalar(val.min_length))
                 res.append(pb.FeatureValidation(min_length_arrow=proto_scalar, strict=val.strict))
             if val.max_length is not None:
                 res.append(pb.FeatureValidation(max_length=val.max_length, strict=val.strict))
-                proto_scalar = PrimitiveFeatureConverter.from_pyarrow_to_protobuf(pa.scalar(val.max_length))
+                proto_scalar = converter.from_pyarrow_to_protobuf(pa.scalar(val.max_length))
                 res.append(pb.FeatureValidation(max_length_arrow=proto_scalar, strict=val.strict))
             if val.contains is not None:
-                proto_scalar = PrimitiveFeatureConverter.from_pyarrow_to_protobuf(pa.scalar(val.contains))
+                proto_scalar = converter.from_pyarrow_to_protobuf(pa.scalar(val.contains))
                 res.append(pb.FeatureValidation(contains=proto_scalar, strict=val.strict))
 
         return res
@@ -866,6 +867,7 @@ class ToProtoConverter:
         if mat is None:
             raise ValueError("Feature is missing window materialization")
 
+        converter = cast(GenericFeatureConverter[Any, Any], f.converter)
         aggregation_kwargs = dict(mat.aggregation_kwargs)
         res = pb.FeatureType(
             group_by=pb.GroupByFeatureType(
@@ -875,14 +877,12 @@ class ToProtoConverter:
                 unversioned_attribute_name=(
                     f.unversioned_attribute_name if hasattr(f, "unversioned_attribute_name") else None
                 ),
-                arrow_type=f.converter.convert_pa_dtype_to_proto_dtype(f.converter.pyarrow_dtype),
+                arrow_type=converter.convert_pa_dtype_to_proto_dtype(converter.pyarrow_dtype),
                 is_nullable=f.typ.is_nullable,
                 description=f.description,
                 owner=f.owner,
                 default_value=(
-                    f.converter.from_primitive_to_protobuf(f.converter.primitive_default)
-                    if f.converter.has_default
-                    else None
+                    converter.from_primitive_to_protobuf(converter.primitive_default) if converter.has_default else None
                 ),
                 expression=None,
                 # TODO: If we want this underscore expression to exist, we need to extend underscore parsing to handle group_by agg
@@ -976,12 +976,13 @@ class ToProtoConverter:
 
         wmp = f.window_materialization_parsed
         rich_type_info = cls.convert_rich_type_info(f)
+        converter = cast(GenericFeatureConverter[Any, Any], f.converter)
         aggregation_kwargs = {} if wmp is None else dict(wmp.aggregation_kwargs)
         res = pb.FeatureType(
             scalar=pb.ScalarFeatureType(
                 name=f.name,
                 namespace=f.namespace,
-                arrow_type=f.converter.convert_pa_dtype_to_proto_dtype(f.converter.pyarrow_dtype),
+                arrow_type=converter.convert_pa_dtype_to_proto_dtype(converter.pyarrow_dtype),
                 is_distance_pseudofeature=f.is_distance_pseudofeature,
                 is_nullable=f.typ.is_nullable,
                 is_primary=f.primary,
@@ -1329,7 +1330,7 @@ class ToProtoConverter:
                 )
             )
         elif isinstance(p, StreamResolverParamKeyedState):
-            converter = FeatureConverter(
+            converter = GenericFeatureConverter(
                 name="helper", is_nullable=False, rich_type=p.typ, rich_default=p.default_value
             )
             arrow_type = None

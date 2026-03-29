@@ -13,8 +13,8 @@ def apply_pose_asset(
         bpy.stub_internal.rna_enums.AssetLibraryTypeItems
     ]
     | None = "LOCAL",
-    asset_library_identifier: str | None = "",
-    relative_asset_identifier: str | None = "",
+    asset_library_identifier: str = "",
+    relative_asset_identifier: str = "",
     blend_factor: float | None = 1.0,
     flipped: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -72,8 +72,8 @@ def blend_pose_asset(
         bpy.stub_internal.rna_enums.AssetLibraryTypeItems
     ]
     | None = "LOCAL",
-    asset_library_identifier: str | None = "",
-    relative_asset_identifier: str | None = "",
+    asset_library_identifier: str = "",
+    relative_asset_identifier: str = "",
     blend_factor: float | None = 0.0,
     flipped: bool | None = False,
     release_confirm: bool | None = False,
@@ -104,9 +104,9 @@ def create_pose_asset(
     undo: bool | None = None,
     /,
     *,
-    pose_name: str | None = "",
+    pose_name: str = "",
     asset_library_reference: str | None = "",
-    catalog_path: str | None = "",
+    catalog_path: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new asset from the selected bones in the scene
 

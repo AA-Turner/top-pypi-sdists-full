@@ -22,8 +22,8 @@ def add_scene_strip_from_scene_asset(
         bpy.stub_internal.rna_enums.AssetLibraryTypeItems
     ]
     | None = "LOCAL",
-    asset_library_identifier: str | None = "",
-    relative_asset_identifier: str | None = "",
+    asset_library_identifier: str = "",
+    relative_asset_identifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a strip using a duplicate of this scene asset as the source
 
@@ -168,8 +168,8 @@ def change_path(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
+    filepath: str = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     hide_props_region: bool | None = True,
@@ -504,7 +504,7 @@ def export_subtitles(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
@@ -641,7 +641,7 @@ def image_strip_add(
     undo: bool | None = None,
     /,
     *,
-    directory: str | None = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     check_existing: bool | None = False,
@@ -861,8 +861,8 @@ def movie_strip_add(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
+    filepath: str = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     check_existing: bool | None = False,
@@ -1723,8 +1723,8 @@ def sound_strip_add(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
-    directory: str | None = "",
+    filepath: str = "",
+    directory: str = "",
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
     check_existing: bool | None = False,
@@ -1923,7 +1923,7 @@ def strip_modifier_copy(
     /,
     *,
     type: typing.Literal["REPLACE", "APPEND"] | None = "REPLACE",
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy modifiers of the active strip to all selected strips
 
@@ -1943,7 +1943,7 @@ def strip_modifier_duplicate(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate (active) modifier of the active strip
 
@@ -1957,7 +1957,7 @@ def strip_modifier_equalizer_redefine(
     /,
     *,
     graphs: typing.Literal["SIMPLE", "DOUBLE", "TRIPLE"] | None = "SIMPLE",
-    name: str | None = "Name",
+    name: str = "Name",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Redefine equalizer graphs
 
@@ -1980,7 +1980,7 @@ def strip_modifier_move(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "Name",
+    name: str = "Name",
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move modifier up and down in the stack
@@ -2001,7 +2001,7 @@ def strip_modifier_move_to_index(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
     index: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the strip modifiers index in the stack so it evaluates after the set number of others
@@ -2016,7 +2016,7 @@ def strip_modifier_remove(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "Name",
+    name: str = "Name",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a modifier from the strip
 
@@ -2029,7 +2029,7 @@ def strip_modifier_set_active(
     undo: bool | None = None,
     /,
     *,
-    modifier: str | None = "",
+    modifier: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Activate the strip modifier to use as the context
 
@@ -2218,7 +2218,7 @@ def text_insert(
     undo: bool | None = None,
     /,
     *,
-    string: str | None = "",
+    string: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert text at cursor position
 
@@ -2251,7 +2251,7 @@ def text_strip_style_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:

@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "extensions/*", "rust/*"]
 
 [workspace.package]
-version = "0.9.9"  # We use git tags for versioning. This is just a placeholder.
+version = "0.9.10"  # We use git tags for versioning. This is just a placeholder.
 # tombi: lint.rules.deprecated.disabled = true
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2024"
@@ -74,8 +74,9 @@ tombi-document = { path = "crates/tombi-document" }
 tombi-document-tree = { path = "crates/tombi-document-tree" }
 tombi-extension = { path = "crates/tombi-extension" }
 tombi-extension-cargo = { path = "extensions/tombi-extension-cargo" }
+tombi-extension-manifest = { path = "crates/tombi-extension-manifest" }
+tombi-extension-pyproject = { path = "extensions/tombi-extension-pyproject" }
 tombi-extension-tombi = { path = "extensions/tombi-extension-tombi" }
-tombi-extension-uv = { path = "extensions/tombi-extension-uv" }
 tombi-formatter = { path = "crates/tombi-formatter" }
 tombi-future = { path = "crates/tombi-future" }
 tombi-glob = { path = "crates/tombi-glob" }

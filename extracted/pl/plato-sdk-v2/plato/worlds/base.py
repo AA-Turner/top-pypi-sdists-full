@@ -187,8 +187,9 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         self._chronos_completed: bool = False
         self._agent_containers: list[str] = []  # Track spawned agent containers for cleanup
         self._state: StateT | None = None
-        self._transport: Transport | None = None  # NFS/rsync transport (set during session connect)
-        self._nfs_mesh_ip: str | None = None
+        self._transport: Transport | None = None  # NFS/SSHFS/rsync transport (set during session connect)
+        self._transport_mode: str = "nfs_kernel"
+        self._mesh_ip: str | None = None
         self._ssh_key_path: Path | None = None
         self._workspaces: dict[str, Workspace] = {}  # declared workspaces
         self._tailscaled_proc: asyncio.subprocess.Process | None = None
@@ -430,13 +431,14 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         if not mesh_ip or not self.plato_session:
             raise RuntimeError("NFS transport requires mesh IP from Plato session")
 
-        self._nfs_mesh_ip = mesh_ip
+        self._mesh_ip = mesh_ip
         self._transport = None
-        self.logger.info(f"Transport: nfs_kernel (mesh_ip={mesh_ip})")
+        self._transport_mode = self.config.transport_mode or self.session.transport_mode
+        self.logger.info(f"Transport: {self._transport_mode} (mesh_ip={mesh_ip})")
 
     async def _start_transport(self) -> None:
-        """Start the NFS server after workspaces (and any FUSE mounts) are ready."""
-        if not self._nfs_mesh_ip or not self._workspaces:
+        """Start the file-sharing transport after workspaces (and any FUSE mounts) are ready."""
+        if not self._mesh_ip or not self._workspaces:
             return
         assert self._ssh_key_path is not None
 
@@ -444,12 +446,17 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         for ws in self._workspaces.values():
             await ws.ensure_fuse_mount()
 
-        # Each workspace gets its own NFSTransport and NFS export.
         ws_list = list(self._workspaces.values())
         first = ws_list[0]
         first_path = str(first.path)
 
-        self._transport = NFSTransport(first_path, self._nfs_mesh_ip, self._ssh_key_path)
+        if self._transport_mode == "sshfs":
+            from plato.agents.runtime.transport import SSHFSTransport
+
+            self._transport = SSHFSTransport(first_path, self._mesh_ip, self._ssh_key_path)
+        else:
+            self._transport = NFSTransport(first_path, self._mesh_ip, self._ssh_key_path)
+
         await self._transport.initialize()
 
         for i, ws in enumerate(ws_list[1:], start=1):
@@ -459,7 +466,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
 
         # Assign per-workspace transports
         for ws in ws_list:
-            t = NFSTransport(str(ws.path), self._nfs_mesh_ip, self._ssh_key_path)
+            t = self._transport.with_path(str(ws.path))
             t.mount_path = ws.mount_path
             ws.transport = t
 

@@ -753,7 +753,9 @@ class GPTBridge:
         return None, None
 
     def _get_transpose(self):
-        if self.model_type in {'qwen3_vl_moe', 'gpt_oss', 'llama4'}:
+        if self.config.llm_model_type == 'gpt_oss':
+            return True
+        elif self.model_type in {'qwen3_vl_moe', 'gpt_oss', 'llama4'}:
             return True
         else:
             return False
@@ -891,7 +893,7 @@ class GPTBridge:
                                 gate_up_proj_bias = hf_state_dict['gate_up_proj_bias'].load()
                                 gate_up_proj_bias = gate_up_proj_bias[ep_rank * num_local_experts:(ep_rank + 1)
                                                                       * num_local_experts]
-                            if self.model_type == 'gpt_oss':
+                            if self.config.llm_model_type == 'gpt_oss':
                                 gate_proj_weight = gate_up_proj_weight[:, ::2]
                                 up_proj_weight = gate_up_proj_weight[:, 1::2]
                                 gate_proj_bias, up_proj_bias = gate_up_proj_bias[:, ::2], gate_up_proj_bias[:, 1::2]
@@ -1046,7 +1048,7 @@ class GPTBridge:
                                     gate_up_proj_weight = torch.concat(
                                         [hf_state_dict['gate_up_proj'], gate_up_proj_weight], dim=0)
                                 is_last_ckpt = gate_up_proj_weight.shape[0] == config.num_moe_experts
-                                if self.model_type == 'gpt_oss' and is_last_ckpt:
+                                if self.config.llm_model_type == 'gpt_oss' and is_last_ckpt:
                                     gate_proj_weight, up_proj_weight = gate_up_proj_weight.chunk(2, dim=2)
                                     new_gate_up_proj_weight = torch.empty_like(gate_up_proj_weight)
                                     new_gate_up_proj_weight[..., ::2] = gate_proj_weight
@@ -1066,7 +1068,7 @@ class GPTBridge:
                                     if 'gate_up_proj_bias' in hf_state_dict:
                                         gate_up_proj_bias = torch.concat(
                                             [hf_state_dict['gate_up_proj_bias'], gate_up_proj_bias], dim=0)
-                                    if self.model_type == 'gpt_oss' and is_last_ckpt:
+                                    if self.config.llm_model_type == 'gpt_oss' and is_last_ckpt:
                                         gate_proj_bias, up_proj_bias = gate_up_proj_bias.chunk(2, dim=1)
                                         new_gate_up_proj_bias = torch.empty_like(gate_up_proj_bias)
                                         new_gate_up_proj_bias[:, ::2] = gate_proj_bias
@@ -1442,7 +1444,8 @@ class GPTBridge:
                 self._set_state_dict(mg_attn, 'linear_kv_up_proj.layer_norm_weight', hf_state_dict,
                                      'kv_a_layernorm.weight', to_mcore)
         if self.config.experimental_attention_variant == 'dsa':
-            hf_state_dict.update(self._set_indexer(mg_attn.core_attention.indexer, hf_state_dict, 'indexer.', to_mcore))
+            indexer = None if mg_attn is None else mg_attn.core_attention.indexer
+            hf_state_dict.update(self._set_indexer(indexer, hf_state_dict, 'indexer.', to_mcore))
         if to_mcore:
             hf_state_dict = {}
         else:
@@ -1699,7 +1702,7 @@ class GPTBridge:
             mg_models: List of Megatron model instances to export.
                 Note: If is_peft_format is True, you also need to pass in a GPTModel, not a PeftModel.
             target_device: Target device for exported tensors (e.g., 'cpu'). Defaults to None (current device, cuda).
-            only_master_rank: Whether to export only on the last rank in distributed settings. Defaults to False.
+            only_master_rank: Whether to export only on the master rank in distributed settings. Defaults to False.
             is_peft_format: Whether to export in PEFT (LoRA, etc.) format. Defaults to False.
                 - If True, exports only LoRA delta weights. If False, exports the complete model weights
                 (e.g., after merge-lora or full-parameter fine-tuning).
@@ -1745,7 +1748,7 @@ class GPTBridge:
             config: Optional model configuration to save. If None, uses self.hf_model.config.
 
         Note:
-            - Only the last rank performs the actual save operation in distributed settings.
+            - Only the master rank performs the actual save operation in distributed settings.
             - For PEFT format, saves adapter configuration and weights.
             - For full model format, saves complete model configuration and weights.
             - Automatically handles FP8 quantization configuration if enabled.

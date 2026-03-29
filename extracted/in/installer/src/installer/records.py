@@ -4,55 +4,48 @@ import base64
 import csv
 import hashlib
 import os
-from typing import Iterable, Iterator, Optional, Tuple, cast
+from collections.abc import Iterable, Iterator
+from dataclasses import dataclass
+from pathlib import Path
+from typing import BinaryIO, cast
+
+from installer.utils import copyfileobj_with_hashing, get_stream_length
 
 __all__ = [
     "Hash",
-    "RecordEntry",
     "InvalidRecordEntry",
+    "RecordEntry",
     "parse_record_file",
 ]
 
 
+@dataclass
 class InvalidRecordEntry(Exception):
     """Raised when a RecordEntry is not valid, due to improper element values or count."""
 
-    def __init__(self, elements, issues):  # noqa: D107
-        super().__init__(", ".join(issues))
-        self.issues = issues
-        self.elements = elements
+    elements: Iterable[str]
+    issues: Iterable[str]
 
-    def __repr__(self):
-        return "InvalidRecordEntry(elements={!r}, issues={!r})".format(
-            self.elements, self.issues
-        )
+    def __post_init__(self) -> None:
+        super().__init__(", ".join(self.issues))
 
 
+@dataclass
 class Hash:
-    """Represents the "hash" element of a RecordEntry."""
+    """Represents the "hash" element of a RecordEntry.
 
-    def __init__(self, name: str, value: str) -> None:
-        """Construct a ``Hash`` object.
+    Most consumers should use :py:meth:`Hash.parse` instead, since no
+    validation or parsing is performed by this constructor.
+    """
 
-        Most consumers should use :py:meth:`Hash.parse` instead, since no
-        validation or parsing is performed by this constructor.
+    name: str
+    """Name of the hash function."""
 
-        :param name: name of the hash function
-        :param value: hashed value
-        """
-        self.name = name
-        self.value = value
+    value: str
+    """Hashed value."""
 
     def __str__(self) -> str:
         return f"{self.name}={self.value}"
-
-    def __repr__(self) -> str:
-        return f"Hash(name={self.name!r}, value={self.value!r})"
-
-    def __eq__(self, other):
-        if not isinstance(other, Hash):
-            return NotImplemented
-        return self.value == other.value and self.name == other.name
 
     def validate(self, data: bytes) -> bool:
         """Validate that ``data`` matches this instance.
@@ -81,29 +74,26 @@ class Hash:
         return cls(name, value)
 
 
+@dataclass
 class RecordEntry:
     """Represents a single record in a RECORD file.
 
     A list of :py:class:`RecordEntry` objects fully represents a RECORD file.
+
+    Most consumers should use :py:meth:`RecordEntry.from_elements`, since no
+    validation or parsing is performed by this constructor.
     """
 
-    def __init__(self, path: str, hash_: Optional[Hash], size: Optional[int]) -> None:
-        r"""Construct a ``RecordEntry`` object.
+    path: str
+    """File's path."""
 
-        Most consumers should use :py:meth:`RecordEntry.from_elements`, since no
-        validation or parsing is performed by this constructor.
+    hash_: Hash | None
+    """Hash of the file's contents."""
 
-        :param path: file's path
-        :param hash\_: hash of the file's contents
-        :param size: file's size in bytes
-        """
-        super().__init__()
+    size: int | None
+    """File's size in bytes."""
 
-        self.path = path
-        self.hash_ = hash_
-        self.size = size
-
-    def to_row(self, path_prefix: Optional[str] = None) -> Tuple[str, str, str]:
+    def to_row(self, path_prefix: str | None = None) -> tuple[str, str, str]:
         """Convert this into a 3-element tuple that can be written in a RECORD file.
 
         :param path_prefix: A prefix to attach to the path -- must end in `/`
@@ -126,11 +116,11 @@ class RecordEntry:
         )
 
     def __repr__(self) -> str:
-        return "RecordEntry(path={!r}, hash_={!r}, size={!r})".format(
-            self.path, self.hash_, self.size
+        return (
+            f"RecordEntry(path={self.path!r}, hash_={self.hash_!r}, size={self.size!r})"
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, RecordEntry):
             return NotImplemented
         return (
@@ -142,6 +132,10 @@ class RecordEntry:
     def validate(self, data: bytes) -> bool:
         """Validate that ``data`` matches this instance.
 
+        .. attention::
+            .. deprecated:: 1.0.0
+                Use :py:meth:`validate_stream` instead, with ``BytesIO(data)``.
+
         :param data: Contents of the file corresponding to this instance.
         :return: whether ``data`` matches hash and size.
         """
@@ -150,6 +144,29 @@ class RecordEntry:
 
         if self.hash_:
             return self.hash_.validate(data)
+
+        return True
+
+    def validate_stream(self, stream: BinaryIO) -> bool:
+        """Validate that data read from stream matches this instance.
+
+        :param stream: Representing the contents of the file.
+        :return: Whether data read from stream matches hash and size.
+        """
+        if self.hash_ is not None:
+            with Path(os.devnull).open("wb") as new_target:
+                hash_, size = copyfileobj_with_hashing(
+                    stream, cast("BinaryIO", new_target), self.hash_.name
+                )
+
+            if self.size is not None and size != self.size:
+                return False
+            return self.hash_.value == hash_
+
+        elif self.size is not None:
+            assert self.hash_ is None
+            size = get_stream_length(stream)
+            return size == self.size
 
         return True
 
@@ -175,17 +192,19 @@ class RecordEntry:
         if not path:
             issues.append("`path` cannot be empty")
 
+        hash_value: Hash | None = None
         if hash_:
             try:
-                hash_value: Optional[Hash] = Hash.parse(hash_)
+                hash_value = Hash.parse(hash_)
+                if hash_value.name not in hashlib.algorithms_available:
+                    issues.append(f"invalid hash algorithm '{hash_value.name}'")
+                    hash_value = None
             except ValueError:
                 issues.append("`hash` does not follow the required format")
-        else:
-            hash_value = None
 
         if size:
             try:
-                size_value: Optional[int] = int(size)
+                size_value: int | None = int(size)
             except ValueError:
                 issues.append("`size` cannot be non-integer")
         else:
@@ -197,7 +216,7 @@ class RecordEntry:
         return cls(path=path, hash_=hash_value, size=size_value)
 
 
-def parse_record_file(rows: Iterable[str]) -> Iterator[Tuple[str, str, str]]:
+def parse_record_file(rows: Iterable[str]) -> Iterator[tuple[str, str, str]]:
     """Parse a :pep:`376` RECORD.
 
     Returns an iterable of 3-value tuples, that can be passed to
@@ -208,13 +227,11 @@ def parse_record_file(rows: Iterable[str]) -> Iterator[Tuple[str, str, str]]:
     reader = csv.reader(rows, delimiter=",", quotechar='"', lineterminator="\n")
     for row_index, elements in enumerate(reader):
         if len(elements) != 3:
-            message = "Row Index {}: expected 3 elements, got {}".format(
-                row_index, len(elements)
-            )
+            message = f"Row Index {row_index}: expected 3 elements, got {len(elements)}"
             raise InvalidRecordEntry(elements=elements, issues=[message])
 
         # Convert Windows paths to use / for consistency
         elements[0] = elements[0].replace("\\", "/")
 
-        value = cast(Tuple[str, str, str], tuple(elements))
+        value = cast("tuple[str, str, str]", tuple(elements))
         yield value

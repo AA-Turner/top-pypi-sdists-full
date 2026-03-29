@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import NoReturn
+
 from .exceptions import InvalidStyle
 from .library import Library
 from .utilities import Utilities
@@ -10,7 +12,7 @@ from .utilities import Utilities
 
 class MetaStyle(type):
     """Metaclass to customize attribute access."""
-    def __getattr__(cls, color: str):
+    def __getattr__(cls, color: str) -> NoReturn:
         """Override __getattr__ to raise InvalidColor when an invalid style is accessed."""
         raise InvalidStyle(f'InvalidStyle: {color}')
 
@@ -24,9 +26,9 @@ class Style(metaclass=MetaStyle):
     _utils = Utilities()
     _ESC: str = Library.ESC
     _END: str = Library.END
-    _STYLES: dict = Library.STYLES
+    _STYLES: dict[str, str] = Library.STYLES
     _UNDER: str = Library.UNDERLINE_COLOR
-    _COLORS: dict = Library.COLORS
+    _COLORS: dict[str, str] = Library.COLORS
 
     for _style, _code in _STYLES.items():
         vars()[_style] = f'{_ESC}{_code}{_END}'

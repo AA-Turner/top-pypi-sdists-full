@@ -1,30 +1,26 @@
 Metadata-Version: 2.4
 Name: python-json-logger
-Version: 4.0.0
+Version: 4.1.0
 Summary: JSON Log Formatter for the Python Logging Package
 Author-email: Zakaria Zajac <zak@madzak.com>, Nicholas Hairs <info+python-json-logger@nicholashairs.com>
 Maintainer-email: Nicholas Hairs <info+python-json-logger@nicholashairs.com>
-License: BSD-2-Clause License
+License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://nhairs.github.io/python-json-logger
 Project-URL: GitHub, https://github.com/nhairs/python-json-logger
 Classifier: Development Status :: 6 - Mature
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Logging
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-License-File: NOTICE
-Requires-Dist: typing_extensions; python_version < "3.10"
 Provides-Extra: dev
 Requires-Dist: orjson; implementation_name != "pypy" and extra == "dev"
 Requires-Dist: msgspec; implementation_name != "pypy" and extra == "dev"
@@ -34,7 +30,6 @@ Requires-Dist: pylint; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: freezegun; extra == "dev"
-Requires-Dist: backports.zoneinfo; python_version < "3.9" and extra == "dev"
 Requires-Dist: tzdata; extra == "dev"
 Requires-Dist: build; extra == "dev"
 Requires-Dist: mkdocs; extra == "dev"

@@ -10,16 +10,16 @@ authors = [
 ]
 description = "Manipulates JUnit/xUnit Result XML files"
 readme = "README.rst"
-requires-python = ">=3.6"
+requires-python = ">=3.10"
 dependencies = []
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
   "Topic :: Text Processing",
   "Programming Language :: Python :: 3",
 ]
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 keywords = ["junit", "xunit", "xml", "parser"]
 
 [project.urls]
@@ -32,7 +32,6 @@ junitparser = "junitparser.cli:main"
 
 [tool.setuptools]
 packages = ["junitparser"]
-license-files = ["LICENSE"]
 
 [tool.setuptools.dynamic]
 version = {attr = "junitparser.version"}

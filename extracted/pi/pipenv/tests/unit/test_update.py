@@ -1,7 +1,7 @@
 """Unit tests for pipenv.routines.update helpers."""
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from pipenv.routines.update import _clean_unused_dependencies
+from pipenv.routines.update import _clean_unused_dependencies, _process_package_args
 
 
 def _make_project(verbose=False):
@@ -136,6 +136,151 @@ def test_clean_unused_deps_noop_when_full_resolution_is_empty():
     assert "sqlparse" in lockfile["default"]
 
 
+
+# ---------------------------------------------------------------------------
+# _clean_unused_dependencies – reverse_deps integration (issue #6575)
+# ---------------------------------------------------------------------------
+
+
+def test_clean_unused_deps_preserves_dep_of_pinned_package():
+    """Regression test for #6575.
+
+    When a requiring package (e.g. google-auth) was NOT upgraded its version
+    in the lockfile is identical to the original.  full_lock_resolution was
+    computed against the *latest* versions so it may resolve google-auth to a
+    newer release that no longer needs cachetools/rsa.  Those transitive deps
+    must be kept because the lockfile still pins the old google-auth that
+    needs them.
+    """
+    project = _make_project()
+    # google-auth stays at 2.43.0 – it was not part of this upgrade
+    lockfile = {
+        "default": {
+            "google-auth": {"version": "==2.43.0"},
+            "cachetools": {"version": "==6.2.2"},
+            "rsa": {"version": "==4.9.1"},
+            # requests was the target of the upgrade and is already updated
+            "requests": {"version": "==2.31.0"},
+        }
+    }
+    original_lockfile = {
+        "default": {
+            "google-auth": {"version": "==2.43.0"},
+            "cachetools": {"version": "==6.2.2"},
+            "rsa": {"version": "==4.9.1"},
+            "requests": {"version": "==2.28.0"},
+        }
+    }
+    # full_lock_resolution resolved google-auth to 2.49.1 which no longer
+    # needs cachetools or rsa – so they are absent from this dict.
+    full_lock_resolution = {
+        "google-auth": {"version": "==2.49.1"},
+        "requests": {"version": "==2.31.0"},
+    }
+    # pipdeptree reverse map: cachetools and rsa are required by google-auth
+    reverse_deps = {
+        "cachetools": {("google-auth", ">=2.0.0,<3.0.0")},
+        "rsa": {("google-auth", ">=4.0.0")},
+    }
+
+    _clean_unused_dependencies(
+        project,
+        lockfile,
+        "default",
+        full_lock_resolution,
+        original_lockfile,
+        reverse_deps,
+    )
+
+    # google-auth is still at 2.43.0 in the lockfile (unchanged), so its
+    # transitive deps must be preserved.
+    assert "cachetools" in lockfile["default"], "cachetools should not be removed"
+    assert "rsa" in lockfile["default"], "rsa should not be removed"
+    assert "requests" in lockfile["default"]
+    assert "google-auth" in lockfile["default"]
+
+
+def test_clean_unused_deps_removes_dep_when_requiring_package_was_upgraded():
+    """Transitive dep IS removable once its requiring package was upgraded.
+
+    When google-auth is updated from 2.43.0 → 2.49.1 (version changed in the
+    lockfile), the old transitive deps cachetools/rsa are genuinely unused and
+    should be cleaned up.
+    """
+    project = _make_project()
+    # google-auth was upgraded to 2.49.1 in this upgrade cycle
+    lockfile = {
+        "default": {
+            "google-auth": {"version": "==2.49.1"},
+            "cachetools": {"version": "==6.2.2"},
+            "rsa": {"version": "==4.9.1"},
+        }
+    }
+    original_lockfile = {
+        "default": {
+            "google-auth": {"version": "==2.43.0"},
+            "cachetools": {"version": "==6.2.2"},
+            "rsa": {"version": "==4.9.1"},
+        }
+    }
+    # latest resolution also has google-auth 2.49.1 without cachetools/rsa
+    full_lock_resolution = {
+        "google-auth": {"version": "==2.49.1"},
+    }
+    reverse_deps = {
+        "cachetools": {("google-auth", ">=2.0.0,<3.0.0")},
+        "rsa": {("google-auth", ">=4.0.0")},
+    }
+
+    _clean_unused_dependencies(
+        project,
+        lockfile,
+        "default",
+        full_lock_resolution,
+        original_lockfile,
+        reverse_deps,
+    )
+
+    # google-auth version changed → its old deps should be removed
+    assert "cachetools" not in lockfile["default"], "cachetools should be removed"
+    assert "rsa" not in lockfile["default"], "rsa should be removed"
+    assert "google-auth" in lockfile["default"]
+
+
+def test_clean_unused_deps_without_reverse_deps_behaves_as_before():
+    """Omitting reverse_deps (None) falls back to the original behaviour."""
+    project = _make_project()
+    lockfile = {
+        "default": {
+            "google-auth": {"version": "==2.43.0"},
+            "cachetools": {"version": "==6.2.2"},
+        }
+    }
+    original_lockfile = {
+        "default": {
+            "google-auth": {"version": "==2.43.0"},
+            "cachetools": {"version": "==6.2.2"},
+        }
+    }
+    full_lock_resolution = {
+        "google-auth": {"version": "==2.49.1"},
+        # cachetools absent → was removed in latest resolution
+    }
+
+    # No reverse_deps → original logic, cachetools gets removed
+    _clean_unused_dependencies(
+        project,
+        lockfile,
+        "default",
+        full_lock_resolution,
+        original_lockfile,
+        # reverse_deps omitted (defaults to None)
+    )
+
+    assert "cachetools" not in lockfile["default"]
+    assert "google-auth" in lockfile["default"]
+
+
 def test_clean_unused_deps_verbose_prints_removed_package(capsys):
     """In verbose mode a message is printed for each removed package."""
     project = _make_project(verbose=True)
@@ -162,4 +307,111 @@ def test_clean_unused_deps_verbose_prints_removed_package(capsys):
     assert "pytz" not in lockfile["default"]
     # project.s.is_verbose() was called and err.print was invoked through the mock
     project.s.is_verbose.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# _process_package_args – cross-category contamination guard (issue #5914)
+# ---------------------------------------------------------------------------
+
+
+def _make_project_with_pipfile(packages_section=None, dev_packages_section=None):
+    """Return a project mock pre-configured with fake Pipfile sections."""
+    project = MagicMock()
+    project.s.is_verbose.return_value = False
+
+    # Map from (package_name, category) -> entry (or None if not present)
+    pipfile = {}
+    if packages_section:
+        for name, entry in packages_section.items():
+            pipfile[(name, "packages")] = entry
+    if dev_packages_section:
+        for name, entry in dev_packages_section.items():
+            pipfile[(name, "dev-packages")] = entry
+
+    def fake_get_pipfile_entry(pkg_name, category):
+        return pipfile.get((pkg_name, category))
+
+    def fake_get_package_categories():
+        return ["packages", "dev-packages"]
+
+    project.get_pipfile_entry.side_effect = fake_get_pipfile_entry
+    project.get_package_categories.return_value = ["packages", "dev-packages"]
+    return project
+
+
+def test_process_package_args_does_not_cross_contaminate_categories():
+    """Running `upgrade mypy==1.5.1` (no --dev) must not add mypy to [packages]
+    when mypy already lives in [dev-packages]. (issue #5914)
+    """
+    # mypy lives only in [dev-packages]
+    project = _make_project_with_pipfile(
+        packages_section={},
+        dev_packages_section={"mypy": "==1.4.1"},
+    )
+    project.generate_package_pipfile_entry.return_value = ("mypy", "mypy", "==1.5.1")
+
+    requested_packages = {"packages": {}}
+    explicitly_requested = {"mypy": ["default"]}  # user said no --dev
+
+    with patch("pipenv.routines.update.expansive_install_req_from_line") as mock_irl:
+        mock_install_req = MagicMock()
+        mock_irl.return_value = (mock_install_req, "mypy==1.5.1")
+
+        _process_package_args(
+            project=project,
+            package_args=["mypy==1.5.1"],
+            pipfile_category="packages",  # default – no --dev
+            index_name=None,
+            reverse_deps={},
+            explicitly_requested=explicitly_requested,
+            category="default",
+            has_package_args=True,
+            requested_packages=requested_packages,
+            lock_only=False,
+        )
+
+    # The lockfile resolution dict should be populated…
+    assert "mypy" in requested_packages["packages"]
+    # …but the Pipfile should NOT have been written to [packages]
+    project.add_pipfile_entry_to_pipfile.assert_not_called()
+
+
+def test_process_package_args_writes_to_pipfile_when_package_in_correct_category():
+    """When upgrading a package that already lives in [packages], the Pipfile
+    entry IS updated. (normal upgrade path)
+    """
+    project = _make_project_with_pipfile(
+        packages_section={"requests": "==2.28.0"},
+        dev_packages_section={},
+    )
+    project.generate_package_pipfile_entry.return_value = (
+        "requests",
+        "requests",
+        "==2.31.0",
+    )
+
+    requested_packages = {"packages": {}}
+    explicitly_requested = {"requests": ["default"]}
+
+    with patch("pipenv.routines.update.expansive_install_req_from_line") as mock_irl:
+        mock_install_req = MagicMock()
+        mock_irl.return_value = (mock_install_req, "requests==2.31.0")
+
+        _process_package_args(
+            project=project,
+            package_args=["requests==2.31.0"],
+            pipfile_category="packages",
+            index_name=None,
+            reverse_deps={},
+            explicitly_requested=explicitly_requested,
+            category="default",
+            has_package_args=True,
+            requested_packages=requested_packages,
+            lock_only=False,
+        )
+
+    assert "requests" in requested_packages["packages"]
+    project.add_pipfile_entry_to_pipfile.assert_called_once_with(
+        "requests", "requests", "==2.31.0", category="packages"
+    )
 

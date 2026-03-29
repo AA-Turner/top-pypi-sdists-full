@@ -17,15 +17,19 @@ import os
 
 from pydifact.segmentcollection import Interchange
 from pydifact.segments import Segment
+from pydifact.syntax import v3
 
 path = os.path.dirname(os.path.realpath(__file__)) + "/data"
 
 
-def test_wikipedia_file():
-    message = Interchange.from_file("{}/wikipedia.edi".format(path))
+def test_wikipedia_file_en():
+    """This tests a file presented on the Wikipedia homepage "EDIFACT" -
+    interestingly, it is not covered by EDIFACT standards, but uses a IATB syntax
+    identifier string."""
+    message = Interchange.from_file(f"{path}/wikipedia_en.edi")
     # make some checks
     assert message.get_header_segment() == Segment(
-        "UNB", ["IATB", "1"], "6XPPC", "LHPPC", ["940101", "0950"], "1"
+        "UNB", ["IATB", "1"], ["6XPPC", "ZZ"], ["LHPPC", "ZZ"], ["940101", "0950"], "1"
     )
     assert message.get_segment("IFT") == Segment("IFT", "3", "XYZCOMPANY AVAILABILITY")
     assert message.get_segment("TVL") == Segment(
@@ -33,8 +37,27 @@ def test_wikipedia_file():
     )
 
 
+def test_wikipedia_file_de():
+    message = Interchange.from_file(f"{path}/wikipedia_de.edi")
+    # make some checks
+    assert message.get_header_segment() == v3.UNBSegment(
+        ["UNOC", "3"],
+        "Senderkennung",
+        "Empfaengerkennung",
+        ["060620", "0931"],
+        "1",
+        "",
+        "1234567",
+    )
+    assert message.get_segment("BGM") == Segment("BGM", "220", "B10001")
+    assert message.get_segment("QTY") == Segment("QTY", ["1", "1000"])
+    assert message.get_segment("LIN") == Segment(
+        "LIN", "1", "", ["Produkt Schrauben", "SA"]
+    )
+
+
 def test_invoice_file():
-    message = Interchange.from_file("{}/invoice1.edi".format(path))
+    message = Interchange.from_file(f"{path}/invoice1.edi")
     # make some checks
     assert message.get_header_segment() == Segment(
         "UNB",
@@ -51,9 +74,35 @@ def test_invoice_file():
     assert message.get_segment("RFF") == Segment("RFF", ["VA", "382324067"])
 
 
-# def test_order_file():
-#     _test_file_read("{}/order.edi".format(path))
-#
-#
-# def test_patient1_file():
-#     _test_file_read("{}/patient1.edi".format(path))
+def test_order_file():
+    message = Interchange.from_file(f"{path}/order.edi")
+    assert message.HEADER_TAG == "UNB"
+    assert message.FOOTER_TAG == "UNZ"
+    assert message.has_una_segment is True
+    # UNH+1+ORDERS:D:96A:UN:EAN008'
+    assert message.get_segment("UNH") == Segment(
+        "UNH", "1", ["ORDERS", "D", "96A", "UN", "EAN008"]
+    )
+    assert len(message.segments) == 16
+    assert message.recipient == ["WBDZDD", "ZZ"]
+    assert message.sender == ["12345678", "8"]
+
+
+def test_order2_file():
+    message = Interchange.from_file(f"{path}/order2.edi")
+    assert message.HEADER_TAG == "UNB"
+    assert message.FOOTER_TAG == "UNZ"
+    assert message.has_una_segment is False
+
+    # UNH+1+ORDERS:D:01B:UN:EAN010'
+    assert message.get_segment("UNH") == Segment(
+        "UNH", "1", ["ORDERS", "D", "96A", "UN"]
+    )
+    assert len(message.segments) == 11
+    assert message.recipient == "RECEIVERID"
+    # Sender identification and Partner identification code qualifier
+    assert message.sender == "SENDERID"
+
+
+def test_patient1_file():
+    message = Interchange.from_file(f"{path}/patient1.edi")

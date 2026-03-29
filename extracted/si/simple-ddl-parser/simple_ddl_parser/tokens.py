@@ -1,6 +1,7 @@
 # statements that used at the start of definition or in statements without columns
 definition_statements = {
     "DROP",
+    "TRUNCATE",
     "CREATE",
     "TABLE",
     "DATABASE",
@@ -121,7 +122,7 @@ comment_on_tokens = {value: value for value in comment_on_tokens}
 common_statements.update(first_liners)
 definition_statements.update(common_statements)
 
-alter_tokens = {"COLUMN", "RENAME", "PRIMARY", "KEY", "MODIFY"}
+alter_tokens = {"CHANGE", "COLUMN", "RENAME", "PRIMARY", "KEY", "MODIFY", "ONLY"}
 alter_tokens = {value: value for value in alter_tokens}
 alter_tokens[","] = "COMMA"
 

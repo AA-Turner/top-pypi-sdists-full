@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-radar-data
-Version: 0.5.0
+Version: 0.6.0
 Summary: Provides utility functions for accessing data repository for openradar examples/notebooks
 Author: Open Radar Team
 License: MIT License

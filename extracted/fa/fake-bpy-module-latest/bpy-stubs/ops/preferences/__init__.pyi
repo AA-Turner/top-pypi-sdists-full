@@ -10,7 +10,7 @@ def addon_disable(
     undo: bool | None = None,
     /,
     *,
-    module: str | None = "",
+    module: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Turn off this add-on
 
@@ -23,7 +23,7 @@ def addon_enable(
     undo: bool | None = None,
     /,
     *,
-    module: str | None = "",
+    module: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Turn on this add-on
 
@@ -36,7 +36,7 @@ def addon_expand(
     undo: bool | None = None,
     /,
     *,
-    module: str | None = "",
+    module: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Display information and preferences for this add-on
 
@@ -52,10 +52,10 @@ def addon_install(
     overwrite: bool | None = True,
     enable_on_install: bool | None = False,
     target: str | None = "",
-    filepath: str | None = "",
+    filepath: str = "",
     filter_folder: bool | None = True,
     filter_python: bool | None = True,
-    filter_glob: str | None = "*.py;*.zip",
+    filter_glob: str = "*.py;*.zip",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Install an add-on
 
@@ -84,7 +84,7 @@ def addon_remove(
     undo: bool | None = None,
     /,
     *,
-    module: str | None = "",
+    module: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete the add-on from the file system
 
@@ -97,7 +97,7 @@ def addon_show(
     undo: bool | None = None,
     /,
     *,
-    module: str | None = "",
+    module: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Show add-on preferences
 
@@ -111,9 +111,9 @@ def app_template_install(
     /,
     *,
     overwrite: bool | None = True,
-    filepath: str | None = "",
+    filepath: str = "",
     filter_folder: bool | None = True,
-    filter_glob: str | None = "*.zip",
+    filter_glob: str = "*.zip",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Install an application template
 
@@ -129,7 +129,7 @@ def asset_library_add(
     undo: bool | None = None,
     /,
     *,
-    directory: str | None = "",
+    directory: str = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -154,8 +154,8 @@ def asset_library_add(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-    name: str | None = "",
-    remote_url: str | None = "",
+    name: str = "",
+    remote_url: str = "",
     type: typing.Literal["REMOTE", "LOCAL"] | None = "REMOTE",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a directory to be used by the Asset Browser as source of assets
@@ -277,13 +277,13 @@ def extension_repo_add(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
-    remote_url: str | None = "",
+    name: str = "",
+    remote_url: str = "",
     use_access_token: bool | None = False,
-    access_token: str | None = "",
+    access_token: str = "",
     use_sync_on_startup: bool | None = False,
     use_custom_directory: bool | None = False,
-    custom_directory: str | None = "",
+    custom_directory: str = "",
     type: typing.Literal["REMOTE", "LOCAL"] | None = "REMOTE",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new repository used to store extensions
@@ -325,7 +325,7 @@ def extension_url_drop(
     undo: bool | None = None,
     /,
     *,
-    url: str | None = "",
+    url: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Handle dropping an extension URL
 
@@ -338,7 +338,7 @@ def keyconfig_activate(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
@@ -352,7 +352,7 @@ def keyconfig_export(
     /,
     *,
     all: bool | None = False,
-    filepath: str | None = "",
+    filepath: str = "",
     filter_folder: bool | None = True,
     filter_text: bool | None = True,
     filter_python: bool | None = True,
@@ -372,7 +372,7 @@ def keyconfig_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "keymap.py",
+    filepath: str = "keymap.py",
     filter_folder: bool | None = True,
     filter_text: bool | None = True,
     filter_python: bool | None = True,
@@ -472,7 +472,7 @@ def script_directory_add(
     undo: bool | None = None,
     /,
     *,
-    directory: str | None = "",
+    directory: str = "",
     filter_folder: bool | None = True,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
@@ -525,9 +525,9 @@ def studiolight_install(
     *,
     files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
     | None = None,
-    directory: str | None = "",
+    directory: str = "",
     filter_folder: bool | None = True,
-    filter_glob: str | None = "*.png;*.jpg;*.hdr;*.exr",
+    filter_glob: str = "*.png;*.jpg;*.hdr;*.exr",
     type: typing.Literal["MATCAP", "WORLD", "STUDIO"] | None = "MATCAP",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Install a user defined light
@@ -554,7 +554,7 @@ def studiolight_new(
     undo: bool | None = None,
     /,
     *,
-    filename: str | None = "StudioLight",
+    filename: str = "StudioLight",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save custom studio light from the studio light editor settings
 
@@ -581,9 +581,9 @@ def theme_install(
     /,
     *,
     overwrite: bool | None = True,
-    filepath: str | None = "",
+    filepath: str = "",
     filter_folder: bool | None = True,
-    filter_glob: str | None = "*.xml",
+    filter_glob: str = "*.xml",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load and apply a Blender XML theme file
 

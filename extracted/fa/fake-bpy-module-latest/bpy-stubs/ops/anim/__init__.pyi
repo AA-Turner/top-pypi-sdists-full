@@ -176,7 +176,7 @@ def channels_group(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add selected F-Curves to a new group
 
@@ -473,7 +473,7 @@ def keyframe_delete_by_name(
     undo: bool | None = None,
     /,
     *,
-    type: str | None = "",
+    type: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Alternate access to Delete Keyframe for keymaps to use
 
@@ -538,7 +538,7 @@ def keyframe_insert_by_name(
     undo: bool | None = None,
     /,
     *,
-    type: str | None = "",
+    type: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Alternate access to Insert Keyframe for keymaps to use
 
@@ -589,7 +589,7 @@ def keying_set_export(
     undo: bool | None = None,
     /,
     *,
-    filepath: str | None = "",
+    filepath: str = "",
     filter_folder: bool | None = True,
     filter_text: bool | None = True,
     filter_python: bool | None = True,

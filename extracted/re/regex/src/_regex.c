@@ -119,6 +119,7 @@ typedef RE_UINT32 RE_STATUS_T;
 #define RE_ERROR_NOT_BYTES -14 /* Not a bytestring. */
 #define RE_ERROR_BAD_TIMEOUT -15 /* "timeout" invalid. */
 #define RE_ERROR_TIMED_OUT -16 /* Matching has timed out. */
+#define RE_ERROR_INVALID_BYTESTRING -17 /* Invalid bytestring. */
 
 /* Node bitflags. */
 #define RE_POSITIVE_OP 0x1
@@ -214,7 +215,7 @@ static char copyright[] =
 static PyObject* error_exception;
 
 /* The dictionary of Unicode properties. */
-static PyObject* property_dict;
+static PyObject* property_dict = NULL;
 
 typedef struct RE_State* RE_StatePtr;
 
@@ -2074,7 +2075,7 @@ Py_LOCAL_INLINE(void) set_error(int status, PyObject* object) {
         PyErr_SetString(PyExc_ValueError, "timeout not float or None");
         break;
     case RE_ERROR_CANCELLED:
-        /* An exception has already been raised, so let it fly. */
+        PyErr_SetString(PyExc_KeyboardInterrupt, "operation cancelled");
         break;
     case RE_ERROR_CONCURRENT:
         PyErr_SetString(PyExc_ValueError, "concurrent not int or None");
@@ -2095,8 +2096,13 @@ Py_LOCAL_INLINE(void) set_error(int status, PyObject* object) {
         PyErr_SetString(PyExc_TypeError, "string indices must be integers");
         break;
     case RE_ERROR_INVALID_GROUP_REF:
-        if (!error_exception)
+        if (!error_exception) {
             error_exception = get_object("regex._regex_core", "error");
+            if (!error_exception) {
+                PyErr_SetString(PyExc_RuntimeError, "cannot import regex._regex_core.error");
+                break;
+            }
+        }
 
         PyErr_SetString(error_exception, "invalid group reference");
         break;
@@ -2120,13 +2126,21 @@ Py_LOCAL_INLINE(void) set_error(int status, PyObject* object) {
         PyErr_SetString(PyExc_IndexError, "no such group");
         break;
     case RE_ERROR_REPLACEMENT:
-        if (!error_exception)
+        if (!error_exception) {
             error_exception = get_object("regex._regex_core", "error");
+            if (!error_exception) {
+                PyErr_SetString(PyExc_RuntimeError, "cannot import regex._regex_core.error");
+                break;
+            }
+        }
 
         PyErr_SetString(error_exception, "invalid replacement");
         break;
     case RE_ERROR_TIMED_OUT:
         PyErr_SetString(PyExc_TimeoutError, "regex timed out");
+        break;
+    case RE_ERROR_INVALID_BYTESTRING:
+        PyErr_SetString(PyExc_ValueError, "invalid bytestring");
         break;
     default:
         /* Other error codes indicate compiler/engine bugs. */
@@ -6546,6 +6560,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search(RE_State* state, RE_Node* node,
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
         acquire_GIL(state);
+        #if defined(Py_GIL_DISABLED)
+        PyMutex_Lock(&state->pattern->mutex);
+        #endif
 
         /* Double-check because of multithreading. */
         if (!(node->status & RE_STATUS_FAST_INIT)) {
@@ -6553,6 +6570,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search(RE_State* state, RE_Node* node,
             node->status |= RE_STATUS_FAST_INIT;
         }
 
+        #if defined(Py_GIL_DISABLED)
+        PyMutex_Unlock(&state->pattern->mutex);
+        #endif
         release_GIL(state);
     }
 
@@ -6734,6 +6754,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign(RE_State* state, RE_Node* node,
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
         acquire_GIL(state);
+        #if defined(Py_GIL_DISABLED)
+        PyMutex_Lock(&state->pattern->mutex);
+        #endif
 
         /* Double-check because of multithreading. */
         if (!(node->status & RE_STATUS_FAST_INIT)) {
@@ -6741,6 +6764,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign(RE_State* state, RE_Node* node,
             node->status |= RE_STATUS_FAST_INIT;
         }
 
+        #if defined(Py_GIL_DISABLED)
+        PyMutex_Unlock(&state->pattern->mutex);
+        #endif
         release_GIL(state);
     }
 
@@ -6776,6 +6802,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign_rev(RE_State* state, RE_Node*
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
         acquire_GIL(state);
+        #if defined(Py_GIL_DISABLED)
+        PyMutex_Lock(&state->pattern->mutex);
+        #endif
 
         /* Double-check because of multithreading. */
         if (!(node->status & RE_STATUS_FAST_INIT)) {
@@ -6783,6 +6812,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_ign_rev(RE_State* state, RE_Node*
             node->status |= RE_STATUS_FAST_INIT;
         }
 
+        #if defined(Py_GIL_DISABLED)
+        PyMutex_Unlock(&state->pattern->mutex);
+        #endif
         release_GIL(state);
     }
 
@@ -6817,6 +6849,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_rev(RE_State* state, RE_Node* node,
          * Internally, however, it isn't. For safety we need to hold the GIL.
          */
         acquire_GIL(state);
+        #if defined(Py_GIL_DISABLED)
+        PyMutex_Lock(&state->pattern->mutex);
+        #endif
 
         /* Double-check because of multithreading. */
         if (!(node->status & RE_STATUS_FAST_INIT)) {
@@ -6825,6 +6860,9 @@ Py_LOCAL_INLINE(Py_ssize_t) string_search_rev(RE_State* state, RE_Node* node,
         }
 
         release_GIL(state);
+        #if defined(Py_GIL_DISABLED)
+        PyMutex_Unlock(&state->pattern->mutex);
+        #endif
     }
 
     if (try_fast && node->string.bad_character_offset) {
@@ -9575,7 +9613,7 @@ Py_LOCAL_INLINE(PyObject*) build_bytes_value(void* buffer, Py_ssize_t start,
 
 too_wide:
     re_dealloc(byte_buffer);
-
+    set_error(RE_ERROR_INVALID_BYTESTRING, NULL);
     return NULL;
 }
 
@@ -18710,6 +18748,9 @@ static void match_dealloc(PyObject* self_) {
 Py_LOCAL_INLINE(PyObject*) ensure_immutable(PyObject* string) {
     PyObject* new_string;
 
+    if (!string)
+        return NULL;
+
     if (PyUnicode_CheckExact(string) || PyBytes_CheckExact(string))
         return string;
 
@@ -19195,7 +19236,7 @@ static PyObject* match_group(MatchObject* self, PyObject* args) {
     PyObject* result;
     Py_ssize_t i;
 
-    size = PyTuple_GET_SIZE(args);
+    size = PyTuple_Size(args);
 
     switch (size) {
     case 0:
@@ -19203,32 +19244,43 @@ static PyObject* match_group(MatchObject* self, PyObject* args) {
         result = match_get_group_by_index(self, 0, Py_None);
         break;
     case 1:
-        /* group(x). PyTuple_GET_ITEM borrows the reference. */
-        result = match_get_group(self, PyTuple_GET_ITEM(args, 0), Py_None,
+        /* group(x). PyTuple_GetItem borrows the reference. */
+        result = match_get_group(self, PyTuple_GetItem(args, 0), Py_None,
           FALSE);
         break;
     default:
+    {
+        PyObject* list;
+        int status;
+
         /* group(x, y, z, ...) */
         /* Fetch multiple items. */
-        result = PyTuple_New(size);
-        if (!result)
+        list = PyList_New(0);
+        if (!list)
             return NULL;
 
         for (i = 0; i < size; i++) {
             PyObject* item;
 
-            /* PyTuple_GET_ITEM borrows the reference. */
-            item = match_get_group(self, PyTuple_GET_ITEM(args, i), Py_None,
+            item = match_get_group(self, PyTuple_GetItem(args, i), Py_None,
               FALSE);
             if (!item) {
-                Py_DECREF(result);
+                Py_DECREF(list);
                 return NULL;
             }
 
-            /* PyTuple_SET_ITEM borrows the reference. */
-            PyTuple_SET_ITEM(result, i, item);
+            status = PyList_Append(list, item);
+            Py_DECREF(item);
+            if (status != 0) {
+                Py_DECREF(list);
+                return NULL;
+            }
         }
+
+        result = PyList_AsTuple(list);
+        Py_DECREF(list);
         break;
+    }
     }
 
     return result;
@@ -19241,7 +19293,7 @@ Py_LOCAL_INLINE(PyObject*) get_from_match(MatchObject* self, PyObject* args,
     PyObject* result;
     Py_ssize_t i;
 
-    size = PyTuple_GET_SIZE(args);
+    size = PyTuple_Size(args);
 
     switch (size) {
     case 0:
@@ -19249,8 +19301,8 @@ Py_LOCAL_INLINE(PyObject*) get_from_match(MatchObject* self, PyObject* args,
         result = get_by_index(self, 0);
         break;
     case 1:
-        /* get(x). PyTuple_GET_ITEM borrows the reference. */
-        result = get_by_arg(self, PyTuple_GET_ITEM(args, 0), get_by_index);
+        /* get(x). PyTuple_GetItem borrows the reference. */
+        result = get_by_arg(self, PyTuple_GetItem(args, 0), get_by_index);
         break;
     default:
         /* get(x, y, z, ...) */
@@ -19262,8 +19314,8 @@ Py_LOCAL_INLINE(PyObject*) get_from_match(MatchObject* self, PyObject* args,
         for (i = 0; i < size; i++) {
             PyObject* item;
 
-            /* PyTuple_GET_ITEM borrows the reference. */
-            item = get_by_arg(self, PyTuple_GET_ITEM(args, i), get_by_index);
+            /* PyTuple_GetItem borrows the reference. */
+            item = get_by_arg(self, PyTuple_GetItem(args, i), get_by_index);
             if (!item) {
                 Py_DECREF(result);
                 return NULL;
@@ -19883,7 +19935,7 @@ error:
 static PyTypeObject Capture_Type = {
     PyVarObject_HEAD_INIT(NULL,0)
     "_regex.Capture",
-    sizeof(MatchObject)
+    sizeof(CaptureObject)
 };
 
 /* Creates a new CaptureObject. */
@@ -19966,23 +20018,38 @@ failed:
 /* MatchObject's 'expandf' method. */
 static PyObject* match_expandf(MatchObject* self, PyObject* str_template) {
     PyObject* format_func;
+    PyObject* list;
     PyObject* args = NULL;
     size_t g;
-    PyObject* kwargs = NULL;
+    PyObject* kwargs;
     PyObject* result;
 
     format_func = PyObject_GetAttrString(str_template, "format");
     if (!format_func)
         return NULL;
 
-    args = PyTuple_New((Py_ssize_t)self->group_count + 1);
-    if (!args)
+    list = PyList_New(0);
+    if (!list)
         goto error;
 
-    for (g = 0; g < self->group_count + 1; g++)
-        /* PyTuple_SetItem borrows the reference. */
-        PyTuple_SetItem(args, (Py_ssize_t)g, make_capture_object(&self,
-          (Py_ssize_t)g));
+    for (g = 0; g < self->group_count + 1; g++) {
+        PyObject* item;
+        int status;
+
+        item = make_capture_object(&self, (Py_ssize_t)g);
+        if (!item)
+            goto error;
+
+        status = PyList_Append(list, item);
+        Py_DECREF(item);
+        if (status != 0)
+            goto error;
+    }
+
+    args = PyList_AsTuple(list);
+    Py_CLEAR(list);
+    if (!args)
+        goto error;
 
     kwargs = make_capture_dict(self, &self);
     if (!kwargs)
@@ -19998,6 +20065,7 @@ static PyObject* match_expandf(MatchObject* self, PyObject* str_template) {
 
 error:
     Py_XDECREF(args);
+    Py_XDECREF(list);
     Py_DECREF(format_func);
     return NULL;
 }
@@ -20083,22 +20151,39 @@ Py_LOCAL_INLINE(PyObject*) match_get_group_slice(MatchObject* self, PyObject*
     if (slice_length <= 0)
         return PyTuple_New(0);
     else {
-        PyObject* result;
+        PyObject* list;
         Py_ssize_t cur;
         Py_ssize_t i;
+        PyObject* result;
 
-        result = PyTuple_New(slice_length);
-        if (!result)
+        list = PyList_New(0);
+        if (!list)
             return NULL;
 
         cur = start;
+
         for (i = 0; i < slice_length; i++) {
-            /* PyTuple_SetItem borrows the reference. */
-            PyTuple_SetItem(result, i, match_get_group_by_index(self, cur,
-              Py_None));
+            PyObject* item;
+            int status;
+
+            item = match_get_group_by_index(self, cur, Py_None);
+            if (!item) {
+                Py_DECREF(list);
+                return NULL;
+            }
+
+            status = PyList_Append(list, item);
+            Py_DECREF(item);
+            if (status != 0) {
+                Py_DECREF(list);
+                return NULL;
+            }
+
             cur += step;
         }
 
+        result = PyList_AsTuple(list);
+        Py_DECREF(list);
         return result;
     }
 }
@@ -20348,7 +20433,6 @@ static PyObject* match_lastgroup(PyObject* self_, void* unused) {
             Py_INCREF(result);
             return result;
         }
-        PyErr_Clear();
     }
 
     Py_RETURN_NONE;
@@ -21422,23 +21506,23 @@ Py_LOCAL_INLINE(PyObject*) pattern_search_or_match(PatternObject* self,
      */
     Py_ssize_t arg_count;
     if (args && !kwargs && PyTuple_CheckExact(args))
-        arg_count = PyTuple_GET_SIZE(args);
+        arg_count = PyTuple_Size(args);
     else
         arg_count = -1;
 
     if (1 <= arg_count && arg_count <= 5) {
-        /* PyTuple_GET_ITEM borrows the reference. */
-        string = PyTuple_GET_ITEM(args, 0);
+        /* PyTuple_GetItem borrows the reference. */
+        string = PyTuple_GetItem(args, 0);
         if (arg_count >= 2)
-            pos = PyTuple_GET_ITEM(args, 1);
+            pos = PyTuple_GetItem(args, 1);
         if (arg_count >= 3)
-            endpos = PyTuple_GET_ITEM(args, 2);
+            endpos = PyTuple_GetItem(args, 2);
         if (arg_count >= 4)
-            concurrent = PyTuple_GET_ITEM(args, 3);
+            concurrent = PyTuple_GetItem(args, 3);
         if (arg_count >= 5)
-            partial = PyTuple_GET_ITEM(args, 4);
+            partial = PyTuple_GetItem(args, 4);
         if (arg_count >= 6)
-            timeout = PyTuple_GET_ITEM(args, 5);
+            timeout = PyTuple_GetItem(args, 5);
     } else if (!PyArg_ParseTupleAndKeywords(args, kwargs, args_desc, kwlist,
       &string, &pos, &endpos, &concurrent, &partial, &timeout))
         return NULL;
@@ -21782,17 +21866,40 @@ Py_LOCAL_INLINE(PyObject*) pattern_subx(PatternObject* self, PyObject*
              * objects.
              */
             if (!built_capture) {
-                /* The args are a tuple of the capture group matches. */
-                args = PyTuple_New((Py_ssize_t)match->group_count + 1);
-                if (!args) {
+                PyObject* list;
+
+                list = PyList_New(0);
+                if (!list) {
                     Py_DECREF(match);
                     goto error;
                 }
 
-                for (g = 0; g < match->group_count + 1; g++)
-                    /* PyTuple_SetItem borrows the reference. */
-                    PyTuple_SetItem(args, (Py_ssize_t)g,
-                      make_capture_object(&match, (Py_ssize_t)g));
+                for (g = 0; g < match->group_count + 1; g++) {
+                    PyObject* capture;
+                    int status;
+
+                    capture = make_capture_object(&match, (Py_ssize_t)g);
+                    if (!capture) {
+                        Py_DECREF(list);
+                        Py_DECREF(match);
+                        goto error;
+                    }
+
+                    status = PyList_Append(list, capture);
+                    Py_DECREF(capture);
+                    if (status != 0) {
+                        Py_DECREF(list);
+                        Py_DECREF(match);
+                        goto error;
+                    }
+                }
+
+                args = PyList_AsTuple(list);
+                Py_DECREF(list);
+                if (!args) {
+                    Py_DECREF(match);
+                    goto error;
+                }
 
                 /* The kwargs are a dict of the named capture group matches. */
                 kwargs = make_capture_dict(match, &match);
@@ -22646,6 +22753,9 @@ Py_LOCAL_INLINE(PyObject*) pack_code_list(RE_CODE* code, Py_ssize_t code_len) {
     max_size = code_len * 5 + (Py_ssize_t)((sizeof(Py_ssize_t) * 8) + 6) / 7;
 
     packed = (RE_UINT8*)re_alloc((size_t)max_size);
+    if (!packed)
+        return NULL;
+
     count = 0;
 
     /* Store the length of the code list. */
@@ -22690,6 +22800,9 @@ Py_LOCAL_INLINE(PyObject*) unpack_code_list(PyObject* packed) {
         return NULL;
 
     packed_data = (RE_UINT8*)PyBytes_AsString(packed);
+    if (!packed_data)
+        goto error;
+
     index = 0;
 
     /* Unpack the length of the code list. */
@@ -25610,7 +25723,7 @@ Py_LOCAL_INLINE(void) get_required_chars(PyObject* required_chars, RE_CODE**
     *req_chars = NULL;
     *req_length = 0;
 
-    len = PyTuple_GET_SIZE(required_chars);
+    len = PyTuple_Size(required_chars);
     if (len < 1 || PyErr_Occurred()) {
         PyErr_Clear();
         return;
@@ -25625,7 +25738,7 @@ Py_LOCAL_INLINE(void) get_required_chars(PyObject* required_chars, RE_CODE**
         size_t value;
 
         /* PyTuple_SET_ITEM borrows the reference. */
-        o = PyTuple_GET_ITEM(required_chars, i);
+        o = PyTuple_GetItem(required_chars, i);
 
         value = PyLong_AsUnsignedLong(o);
         if ((Py_ssize_t)value == -1 && PyErr_Occurred())
@@ -26132,20 +26245,22 @@ static PyObject* fold_case(PyObject* self_, PyObject* args) {
  */
 static PyObject* get_expand_on_folding(PyObject* self, PyObject* unused) {
     int count;
-    PyObject* result;
+    PyObject* list;
     int i;
+    PyObject* result;
 
     /* How many characters are there? */
     count = sizeof(re_expand_on_folding) / sizeof(re_expand_on_folding[0]);
 
     /* Put all the characters in a tuple. */
-    result = PyTuple_New(count);
-    if (!result)
+    list = PyList_New(0);
+    if (!list)
         return NULL;
 
     for (i = 0; i < count; i++) {
         Py_UCS4 codepoint;
         PyObject* item;
+        int status;
 
         codepoint = re_expand_on_folding[i];
 
@@ -26153,14 +26268,19 @@ static PyObject* get_expand_on_folding(PyObject* self, PyObject* unused) {
         if (!item)
             goto error;
 
-        /* PyTuple_SetItem borrows the reference. */
-        PyTuple_SetItem(result, i, item);
+        status = PyList_Append(list, item);
+        Py_DECREF(item);
+        if (status != 0)
+            goto error;
     }
+
+    result = PyList_AsTuple(list);
+    Py_DECREF(list);
 
     return result;
 
 error:
-    Py_DECREF(result);
+    Py_DECREF(list);
     return NULL;
 }
 
@@ -26277,7 +26397,8 @@ Py_LOCAL_INLINE(BOOL) init_property_dict(void) {
     PyObject** value_dicts;
     char munged[256];
 
-    property_dict = NULL;
+    if (property_dict)
+        return TRUE;
 
     /* How many value sets are there? */
     value_set_count = 0;
@@ -26358,7 +26479,7 @@ Py_LOCAL_INLINE(BOOL) init_property_dict(void) {
     return TRUE;
 
 error:
-    Py_XDECREF(property_dict);
+    Py_CLEAR(property_dict);
 
     /* DECREF the value sets. */
     for (i = 0; i < value_set_count; i++)
@@ -26463,28 +26584,33 @@ PyMODINIT_FUNC PyInit__regex(void) {
     d = PyModule_GetDict(m);
 
     x = PyLong_FromLong(RE_MAGIC);
-    if (x) {
-        PyDict_SetItemString(d, "MAGIC", x);
-        Py_DECREF(x);
-    }
+    if (!x)
+        goto error;
+
+    PyDict_SetItemString(d, "MAGIC", x);
+    Py_DECREF(x);
 
     x = PyLong_FromLong(sizeof(RE_CODE));
-    if (x) {
-        PyDict_SetItemString(d, "CODE_SIZE", x);
-        Py_DECREF(x);
-    }
+    if (!x)
+        goto error;
+
+    PyDict_SetItemString(d, "CODE_SIZE", x);
+    Py_DECREF(x);
 
     x = PyUnicode_FromString(copyright);
-    if (x) {
-        PyDict_SetItemString(d, "copyright", x);
-        Py_DECREF(x);
-    }
+    if (!x)
+        goto error;
+
+    PyDict_SetItemString(d, "copyright", x);
+    Py_DECREF(x);
 
     /* Initialise the property dictionary. */
-    if (!init_property_dict()) {
-        Py_DECREF(m);
-        return NULL;
-    }
+    if (!init_property_dict())
+        goto error;
 
     return m;
+
+error:
+    Py_DECREF(m);
+    return NULL;
 }

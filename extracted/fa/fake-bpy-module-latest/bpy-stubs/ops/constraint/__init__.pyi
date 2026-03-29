@@ -19,7 +19,7 @@ def apply(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
     report: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -42,7 +42,7 @@ def childof_clear_inverse(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear inverse correction for Child Of constraint
@@ -63,7 +63,7 @@ def childof_set_inverse(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set inverse correction for Child Of constraint
@@ -84,7 +84,7 @@ def copy(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
     report: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -107,7 +107,7 @@ def copy_to_selected(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy constraint to other selected objects/bones
@@ -128,7 +128,7 @@ def delete(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
     report: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -161,7 +161,7 @@ def followpath_path_animate(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
     frame_start: int | None = 1,
     length: int | None = 100,
@@ -186,7 +186,7 @@ def limitdistance_reset(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset limiting distance for Limit Distance Constraint
@@ -207,7 +207,7 @@ def move_down(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move constraint down in constraint stack
@@ -228,7 +228,7 @@ def move_to_index(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
     index: int | None = 0,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -251,7 +251,7 @@ def move_up(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move constraint up in constraint stack
@@ -282,7 +282,7 @@ def objectsolver_clear_inverse(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear inverse correction for Object Solver constraint
@@ -303,7 +303,7 @@ def objectsolver_set_inverse(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set inverse correction for Object Solver constraint
@@ -337,7 +337,7 @@ def stretchto_reset(
     undo: bool | None = None,
     /,
     *,
-    constraint: str | None = "",
+    constraint: str = "",
     owner: typing.Literal["OBJECT", "BONE"] | None = "OBJECT",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset original length of bone for Stretch To Constraint

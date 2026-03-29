@@ -188,7 +188,7 @@ def layer_new(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new mask layer for masking
 
@@ -211,7 +211,7 @@ def move_to_layer(
     undo: bool | None = None,
     /,
     *,
-    target_layer_name: str | None = "",
+    target_layer_name: str = "",
     add_new_layer: bool | None = False,
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the active spline to layer
@@ -226,7 +226,7 @@ def new(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "",
+    name: str = "",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create new mask
 

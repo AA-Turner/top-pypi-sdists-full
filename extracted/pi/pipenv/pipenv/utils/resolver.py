@@ -83,9 +83,28 @@ def _get_pipfile_python_override(project):
         }
 
     if python_ver and python_ver != "*":
-        # Only major.minor specified — assume .0 patch for inclusive resolution.
+        parts = python_ver.split(".")
+        if len(parts) < 2:
+            # Major-only version (e.g. "3") is too imprecise for marker
+            # evaluation — don't override, let the running interpreter's
+            # actual version be used.
+            return None
+        # Only major.minor specified — use the running interpreter's actual
+        # patch version so that markers like ``python_full_version >= "3.11.4"``
+        # evaluate correctly.  Previously we assumed ".0" which caused
+        # ResolutionTooDeep failures by wrongly excluding packages.
+        import platform
+
+        actual_full = platform.python_version()  # e.g. "3.11.15"
+        actual_major_minor = ".".join(actual_full.split(".")[:2])
+        if actual_major_minor == python_ver:
+            # Running interpreter matches the Pipfile — use its real patch.
+            full_version = actual_full
+        else:
+            # Different minor version — fall back to .0 (best guess).
+            full_version = f"{python_ver}.0"
         return {
-            "python_full_version": f"{python_ver}.0",
+            "python_full_version": full_version,
             "python_version": python_ver,
         }
 
@@ -133,10 +152,10 @@ def get_package_finder(
     abi=None,
     implementation=None,
     ignore_requires_python=None,
+    py_version_info=None,
 ):
     """Reduced Shim for compatibility to generate package finders."""
-    py_version_info = None
-    if python_versions:
+    if py_version_info is None and python_versions:
         py_version_info_python = max(python_versions)
         py_version_info = tuple([int(part) for part in py_version_info_python])
     target_python = TargetPython(
@@ -178,7 +197,30 @@ def _format_resolution_error(install_error):
     ``install_error.__cause__``. This helper traverses that chain and builds a
     human-readable summary of the conflicting requirements so users can diagnose
     the problem without needing to re-run with ``--verbose``.
+
+    Also handles MetadataGenerationFailed with actionable hints (#5155).
     """
+    # Detect MetadataGenerationFailed specifically and emit an actionable hint.
+    try:
+        from pipenv.patched.pip._internal.exceptions import MetadataGenerationFailed
+
+        if isinstance(install_error, MetadataGenerationFailed):
+            pkg_name = getattr(install_error, "package_name", None) or "a package"
+            return (
+                f"Metadata generation failed for {pkg_name}.\n\n"
+                "This usually means the package uses a legacy build system "
+                "(setup.py egg_info) that is incompatible with modern pip.\n\n"
+                "Possible causes and fixes:\n"
+                "  1. The package version is too old — try upgrading to a newer release.\n"
+                "  2. A file named 'util.py', 'setup.py', or similar in your project\n"
+                "     directory is shadowing a system module. Rename or move it.\n"
+                "  3. Missing build dependencies (e.g. setuptools, wheel) — run:\n"
+                "       pipenv run pip install --upgrade setuptools wheel\n"
+                "  4. Re-run with --verbose for the full pip build log."
+            )
+    except ImportError:
+        pass
+
     base_msg = str(install_error)
 
     # Walk the exception chain to find a ResolutionImpossible cause
@@ -239,6 +281,7 @@ class Resolver:
         original_deps=None,
         install_reqs=None,
         pipfile_entries=None,
+        resolved_default_deps=None,
     ):
         self.initial_constraints = constraints
         self.req_dir = req_dir
@@ -255,6 +298,10 @@ class Resolver:
         self.skipped = skipped if skipped is not None else {}
         self.markers = {}
         self.requires_python_markers = {}
+        # Resolved lockfile entries from the default category (including transitive
+        # deps).  When set, these are used as constraints for non-default categories
+        # instead of the raw Pipfile [packages] specs.  See gh-4665.
+        self.resolved_default_deps = resolved_default_deps
         self.original_deps = original_deps if original_deps is not None else {}
         self.install_reqs = install_reqs if install_reqs is not None else {}
         self.pipfile_entries = pipfile_entries
@@ -301,6 +348,7 @@ class Resolver:
         clear: bool = False,
         pre: bool = False,
         pipfile_category: str = None,
+        resolved_default_deps: Dict[str, Any] = None,
     ) -> "Resolver":
         if not req_dir:
             req_dir = create_tracked_tempdir(suffix="-requirements", prefix="pipenv-")
@@ -313,7 +361,11 @@ class Resolver:
         pipfile_entries = project.get_pipfile_section(pipfile_category)
         skipped = {}
         if sources is None:
-            sources = project.sources
+            # Always read sources from the Pipfile, not from the (potentially
+            # stale) lockfile _meta.sources.  This ensures settings like
+            # ``verify_ssl = false`` are respected even when an old lockfile
+            # still carries ``verify_ssl = true``.  See gh-5665.
+            sources = project.pipfile_sources()
         packages = project.get_pipfile_section(pipfile_category)
         constraints = set()
         for package_name, dep in deps.items():  # Build up the index and markers lookups
@@ -345,6 +397,30 @@ class Resolver:
                 markers_lookup[package_name] = install_req.markers
             if is_constraint:
                 constraints.add(dep)
+
+        # For non-default categories (e.g. dev-packages, custom groups), also
+        # populate index_lookup with index information from *all other* Pipfile
+        # sections.  This is necessary so that transitive dependencies of the
+        # current category that happen to be explicitly listed in another
+        # section (most commonly [packages]) can still be found on the correct
+        # private index when the resolver uses index_restricted=True.
+        #
+        # Example: if [packages] has ``private_lib = {index = "private"}`` and
+        # [dev-packages] has ``dev_tool`` which depends on ``private_lib``,
+        # locking [dev-packages] would fail because ``private_lib`` was not in
+        # index_lookup and pip therefore tried the default (PyPI) index only.
+        if pipfile_category and pipfile_category != "packages":
+            for other_category in project.get_package_categories():
+                if other_category == pipfile_category:
+                    continue
+                other_packages = project.get_pipfile_section(other_category)
+                for pkg_name, pkg_entry in other_packages.items():
+                    canonical_pkg_name = canonicalize_name(pkg_name)
+                    # Don't override entries already set for the current category
+                    if canonical_pkg_name not in index_lookup:
+                        if isinstance(pkg_entry, dict) and pkg_entry.get("index"):
+                            index_lookup[canonical_pkg_name] = pkg_entry["index"]
+
         lockfile_category = get_lockfile_section_using_pipfile_category(pipfile_category)
         resolver = Resolver(
             set(),
@@ -360,6 +436,7 @@ class Resolver:
             original_deps=original_deps,
             install_reqs=install_reqs,
             pipfile_entries=pipfile_entries,
+            resolved_default_deps=resolved_default_deps,
         )
         for package_name, dep in original_deps.items():
             install_req = install_reqs[package_name]
@@ -410,7 +487,18 @@ class Resolver:
 
     @property
     def default_constraint_file(self):
-        default_constraints = get_constraints_from_deps(self.project.packages)
+        # When resolved default deps are available (passed from do_lock after
+        # resolving the default category), use them.  They include transitive
+        # dependencies and exact version pins, which is critical for ensuring
+        # non-default categories resolve compatible versions.  See gh-4665.
+        if self.resolved_default_deps:
+            from .dependencies import get_constraints_from_resolved_deps
+
+            default_constraints = get_constraints_from_resolved_deps(
+                self.resolved_default_deps
+            )
+        else:
+            default_constraints = get_constraints_from_deps(self.project.packages)
         default_constraint_filename = prepare_constraint_file(
             default_constraints,
             directory=self.req_dir,
@@ -419,6 +507,15 @@ class Resolver:
         )
         return default_constraint_filename
 
+    @property
+    def target_py_version_info(self):
+        """Extract the target Python version tuple from the Pipfile override."""
+        override = _get_pipfile_python_override(self.project)
+        if override:
+            parts = override["python_full_version"].split(".")
+            return tuple(int(part) for part in parts)
+        return None
+
     @property  # cached_property breaks authenticated private indexes
     def pip_options(self):
         pip_options, _ = self.pip_command.parser.parse_args(self.pip_args)
@@ -426,10 +523,16 @@ class Resolver:
         pip_options.no_python_version_warning = True
         pip_options.no_input = self.project.settings.get("disable_pip_input", True)
         pip_options.progress_bar = "off"
-        pip_options.ignore_requires_python = True
+        pip_options.ignore_requires_python = False
         pip_options.pre = self.pre or self.project.settings.get(
             "allow_prereleases", False
         )
+        # Allow the user to override the keyring provider so that credential
+        # managers (e.g. Windows Credential Manager) work even when pip input
+        # is disabled.  See https://github.com/pypa/pipenv/issues/5715
+        keyring_provider = self.project.s.PIPENV_KEYRING_PROVIDER
+        if keyring_provider:
+            pip_options.keyring_provider = keyring_provider
         # In pip 26+, setting options.pre=True is no longer sufficient to
         # enable pre-release resolution. pip's PackageFinder uses
         # release_control.all_releases to determine whether pre-releases are
@@ -457,10 +560,12 @@ class Resolver:
 
     @property
     def package_finder(self):
+        py_version_info = self.target_py_version_info
         finder = get_package_finder(
             install_cmd=self.pip_command,
             options=self.pip_options,
             session=self.session,
+            py_version_info=py_version_info,
         )
         return finder
 
@@ -597,6 +702,7 @@ class Resolver:
                         ignore_requires_python=pip_options.ignore_requires_python,
                         force_reinstall=pip_options.force_reinstall,
                         upgrade_strategy="to-satisfy-only",
+                        py_version_info=self.target_py_version_info,
                     )
                     yield resolver
 
@@ -753,6 +859,11 @@ class Resolver:
             )
         if link:
             return {self.project.get_hash_from_link(self.hash_cache, link)}
+
+        if self.project.s.is_verbose():
+            err.print(
+                f"[bold][red]Warning[/red][/bold]: Error generating hash for {ireq.name}."
+            )
         return set()
 
     @property
@@ -890,7 +1001,7 @@ def _generate_resolution_cache_key(
     ]
 
     key_string = "|".join(key_components)
-    return hashlib.md5(key_string.encode(), usedforsecurity=False).hexdigest()
+    return hashlib.sha256(key_string.encode()).hexdigest()
 
 
 def _should_use_resolution_cache(cache_key, clear):
@@ -932,6 +1043,7 @@ def actually_resolve_deps(
     pre,
     pipfile_category,
     req_dir,
+    resolved_default_deps=None,
 ):
     with warnings.catch_warnings(record=True) as warning_list:
         resolver = Resolver.create(
@@ -944,6 +1056,7 @@ def actually_resolve_deps(
             clear,
             pre,
             pipfile_category,
+            resolved_default_deps=resolved_default_deps,
         )
         resolver.resolve()
         hashes = resolver.resolve_hashes
@@ -1049,6 +1162,21 @@ def resolve(cmd, st, project):
     return subprocess.CompletedProcess(c.args, returncode, out, errors)
 
 
+def _append_resolved_default_deps_args(cmd, resolved_default_deps):
+    """Write resolved default deps to a temp JSON file and append CLI args."""
+    if not resolved_default_deps:
+        return
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        prefix="pipenv-default-deps-",
+        suffix=".json",
+        delete=False,
+    ) as default_deps_file:
+        json.dump(resolved_default_deps, default_deps_file)
+    cmd.append("--resolved-default-deps-file")
+    cmd.append(default_deps_file.name)
+
+
 def venv_resolve_deps(
     deps,
     which,
@@ -1062,6 +1190,7 @@ def venv_resolve_deps(
     lockfile=None,
     old_lock_data=None,
     extra_pip_args=None,
+    resolved_default_deps=None,
 ):
     """
     Resolve dependencies for a pipenv project, acts as a portal to the target environment.
@@ -1133,6 +1262,12 @@ def venv_resolve_deps(
         if pypi_mirror:
             os.environ["PIPENV_PYPI_MIRROR"] = str(pypi_mirror)
         os.environ["PIP_NO_INPUT"] = "1"
+        # Pass through keyring provider so that credential managers
+        # (e.g. Windows Credential Manager) work during resolution.
+        # See https://github.com/pypa/pipenv/issues/5715
+        keyring_provider = project.s.PIPENV_KEYRING_PROVIDER
+        if keyring_provider:
+            os.environ["PIP_KEYRING_PROVIDER"] = keyring_provider
         pipenv_site_dir = get_pipenv_sitedir()
         if pipenv_site_dir is not None:
             os.environ["PIPENV_SITE_DIR"] = pipenv_site_dir
@@ -1174,6 +1309,7 @@ def venv_resolve_deps(
                             packages=deps,
                             pipfile_category=pipfile_category,
                             constraints=deps,
+                            resolved_default_deps=resolved_default_deps,
                         )
                     if results:
                         st.console.print(
@@ -1215,6 +1351,10 @@ def venv_resolve_deps(
 
                 cmd.append("--constraints-file")
                 cmd.append(constraints_file.name)
+
+                # Pass resolved default deps to subprocess so it can constrain
+                # non-default categories with transitive dep pins.  gh-4665
+                _append_resolved_default_deps_args(cmd, resolved_default_deps)
                 st.console.print("Resolving dependencies...")
                 c = resolve(cmd, st, project=project)
                 if c.returncode == 0:
@@ -1286,6 +1426,7 @@ def resolve_deps(
     pipfile_category=None,
     allow_global=False,
     req_dir=None,
+    resolved_default_deps=None,
 ):
     """Given a list of dependencies, return a resolved list of dependencies,
     and their hashes, using the warehouse API / pip.
@@ -1315,6 +1456,7 @@ def resolve_deps(
                     pre,
                     pipfile_category,
                     req_dir=req_dir,
+                    resolved_default_deps=resolved_default_deps,
                 )
             except RuntimeError:
                 # Don't exit here, like usual.
@@ -1343,6 +1485,7 @@ def resolve_deps(
                         pre,
                         pipfile_category,
                         req_dir=req_dir,
+                        resolved_default_deps=resolved_default_deps,
                     )
                 except RuntimeError:
                     sys.exit(1)

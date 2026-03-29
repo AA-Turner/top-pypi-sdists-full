@@ -68,6 +68,7 @@ where
                 all_of_schema.deprecated,
                 accessors,
                 value,
+                schema_context,
                 comment_directives,
                 common_rules,
             );
@@ -88,8 +89,7 @@ where
             total_diagnostics.extend(error.diagnostics);
         }
 
-        if let Some(if_then_else_schema) = all_of_schema.if_then_else.as_ref()
-        {
+        if let Some(if_then_else_schema) = all_of_schema.if_then_else.as_ref() {
             match validate_if_then_else(
                 value,
                 accessors,

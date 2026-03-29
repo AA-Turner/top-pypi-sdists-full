@@ -92,7 +92,7 @@ def _apply_default_categories(ctx: Context, state) -> None:
     help="Output diagnostic information for use in GitHub issues.",
 )
 @general_options
-@version_option(prog_name=prog_name, version=__version__)
+@version_option(prog_name=prog_name, version=__version__, allow_from_autoenv=False)
 @pass_state
 @pass_context
 def cli(
@@ -139,7 +139,7 @@ def cli(
         console.print(
             "The following environment variables can be set, to do various things:\n"
         )
-        for key in state.project.__dict__:
+        for key in state.project.s.__dict__:
             if key.startswith("PIPENV"):
                 console.print(f"  - {key}", style="bold")
         console.print(
@@ -286,7 +286,10 @@ def upgrade(ctx, state, **kwargs):
     from pipenv.routines.update import upgrade
     from pipenv.utils.project import ensure_project
 
-    _apply_default_categories(ctx, state)
+    if state.installstate.all_categories:
+        state.installstate.categories = state.project.get_package_categories()
+    else:
+        _apply_default_categories(ctx, state)
 
     ensure_project(
         state.project,
@@ -525,6 +528,13 @@ def activate(state):
     print(activate_cmd.strip())
 
 
+def _complete_run_args(ctx, param, incomplete):
+    """Provide file path completion for extra args passed to `pipenv run`."""
+    from pipenv.vendor.click.shell_completion import CompletionItem
+
+    return [CompletionItem(incomplete, type="file")]
+
+
 @cli.command(
     short_help="Spawns a command installed into the virtualenv.",
     context_settings=subcommand_context_no_interspersion,
@@ -532,7 +542,7 @@ def activate(state):
 @system_option
 @common_options
 @argument("command")
-@argument("args", nargs=-1)
+@argument("args", nargs=-1, shell_complete=_complete_run_args)
 @pass_state
 def run(state, command, args):
     """Spawns a command installed into the virtualenv."""
@@ -843,6 +853,7 @@ def audit(
     default=None,
     help="List packages that would be updated without actually updating.",
 )
+@system_option
 @install_options
 @upgrade_options
 @pass_state
@@ -851,7 +862,10 @@ def update(ctx, state, bare=False, dry_run=None, outdated=False, **kwargs):
     """Runs lock when no packages are specified, or upgrade, and then sync."""
     from pipenv.routines.update import do_update
 
-    _apply_default_categories(ctx, state)
+    if state.installstate.all_categories:
+        state.installstate.categories = state.project.get_package_categories()
+    else:
+        _apply_default_categories(ctx, state)
 
     do_update(
         state.project,
@@ -860,7 +874,7 @@ def update(ctx, state, bare=False, dry_run=None, outdated=False, **kwargs):
         clear=state.clear,
         pre=state.installstate.pre,
         pypi_mirror=state.pypi_mirror,
-        system=False,
+        system=state.system,
         packages=state.installstate.packages,
         editable_packages=state.installstate.editables,
         dev=state.installstate.dev,
@@ -1045,6 +1059,12 @@ def verify(state):
 @option("--hash", is_flag=True, default=False, help="Add package hashes.")
 @option("--exclude-markers", is_flag=True, default=False, help="Exclude markers.")
 @option(
+    "--exclude-index",
+    is_flag=True,
+    default=False,
+    help="Exclude index URLs from the output.",
+)
+@option(
     "--categories",
     is_flag=False,
     default="",
@@ -1070,6 +1090,7 @@ def requirements(
     dev_only=False,
     hash=False,
     exclude_markers=False,
+    exclude_index=False,
     categories="",
     from_pipfile=False,
     no_lock=False,
@@ -1089,6 +1110,7 @@ def requirements(
         categories=categories,
         from_pipfile=from_pipfile,
         no_lock=no_lock,
+        include_index=not exclude_index,
     )
 
 

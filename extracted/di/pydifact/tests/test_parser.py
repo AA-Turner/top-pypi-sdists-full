@@ -13,6 +13,7 @@
 #
 #    You should have received a copy of the GNU Lesser General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from pydifact.exceptions import EDISyntaxError
 from pydifact.parser import Parser
 from pydifact.segments import Segment
 from pydifact.control.characters import Characters
@@ -95,8 +96,8 @@ def _assert_segments(parser, default_una_segment, collection: str, segments: lis
 
     input_str = "UNA:+,? '\n" + collection + "'\n"
     result = list(parser.parse(input_str))
-    # print("input segments: {}".format(segments[0]))
-    # print("parser result:  {}".format(result[0]))
+    # print(f"input segments: {segments[0]}")
+    # print(f"parser result:  {result[0]}")
     assert segments == result
 
 
@@ -112,23 +113,23 @@ def test_compare_equal_segments(parser, default_una_segment):
 
 def test_una_parser1(parser):
     # UNA headers are a special parsing task and must be processed correctly.
-    tokens = parser.parse("UNA:+,? 'TEST'")
+    tokens = parser.parse("UNA:+,? 'FOO+TEST'")
     assert next(tokens) == Segment("UNA", ":+,? '")
-    assert next(tokens) == Segment("TEST")
+    assert next(tokens) == Segment("FOO", "TEST")
 
 
 def test_una_parser2(parser):
     # UNA headers are a special parsing task and must be processed correctly.
-    tokens = parser.parse("UNA123456TEST6")
+    tokens = parser.parse("UNA123456FOO2TEST6")
     assert next(tokens) == Segment("UNA", "123456")
-    assert next(tokens) == Segment("TEST")
+    assert next(tokens) == Segment("FOO", "TEST")
 
 
 def test_una_parser3(parser):
     # UNA headers are a special parsing task and must be processed correctly.
-    tokens = parser.parse("UNA12345'TEST'")
+    tokens = parser.parse("UNA12345'FOO2TEST'")
     assert next(tokens) == Segment("UNA", "12345'")
-    assert next(tokens) == Segment("TEST")
+    assert next(tokens) == Segment("FOO", "TEST")
 
 
 def test_basic1(parser, default_una_segment):
@@ -260,3 +261,39 @@ def test_parsing_with_passed_characters_but_respect_una():
         Segment("UNA", ":+,! '"),
         Segment("ERC", ["10", "Craig's"]),
     ]
+
+
+def test_message_end_without_control_char():
+    with pytest.raises(EDISyntaxError):
+        # must raise a RuntimeError as the string terminates abruptly within a segment
+        for c in Parser().parse("UNB+IBMA:1+BLUBB A+FOO X+950"):
+            pass
+
+
+def test_edifact_text_with_newlines():
+    example_text = """UNB+IBMA:1+FACHARZT A+PRAKTIKER X+950402+1200+1'
+UNH+000001+MEDRPT:1:901:UN'
+BGM+080+++19950402++123401011967+19670101'
+FTX+BFD++Keine Wachstumsstörungen.:'
+NAD+PAT++TEST:LIESCHEN:NULLWEG 97:+++NIRGENDWO++0000'
+UNT+7+000001'
+UNH+000002+MEDRPT:1:901:UN'
+BGM+080+++19950402++567802041993+19930402'
+FTX+BFD++Ich konnte keine Abnormalitäten entdecken:'
+NAD+PAT++TEST:MAX:NULLWEG 98:+++NIRGENDWO++0000'
+UNT+7+000002'
+UNZ+2+1'"""
+    segments = list(Parser().parse(example_text))
+    assert len(segments) == 12
+    segments = list(Parser().parse("UNA:+,? '" + example_text))
+    assert len(segments) == 13
+
+
+def test_edifact_text_with_newline_at_end():
+    example_text = """UNB+IBMA:1+FACHARZT A+PRAKTIKER X+950402+1200+1'
+UNH+000001+MEDRPT:1:901:UN'
+UNT+7+000001'
+UNZ+2+1'
+"""
+    segments = list(Parser().parse(example_text))
+    assert len(segments) == 4

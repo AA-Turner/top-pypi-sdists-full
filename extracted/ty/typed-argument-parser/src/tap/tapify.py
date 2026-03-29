@@ -7,9 +7,14 @@ handling
 
 import dataclasses
 import inspect
-from typing import Any, Callable, Optional, Sequence, TypeVar, Union
+from types import SimpleNamespace
+
+# TODO: 3.11 use only Annotated to combine pydantic metadata
+from typing import Any, Callable, Optional, Sequence, TypeVar, _AnnotatedAlias, get_type_hints
 
 from docstring_parser import Docstring, parse
+
+from tap.utils import _is_marked_tap_ignore, _TapIgnoreMarker
 
 try:
     import pydantic
@@ -22,10 +27,10 @@ except ModuleNotFoundError:
 else:
     _IS_PYDANTIC_V1 = pydantic.VERSION.startswith("1.")
     from pydantic import BaseModel
-    from pydantic.fields import FieldInfo as PydanticFieldBaseModel
     from pydantic.dataclasses import FieldInfo as PydanticFieldDataclass
+    from pydantic.fields import FieldInfo as PydanticFieldBaseModel
 
-    _PydanticField = Union[PydanticFieldBaseModel, PydanticFieldDataclass]
+    _PydanticField = PydanticFieldBaseModel | PydanticFieldDataclass
     # typing.get_args(_PydanticField) is an empty tuple for some reason. Just repeat
     _PYDANTIC_FIELD_TYPES = (PydanticFieldBaseModel, PydanticFieldDataclass)
 
@@ -33,7 +38,7 @@ from tap import Tap
 
 OutputType = TypeVar("OutputType")
 
-_ClassOrFunction = Union[Callable[..., OutputType], type[OutputType]]
+_ClassOrFunction = Callable[..., OutputType] | type[OutputType]
 
 
 @dataclasses.dataclass
@@ -59,6 +64,12 @@ class _ArgData:
     is_positional_only: bool = False
     "Whether or not the argument must be provided positionally"
 
+    pydantic_metadata: Optional[tuple[Any]] = None
+    "Additional metadata from Annotated fields in Pydantic models"""
+
+    ignored: bool = False
+    "Whether or not this argument is marked as TapIgnore"
+
 
 @dataclasses.dataclass(frozen=True)
 class _TapData:
@@ -76,14 +87,14 @@ class _TapData:
     "If true, ignore extra arguments and only parse known arguments"
 
 
-def _is_pydantic_base_model(obj: Union[type[Any], Any]) -> bool:
+def _is_pydantic_base_model(obj: type[Any] | Any) -> bool:
     if inspect.isclass(obj):  # issubclass requires that obj is a class
         return issubclass(obj, BaseModel)
     else:
         return isinstance(obj, BaseModel)
 
 
-def _is_pydantic_dataclass(obj: Union[type[Any], Any]) -> bool:
+def _is_pydantic_dataclass(obj: type[Any] | Any) -> bool:
     if _IS_PYDANTIC_V1:
         # There's no public function in v1. This is a somewhat safe but linear check
         return dataclasses.is_dataclass(obj) and any(key.startswith("__pydantic") for key in obj.__dict__)
@@ -120,6 +131,7 @@ def _tap_data_from_data_model(
             is_required(field),
             field.default,
             description,
+            ignored=_is_marked_tap_ignore(field.type),
         )
 
     def arg_data_from_pydantic(name: str, field: _PydanticField, annotation: Optional[type] = None) -> _ArgData:
@@ -127,7 +139,15 @@ def _tap_data_from_data_model(
         # Prefer the description from param_to_description (from the data model / class docstring) over the
         # field.description b/c a docstring can be modified on the fly w/o causing real issues
         description = param_to_description.get(name, field.description)
-        return _ArgData(name, annotation, field.is_required(), field.default, description)
+        return _ArgData(
+            name,
+            annotation,
+            field.is_required(),
+            field.default,
+            description,
+            pydantic_metadata=tuple(field.metadata),
+            ignored=any(annot == _TapIgnoreMarker for annot in field.metadata),
+        )
 
     # Determine what type of data model it is and extract fields accordingly
     if dataclasses.is_dataclass(data_model):
@@ -169,7 +189,8 @@ def _tap_data_from_data_model(
         if name in func_kwargs:
             arg_data.default = func_kwargs[name]
             arg_data.is_required = False
-            del func_kwargs[name]
+            if not arg_data.ignored:
+                del func_kwargs[name]
         args_data.append(arg_data)
     return _TapData(args_data, has_kwargs, known_only)
 
@@ -216,10 +237,12 @@ def _tap_data_from_class_or_function(
         else:
             annotation = Any
 
+        is_ignored = _is_marked_tap_ignore(annotation)
         if param.name in func_kwargs:
             is_required = False
             default = func_kwargs[param.name]
-            del func_kwargs[param.name]
+            if not is_ignored:
+                del func_kwargs[param.name]
         elif param.default != inspect.Parameter.empty:
             is_required = False
             default = param.default
@@ -234,12 +257,13 @@ def _tap_data_from_class_or_function(
             default=default,
             description=param_to_description.get(param.name),
             is_positional_only=param.kind == inspect.Parameter.POSITIONAL_ONLY,
+            ignored=is_ignored,
         )
         args_data.append(arg_data)
     return _TapData(args_data, has_kwargs, known_only)
 
 
-def _is_data_model(obj: Union[type[Any], Any]) -> bool:
+def _is_data_model(obj: type[Any] | Any) -> bool:
     return dataclasses.is_dataclass(obj) or _is_pydantic_base_model(obj)
 
 
@@ -269,6 +293,9 @@ def _tap_data(class_or_function: _ClassOrFunction, param_to_description: dict[st
         # TODO: allow passing func_kwargs to a Pydantic BaseModel
     return _tap_data_from_class_or_function(class_or_function, func_kwargs, param_to_description)
 
+def _remove_extras_from_annotation(annotation):
+    """Removes extras from annotation types, e.g., Annotated, etc."""
+    return get_type_hints(SimpleNamespace(__annotations__ = {"dummy": annotation}))["dummy"]
 
 def _tap_class(args_data: Sequence[_ArgData]) -> type[Tap]:
     """
@@ -281,13 +308,32 @@ def _tap_class(args_data: Sequence[_ArgData]) -> type[Tap]:
         def _configure(self):
             for arg_data in args_data:
                 variable = arg_data.name
-                self._annotations[variable] = str if arg_data.annotation is Any else arg_data.annotation
-                self.class_variables[variable] = {"comment": arg_data.description or ""}
-                if arg_data.is_required:
-                    kwargs = {}
-                else:
-                    kwargs = dict(required=False, default=arg_data.default)
-                self.add_argument(f"--{variable}", **kwargs)
+                if variable not in self.class_variables:
+                    annotation = str if arg_data.annotation is Any else arg_data.annotation
+                    if arg_data.pydantic_metadata:
+
+                        # Pydantic does clean Annotated metadata, so we need to add it here
+                        # Make sure we have an _AnnotatedAlias and add the fields metadata to it
+                        # TODO: 3.11 use star expression:
+                        # annotation = Annotated[annotation, *arg_data.metadata]
+                        if not isinstance(annotation, _AnnotatedAlias):
+                            annotation = _AnnotatedAlias(annotation, arg_data.pydantic_metadata)
+                        else:
+                            annotation.__metadata__ = (*annotation.__metadata__, *arg_data.pydantic_metadata)
+                    self._annotations_with_extras[variable] = annotation
+                    self._annotations[variable] = _remove_extras_from_annotation(annotation)
+                    if arg_data.ignored or self._is_ignored_argument(variable):
+                        continue
+                    self.class_variables[variable] = {"comment": arg_data.description or ""}
+                    if arg_data.is_required:
+                        kwargs = {}
+                    else:
+                        kwargs = dict(required=False, default = arg_data.default)
+                    if self._is_argument_annotated_positional(variable):
+                        kwargs.pop("required", None)  # required is for optional args only
+                        self.add_argument(variable, **kwargs)
+                    else:
+                        self.add_argument(f"--{variable}", **kwargs)
 
             super()._configure()
 
@@ -308,7 +354,7 @@ def to_tap_class(class_or_function: _ClassOrFunction) -> type[Tap]:
 
 
 def tapify(
-    class_or_function: Union[Callable[..., OutputType], type[OutputType]],
+    class_or_function: Callable[..., OutputType] | type[OutputType],
     known_only: bool = False,
     command_line_args: Optional[list[str]] = None,
     explicit_bool: bool = False,
@@ -343,19 +389,24 @@ def tapify(
         description = "\n".join(filter(None, (docstring.short_description, docstring.long_description)))
     tap = tap_class(description=description, explicit_bool=explicit_bool, underscores_to_dashes=underscores_to_dashes)
 
-    # If any func_kwargs remain, they are not used in the function, so raise an error
+    # If any non ignored func_kwargs remain, they are not used in the function, so raise an error
     known_only = known_only or tap_data.known_only
-    if func_kwargs and not known_only:
+    if func_kwargs.keys() - {arg_data.name for arg_data in tap_data.args_data if arg_data.ignored} and not known_only:
         raise ValueError(f"Unknown keyword arguments: {func_kwargs}")
 
     # Parse command line arguments
-    command_line_args: Tap = tap.parse_args(args=command_line_args, known_only=known_only)
+    parsed_command_line_args: Tap = tap.parse_args(args=command_line_args, known_only=known_only)
 
     # Prepare command line arguments for class_or_function, respecting positional-only args
     class_or_function_args: list[Any] = []
     class_or_function_kwargs: dict[str, Any] = {}
-    command_line_args_dict = command_line_args.as_dict()
+    command_line_args_dict = parsed_command_line_args.as_dict()
     for arg_data in tap_data.args_data:
+        if (arg_data.ignored or tap._is_ignored_argument(arg_data.name)):
+            if arg_data.name in func_kwargs:
+                # Pass through ignored arguments from func_kwargs
+                class_or_function_kwargs[arg_data.name] = func_kwargs[arg_data.name]
+            continue
         arg_value = command_line_args_dict[arg_data.name]
         if arg_data.is_positional_only:
             class_or_function_args.append(arg_value)

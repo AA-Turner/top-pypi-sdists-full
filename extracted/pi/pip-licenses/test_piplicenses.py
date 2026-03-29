@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # vim:fenc=utf-8 ff=unix ft=python ts=4 sw=4 sts=4 si et
 from __future__ import annotations
 
@@ -22,6 +21,7 @@ import docutils.utils
 import pytest
 import tomli_w
 from _pytest.capture import CaptureFixture
+from prettytable import HRuleStyle
 
 import piplicenses
 from piplicenses import (
@@ -47,21 +47,20 @@ from piplicenses import (
     get_packages,
     get_sortby,
     normalize_pkg_name,
-    normalize_version,
     normalize_pkg_name_and_version,
+    normalize_version,
     output_colored,
     save_if_needs,
     select_license_by_source,
     value_to_enum_key,
 )
-from prettytable import HRuleStyle
 
 if TYPE_CHECKING:
     if sys.version_info >= (3, 10):
         from importlib.metadata._meta import PackageMetadata
     else:
         from email.message import Message as PackageMetadata
-
+    from prettytable import PrettyTable
 
 UNICODE_APPENDIX = ""
 with open("tests/fixtures/unicode_characters.txt", encoding="utf-8") as f:
@@ -84,10 +83,12 @@ def importlib_metadata_distributions_mocked(
         def __init__(self, orig_msg: PackageMetadata) -> None:
             self.__msg = orig_msg
 
-        def __getattr__(self, attr: str) -> Any:
+        def __getattr__(self, attr: str) -> Any:  # noqa: ANN401
             return getattr(self.__msg, attr)
 
-        def __getitem__(self, key: str) -> Any:
+        # Morally, the return type should be `email.message.Message._HeaderType | None`
+        # Mocking with Any
+        def __getitem__(self, key: str) -> Any:  # noqa: ANN401  # ty: ignore[invalid-method-override]
             if key.lower() == "name":
                 return self.__msg["name"] + " " + UNICODE_APPENDIX
             return self.__msg[key]
@@ -111,25 +112,26 @@ class CommandLineTestCase(unittest.TestCase):
 
 
 class TestGetLicenses(CommandLineTestCase):
-    def _create_pkg_name_columns(self, table):
-        index = DEFAULT_OUTPUT_FIELDS.index("Name")
+    def _create_pkg_name_columns(self, table: PrettyTable) -> list:
+        _list_DEFAULT_OUTPUT_FIELDS = list(
+            DEFAULT_OUTPUT_FIELDS
+        )  # cast to list for .index()
+        index = _list_DEFAULT_OUTPUT_FIELDS.index("Name")
 
         # XXX: access to private API
         rows = copy.deepcopy(table.rows)
-        pkg_name_columns = []
-        for row in rows:
-            pkg_name_columns.append(row[index])
+        pkg_name_columns = [row[index] for row in rows]
 
         return pkg_name_columns
 
-    def _create_license_columns(self, table, output_fields):
+    def _create_license_columns(
+        self, table: PrettyTable, output_fields: list
+    ) -> list:
         index = output_fields.index("License")
 
         # XXX: access to private API
         rows = copy.deepcopy(table.rows)
-        pkg_name_columns = []
-        for row in rows:
-            pkg_name_columns.append(row[index])
+        pkg_name_columns = [row[index] for row in rows]
 
         return pkg_name_columns
 
@@ -138,10 +140,10 @@ class TestGetLicenses(CommandLineTestCase):
     @staticmethod
     def check_rst(text: str) -> None:
         parser = docutils.parsers.rst.Parser()
-        components = (docutils.parsers.rst.Parser,)
-        settings = docutils.frontend.OptionParser(
-            components=components
-        ).get_default_values()
+        component = docutils.parsers.rst.Parser
+        settings = docutils.frontend.get_default_settings(
+            component  # type: ignore[arg-type]  # https://sourceforge.net/p/docutils/patches/216/
+        )
         settings.halt_level = 3
         document = docutils.utils.new_document("<rst-doc>", settings=settings)
         parser.parse(text, document)
@@ -236,14 +238,12 @@ class TestGetLicenses(CommandLineTestCase):
         self.assertIn("License-Expression", output_fields)
 
         index_license_meta = output_fields.index("License-Metadata")
-        license_meta = []
-        for row in table.rows:
-            license_meta.append(row[index_license_meta])
+        license_meta = [row[index_license_meta] for row in table.rows]
 
         index_license_classifier = output_fields.index("License-Classifier")
-        license_classifier = []
-        for row in table.rows:
-            license_classifier.append(row[index_license_classifier])
+        license_classifier = [
+            row[index_license_classifier] for row in table.rows
+        ]
 
         index_license_expression = output_fields.index("License-Expression")
         license_expression = [
@@ -483,7 +483,7 @@ class TestGetLicenses(CommandLineTestCase):
     def test_ignore_packages(self) -> None:
         ignore_pkg_name = "prettytable"
         ignore_packages_args = [
-            "--ignore-package=" + ignore_pkg_name,
+            f"--ignore-package={ignore_pkg_name}",
             "--with-system",
         ]
         args = self.parser.parse_args(ignore_packages_args)
@@ -507,9 +507,9 @@ class TestGetLicenses(CommandLineTestCase):
     def test_ignore_packages_and_version(self) -> None:
         # Fictitious version that does not exist
         ignore_pkg_name = "prettytable"
-        ignore_pkg_spec = ignore_pkg_name + ":1.99.99"
+        ignore_pkg_spec = f"{ignore_pkg_name}:1.99.99"
         ignore_packages_args = [
-            "--ignore-package=" + ignore_pkg_spec,
+            f"--ignore-package={ignore_pkg_spec}",
             "--with-system",
         ]
         args = self.parser.parse_args(ignore_packages_args)
@@ -521,7 +521,7 @@ class TestGetLicenses(CommandLineTestCase):
 
     def test_with_packages(self) -> None:
         pkg_name = "pytest"
-        only_packages_args = ["--packages=" + pkg_name]
+        only_packages_args = [f"--packages={pkg_name}"]
         args = self.parser.parse_args(only_packages_args)
         table = create_licenses_table(args)
 
@@ -542,7 +542,7 @@ class TestGetLicenses(CommandLineTestCase):
 
     def test_with_packages_with_system(self) -> None:
         pkg_name = "prettytable"
-        only_packages_args = ["--packages=" + pkg_name, "--with-system"]
+        only_packages_args = [f"--packages={pkg_name}", "--with-system"]
         args = self.parser.parse_args(only_packages_args)
         table = create_licenses_table(args)
 
@@ -621,12 +621,8 @@ class TestGetLicenses(CommandLineTestCase):
         self.assertEqual("|", table.junction_char)
         self.assertEqual(HRuleStyle.HEADER, table.hrules)
 
-    @unittest.skipIf(
-        sys.version_info < (3, 6, 0),
-        "To unsupport Python 3.5 in the near future",
-    )
     def test_format_rst_without_filter(self) -> None:
-        piplicenses.importlib_metadata.distributions = (
+        piplicenses.importlib_metadata.distributions = (  # ty: ignore[invalid-assignment]
             importlib_metadata_distributions_mocked
         )
         format_rst_args = ["--format=rst"]
@@ -643,7 +639,7 @@ class TestGetLicenses(CommandLineTestCase):
         )
 
     def test_format_rst_default_filter(self) -> None:
-        piplicenses.importlib_metadata.distributions = (
+        piplicenses.importlib_metadata.distributions = (  # ty: ignore[invalid-assignment]
             importlib_metadata_distributions_mocked
         )
         format_rst_args = ["--format=rst", "--filter-strings"]
@@ -769,7 +765,7 @@ class TestGetLicenses(CommandLineTestCase):
         self.assertTrue(actual.endswith("\033[0m"))
 
     def test_without_filter(self) -> None:
-        piplicenses.importlib_metadata.distributions = (
+        piplicenses.importlib_metadata.distributions = (  # ty: ignore[invalid-assignment]
             importlib_metadata_distributions_mocked
         )
         args = self.parser.parse_args([])
@@ -780,7 +776,7 @@ class TestGetLicenses(CommandLineTestCase):
         )
 
     def test_with_default_filter(self) -> None:
-        piplicenses.importlib_metadata.distributions = (
+        piplicenses.importlib_metadata.distributions = (  # ty: ignore[invalid-assignment]
             importlib_metadata_distributions_mocked
         )
         args = self.parser.parse_args(["--filter-strings"])
@@ -791,7 +787,7 @@ class TestGetLicenses(CommandLineTestCase):
         self.assertNotIn(UNICODE_APPENDIX, packages[-1]["name"])
 
     def test_with_specified_filter(self) -> None:
-        piplicenses.importlib_metadata.distributions = (
+        piplicenses.importlib_metadata.distributions = (  # ty: ignore[invalid-assignment]
             importlib_metadata_distributions_mocked
         )
         args = self.parser.parse_args(
@@ -868,16 +864,19 @@ class TestGetLicenses(CommandLineTestCase):
         self.assertTrue(len(a_intersect_empty) == 0)
 
 
-class MockStdStream(object):
+class MockStdStream:
     def __init__(self) -> None:
         self.printed = ""
 
-    def write(self, p) -> None:
+    def write(self: MockStdStream, p: str) -> None:
         self.printed = p
 
 
-def test_output_file_success(monkeypatch) -> None:
-    def mocked_open(*args, **kwargs):
+def test_output_file_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    if TYPE_CHECKING:
+        import io
+
+    def mocked_open(*args: Any, **kwargs: Any) -> io.TextIOWrapper:
         import tempfile
 
         return tempfile.TemporaryFile("w")
@@ -894,9 +893,9 @@ def test_output_file_success(monkeypatch) -> None:
     assert "" == mocked_stderr.printed
 
 
-def test_output_file_error(monkeypatch) -> None:
-    def mocked_open(*args, **kwargs):
-        raise IOError
+def test_output_file_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def mocked_open(*args: Any, **kwargs: Any) -> None:
+        raise OSError
 
     mocked_stdout = MockStdStream()
     mocked_stderr = MockStdStream()
@@ -910,7 +909,7 @@ def test_output_file_error(monkeypatch) -> None:
     assert "check path: " in mocked_stderr.printed
 
 
-def test_output_file_none(monkeypatch) -> None:
+def test_output_file_none(monkeypatch: pytest.MonkeyPatch) -> None:
     mocked_stdout = MockStdStream()
     mocked_stderr = MockStdStream()
     monkeypatch.setattr(sys.stdout, "write", mocked_stdout.write)
@@ -922,7 +921,7 @@ def test_output_file_none(monkeypatch) -> None:
     assert "" == mocked_stderr.printed
 
 
-def test_allow_only(monkeypatch) -> None:
+def test_allow_only(monkeypatch: pytest.MonkeyPatch) -> None:
     licenses = (
         "Bsd License",
         "Apache Software License",
@@ -943,12 +942,15 @@ def test_allow_only(monkeypatch) -> None:
 
     assert "" == mocked_stdout.printed
     assert (
-        "license MIT License not in allow-only licenses was found for "
-        "package" in mocked_stderr.printed
-    )
+        "license MIT License not in allow-only licenses was found for package"
+        in mocked_stderr.printed
+    ) or (
+        "license MIT not in allow-only licenses was found for package"
+        in mocked_stderr.printed
+    )  # GHI #292 -- MIT License has become abreviated to just MIT for some
 
 
-def test_allow_only_partial(monkeypatch) -> None:
+def test_allow_only_partial(monkeypatch: pytest.MonkeyPatch) -> None:
     licenses = (
         "Bsd",
         "Apache",
@@ -972,23 +974,88 @@ def test_allow_only_partial(monkeypatch) -> None:
 
     assert "" == mocked_stdout.printed
     assert (
-        "license MIT License not in allow-only licenses was found for "
-        "package" in mocked_stderr.printed
+        "license MIT" in mocked_stderr.printed
+    ) and (  # GHI #292 -- partial match may ommit 'License'
+        " not in allow-only licenses was found for package"
+        in mocked_stderr.printed
+    )
+
+
+def test_allow_only_with_empty_tokens(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # same as test_allow_only but with extra semicolons/whitespace
+    licenses = (
+        "Bsd License",
+        "Apache Software License",
+        "Mozilla Public License 2.0 (MPL 2.0)",
+        "Python Software Foundation License",
+        "Public Domain",
+        "GNU General Public License (GPL)",
+        "GNU Library or Lesser General Public License (LGPL)",
+    )
+    # leading/trailing and consecutive semicolons + spaces
+    allow_only_args = ["--allow-only= ; ;{};; ".format(";".join(licenses))]
+    mocked_stdout = MockStdStream()
+    mocked_stderr = MockStdStream()
+    monkeypatch.setattr(sys.stdout, "write", mocked_stdout.write)
+    monkeypatch.setattr(sys.stderr, "write", mocked_stderr.write)
+    monkeypatch.setattr(sys, "exit", lambda n: None)
+    args = create_parser().parse_args(allow_only_args)
+    create_licenses_table(args)
+
+    assert "" == mocked_stdout.printed
+    assert (
+        "license MIT License not in allow-only licenses was found for package"
+        in mocked_stderr.printed
+    ) or (
+        "license MIT not in allow-only licenses was found for package"
+        in mocked_stderr.printed
+    )  # GHI #292 -- MIT License has become abreviated to just MIT for some
+
+
+def test_fail_on_with_empty_tokens(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # include extra semicolons/whitespace around the entry
+    licenses = ("MIT license",)
+    fail_on_args = ["--fail-on=;;  {} ;".format(";".join(licenses))]
+    mocked_stdout = MockStdStream()
+    mocked_stderr = MockStdStream()
+    monkeypatch.setattr(sys.stdout, "write", mocked_stdout.write)
+    monkeypatch.setattr(sys.stderr, "write", mocked_stderr.write)
+    monkeypatch.setattr(sys, "exit", lambda n: None)
+    args = create_parser().parse_args(fail_on_args)
+    create_licenses_table(args)
+
+    assert "" == mocked_stdout.printed
+    assert (
+        "fail-on license MIT License was found for package"
+        in mocked_stderr.printed
     )
 
 
 def test_different_python() -> None:
     import tempfile
+    from venv import (  # type: ignore[attr-defined]  # ty: ignore[unused-ignore-comment]
+        subprocess as venv_subprocess,  # ty: ignore[unresolved-import]
+    )  # local import -- this works and limits exposing the dangerous subprocess module globally
+
+    _warning_skip: str = "Testing via venv unsupported. Skipping."
 
     class TempEnvBuild(venv.EnvBuilder):
         def post_setup(self, context: SimpleNamespace) -> None:
             self.context = context
 
     with tempfile.TemporaryDirectory() as target_dir_path:
-        venv_builder = TempEnvBuild(with_pip=True)
-        venv_builder.create(str(target_dir_path))
-        python_exec = venv_builder.context.env_exe
-        python_arg = f"--python={python_exec}"
+        python_exec = None
+        try:
+            venv_builder = TempEnvBuild(with_pip=True)
+            venv_builder.create(str(target_dir_path))
+            python_exec = venv_builder.context.env_exe
+        except venv_subprocess.CalledProcessError as skip_cause:
+            raise unittest.SkipTest(_warning_skip) from skip_cause
+        python_arg = f"--python={python_exec}" if python_exec else ""
         args = create_parser().parse_args([python_arg, "-s", "-f=json"])
         pkgs = get_packages(args)
         package_names = sorted(set(p["name"] for p in pkgs))
@@ -1000,7 +1067,7 @@ def test_different_python() -> None:
     assert package_names == expected_packages
 
 
-def test_fail_on(monkeypatch) -> None:
+def test_fail_on(monkeypatch: pytest.MonkeyPatch) -> None:
     licenses = ("MIT license",)
     allow_only_args = ["--fail-on={}".format(";".join(licenses))]
     mocked_stdout = MockStdStream()
@@ -1013,12 +1080,12 @@ def test_fail_on(monkeypatch) -> None:
 
     assert "" == mocked_stdout.printed
     assert (
-        "fail-on license MIT License was found for "
-        "package" in mocked_stderr.printed
+        "fail-on license MIT License was found for package"
+        in mocked_stderr.printed
     )
 
 
-def test_fail_on_partial_match(monkeypatch) -> None:
+def test_fail_on_partial_match(monkeypatch: pytest.MonkeyPatch) -> None:
     licenses = ("MIT",)
     allow_only_args = [
         "--partial-match",
@@ -1034,8 +1101,9 @@ def test_fail_on_partial_match(monkeypatch) -> None:
 
     assert "" == mocked_stdout.printed
     assert (
-        "fail-on license MIT License was found for "
-        "package" in mocked_stderr.printed
+        "fail-on license MIT" in mocked_stderr.printed
+    ) and (  # GHI 292 -- partial match may ommit 'License'
+        " was found for package" in mocked_stderr.printed
     )
 
 
@@ -1102,7 +1170,7 @@ def test_normalize_pkg_name() -> None:
     assert normalize_pkg_name("Pip-Licenses") == expected_normalized_name
 
 
-def test_normalize_version():
+def test_normalize_version() -> None:
     """
     Test normalize_version function with various version strings.
     """
@@ -1189,7 +1257,7 @@ def test_extract_homepage_home_page_set() -> None:
     metadata = MagicMock()
     metadata.get.return_value = "Foobar"
 
-    assert "Foobar" == extract_homepage(metadata=metadata)  # type: ignore
+    assert "Foobar" == extract_homepage(metadata=metadata)
 
     metadata.get.assert_called_once_with("home-page", None)
 
@@ -1204,7 +1272,7 @@ def test_extract_homepage_project_url_fallback() -> None:
         "Homepage, homepage",
     ]
 
-    assert "homepage" == extract_homepage(metadata=metadata)  # type: ignore
+    assert "homepage" == extract_homepage(metadata=metadata)
 
     metadata.get_all.assert_called_once_with("Project-URL", [])
 
@@ -1219,9 +1287,7 @@ def test_extract_homepage_project_url_fallback_multiple_parts() -> None:
         "Homepage, homepage, foo, bar",
     ]
 
-    assert "homepage, foo, bar" == extract_homepage(
-        metadata=metadata  # type: ignore
-    )
+    assert "homepage, foo, bar" == extract_homepage(metadata=metadata)
 
     metadata.get_all.assert_called_once_with("Project-URL", [])
 
@@ -1232,7 +1298,7 @@ def test_extract_homepage_empty() -> None:
     metadata.get.return_value = None
     metadata.get_all.return_value = []
 
-    assert None is extract_homepage(metadata=metadata)  # type: ignore
+    assert None is extract_homepage(metadata=metadata)
 
     metadata.get.assert_called_once_with("home-page", None)
     metadata.get_all.assert_called_once_with("Project-URL", [])
@@ -1248,12 +1314,12 @@ def test_extract_homepage_project_uprl_fallback_capitalisation() -> None:
         "homepage, homepage",
     ]
 
-    assert "homepage" == extract_homepage(metadata=metadata)  # type: ignore
+    assert "homepage" == extract_homepage(metadata=metadata)
 
     metadata.get_all.assert_called_once_with("Project-URL", [])
 
 
-def test_pyproject_toml_args_parsed_correctly():
+def test_pyproject_toml_args_parsed_correctly() -> None:
     # we test that parameters of different types are deserialized correctly
     pyptoject_conf = {
         "tool": {
@@ -1303,62 +1369,62 @@ def test_pyproject_toml_args_parsed_correctly():
     os.unlink(temp_file.name)
 
 
-def test_case_insensitive_partial_match_set_diff():
+def test_case_insensitive_partial_match_set_diff() -> None:
     set_a = {"Python", "Java", "C++"}
     set_b = {"Ruby", "JavaScript"}
     result = case_insensitive_partial_match_set_diff(set_a, set_b)
-    assert (
-        result == set_a
-    ), "When no overlap, the result should be the same as set_a."
+    assert result == set_a, (
+        "When no overlap, the result should be the same as set_a."
+    )
 
     set_a = {"Hello", "World"}
     set_b = {"hello", "world"}
     result = case_insensitive_partial_match_set_diff(set_a, set_b)
-    assert (
-        result == set()
-    ), "When all items overlap, the result should be an empty set."
+    assert result == set(), (
+        "When all items overlap, the result should be an empty set."
+    )
 
     set_a = {"HelloWorld", "Python", "JavaScript"}
     set_b = {"hello", "script"}
     result = case_insensitive_partial_match_set_diff(set_a, set_b)
-    assert result == {
-        "Python"
-    }, "Only 'Python' should remain as it has no overlap with set_b."
+    assert result == {"Python"}, (
+        "Only 'Python' should remain as it has no overlap with set_b."
+    )
 
     set_a = {"HELLO", "world"}
     set_b = {"hello"}
     result = case_insensitive_partial_match_set_diff(set_a, set_b)
-    assert result == {
-        "world"
-    }, "The function should handle case-insensitive matches correctly."
+    assert result == {"world"}, (
+        "The function should handle case-insensitive matches correctly."
+    )
 
     set_a = set()
     set_b = set()
     result = case_insensitive_partial_match_set_diff(set_a, set_b)
-    assert (
-        result == set()
-    ), "When both sets are empty, the result should also be empty."
+    assert result == set(), (
+        "When both sets are empty, the result should also be empty."
+    )
 
     set_a = {"Python", "Java"}
     set_b = set()
     result = case_insensitive_partial_match_set_diff(set_a, set_b)
-    assert (
-        result == set_a
-    ), "If set_b is empty, result should be the same as set_a."
+    assert result == set_a, (
+        "If set_b is empty, result should be the same as set_a."
+    )
 
     set_a = set()
     set_b = {"Ruby"}
     result = case_insensitive_partial_match_set_diff(set_a, set_b)
-    assert (
-        result == set()
-    ), "If set_a is empty, result should be empty regardless of set_b."
+    assert result == set(), (
+        "If set_a is empty, result should be empty regardless of set_b."
+    )
 
     set_a = {"BSD License", "MIT License"}
     set_b = {"BSD"}
     result = case_insensitive_partial_match_set_diff(set_a, set_b)
-    assert result == {
-        "MIT License"
-    }, "The function should match partials (exclusively)."
+    assert result == {"MIT License"}, (
+        "The function should match partials (exclusively)."
+    )
 
     set_a = {"BSD", "BSD License"}
     set_b = {"BSD"}
@@ -1372,23 +1438,25 @@ def test_case_insensitive_partial_match_set_diff():
 
     set_a = {"Duplicate", "duplicate", "Unique"}
     set_b = {"unique"}
-    result = sorted(case_insensitive_partial_match_set_diff(set_a, set_b))
+    result_list: list = sorted(
+        case_insensitive_partial_match_set_diff(set_a, set_b)
+    )
     expected_order = sorted({"Duplicate", "duplicate"})
-    assert (
-        result == expected_order
-    ), "The function should still preserve case of set_a (order-insensitive)."
+    assert result_list == expected_order, (
+        "The function should still preserve case of set_a (order-insensitive)."
+    )
 
     set_a = {"Test", "Example"}
     set_b = {"Sample", "Test"}
     result = case_insensitive_partial_match_set_diff(set_a, set_b)
-    assert result == {
-        "Example"
-    }, "If only part of set_b matches set_a non-matches should have no impact."
+    assert result == {"Example"}, (
+        "If only part of set_b matches set_a non-matches should have no impact."
+    )
 
     set_a = {"A", "B", "C"}
     set_b = {"D", "E"}
-    result = sorted(case_insensitive_partial_match_set_diff(set_a, set_b))
+    result_list = sorted(case_insensitive_partial_match_set_diff(set_a, set_b))
     expected_order = sorted({"A", "B", "C"})
-    assert (
-        result == expected_order
-    ), "Non-overlapping sets should preserve all of set_a (order-insensitive)."
+    assert result_list == expected_order, (
+        "Non-overlapping sets should preserve all of set_a (order-insensitive)."
+    )

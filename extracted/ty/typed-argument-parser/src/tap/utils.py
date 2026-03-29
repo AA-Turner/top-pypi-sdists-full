@@ -1,17 +1,20 @@
-from argparse import ArgumentParser, ArgumentTypeError
 import ast
-from base64 import b64encode, b64decode
 import inspect
-from io import StringIO
-from json import JSONEncoder
 import os
 import pickle
 import re
 import subprocess
-import sys
+import typing
 import textwrap
 import tokenize
+import warnings
+from argparse import ArgumentParser, ArgumentTypeError
+from base64 import b64decode, b64encode
+from io import StringIO
+from json import JSONEncoder
+from types import GenericAlias
 from typing import (
+    Annotated,
     Any,
     Callable,
     Generator,
@@ -19,17 +22,17 @@ from typing import (
     Iterator,
     Literal,
     Optional,
-    Union,
+    TypeAlias,
+    TypeVar,
+    _GenericAlias,
+    _SpecialGenericAlias,
 )
-from typing_inspect import get_args as typing_inspect_get_args, get_origin as typing_inspect_get_origin
-import warnings
 
-if sys.version_info >= (3, 10):
-    from types import UnionType
 
+TYPING_GENERIC_ALIAS = (_GenericAlias, _SpecialGenericAlias, GenericAlias)
 NO_CHANGES_STATUS = """nothing to commit, working tree clean"""
 PRIMITIVES = (str, int, float, bool)
-PathLike = Union[str, os.PathLike]
+PathLike = str | os.PathLike
 
 
 def check_output(command: list[str], suppress_stderr: bool = True, **kwargs) -> str:
@@ -138,7 +141,7 @@ class GitInfo:
         return not status.endswith(NO_CHANGES_STATUS)
 
 
-def type_to_str(type_annotation: Union[type, Any]) -> str:
+def type_to_str(type_annotation: type | Any) -> str:
     """Gets a string representation of the provided type.
 
     :param type_annotation: A type annotation, which is either a built-in type or a typing type.
@@ -219,7 +222,7 @@ def get_class_column(tokens: Iterable[tokenize.TokenInfo]) -> int:
     raise ValueError("Could not find any class variables in the class.")
 
 
-def source_line_to_tokens(tokens: Iterable[tokenize.TokenInfo]) -> dict[int, list[dict[str, Union[str, int]]]]:
+def source_line_to_tokens(tokens: Iterable[tokenize.TokenInfo]) -> dict[int, list[dict[str, str | int]]]:
     """Extract a map from each line number to list of mappings providing information about each token."""
     line_to_tokens = {}
     for token_type, token, (start_line, start_column), (end_line, end_column), line in tokens:
@@ -383,7 +386,7 @@ def get_class_variables(cls: type) -> dict[str, dict[str, str]]:
 
 def get_literals(literal: Literal, variable: str) -> tuple[Callable[[str], Any], list[type]]:
     """Extracts the values from a Literal type and ensures that the values are all primitive types."""
-    literals = list(get_args(literal))
+    literals = list(typing.get_args(literal))
 
     if not all(isinstance(literal, PRIMITIVES) for literal in literals):
         raise ArgumentTypeError(
@@ -574,26 +577,68 @@ def enforce_reproducibility(
         raise ValueError(f"{no_reproducibility_message}: Uncommitted changes " f"in current args.")
 
 
-# TODO: remove this once typing_inspect.get_origin is fixed for Python 3.9 and 3.10
-# https://github.com/ilevkivskyi/typing_inspect/issues/64
-# https://github.com/ilevkivskyi/typing_inspect/issues/65
 def get_origin(tp: Any) -> Any:
-    """Same as typing_inspect.get_origin but fixes unparameterized generic types like Set."""
-    origin = typing_inspect_get_origin(tp)
-
-    if origin is None:
+    """Get the unsubscribed version of a type."""
+    if (origin := typing.get_origin(tp)) is None:
         origin = tp
-
-    if sys.version_info >= (3, 10) and isinstance(origin, UnionType):
-        origin = UnionType
-
     return origin
 
 
-# TODO: remove this once typing_inspect.get_args is fixed for Python 3.10 union types
-def get_args(tp: Any) -> tuple[type, ...]:
-    """Same as typing_inspect.get_args but fixes Python 3.10 union types."""
-    if sys.version_info >= (3, 10) and isinstance(tp, UnionType):
-        return tp.__args__
+def is_literal_type(tp: Any) -> bool:
+    if tp is Literal:
+        return True
 
-    return typing_inspect_get_args(tp)
+    if isinstance(tp, TYPING_GENERIC_ALIAS) and tp.__origin__ is Literal:
+        return True
+
+    return False
+
+
+_T = TypeVar("_T")
+
+
+class _TapIgnoreMarker:
+    """Internal marker that if present in a type annotation indicates that the argument should be ignored."""
+
+class _TapPositionalMarker:
+    """Internal marker that if present in a type annotation indicates that the argument is positional-only."""
+
+def _is_marked_annotation(var_type: type | Any, marker: type) -> bool:
+    """Checks if the provided type is `Annotated` and contains the provided marker in the Annotation arguments."""
+    # Note: typing_inspect.get_origin will return the inner type and args and not Annotated
+    return typing.get_origin(var_type) is Annotated and marker in typing.get_args(var_type)[1:]
+
+def _is_marked_tap_ignore(var_type: type | Any) -> bool:
+    """Checks if the provided type is `Annotated` and contains the TapIgnore marker in the Annotation arguments."""
+    return _is_marked_annotation(var_type, _TapIgnoreMarker)
+
+def _is_marked_positional(var_type: type | Any) -> bool:
+    """Checks if the provided type is `Annotated` and contains the TapPositional marker in the Annotation arguments."""
+    return _is_marked_annotation(var_type, _TapPositionalMarker)
+
+# TODO: Python 3.12 turn this into a TypeAliasType for better IDE tooltips
+TapIgnore: TypeAlias = Annotated[_T, _TapIgnoreMarker]
+"""
+Type annotation to indicate that an argument should be ignored by Tap and not be added as an argument.
+
+Usage:
+    from tap import Tap, TapIgnore
+
+    class Args(Tap):
+        a: int
+
+        # TapIgnore is generic and preserves the type of the ignored attribute
+        e: TapIgnore[int] = 5
+"""
+
+Positional = Annotated[_T, _TapPositionalMarker]
+"""
+Type annotation to indicate that an argument is positional-only.
+
+Usage:
+    from tap import Tap, Positional
+
+    class Args(Tap):
+        # Positional is generic and preserves the type of the positional-only attribute
+        a: Positional[int]
+"""

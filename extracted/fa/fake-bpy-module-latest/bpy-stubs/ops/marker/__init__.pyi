@@ -83,7 +83,7 @@ def rename(
     undo: bool | None = None,
     /,
     *,
-    name: str | None = "RenamedMarker",
+    name: str = "RenamedMarker",
 ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rename first selected time marker
 

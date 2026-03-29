@@ -98,7 +98,7 @@ class SessionConfig(BaseModel):
     session_id: str = ""
     otel_url: str = ""
     chronos_url: str = ""  # Base URL for Chronos API (presigned URL requests)
-    transport_mode: Literal["nfs_kernel"] = "nfs_kernel"
+    transport_mode: Literal["nfs_kernel", "sshfs"] = "nfs_kernel"
     plato_session: SerializedSession | None = None
     parent_trace_id: str | None = None  # Parent trace ID (hex) for cross-world linking
     parent_span_id: str | None = None  # Parent span ID (hex) for cross-world linking
@@ -249,6 +249,14 @@ class RunConfig(BaseModel):
 
     Note: runtime, dev, session are passed separately to BaseWorld.run(), not as part of config.
     """
+
+    # Transport mode for sharing workspaces with agent VMs
+    transport_mode: Literal["nfs_kernel", "sshfs"] | None = Field(
+        default=None,
+        description="File-sharing transport between world and agent VMs. "
+        "Overrides the session-level transport_mode when set. "
+        "Options: 'nfs_kernel' (default), 'sshfs'.",
+    )
 
     # Slack notifications on session completion (requires Chronos org setting to be enabled)
     slack_notifications_enabled: bool = Field(

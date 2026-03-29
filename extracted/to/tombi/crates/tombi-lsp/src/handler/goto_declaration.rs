@@ -58,24 +58,28 @@ pub async fn handle_goto_declaration(
     let document_tree = document_source.document_tree();
     let accessors = tombi_document_tree::get_accessors(&document_tree, &keys, position);
 
-    if let Some(locations) = tombi_extension_cargo::goto_declaration(
-        &text_document_uri,
-        &document_tree,
-        &accessors,
-        toml_version,
-    )
-    .await?
+    if config.cargo_extension_enabled()
+        && let Some(locations) = tombi_extension_cargo::goto_declaration(
+            &text_document_uri,
+            &document_tree,
+            &accessors,
+            toml_version,
+            config.cargo_extension_features(),
+        )
+        .await?
     {
         return Ok(locations.into());
     }
 
-    if let Some(locations) = tombi_extension_uv::goto_declaration(
-        &text_document_uri,
-        &document_tree,
-        &accessors,
-        toml_version,
-    )
-    .await?
+    if config.pyproject_extension_enabled()
+        && let Some(locations) = tombi_extension_pyproject::goto_declaration(
+            &text_document_uri,
+            &document_tree,
+            &accessors,
+            toml_version,
+            config.pyproject_extension_features(),
+        )
+        .await?
     {
         return Ok(locations.into());
     }

@@ -176,6 +176,10 @@ class GPTModel(McoreGPTModel):
 
             # ideally t_pass is empty so rotary pos embedding is applied to all tensor t
             t, t_pass = t[..., :rot_dim], t[..., rot_dim:]
+            if multi_latent_attention:
+                x1 = t[..., 0::2]
+                x2 = t[..., 1::2]
+                t = torch.cat((x1, x2), dim=-1)
 
             # first part is cosine component
             # second part is sine component, need to change signs with _rotate_half method
@@ -439,10 +443,10 @@ class GPTModel(McoreGPTModel):
                     mtp_loss = loss_mask_ * mtp_loss
                     num_tokens = loss_mask_.sum()
                     if self.training:
-                        # TODO(shifangx): remove the use of parallel_state here
-                        # after moving loss logging to loss_func in pretrain_gpt.py
+                        mtp_loss_for_log = (
+                            torch.sum(mtp_loss) / num_tokens if num_tokens > 0 else mtp_loss.new_tensor(0.0))
                         MTPLossLoggingHelper.save_loss_to_tracker(
-                            torch.sum(mtp_loss) / num_tokens,
+                            mtp_loss_for_log,
                             mtp_layer_number,
                             self.config.mtp_num_layers,
                             avg_group=parallel_state.get_data_parallel_group(with_context_parallel=True),
