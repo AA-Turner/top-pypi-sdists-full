@@ -27,7 +27,7 @@ import base64
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional, Protocol
+from typing import Any, Callable, Optional, Protocol
 
 from .result_stats import enrich_find_output
 from .state_doc import AsyncActionEncountered, StateDoc, evaluate_state_doc
@@ -143,6 +143,7 @@ def run_flow(
     run_action: ActionRunner,
     cursor: Optional[FlowCursor] = None,
     foreground: bool = True,
+    should_stop: Callable[[], bool] | None = None,
 ) -> FlowResult:
     """Run a state-doc flow synchronously to completion.
 
@@ -156,15 +157,22 @@ def run_flow(
         foreground: If True (default), async actions trigger delegation
             to the work queue via cursor.  If False (daemon context),
             all actions execute inline.
+        should_stop: Optional callback checked between flow ticks. When it
+            returns True, the flow stops with a resumable cursor.
 
     Returns:
         FlowResult with terminal status, accumulated bindings, and
         optional return data. When status is "stopped" or "async",
         the cursor field contains a resumable token.
     """
-    from .perf_stats import perf as _perf
     import time as _time
+    from .perf_stats import perf as _perf
+    from .tracing import get_tracer as _get_tracer
     _flow_t0 = _time.monotonic()
+    _flow_tracer = _get_tracer("flow")
+
+    def _elapsed_ms() -> float:
+        return (_time.monotonic() - _flow_t0) * 1000.0
 
     # Resume from cursor or start fresh
     if cursor is not None:
@@ -187,6 +195,29 @@ def run_flow(
     def _record_flow() -> None:
         _perf.record("flow", initial_state, _time.monotonic() - _flow_t0)
 
+    def _stopped_flow(reason: str) -> FlowResult:
+        total_ticks = prior_ticks + ticks
+        cursor_token = encode_cursor(
+            current_state, total_ticks, accumulated_bindings, tried_queries,
+        )
+        logger.info(
+            "flow: %s -> stopped (%s, %d ticks, %.1fms)",
+            current_state,
+            reason,
+            total_ticks,
+            _elapsed_ms(),
+        )
+        _record_flow()
+        return FlowResult(
+            status="stopped",
+            bindings=accumulated_bindings,
+            data={"reason": reason},
+            ticks=total_ticks,
+            history=history,
+            cursor=cursor_token,
+            tried_queries=tried_queries,
+        )
+
     # Wrap run_action to enrich find output with statistics and track timing.
     # In foreground mode, async actions raise AsyncActionEncountered to
     # delegate the remainder of the flow to the work queue.
@@ -205,9 +236,19 @@ def run_flow(
         return output
 
     while ticks < budget:
-        doc = load_state_doc(current_state)
+        if should_stop and should_stop():
+            return _stopped_flow("shutdown")
+        with _flow_tracer.start_as_current_span(
+            "state_doc.load",
+            attributes={"state": current_state},
+        ):
+            doc = load_state_doc(current_state)
         if doc is None:
-            logger.info("flow: %s -> error (state doc not found)", current_state)
+            logger.info(
+                "flow: %s -> error (state doc not found, %.1fms)",
+                current_state,
+                _elapsed_ms(),
+            )
             _record_flow()
             return FlowResult(
                 status="error",
@@ -224,7 +265,11 @@ def run_flow(
 
         # Evaluate state doc
         try:
-            result = evaluate_state_doc(doc, eval_ctx, run_action=_action_callback)
+            with _flow_tracer.start_as_current_span(
+                "state_doc.evaluate",
+                attributes={"state": current_state},
+            ):
+                result = evaluate_state_doc(doc, eval_ctx, run_action=_action_callback)
         except AsyncActionEncountered as aa:
             # Foreground flow hit an async action — produce cursor for
             # the work queue to resume from.  The cursor points at the
@@ -236,8 +281,8 @@ def run_flow(
                 current_state, total_ticks, accumulated_bindings, tried_queries,
             )
             logger.info(
-                "flow: %s -> async (%s, %d ticks)",
-                current_state, aa.action_name, total_ticks,
+                "flow: %s -> async (%s, %d ticks, %.1fms)",
+                current_state, aa.action_name, total_ticks, _elapsed_ms(),
             )
             _record_flow()
             return FlowResult(
@@ -250,7 +295,12 @@ def run_flow(
                 tried_queries=tried_queries,
             )
         except Exception as exc:
-            logger.warning("State doc %r evaluation failed: %s", current_state, exc)
+            logger.warning(
+                "State doc %r evaluation failed after %.1fms: %s",
+                current_state,
+                _elapsed_ms(),
+                exc,
+            )
             _record_flow()
             return FlowResult(
                 status="error",
@@ -264,7 +314,13 @@ def run_flow(
 
         # Terminal
         if result.terminal is not None:
-            logger.info("flow: %s -> %s (%d ticks)", current_state, result.terminal, ticks)
+            logger.info(
+                "flow: %s -> %s (%d ticks, %.1fms)",
+                current_state,
+                result.terminal,
+                ticks,
+                _elapsed_ms(),
+            )
             _record_flow()
             return FlowResult(
                 status=result.terminal,
@@ -279,7 +335,11 @@ def run_flow(
         if result.transition is not None:
             next_state, transition_params = _parse_transition(result.transition)
             if next_state is None:
-                logger.info("flow: %s -> error (invalid transition)", current_state)
+                logger.info(
+                    "flow: %s -> error (invalid transition, %.1fms)",
+                    current_state,
+                    _elapsed_ms(),
+                )
                 _record_flow()
                 return FlowResult(
                     status="error",
@@ -287,7 +347,7 @@ def run_flow(
                     ticks=prior_ticks + ticks,
                     history=history,
                 )
-            logger.info("flow: %s -> %s", current_state, next_state)
+            logger.info("flow: %s -> %s (%.1fms)", current_state, next_state, _elapsed_ms())
             # Transition params merge into (override) current params
             current_params = dict(current_params)
             current_params.update(transition_params)
@@ -295,7 +355,12 @@ def run_flow(
             continue
 
         # No terminal, no transition — shouldn't happen (evaluator defaults to done)
-        logger.info("flow: %s -> done (implicit, %d ticks)", current_state, ticks)
+        logger.info(
+            "flow: %s -> done (implicit, %d ticks, %.1fms)",
+            current_state,
+            ticks,
+            _elapsed_ms(),
+        )
         _record_flow()
         return FlowResult(
             status="done",
@@ -308,7 +373,12 @@ def run_flow(
     # Budget exhausted — return cursor for resumption
     total_ticks = prior_ticks + ticks
     cursor_token = encode_cursor(current_state, total_ticks, accumulated_bindings, tried_queries)
-    logger.info("flow: %s -> stopped (budget, %d ticks)", current_state, total_ticks)
+    logger.info(
+        "flow: %s -> stopped (budget, %d ticks, %.1fms)",
+        current_state,
+        total_ticks,
+        _elapsed_ms(),
+    )
     _record_flow()
     # Surface latest search results and signals in stopped data
     stopped_data: dict[str, Any] = {"reason": "budget"}
@@ -418,11 +488,6 @@ def make_state_doc_loader(
     Loads ``.state/{name}`` notes from the store, parses their summary
     field as YAML state doc body.  State docs are seeded into the store
     by system doc migration from bundled ``.md`` files.
-
-    Falls back to compiled builtins (from ``builtin_state_docs.py``)
-    when the store has no entry — this covers test environments that
-    skip full migration, and the brief window before first migration
-    on a fresh store.
     """
     from .state_doc import load_state_doc as _load_state_doc
 
@@ -463,7 +528,7 @@ def make_action_runner(
         context_cache: Optional action-result cache that deduplicates
             repeated action calls within a single flow execution.
     """
-    from .actions import get_action
+    from .actions import prepare_action_params
 
     ctx = _EnvActionContext(
         env, writable=writable, item_id=item_id, item_content=item_content,
@@ -473,17 +538,17 @@ def make_action_runner(
         from .tracing import get_tracer
         _tracer = get_tracer("flow")
         with _tracer.start_as_current_span(f"action:{action_name}") as _span:
+            act, prepared = prepare_action_params(action_name, params, ctx)
             if context_cache is not None:
-                cached = context_cache.check(action_name, params, ctx)
+                cached = context_cache.check(action_name, prepared, ctx)
                 if cached is not None:
                     _span.set_attribute("cache", "hit")
                     return cached
                 _span.set_attribute("cache", "miss")
-            act = get_action(action_name)
-            output = act.run(params, ctx)
+            output = act.run(prepared, ctx)
             result = dict(output) if isinstance(output, dict) else {}
             if context_cache is not None:
-                context_cache.store(action_name, params, result)
+                context_cache.store(action_name, prepared, result)
             return result
 
     return _run
@@ -522,7 +587,9 @@ class _EnvActionContext:
         limit: int = 10,
         since: str | None = None,
         until: str | None = None,
+        include_self: bool = False,
         include_hidden: bool = False,
+        deep: bool = False,
         scope: str | None = None,
     ) -> list[Any]:
         return self._env.find(
@@ -532,8 +599,9 @@ class _EnvActionContext:
             limit=limit,
             since=since,
             until=until,
+            include_self=include_self,
             include_hidden=include_hidden,
-            deep=False,
+            deep=deep,
             scope=scope,
         )
 
@@ -618,15 +686,36 @@ class _EnvActionContext:
 
     def put(self, *, content: str | None = None, uri: str | None = None,
             id: str | None = None, tags: dict | None = None,
-            summary: str | None = None) -> Any:
+            summary: str | None = None, created_at: str | None = None,
+            force: bool = False) -> Any:
         if not self._writable:
             raise NotImplementedError("put not available in read-only flow context")
-        return self._env.put(content=content, uri=uri, id=id, tags=tags, summary=summary)
+        return self._env.put(
+            content=content,
+            uri=uri,
+            id=id,
+            tags=tags,
+            summary=summary,
+            created_at=created_at,
+            force=force,
+        )
 
-    def tag(self, id: str, tags: dict) -> Any:
+    def tag(
+        self,
+        id: str,
+        tags: dict | None = None,
+        *,
+        remove: list[str] | None = None,
+        remove_values: dict[str, Any] | None = None,
+    ) -> Any:
         if not self._writable:
             raise NotImplementedError("tag not available in read-only flow context")
-        return self._env.tag(id, tags)
+        return self._env.tag(
+            id,
+            tags,
+            remove=remove,
+            remove_values=remove_values,
+        )
 
     def move(self, name: str, *, source_id: str = "now",
              tags: dict | None = None, only_current: bool = False) -> Any:
@@ -634,10 +723,10 @@ class _EnvActionContext:
             raise NotImplementedError("move not available in read-only flow context")
         return self._env.move(name, source_id=source_id, tags=tags, only_current=only_current)
 
-    def delete(self, id: str) -> None:
+    def delete(self, id: str, *, delete_versions: bool = True) -> None:
         if not self._writable:
             raise NotImplementedError("delete not available in read-only flow context")
-        self._env.delete(id)
+        self._env.delete(id, delete_versions=delete_versions)
 
     def resolve_prompt(
         self, prefix: str, doc_tags: dict[str, Any] | None = None, *, item_id: str | None = None,
@@ -667,3 +756,21 @@ class _EnvActionContext:
         if method is None:
             raise NotImplementedError(f"environment does not support provider kind: {kind!r}")
         return method()
+
+    def gather_context(self, item_id: str, tags: dict[str, Any]) -> str:
+        gather = getattr(self._env, "gather_context", None)
+        if gather is None:
+            return ""
+        return str(gather(item_id, tags) or "")
+
+    def gather_analyze_chunks(self, item_id: str, item: Any) -> Any:
+        gather = getattr(self._env, "gather_analyze_chunks", None)
+        if gather is None:
+            return []
+        return gather(item_id, item)
+
+    def gather_guide_context(self, tags: list[str]) -> str:
+        gather = getattr(self._env, "gather_guide_context", None)
+        if gather is None:
+            return ""
+        return str(gather(tags) or "")

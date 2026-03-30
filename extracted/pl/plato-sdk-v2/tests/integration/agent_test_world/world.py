@@ -155,11 +155,16 @@ class AgentTestWorld(BaseWorld[AgentTestWorldConfig]):
             await self._tool_server.close()
             self.logger.info("MCP tool server stopped")
 
-        # Validate result
+        # Validate result — report errors via observation rather than raising,
+        # so ATIF telemetry tests can still assert on the emitted spans.
         code_ws = self.workspace("code")
         result_path = Path(code_ws.path) / "result.json"
         if not result_path.exists():
-            raise RuntimeError("Agent did not create /workspace/result.json")
+            self.logger.error("Agent did not create /workspace/result.json")
+            return StepResult(
+                observation=Observation(data={"status": "failed", "error": "result.json not created"}),
+                done=True,
+            )
 
         result = json.loads(result_path.read_text())
         errors = []
@@ -169,7 +174,11 @@ class AgentTestWorld(BaseWorld[AgentTestWorldConfig]):
             errors.append(f"sum: expected 42, got {result.get('sum')!r}")
 
         if errors:
-            raise RuntimeError(f"Validation failed: {'; '.join(errors)}")
+            self.logger.error("Validation failed: %s", "; ".join(errors))
+            return StepResult(
+                observation=Observation(data={"status": "failed", "errors": errors, "result": result}),
+                done=True,
+            )
 
         self.logger.info("All validations passed!")
         return StepResult(

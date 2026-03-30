@@ -123,6 +123,10 @@ class GitBlameC:
     # incomplete
     pass
 
+class GitBlobC:
+    # incomplete
+    pass
+
 class GitMergeOptionsC:
     file_favor: int
     flags: int
@@ -175,6 +179,10 @@ class GitDescribeOptionsC:
     show_commit_oid_as_fallback: int
 
 class GitDescribeResultC:
+    pass
+
+class GitFilterListC:
+    # opaque struct
     pass
 
 class GitIndexC:
@@ -264,6 +272,8 @@ def new(a: Literal['git_oid *']) -> GitOidC: ...
 @overload
 def new(a: Literal['git_blame **']) -> _Pointer[GitBlameC]: ...
 @overload
+def new(a: Literal['git_blob **']) -> _Pointer[GitBlobC]: ...
+@overload
 def new(a: Literal['git_clone_options *']) -> GitCloneOptionsC: ...
 @overload
 def new(a: Literal['git_merge_options *']) -> GitMergeOptionsC: ...
@@ -317,6 +327,8 @@ def new(a: Literal['git_packbuilder **']) -> _Pointer[GitPackbuilderC]: ...
 def new(a: Literal['git_signature *']) -> GitSignatureC: ...
 @overload
 def new(a: Literal['git_signature **']) -> _Pointer[GitSignatureC]: ...
+@overload
+def new(a: Literal['git_filter_list **']) -> _Pointer[GitFilterListC]: ...
 @overload
 def new(a: Literal['int *']) -> int_c: ...
 @overload

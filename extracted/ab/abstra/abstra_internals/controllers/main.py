@@ -1646,7 +1646,13 @@ class MainController:
         project = self.repositories.project.load()
         return project.get_page_stage_by_path(path)
 
-    def run_page_stage(self, id: str, request: Request, user_jwt: str | None = None):
+    def run_page_stage(
+        self,
+        id: str,
+        request: Request,
+        user_jwt: str | None = None,
+        page_execution_id: str | None = None,
+    ):
         page = self.get_page_stage(id)
         if not page:
             raise Exception(f"Page stage with id {id} not found")
@@ -1655,16 +1661,23 @@ class MainController:
             request=request,
             response=Response(headers={}, status=200, body=""),
             page_path=page.path,
+            page_execution_id=page_execution_id,
         )
 
         connection = self.repositories.producer.enqueue(
             page.id, context, user_jwt=user_jwt
         )
+
+        # First drain gets execution:started message
         start_msg = drain_until_response(connection)
         if not start_msg:
             connection.close()
             flask.abort(500)
             return  # unreachable, but satisfies type checker
+
+        execution_id = None
+        if isinstance(start_msg, dict) and start_msg.get("type") == "execution:started":
+            execution_id = start_msg.get("executionId")
 
         try:
             response = normalize_response(drain_until_response(connection))
@@ -1678,6 +1691,7 @@ class MainController:
             "body": response.body,
             "status": response.status,
             "headers": response.headers,
+            "executionId": execution_id,
         }
 
     def get_jobs(self, include_disabled_jobs: bool = False) -> list[JobStage]:
@@ -2399,110 +2413,315 @@ class MainController:
             if not hand_off:
                 conn.close()
 
-    def run_page(self, id: str, timeout: int = 30000):
+    def _browser_call(self, method_name: str, *args, **kwargs):
+        """Dispatch a BrowserTools method call to a dedicated thread.
+
+        Playwright has thread affinity — all operations must happen on the same
+        thread that created the browser. Flask serves each request on a different
+        thread, so we keep a single long-lived browser thread and proxy calls
+        through a queue.
         """
-        Run a page stage for debugging using a headless browser.
+        import queue as queue_mod
+        import threading
 
-        This method triggers the execution of a page stage and opens it in a
-        headless Playwright browser to capture the rendered HTML, console logs,
-        and network requests. It is useful for debugging pages without needing
-        to open a browser manually.
+        needs_init = (
+            not hasattr(self, "_browser_thread")
+            or self._browser_thread is None
+            or not self._browser_thread.is_alive()
+        )
+        if needs_init:
+            ready = threading.Event()
+            call_queue: queue_mod.Queue = queue_mod.Queue()
 
-        Args:
-            id (str): Unique identifier of the page stage to run.
-            timeout (int): Maximum time in milliseconds to wait for the page to load. Defaults to 30000 (30 seconds).
+            # Read token: try Flask request cookie first, fall back to file
+            from abstra_internals.cloud_api import get_editor_auth_token_from_file
 
-        Returns:
-            dict: Contains the page response body, status code, console logs,
-                  and network requests captured during rendering.
+            try:
+                editor_token = flask.request.cookies.get("editor_auth", "")
+            except RuntimeError:
+                editor_token = ""
+            if not editor_token:
+                editor_token = get_editor_auth_token_from_file()
+
+            def _loop(token: str):
+                import os
+                from urllib.parse import urlparse
+
+                from abstra_internals.agents.tools.browser import BrowserTools
+
+                bt = BrowserTools(listen_network=True, listen_console=True)
+                if token:
+                    frontend_host = os.environ.get("ABSTRA_FRONTEND_HOST", "")
+                    domain = (
+                        urlparse(frontend_host).hostname
+                        if frontend_host
+                        else "localhost"
+                    )
+                    bt._browser_context.add_cookies(
+                        [
+                            {
+                                "name": "editor_auth",
+                                "value": token,
+                                "domain": domain,
+                                "path": "/",
+                            }
+                        ]
+                    )
+
+                def _get_iframe_frame(page_id):
+                    """Get the iframe Frame for a page, or None."""
+                    page = bt._get_page(page_id)
+                    for frame in page.frames:
+                        if frame != page.main_frame:
+                            return frame
+                    return None
+
+                # Methods that should operate on the iframe content
+                _iframe_methods = {
+                    "get_html",
+                    "get_text",
+                    "get_page_summary",
+                    "get_element_by_summary_index",
+                    "click",
+                    "click_element",
+                    "fill",
+                    "fill_element",
+                    "execute_javascript",
+                    "get_attribute",
+                    "get_attributes",
+                    "get_all_links",
+                }
+
+                ready.set()
+
+                def _handle_iframe(name, a, kw):
+                    """Handle methods that need iframe content. Returns
+                    (True, result) if handled, (False, None) otherwise."""
+                    if name not in _iframe_methods or not a:
+                        return False, None
+                    page_id = a[0]
+                    frame = _get_iframe_frame(page_id)
+                    if not frame:
+                        return False, None
+
+                    from abstra_internals.agents.tools.browser import (
+                        _prepare_script,
+                        _slim_element,
+                    )
+
+                    if name == "get_html":
+                        return True, frame.content()
+
+                    if name == "get_page_summary":
+                        iframe_elements = bt.extractor.extract_elements(
+                            frame  # type: ignore[arg-type]
+                        )
+                        bt._extracted_elements[page_id] = iframe_elements
+                        max_el = a[1] if len(a) > 1 else 50
+                        slim = [_slim_element(e) for e in iframe_elements]
+                        if len(slim) > max_el:
+                            total = len(slim)
+                            slim = slim[:max_el]
+                            slim.append(
+                                {
+                                    "note": f"{total - max_el} more elements not shown (total: {total})."
+                                }
+                            )
+                        return True, slim
+
+                    if name == "execute_javascript":
+                        script = a[1] if len(a) > 1 else kw.get("script", "")
+                        return True, frame.evaluate(_prepare_script(script))
+
+                    if name == "get_text":
+                        selector = a[1] if len(a) > 1 else kw.get("selector", "")
+                        el = frame.query_selector(selector)
+                        return True, el.inner_text() if el else ""
+
+                    if name in ("click", "click_element"):
+                        # Resolve element selector from cached iframe elements,
+                        # then click on the iframe frame
+                        if name == "click_element":
+                            index = a[1] if len(a) > 1 else kw.get("index", 0)
+                            elem = bt._resolve_element(page_id, index)
+                            selector = elem["selector"]
+                        else:
+                            selector = a[1] if len(a) > 1 else kw.get("selector")
+                        if selector:
+                            frame.click(selector, timeout=5000)
+                        return True, None
+
+                    if name in ("fill", "fill_element"):
+                        if name == "fill_element":
+                            index = a[1] if len(a) > 1 else kw.get("index", 0)
+                            value = a[2] if len(a) > 2 else kw.get("value", "")
+                            elem = bt._resolve_element(page_id, index)
+                            selector = elem["selector"]
+                        else:
+                            selector = a[1] if len(a) > 1 else kw.get("selector")
+                            value = a[2] if len(a) > 2 else kw.get("value", "")
+                        if selector:
+                            frame.fill(selector, value, timeout=5000)
+                        return True, None
+
+                    # Other iframe methods: fall through to BrowserTools
+                    return False, None
+
+                while True:
+                    item = call_queue.get()
+                    if item is None:
+                        break
+                    name, a, kw, result_q = item
+                    try:
+                        handled, result = _handle_iframe(name, a, kw)
+                        if not handled:
+                            result = getattr(bt, name)(*a, **kw)
+                        result_q.put(("ok", result))
+                    except Exception as e:
+                        result_q.put(("error", e))
+
+                bt.close()
+
+            self._browser_call_queue = call_queue
+            t = threading.Thread(target=_loop, args=(editor_token,), daemon=True)
+            t.start()
+            ready.wait()
+            self._browser_thread = t
+
+        result_q: queue_mod.Queue = queue_mod.Queue()
+        self._browser_call_queue.put((method_name, args, kwargs, result_q))
+        status, value = result_q.get(timeout=120)
+        if status == "error":
+            raise value
+        return value
+
+    def browser_open_page(self, id: str):
+        """Open a project page in the headless browser by its stage ID. Returns page_id, final url, and title. Use the page_id in subsequent browser tool calls. If the page requires authentication, the browser will show a login screen. In development, any email/token works to log in.
 
         Copywritings:
-            Run a page for debugging
-            Running a page for debugging with headless browser...
+            Open page in browser
+            Opening page in browser...
         """
-        import playwright.sync_api
-
         page = self.get_page_stage(id)
         if not page:
             raise Exception(f"Page with id {id} not found")
 
-        port = Settings.server_port
-        page_path = page.path
-        page_url = (
-            f"http://localhost:{port}/_page/{page_path}"
-            if page_path
-            else f"http://localhost:{port}/_page-home"
+        import os
+
+        base = os.environ.get(
+            "ABSTRA_FRONTEND_HOST", f"http://localhost:{Settings.server_port}"
         )
+        page_path = page.path
+        url = f"{base}/{page_path}" if page_path else base
+        return self._browser_call("navigate_to_url", url)
 
-        console_logs = []
-        network_requests = []
+    def browser_navigate(self, url: str):
+        """Navigate to any URL in the headless browser. Returns page_id, final url, and title. Use the page_id in subsequent browser tool calls. Prefer browser_open_page to open project pages by ID.
 
-        pw_context = playwright.sync_api.sync_playwright()
-        pw = pw_context.start()
-        try:
-            browser = pw.chromium.launch(headless=True)
-            context = browser.new_context()
-            browser_page = context.new_page()
+        Copywritings:
+            Navigate browser to URL
+            Navigating browser...
+        """
+        return self._browser_call("navigate_to_url", url)
 
-            def on_console(msg):
-                console_logs.append(
-                    {
-                        "type": msg.type,
-                        "text": msg.text,
-                        "location": (
-                            {
-                                "url": msg.location.get("url", ""),
-                                "line": msg.location.get("lineNumber", 0),
-                                "column": msg.location.get("columnNumber", 0),
-                            }
-                            if msg.location
-                            else {}
-                        ),
-                    }
-                )
+    def browser_get_page_summary(self, page_id: str):
+        """List interactive elements visible on the page (buttons, links, inputs). Each element has an index — use it with browser_click or browser_fill. Call this after any action that changes the page.
 
-            def on_request(request):
-                network_requests.append(
-                    {
-                        "method": request.method,
-                        "url": request.url,
-                        "resource_type": request.resource_type,
-                        "post_data": (
-                            request.post_data[:500] if request.post_data else None
-                        ),
-                    }
-                )
+        Copywritings:
+            Get page summary
+            Getting page summary...
+        """
+        return self._browser_call("get_page_summary", page_id)
 
-            def on_response(response):
-                for req in network_requests:
-                    if req["url"] == response.url:
-                        req["status"] = response.status
-                        req["status_text"] = response.status_text
-                        break
+    def browser_click(self, page_id: str, index: int):
+        """Click an interactive element by its index from browser_get_page_summary.
 
-            browser_page.on("console", on_console)
-            browser_page.on("request", on_request)
-            browser_page.on("response", on_response)
+        Copywritings:
+            Click element
+            Clicking element...
+        """
+        return self._browser_call("click_element", page_id, index)
 
-            response = browser_page.goto(
-                page_url, wait_until="networkidle", timeout=timeout
-            )
+    def browser_fill(self, page_id: str, index: int, value: str):
+        """Fill a form field by its index from browser_get_page_summary.
 
-            body = browser_page.content()
-            status = response.status if response else 0
+        Copywritings:
+            Fill form field
+            Filling form field...
+        """
+        return self._browser_call("fill_element", page_id, index, value)
 
-            browser_page.close()
-            context.close()
-            browser.close()
-        finally:
-            pw_context.__exit__(None, None, None)
+    def browser_get_text(self, page_id: str, selector: str):
+        """Get the inner text content of an element by CSS selector.
 
-        return {
-            "status": status,
-            "body": body,
-            "console_logs": console_logs,
-            "network_requests": network_requests,
-        }
+        Copywritings:
+            Get element text
+            Getting element text...
+        """
+        return self._browser_call("get_text", page_id, selector)
+
+    def browser_get_html(self, page_id: str):
+        """Get the full HTML content of the page. Prefer browser_get_page_summary for interactive elements.
+
+        Copywritings:
+            Get page HTML
+            Getting page HTML...
+        """
+        return self._browser_call("get_html", page_id)
+
+    def browser_execute_javascript(self, page_id: str, script: str):
+        """Execute JavaScript on the page and return the result. After this, call browser_get_page_summary again as the DOM may have changed.
+
+        Copywritings:
+            Execute JavaScript
+            Executing JavaScript...
+        """
+        return self._browser_call("execute_javascript", page_id, script)
+
+    def browser_wait(self, page_id: str, milliseconds: int = 1000):
+        """Wait for a specified number of milliseconds. Useful after clicks or form submissions before reading page state.
+
+        Copywritings:
+            Wait
+            Waiting...
+        """
+        return self._browser_call("wait", page_id, milliseconds)
+
+    def browser_get_console_logs(self, page_id: str):
+        """Get captured browser console log messages for a page.
+
+        Copywritings:
+            Get console logs
+            Getting console logs...
+        """
+        return self._browser_call("get_console_logs", page_id)
+
+    def browser_get_network_requests(self, page_id: str):
+        """Get captured network requests for a page.
+
+        Copywritings:
+            Get network requests
+            Getting network requests...
+        """
+        return self._browser_call("get_network_requests", page_id)
+
+    def browser_close(self, page_id: str):
+        """Close a browser page by its page_id.
+
+        Copywritings:
+            Close browser page
+            Closing browser page...
+        """
+        return self._browser_call("close_page", page_id)
+
+    def browser_list_pages(self):
+        """List all open browser pages with their page_id, URL, and title.
+
+        Copywritings:
+            List browser pages
+            Listing browser pages...
+        """
+        return self._browser_call("list_pages")
 
     def execute_code_snippet(self, code: str, title: str = "Debug Snippet"):
         """

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 from plato._generated.api.v2 import jobs
 from plato._generated.models import (
+    AddSSHKeyRequest,
     AppApiV2SchemasSessionCreateSnapshotRequest,
     CreateCheckpointRequest,
     CreateSnapshotResult,
@@ -18,6 +20,8 @@ from plato._generated.models import (
     SetDateRequest,
     SetDateResult,
 )
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from plato.v2.sync.session import Session
@@ -42,6 +46,7 @@ class Environment:
         simulator: str | None = None,
         status: str | None = None,
         public_url: str | None = None,
+        mesh_ip: str | None = None,
     ):
         self._session = session
         self.job_id = job_id
@@ -50,6 +55,7 @@ class Environment:
         self.simulator = simulator
         self.status = status
         self.public_url = public_url
+        self.mesh_ip = mesh_ip
 
     @property
     def _http(self):
@@ -81,20 +87,39 @@ class Environment:
     def get_mesh_ip(self) -> str | None:
         """Get the mesh network IP for this environment.
 
-        Fetches the mesh IP from the job info API. This is the WireGuard IP
-        assigned to this VM for session networking.
+        Returns the cached mesh IP if available (set from wait_for_ready),
+        otherwise fetches from the job info API.
 
         Returns:
             Mesh IP string (e.g., "10.100.0.123") or None if not assigned.
         """
-        from plato._generated.api.v2 import jobs
+        if self.mesh_ip:
+            return self.mesh_ip
+
+        logger.warning("mesh_ip not cached for job %s, falling back to API call", self.job_id)
 
         result = jobs.get_job_info.sync(
             client=self._http,
             job_id=self.job_id,
             x_api_key=self._api_key,
         )
-        return result.mesh_ip if result else None
+        if result and result.mesh_ip:
+            self.mesh_ip = result.mesh_ip
+        return self.mesh_ip
+
+    def add_ssh_key(self, public_key: str, username: str = "root") -> None:
+        """Add an SSH public key to this specific VM.
+
+        Args:
+            public_key: SSH public key string.
+            username: User to add the key for (default: root).
+        """
+        jobs.add_ssh_key.sync(
+            client=self._http,
+            job_id=self.job_id,
+            body=AddSSHKeyRequest(public_key=public_key, username=username),
+            x_api_key=self._api_key,
+        )
 
     def reset(self, **kwargs) -> ResetJobResult:
         """Reset this environment to initial state."""

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "windmill-api"
-version = "1.668.3"
+version = "1.668.5"
 description = "A client library for accessing Windmill API"
 license = "Apache-2.0"
 

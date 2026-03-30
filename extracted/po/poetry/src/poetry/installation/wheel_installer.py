@@ -14,6 +14,7 @@ from installer.sources import _WheelFileValidationError
 
 from poetry.__version__ import __version__
 from poetry.utils._compat import WINDOWS
+from poetry.utils._compat import is_relative_to
 
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,20 @@ class WheelDestination(SchemeDictionaryDestination):
         from installer.utils import copyfileobj_with_hashing
         from installer.utils import make_file_executable
 
-        target_path = Path(self.scheme_dict[scheme]) / path
+        target_dir = Path(self.scheme_dict[scheme]).resolve()
+        target_path = (target_dir / path).resolve()
+
+        # Use is_relative_to() instead of Path.is_relative_to()
+        # because the latter does not work if one of both paths
+        # has a Windows long path prefix and the other path has not.
+        # (A long path prefix may be added when calling resolve().)
+        if not is_relative_to(target_path, target_dir):
+            raise ValueError(
+                f"Attempting to write {path} outside of the target directory\n"
+                f"Target directory: {target_dir}\n"
+                f"Target path: {target_path}"
+            )
+
         if target_path.exists():
             # Contrary to the base library we don't raise an error here since it can
             # break pkgutil-style and pkg_resource-style namespace packages.

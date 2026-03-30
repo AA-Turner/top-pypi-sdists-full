@@ -125,7 +125,7 @@ class EnvManager:
         if self.use_in_project_venv():
             create = False
             venv = self.in_project_venv
-            if venv.exists():
+            if venv.is_dir():
                 # We need to check if the patch version is correct
                 _venv = VirtualEnv(venv)
                 current_patch = ".".join(str(v) for v in _venv.version_info[:3])
@@ -159,7 +159,7 @@ class EnvManager:
 
         # Create if needed
         if not venv.exists() or create:
-            in_venv = os.environ.get("VIRTUAL_ENV") is not None
+            in_venv = bool(os.environ.get("VIRTUAL_ENV"))
             if in_venv or not venv.exists():
                 create = True
 
@@ -214,7 +214,9 @@ class EnvManager:
         conda_env_name = os.environ.get("CONDA_DEFAULT_ENV")
         # It's probably not a good idea to pollute Conda's global "base" env, since
         # most users have it activated all the time.
-        in_venv = env_prefix is not None and conda_env_name != "base"
+        # Treat an empty env_prefix as if no virtualenv is active, since conda
+        # can leave CONDA_PREFIX set to an empty string after deactivation.
+        in_venv = bool(env_prefix) and conda_env_name != "base"
 
         if not in_venv or env is not None:
             # Checking if a local virtualenv exists
@@ -249,14 +251,8 @@ class EnvManager:
 
             return VirtualEnv(venv)
 
-        if env_prefix is not None:
-            prefix = Path(env_prefix)
-            base_prefix = None
-        else:
-            prefix = Path(sys.prefix)
-            base_prefix = self.get_base_prefix()
-
-        return VirtualEnv(prefix, base_prefix)
+        assert env_prefix
+        return VirtualEnv(Path(env_prefix))
 
     def list(self, name: str | None = None) -> list[VirtualEnv]:
         if name is None:
@@ -456,7 +452,7 @@ class EnvManager:
                     f"Invalid template string in 'virtualenvs.prompt' setting: {e}"
                 ) from e
 
-        if not venv.exists():
+        if not venv.is_dir():
             if create_venv is False:
                 self._io.write_error_line(
                     "<fg=black;bg=yellow>"
@@ -466,6 +462,12 @@ class EnvManager:
                 )
 
                 return self.get_system_env()
+
+            if venv.is_file():
+                self._io.write_error_line(
+                    f"<warning>{venv} is not a virtual environment but a file. Removing it.</warning>"
+                )
+                venv.unlink()
 
             self._io.write_error_line(
                 f"Creating virtualenv <c1>{name}</> in"

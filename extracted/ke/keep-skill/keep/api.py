@@ -7,8 +7,10 @@ This is the minimal working implementation focused on:
 """
 
 import json
+import inspect
 import logging
 import re
+import threading
 import time
 import uuid
 from dataclasses import replace
@@ -58,11 +60,23 @@ from .types import (
     iter_tag_pairs, set_tag_values, tag_values, parse_ref,
     SYSTEM_TAG_PREFIX, local_date, utc_now,
     parse_utc_timestamp, validate_tag_key, validate_id, normalize_id, is_part_id,
+    is_system_id,
     MAX_TAG_VALUE_LENGTH,
 )
 from .context_cache import ContextCache
+from .flow_client import (
+    delete_item as flow_delete_item,
+    find_items as flow_find_items,
+    get_item as flow_get_item,
+    get_now_item as flow_get_now_item,
+    move_item as flow_move_item,
+    put_item as flow_put_item,
+    set_now_item as flow_set_now_item,
+    tag_item as flow_tag_item,
+)
 from .flow_env import LocalFlowEnvironment
 from .tracing import get_tracer as _get_tracer
+from .tracing import init_tracing as _init_tracing
 from ._background_processing import BackgroundProcessingMixin
 from ._provider_lifecycle import ProviderLifecycleMixin
 from ._search_augmentation import SearchAugmentationMixin
@@ -120,6 +134,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         doc_store: Optional["DocumentStoreProtocol"] = None,
         vector_store: Optional["VectorStoreProtocol"] = None,
         pending_queue: Optional["PendingQueueProtocol"] = None,
+        defer_startup_maintenance: bool = False,
     ) -> None:
         """Initialize or open an existing reflective memory store.
 
@@ -133,8 +148,13 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             doc_store: Injected document store (skips default backend creation).
             vector_store: Injected vector store (skips default backend creation).
             pending_queue: Injected summary queue (skips default backend creation).
+            defer_startup_maintenance: If True, skip expensive startup scans and
+                background-reconcile checks during initialization. Call
+                ``start_deferred_startup_maintenance()`` after the daemon is
+                ready to serve requests.
         """
         self._decay_half_life_days = decay_half_life_days
+        _init_tracing()
 
         # --- Config resolution ---
         if config is not None:
@@ -208,21 +228,19 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 self._work_queue = bundle.work_queue
 
         # Guard against concurrent background reconciliation
-        import threading
         self._reconcile_lock = threading.Lock()
         self._reconcile_done = threading.Event()
         self._closing = threading.Event()  # signals reconcile to abort
         self._closed = False
         self._provider_init_lock = threading.RLock()
+        self._startup_maintenance_deferred = bool(defer_startup_maintenance)
+        self._startup_maintenance_started = threading.Event()
+        self._startup_maintenance_thread: Optional[threading.Thread] = None
         self._last_spawn_time: float = 0.0
         self._tagdoc_cache: dict[str, Optional[dict[str, str]]] = {}
         self._ignore_patterns: Optional[list[str]] = None
         self._ignore_patterns_ts: float = 0.0
         self._context_cache = ContextCache()
-
-        # Check store consistency and reconcile in background if needed
-        # (safe for all backends — uses abstract store interface)
-        needs_reconcile = self._check_store_consistency() and self._config.embedding is not None
 
         # If cosine migration fired (L2→cosine), auto-enqueue reindex
         if getattr(self._store, "migrated_to_cosine", False):
@@ -244,50 +262,26 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     f"Details: {e}",
                     file=sys.stderr,
                 )
-            needs_reconcile = False  # reindex will handle everything
-
         chroma_coll = self._resolve_chroma_collection()
         doc_coll = self._resolve_doc_collection()
+
+        # Check store consistency and reconcile in background if needed
+        # (safe for all backends — uses abstract store interface)
+        needs_reconcile = False
+        if not self._startup_maintenance_deferred:
+            needs_reconcile = (
+                self._check_store_consistency() and self._config.embedding is not None
+            )
+            if getattr(self._store, "migrated_to_cosine", False):
+                needs_reconcile = False  # reindex will handle everything
 
         # Legacy metadata migration: old key=value Chroma metadata does not
         # satisfy marker-based tag filters. Rewrite metadata in-place.
         #
         # The detection scan is O(number of indexed rows), so persist a
         # per-store "verified" flag after a successful check/migration.
-        if not self._config.chroma_tag_markers_verified:
-            marker_migration_state = self._detect_chroma_tag_marker_migration_need(
-                chroma_coll, doc_coll,
-            )
-            if marker_migration_state is True:
-                import sys
-                try:
-                    print(
-                        "Migrating search metadata to multivalue tag markers "
-                        "(this may take a while on larger stores)...",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-                    stats = self._migrate_chroma_tag_markers(chroma_coll, doc_coll)
-                    logger.info(
-                        "Tag marker migration complete: %d docs, %d versions, %d parts",
-                        stats["docs"], stats["versions"], stats["parts"],
-                    )
-                    print(
-                        "Search metadata migrated to multivalue tag markers "
-                        f"({stats['docs']} docs, {stats['versions']} versions, {stats['parts']} parts).",
-                        file=sys.stderr,
-                    )
-                    self._mark_chroma_tag_markers_verified()
-                except Exception as e:
-                    logger.warning("Tag marker migration failed: %s", e)
-                    print(
-                        "WARNING: tag metadata migration failed; "
-                        "tag-filtered semantic search may be incomplete.\n"
-                        "Run: keep pending --reindex",
-                        file=sys.stderr,
-                    )
-            elif marker_migration_state is False:
-                self._mark_chroma_tag_markers_verified()
+        if not self._startup_maintenance_deferred:
+            self._run_tag_marker_startup_check(chroma_coll, doc_coll)
 
         if needs_reconcile:
             self._reconcile_thread = threading.Thread(
@@ -353,7 +347,11 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 if isinstance(p, FileDocumentProvider):
                     p.max_size = max_size
 
-    def _check_store_consistency(self) -> bool:
+    def _check_store_consistency(
+        self,
+        *,
+        _doc_store: Optional["DocumentStoreProtocol"] = None,
+    ) -> bool:
         """Check if document store and vector store ID sets match.
 
         Returns True if reconciliation is needed. Does not fix —
@@ -361,7 +359,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         embedding provider is available.
         """
         try:
-            result = self.reconcile(fix=False)
+            result = self.reconcile(fix=False, _doc_store=_doc_store)
             if result["missing_from_index"] or result["orphaned_in_index"]:
                 logger.info(
                     "Store inconsistency: %d missing from search index, %d orphaned (will auto-reconcile)",
@@ -383,7 +381,11 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             logger.debug("Failed to persist chroma_tag_markers_verified: %s", e)
 
     def _detect_chroma_tag_marker_migration_need(
-        self, chroma_coll: str, doc_coll: str,
+        self,
+        chroma_coll: str,
+        doc_coll: str,
+        *,
+        _doc_store: Optional["DocumentStoreProtocol"] = None,
     ) -> Optional[bool]:
         """Detect legacy Chroma metadata without multivalue tag markers.
 
@@ -402,17 +404,18 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 for key in tags
             )
 
+        doc_store = _doc_store or self._document_store
         try:
             indexed_ids = set(self._store.list_ids(chroma_coll))
             if not indexed_ids:
                 return False
-            for doc_id in self._document_store.list_ids(doc_coll):
-                doc = self._document_store.get(doc_coll, doc_id)
+            for doc_id in doc_store.list_ids(doc_coll):
+                doc = doc_store.get(doc_coll, doc_id)
                 if doc is not None and doc_id in indexed_ids:
                     if _has_user_tags(doc.tags) and not has_tag_markers(chroma_coll, doc_id):
                         return True
 
-                for vi in self._document_store.list_versions(
+                for vi in doc_store.list_versions(
                     doc_coll, doc_id, limit=1_000_000,
                 ):
                     version_id = f"{doc_id}@v{vi.version}"
@@ -424,7 +427,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     if _has_user_tags(ver_tags) and not has_tag_markers(chroma_coll, version_id):
                         return True
 
-                for part in self._document_store.list_parts(doc_coll, doc_id):
+                for part in doc_store.list_parts(doc_coll, doc_id):
                     part_id = f"{doc_id}@p{part.part_num}"
                     if part_id not in indexed_ids:
                         continue
@@ -439,27 +442,32 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         return False
 
     def _migrate_chroma_tag_markers(
-        self, chroma_coll: str, doc_coll: str,
+        self,
+        chroma_coll: str,
+        doc_coll: str,
+        *,
+        _doc_store: Optional["DocumentStoreProtocol"] = None,
     ) -> dict[str, int]:
         """Rewrite legacy Chroma metadata to marker-based tag encoding."""
         rewrite_tags = getattr(self._store, "rewrite_tags", None)
         if not callable(rewrite_tags):
             return {"docs": 0, "versions": 0, "parts": 0}
 
+        doc_store = _doc_store or self._document_store
         indexed_ids = set(self._store.list_ids(chroma_coll))
         if not indexed_ids:
             return {"docs": 0, "versions": 0, "parts": 0}
 
         docs = versions = parts = 0
-        for doc_id in self._document_store.list_ids(doc_coll):
+        for doc_id in doc_store.list_ids(doc_coll):
             if doc_id in indexed_ids:
-                doc = self._document_store.get(doc_coll, doc_id)
+                doc = doc_store.get(doc_coll, doc_id)
                 if doc is not None and rewrite_tags(
                     chroma_coll, doc_id, casefold_tags_for_index(doc.tags),
                 ):
                     docs += 1
 
-            for vi in self._document_store.list_versions(
+            for vi in doc_store.list_versions(
                 doc_coll, doc_id, limit=1_000_000,
             ):
                 version_id = f"{doc_id}@v{vi.version}"
@@ -473,7 +481,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 ):
                     versions += 1
 
-            for part in self._document_store.list_parts(doc_coll, doc_id):
+            for part in doc_store.list_parts(doc_coll, doc_id):
                 part_id = f"{doc_id}@p{part.part_num}"
                 if part_id not in indexed_ids:
                     continue
@@ -486,6 +494,124 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     parts += 1
 
         return {"docs": docs, "versions": versions, "parts": parts}
+
+    def _run_tag_marker_startup_check(
+        self,
+        chroma_coll: str,
+        doc_coll: str,
+        *,
+        _doc_store: Optional["DocumentStoreProtocol"] = None,
+    ) -> None:
+        """Run the legacy tag-marker migration check during startup."""
+        def _call_with_optional_doc_store(fn):
+            if _doc_store is None:
+                return fn(chroma_coll, doc_coll)
+            try:
+                params = inspect.signature(fn).parameters
+            except (TypeError, ValueError):
+                params = {}
+            if "_doc_store" in params:
+                return fn(chroma_coll, doc_coll, _doc_store=_doc_store)
+            return fn(chroma_coll, doc_coll)
+
+        if self._config.chroma_tag_markers_verified:
+            return
+
+        marker_migration_state = _call_with_optional_doc_store(
+            self._detect_chroma_tag_marker_migration_need,
+        )
+        if marker_migration_state is True:
+            import sys
+
+            try:
+                print(
+                    "Migrating search metadata to multivalue tag markers "
+                    "(this may take a while on larger stores)...",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                stats = _call_with_optional_doc_store(
+                    self._migrate_chroma_tag_markers,
+                )
+                logger.info(
+                    "Tag marker migration complete: %d docs, %d versions, %d parts",
+                    stats["docs"], stats["versions"], stats["parts"],
+                )
+                print(
+                    "Search metadata migrated to multivalue tag markers "
+                    f"({stats['docs']} docs, {stats['versions']} versions, {stats['parts']} parts).",
+                    file=sys.stderr,
+                )
+                self._mark_chroma_tag_markers_verified()
+            except Exception as e:
+                logger.warning("Tag marker migration failed: %s", e)
+                print(
+                    "WARNING: tag metadata migration failed; "
+                    "tag-filtered semantic search may be incomplete.\n"
+                    "Run: keep pending --reindex",
+                    file=sys.stderr,
+                )
+        elif marker_migration_state is False:
+            self._mark_chroma_tag_markers_verified()
+
+    def _run_deferred_startup_maintenance(self) -> None:
+        """Run deferred startup scans after the daemon is already reachable."""
+        startup_doc_store = None
+        try:
+            if self._closing.is_set():
+                return
+
+            if self._is_local and hasattr(self._document_store, "_db_path"):
+                from .document_store import DocumentStore
+
+                startup_doc_store = DocumentStore(self._document_store._db_path)
+
+            chroma_coll = self._resolve_chroma_collection()
+            doc_coll = self._resolve_doc_collection()
+            self._run_tag_marker_startup_check(
+                chroma_coll, doc_coll, _doc_store=startup_doc_store,
+            )
+
+            if self._closing.is_set():
+                return
+
+            needs_reconcile = (
+                self._check_store_consistency(_doc_store=startup_doc_store)
+                and self._config.embedding is not None
+            )
+            if needs_reconcile:
+                self._reconcile_done.clear()
+                self._reconcile_thread = threading.Thread(
+                    target=self._auto_reconcile_safe,
+                    args=(chroma_coll, doc_coll),
+                    daemon=True,
+                    name="startup-reconcile",
+                )
+                self._reconcile_thread.start()
+            else:
+                self._reconcile_done.set()
+        except Exception as e:
+            logger.warning("Deferred startup maintenance failed: %s", e, exc_info=True)
+            self._reconcile_done.set()
+        finally:
+            self._startup_maintenance_deferred = False
+            if startup_doc_store is not None:
+                startup_doc_store.close()
+
+    def start_deferred_startup_maintenance(self) -> bool:
+        """Start deferred startup scans once the daemon is ready to serve."""
+        if not self._startup_maintenance_deferred:
+            return False
+        if self._startup_maintenance_started.is_set():
+            return False
+        self._startup_maintenance_started.set()
+        self._startup_maintenance_thread = threading.Thread(
+            target=self._run_deferred_startup_maintenance,
+            daemon=True,
+            name="startup-maintenance",
+        )
+        self._startup_maintenance_thread.start()
+        return True
 
     def _auto_reconcile_safe(self, chroma_coll: str, doc_coll: str) -> None:
         """Background-safe wrapper for auto-reconcile. Logs failures."""
@@ -536,11 +662,12 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         """Run deferred system-doc migration if needed (idempotent, best-effort)."""
         if not self._needs_sysdoc_migration:
             return
-        try:
-            self._migrate_system_documents()
-            self._needs_sysdoc_migration = False  # clear AFTER success only
-        except Exception as e:
-            logger.warning("System doc migration deferred: %s", e, exc_info=True)
+        with _get_tracer("keeper").start_as_current_span("ensure_sysdocs"):
+            try:
+                self._migrate_system_documents()
+                self._needs_sysdoc_migration = False  # clear AFTER success only
+            except Exception as e:
+                logger.warning("System doc migration deferred: %s", e, exc_info=True)
 
     def _migrate_system_documents(self, progress=None) -> dict:
         """Migrate system documents to stable IDs and current version."""
@@ -583,6 +710,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         doc_tags: dict[str, str],
         *,
         item_id: str | None = None,
+        required: bool = False,
     ) -> str | None:
         """Find a .prompt/* doc matching the given tags and return its prompt text.
 
@@ -599,6 +727,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             prefix: "analyze", "summarize", "supernode", etc.
             doc_tags: Tags of the document being processed
             item_id: Optional item ID for scope-glob matching
+            required: When True, raise if no matching prompt doc resolves.
 
         Returns:
             Prompt text from the best-matching doc, or None.
@@ -611,6 +740,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             doc_coll, f".prompt/{prefix}/"
         )
         if not prompt_docs:
+            if required:
+                raise ValueError(f"missing prompt docs for .prompt/{prefix}/*")
             return None
 
         best_prompt = None
@@ -659,7 +790,31 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                         best_prompt = prompt_text
                     break
 
+        if best_prompt is None and required:
+            raise ValueError(f"no matching prompt doc for .prompt/{prefix}/*")
         return best_prompt
+
+    def _load_prompt_doc(
+        self,
+        doc_id: str,
+        *,
+        required: bool = False,
+    ) -> str | None:
+        """Load a prompt doc by exact ID and return its ``## Prompt`` section."""
+        from .analyzers import extract_prompt_section
+
+        doc_coll = self._resolve_doc_collection()
+        rec = self._document_store.get(doc_coll, doc_id)
+        if rec is None or not getattr(rec, "summary", None):
+            if required:
+                raise ValueError(f"missing prompt doc: {doc_id}")
+            return None
+        prompt_text = extract_prompt_section(rec.summary)
+        if prompt_text:
+            return prompt_text
+        if required:
+            raise ValueError(f"prompt doc has no ## Prompt section: {doc_id}")
+        return None
 
     def _gather_context(
         self,
@@ -1678,7 +1833,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         # unfinished work.
         if content_unchanged and not tags_changed and summary is None and not force:
             logger.debug("Content and tags unchanged for %s", id)
-            if queue_summarize and not id.startswith("."):
+            if queue_summarize and not is_system_id(id):
                 self._dispatch_after_write_flow(
                     item_id=id,
                     content=content,
@@ -1688,7 +1843,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
 
         # Determine summary
         max_len = self._config.max_summary_length
-        is_system_doc = id.startswith(".")
+        is_system_doc = is_system_id(id)
         if summary is not None:
             if not is_system_doc and len(summary) > max_len:
                 import warnings
@@ -1715,6 +1870,9 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             final_summary = content[:max_len] + "..."
             # Full LLM summary is handled by the after-write flow.
 
+        _has_embeddings = self._config.embedding is not None
+        should_index = _has_embeddings and not is_system_doc
+
         # Cloud mode: defer embedding to background worker for faster response.
         # The doc store write happens immediately; the note is findable by
         # tags/FTS/ID right away. Similarity search works once the
@@ -1729,8 +1887,11 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 content_hash_full=_content_hash_full(content),
                 created_at=created_at,
             )
+            if is_system_doc:
+                self._store.delete(chroma_coll, id, delete_versions=True)
+                return _record_to_item(result, changed=not content_unchanged)
             # Try embedding dedup before enqueueing (saves network round-trip)
-            if not content_unchanged:
+            if should_index and not content_unchanged:
                 donor_embedding = self._try_dedup_embedding(
                     doc_coll, chroma_coll, new_hash, id, content,
                 )
@@ -1742,6 +1903,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                         tags=casefold_tags_for_index(merged_tags),
                     )
                     return _record_to_item(result, changed=True)
+            if not should_index:
+                return _record_to_item(result, changed=not content_unchanged)
             # Enqueue embedding task (content needed for embedding computation)
             embed_meta = {}
             if existing_doc is not None and not content_unchanged:
@@ -1757,9 +1920,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         # If no embedding provider, write to document store only (data is safe;
         # embeddings are filled in by reconciliation when a provider appears).
         _tracer = _get_tracer("keeper")
-        _has_embeddings = self._config.embedding is not None
         embedding = None
-        if _has_embeddings:
+        if should_index:
             with _tracer.start_as_current_span("embed", attributes={"item_id": id}) as _embed_span:
                 _embed_source = "compute"
                 if content_unchanged:
@@ -1791,7 +1953,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
 
         # Save old embedding before ChromaDB upsert overwrites it (for version archival)
         old_embedding = None
-        if _has_embeddings and existing_doc is not None and not content_unchanged:
+        if should_index and existing_doc is not None and not content_unchanged:
             old_embedding = self._store.get_embedding(chroma_coll, id)
 
         # Dual-write: document store (canonical) + ChromaDB (embedding index)
@@ -1806,7 +1968,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 created_at=created_at,
             )
 
-        if _has_embeddings:
+        if should_index:
             # If content changed and we have a version to archive, batch both
             # ChromaDB writes into a single call (one lock, one epoch bump).
             max_ver = (
@@ -1838,6 +2000,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                         summary=final_summary,
                         tags=casefold_tags_for_index(merged_tags),
                     )
+        elif is_system_doc:
+            self._store.delete(chroma_coll, id, delete_versions=True)
 
         with _tracer.start_as_current_span("edge_tags"):
             self._process_edge_tags(id, merged_tags, existing_tags, doc_coll)
@@ -1858,7 +2022,11 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         ):
             self._spawn_processor()
 
-        self._context_cache.notify_write(id, merged_tags)
+        self._context_cache.notify_write(
+            id,
+            old_tags=existing_tags,
+            new_tags=merged_tags,
+        )
 
         return _record_to_item(result, changed=not content_unchanged)
 
@@ -1903,6 +2071,41 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         if content is None and uri is None:
             raise ValueError("Either content or uri is required")
 
+        with _get_tracer("keeper").start_as_current_span(
+            "put.request",
+            attributes={
+                "has_content": bool(content is not None),
+                "has_uri": bool(uri is not None),
+                "requested_id": id or "",
+                "queue_background_tasks": bool(queue_background_tasks),
+                "capture_write_context": bool(capture_write_context),
+            },
+        ):
+            return self.__put_direct_impl(
+                content=content,
+                uri=uri,
+                id=id,
+                summary=summary,
+                tags=tags,
+                created_at=created_at,
+                force=force,
+                queue_background_tasks=queue_background_tasks,
+                capture_write_context=capture_write_context,
+            )
+
+    def __put_direct_impl(
+        self,
+        content: Optional[str] = None,
+        *,
+        uri: Optional[str] = None,
+        id: Optional[str] = None,
+        summary: Optional[str] = None,
+        tags: Optional[TagMap] = None,
+        created_at: Optional[str] = None,
+        force: bool = False,
+        queue_background_tasks: bool = True,
+        capture_write_context: bool = False,
+    ) -> Item:
         if tags:
             tags = self._validate_write_tags(tags)
 
@@ -1915,7 +2118,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             )
 
         # Enforce required tags (skip for system docs with dot-prefix IDs)
-        if self._config.required_tags and not effective_id.startswith("."):
+        if self._config.required_tags and not is_system_id(effective_id):
             user_tags = {k: v for k, v in (tags or {}).items()
                          if not k.startswith(SYSTEM_TAG_PREFIX)} if tags else {}
             missing = [t for t in self._config.required_tags if t not in user_tags]
@@ -2090,7 +2293,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             # Inline mode: store content directly
             # Enforce inline length limit at the API level so all paths
             # (CLI, MCP, direct API) are bounded identically.
-            is_system = id and id.startswith(".")
+            is_system = is_system_id(id)
             if not is_system and len(content) > self._config.max_inline_length:
                 raise ValueError(
                     f"Inline content too long ({len(content)} chars, "
@@ -2206,8 +2409,9 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         created_at: Optional[str] = None,
         force: bool = False,
     ) -> Item:
-        """Store content in memory."""
-        return self._put_direct(
+        """Store content in memory via the flow host interface."""
+        return flow_put_item(
+            self,
             content=content,
             uri=uri,
             id=id,
@@ -2223,7 +2427,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
     # _apply_recency_decay, _rrf_fuse, _deep_tag_follow, _deep_edge_follow,
     # _deep_follow_via_flow are provided by SearchAugmentationMixin.
 
-    def find(
+    def _find_direct(
         self,
         query: Optional[str] = None,
         *,
@@ -2785,6 +2989,35 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     context_id=query or similar_to)
         return FindResults(final, deep_groups=deep_groups)
 
+    def find(
+        self,
+        query: Optional[str] = None,
+        *,
+        tags: Optional[TagMap] = None,
+        similar_to: Optional[str] = None,
+        limit: int = 10,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+        include_self: bool = False,
+        include_hidden: bool = False,
+        deep: bool = False,
+        scope: Optional[str] = None,
+    ) -> list[Item]:
+        """Find items via the flow host interface."""
+        return flow_find_items(
+            self,
+            query,
+            tags=tags,
+            similar_to=similar_to,
+            limit=limit,
+            since=since,
+            until=until,
+            include_self=include_self,
+            include_hidden=include_hidden,
+            deep=deep,
+            scope=scope,
+        )
+
     # -------------------------------------------------------------------------
     # State-doc flow binding mappers for get_context
     # -------------------------------------------------------------------------
@@ -2909,7 +3142,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
     # Direct Access
     # -------------------------------------------------------------------------
     
-    def get(self, id: str) -> Optional[Item]:
+    def _get_direct(self, id: str) -> Optional[Item]:
         """Retrieve a specific item by ID.
 
         Reads from document store (canonical), falls back to vector store for legacy data.
@@ -2951,6 +3184,10 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         if result is None:
             return None
         return result.to_item()
+
+    def get(self, id: str) -> Optional[Item]:
+        """Retrieve a specific item via the flow host interface."""
+        return flow_get_item(self, id)
 
     def peek(self, id: str) -> Optional[Item]:
         """Read an item without updating accessed_at.
@@ -3078,7 +3315,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         # Check document store first, then ChromaDB
         return self._document_store.exists(doc_coll, id) or self._store.exists(chroma_coll, id)
     
-    def delete(
+    def _delete_direct(
         self,
         id: str,
         *,
@@ -3101,6 +3338,9 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             )
         doc_coll = self._resolve_doc_collection()
         chroma_coll = self._resolve_chroma_collection()
+        existing = self._get_direct(id)
+        old_tags = dict(existing.tags) if existing is not None else None
+
         # Delete from both stores (including versions)
         doc_deleted = self._document_store.delete(doc_coll, id, delete_versions=delete_versions)
         chroma_deleted = self._store.delete(chroma_coll, id, delete_versions=delete_versions)
@@ -3109,8 +3349,17 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         self._document_store.delete_edges_for_target(doc_coll, id)
         self._document_store.delete_version_edges_for_source(doc_coll, id)
         self._document_store.delete_version_edges_for_target(doc_coll, id)
-        self._context_cache.notify_delete(id)
+        self._context_cache.notify_delete(id, old_tags=old_tags)
         return doc_deleted or chroma_deleted
+
+    def delete(
+        self,
+        id: str,
+        *,
+        delete_versions: bool = True,
+    ) -> bool:
+        """Delete an item via the flow host interface."""
+        return flow_delete_item(self, id, delete_versions=delete_versions)
 
     def revert(self, id: str) -> Optional[Item]:
         """Revert to the previous version, or delete if no versions exist.
@@ -3202,7 +3451,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
     # Current Working Context (Now)
     # -------------------------------------------------------------------------
 
-    def get_now(self, *, scope: Optional[str] = None) -> Item:
+    def _get_now_direct(self, *, scope: Optional[str] = None) -> Item:
         """Get the current working intentions.
 
         A singleton document representing what you're currently working on.
@@ -3217,11 +3466,11 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             The current intentions Item (never None - auto-creates if missing)
         """
         doc_id = f"now:{scope}" if scope else NOWDOC_ID
-        item = self.get(doc_id)
+        item = self._get_direct(doc_id)
         if item is None:
             if scope:
                 # Scoped now: initialize with minimal content
-                item = self.set_now(f"# Now ({scope})\n\nWorking context.", scope=scope)
+                item = self._set_now_direct(f"# Now ({scope})\n\nWorking context.", scope=scope)
             else:
                 # Singleton now: use bundled system doc
                 try:
@@ -3229,10 +3478,14 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 except FileNotFoundError:
                     default_content = "# Now\n\nYour working context."
                     default_tags = {}
-                item = self.set_now(default_content, tags=default_tags)
+                item = self._set_now_direct(default_content, tags=default_tags)
         return item
 
-    def set_now(
+    def get_now(self, *, scope: Optional[str] = None) -> Item:
+        """Get the current working intentions via the flow host interface."""
+        return flow_get_now_item(self, scope=scope)
+
+    def _set_now_direct(
         self,
         content: str,
         *,
@@ -3257,7 +3510,17 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         merged_tags = dict(tags or {})
         if scope:
             merged_tags.setdefault("user", scope)
-        return self.put(content, id=doc_id, tags=merged_tags or None)
+        return self._put_direct(content, id=doc_id, tags=merged_tags or None)
+
+    def set_now(
+        self,
+        content: str,
+        *,
+        scope: Optional[str] = None,
+        tags: Optional[TagMap] = None,
+    ) -> Item:
+        """Set the current working intentions via the flow host interface."""
+        return flow_set_now_item(self, content, scope=scope, tags=tags)
 
     def move(
         self,
@@ -3289,6 +3552,22 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             ValueError: If name is empty, source doesn't exist,
                         or no versions match the filter.
         """
+        return flow_move_item(
+            self,
+            name,
+            source_id=source_id,
+            tags=tags,
+            only_current=only_current,
+        )
+
+    def _move_direct(
+        self,
+        name: str,
+        *,
+        source_id: str = NOWDOC_ID,
+        tags: Optional[TagMap] = None,
+        only_current: bool = False,
+    ) -> Item:
         if not name:
             raise ValueError("Name cannot be empty")
         name = normalize_id(name)
@@ -3455,16 +3734,16 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             except FileNotFoundError:
                 default_content = "# Now\n\nYour working context."
                 default_tags = {}
-            self.set_now(default_content, tags=default_tags)
+            self._set_now_direct(default_content, tags=default_tags)
 
-        return self.get(name)
+        return self._get_direct(name)
 
     def reset_system_documents(self) -> dict:
         """Force reload all system documents from bundled content."""
         from .system_docs import reset_system_documents
         return reset_system_documents(self)
 
-    def tag(
+    def _tag_direct(
         self,
         id: str,
         tags: Optional[dict[str, Any]] = None,
@@ -3524,7 +3803,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             }
 
         # Get existing item (prefer document store, fall back to ChromaDB)
-        existing = self.get(id)
+        existing = self._get_direct(id)
         if existing is None:
             return None
 
@@ -3559,10 +3838,31 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         self._store.update_tags(chroma_coll, id, casefold_tags_for_index(final_tags))
 
         # Tag changes can affect meta-doc resolution (tag-based queries)
-        self._context_cache.notify_write(id, final_tags)
+        self._context_cache.notify_write(
+            id,
+            old_tags=current_tags,
+            new_tags=final_tags,
+        )
 
         # Return updated item
-        return self.get(id)
+        return self._get_direct(id)
+
+    def tag(
+        self,
+        id: str,
+        tags: Optional[dict[str, Any]] = None,
+        remove: Optional[list[str]] = None,
+        remove_values: Optional[dict[str, Any]] = None,
+    ) -> Optional[Item]:
+        """Update tags via the flow host interface when possible."""
+        if remove or remove_values:
+            return self._tag_direct(
+                id,
+                tags=tags,
+                remove=remove,
+                remove_values=remove_values,
+            )
+        return flow_tag_item(self, id, tags)
 
     def tag_part(
         self,
@@ -3671,11 +3971,14 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         chunks: list[dict] = []
 
         if source == "uri":
+            source_uri = doc_record.tags.get("_source_uri") or id
+            if isinstance(source_uri, list):
+                source_uri = source_uri[0] if source_uri else id
             try:
-                doc = self._document_provider.fetch(id)
+                doc = self._document_provider.fetch(str(source_uri))
                 chunks = [{"content": doc.content, "tags": parent_user_tags, "index": 0}]
             except Exception as e:
-                logger.warning("Could not re-fetch %s: %s, using summary", id, e)
+                logger.warning("Could not re-fetch %s: %s, using summary", source_uri, e)
             if chunks:
                 return chunks  # URI sources don't support incremental
 
@@ -3782,7 +4085,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         Returns:
             List of PartInfo for the created parts (empty list if skipped)
         """
-        from .processors import ProcessorResult, process_analyze
+        from .processors import process_analyze
+        from .task_workflows import _apply_mutations
 
         id = normalize_id(id)
         doc_coll = self._resolve_doc_collection()
@@ -3889,12 +4193,10 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         except Exception as e:
             logger.warning("Could not load tag specs: %s", e)
 
-        # Resolve analysis prompt from .prompt/analyze/* docs
-        analysis_prompt = None
-        try:
-            analysis_prompt = self._resolve_prompt_doc("analyze", doc_record.tags)
-        except Exception as e:
-            logger.debug("Prompt doc resolution failed: %s", e)
+        # Resolve analysis prompt from store-backed .prompt/analyze/* docs
+        analysis_prompt = self._resolve_prompt_doc(
+            "analyze", doc_record.tags, required=True,
+        )
 
         # Phase 2: Compute — pure processor (local or remote)
         # Wait for any background reconciliation to finish first — both
@@ -3916,17 +4218,9 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 extract_prompt_section,
             )
 
-            # Resolve incremental prompt from .prompt/analyze/incremental system doc
-            incremental_prompt = None
-            try:
-                doc_coll_prompt = self._resolve_doc_collection()
-                inc_doc = self._document_store.get(doc_coll_prompt, ".prompt/analyze/incremental")
-                if inc_doc and inc_doc.summary:
-                    extracted = extract_prompt_section(inc_doc.summary)
-                    if extracted:
-                        incremental_prompt = extracted
-            except Exception as e:
-                logger.debug("Incremental prompt doc resolution failed: %s", e)
+            incremental_prompt = self._load_prompt_doc(
+                ".prompt/analyze/incremental", required=True,
+            )
 
             total_tokens = sum(
                 _estimate_tokens(c["content"])
@@ -3963,7 +4257,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 if hasattr(raw_provider, '_provider') and raw_provider._provider is not None:
                     raw_provider = raw_provider._provider
 
-                prompt_text = incremental_prompt or INCREMENTAL_ANALYSIS_PROMPT
+                prompt_text = incremental_prompt
                 try:
                     result_text = raw_provider.generate(
                         prompt_text, user_prompt, max_tokens=4096,
@@ -4009,9 +4303,9 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     classifier.classify(raw_parts, tag_specs)
                 except Exception as e:
                     logger.warning("Tag classification skipped: %s", e)
-            proc_result = ProcessorResult(task_type="analyze", parts=raw_parts)
+            analyze_result = {"parts": raw_parts}
         else:
-            proc_result = process_analyze(
+            analyze_result = process_analyze(
                 chunk_dicts, guide_context, tag_specs,
                 analyzer_provider=analyzer_provider,
                 prompt_override=analysis_prompt,
@@ -4019,32 +4313,39 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             )
 
         # Extract line ranges for URI-sourced documents
-        if (proc_result.parts 
+        raw_parts = analyze_result.get("parts") or []
+        if (raw_parts 
             and doc_record.tags.get("_source") == "uri" 
             and chunk_dicts 
             and len(chunk_dicts) == 1):
             try:
                 from .analyzers import _extract_line_ranges
                 source_content = chunk_dicts[0]["content"]
-                proc_result.parts = _extract_line_ranges(source_content, proc_result.parts)
+                raw_parts = _extract_line_ranges(source_content, raw_parts)
+                analyze_result["parts"] = raw_parts
             except Exception as e:
                 logger.warning("Line range extraction failed: %s", e)
 
         # Content not decomposable — single section is redundant with the note
-        if not proc_result.parts or len(proc_result.parts) <= 1:
+        if not raw_parts or len(raw_parts) <= 1:
             logger.info("Content not decomposable into multiple parts: %s", id)
             self._record_analyzed_tags(doc_coll, id, doc_record)
             return []
 
         # Phase 3: Apply — write parts + embeddings to stores (local)
-        # apply_result records _analyzed_hash and _analyzed_version via mutations
-        self.apply_result(
-            id, doc_coll, proc_result,
+        # Build action-style output and apply via the shared mutation path.
+        output = self._task_result_to_output(
+            id,
+            doc_coll,
+            "analyze",
+            analyze_result,
             existing_tags=doc_record.tags,
         )
+        if output and output.get("mutations"):
+            _apply_mutations(self, doc_coll, output)
 
         # Phase 4: Generate vstring overview as @P{0}
-        if len(chunk_dicts) >= 2 and proc_result.parts:
+        if len(chunk_dicts) >= 2 and raw_parts:
             overview_provider = analyzer_provider or self._get_summarization_provider()
             overview = self._generate_vstring_overview(
                 chunk_dicts, overview_provider,
@@ -4304,24 +4605,28 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             # Primary data source: pick the most selective query
             # --------------------------------------------------------------
             if tags:
-                # Key=value tags: use ChromaDB metadata query
-                where = self._build_tag_where(tags)
-                if where is None:
+                # Key=value tags: query the canonical document store so
+                # listing semantics do not depend on embedding/index state.
+                tag_pairs = list(iter_tag_pairs(tags))
+                if not tag_pairs:
                     batch = []
                     raw_count = 0
                 else:
-                    results = self._store.query_metadata(
-                        chroma_coll, where, limit=page_size, offset=offset,
+                    first_key, first_value = tag_pairs[0]
+                    docs = self._document_store.query_by_tag_value(
+                        doc_coll,
+                        first_key,
+                        first_value,
+                        limit=page_size,
+                        offset=offset,
                     )
-                    # Enrich from SQLite for original-case tag values
-                    batch = []
-                    for r in results:
-                        doc = self._document_store.get(doc_coll, r.id)
-                        if doc:
-                            batch.append(_record_to_item(doc))
-                        else:
-                            batch.append(r.to_item())
-                    raw_count = len(results)
+                    batch = [_record_to_item(doc) for doc in docs]
+                    raw_count = len(docs)
+                    for extra_key, extra_value in tag_pairs[1:]:
+                        batch = [
+                            item for item in batch
+                            if extra_value in tag_values(item.tags, extra_key)
+                        ]
 
             elif tag_keys:
                 # Key-only: use SQLite tag key query (first key as primary,
@@ -4557,6 +4862,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             run_flow,
         )
 
+        self._ensure_sysdocs()
         env = LocalFlowEnvironment(self)
         if query_embedding is not None:
             env._query_embedding = query_embedding
@@ -4572,6 +4878,25 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             )
 
         return result
+
+    def run_flow(
+        self,
+        state: str,
+        *,
+        params: dict[str, Any] | None = None,
+        budget: int | None = None,
+        cursor_token: str | None = None,
+        state_doc_yaml: str | None = None,
+        writable: bool = True,
+    ) -> "FlowResult":
+        return self.run_flow_command(
+            state,
+            params=params,
+            budget=budget,
+            cursor_token=cursor_token,
+            state_doc_yaml=state_doc_yaml,
+            writable=writable,
+        )
 
     def run_flow_command(
         self,
@@ -4620,12 +4945,15 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     "prompts": [{"name": pr.name, "summary": pr.summary} for pr in prompts],
                 }, ticks=1)
             # render mode
-            result = self.render_prompt(
-                name, p.get("text"),
-                id=p.get("id"), since=p.get("since"), until=p.get("until"),
-                tags=p.get("tags"), deep=p.get("deep", False),
-                scope=p.get("scope"), token_budget=p.get("token_budget"),
-            )
+            try:
+                result = self.render_prompt(
+                    name, p.get("text"),
+                    id=p.get("id"), since=p.get("since"), until=p.get("until"),
+                    tags=p.get("tags"), deep=p.get("deep", False),
+                    scope=p.get("scope"), token_budget=p.get("token_budget"),
+                )
+            except Exception as e:
+                return FlowResult(status="error", data={"error": str(e)})
             if result is None:
                 return FlowResult(status="error", data={"error": f"prompt not found: {name}"})
             from .cli import expand_prompt
@@ -4640,8 +4968,22 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         if budget is None:
             budget = self._config.budget_per_flow
 
+        if state_doc_yaml is None and state != "prompt":
+            self._ensure_sysdocs()
+
         env = LocalFlowEnvironment(self)
-        runner = make_action_runner(env, writable=writable)
+        base_runner = make_action_runner(env, writable=writable)
+        if writable:
+            collection = self._resolve_doc_collection()
+
+            def runner(action_name: str, action_params: dict[str, Any]) -> dict[str, Any]:
+                output = base_runner(action_name, action_params)
+                if isinstance(output, dict) and output.get("mutations"):
+                    from .task_workflows import _apply_mutations
+                    _apply_mutations(self, collection, output)
+                return output
+        else:
+            runner = base_runner
 
         # Build loader: inline YAML overrides store lookup
         if state_doc_yaml is not None:
@@ -4758,23 +5100,37 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         doc_coll = self._resolve_doc_collection()
         chroma_coll = self._resolve_chroma_collection()
 
-        # Find mismatches between stores (exclude empty-summary items
-        # that can't produce embeddings, e.g. bare .tag/* stubs)
+        # Find mismatches between stores. Dot-prefixed system notes are not
+        # indexed in Chroma, so they are excluded from "missing" checks.
         doc_ids = ds.list_ids(doc_coll)
-        missing_from_chroma_raw = self._store.find_missing_ids(chroma_coll, doc_ids)
+        indexed_doc_ids = [doc_id for doc_id in doc_ids if not is_system_id(doc_id)]
+        missing_from_chroma_raw = self._store.find_missing_ids(chroma_coll, indexed_doc_ids)
         missing_records: dict[str, Any] = {}
         for doc_id in missing_from_chroma_raw:
             rec = ds.get(doc_coll, doc_id)
             if rec and rec.summary:
                 missing_records[doc_id] = rec
 
-        # Skip versioned (@v{N}) and part (@p{N}) IDs — tracked in separate tables
+        def _vector_base_id(chroma_id: str) -> str:
+            for marker in ("@v", "@V", "@p", "@P"):
+                if marker in chroma_id:
+                    return chroma_id.rsplit(marker, 1)[0]
+            return chroma_id
+
+        # Indexed system-note rows are stale by definition and should be
+        # removed during reconcile. For non-system notes, skip versioned and
+        # part IDs here because they are tracked with their base document.
         chroma_ids = self._store.list_ids(chroma_coll)
-        doc_id_set = set(doc_ids)
+        doc_id_set = set(indexed_doc_ids)
+        stale_system_ids = {
+            cid for cid in chroma_ids
+            if is_system_id(_vector_base_id(cid))
+        }
         orphaned_in_chroma = {
             cid for cid in chroma_ids
             if cid not in doc_id_set and "@v" not in cid and "@p" not in cid
         }
+        orphaned_in_chroma.update(stale_system_ids)
 
         fixed = 0
         removed = 0

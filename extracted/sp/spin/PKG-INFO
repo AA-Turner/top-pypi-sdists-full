@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spin
-Version: 0.17
+Version: 0.18
 Summary: Developer tool for scientific Python libraries
 Maintainer-email: Scientific Python <spin@discuss.scientific-python.org>
 License: BSD 3-Clause License

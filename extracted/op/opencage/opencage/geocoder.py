@@ -18,6 +18,36 @@ except ImportError:
 DEFAULT_DOMAIN = 'api.opencagedata.com'
 
 
+def _validate_domain(domain):
+    """Validate that the API domain is an allowed hostname.
+
+    Only subdomains of opencagedata.com, localhost, and 0.0.0.0 are
+    permitted. An optional port suffix (e.g. ``localhost:8080``) is allowed.
+
+    Args:
+        domain: Hostname string, optionally with a port.
+
+    Returns:
+        The validated domain string.
+
+    Raises:
+        ValueError: If the domain is not in the allow-list.
+    """
+    # Strip optional port
+    host = domain.rsplit(':', 1)[0] if ':' in domain else domain
+
+    if host in ('localhost', '0.0.0.0'):
+        return domain
+
+    if host.endswith('.opencagedata.com'):
+        return domain
+
+    raise ValueError(
+        f"Invalid API domain '{domain}'. "
+        f"Must be a subdomain of opencagedata.com, localhost, or 0.0.0.0."
+    )
+
+
 def backoff_max_time():
     """Return the maximum backoff time in seconds for retrying API requests.
 
@@ -146,6 +176,7 @@ class OpenCageGeocode:
 
         if protocol and protocol not in ('http', 'https'):
             protocol = 'https'
+        _validate_domain(domain)
         self.url = protocol + '://' + domain + '/geocode/v1/json'
 
         # https://docs.aiohttp.org/en/stable/client_advanced.html#ssl-control-for-tcp-sockets
@@ -310,9 +341,9 @@ class OpenCageGeocode:
             UnknownError: If the server returns an error or invalid JSON.
         """
         if self.session:
-            response = self.session.get(self.url, params=params, headers=self._opencage_headers('aiohttp'))
+            response = self.session.get(self.url, params=params, headers=self._opencage_headers('aiohttp'), timeout=30)
         else:
-            response = requests.get(self.url, params=params, headers=self._opencage_headers('requests'))
+            response = requests.get(self.url, params=params, headers=self._opencage_headers('requests'), timeout=30)
 
         try:
             response_json = response.json()
@@ -353,7 +384,8 @@ class OpenCageGeocode:
 
         comment = ''
         if self.user_agent_comment:
-            comment = f" ({self.user_agent_comment})"
+            clean = self.user_agent_comment.replace('\r', '').replace('\n', '')
+            comment = f" ({clean})"
 
         return {
             'User-Agent': f"opencage-python/{__version__} Python/{py_version} {client}/{client_version}{comment}"
@@ -376,7 +408,8 @@ class OpenCageGeocode:
             SSLError: If the SSL connection fails.
         """
         try:
-            async with self.session.get(self.url, params=params, ssl=self.sslcontext) as response:
+            timeout = aiohttp.ClientTimeout(total=30)
+            async with self.session.get(self.url, params=params, ssl=self.sslcontext, timeout=timeout) as response:
                 try:
                     response_json = await response.json()
                 except ValueError as excinfo:

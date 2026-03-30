@@ -1,4 +1,4 @@
-from abstra_internals.controllers import pysa as pysa_controller
+from abstra_internals.controllers import language_server as language_server_controller
 from abstra_internals.controllers.docs import DocsController
 from abstra_internals.controllers.main import MainController
 from abstra_internals.controllers.tasks import TasksController
@@ -50,7 +50,19 @@ def get_editor_bp(main_controller: MainController):
             requires_approval(main_controller.run_job),
             requires_approval(main_controller.run_tasklet),
             requires_approval(main_controller.run_hook),
-            requires_approval(main_controller.run_page),
+            requires_approval(main_controller.browser_open_page),
+            requires_approval(main_controller.browser_navigate),
+            main_controller.browser_get_page_summary,
+            requires_approval(main_controller.browser_click),
+            requires_approval(main_controller.browser_fill),
+            main_controller.browser_get_text,
+            main_controller.browser_get_html,
+            requires_approval(main_controller.browser_execute_javascript),
+            main_controller.browser_wait,
+            main_controller.browser_get_console_logs,
+            main_controller.browser_get_network_requests,
+            main_controller.browser_close,
+            main_controller.browser_list_pages,
             main_controller.list_directory,
             main_controller.find_files_by_pattern,
             main_controller.grep_codebase,
@@ -63,7 +75,7 @@ def get_editor_bp(main_controller: MainController):
             workflow_controller.get_workflow_settings,
             workflow_controller.add_transition,
             requires_approval(workflow_controller.delete_transition),
-            pysa_controller.analyze_python_syntax,
+            language_server_controller.analyze_python_syntax,
             requires_approval(main_controller.linter_repository.fix_issue_in_codebase),
             requires_approval(main_controller.add_and_install_requirement),
         ]

@@ -41,7 +41,7 @@ from abstra_internals.server.utils import send_from_dist
 from abstra_internals.services.jwt import USER_AUTH_HEADER_KEY
 from abstra_internals.settings import Settings
 from abstra_internals.usage import player_usage
-from abstra_internals.utils import check_is_url
+from abstra_internals.utils import check_is_url, serialize
 from abstra_internals.utils.file import get_tmp_upload_dir, path2module, upload_file
 from abstra_internals.utils.websockets import bind_ws_with_connection
 
@@ -265,18 +265,37 @@ def get_player_bp(controller: MainController):
         if not page.file:
             flask.abort(500)
 
+        # POST requests from function calls include the parent page execution ID
+        page_execution_id = flask.request.headers.get("X-Page-Execution-Id")
+
+        # Extract user JWT: Authorization header first (from page function calls),
+        # fall back to editor_auth cookie (from headless browser / web editor)
+        auth_header = flask.request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            user_jwt = auth_header[7:]
+        else:
+            user_jwt = flask.request.cookies.get("editor_auth")
+
         context = PageContext(
             request=extract_flask_request(flask.request),
             response=Response(headers={}, status=200, body=""),
             page_path=path,
+            page_execution_id=page_execution_id,
         )
 
-        connection = controller.repositories.producer.enqueue(page.id, context)
+        connection = controller.repositories.producer.enqueue(
+            page.id, context, user_jwt=user_jwt
+        )
 
+        # First drain gets execution:started message
         start_msg = drain_until_response(connection)
         if not start_msg:
             connection.close()
             flask.abort(500)
+
+        execution_id = None
+        if isinstance(start_msg, dict) and start_msg.get("type") == "execution:started":
+            execution_id = start_msg.get("executionId")
 
         msg = drain_until_response(connection)
 
@@ -305,11 +324,16 @@ def get_player_bp(controller: MainController):
                 finally:
                     connection.close()
 
-            return flask.Response(
+            resp = flask.Response(
                 status=msg["status"],
                 response=generate(),
                 headers=msg["headers"],
             )
+            if execution_id:
+                resp.headers["X-Execution-Id"] = execution_id
+            if not IS_PRODUCTION:
+                resp.headers["X-Abstra-Debug"] = "true"
+            return resp
 
         # Regular response
         connection.close()
@@ -318,11 +342,16 @@ def get_player_bp(controller: MainController):
         if not response:
             flask.abort(500)
 
-        return flask.Response(
+        resp = flask.Response(
             status=response.status,
             response=response.body,
             headers=response.headers,
         )
+        if execution_id:
+            resp.headers["X-Execution-Id"] = execution_id
+        if not IS_PRODUCTION:
+            resp.headers["X-Abstra-Debug"] = "true"
+        return resp
 
     @bp.get("/_page-home/_static/<path:filename>")
     def page_home_static(filename):
@@ -342,6 +371,59 @@ def get_player_bp(controller: MainController):
     @player_usage
     def page_runner(path):
         return _run_page(path)
+
+    @bp.post("/_logs/<execution_id>")
+    def browser_logs(execution_id: str):
+        """Receive browser console logs and store them as execution logs."""
+        from datetime import datetime
+
+        from abstra_internals.controllers.execution.execution_stdio import (
+            BroadcastController,
+        )
+        from abstra_internals.repositories.execution_logs import LogEntry
+
+        if not flask.request.json:
+            flask.abort(400)
+
+        body = flask.request.json
+        logs = body.get("logs", [])
+        stage_id = body.get("stageId", "")
+
+        short_id = execution_id.split("-")[0]
+        # Use high sequence base so browser logs sort after Python logs
+        base_seq = 1_000_000 + controller.execution_logs_repository.get_sequence()
+
+        for i, entry in enumerate(logs):
+            level = entry.get("level", "log")
+            message = entry.get("message", "")
+            event = "stderr" if level in ("error", "warn") else "stdout"
+            text = f"[RUN {short_id}] [BROWSER] {message}"
+            controller.execution_logs_repository.save(
+                LogEntry(
+                    execution_id=execution_id,
+                    stage_id=stage_id,
+                    created_at=datetime.now(),
+                    event=event,
+                    payload={"text": text},
+                    sequence=base_seq + i,
+                )
+            )
+            # Broadcast directly via WebSocket (don't rely on file watcher)
+            BroadcastController.broadcast(
+                msg=serialize(
+                    dict(
+                        type="stdio",
+                        payload=dict(
+                            type=event,
+                            log=text,
+                            execution_id=execution_id,
+                            stage_id=stage_id,
+                        ),
+                    )
+                )
+            )
+
+        return {"ok": True}
 
     @bp.get("/_jobs")
     def list_jobs():

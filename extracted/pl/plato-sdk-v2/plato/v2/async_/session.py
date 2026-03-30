@@ -966,6 +966,7 @@ class Session:
         job_id = response.env.job_id
 
         # Wait for the job to be ready if requested
+        mesh_ip: str | None = None
         if wait_for_ready:
             ready_response = await jobs_wait_for_ready.asyncio(
                 client=self._http,
@@ -977,6 +978,14 @@ class Session:
             if not ready_response.ready:
                 error = ready_response.error or "Unknown error"
                 raise TimeoutError(f"Job {job_id} did not become ready: {error}")
+            mesh_ip = ready_response.mesh_ip
+            if not mesh_ip:
+                logger.warning(
+                    "wait_for_ready returned no mesh_ip for job %s (ready=%s, response=%s)",
+                    job_id,
+                    ready_response.ready,
+                    ready_response.model_dump(),
+                )
 
         # Update internal context with the new environment
         new_env_context = EnvironmentContext(
@@ -1002,6 +1011,7 @@ class Session:
             artifact_id=response.env.artifact_id,
             simulator=getattr(env, "simulator", None),
             status="running",  # Newly added environments are running
+            mesh_ip=mesh_ip,
         )
 
         logger.info(f"Added job {job_id} (alias={env.alias}) to session {self.session_id}")

@@ -17444,7 +17444,7 @@ class Brush(ID, bpy_struct):
     """ Only affect vertices that are not occluded by other faces (slower performance) (default False)"""
 
     use_bidirectional: bool
-    """ Project vertices both along along the projection direction and its inverse, choosing the closest intersection. (default False)"""
+    """ Project vertices both along the projection direction and its inverse, choosing the closest intersection. (default False)"""
 
     use_cloth_collision: bool
     """ Collide with objects during the simulation (default False)"""

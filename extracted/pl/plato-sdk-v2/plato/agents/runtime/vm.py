@@ -6,11 +6,10 @@ import asyncio
 import logging
 import os
 import re
-import threading
 import time as _time
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 import tenacity
 from opentelemetry import trace
@@ -96,23 +95,6 @@ class PlatoVMRuntime(Runtime):
         self.workspaces: list[Transport] = workspaces or []
         self._agent_envs: dict[str, Environment] = {}
         self.last_execution_span_id: str = ""  # hex span ID of latest agent.execution.output span
-        # Process-wide lock guard for VM prepare lifecycle. This prevents
-        # concurrent VM bring-up storms across different AgentRunner instances.
-        # It is initialized lazily per event loop via _get_global_prepare_lock().
-
-    _global_prepare_lock: ClassVar[asyncio.Lock | None] = None
-    _global_prepare_lock_loop_id: ClassVar[int | None] = None
-    _global_prepare_lock_guard: ClassVar[threading.Lock] = threading.Lock()
-
-    @classmethod
-    def _get_global_prepare_lock(cls) -> asyncio.Lock:
-        loop = asyncio.get_running_loop()
-        loop_id = id(loop)
-        with cls._global_prepare_lock_guard:
-            if cls._global_prepare_lock is None or cls._global_prepare_lock_loop_id != loop_id:
-                cls._global_prepare_lock = asyncio.Lock()
-                cls._global_prepare_lock_loop_id = loop_id
-            return cls._global_prepare_lock
 
     def _all_workspaces(self) -> list[Transport]:
         """Return all workspaces (single + list) for setup/sync."""
@@ -138,29 +120,15 @@ class PlatoVMRuntime(Runtime):
             await self.cleanup(prepared.agent_id)
         return prepared.agent_id
 
-    # Semaphore to limit concurrent VM creations (prevents overwhelming the API).
-    _vm_create_semaphore: ClassVar[asyncio.Semaphore | None] = None
-    _vm_create_semaphore_loop_id: ClassVar[int | None] = None
-    _vm_create_semaphore_guard: ClassVar[threading.Lock] = threading.Lock()
-
-    @classmethod
-    def _get_vm_create_semaphore(cls) -> asyncio.Semaphore:
-        loop_id = id(asyncio.get_running_loop())
-        with cls._vm_create_semaphore_guard:
-            if cls._vm_create_semaphore is None or cls._vm_create_semaphore_loop_id != loop_id:
-                cls._vm_create_semaphore = asyncio.Semaphore(4)
-                cls._vm_create_semaphore_loop_id = loop_id
-            return cls._vm_create_semaphore
-
     async def prepare(self, ctx: AgentContext) -> PreparedAgent:
         """Start agent VM with desktop/Chrome but without running the task.
 
-        VM creation is rate-limited to 4 concurrent (prevents API overload).
-        Network setup is serialized (wireguard requires sequential config).
-        Code sync runs fully in parallel.
+        Network join is handled server-side: add_env registers the VM as a
+        network member and wait_for_ready blocks until the VM is both RUNNING
+        and network-joined. No client-side lock or explicit connect_network
+        call is needed.
         """
-        network_lock = self._get_global_prepare_lock()
-        vm_semaphore = self._get_vm_create_semaphore()
+        tracer = trace.get_tracer(__name__)
         last_exc: Exception | None = None
         base_alias = _make_agent_alias(ctx.display_name)
 
@@ -169,109 +137,28 @@ class PlatoVMRuntime(Runtime):
             try:
                 t_total = _time.monotonic()
 
-                # --- Rate-limited: VM creation (max 4 concurrent) ---
-                t_lock_wait = _time.monotonic()
-                async with vm_semaphore:
-                    logger.info(
-                        "Creating VM %s (waited %.1fs for slot)",
-                        agent_alias,
-                        _time.monotonic() - t_lock_wait,
-                    )
+                with tracer.start_as_current_span("agent.prepare.create_vm") as span:
+                    span.set_attribute("agent.alias", agent_alias)
                     agent_env = await self._create_vm(ctx.image, agent_alias)
                     self._agent_envs[agent_alias] = agent_env
 
-                # --- Serialized: network setup (wireguard config) ---
-                t_lock_wait = _time.monotonic()
-                async with network_lock:
-                    t_lock_acquired = _time.monotonic()
-                    logger.info(
-                        "Acquired network lock: %s (waited %.1fs)",
-                        agent_alias,
-                        t_lock_acquired - t_lock_wait,
-                    )
-                    t_net = _time.monotonic()
-                    await self._setup_network()
-                    logger.info("Network setup for %s: %.1fs", agent_alias, _time.monotonic() - t_net)
+                # mesh_ip is cached on the Environment from wait_for_ready
+                mesh_ip = agent_env.mesh_ip or await agent_env.get_mesh_ip()
+                if not mesh_ip:
+                    raise RuntimeError(f"Failed to get mesh IP for agent VM {agent_alias}")
+                logger.info("Mesh IP for %s: %s", agent_alias, mesh_ip)
 
-                    t_ip = _time.monotonic()
-                    mesh_ip = await agent_env.get_mesh_ip()
-                    if not mesh_ip:
-                        raise RuntimeError(f"Failed to get mesh IP for agent VM {agent_alias}")
-                    logger.info("Mesh IP for %s: %s (%.1fs)", agent_alias, mesh_ip, _time.monotonic() - t_ip)
-                logger.info(
-                    "Released network lock: %s (held %.1fs)",
-                    agent_alias,
-                    _time.monotonic() - t_lock_acquired,
+                # Add SSH key to this specific agent VM (per-job, not session-wide)
+                with tracer.start_as_current_span("agent.prepare.ssh_key"):
+                    if self.ssh_key_path:
+                        pub_key = Path(str(self.ssh_key_path) + ".pub").read_text().strip()
+                        await agent_env.add_ssh_key(pub_key)
+
+                # sync_code and env_setup run concurrently (both need SSH key ready)
+                await asyncio.gather(
+                    self._prepare_sync_code(tracer, ctx, agent_env, mesh_ip, agent_alias),
+                    self._prepare_env_setup(tracer, mesh_ip),
                 )
-
-                # Verify connectivity before proceeding
-                ping_rc, ping_out, _ = await run_local(
-                    f"ping -c 3 -W 2 {mesh_ip}",
-                    timeout=15,
-                )
-                ping_summary = ping_out.strip().split("\n")[-1] if ping_out else "no output"
-                if ping_rc != 0:
-                    logger.warning(
-                        "Ping to %s (%s) FAILED: %s",
-                        agent_alias,
-                        mesh_ip,
-                        ping_summary,
-                    )
-                else:
-                    logger.info("Ping to %s (%s): %s", agent_alias, mesh_ip, ping_summary)
-
-                # Verify SSH works
-                t_ssh = _time.monotonic()
-                assert self.ssh_key_path is not None
-                ssh_rc, ssh_out, ssh_err = await run_ssh(
-                    self.ssh_key_path,
-                    mesh_ip,
-                    "echo ok",
-                    timeout=10,
-                )
-                if ssh_rc != 0:
-                    logger.warning(
-                        "SSH check to %s (%s) FAILED (rc=%d): %s",
-                        agent_alias,
-                        mesh_ip,
-                        ssh_rc,
-                        ssh_err.strip(),
-                    )
-                else:
-                    logger.info(
-                        "SSH check to %s (%s): ok (%.1fs)",
-                        agent_alias,
-                        mesh_ip,
-                        _time.monotonic() - t_ssh,
-                    )
-
-                # Log wireguard peer status for this IP
-                wg_rc, wg_out, _ = await run_local(
-                    "wg show all dump 2>/dev/null | head -30 || true",
-                    timeout=5,
-                )
-                if wg_out.strip():
-                    # Count peers and their last handshake times
-                    lines = wg_out.strip().split("\n")
-                    peers = [line for line in lines if "\t" in line and "0.0.0.0" not in line.split("\t")[0]]
-                    logger.info(
-                        "Wireguard status: %d peers, mesh_ip=%s",
-                        len(peers),
-                        mesh_ip,
-                    )
-
-                # --- Parallel: code sync + key injection (no lock needed) ---
-                t_sync = _time.monotonic()
-                logger.info("Syncing code to %s", agent_alias)
-                await self._sync_code(ctx, agent_env, mesh_ip)
-                logger.info("Code synced to %s: %.1fs", agent_alias, _time.monotonic() - t_sync)
-
-                plato_api_key = os.environ.get("PLATO_API_KEY", "")
-                if plato_api_key:
-                    await self._run_ssh_streaming(
-                        mesh_ip,
-                        f'echo "PLATO_API_KEY={plato_api_key}" >> /etc/environment',
-                    )
 
                 logger.info(
                     "Agent VM %s ready: %.1fs total",
@@ -298,6 +185,35 @@ class PlatoVMRuntime(Runtime):
 
         assert last_exc is not None
         raise last_exc
+
+    async def _prepare_sync_code(
+        self, tracer: trace.Tracer, ctx: AgentContext, agent_env: Environment, mesh_ip: str, alias: str
+    ) -> None:
+        with tracer.start_as_current_span("agent.prepare.sync_code"):
+            logger.info("Syncing code to %s", alias)
+            await self._sync_code(ctx, agent_env, mesh_ip)
+
+    async def _prepare_env_setup(self, tracer: trace.Tracer, mesh_ip: str) -> None:
+        with tracer.start_as_current_span("agent.prepare.env_setup"):
+            env_cmds: list[str] = []
+
+            # Map runtime.plato.internal → world VM mesh IP in /etc/hosts
+            for env in self.session.envs:
+                if env.alias == "runtime":
+                    world_ip = env.mesh_ip or await env.get_mesh_ip()
+                    if world_ip:
+                        env_cmds.append(
+                            f'grep -q "runtime.plato.internal" /etc/hosts '
+                            f'|| echo "{world_ip} runtime.plato.internal" >> /etc/hosts'
+                        )
+                    break
+
+            plato_api_key = os.environ.get("PLATO_API_KEY", "")
+            if plato_api_key:
+                env_cmds.append(f'echo "PLATO_API_KEY={plato_api_key}" >> /etc/environment')
+
+            if env_cmds:
+                await self._run_ssh_streaming(mesh_ip, " && ".join(env_cmds))
 
     async def execute(self, prepared: PreparedAgent, ctx: AgentContext) -> None:
         """Execute agent task in a prepared VM via SSH."""
@@ -364,29 +280,6 @@ class PlatoVMRuntime(Runtime):
         )
         logger.info("Agent VM ready: %s (took %.1fs)", agent_env.job_id, _time.monotonic() - t0)
         return agent_env
-
-    _ssh_key_added: bool = False
-
-    @tenacity.retry(
-        stop=tenacity.stop_after_attempt(3),
-        wait=tenacity.wait_exponential(multiplier=10, min=10, max=60),
-        before_sleep=tenacity.before_sleep_log(logger, logging.WARNING),
-        reraise=True,
-    )
-    async def _setup_network(self) -> None:
-        """Setup network connectivity to agent VM with retry.
-
-        connect_network must run per-agent (adds new VM to wireguard mesh).
-        add_ssh_key is session-level and only needs to run once.
-        """
-        await self.session.connect_network()
-
-        if not self._ssh_key_added:
-            if not self.ssh_key_path:
-                raise RuntimeError("ssh_key_path must be set before running agents")
-            pub_key = Path(str(self.ssh_key_path) + ".pub").read_text().strip()
-            await self.session.add_ssh_key(pub_key)
-            self._ssh_key_added = True
 
     def _parse_image_url(self, image: str) -> tuple[str, str]:
         """Extract package name and version from image URL."""

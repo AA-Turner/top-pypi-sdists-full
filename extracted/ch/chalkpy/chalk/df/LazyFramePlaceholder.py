@@ -637,8 +637,7 @@ class LazyFramePlaceholder:
         )
 
     def with_columns(
-        self,
-        *columns: typing.Mapping[str, Underscore] | Underscore | tuple[str, Underscore],
+        self, *columns: typing.Mapping[str, Underscore | typing.Any] | Underscore | tuple[str, Underscore | typing.Any]
     ) -> LazyFramePlaceholder:
         """Add or replace columns.
 
@@ -898,7 +897,7 @@ class LazyFramePlaceholder:
 
         return self._construct(self_dataframe=self, function_name="union", other=other)
 
-    def project(self, columns: typing.Mapping[str, Underscore]) -> "LazyFramePlaceholder":
+    def project(self, columns: typing.Mapping[str, Underscore | typing.Any]) -> "LazyFramePlaceholder":
         """Project to a new set of columns using expressions.
 
         Parameters
@@ -1018,6 +1017,7 @@ class LazyFramePlaceholder:
         right_on: typing.Sequence[str | Underscore] | None = None,
         how: str = "inner",
         right_suffix: str | None = None,
+        probe_with_right_side: bool = False,
     ) -> "LazyFramePlaceholder":
         """Join this ``DataFrame`` with another.
 
@@ -1049,6 +1049,9 @@ class LazyFramePlaceholder:
             Optional suffix applied to right-hand columns when names collide.
             For example, if both DataFrames have a column ``"value"`` and ``right_suffix="_right"``,
             the result will have ``"value"`` and ``"value_right"``.
+        probe_with_right_side
+            If True, the probe side of the join will be the right and the build will be the left.
+            Default is False (left is probe, right is build)
 
         Returns
         -------

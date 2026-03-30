@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Wikipedia-API
-Version: 0.12.0
+Version: 0.13.0
 Summary: Python Wrapper for Wikipedia
 Project-URL: Homepage, https://github.com/martin-majlis/Wikipedia-API
 Project-URL: Repository, https://github.com/martin-majlis/Wikipedia-API

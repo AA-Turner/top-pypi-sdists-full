@@ -410,88 +410,59 @@ class NFSTransport(Transport):
         """Mount the world VM's NFS export on an agent VM via SSH."""
         await self._setup_workspace_path(self.path)
 
-        await run_ssh(
-            self.ssh_key_path,
-            hostname,
-            "which mount.nfs > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq nfs-common)",
-            timeout=180,
-        )
-
         remote = self.agent_mount_path
+        remote_quoted = shlex.quote(remote)
         nfs_src = f"{self.world_vm_ip}:{self.path}"
-        # hard: retry indefinitely instead of returning EIO after retrans attempts.
-        # rsize/wsize=32768: 32KB blocks minimize kernel buffer memory on the
-        # NFS server. Code files are small — 32KB is plenty.
-        # timeo=300: 30s initial timeout (deciseconds), retrans=5: more retries.
-        mount_cmd = (
-            f"mkdir -p {remote} && "
-            f"mount -t nfs -o vers=3,hard,timeo=300,retrans=5,nolock,"
-            f"rsize=32768,wsize=32768 {nfs_src} {remote}"
-        )
-        logger.info("Mounting NFS on agent VM %s: %s", hostname, mount_cmd)
-        exit_code, _, stderr = await run_ssh(
+
+        # Single SSH command: install nfs-common if needed, mount, verify, and set up audit.
+        # Subshells for || patterns prevent them from swallowing earlier && failures.
+        # NFS options: hard (retry indefinitely), rsize/wsize=32KB (small files),
+        # timeo=300 (30s initial timeout), retrans=5, nolock.
+        parts = [
+            "(which mount.nfs > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq nfs-common))",
+            f"mkdir -p {remote}",
+            (f"mount -t nfs -o vers=3,hard,timeo=300,retrans=5,nolock,rsize=32768,wsize=32768 {nfs_src} {remote}"),
+            f"echo \"NFS_MOUNT_INFO=$(mount | grep '{remote}')\"",
+        ]
+
+        # Append audit setup if workspace is tracked
+        audit_key = self.audit_key
+        if self.workspace_tracked and audit_key:
+            audit_key_quoted = shlex.quote(audit_key)
+            parts.extend(
+                [
+                    "(which auditctl > /dev/null 2>&1 || "
+                    "(apt-get update -qq && apt-get install -y -qq auditd > /dev/null 2>&1))",
+                    "(service auditd start 2>/dev/null || true)",
+                    f"auditctl -a always,exit -F arch=b64 -F dir={remote_quoted} -F perm=rwa -k {audit_key_quoted}",
+                    f"auditctl -a always,exit -F arch=b64 -S mkdir,mkdirat "
+                    f"-F dir={remote_quoted} -k {audit_key_quoted}",
+                ]
+            )
+
+        combined_cmd = " && ".join(parts)
+        logger.info("Mounting NFS on agent VM %s: %s -> %s", hostname, nfs_src, remote)
+        exit_code, stdout, stderr = await run_ssh(
             self.ssh_key_path,
             hostname,
-            mount_cmd,
-            timeout=120,
+            combined_cmd,
+            timeout=180,
         )
         if exit_code != 0:
             raise RuntimeError(f"Failed to mount NFS on agent VM: {stderr}")
 
-        # Verify mount options
-        _, mount_info, _ = await run_ssh(
-            self.ssh_key_path,
-            hostname,
-            f"mount | grep '{remote}'",
-            timeout=5,
-        )
-        logger.info("NFS mounted on %s: %s", hostname, mount_info.strip())
+        # Extract mount info from output
+        for line in stdout.splitlines():
+            if line.startswith("NFS_MOUNT_INFO="):
+                logger.info("NFS mounted on %s: %s", hostname, line[15:])
+                break
 
-        # Set up filesystem audit on agent VM (non-fatal)
-        audit_key = self.audit_key
-        if not self.workspace_tracked or not audit_key:
-            logger.debug(
-                "Skipping filesystem audit setup for workspace %s (tracked=%s, key=%s)",
+        if self.workspace_tracked and audit_key:
+            logger.info(
+                "Filesystem audit enabled on agent VM for %s (key=%s)",
                 remote,
-                self.workspace_tracked,
                 audit_key,
             )
-            return
-        try:
-            # Use syscall-based rules instead of -w (file watch), because
-            # -w watches inodes which don't work on NFS mount points.
-            remote_quoted = shlex.quote(remote)
-            audit_key_quoted = shlex.quote(audit_key)
-            audit_setup_cmd = (
-                "which auditctl > /dev/null 2>&1 || "
-                "(apt-get update -qq && apt-get install -y -qq auditd > /dev/null 2>&1) && "
-                "service auditd start 2>/dev/null; "
-                # Path-based rule for file read/write/attribute operations.
-                # Tool-level attribution depends on read events as well as writes.
-                f"auditctl -a always,exit -F arch=b64 -F dir={remote_quoted} "
-                f"-F perm=rwa -k {audit_key_quoted}; "
-                # Explicit syscall rule for mkdir — not reliably caught by
-                # -p wa over NFS since the RPC doesn't map to a write on the
-                # parent directory in the audit framework.
-                f"auditctl -a always,exit -F arch=b64 -S mkdir,mkdirat "
-                f"-F dir={remote_quoted} -k {audit_key_quoted}"
-            )
-            exit_code, _, stderr = await run_ssh(
-                self.ssh_key_path,
-                hostname,
-                audit_setup_cmd,
-                timeout=120,
-            )
-            if exit_code != 0:
-                logger.warning("Filesystem audit setup failed on agent VM: %s", stderr.strip())
-            else:
-                logger.info(
-                    "Filesystem audit enabled on agent VM for %s (key=%s)",
-                    remote,
-                    audit_key,
-                )
-        except Exception:
-            logger.warning("Failed to set up filesystem audit on agent VM", exc_info=True)
 
     async def collect_audit_log(
         self,
@@ -635,28 +606,12 @@ class SSHFSTransport(Transport):
         """Mount the world VM's workspace on an agent VM via SSHFS."""
         await self._setup_workspace_path(self.path)
 
-        # Install sshfs on agent VM
-        await run_ssh(
-            self.ssh_key_path,
-            hostname,
-            "which sshfs > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq sshfs)",
-            timeout=180,
-        )
-
         remote = self.agent_mount_path
+        remote_quoted = shlex.quote(remote)
+        agent_key_path = "/root/.ssh/world_key"
 
         # Copy the SSH private key to the agent VM so it can authenticate
         # back to the world VM for the SSHFS mount.
-        # Security note: agents already run as root and the session SSH key is
-        # added to all VMs via add_ssh_key() — this doesn't grant new access.
-        agent_key_path = "/root/.ssh/world_key"
-        await run_ssh(
-            self.ssh_key_path,
-            hostname,
-            "mkdir -p /root/.ssh && chmod 700 /root/.ssh",
-            timeout=10,
-        )
-        # Use rsync to copy the key (run_ssh can't pipe file content easily)
         ssh_cmd = (
             f"ssh -i {self.ssh_key_path} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
         )
@@ -672,74 +627,63 @@ class SSHFSTransport(Transport):
         _, rsync_err = await proc.communicate()
         if proc.returncode != 0:
             raise RuntimeError(f"Failed to copy SSH key to agent VM: {rsync_err.decode()}")
-        await run_ssh(
-            self.ssh_key_path,
-            hostname,
-            f"chmod 600 {agent_key_path}",
-            timeout=10,
-        )
 
-        sshfs_cmd = (
-            f"mkdir -p {remote} && "
-            f"sshfs -o allow_other,default_permissions,"
-            f"reconnect,"
-            f"ServerAliveInterval=15,ServerAliveCountMax=3,"
-            f"cache=yes,cache_timeout=5,"
-            f"IdentityFile={agent_key_path},"
-            f"StrictHostKeyChecking=no,UserKnownHostsFile=/dev/null,LogLevel=ERROR "
-            f"root@{self.world_vm_ip}:{self.path} {remote}"
-        )
-        logger.info("Mounting SSHFS on agent VM %s: %s", hostname, sshfs_cmd)
-        exit_code, _, stderr = await run_ssh(
+        # Single SSH call: install sshfs, chmod key, mkdir, mount, verify, and set up audit.
+        # Subshells for || patterns prevent them from swallowing earlier && failures.
+        parts = [
+            "(which sshfs > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq sshfs))",
+            "mkdir -p /root/.ssh && chmod 700 /root/.ssh",
+            f"chmod 600 {agent_key_path}",
+            f"mkdir -p {remote}",
+            (
+                f"sshfs -o allow_other,default_permissions,"
+                f"reconnect,"
+                f"ServerAliveInterval=15,ServerAliveCountMax=3,"
+                f"cache=yes,cache_timeout=5,"
+                f"IdentityFile={agent_key_path},"
+                f"StrictHostKeyChecking=no,UserKnownHostsFile=/dev/null,LogLevel=ERROR "
+                f"root@{self.world_vm_ip}:{self.path} {remote}"
+            ),
+            f"echo \"SSHFS_MOUNT_INFO=$(mount | grep '{remote}')\"",
+        ]
+
+        # Append audit setup if workspace is tracked
+        audit_key = self.audit_key
+        if self.workspace_tracked and audit_key:
+            audit_key_quoted = shlex.quote(audit_key)
+            parts.extend(
+                [
+                    "(which auditctl > /dev/null 2>&1 || "
+                    "(apt-get update -qq && apt-get install -y -qq auditd > /dev/null 2>&1))",
+                    "(service auditd start 2>/dev/null || true)",
+                    f"auditctl -a always,exit -F arch=b64 -F dir={remote_quoted} -F perm=rwa -k {audit_key_quoted}",
+                    f"auditctl -a always,exit -F arch=b64 -S mkdir,mkdirat "
+                    f"-F dir={remote_quoted} -k {audit_key_quoted}",
+                ]
+            )
+
+        combined_cmd = " && ".join(parts)
+        logger.info("Mounting SSHFS on agent VM %s: %s -> %s", hostname, self.world_vm_ip, remote)
+        exit_code, stdout, stderr = await run_ssh(
             self.ssh_key_path,
             hostname,
-            sshfs_cmd,
-            timeout=60,
+            combined_cmd,
+            timeout=180,
         )
         if exit_code != 0:
             raise RuntimeError(f"Failed to mount SSHFS on agent VM: {stderr}")
 
-        # Verify mount
-        _, mount_info, _ = await run_ssh(
-            self.ssh_key_path,
-            hostname,
-            f"mount | grep '{remote}'",
-            timeout=5,
-        )
-        logger.info("SSHFS mounted on %s: %s", hostname, mount_info.strip())
+        for line in stdout.splitlines():
+            if line.startswith("SSHFS_MOUNT_INFO="):
+                logger.info("SSHFS mounted on %s: %s", hostname, line[17:])
+                break
 
-        # Set up filesystem audit on agent VM (non-fatal)
-        audit_key = self.audit_key
-        if not self.workspace_tracked or not audit_key:
-            return
-        try:
-            remote_quoted = shlex.quote(remote)
-            audit_key_quoted = shlex.quote(audit_key)
-            audit_setup_cmd = (
-                "which auditctl > /dev/null 2>&1 || "
-                "(apt-get update -qq && apt-get install -y -qq auditd > /dev/null 2>&1) && "
-                "service auditd start 2>/dev/null; "
-                f"auditctl -a always,exit -F arch=b64 -F dir={remote_quoted} "
-                f"-F perm=rwa -k {audit_key_quoted}; "
-                f"auditctl -a always,exit -F arch=b64 -S mkdir,mkdirat "
-                f"-F dir={remote_quoted} -k {audit_key_quoted}"
+        if self.workspace_tracked and audit_key:
+            logger.info(
+                "Filesystem audit enabled on agent VM for %s (key=%s)",
+                remote,
+                audit_key,
             )
-            exit_code, _, stderr = await run_ssh(
-                self.ssh_key_path,
-                hostname,
-                audit_setup_cmd,
-                timeout=120,
-            )
-            if exit_code != 0:
-                logger.warning("Filesystem audit setup failed on agent VM: %s", stderr.strip())
-            else:
-                logger.info(
-                    "Filesystem audit enabled on agent VM for %s (key=%s)",
-                    remote,
-                    audit_key,
-                )
-        except Exception:
-            logger.warning("Failed to set up filesystem audit on agent VM", exc_info=True)
 
     async def collect_audit_log(
         self,

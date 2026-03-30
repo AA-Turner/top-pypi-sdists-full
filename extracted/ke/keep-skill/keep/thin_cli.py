@@ -8,14 +8,15 @@ import json
 import os
 import shutil
 import sys
+import http.client
 from pathlib import Path
 from typing import Annotated, Optional
 from urllib.parse import quote
 
 import typer
 
-from ._daemon_client import get_port as _daemon_get_port
-from ._daemon_client import http_request as _http
+from .daemon_client import get_port as _daemon_get_port
+from .daemon_client import http_request as _http
 from .const import DAEMON_PORT_FILE, DAEMON_TOKEN_FILE
 
 app = typer.Typer(
@@ -121,7 +122,7 @@ def _expand_stdin_tag_list(tags: list[str] | None) -> list[str] | None:
 
 
 def _get(port: int, path: str) -> dict:
-    status, body = _http("GET", port, path)
+    status, body = _daemon_request("GET", port, path)
     if status == 404:
         typer.echo(f"Not found", err=True)
         raise typer.Exit(1)
@@ -132,7 +133,7 @@ def _get(port: int, path: str) -> dict:
 
 
 def _post(port: int, path: str, body: dict) -> dict:
-    status, result = _http("POST", port, path, body)
+    status, result = _daemon_request("POST", port, path, body)
     if status != 200:
         typer.echo(f"Error: {result.get('error', 'unknown')}", err=True)
         raise typer.Exit(1)
@@ -140,7 +141,7 @@ def _post(port: int, path: str, body: dict) -> dict:
 
 
 def _patch(port: int, path: str, body: dict) -> dict:
-    status, result = _http("PATCH", port, path, body)
+    status, result = _daemon_request("PATCH", port, path, body)
     if status != 200:
         typer.echo(f"Error: {result.get('error', 'unknown')}", err=True)
         raise typer.Exit(1)
@@ -148,15 +149,67 @@ def _patch(port: int, path: str, body: dict) -> dict:
 
 
 def _delete(port: int, path: str) -> dict:
-    status, result = _http("DELETE", port, path)
+    status, result = _daemon_request("DELETE", port, path)
     if status != 200:
         typer.echo(f"Error: {result.get('error', 'unknown')}", err=True)
         raise typer.Exit(1)
     return result
 
 
+def _emit_context(data: dict, json_output: bool) -> None:
+    if _is_json(json_output):
+        typer.echo(json.dumps(data, indent=2))
+    else:
+        typer.echo(_render_context(data))
+
+
+def _show_now(port: int, json_output: bool) -> None:
+    data = _get(port, f"/v1/notes/{_q('now')}/context")
+    _emit_context(data, json_output)
+
+
+def _should_use_now_put_path(
+    source: str | None,
+    *,
+    id: str | None,
+    summary: str | None,
+    watch: bool,
+    unwatch: bool,
+    interval: str | None,
+    force: bool,
+) -> bool:
+    """True when `put` should behave exactly like `now`.
+
+    Only plain text/stdin writes should collapse into the now command. File,
+    URI, directory, watch, and force/update semantics remain normal put mode.
+    """
+    if id != "now" or summary is not None or watch or unwatch or interval or force:
+        return False
+    if source == "-" or source is None:
+        return True
+    if source.startswith(("file://", "http://", "https://")):
+        return False
+    path = Path(source)
+    return not path.exists()
+
+
+def _daemon_request(method: str, port: int, path: str, body: dict | None = None) -> tuple[int, dict]:
+    """Make one daemon request, retrying via fresh discovery on connection loss.
+
+    The daemon can exit between `_get_port()` and the first real request, leaving
+    a previously healthy port momentarily unreachable. Re-resolve once so thin
+    CLI commands recover from daemon restarts instead of surfacing a raw socket
+    error to the user.
+    """
+    try:
+        return _http(method, port, path, body)
+    except (ConnectionError, TimeoutError, http.client.RemoteDisconnected, OSError):
+        retry_port = _get_port()
+        return _http(method, retry_port, path, body)
+
+
 # ---------------------------------------------------------------------------
-# Daemon port resolution (delegates to _daemon_client)
+# Daemon port resolution (delegates to daemon_client)
 # ---------------------------------------------------------------------------
 
 def _get_port() -> int:
@@ -364,7 +417,7 @@ def _render_find(data: dict, port: int = 0) -> str:
         parts = []
         for n in notes:
             nid = n.get("id", "")
-            status, ctx = _http("GET", port, f"/v1/notes/{_q(nid)}/context")
+            status, ctx = _daemon_request("GET", port, f"/v1/notes/{_q(nid)}/context")
             if status == 200:
                 parts.append(_render_context(ctx))
         return "\n\n".join(parts) if parts else "No results."
@@ -456,11 +509,7 @@ def default(
     if ctx.invoked_subcommand is None:
         # No subcommand → show "now"
         port = _get_port()
-        data = _get(port, f"/v1/notes/{_q('now')}/context")
-        if _is_json(json_output):
-            typer.echo(json.dumps(data, indent=2))
-        else:
-            typer.echo(_render_context(data))
+        _show_now(port, json_output)
 
 
 @app.command()
@@ -530,6 +579,21 @@ def _get_one_item(
     tag: Optional[list[str]], json_output: bool,
 ) -> Optional[str]:
     """Fetch and render a single item. Returns formatted string or None on error."""
+    if (
+        item_id == "now"
+        and version is None
+        and limit == 10
+        and not similar
+        and not meta
+        and not parts
+        and not history
+        and not tag
+    ):
+        data = _get(port, f"/v1/notes/{_q('now')}/context")
+        if _is_json(json_output):
+            return json.dumps(data, indent=2)
+        return _render_context(data)
+
     # --similar: flat list via search endpoint
     if similar:
         data = _post(port, "/v1/search", {
@@ -554,7 +618,7 @@ def _get_one_item(
             qs_parts.append(f"version={version}")
         qs = "?" + "&".join(qs_parts)
 
-    status, data = _http("GET", port, f"/v1/notes/{_q(item_id)}/context{qs}")
+    status, data = _daemon_request("GET", port, f"/v1/notes/{_q(item_id)}/context{qs}")
     if status == 404:
         typer.echo(f"Not found: {item_id}", err=True)
         return None
@@ -687,7 +751,7 @@ def _put_directory(
     # Get ignore patterns from the store's .ignore doc (if any)
     ignore_patterns: list[str] = []
     try:
-        status, data = _http("GET", port, f"/v1/notes/{_q('.ignore')}")
+        status, data = _daemon_request("GET", port, f"/v1/notes/{_q('.ignore')}")
         if status == 200 and data.get("summary"):
             from .ignore import parse_ignore_patterns
             ignore_patterns = parse_ignore_patterns(data["summary"])
@@ -720,7 +784,7 @@ def _put_directory(
         rel = str(fpath.relative_to(resolved_path) if recurse else fpath.name)
         body: dict = {"uri": file_uri, "tags": parsed_tags or None, "force": force or None}
         try:
-            status, data = _http("POST", port, "/v1/notes", body)
+            status, data = _daemon_request("POST", port, "/v1/notes", body)
             if status == 200:
                 indexed += 1
                 if is_tty:
@@ -758,7 +822,7 @@ def _put_directory(
         elif unwatch:
             watch_body["unwatch"] = True
         try:
-            _http("POST", port, "/v1/notes", watch_body)
+            _daemon_request("POST", port, "/v1/notes", watch_body)
         except Exception:
             pass
 
@@ -826,6 +890,16 @@ def put(
         elif existing != v:
             parsed_tags[key] = [existing, v]
 
+    use_now_put_path = _should_use_now_put_path(
+        source,
+        id=id,
+        summary=summary,
+        watch=watch,
+        unwatch=unwatch,
+        interval=interval,
+        force=force,
+    )
+
     # Stdin mode
     if source == "-" or (source is None and _has_stdin_data()):
         try:
@@ -845,6 +919,10 @@ def put(
             content = body_text
         else:
             merged = parsed_tags
+        if use_now_put_path:
+            _post(port, "/v1/notes", {"content": content, "id": "now", "tags": merged or None})
+            _show_now(port, json_output)
+            return
         body: dict = {"content": content, "id": id, "tags": merged or None, "force": force or None}
         data = _post(port, "/v1/notes", body)
     elif source is None:
@@ -883,6 +961,11 @@ def put(
             typer.echo("Error: --summary cannot be used with inline text (original content would be lost)", err=True)
             typer.echo("Hint: write to a file first, then: keep put file:///path/to/file --summary '...'", err=True)
             raise typer.Exit(1)
+
+        if use_now_put_path and content is not None and uri is None:
+            _post(port, "/v1/notes", {"content": content, "id": "now", "tags": parsed_tags or None})
+            _show_now(port, json_output)
+            return
 
         body = {
             "content": content,
@@ -1047,11 +1130,7 @@ def now(
                 content = content[:cfg.max_inline_length]
         parsed_tags, _ = _parse_tag_args(tags)
         _post(port, "/v1/notes", {"content": content, "id": "now", "tags": parsed_tags or None})
-    data = _get(port, f"/v1/notes/{_q('now')}/context")
-    if _is_json(json_output):
-        typer.echo(json.dumps(data, indent=2))
-    else:
-        typer.echo(_render_context(data))
+    _show_now(port, json_output)
 
 
 @app.command("list")
@@ -1403,11 +1482,13 @@ def pending(
         import signal
         import time as _time
 
-        from ._daemon_client import resolve_store_path
+        from .daemon_client import resolve_store_path
         store_path = resolve_store_path(_global_store)
         pid_file = store_path / "processor.pid"
         if not pid_file.exists():
             typer.echo("No daemon running.")
+            (store_path / DAEMON_PORT_FILE).unlink(missing_ok=True)
+            (store_path / DAEMON_TOKEN_FILE).unlink(missing_ok=True)
             return
         try:
             pid = int(pid_file.read_text().strip())
@@ -1439,7 +1520,7 @@ def pending(
         return
 
     if list_items:
-        from ._daemon_client import get_port, resolve_store_path
+        from .daemon_client import get_port, resolve_store_path
         from .cli import print_pending_list_lightweight
         store_path = resolve_store_path(_global_store)
         print_pending_list_lightweight(store_path)
@@ -1447,7 +1528,7 @@ def pending(
         get_port(_global_store)
         return
 
-    from ._daemon_client import resolve_store_path
+    from .daemon_client import resolve_store_path
     from .api import Keeper
     kp = Keeper(store_path=resolve_store_path(_global_store))
 
@@ -1538,7 +1619,7 @@ def config(
         return
 
     if setup:
-        from ._daemon_client import resolve_store_path
+        from .daemon_client import resolve_store_path
         from .paths import get_config_dir
         from .setup_wizard import run_wizard
         store_path = resolve_store_path(_global_store)
@@ -1630,7 +1711,7 @@ def data_export(
     exclude_system: Annotated[bool, typer.Option("--exclude-system", help="Exclude system documents")] = False,
 ):
     """Export the store to JSON for backup or migration."""
-    from ._daemon_client import resolve_store_path
+    from .daemon_client import resolve_store_path
     from .api import Keeper
     kp = Keeper(store_path=resolve_store_path(_global_store))
     it = kp.export_iter(include_system=not exclude_system)
@@ -1690,7 +1771,7 @@ def data_import(
         ):
             raise SystemExit(0)
 
-    from ._daemon_client import resolve_store_path
+    from .daemon_client import resolve_store_path
     from .api import Keeper
     kp = Keeper(store_path=resolve_store_path(_global_store))
     stats = kp.import_data(data, mode=mode)

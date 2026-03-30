@@ -47,6 +47,7 @@ PyObject *FileModeEnum;
 PyObject *FileStatusEnum;
 PyObject *MergeAnalysisEnum;
 PyObject *MergePreferenceEnum;
+PyObject *ObjectTypeEnum;
 PyObject *ReferenceTypeEnum;
 
 extern PyTypeObject RepositoryType;
@@ -304,71 +305,52 @@ filter_register(PyObject *self, PyObject *args, PyObject *kwds)
     int priority = GIT_FILTER_DRIVER_PRIORITY;
     char *keywords[] = {"name", "filter_cls", "priority", NULL};
     pygit2_filter *filter;
-    PyObject *py_attrs;
-    PyObject *result = Py_None;
     int err;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "s#O|i", keywords,
                                      &name, &size, &py_filter_cls, &priority))
         return NULL;
 
-    py_attrs = PyObject_GetAttrString(py_filter_cls, "attributes");
-    if (py_attrs == NULL)
+    /* py_attrs = py_filter_cls.attributes */
+    PyObject* py_attrs = PyObject_GetAttrString(py_filter_cls, "attributes");
+    if (py_attrs == NULL) {
         return NULL;
+    }
+    char* attrs = pgit_strdup(py_attrs);
+    Py_DECREF(py_attrs);
+    if (attrs == NULL) {
+        return NULL;
+    }
 
+    /* allocate memory */
     filter = malloc(sizeof(pygit2_filter));
-    if (filter == NULL)
-    {
-        return PyExc_MemoryError;
+    if (filter == NULL) {
+        free(attrs);
+        return PyErr_NoMemory();
     }
     memset(filter, 0, sizeof(pygit2_filter));
-    git_filter_init(&filter->filter, GIT_FILTER_VERSION);
 
-    filter->filter.attributes = PyUnicode_AsUTF8(py_attrs);
+    /* initialize git_filter */
+    git_filter_init(&filter->filter, GIT_FILTER_VERSION);
+    filter->filter.attributes = attrs;
     filter->filter.shutdown = pygit2_filter_shutdown;
     filter->filter.check = pygit2_filter_check;
     filter->filter.stream = pygit2_filter_stream;
     filter->filter.cleanup = pygit2_filter_cleanup;
+
+    /* keep reference to Python filter */
     filter->py_filter_cls = py_filter_cls;
-    Py_INCREF(py_filter_cls);
 
-    if ((err = git_filter_register(name, &filter->filter, priority)) < 0)
-        goto error;
-
-    goto done;
-
-error:
-    Py_DECREF(py_filter_cls);
-    free(filter);
-done:
-    Py_DECREF(py_attrs);
-    return result;
-}
-
-PyDoc_STRVAR(filter_unregister__doc__,
-    "filter_unregister(name: str) -> None\n"
-    "\n"
-    "Unregister the given filter.\n"
-    "\n"
-    "Note that the filter registry is not thread safe. Any registering or\n"
-    "deregistering of filters should be done outside of any possible usage\n"
-    "of the filters.\n");
-
-PyObject *
-filter_unregister(PyObject *self, PyObject *args)
-{
-    const char *name;
-    Py_ssize_t size;
-    int err;
-
-    if (!PyArg_ParseTuple(args, "s#", &name, &size))
-        return NULL;
-    if ((err = git_filter_unregister(name)) < 0)
+    /* git register filter */
+    if ((err = git_filter_register(name, &filter->filter, priority)) < 0) {
+        free(attrs);
+        free(filter);
         return Error_set(err);
+    }
 
+    Py_INCREF(py_filter_cls);  /* libgit2 now owns this reference, will decref in shutdown */
     Py_RETURN_NONE;
 }
-
 
 static void
 forget_enums(void)
@@ -379,6 +361,7 @@ forget_enums(void)
     Py_CLEAR(FileStatusEnum);
     Py_CLEAR(MergeAnalysisEnum);
     Py_CLEAR(MergePreferenceEnum);
+    Py_CLEAR(ObjectTypeEnum);
     Py_CLEAR(ReferenceTypeEnum);
 }
 
@@ -414,6 +397,7 @@ _cache_enums(PyObject *self, PyObject *args)
     CACHE_PYGIT2_ENUM(FileStatus);
     CACHE_PYGIT2_ENUM(MergeAnalysis);
     CACHE_PYGIT2_ENUM(MergePreference);
+    CACHE_PYGIT2_ENUM(ObjectType);
     CACHE_PYGIT2_ENUM(ReferenceType);
 
 #undef CACHE_PYGIT2_ENUM
@@ -433,7 +417,7 @@ free_module(void *self)
 }
 
 
-PyMethodDef module_methods[] = {
+static PyMethodDef module_methods[] = {
     {"discover_repository", discover_repository, METH_VARARGS, discover_repository__doc__},
     {"hash", hash, METH_VARARGS, hash__doc__},
     {"hashfile", hashfile, METH_VARARGS, hashfile__doc__},
@@ -441,7 +425,6 @@ PyMethodDef module_methods[] = {
     {"reference_is_valid_name", reference_is_valid_name, METH_O, reference_is_valid_name__doc__},
     {"tree_entry_cmp", tree_entry_cmp, METH_VARARGS, tree_entry_cmp__doc__},
     {"filter_register", (PyCFunction)filter_register, METH_VARARGS | METH_KEYWORDS, filter_register__doc__},
-    {"filter_unregister", filter_unregister, METH_VARARGS, filter_unregister__doc__},
     {"_cache_enums", _cache_enums, METH_NOARGS, _cache_enums__doc__},
     {NULL}
 };

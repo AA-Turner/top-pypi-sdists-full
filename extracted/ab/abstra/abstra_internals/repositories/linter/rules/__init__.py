@@ -22,8 +22,7 @@ from .new_version_of_abstra_available import NewVersionOfAbstraAvailable
 from .psycopg2 import Psycopg2MustBeBinary
 from .send_task_without_transition import SendTaskWithoutTransition
 from .syntax_errors import SyntaxErrors
-
-# from .type_checking import TypeCheckingRule
+from .type_checking import TypeCheckingRule
 from .venv_in_bundle import VenvInBundle
 
 core_rules: List[LinterRule] = [
@@ -46,7 +45,7 @@ core_rules: List[LinterRule] = [
     MissingTaskSchemaForAgentTarget(),
     SendTaskWithoutTransition(),
     MissingRenderInPage(),
-    # TypeCheckingRule(),
+    TypeCheckingRule(),
 ]
 
 conditional_rules: List[LinterRule] = []

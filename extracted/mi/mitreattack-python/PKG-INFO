@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: mitreattack-python
-Version: 5.4.3
+Version: 5.4.4
 Summary: MITRE ATT&CK python library
 Author: MITRE ATT&CK
 Author-email: MITRE ATT&CK <attack@mitre.org>
@@ -42,9 +42,9 @@ Requires-Dist: ruff>=0.14.2 ; extra == 'dev'
 Requires-Dist: sphinx>=8.2.3 ; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme>=3.0.2 ; extra == 'docs'
 Requires-Python: >=3.11, <4.0
-Project-URL: documentation, https://mitreattack-python.readthedocs.io/
 Project-URL: homepage, https://github.com/mitre-attack/mitreattack-python/
 Project-URL: repository, https://github.com/mitre-attack/mitreattack-python/
+Project-URL: documentation, https://mitreattack-python.readthedocs.io/
 Provides-Extra: ci
 Provides-Extra: dev
 Provides-Extra: docs

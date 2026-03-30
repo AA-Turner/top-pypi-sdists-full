@@ -25,17 +25,6 @@ from traceml.artifacts.enums import V1ArtifactKind
 from traceml.logger import logger
 
 
-class SearchView(str, PEnum):
-    ANY = "any"
-    RUNS = "runs"
-    SELECTION = "selection"
-    ANALYTICS = "analytics"
-    COMPONENTS = "components"
-    MODELS = "models"
-    ARTIFACTS = "artifacts"
-    PROJECTS = "projects"
-
-
 class V1EventSpanKind(str, PEnum):
     LLM = "llm"
     CHAIN = "chain"

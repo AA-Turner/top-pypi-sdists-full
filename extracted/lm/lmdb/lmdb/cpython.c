@@ -1940,6 +1940,122 @@ env_open_db(EnvObject *self, PyObject *args, PyObject *kwds)
 }
 
 /**
+ * Environment.dbs() -> list of bytes
+ */
+static PyObject *
+env_dbs(EnvObject *self, PyObject *args, PyObject *kwds)
+{
+    struct env_dbs {
+        TransObject *txn;
+    } arg = {NULL};
+
+    static const struct argspec argspec[] = {
+        {"txn", ARG_TRANS, OFFSET(env_dbs, txn)},
+    };
+
+    MDB_txn *txn;
+    MDB_cursor *cursor;
+    MDB_val key, data;
+    MDB_dbi dbi;
+    int rc;
+    int own_txn = 0;
+    PyObject *list;
+    char *name;
+
+    static PyObject *cache = NULL;
+    if(parse_args(self->valid, SPECSIZE(), argspec, &cache, args, kwds, &arg, NULL)) {
+        return NULL;
+    }
+
+    if(arg.txn) {
+        txn = arg.txn->txn;
+    } else {
+        if(self->spare_txn) {
+            txn = self->spare_txn;
+            self->spare_txn = NULL;
+            rc = mdb_txn_renew(txn);
+            if(rc) {
+                mdb_txn_abort(txn);
+                return err_set("mdb_txn_renew", rc);
+            }
+        } else {
+            rc = mdb_txn_begin(self->env, NULL, MDB_RDONLY, &txn);
+            if(rc) {
+                return err_set("mdb_txn_begin", rc);
+            }
+        }
+        own_txn = 1;
+    }
+
+    rc = mdb_cursor_open(txn, self->main_db->dbi, &cursor);
+    if(rc) {
+        if(own_txn) {
+            mdb_txn_reset(txn);
+            self->spare_txn = txn;
+        }
+        return err_set("mdb_cursor_open", rc);
+    }
+
+    list = PyList_New(0);
+    if(! list) {
+        mdb_cursor_close(cursor);
+        if(own_txn) {
+            mdb_txn_reset(txn);
+            self->spare_txn = txn;
+        }
+        return NULL;
+    }
+
+    while((rc = mdb_cursor_get(cursor, &key, &data, MDB_NEXT)) == 0) {
+        name = malloc(key.mv_size + 1);
+        if(! name) {
+            Py_DECREF(list);
+            mdb_cursor_close(cursor);
+            if(own_txn) {
+                mdb_txn_reset(txn);
+                self->spare_txn = txn;
+            }
+            return PyErr_NoMemory();
+        }
+        memcpy(name, key.mv_data, key.mv_size);
+        name[key.mv_size] = '\0';
+
+        rc = mdb_dbi_open(txn, name, 0, &dbi);
+        free(name);
+
+        if(rc == 0) {
+            PyObject *keyobj = PyBytes_FromStringAndSize(key.mv_data,
+                                                         key.mv_size);
+            if(! keyobj || PyList_Append(list, keyobj)) {
+                Py_XDECREF(keyobj);
+                Py_DECREF(list);
+                mdb_cursor_close(cursor);
+                if(own_txn) {
+                    mdb_txn_reset(txn);
+                    self->spare_txn = txn;
+                }
+                return NULL;
+            }
+            Py_DECREF(keyobj);
+        }
+        /* MDB_INCOMPATIBLE means it's a regular key, not a DB. Skip it. */
+    }
+
+    mdb_cursor_close(cursor);
+    if(own_txn) {
+        mdb_txn_reset(txn);
+        self->spare_txn = txn;
+    }
+
+    if(rc != MDB_NOTFOUND) {
+        Py_DECREF(list);
+        return err_set("mdb_cursor_get", rc);
+    }
+
+    return list;
+}
+
+/**
  * Environment.path() -> Unicode
  */
 static PyObject *
@@ -2065,6 +2181,7 @@ env_reader_set_mapsize(EnvObject *self, PyObject *args, PyObject *kwargs)
         {"map_size", ARG_SIZE, OFFSET(env_set_mapsize, map_size)}
     };
     int rc;
+    MDB_txn *txn;
 
     static PyObject *cache = NULL;
     if(parse_args(self->valid, SPECSIZE(), argspec, &cache,
@@ -2072,10 +2189,60 @@ env_reader_set_mapsize(EnvObject *self, PyObject *args, PyObject *kwargs)
         return NULL;
     }
 
+    /* Reject if a write transaction is active — mdb_env_set_mapsize would
+     * return EINVAL anyway, but we must also avoid invalidating a write txn
+     * that the caller still holds. */
+    if(self->write_txn_tid) {
+        PyErr_Format(Error,
+            "Cannot set_mapsize while a write transaction is active");
+        return NULL;
+    }
+
+    /* Phase 1: quickly mark all children invalid so no new LMDB operations
+     * can start on existing transactions/cursors.  The env itself stays
+     * valid (we do NOT set self->valid = 0). */
+    INVALIDATE_MARK(self)
+
+    /* Wait for in-flight LMDB operations to complete.  Same pattern as
+     * env_clear — see issue #180. */
+    if(self->active_ops > 0) {
+        self->active_ops_waiter = 1;
+        Py_BEGIN_ALLOW_THREADS
+        PyThread_acquire_lock(self->active_ops_lock, WAIT_LOCK);
+        Py_END_ALLOW_THREADS
+        PyThread_acquire_lock(self->active_ops_lock, NOWAIT_LOCK);
+    }
+
+    /* Phase 2: abort all child transactions and close cursors.  This must
+     * happen while the old mmap is still valid so mdb_txn_abort can
+     * safely touch the pages it needs to. */
+    INVALIDATE(self)
+    Py_CLEAR(self->main_db);
+
+    /* Abort the spare read-only transaction — it holds references to the
+     * old memory map. */
+    txn = self->spare_txn;
+    if(txn) {
+        self->spare_txn = NULL;
+        mdb_txn_abort(txn);
+    }
+
+    /* Now safe to remap. */
     rc = mdb_env_set_mapsize(self->env, arg.map_size);
     if(rc) {
+        /* Remap failed — env is in an unusable state.  Mark it invalid
+         * so subsequent operations raise a clear error. */
+        self->valid = 0;
         return err_set("mdb_env_set_mapsize", rc);
     }
+
+    /* Re-create the main database handle for the new mapping. */
+    self->main_db = txn_db_from_name(self, NULL, 0);
+    if(! self->main_db) {
+        self->valid = 0;
+        return NULL;
+    }
+
     Py_RETURN_NONE;
 }
 
@@ -2130,6 +2297,7 @@ static struct PyMethodDef env_methods[] = {
     {"begin", (PyCFunction)env_begin, METH_VARARGS|METH_KEYWORDS},
     {"close", (PyCFunction)env_close, METH_NOARGS},
     {"copy", (PyCFunction)env_copy, METH_VARARGS|METH_KEYWORDS},
+    {"dbs", (PyCFunction)env_dbs, METH_VARARGS|METH_KEYWORDS},
     {"copyfd", (PyCFunction)env_copyfd, METH_VARARGS|METH_KEYWORDS},
     {"info", (PyCFunction)env_info, METH_NOARGS},
     {"flags", (PyCFunction)env_flags, METH_NOARGS},
@@ -2387,7 +2555,8 @@ cursor_get_multi(CursorObject *self, PyObject *args, PyObject *kwds)
         int dupdata;
         size_t dupfixed_bytes;
         int keyfixed;
-    } arg = {Py_None, 0, 0, 0};
+        int values;
+    } arg = {Py_None, 0, 0, 0, 1};
 
     int i, as_buffer;
     PyObject *iter, *item, *tup, *key, *val;
@@ -2399,7 +2568,8 @@ cursor_get_multi(CursorObject *self, PyObject *args, PyObject *kwds)
         {"keys", ARG_OBJ, OFFSET(cursor_get, keys)},
         {"dupdata", ARG_BOOL, OFFSET(cursor_get, dupdata)},
         {"dupfixed_bytes", ARG_SIZE, OFFSET(cursor_get, dupfixed_bytes)},
-        {"keyfixed", ARG_BOOL, OFFSET(cursor_get, keyfixed)}
+        {"keyfixed", ARG_BOOL, OFFSET(cursor_get, keyfixed)},
+        {"values", ARG_BOOL, OFFSET(cursor_get, values)}
     };
 
     size_t buffer_pos = 0, buffer_size = 8;
@@ -2417,6 +2587,8 @@ cursor_get_multi(CursorObject *self, PyObject *args, PyObject *kwds)
         return type_error("dupdata is required for dupfixed_bytes/keyfixed.");
     }else if (arg.keyfixed && !arg.dupfixed_bytes){
         return type_error("dupfixed_bytes is required for keyfixed.");
+    }else if (!arg.values && arg.dupdata) {
+        return type_error("values=False is incompatible with dupdata.");
     }
 
     if(! ((iter = PyObject_GetIter(arg.keys)))) {
@@ -2454,6 +2626,21 @@ cursor_get_multi(CursorObject *self, PyObject *args, PyObject *kwds)
             goto failiter;
         }
         bufviewlist_release(&bvl);
+
+        if(!arg.values) {
+            /* values=False: append key only if it was found. */
+            if(self->positioned) {
+                key = obj_from_val(&self->key, as_buffer);
+                if(key) {
+                    PyList_Append(pylist, key);
+                    Py_DECREF(key);
+                } else {
+                    goto failiter;
+                }
+            }
+            Py_DECREF(item);
+            continue;
+        }
 
         done = false;
         while (!done) {

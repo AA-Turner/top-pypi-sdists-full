@@ -77,15 +77,28 @@ def get_editor_bp(controller: MainController):
         if not page:
             flask.abort(404)
 
-        user_jwt = flask.request.cookies.get("editor_auth")
+        # Try Authorization header first (from page function calls via meta tag),
+        # fall back to editor_auth cookie (from initial page load)
+        auth_header = flask.request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            user_jwt = auth_header[7:]
+        else:
+            user_jwt = flask.request.cookies.get("editor_auth")
+        page_execution_id = flask.request.headers.get("X-Page-Execution-Id")
         result = controller.run_page_stage(
-            id, extract_flask_request(flask.request), user_jwt=user_jwt
+            id,
+            extract_flask_request(flask.request),
+            user_jwt=user_jwt,
+            page_execution_id=page_execution_id,
         )
 
-        return flask.Response(
+        resp = flask.Response(
             status=result["status"],
             response=result["body"],
             headers=result["headers"],
         )
+        if result.get("executionId"):
+            resp.headers["X-Execution-Id"] = result["executionId"]
+        return resp
 
     return bp

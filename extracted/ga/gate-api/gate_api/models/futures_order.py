@@ -61,8 +61,6 @@ class FuturesOrder(object):
         'stp_act': 'str',
         'amend_text': 'str',
         'pid': 'int',
-        'order_value': 'str',
-        'trade_value': 'str',
         'market_order_slip_ratio': 'str',
         'pos_margin_mode': 'str'
     }
@@ -96,14 +94,12 @@ class FuturesOrder(object):
         'stp_act': 'stp_act',
         'amend_text': 'amend_text',
         'pid': 'pid',
-        'order_value': 'order_value',
-        'trade_value': 'trade_value',
         'market_order_slip_ratio': 'market_order_slip_ratio',
         'pos_margin_mode': 'pos_margin_mode'
     }
 
-    def __init__(self, id=None, user=None, create_time=None, update_time=None, finish_time=None, finish_as=None, status=None, contract=None, size=None, iceberg=None, price=None, close=False, is_close=None, reduce_only=False, is_reduce_only=None, is_liq=None, tif='gtc', left=None, fill_price=None, text=None, tkfr=None, mkfr=None, refu=None, auto_size=None, stp_id=None, stp_act=None, amend_text=None, pid=None, order_value=None, trade_value=None, market_order_slip_ratio=None, pos_margin_mode=None, local_vars_configuration=None):  # noqa: E501
-        # type: (int, int, float, float, float, str, str, str, str, str, str, bool, bool, bool, bool, bool, str, str, str, str, str, str, int, str, int, str, str, int, str, str, str, str, Configuration) -> None
+    def __init__(self, id=None, user=None, create_time=None, update_time=None, finish_time=None, finish_as=None, status=None, contract=None, size=None, iceberg=None, price=None, close=False, is_close=None, reduce_only=False, is_reduce_only=None, is_liq=None, tif='gtc', left=None, fill_price=None, text=None, tkfr=None, mkfr=None, refu=None, auto_size=None, stp_id=None, stp_act=None, amend_text=None, pid=None, market_order_slip_ratio=None, pos_margin_mode=None, local_vars_configuration=None):  # noqa: E501
+        # type: (int, int, float, float, float, str, str, str, str, str, str, bool, bool, bool, bool, bool, str, str, str, str, str, str, int, str, int, str, str, int, str, str, Configuration) -> None
         """FuturesOrder - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -137,8 +133,6 @@ class FuturesOrder(object):
         self._stp_act = None
         self._amend_text = None
         self._pid = None
-        self._order_value = None
-        self._trade_value = None
         self._market_order_slip_ratio = None
         self._pos_margin_mode = None
         self.discriminator = None
@@ -196,10 +190,6 @@ class FuturesOrder(object):
             self.amend_text = amend_text
         if pid is not None:
             self.pid = pid
-        if order_value is not None:
-            self.order_value = order_value
-        if trade_value is not None:
-            self.trade_value = trade_value
         if market_order_slip_ratio is not None:
             self.market_order_slip_ratio = market_order_slip_ratio
         if pos_margin_mode is not None:
@@ -884,52 +874,6 @@ class FuturesOrder(object):
         """
 
         self._pid = pid
-
-    @property
-    def order_value(self):
-        """Gets the order_value of this FuturesOrder.  # noqa: E501
-
-        order's value  # noqa: E501
-
-        :return: The order_value of this FuturesOrder.  # noqa: E501
-        :rtype: str
-        """
-        return self._order_value
-
-    @order_value.setter
-    def order_value(self, order_value):
-        """Sets the order_value of this FuturesOrder.
-
-        order's value  # noqa: E501
-
-        :param order_value: The order_value of this FuturesOrder.  # noqa: E501
-        :type: str
-        """
-
-        self._order_value = order_value
-
-    @property
-    def trade_value(self):
-        """Gets the trade_value of this FuturesOrder.  # noqa: E501
-
-        trade value  # noqa: E501
-
-        :return: The trade_value of this FuturesOrder.  # noqa: E501
-        :rtype: str
-        """
-        return self._trade_value
-
-    @trade_value.setter
-    def trade_value(self, trade_value):
-        """Sets the trade_value of this FuturesOrder.
-
-        trade value  # noqa: E501
-
-        :param trade_value: The trade_value of this FuturesOrder.  # noqa: E501
-        :type: str
-        """
-
-        self._trade_value = trade_value
 
     @property
     def market_order_slip_ratio(self):

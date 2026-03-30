@@ -834,29 +834,95 @@ class Environment(object):
     _dbs = None
 
     def set_mapsize(self, map_size):
-        """Change the maximum size of the map file. This function will fail if
-        any transactions are active in the current process.
+        """Change the maximum size of the map file.
+
+        All open transactions, cursors, and iterators on this environment are
+        invalidated, and the memory map is replaced.  A write transaction must
+        not be active.
 
         `map_size`:
             The new size in bytes.
 
         Equivalent to `mdb_env_set_mapsize()
         <http://lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>`_
-
-        Warning:
-        There's a data race in the underlying library that may cause
-        catastrophic loss of data if you use this method.
-
-        You are safe if one of the following are true:
-            * Only one process accessing a particular LMDB file ever calls
-              this method.
-
-            * You use locking external to this library to ensure that only one
-              process accessing the current LMDB file can be inside this function.
         """
-        rc = _lib.mdb_env_set_mapsize(self._env, map_size)
-        if rc:
-            raise _error("mdb_env_set_mapsize", rc)
+        # Pre-open path: env created but not yet opened (called from __init__
+        # before mdb_env_open).  No mmap exists yet, just set the size.
+        if self._dbs is None:
+            rc = _lib.mdb_env_set_mapsize(self._env, map_size)
+            if rc:
+                raise _error("mdb_env_set_mapsize", rc)
+            return
+
+        if self._env is _invalid:
+            raise Error("environment is closed")
+
+        if self._write_txn_tid:
+            raise Error("Cannot set_mapsize while a write transaction is active")
+
+        with self._close_lock:
+            if self._env is _invalid:
+                raise Error("environment is closed")
+
+            # Phase 1: invalidate all child handles (txns, cursors).
+            # Mirrors close()'s Phase 1 but leaves _env valid.
+            txn_handles = []
+            if self._deps:
+                for dep in self._deps:
+                    if hasattr(dep, '_deps') and dep._deps:
+                        for child in dep._deps:
+                            if hasattr(child, '_cur'):
+                                child._cur = _invalid
+                                child._dbi = _invalid
+                                child._txn = _invalid
+                    if hasattr(dep, '_txn') and dep._txn:
+                        txn_handles.append(dep._txn)
+                        dep._txn = _invalid
+                    dep._env = _invalid
+                    if hasattr(dep, '_dbi'):
+                        dep._dbi = _invalid
+                for dep in list(self._deps):
+                    if hasattr(dep, '_deps') and dep._deps:
+                        dep._deps.clear()
+                self._deps.clear()
+
+            # Phase 2: abort collected txns.
+            for txn in txn_handles:
+                _lib.mdb_txn_abort(txn)
+
+            # Abort spare transactions.
+            if self._spare_txns:
+                while self._spare_txns:
+                    _lib.mdb_txn_abort(self._spare_txns.pop())
+
+            # Clear cached DB handles — they reference the old mapping.
+            if self._dbs:
+                self._dbs.clear()
+            self._db = None
+
+            # Now safe to remap.
+            rc = _lib.mdb_env_set_mapsize(self._env, map_size)
+            if rc:
+                # Remap failed — env is unusable.
+                self._env = _invalid
+                raise _error("mdb_env_set_mapsize", rc)
+
+            # Re-initialize deps tracking and re-open the main DB handle.
+            self._deps = set()
+            with self.begin(db=object()) as txn:
+                self._db = _Database(
+                    env=self,
+                    txn=txn,
+                    name=None,
+                    reverse_key=False,
+                    dupsort=False,
+                    create=True,
+                    integerkey=False,
+                    integerdup=False,
+                    dupfixed=False
+                )
+            self._dbs = {None: self._db}
+            self._spare_txns = []
 
     def close(self):
         """Close the environment, invalidating any open iterators, cursors, and
@@ -1298,6 +1364,40 @@ class Environment(object):
         self._dbs[key] = db
         return db
 
+    def dbs(self, txn=None):
+        """Return a list of named databases in the environment, as a list
+        of bytestrings.
+
+        This works by iterating the main database and attempting to open
+        each key as a named database.  It only returns reliable results
+        when the main database is not used to store regular key-value
+        pairs.
+
+            `txn`:
+                Read-only or read-write :py:class:`Transaction` to use.  If
+                ``None``, a temporary read-only transaction is created and
+                released automatically.
+        """
+        own_txn = txn is None
+        if own_txn:
+            txn = self.begin()
+        try:
+            result = []
+            cursor = txn.cursor()
+            try:
+                for key in cursor.iternext(keys=True, values=False):
+                    try:
+                        self.open_db(key, txn=txn, create=False)
+                        result.append(key)
+                    except Error:
+                        pass
+            finally:
+                cursor.close()
+            return result
+        finally:
+            if own_txn:
+                txn.abort()
+
     def begin(self, db=None, parent=None, write=False, buffers=False):
         """Shortcut for :py:class:`lmdb.Transaction`"""
         return Transaction(self, db, parent, write, buffers)
@@ -1403,8 +1503,8 @@ class Transaction(object):
             :py:class:`Environment` was opened with ``readonly=True``.
 
         `buffers`:
-            If ``True``, indicates :py:func:`buffer` objects should be yielded
-            instead of bytestrings. This setting applies to the
+            If ``True``, indicates :py:func:`memoryview` objects should be
+            yielded instead of bytestrings. This setting applies to the
             :py:class:`Transaction` instance itself and any :py:class:`Cursors
             <Cursor>` created within the transaction.
 
@@ -1530,12 +1630,15 @@ class Transaction(object):
         """
         return _lib.mdb_txn_id(self._txn)
 
-    def stat(self, db):
-        """stat(db)
+    def stat(self, db=None):
+        """stat(db=None)
 
         Return statistics like :py:meth:`Environment.stat`, except for a single
         DBI. `db` must be a database handle returned by :py:meth:`open_db`.
+        If `db` is ``None``, the transaction's default database is used.
         """
+        if db is None:
+            db = self._db
         st = _ffi.new('MDB_stat *')
         rc = _lib.mdb_stat(self._txn, db._dbi, st)
         if rc:
@@ -2252,7 +2355,8 @@ class Cursor(object):
             return self.value()
         return default
 
-    def getmulti(self, keys, dupdata=False, dupfixed_bytes=None, keyfixed=False):
+    def getmulti(self, keys, dupdata=False, dupfixed_bytes=None, keyfixed=False,
+                 values=True):
         """Returns an iterable of `(key, value)` 2-tuples containing results
         for each key in the iterable `keys`.
 
@@ -2283,6 +2387,12 @@ class Cursor(object):
                         cur.getmulti(keys, dupdata=True, dupfixed_bytes=val_bytes, keyfixed=True)
                     )
 
+            `values`:
+                If ``False``, return a flat list of keys that exist in the
+                database instead of ``(key, value)`` tuples.  Value data is
+                never touched, avoiding page faults on large values.
+                Incompatible with ``dupdata=True``.
+
         """
         if dupfixed_bytes and dupfixed_bytes < 0:
             raise Error("dupfixed_bytes must be a positive integer.")
@@ -2290,6 +2400,8 @@ class Cursor(object):
             raise Error("dupdata is required for dupfixed_bytes/key_bytes.")
         elif keyfixed and not dupfixed_bytes:
             raise Error("dupfixed_bytes is required for key_bytes.")
+        elif not values and dupdata:
+            raise Error("values=False is incompatible with dupdata.")
 
         if dupfixed_bytes:
             get_op = _lib.MDB_GET_MULTIPLE
@@ -2302,6 +2414,9 @@ class Cursor(object):
         lst = list()
         for key in keys:
             if self.set_key(key):
+                if not values:
+                    lst.append(self._to_py(self._key))
+                    continue
                 while self._valid:
                     self._cursor_get(get_op)
                     preload(self._val)

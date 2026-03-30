@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 
 from plato.chronos.errors import raise_for_status
-from plato.chronos.models import FoldersListResponse
+from plato.chronos.models import ChronosApiExperimentsFoldersListResponse
 
 
 def _build_request_args(
@@ -30,7 +30,7 @@ def _build_request_args(
 def sync(
     client: httpx.Client,
     x_api_key: str | None = None,
-) -> FoldersListResponse:
+) -> ChronosApiExperimentsFoldersListResponse:
     """List distinct folder names for the current org."""
 
     request_args = _build_request_args(
@@ -39,13 +39,13 @@ def sync(
 
     response = client.request(**request_args)
     raise_for_status(response)
-    return FoldersListResponse.model_validate(response.json())
+    return ChronosApiExperimentsFoldersListResponse.model_validate(response.json())
 
 
 async def asyncio(
     client: httpx.AsyncClient,
     x_api_key: str | None = None,
-) -> FoldersListResponse:
+) -> ChronosApiExperimentsFoldersListResponse:
     """List distinct folder names for the current org."""
 
     request_args = _build_request_args(
@@ -54,4 +54,4 @@ async def asyncio(
 
     response = await client.request(**request_args)
     raise_for_status(response)
-    return FoldersListResponse.model_validate(response.json())
+    return ChronosApiExperimentsFoldersListResponse.model_validate(response.json())

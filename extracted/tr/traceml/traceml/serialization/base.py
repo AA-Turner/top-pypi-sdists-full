@@ -105,7 +105,7 @@ class EventWriter(BaseWriter):
     def flush(self):
         for file_name in self._files:
             events_spec = self._files[file_name]
-            if events_spec.events:
+            if events_spec and events_spec.events:
                 self._append_events(events_spec)
             self._files[file_name].empty_events()
 
@@ -148,7 +148,7 @@ class LogWriter(BaseWriter):
 
     def flush(self):
         events_spec = self._file
-        if events_spec.logs:
+        if events_spec and events_spec.logs:
             self._append_events(events_spec)
         self._file = V1Logs(logs=[])
 

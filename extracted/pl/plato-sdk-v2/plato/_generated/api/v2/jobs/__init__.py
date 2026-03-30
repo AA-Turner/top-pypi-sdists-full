@@ -1,6 +1,7 @@
 """API endpoints."""
 
 from . import (
+    add_ssh_key,
     checkpoint,
     close,
     connect_routing_info,
@@ -35,6 +36,7 @@ __all__ = [
     "heartbeat",
     "fork",
     "execute",
+    "add_ssh_key",
     "set_date",
     "setup_sandbox",
     "snapshot",

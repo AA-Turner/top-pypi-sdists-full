@@ -18,13 +18,13 @@ from abstra_internals.server.routes import forms as forms_router
 from abstra_internals.server.routes import git as git_router
 from abstra_internals.server.routes import hooks as hooks_router
 from abstra_internals.server.routes import jobs as jobs_router
+from abstra_internals.server.routes import language_server as language_server_router
 from abstra_internals.server.routes import linters as linters_router
 from abstra_internals.server.routes import login as login_router
 from abstra_internals.server.routes import logs as logs_router
 from abstra_internals.server.routes import mcp as mcp_router
 from abstra_internals.server.routes import modules as modules_router
 from abstra_internals.server.routes import pages as pages_router
-from abstra_internals.server.routes import pysa as pysa_router
 from abstra_internals.server.routes import requirements as requirements_router
 from abstra_internals.server.routes import roles as roles_router
 from abstra_internals.server.routes import scripts as scripts_router
@@ -100,8 +100,8 @@ def _get_api_bp(controller: MainController):
     envvars_bp = envvars_router.get_editor_bp(controller)
     bp.register_blueprint(envvars_bp, url_prefix="/env-vars")
 
-    pysa_bp = pysa_router.get_editor_bp()
-    bp.register_blueprint(pysa_bp, url_prefix="/pysa")
+    language_server_bp = language_server_router.get_editor_bp()
+    bp.register_blueprint(language_server_bp, url_prefix="/language-server")
 
     roles_bp = roles_router.get_editor_bp(controller)
     bp.register_blueprint(roles_bp, url_prefix="/roles")

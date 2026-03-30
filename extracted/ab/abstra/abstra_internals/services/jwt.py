@@ -18,6 +18,16 @@ def decode_jwt(jwt_str: str, aud=PROJECT_ID, skip_verify: bool = False):
             return jwt.decode(
                 jwt_str, key=PUBLIC_KEY, algorithms=["RS256"], audience=aud
             )
+        if skip_verify:
+            # Explicitly requested: skip audience validation too — editor JWTs
+            # have a different audience (web-editor-{PROJECT_ID}) than user JWTs
+            # (PROJECT_ID), and both should work for get_user() in development.
+            return jwt.decode(
+                jwt_str,
+                options={"verify_signature": False, "verify_aud": False},
+            )
+        # PUBLIC_KEY is not set but skip_verify was not requested — still
+        # validate audience (used by _guard() to ensure correct JWT type).
         return jwt.decode(jwt_str, options={"verify_signature": False}, audience=aud)
 
     except jwt.ExpiredSignatureError:

@@ -58,7 +58,7 @@ def run_python_module(module_name, args=None) -> CodeCheckResult:
 
 
 def code_check_all() -> CodeCheckResult:
-    return run_python_module("ty", ["check", "--python", sys.executable])
+    return run_python_module("pyrefly", ["check"])
 
 
 def code_check(file_path: Path) -> CodeCheckResult:
@@ -70,6 +70,4 @@ def code_check(file_path: Path) -> CodeCheckResult:
             return_code=1,
         )
 
-    return run_python_module(
-        "ty", ["check", str(file_path), "--python", sys.executable]
-    )
+    return run_python_module("pyrefly", ["check", str(file_path)])

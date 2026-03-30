@@ -4824,14 +4824,14 @@ min._chalk__method_chaining_predicate = (  # pyright: ignore[reportFunctionMembe
 
 def jinja(template: str):
     """
-    Runs a Jinja template on the input columns.
+    Renders a Jinja template using feature values as context.
     Supports a subset of Jinja features, specifically: variables and for loops.
-    Inputs to the jinja should appear as feature fqns in the template.
+    Feature FQNs referenced in the template are automatically resolved as context variables.
 
     Parameters
     ----------
     template
-        The Jinja template to run.
+        The Jinja template to render. Reference features by their fully-qualified name (e.g. ``User.id``).
 
     Examples
     --------
@@ -4845,6 +4845,34 @@ def jinja(template: str):
     ...    description: str = F.jinja("User {{User.id}}. Score: {{User.score}}. Transactions: {% for txn in User.transactions %}{{txn.description}},{% endfor %}")
     """
     return UnderscoreFunction("jinja", template=template)
+
+
+def minijinja(template: str, schema: str):
+    """
+    Renders a MiniJinja template using an explicit JSON context.
+    Supports a subset of Jinja features, specifically: variables and for loops.
+    Unlike :func:`jinja`, the context is provided explicitly as a JSON string rather than
+    being derived from feature FQNs in the template.
+
+    Parameters
+    ----------
+    template
+        The Jinja template to render.
+    schema
+        A JSON string providing the context variables available in the template.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    score: float
+    ...    context: str
+    ...    description: str = F.minijinja("User {{id}}. Score: {{score}}.", _.context)
+    """
+    return UnderscoreFunction("minijinja_render", template, schema)
 
 
 ########################################################################################################################
@@ -6285,6 +6313,7 @@ __all__ = (
     "max_by_n",
     "md5",
     "min",
+    "minijinja",
     "min_by",
     "min_by_n",
     "mod",

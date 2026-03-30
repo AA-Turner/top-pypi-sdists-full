@@ -360,11 +360,12 @@ async def test_setup_agent_mounts_correct_nfs_source(monkeypatch):
     )
     await t.setup_agent(None, "10.100.1.5")
 
-    mount_cmd = [c for c in ssh_cmds if "mount -t nfs" in c]
-    assert len(mount_cmd) == 1
-    # Should mount from full server path
-    assert "10.100.0.9:/workspace/recordings" in mount_cmd[0]
-    assert "/workspace/recordings" in mount_cmd[0]
+    # All commands are combined into a single SSH call
+    assert len(ssh_cmds) == 1
+    combined = ssh_cmds[0]
+    assert "mount -t nfs" in combined
+    assert "10.100.0.9:/workspace/recordings" in combined
+    assert "/workspace/recordings" in combined
 
 
 @pytest.mark.asyncio
@@ -385,31 +386,9 @@ async def test_setup_agent_mounts_full_path(monkeypatch):
     t = NFSTransport("/workspace", "10.100.0.9", Path("/tmp/key"))
     await t.setup_agent(None, "10.100.1.5")
 
-    mount_cmd = [c for c in ssh_cmds if "mount -t nfs" in c]
-    assert len(mount_cmd) == 1
-    assert "10.100.0.9:/workspace" in mount_cmd[0]
-
-
-@pytest.mark.asyncio
-async def test_setup_agent_installs_nfs_common(monkeypatch):
-    """setup_agent should install nfs-common on the agent if needed."""
-    ssh_cmds: list[str] = []
-
-    async def fake_run_local(command: str, timeout: int = 60):
-        return 0, "", ""
-
-    async def fake_run_ssh(key_path, hostname, command, timeout=60):
-        ssh_cmds.append(command)
-        return 0, "", ""
-
-    monkeypatch.setattr("plato.agents.runtime.transport.run_local", fake_run_local)
-    monkeypatch.setattr("plato.agents.runtime.transport.run_ssh", fake_run_ssh)
-
-    t = NFSTransport("/workspace", "10.100.0.9", Path("/tmp/key"))
-    await t.setup_agent(None, "10.100.1.5")
-
-    install_cmds = [c for c in ssh_cmds if "nfs-common" in c]
-    assert len(install_cmds) == 1
+    assert len(ssh_cmds) == 1
+    assert "mount -t nfs" in ssh_cmds[0]
+    assert "10.100.0.9:/workspace" in ssh_cmds[0]
 
 
 @pytest.mark.asyncio
@@ -436,9 +415,11 @@ async def test_setup_agent_enables_read_write_audit_for_tracked_workspaces(monke
     t.configure_audit_scope(audit_run_id="run-1", audit_key="plato_scope")
     await t.setup_agent(None, "10.100.1.5")
 
-    audit_cmds = [c for c in ssh_cmds if "auditctl -a always,exit" in c]
-    assert len(audit_cmds) == 1
-    assert "-F perm=rwa -k plato_scope" in audit_cmds[0]
+    # Mount + audit combined into single SSH call
+    assert len(ssh_cmds) == 1
+    combined = ssh_cmds[0]
+    assert "auditctl -a always,exit" in combined
+    assert "-F perm=rwa -k plato_scope" in combined
 
 
 @pytest.mark.asyncio

@@ -23,6 +23,7 @@ from poetry.core.constraints.version import Version
 from poetry.core.constraints.version import VersionConstraint
 from poetry.core.constraints.version import parse_constraint
 
+from poetry.utils._compat import is_relative_to
 from poetry.utils.env.python.exceptions import NoCompatiblePythonVersionFoundError
 from poetry.utils.env.python.providers import PoetryPythonPathProvider
 from poetry.utils.env.python.providers import ShutilWhichPythonProvider
@@ -84,10 +85,10 @@ class Python:
     @classmethod
     def find_all(cls) -> Iterator[Python]:
         venv_path: Path | None = (
-            Path(os.environ["VIRTUAL_ENV"]) if "VIRTUAL_ENV" in os.environ else None
+            Path(venv) if (venv := os.environ.get("VIRTUAL_ENV")) else None
         )
         for python in findpython.find_all():
-            if venv_path and python.executable.is_relative_to(venv_path):
+            if venv_path and is_relative_to(python.executable, venv_path):
                 continue
             yield cls(python=python)
 

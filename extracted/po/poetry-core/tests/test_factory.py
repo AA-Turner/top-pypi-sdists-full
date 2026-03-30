@@ -696,6 +696,19 @@ def test_create_poetry_classifiers(
     assert poetry.package.all_classifiers == expected
 
 
+def test_create_poetry_inline_readme_text(tmp_path: Path) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname="foo"\nversion="1"\ndescription = ""\n'
+        'readme = { text = "some text", content-type = "text/markdown" }\n',
+        encoding="utf-8",
+    )
+    poetry = Factory().create_poetry(tmp_path)
+
+    assert poetry.package.readme_content == "some text"
+    assert poetry.package.readme_content_type == "text/markdown"
+
+
 def test_create_poetry_no_readme(tmp_path: Path) -> None:
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -2044,3 +2057,52 @@ optional = {str(optional).lower()}
     assert len(poetry.package.all_requires) == 1
     assert poetry.package.has_dependency_group("dev")
     assert poetry.package.dependency_group("dev").is_optional() is optional
+
+
+def test_pep735_includes_not_overwritten_by_poetry_includes(
+    temporary_directory: Path,
+) -> None:
+    """PEP 735 include-group entries must not be lost when [tool.poetry.group]
+    also defines include-groups for the same group.
+
+    Setup:
+        [dependency-groups] dev includes testing (PEP 735)
+        [tool.poetry.group.dev] includes utils (poetry)
+        [dependency-groups] testing includes dev (PEP 735)
+    The poetry-side include (dev -> utils) must not erase the PEP 735 one.
+    """
+    content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[dependency-groups]
+dev = [
+    {include-group = "testing"},
+    "black",
+]
+testing = [
+    {include-group = "dev"},
+    "pytest",
+]
+utils = [
+    "mypy",
+]
+
+[tool.poetry.group.dev]
+include-groups = [
+    "utils",
+]
+"""
+
+    expected = """\
+The Poetry configuration is invalid:
+  - Cyclic dependency group include in dev: testing -> dev
+  - Cyclic dependency group include in testing: dev -> testing
+"""
+    assert_invalid_group_including(
+        toml_data=content,
+        expected_error=expected,
+        error_type=RuntimeError,
+        temporary_directory=temporary_directory,
+    )

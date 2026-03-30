@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sslyze
-Version: 6.3.0
+Version: 6.3.1
 Summary: Fast and powerful SSL/TLS scanning library.
 Home-page: https://github.com/nabla-c0d3/sslyze
 Author: Alban Diquet
@@ -28,9 +28,22 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: nassl<6,>=5.4
-Requires-Dist: cryptography<45,>=43
+Requires-Dist: cryptography<47,>=43
 Requires-Dist: tls-parser<3,>=2
 Requires-Dist: pydantic<3,>=2.3
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 SSLyze
 ======

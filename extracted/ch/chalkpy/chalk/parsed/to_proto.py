@@ -1479,6 +1479,14 @@ class ToProtoConverter:
             message_format=stream_message_format,
             header_filters=header_filters,
             resource_group=r.resource_group,
+            deduplication_strategy=(
+                pb.DeduplicationStrategy(
+                    underscore_expr=cls.convert_underscore(r.deduplication.on),
+                    window=timedelta_to_proto_duration(parse_chalk_duration(r.deduplication.within)),
+                )
+                if r.deduplication is not None
+                else None
+            ),
         )
 
     @staticmethod

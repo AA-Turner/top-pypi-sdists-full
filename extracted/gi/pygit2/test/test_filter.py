@@ -1,4 +1,5 @@
 import codecs
+import gc
 from collections.abc import Callable, Generator
 from io import BytesIO
 
@@ -6,7 +7,7 @@ import pytest
 
 import pygit2
 from pygit2 import Blob, Filter, FilterSource, Repository
-from pygit2.enums import BlobFilter
+from pygit2.enums import BlobFilter, FilterMode
 from pygit2.errors import Passthrough
 
 
@@ -56,32 +57,34 @@ class _UnmatchedFilter(_Rot13Filter):
     attributes = 'filter=rot13'
 
 
+def _filter_fixture(name: str, filter: type[Filter]) -> Generator[None, None, None]:
+    pygit2.filter_register(name, filter)
+    yield
+
+    # Collect any FilterLists that may use this filter before unregistering it
+    gc.collect()
+
+    pygit2.filter_unregister(name)
+
+
 @pytest.fixture
 def rot13_filter() -> Generator[None, None, None]:
-    pygit2.filter_register('rot13', _Rot13Filter)
-    yield
-    pygit2.filter_unregister('rot13')
+    yield from _filter_fixture('rot13', _Rot13Filter)
 
 
 @pytest.fixture
 def passthrough_filter() -> Generator[None, None, None]:
-    pygit2.filter_register('passthrough-rot13', _PassthroughFilter)
-    yield
-    pygit2.filter_unregister('passthrough-rot13')
+    yield from _filter_fixture('passthrough-rot13', _PassthroughFilter)
 
 
 @pytest.fixture
 def buffered_filter() -> Generator[None, None, None]:
-    pygit2.filter_register('buffered-rot13', _BufferedFilter)
-    yield
-    pygit2.filter_unregister('buffered-rot13')
+    yield from _filter_fixture('buffered-rot13', _BufferedFilter)
 
 
 @pytest.fixture
 def unmatched_filter() -> Generator[None, None, None]:
-    pygit2.filter_register('unmatched-rot13', _UnmatchedFilter)
-    yield
-    pygit2.filter_unregister('unmatched-rot13')
+    yield from _filter_fixture('unmatched-rot13', _UnmatchedFilter)
 
 
 def test_filter(testrepo: Repository, rot13_filter: Filter) -> None:
@@ -136,3 +139,94 @@ def test_filter_cleanup(dirtyrepo: Repository, rot13_filter: Filter) -> None:
     # Indirectly test that pygit2_filter_cleanup has the GIL
     # before calling pygit2_filter_payload_free.
     dirtyrepo.diff()
+
+
+def test_filterlist_none(testrepo: Repository) -> None:
+    fl = testrepo.load_filter_list('hello.txt')
+    assert fl is None
+
+
+def test_filterlist_apply_to_buffer_crlf_clean(testrepo: Repository) -> None:
+    testrepo.config['core.autocrlf'] = True
+
+    fl = testrepo.load_filter_list('whatever.txt', mode=FilterMode.CLEAN)
+    assert fl is not None
+    assert len(fl) == 1
+    assert 'crlf' in fl
+    assert 'bogus_filter_name' not in fl
+    with pytest.raises(TypeError):
+        1234 in fl  # type: ignore
+
+    filtered = fl.apply_to_buffer(b'hello\r\nworld\r\n')
+    assert filtered == b'hello\nworld\n'
+
+
+def test_filterlist_apply_to_buffer_crlf_smudge(testrepo: Repository) -> None:
+    testrepo.config['core.autocrlf'] = True
+
+    fl = testrepo.load_filter_list('whatever.txt', mode=FilterMode.SMUDGE)
+    assert fl is not None
+    assert len(fl) == 1
+    assert 'crlf' in fl
+
+    filtered = fl.apply_to_buffer(b'hello\nworld\n')
+    assert filtered == b'hello\r\nworld\r\n'
+
+
+def test_filterlist_dangerous_unregister(testrepo: Repository) -> None:
+    pygit2.filter_register('rot13', _Rot13Filter)
+
+    fl = testrepo.load_filter_list('hello.txt')
+    assert fl is not None
+    assert len(fl) == 1
+    assert 'rot13' in fl
+
+    # Unregistering a filter that's still in use in a FilterList is dangerous!
+    # Our built-in check (that raises RuntimeError) may avert a segfault.
+    with pytest.raises(RuntimeError):
+        pygit2.filter_unregister('rot13')
+
+    # Delete any FilterLists that use the filter, and only then is it safe
+    # to unregister the filter.
+    del fl
+    gc.collect()
+    pygit2.filter_unregister('rot13')
+
+
+def test_filterlist_apply_to_file(testrepo: Repository, rot13_filter: Filter) -> None:
+    fl = testrepo.load_filter_list('bye.txt')
+    assert fl is not None
+    assert len(fl) == 1
+    assert 'rot13' in fl
+
+    filtered = fl.apply_to_file(testrepo, 'bye.txt')
+    assert filtered == b'olr jbeyq\n'
+
+
+def test_filterlist_apply_to_blob(testrepo: Repository, rot13_filter: Filter) -> None:
+    fl = testrepo.load_filter_list('whatever.txt')
+    assert fl is not None
+    assert len(fl) == 1
+    assert 'rot13' in fl
+
+    blob_oid = testrepo.create_blob(b'bye world\n')
+    blob = testrepo[blob_oid]
+    assert isinstance(blob, Blob)
+
+    filtered = fl.apply_to_blob(blob)
+    assert filtered == b'olr jbeyq\n'
+
+
+def test_filterlist_apply_to_buffer_multiple(
+    testrepo: Repository, rot13_filter: Filter
+) -> None:
+    testrepo.config['core.autocrlf'] = True
+
+    fl = testrepo.load_filter_list('whatever.txt')
+    assert fl is not None
+    assert len(fl) == 2
+    assert 'crlf' in fl
+    assert 'rot13' in fl
+
+    filtered = fl.apply_to_buffer(b'bye\r\nworld\r\n')
+    assert filtered == b'olr\njbeyq\n'

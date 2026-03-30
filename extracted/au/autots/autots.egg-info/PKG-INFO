@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autots
-Version: 1.0.1
+Version: 1.0.2
 Summary: Automated Time Series Forecasting
 Home-page: https://github.com/winedarksea/AutoTS
 Author: Colin Catlin
@@ -8,6 +8,7 @@ Author-email: Colin Catlin <colin.catlin@gmail.com>
 License: MIT License
 Project-URL: Homepage, https://github.com/winedarksea/AutoTS
 Project-URL: Bug Tracker, https://github.com/winedarksea/AutoTS/issues
+Keywords: forecasting,time series,anomaly detection,automated machine learning,mcp
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent

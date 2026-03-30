@@ -900,6 +900,7 @@ impl<'a> Parser<'a> {
 
     fn parse_primary_expression(&mut self) -> Result<Expression> {
         match self.current.kind {
+            TokenKind::Case => self.parse_case_expression(),
             TokenKind::Null => {
                 self.advance();
                 Ok(Expression::Literal(Literal::Null))
@@ -1012,6 +1013,54 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // ==================== CASE Expression ====================
+
+    /// Parses a CASE expression (simple or searched).
+    ///
+    /// Simple:   `CASE expr WHEN val THEN result [ELSE default] END`
+    /// Searched: `CASE WHEN condition THEN result [ELSE default] END`
+    fn parse_case_expression(&mut self) -> Result<Expression> {
+        self.expect(TokenKind::Case)?;
+
+        // Determine simple vs searched CASE.
+        // If the next token is not WHEN, we have a simple CASE with an input expression.
+        let input = if self.current.kind != TokenKind::When {
+            Some(Box::new(self.parse_expression()?))
+        } else {
+            None
+        };
+
+        // Parse WHEN clauses
+        let mut whens = Vec::new();
+        while self.current.kind == TokenKind::When {
+            self.advance();
+            let condition = self.parse_expression()?;
+            self.expect(TokenKind::Then)?;
+            let result = self.parse_expression()?;
+            whens.push((condition, result));
+        }
+
+        if whens.is_empty() {
+            return Err(self.error("CASE requires at least one WHEN clause"));
+        }
+
+        // Parse optional ELSE
+        let else_clause = if self.current.kind == TokenKind::Else {
+            self.advance();
+            Some(Box::new(self.parse_expression()?))
+        } else {
+            None
+        };
+
+        self.expect(TokenKind::End)?;
+
+        Ok(Expression::Case {
+            input,
+            whens,
+            else_clause,
+        })
+    }
+
     // ==================== ORDER BY / LIMIT / OFFSET ====================
 
     fn parse_sort_items(&mut self) -> Result<Vec<SortItem>> {
@@ -1099,6 +1148,10 @@ impl<'a> Parser<'a> {
                 | TokenKind::References
                 | TokenKind::Call
                 | TokenKind::Yield
+                | TokenKind::When
+                | TokenKind::Then
+                | TokenKind::Else
+                | TokenKind::End
         )
     }
 
@@ -2021,5 +2074,191 @@ mod tests {
                 COLUMNS (n.name AS name)
             );;",
         );
+    }
+
+    // ==================== CASE Expression Tests ====================
+
+    #[test]
+    fn test_parse_case_searched() {
+        let s = select(parse_ok(
+            "SELECT * FROM GRAPH_TABLE (
+                MATCH (n:Person)
+                COLUMNS (
+                    CASE WHEN n.age > 30 THEN 'senior' ELSE 'junior' END AS category
+                )
+            )",
+        ));
+        let expr = &s.graph_table.columns.items[0].expression;
+        if let Expression::Case {
+            input,
+            whens,
+            else_clause,
+        } = expr
+        {
+            // Searched CASE has no input expression
+            assert!(input.is_none());
+            assert_eq!(whens.len(), 1);
+            // WHEN condition: n.age > 30
+            assert!(matches!(
+                &whens[0].0,
+                Expression::Binary {
+                    op: BinaryOp::Gt,
+                    ..
+                }
+            ));
+            // THEN result: 'senior'
+            assert!(matches!(
+                &whens[0].1,
+                Expression::Literal(Literal::String(s)) if s == "senior"
+            ));
+            // ELSE result: 'junior'
+            let else_expr = else_clause.as_ref().expect("should have ELSE clause");
+            assert!(matches!(
+                else_expr.as_ref(),
+                Expression::Literal(Literal::String(s)) if s == "junior"
+            ));
+        } else {
+            panic!("Expected Case expression, got {expr:?}");
+        }
+        assert_eq!(s.graph_table.columns.items[0].alias, "category");
+    }
+
+    #[test]
+    fn test_parse_case_simple() {
+        let s = select(parse_ok(
+            "SELECT * FROM GRAPH_TABLE (
+                MATCH (n:Person)
+                COLUMNS (
+                    CASE n.city WHEN 'Amsterdam' THEN 'NL' WHEN 'Berlin' THEN 'DE' END AS country
+                )
+            )",
+        ));
+        let expr = &s.graph_table.columns.items[0].expression;
+        if let Expression::Case {
+            input,
+            whens,
+            else_clause,
+        } = expr
+        {
+            // Simple CASE has an input expression
+            assert!(
+                input.is_some(),
+                "simple CASE should have an input expression"
+            );
+            // Two WHEN clauses
+            assert_eq!(whens.len(), 2);
+            // First WHEN: 'Amsterdam' -> 'NL'
+            assert!(matches!(
+                &whens[0].0,
+                Expression::Literal(Literal::String(s)) if s == "Amsterdam"
+            ));
+            assert!(matches!(
+                &whens[0].1,
+                Expression::Literal(Literal::String(s)) if s == "NL"
+            ));
+            // Second WHEN: 'Berlin' -> 'DE'
+            assert!(matches!(
+                &whens[1].0,
+                Expression::Literal(Literal::String(s)) if s == "Berlin"
+            ));
+            assert!(matches!(
+                &whens[1].1,
+                Expression::Literal(Literal::String(s)) if s == "DE"
+            ));
+            // No ELSE clause
+            assert!(else_clause.is_none());
+        } else {
+            panic!("Expected Case expression, got {expr:?}");
+        }
+        assert_eq!(s.graph_table.columns.items[0].alias, "country");
+    }
+
+    #[test]
+    fn test_parse_case_without_else() {
+        let s = select(parse_ok(
+            "SELECT * FROM GRAPH_TABLE (
+                MATCH (n:Person)
+                COLUMNS (
+                    CASE WHEN n.age > 0 THEN 'positive' END AS sign
+                )
+            )",
+        ));
+        let expr = &s.graph_table.columns.items[0].expression;
+        if let Expression::Case {
+            input,
+            whens,
+            else_clause,
+        } = expr
+        {
+            assert!(input.is_none(), "searched CASE should have no input");
+            assert_eq!(whens.len(), 1);
+            assert!(
+                else_clause.is_none(),
+                "CASE without ELSE should produce None"
+            );
+        } else {
+            panic!("Expected Case expression, got {expr:?}");
+        }
+    }
+
+    #[test]
+    fn test_parse_case_nested_in_select() {
+        let s = select(parse_ok(
+            "SELECT g.person_name, g.tier
+             FROM GRAPH_TABLE (
+                MATCH (n:Person)
+                COLUMNS (
+                    n.name AS person_name,
+                    CASE WHEN n.age >= 65 THEN 'retired'
+                         WHEN n.age >= 30 THEN 'senior'
+                         ELSE 'junior'
+                    END AS tier
+                )
+             ) AS g
+             WHERE g.tier = 'senior'
+             ORDER BY g.person_name
+             LIMIT 10",
+        ));
+        // Verify the full statement structure
+        if let SelectList::Columns(items) = &s.select_list {
+            assert_eq!(items.len(), 2);
+        } else {
+            panic!("Expected explicit SELECT columns");
+        }
+        assert_eq!(s.table_alias, Some("g".to_string()));
+        assert!(s.where_clause.is_some());
+        assert!(s.order_by.is_some());
+        assert_eq!(s.limit, Some(10));
+
+        // Verify the CASE expression in COLUMNS
+        let case_expr = &s.graph_table.columns.items[1].expression;
+        if let Expression::Case {
+            input,
+            whens,
+            else_clause,
+        } = case_expr
+        {
+            assert!(input.is_none());
+            assert_eq!(whens.len(), 2);
+            // First WHEN result: 'retired'
+            assert!(matches!(
+                &whens[0].1,
+                Expression::Literal(Literal::String(s)) if s == "retired"
+            ));
+            // Second WHEN result: 'senior'
+            assert!(matches!(
+                &whens[1].1,
+                Expression::Literal(Literal::String(s)) if s == "senior"
+            ));
+            // ELSE: 'junior'
+            let else_expr = else_clause.as_ref().expect("should have ELSE");
+            assert!(matches!(
+                else_expr.as_ref(),
+                Expression::Literal(Literal::String(s)) if s == "junior"
+            ));
+        } else {
+            panic!("Expected Case expression, got {case_expr:?}");
+        }
+        assert_eq!(s.graph_table.columns.items[1].alias, "tier");
     }
 }

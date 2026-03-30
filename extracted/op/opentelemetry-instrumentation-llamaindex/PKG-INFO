@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-llamaindex
-Version: 0.53.3
+Version: 0.55.0
 Summary: OpenTelemetry LlamaIndex instrumentation
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-llamaindex
 Author-email: Gal Kleinman <gal@traceloop.com>, Nir Gazit <nir@traceloop.com>, Tomer Friedman <tomer@traceloop.com>
@@ -9,7 +9,7 @@ Requires-Python: <4,>=3.10
 Requires-Dist: inflection<0.6.0,>=0.5.1
 Requires-Dist: opentelemetry-api<2,>=1.38.0
 Requires-Dist: opentelemetry-instrumentation>=0.59b0
-Requires-Dist: opentelemetry-semantic-conventions-ai<0.5.0,>=0.4.13
+Requires-Dist: opentelemetry-semantic-conventions-ai<0.6.0,>=0.5.1
 Requires-Dist: opentelemetry-semantic-conventions>=0.59b0
 Provides-Extra: instruments
 Requires-Dist: llama-index; extra == 'instruments'

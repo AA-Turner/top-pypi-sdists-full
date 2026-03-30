@@ -173,6 +173,8 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import bpy.types
+
 from . import action as action
 from . import anim as anim
 from . import armature as armature
@@ -250,3 +252,39 @@ from . import view3d as view3d
 from . import wm as wm
 from . import workspace as workspace
 from . import world as world
+
+class _BPyOpsSubModOp:
+    _func: str
+    _module: str
+    bl_options: set[str]
+
+    def _get_doc(self) -> str:
+        """
+
+        :return:
+        """
+
+    def poll(self, *args) -> str:
+        """
+
+        :param args:
+        :return:
+        """
+
+    def idname(self) -> str:
+        """
+
+        :return:
+        """
+
+    def idname_py(self) -> str:
+        """
+
+        :return:
+        """
+
+    def get_rna_type(self) -> bpy.types.bpy_struct:
+        """
+
+        :return:
+        """

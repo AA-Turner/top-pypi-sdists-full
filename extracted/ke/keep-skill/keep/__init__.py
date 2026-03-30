@@ -30,11 +30,12 @@ from .api import Keeper, NOWDOC_ID
 from .backend import StoreBundle, NullPendingQueue
 from .protocol import (
     DocumentStoreProtocol,
+    FlowHostProtocol,
     KeeperProtocol,
     PendingQueueProtocol,
     VectorStoreProtocol,
 )
-from .processors import ProcessorResult, DELEGATABLE_TASK_TYPES
+from .processors import DELEGATABLE_TASK_TYPES
 from .types import Item, filter_non_system_tags, SYSTEM_TAG_PREFIX, INTERNAL_TAGS
 
 try:
@@ -55,8 +56,8 @@ __all__ = [
     "DocumentStoreProtocol",
     "VectorStoreProtocol",
     "PendingQueueProtocol",
+    "FlowHostProtocol",
     "KeeperProtocol",
     # Processing pipeline
-    "ProcessorResult",
     "DELEGATABLE_TASK_TYPES",
 ]

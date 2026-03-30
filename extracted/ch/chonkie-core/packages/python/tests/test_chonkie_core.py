@@ -105,6 +105,59 @@ class TestStrInput:
         assert chunks[0] == "Café.".encode("utf-8")
 
 
+class TestPatterns:
+    """Test multi-byte pattern support via .patterns() API."""
+
+    def test_patterns_basic(self):
+        text = "Hello。World，Test"
+        chunks = list(Chunker(text, size=20, delimiters="\n.?!", patterns=["。", "，"]))
+        total = sum(len(c) for c in chunks)
+        assert total == len(text.encode("utf-8"))
+        # Every chunk should be valid UTF-8
+        for c in chunks:
+            c.decode("utf-8")
+
+    def test_patterns_composable_with_delimiters(self):
+        text = "Hello. World。Test"
+        chunks = list(Chunker(text, size=12, delimiters=".", patterns=["。"]))
+        assert len(chunks) >= 2
+        total = sum(len(c) for c in chunks)
+        assert total == len(text.encode("utf-8"))
+
+    def test_patterns_bytes_list(self):
+        text = b"Hello\xe3\x80\x82World"  # 。is \xe3\x80\x82
+        chunks = list(Chunker(text, size=10, delimiters=b"", patterns=["。"]))
+        total = sum(len(c) for c in chunks)
+        assert total == len(text)
+
+    def test_patterns_chunk_offsets(self):
+        from chonkie_core import chunk_offsets
+
+        text = "Hello。World。Test"
+        offsets = chunk_offsets(text, size=15, delimiters="", patterns=["。"])
+        assert len(offsets) >= 2
+        total = sum(end - start for start, end in offsets)
+        assert total == len(text.encode("utf-8"))
+
+    def test_patterns_chunk_convenience(self):
+        from chonkie_core import chunk
+
+        text = b"Hello. World\xe3\x80\x82Test"
+        results = list(chunk(text, size=12, patterns=["\xe3\x80\x82"]))
+        assert len(results) >= 2
+
+    def test_patterns_utf8_safety(self):
+        """Ensure multi-byte characters are not split mid-codepoint."""
+        text = "It\u2019s a test。Done"  # \u2019 = right single quote
+        chunks = list(
+            Chunker(text, size=20, delimiters=".", patterns=["。"], forward_fallback=True)
+        )
+        total = sum(len(c) for c in chunks)
+        assert total == len(text.encode("utf-8"))
+        for c in chunks:
+            c.decode("utf-8")  # raises if invalid UTF-8
+
+
 class TestConstants:
     def test_default_target_size(self):
         assert DEFAULT_TARGET_SIZE == 4096

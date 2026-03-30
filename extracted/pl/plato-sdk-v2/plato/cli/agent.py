@@ -15,8 +15,10 @@ from plato.cli.utils import (
     maybe_bump_package_version,
     prepare_build_context_with_sdk,
     require_api_key,
+    wait_for_pypi_version,
 )
 from plato.utils.ecr import ECR_REGISTRY, get_image_digest, publish_docker_image, retag_image
+from plato.utils.pypi_index import plato_token_simple_index
 from plato.v2 import Env, Plato
 from plato.v2.types import SimConfigCompute
 
@@ -759,6 +761,11 @@ def _push_single_agent(
 
     Builds the package and uploads to the Plato agents repository.
     """
+    # Dev publishes skip Docker by default — dev versions are for quick
+    # iteration on agent code and shouldn't rebuild the image.
+    if dev and not skip_docker:
+        skip_docker = True
+        console.print("[dim]--dev implies --skip-docker (retag instead of rebuild)[/dim]")
     # Load pyproject.toml for version
     pyproject_file = pkg_path / "pyproject.toml"
     if not pyproject_file.exists():
@@ -908,12 +915,23 @@ def _push_single_agent(
                 raise typer.Exit(1)
         else:
             console.print("[bold]Step 3: Building and pushing Docker image...[/bold]")
+            # Wait for PyPI index to serve the newly uploaded version
+            # before Docker build tries to install it.
+            wait_for_pypi_version(short_name, version, repo="agents", api_key=api_key)
+            # Pass agent version and PyPI index URLs so the Dockerfile can
+            # pre-bake the agent package (skips ~14s install at runtime).
+            docker_build_args = {
+                "AGENT_VERSION": version,
+                "PYPI_STORE_URL": plato_token_simple_index("pypi-store", api_key=api_key),
+                "PYPI_AGENTS_URL": plato_token_simple_index("agents", api_key=api_key),
+            }
             _publish_agent_image(
                 agent_name=short_name,
                 version=version,
                 build_path=pkg_path,
                 description=description,
                 dry_run=dry_run,
+                build_args=docker_build_args,
                 no_cache=no_cache,
             )
     else:

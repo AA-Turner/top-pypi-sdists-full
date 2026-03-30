@@ -3,7 +3,10 @@
 //! This module provides the [`Chunker`] and [`OwnedChunker`] types for splitting
 //! text into chunks of a target size, preferring to break at delimiter boundaries.
 
-use crate::delim::{DEFAULT_DELIMITERS, DEFAULT_TARGET_SIZE, build_table, compute_split_at};
+use crate::delim::{
+    DEFAULT_DELIMITERS, DEFAULT_TARGET_SIZE, MultiPatternSearcher, build_table, compute_split_at,
+    compute_split_at_combined,
+};
 
 /// Chunk text at delimiter boundaries.
 ///
@@ -45,6 +48,8 @@ pub struct Chunker<'a> {
     target_size: usize,
     delimiters: &'a [u8],
     pattern: Option<&'a [u8]>,
+    /// Multi-byte patterns for combined search with delimiters.
+    multi_searcher: Option<MultiPatternSearcher>,
     pos: usize,
     table: Option<[bool; 256]>,
     initialized: bool,
@@ -62,6 +67,7 @@ impl<'a> Chunker<'a> {
             target_size: DEFAULT_TARGET_SIZE,
             delimiters: DEFAULT_DELIMITERS,
             pattern: None,
+            multi_searcher: None,
             pos: 0,
             table: None,
             initialized: false,
@@ -105,6 +111,35 @@ impl<'a> Chunker<'a> {
     pub fn pattern(mut self, pattern: &'a [u8]) -> Self {
         self.pattern = Some(pattern);
         self.delimiters = &[]; // Clear single-byte delimiters
+        self
+    }
+
+    /// Set multiple multi-byte patterns to split on, composable with `.delimiters()`.
+    ///
+    /// Unlike `.pattern()` (single pattern, mutually exclusive with delimiters),
+    /// `.patterns()` works **alongside** `.delimiters()`. The chunker will search for
+    /// both single-byte delimiters and multi-byte patterns, picking the best split point.
+    ///
+    /// Automatically selects the optimal search strategy:
+    /// - 1-3 patterns: SIMD-accelerated memmem (parallel searches)
+    /// - 4+ patterns: Aho-Corasick automaton (single pass)
+    ///
+    /// ```
+    /// use chunk::chunk;
+    /// let text = "Hello. World。Test".as_bytes();
+    /// let chunks: Vec<_> = chunk(text)
+    ///     .size(12)
+    ///     .delimiters(b".")
+    ///     .patterns(&["。"])
+    ///     .collect();
+    /// assert_eq!(chunks.len(), 3);
+    /// ```
+    pub fn patterns(mut self, patterns: &[&str]) -> Self {
+        if patterns.is_empty() {
+            self.multi_searcher = None;
+        } else {
+            self.multi_searcher = Some(MultiPatternSearcher::from_strs(patterns));
+        }
         self
     }
 
@@ -247,17 +282,33 @@ impl<'a> Iterator for Chunker<'a> {
 
         let end = self.pos + self.target_size;
 
-        let split_at = compute_split_at(
-            self.text,
-            self.pos,
-            end,
-            self.pattern,
-            self.delimiters,
-            self.table.as_ref(),
-            self.prefix_mode,
-            self.consecutive,
-            self.forward_fallback,
-        );
+        let split_at = if self.multi_searcher.is_some() {
+            // Combined mode: delimiters + multi-byte patterns
+            compute_split_at_combined(
+                self.text,
+                self.pos,
+                end,
+                self.delimiters,
+                self.table.as_ref(),
+                self.multi_searcher.as_ref(),
+                self.prefix_mode,
+                self.consecutive,
+                self.forward_fallback,
+            )
+        } else {
+            // Legacy mode: single pattern or delimiters only
+            compute_split_at(
+                self.text,
+                self.pos,
+                end,
+                self.pattern,
+                self.delimiters,
+                self.table.as_ref(),
+                self.prefix_mode,
+                self.consecutive,
+                self.forward_fallback,
+            )
+        };
 
         let chunk = &self.text[self.pos..split_at];
         self.pos = split_at;
@@ -289,6 +340,7 @@ pub struct OwnedChunker {
     target_size: usize,
     delimiters: Vec<u8>,
     pattern: Option<Vec<u8>>,
+    multi_searcher: Option<MultiPatternSearcher>,
     pos: usize,
     table: Option<[bool; 256]>,
     initialized: bool,
@@ -305,6 +357,7 @@ impl OwnedChunker {
             target_size: DEFAULT_TARGET_SIZE,
             delimiters: DEFAULT_DELIMITERS.to_vec(),
             pattern: None,
+            multi_searcher: None,
             pos: 0,
             table: None,
             initialized: false,
@@ -336,6 +389,18 @@ impl OwnedChunker {
     pub fn pattern(mut self, pattern: Vec<u8>) -> Self {
         self.pattern = Some(pattern);
         self.delimiters = vec![]; // Clear single-byte delimiters
+        self
+    }
+
+    /// Set multiple multi-byte patterns, composable with `.delimiters()`.
+    ///
+    /// See [`Chunker::patterns`] for details.
+    pub fn patterns(mut self, patterns: &[&str]) -> Self {
+        if patterns.is_empty() {
+            self.multi_searcher = None;
+        } else {
+            self.multi_searcher = Some(MultiPatternSearcher::from_strs(patterns));
+        }
         self
     }
 
@@ -398,17 +463,31 @@ impl OwnedChunker {
 
         let end = self.pos + self.target_size;
 
-        let split_at = compute_split_at(
-            &self.text,
-            self.pos,
-            end,
-            self.pattern.as_deref(),
-            &self.delimiters,
-            self.table.as_ref(),
-            self.prefix_mode,
-            self.consecutive,
-            self.forward_fallback,
-        );
+        let split_at = if self.multi_searcher.is_some() {
+            compute_split_at_combined(
+                &self.text,
+                self.pos,
+                end,
+                &self.delimiters,
+                self.table.as_ref(),
+                self.multi_searcher.as_ref(),
+                self.prefix_mode,
+                self.consecutive,
+                self.forward_fallback,
+            )
+        } else {
+            compute_split_at(
+                &self.text,
+                self.pos,
+                end,
+                self.pattern.as_deref(),
+                &self.delimiters,
+                self.table.as_ref(),
+                self.prefix_mode,
+                self.consecutive,
+                self.forward_fallback,
+            )
+        };
 
         let chunk = self.text[self.pos..split_at].to_vec();
         self.pos = split_at;
@@ -443,17 +522,31 @@ impl OwnedChunker {
 
             let end = pos + self.target_size;
 
-            let split_at = compute_split_at(
-                &self.text,
-                pos,
-                end,
-                self.pattern.as_deref(),
-                &self.delimiters,
-                self.table.as_ref(),
-                self.prefix_mode,
-                self.consecutive,
-                self.forward_fallback,
-            );
+            let split_at = if self.multi_searcher.is_some() {
+                compute_split_at_combined(
+                    &self.text,
+                    pos,
+                    end,
+                    &self.delimiters,
+                    self.table.as_ref(),
+                    self.multi_searcher.as_ref(),
+                    self.prefix_mode,
+                    self.consecutive,
+                    self.forward_fallback,
+                )
+            } else {
+                compute_split_at(
+                    &self.text,
+                    pos,
+                    end,
+                    self.pattern.as_deref(),
+                    &self.delimiters,
+                    self.table.as_ref(),
+                    self.prefix_mode,
+                    self.consecutive,
+                    self.forward_fallback,
+                )
+            };
 
             offsets.push((pos, split_at));
             pos = split_at;

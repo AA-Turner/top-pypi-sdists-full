@@ -115,9 +115,6 @@ class Constraint(BaseConstraint):
             if other.operator == "==":
                 return self.allows(other)
 
-            if other.operator == "!=" and self._operator == "==":
-                return self._value != other.value
-
             if other.operator == "not in" and self._operator == "in":
                 return other.value not in self.value
 
@@ -126,13 +123,11 @@ class Constraint(BaseConstraint):
 
             return True
 
-        elif isinstance(other, MultiConstraint):
-            return self._operator == "!="
+        if isinstance(other, MultiConstraint):
+            return all(self.allows_any(c) for c in other.constraints)
 
-        elif isinstance(other, UnionConstraint):
-            return self._operator == "!=" and any(
-                self.allows_any(c) for c in other.constraints
-            )
+        if isinstance(other, UnionConstraint):
+            return any(self.allows_any(c) for c in other.constraints)
 
         return other.is_any()
 
@@ -180,7 +175,7 @@ class Constraint(BaseConstraint):
 
             ops = {self.operator, other.operator}
             if (
-                (ops in ({"!="}, {"not in"}))
+                ops == {"!="}
                 or (
                     (
                         ops in ({"in", "!="}, {"in", "not in"})

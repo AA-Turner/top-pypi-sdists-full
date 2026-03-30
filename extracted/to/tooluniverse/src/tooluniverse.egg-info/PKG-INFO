@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tooluniverse
-Version: 1.1.10
+Version: 1.1.11
 Summary: A comprehensive collection of scientific tools for Agentic AI, offering integration with the ToolUniverse SDK and MCP Server to support advanced scientific workflows.
 Author-email: Shanghua Gao <shanghuagao@gmail.com>
 Project-URL: Homepage, https://github.com/mims-harvard/ToolUniverse

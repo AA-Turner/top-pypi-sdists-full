@@ -70,13 +70,15 @@ mod split;
 pub use crate::chunk::{Chunker, OwnedChunker, chunk};
 
 // Re-export from split module
-pub use crate::split::{IncludeDelim, PatternSplitter, Splitter, split, split_at_delimiters, split_at_patterns};
+pub use crate::split::{
+    IncludeDelim, PatternSplitter, Splitter, split, split_at_delimiters, split_at_patterns,
+};
 
 // Re-export from merge module
 pub use crate::merge::{MergeResult, find_merge_indices, merge_splits};
 
-// Re-export constants from delim module
-pub use crate::delim::{DEFAULT_DELIMITERS, DEFAULT_TARGET_SIZE};
+// Re-export constants and types from delim module
+pub use crate::delim::{DEFAULT_DELIMITERS, DEFAULT_TARGET_SIZE, MultiPatternSearcher};
 
 // Re-export from savgol module
 pub use crate::savgol::{
@@ -287,5 +289,184 @@ mod integration_tests {
         let offsets = chunker.collect_offsets();
         assert_eq!(offsets[0], (0, 5));
         assert_eq!(&text[offsets[0].0..offsets[0].1], "Hello".as_bytes());
+    }
+
+    // ============ Multi-pattern (.patterns()) tests ============
+
+    #[test]
+    fn test_patterns_cjk_basic() {
+        // The exact use case from issue #2
+        let text = "Hello。World，Test！Done".as_bytes();
+        let chunks: Vec<_> = chunk(text)
+            .size(20)
+            .delimiters(b"\n.?!")
+            .patterns(&["。", "，", "！"])
+            .collect();
+        let total: usize = chunks.iter().map(|c| c.len()).sum();
+        assert_eq!(total, text.len());
+        // Should split at CJK punctuation, not mid-character
+        for c in &chunks {
+            assert!(
+                std::str::from_utf8(c).is_ok(),
+                "Chunk is not valid UTF-8: {:?}",
+                c
+            );
+        }
+    }
+
+    #[test]
+    fn test_patterns_preserves_all_bytes() {
+        let text = "First sentence。Second part，Third section！Final".as_bytes();
+        let chunks: Vec<_> = chunk(text)
+            .size(25)
+            .delimiters(b".")
+            .patterns(&["。", "，", "！"])
+            .collect();
+        let total: usize = chunks.iter().map(|c| c.len()).sum();
+        assert_eq!(total, text.len());
+    }
+
+    #[test]
+    fn test_patterns_mixed_ascii_and_cjk() {
+        // ASCII delimiter should also work alongside CJK patterns
+        let text = "Hello. World。Test".as_bytes();
+        let chunks: Vec<_> = chunk(text)
+            .size(12)
+            .delimiters(b".")
+            .patterns(&["。"])
+            .collect();
+        let total: usize = chunks.iter().map(|c| c.len()).sum();
+        assert_eq!(total, text.len());
+        // Both '.' and '。' should be valid split points
+        assert!(chunks.len() >= 2);
+    }
+
+    #[test]
+    fn test_patterns_prefix_mode() {
+        let text = "Hello。World。Test".as_bytes();
+        let chunks: Vec<_> = chunk(text)
+            .size(15)
+            .delimiters(b"")
+            .patterns(&["。"])
+            .prefix()
+            .collect();
+        let total: usize = chunks.iter().map(|c| c.len()).sum();
+        assert_eq!(total, text.len());
+        // First chunk should not start with 。
+        assert!(chunks[0].starts_with(b"Hello"));
+    }
+
+    #[test]
+    fn test_patterns_suffix_mode() {
+        let text = "Hello。World。Test".as_bytes();
+        let chunks: Vec<_> = chunk(text)
+            .size(15)
+            .delimiters(b"")
+            .patterns(&["。"])
+            .collect(); // suffix is default
+        let total: usize = chunks.iter().map(|c| c.len()).sum();
+        assert_eq!(total, text.len());
+        // First chunk should end with 。
+        assert!(chunks[0].ends_with("。".as_bytes()));
+    }
+
+    #[test]
+    fn test_patterns_with_forward_fallback() {
+        let text = "verylongwordwithnodelimiters。short".as_bytes();
+        let chunks: Vec<_> = chunk(text)
+            .size(10)
+            .delimiters(b"")
+            .patterns(&["。"])
+            .prefix()
+            .forward_fallback()
+            .collect();
+        // forward_fallback should find 。 past the window
+        assert_eq!(chunks[0], "verylongwordwithnodelimiters".as_bytes());
+        assert!(chunks[1].starts_with("。".as_bytes()));
+    }
+
+    #[test]
+    fn test_patterns_no_match_hard_split() {
+        let text = b"abcdefghijklmnop";
+        let chunks: Vec<_> = chunk(text)
+            .size(5)
+            .delimiters(b"")
+            .patterns(&["。"])
+            .collect();
+        // No matches — should hard split at target_size
+        assert_eq!(chunks[0], b"abcde");
+        assert_eq!(chunks[1], b"fghij");
+    }
+
+    #[test]
+    fn test_patterns_utf8_boundary_safety() {
+        // Regression test for issue #2: right single quote U+2019 = 0xE2 0x80 0x99
+        // With forward_fallback, the chunker finds 。 past the window instead of hard-splitting
+        let text = "It\u{2019}s a test。Done".as_bytes();
+        let chunks: Vec<_> = chunk(text)
+            .size(15)
+            .delimiters(b".")
+            .patterns(&["。"])
+            .forward_fallback()
+            .collect();
+        let total: usize = chunks.iter().map(|c| c.len()).sum();
+        assert_eq!(total, text.len());
+        for c in &chunks {
+            assert!(
+                std::str::from_utf8(c).is_ok(),
+                "Chunk is not valid UTF-8: {:?}",
+                c
+            );
+        }
+    }
+
+    #[test]
+    fn test_patterns_many_triggers_aho_corasick() {
+        // 5+ patterns should use Aho-Corasick internally
+        let text = "A。B，C！D？E；F".as_bytes();
+        let chunks: Vec<_> = chunk(text)
+            .size(8)
+            .patterns(&["。", "，", "！", "？", "；"])
+            .collect();
+        let total: usize = chunks.iter().map(|c| c.len()).sum();
+        assert_eq!(total, text.len());
+        for c in &chunks {
+            assert!(
+                std::str::from_utf8(c).is_ok(),
+                "Chunk is not valid UTF-8: {:?}",
+                c
+            );
+        }
+    }
+
+    #[test]
+    fn test_patterns_owned_chunker() {
+        let text = "Hello。World，Test".as_bytes().to_vec();
+        let mut chunker = OwnedChunker::new(text.clone())
+            .size(15)
+            .delimiters(b".".to_vec())
+            .patterns(&["。", "，"]);
+        let mut chunks = Vec::new();
+        while let Some(c) = chunker.next_chunk() {
+            chunks.push(c);
+        }
+        let total: usize = chunks.iter().map(|c| c.len()).sum();
+        assert_eq!(total, text.len());
+    }
+
+    #[test]
+    fn test_patterns_owned_chunker_collect_offsets() {
+        let text = "Hello。World，Test".as_bytes().to_vec();
+        let mut chunker = OwnedChunker::new(text.clone())
+            .size(15)
+            .delimiters(b".".to_vec())
+            .patterns(&["。", "，"]);
+        let offsets = chunker.collect_offsets();
+        let total: usize = offsets.iter().map(|(s, e)| e - s).sum();
+        assert_eq!(total, text.len());
+        // Verify offsets are contiguous
+        for i in 1..offsets.len() {
+            assert_eq!(offsets[i - 1].1, offsets[i].0);
+        }
     }
 }

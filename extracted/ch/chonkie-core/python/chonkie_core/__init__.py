@@ -36,10 +36,10 @@ __all__ = [
     "DEFAULT_TARGET_SIZE",
     "DEFAULT_DELIMITERS",
 ]
-__version__ = "0.9.2"
+__version__ = "0.10.1"
 
 
-def chunk(text, *, size=DEFAULT_TARGET_SIZE, delimiters=None):
+def chunk(text, *, size=DEFAULT_TARGET_SIZE, delimiters=None, patterns=None):
     """
     Split text into chunks at delimiter boundaries.
     Returns an iterator of zero-copy memoryview slices.
@@ -48,6 +48,8 @@ def chunk(text, *, size=DEFAULT_TARGET_SIZE, delimiters=None):
         text: bytes or str to chunk
         size: Target chunk size in bytes (default: 4096)
         delimiters: bytes or str of delimiter characters (default: "\\n.?")
+        patterns: list of str or bytes for multi-byte delimiters (e.g. ["。", "，"])
+            Composable with delimiters — both can be active simultaneously.
 
     Yields:
         memoryview slices of the original text
@@ -65,7 +67,7 @@ def chunk(text, *, size=DEFAULT_TARGET_SIZE, delimiters=None):
         text = text.encode("utf-8")
 
     # Get offsets from Rust (single FFI call)
-    offsets = chunk_offsets(text, size, delimiters)
+    offsets = chunk_offsets(text, size=size, delimiters=delimiters, patterns=patterns)
 
     # Return memoryview slices (zero-copy)
     mv = memoryview(text)

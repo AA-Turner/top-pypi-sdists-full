@@ -273,7 +273,7 @@ class SdistBuilder(Builder):
                 # This is just a shortcut. It will be ignored later anyway.
                 continue
 
-            from_top_level = os.path.relpath(path, base)
+            from_top_level = Path(os.path.relpath(path, base)).as_posix()
             if from_top_level == ".":
                 continue
 
@@ -304,11 +304,7 @@ class SdistBuilder(Builder):
                 if len(data) == len(data_elements):
                     pkg_data[pkg].append(pjoin(from_nearest_pkg, "*"))
                 else:
-                    for d in data:
-                        if d.is_dir():
-                            continue
-
-                        pkg_data[pkg] += [pjoin(from_nearest_pkg, d.name) for d in data]
+                    pkg_data[pkg] += [pjoin(from_nearest_pkg, d.name) for d in data]
 
         # Sort values in pkg_data
         pkg_data = {k: sorted(v) for (k, v) in pkg_data.items() if v}

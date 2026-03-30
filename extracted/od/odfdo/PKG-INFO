@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: odfdo
-Version: 3.22.1
+Version: 3.22.3
 Summary: Python library for OpenDocument Format
 Keywords: python,library,ODF,OpenDocument
 Author: Jérôme Dumonteil
@@ -9,11 +9,9 @@ License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -21,15 +19,14 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: lxml>=4.8.0,<5 ; python_full_version == '3.9.*'
 Requires-Dist: lxml>=4.8.0,<5.1.1 ; python_full_version == '3.10.*'
 Requires-Dist: lxml>=4.9.4,<7 ; python_full_version >= '3.11' and python_full_version < '3.13'
 Requires-Dist: lxml>=5.3.0,<7 ; python_full_version >= '3.13'
-Requires-Python: >=3.9, <4
-Project-URL: changelog, https://github.com/jdum/odfdo/blob/main/CHANGES.md
-Project-URL: documentation, https://jdum.github.io/odfdo/
+Requires-Python: >=3.10, <4
 Project-URL: homepage, https://github.com/jdum/odfdo
 Project-URL: repository, https://github.com/jdum/odfdo
+Project-URL: changelog, https://github.com/jdum/odfdo/blob/main/CHANGES.md
+Project-URL: documentation, https://jdum.github.io/odfdo/
 Description-Content-Type: text/markdown
 
 # odfdo
@@ -95,9 +92,9 @@ uv run python doc_src/generate_doc.py
 
 # Dependencies
 
-The project is tested on Python 3.10 to 3.14 (Linux, Mac, Windows). See previous releases for earlier versions of Python.
+The project is tested on Python 3.10 to 3.14 (Linux, Mac, Windows). See previous releases for earlier versions of Python. For Python 3.9, see branch `support/python39`.
 
-A special effort has been made to limit the dependencies of this library: the only (non-development) dependency is `lxml`. The required versions of `lxml depend mainly on the version of Python used; see the `pyproject.toml` file for details. The project tries to keep up with `lxml` version updates regularly.
+A special effort has been made to limit the dependencies of this library: the only (non-development) dependency is `lxml`. The required versions of `lxml` depend mainly on the version of Python used; see the `pyproject.toml` file for details. The project tries to keep up with `lxml` version updates regularly.
 
 # Usage Overview
 

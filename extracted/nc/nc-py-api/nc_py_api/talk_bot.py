@@ -6,6 +6,7 @@ import hmac
 import json
 import os
 import typing
+import warnings
 
 import niquests
 
@@ -15,7 +16,7 @@ from ._session import BasicConfig
 from .nextcloud import AsyncNextcloudApp, NextcloudApp
 
 
-class ObjectContent(typing.TypedDict):
+class ObjectContent(typing.TypedDict, total=False):
     """Object content of :py:class:`~nc_py_api.talk_bot.TalkBotMessage`."""
 
     message: str
@@ -62,13 +63,22 @@ class TalkBotMessage:
 
     @property
     def object_content(self) -> ObjectContent:
-        """Dictionary with a ``message`` and ``parameters`` keys."""
-        return json.loads(self._raw_data["object"]["content"])
+        """Dictionary with a ``message`` and ``parameters`` keys.
+
+        .. note:: May return an empty dict for system messages that have no content.
+        """
+        content = self._raw_data["object"].get("content")
+        if content is None:
+            return {}
+        return json.loads(content)
 
     @property
     def object_media_type(self) -> str:
-        """``text/markdown`` when the message should be interpreted as **Markdown**, otherwise ``text/plain``."""
-        return self._raw_data["object"]["mediaType"]
+        """``text/markdown`` when the message should be interpreted as **Markdown**, otherwise ``text/plain``.
+
+        .. note:: May return an empty string for system messages.
+        """
+        return self._raw_data["object"].get("mediaType", "")
 
     @property
     def conversation_token(self) -> str:
@@ -105,6 +115,11 @@ class TalkBot:
         :param display_name: The display name of the bot that is shown as author when it posts a message or reaction.
         :param description: Description of the bot helping moderators to decide if they want to enable this bot.
         """
+        warnings.warn(
+            "TalkBot is deprecated and will be removed in v0.31.0. Use AsyncTalkBot instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.callback_url = callback_url.lstrip("/")
         self.display_name = display_name
         self.description = description

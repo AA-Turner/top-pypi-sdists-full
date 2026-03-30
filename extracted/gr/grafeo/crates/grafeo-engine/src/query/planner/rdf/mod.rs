@@ -568,8 +568,6 @@ impl RdfPlanner {
         &self,
         project: &crate::query::plan::ProjectOp,
     ) -> Result<(Box<dyn Operator>, Vec<String>)> {
-        use grafeo_core::execution::operators::{ProjectExpr, ProjectOperator};
-
         let (input_op, input_columns) = self.plan_operator(&project.input)?;
 
         // Build mapping from variable name to column index
@@ -587,7 +585,7 @@ impl RdfPlanner {
             match &proj.expression {
                 LogicalExpression::Variable(name) => {
                     if let Some(&col_idx) = variable_columns.get(name) {
-                        projections.push(ProjectExpr::Column(col_idx));
+                        projections.push(RdfProjectExpr::Column(col_idx));
                         output_columns.push(proj.alias.clone().unwrap_or_else(|| name.clone()));
                         output_types.push(LogicalType::Any); // preserve actual value types
                     } else {
@@ -598,14 +596,20 @@ impl RdfPlanner {
                     }
                 }
                 LogicalExpression::Literal(value) => {
-                    projections.push(ProjectExpr::Constant(value.clone()));
+                    projections.push(RdfProjectExpr::Constant(value.clone()));
                     output_columns.push(proj.alias.clone().unwrap_or_else(|| format!("{value}")));
                     output_types.push(LogicalType::Any);
                 }
-                _ => {
-                    // For non-variable expressions, we need to evaluate them
-                    // For now, skip complex expressions in projection
-                    continue;
+                expr => {
+                    // Convert complex expressions (function calls, arithmetic, etc.)
+                    // to physical filter expressions and evaluate them in the projection.
+                    let filter_expr = convert_filter_expression(expr)?;
+                    projections.push(RdfProjectExpr::Expression {
+                        expr: filter_expr,
+                        variable_columns: variable_columns.clone(),
+                    });
+                    output_columns.push(proj.alias.clone().unwrap_or_else(|| format!("{expr:?}")));
+                    output_types.push(LogicalType::Any);
                 }
             }
         }
@@ -615,7 +619,11 @@ impl RdfPlanner {
             return Ok((input_op, input_columns));
         }
 
-        let operator = Box::new(ProjectOperator::new(input_op, projections, output_types));
+        // Use RdfProjectOperator which delegates expression evaluation to
+        // RdfExpressionPredicate, giving access to SPARQL functions (STRLEN,
+        // UCASE, LCASE, etc.) that the generic ProjectOperator does not know.
+        let operator: Box<dyn Operator> =
+            Box::new(RdfProjectOperator::new(input_op, projections, output_types));
         Ok((operator, output_columns))
     }
 
@@ -958,7 +966,9 @@ impl RdfPlanner {
         &self,
         insert: &InsertTripleOp,
     ) -> Result<(Box<dyn Operator>, Vec<String>)> {
-        // Check if this is a pattern-based insert (has variables in the template)
+        // Check if this is a pattern-based insert (has variables in the template).
+        // Blank nodes are concrete values, not variables, so they don't trigger
+        // the pattern-based path.
         let has_variables = matches!(&insert.subject, TripleComponent::Variable(_))
             || matches!(&insert.predicate, TripleComponent::Variable(_))
             || matches!(&insert.object, TripleComponent::Variable(_));
@@ -1037,6 +1047,10 @@ impl RdfPlanner {
                 };
                 Ok(Term::Literal(lit))
             }
+            TripleComponent::LangLiteral { value, lang } => {
+                Ok(Term::lang_literal(value.clone(), lang.clone()))
+            }
+            TripleComponent::BlankNode(label) => Ok(Term::blank(label.clone())),
             TripleComponent::Variable(name) => {
                 // Variables in INSERT DATA should have been bound
                 Err(Error::Internal(format!(
@@ -1373,6 +1387,7 @@ impl RdfInsertPatternOperator {
     ) -> Option<Term> {
         match component {
             TripleComponent::Iri(iri) => Some(Term::Iri(iri.clone().into())),
+            TripleComponent::BlankNode(label) => Some(Term::blank(label.clone())),
             TripleComponent::Literal(value) => {
                 let lit = match value {
                     Value::String(s) => Literal::simple(s.to_string()),
@@ -1386,6 +1401,9 @@ impl RdfInsertPatternOperator {
                     _ => Literal::simple(format!("{:?}", value)),
                 };
                 Some(Term::Literal(lit))
+            }
+            TripleComponent::LangLiteral { value, lang } => {
+                Some(Term::lang_literal(value.clone(), lang.clone()))
             }
             TripleComponent::Variable(name) => {
                 // Remove the leading '?' if present
@@ -1655,6 +1673,7 @@ impl RdfDeletePatternOperator {
     ) -> Option<Term> {
         match component {
             TripleComponent::Iri(iri) => Some(Term::Iri(iri.clone().into())),
+            TripleComponent::BlankNode(label) => Some(Term::blank(label.clone())),
             TripleComponent::Literal(value) => {
                 let lit = match value {
                     Value::String(s) => Literal::simple(s.to_string()),
@@ -1668,6 +1687,9 @@ impl RdfDeletePatternOperator {
                     _ => Literal::simple(format!("{:?}", value)),
                 };
                 Some(Term::Literal(lit))
+            }
+            TripleComponent::LangLiteral { value, lang } => {
+                Some(Term::lang_literal(value.clone(), lang.clone()))
             }
             TripleComponent::Variable(name) => {
                 // Remove the leading '?' if present
@@ -2204,6 +2226,7 @@ impl RdfModifyOperator {
     ) -> Option<Term> {
         match component {
             TripleComponent::Iri(iri) => Some(Term::Iri(iri.clone().into())),
+            TripleComponent::BlankNode(label) => Some(Term::blank(label.clone())),
             TripleComponent::Literal(value) => {
                 let lit = match value {
                     Value::String(s) => Literal::simple(s.to_string()),
@@ -2217,6 +2240,9 @@ impl RdfModifyOperator {
                     _ => Literal::simple(format!("{:?}", value)),
                 };
                 Some(Term::Literal(lit))
+            }
+            TripleComponent::LangLiteral { value, lang } => {
+                Some(Term::lang_literal(value.clone(), lang.clone()))
             }
             TripleComponent::Variable(name) => {
                 let var_name = name.strip_prefix('?').unwrap_or(name);
@@ -2475,6 +2501,110 @@ impl Operator for RdfBindOperator {
 }
 
 // ============================================================================
+// RDF Project Operator
+// ============================================================================
+
+/// Projection variant for expression evaluation.
+enum RdfProjectExpr {
+    /// Reference to an input column.
+    Column(usize),
+    /// A constant value.
+    Constant(Value),
+    /// Full expression evaluation using `RdfExpressionPredicate`.
+    Expression {
+        /// The filter expression to evaluate.
+        expr: FilterExpression,
+        /// Variable name to column index mapping.
+        variable_columns: HashMap<String, usize>,
+    },
+}
+
+/// An RDF-specific project operator that uses `RdfExpressionPredicate` for
+/// expression evaluation, giving access to SPARQL functions (STRLEN, UCASE,
+/// LCASE, etc.) that the generic `ProjectOperator` does not support.
+struct RdfProjectOperator {
+    /// Child operator providing input rows.
+    child: Box<dyn Operator>,
+    /// Projection expressions.
+    projections: Vec<RdfProjectExpr>,
+    /// Output column types.
+    output_types: Vec<LogicalType>,
+}
+
+impl RdfProjectOperator {
+    fn new(
+        child: Box<dyn Operator>,
+        projections: Vec<RdfProjectExpr>,
+        output_types: Vec<LogicalType>,
+    ) -> Self {
+        assert_eq!(projections.len(), output_types.len());
+        Self {
+            child,
+            projections,
+            output_types,
+        }
+    }
+}
+
+impl Operator for RdfProjectOperator {
+    fn next(&mut self) -> std::result::Result<Option<DataChunk>, OperatorError> {
+        let Some(input) = self.child.next()? else {
+            return Ok(None);
+        };
+
+        let mut output = DataChunk::with_capacity(&self.output_types, input.row_count());
+
+        for (i, proj) in self.projections.iter().enumerate() {
+            let output_col = output
+                .column_mut(i)
+                .expect("column exists: index matches projection schema");
+
+            match proj {
+                RdfProjectExpr::Column(col_idx) => {
+                    let input_col = input.column(*col_idx).ok_or_else(|| {
+                        OperatorError::ColumnNotFound(format!("Column {col_idx}"))
+                    })?;
+                    for row in input.selected_indices() {
+                        if let Some(value) = input_col.get_value(row) {
+                            output_col.push_value(value);
+                        } else {
+                            output_col.push_value(Value::Null);
+                        }
+                    }
+                }
+                RdfProjectExpr::Constant(value) => {
+                    for _ in input.selected_indices() {
+                        output_col.push_value(value.clone());
+                    }
+                }
+                RdfProjectExpr::Expression {
+                    expr,
+                    variable_columns,
+                } => {
+                    let evaluator =
+                        RdfExpressionPredicate::new(expr.clone(), variable_columns.clone());
+                    for row in input.selected_indices() {
+                        let value = evaluator.eval(&input, row).unwrap_or(Value::Null);
+                        output_col.push_value(value);
+                    }
+                }
+            }
+        }
+
+        output.set_count(input.row_count());
+        Ok(Some(output))
+    }
+
+    fn reset(&mut self) {
+        self.child.reset();
+    }
+
+    fn name(&self) -> &'static str {
+        "RdfProject"
+    }
+}
+
+// ============================================================================
 // RDF Triple Scan Operator
 // ============================================================================
 
@@ -2669,6 +2799,32 @@ impl RdfExpressionPredicate {
                 chunk.column(col_idx)?.get_value(row)
             }
             FilterExpression::Binary { left, op, right } => {
+                // IN operator: evaluate right side as a list, then check membership
+                if *op == BinaryFilterOp::In {
+                    let left_val = self.eval_expr(left, chunk, row)?;
+                    let right_val = self.eval_expr(right, chunk, row)?;
+                    return match right_val {
+                        Value::List(items) => {
+                            if left_val.is_null() {
+                                return Some(Value::Null);
+                            }
+                            let mut has_null = false;
+                            for item in items.iter() {
+                                if item.is_null() {
+                                    has_null = true;
+                                } else if rdf_values_equal(&left_val, item) {
+                                    return Some(Value::Bool(true));
+                                }
+                            }
+                            if has_null {
+                                Some(Value::Null)
+                            } else {
+                                Some(Value::Bool(false))
+                            }
+                        }
+                        _ => None,
+                    };
+                }
                 let left_val = self.eval_expr(left, chunk, row)?;
                 let right_val = self.eval_expr(right, chunk, row)?;
                 self.eval_binary_op(&left_val, *op, &right_val)
@@ -2687,9 +2843,15 @@ impl RdfExpressionPredicate {
             FilterExpression::FunctionCall { name, args } => {
                 self.eval_function_call(name, args, chunk, row)
             }
+            FilterExpression::List(items) => {
+                let values: Vec<Value> = items
+                    .iter()
+                    .filter_map(|item| self.eval_expr(item, chunk, row))
+                    .collect();
+                Some(Value::List(values.into()))
+            }
             // These expression types are not commonly used in RDF FILTER clauses
-            FilterExpression::List(_)
-            | FilterExpression::Case { .. }
+            FilterExpression::Case { .. }
             | FilterExpression::Map(_)
             | FilterExpression::IndexAccess { .. }
             | FilterExpression::SliceAccess { .. }
@@ -3215,6 +3377,19 @@ impl RdfExpressionPredicate {
                 if args.is_empty() {
                     return None;
                 }
+                // For variable arguments, check the validity bitmap directly so
+                // that NULL entries from LEFT JOIN (OPTIONAL) are recognized as
+                // "unbound" rather than "bound to Null".
+                if let FilterExpression::Variable(var_name) = &args[0] {
+                    if let Some(&col_idx) = self.variable_columns.get(var_name)
+                        && let Some(col) = chunk.column(col_idx)
+                    {
+                        return Some(Value::Bool(!col.is_null(row)));
+                    }
+                    // Variable not in column map: unbound
+                    return Some(Value::Bool(false));
+                }
+                // Non-variable arguments: fall back to expression evaluation
                 let is_bound = self.eval_expr(&args[0], chunk, row).is_some();
                 Some(Value::Bool(is_bound))
             }
@@ -3709,6 +3884,7 @@ fn push_term_value(col: &mut grafeo_core::execution::ValueVector, term: &Term) {
 fn component_to_term(component: &TripleComponent) -> Option<Term> {
     match component {
         TripleComponent::Variable(_) => None,
+        TripleComponent::BlankNode(label) => Some(Term::blank(label.clone())),
         TripleComponent::Iri(iri) => Some(Term::iri(iri.clone())),
         TripleComponent::Literal(value) => match value {
             Value::String(s) => Some(Term::literal(s.clone())),
@@ -3717,6 +3893,9 @@ fn component_to_term(component: &TripleComponent) -> Option<Term> {
             Value::Bool(b) => Some(Term::typed_literal(b.to_string(), Literal::XSD_BOOLEAN)),
             _ => Some(Term::literal(value.to_string())),
         },
+        TripleComponent::LangLiteral { value, lang } => {
+            Some(Term::lang_literal(value.clone(), lang.clone()))
+        }
     }
 }
 
@@ -3748,16 +3927,19 @@ fn estimate_operator_cardinality(
                 scan.subject,
                 crate::query::plan::TripleComponent::Iri(_)
                     | crate::query::plan::TripleComponent::Literal(_)
+                    | crate::query::plan::TripleComponent::LangLiteral { .. }
             );
             let p_bound = matches!(
                 scan.predicate,
                 crate::query::plan::TripleComponent::Iri(_)
                     | crate::query::plan::TripleComponent::Literal(_)
+                    | crate::query::plan::TripleComponent::LangLiteral { .. }
             );
             let o_bound = matches!(
                 scan.object,
                 crate::query::plan::TripleComponent::Iri(_)
                     | crate::query::plan::TripleComponent::Literal(_)
+                    | crate::query::plan::TripleComponent::LangLiteral { .. }
             );
 
             let estimate = match (s_bound, p_bound, o_bound) {
@@ -3884,6 +4066,30 @@ where
         _ => return None,
     };
     Some(Value::Bool(cmp(ordering)))
+}
+
+/// Checks equality of two RDF values, with cross-type numeric coercion.
+///
+/// Used by the IN operator to compare the left-hand value against each element
+/// of the right-hand list.
+fn rdf_values_equal(left: &Value, right: &Value) -> bool {
+    match (left, right) {
+        (Value::Bool(a), Value::Bool(b)) => a == b,
+        (Value::Int64(a), Value::Int64(b)) => a == b,
+        (Value::Float64(a), Value::Float64(b)) => (a - b).abs() < f64::EPSILON,
+        (Value::String(a), Value::String(b)) => a == b,
+        (Value::Int64(a), Value::Float64(b)) | (Value::Float64(b), Value::Int64(a)) => {
+            (*a as f64 - b).abs() < f64::EPSILON
+        }
+        // RDF stores numeric literals as strings: allow cross-type equality
+        (Value::String(s), Value::Int64(i)) | (Value::Int64(i), Value::String(s)) => {
+            s.parse::<i64>().is_ok_and(|n| n == *i)
+        }
+        (Value::String(s), Value::Float64(f)) | (Value::Float64(f), Value::String(s)) => {
+            s.parse::<f64>().is_ok_and(|n| (n - f).abs() < f64::EPSILON)
+        }
+        _ => false,
+    }
 }
 
 // ============================================================================

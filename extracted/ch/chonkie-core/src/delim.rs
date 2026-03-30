@@ -1,8 +1,11 @@
 //! Shared delimiter utilities for chunking and splitting.
 //!
 //! This module contains the core delimiter search functions using
-//! SIMD-accelerated memchr (1-3 delimiters) or lookup table (4+ delimiters).
+//! SIMD-accelerated memchr (1-3 delimiters) or lookup table (4+ delimiters),
+//! and multi-byte pattern search using memmem (1-3 patterns) or
+//! Aho-Corasick via daggrs (4+ patterns).
 
+use daggrs::{DoubleArrayAhoCorasick, MatchKind, Trie};
 use memchr::memmem;
 
 /// Default chunk target size (4KB).
@@ -318,6 +321,229 @@ pub fn find_pattern_boundary(
     }
 
     None
+}
+
+// =============================================================================
+// Multi-byte pattern search (hybrid memmem / Aho-Corasick)
+// =============================================================================
+
+/// Threshold: use memmem for 1-3 patterns, Aho-Corasick for 4+.
+const MEMMEM_PATTERN_THRESHOLD: usize = 3;
+
+/// Pre-compiled multi-pattern searcher.
+///
+/// Automatically selects the optimal strategy based on pattern count:
+/// - 1-3 patterns: parallel memmem searches (SIMD-accelerated)
+/// - 4+ patterns: Aho-Corasick automaton (single pass, constant in pattern count)
+pub enum MultiPatternSearcher {
+    /// SIMD memmem for small pattern sets. Stores (forward_finder_needle, reverse_finder_needle) as bytes.
+    Memmem { patterns: Vec<Vec<u8>> },
+    /// Aho-Corasick for large pattern sets.
+    AhoCorasick {
+        daac: DoubleArrayAhoCorasick,
+        pattern_lens: Vec<usize>,
+    },
+}
+
+impl MultiPatternSearcher {
+    /// Build a searcher from pattern byte slices.
+    pub fn new(patterns: &[&[u8]]) -> Self {
+        if patterns.len() <= MEMMEM_PATTERN_THRESHOLD {
+            MultiPatternSearcher::Memmem {
+                patterns: patterns.iter().map(|p| p.to_vec()).collect(),
+            }
+        } else {
+            let mut trie = Trie::new();
+            for (i, &pat) in patterns.iter().enumerate() {
+                trie.add(pat, i as u32);
+            }
+            trie.build(MatchKind::LeftmostFirst);
+            let daac = trie.compile();
+            let pattern_lens = patterns.iter().map(|p| p.len()).collect();
+            MultiPatternSearcher::AhoCorasick { daac, pattern_lens }
+        }
+    }
+
+    /// Build a searcher from string slices (convenience for UTF-8 patterns).
+    pub fn from_strs(patterns: &[&str]) -> Self {
+        let byte_patterns: Vec<&[u8]> = patterns.iter().map(|s| s.as_bytes()).collect();
+        Self::new(&byte_patterns)
+    }
+
+    /// Find the **last** (rightmost) pattern match in `window`.
+    /// Returns `(position, pattern_length)` relative to window start.
+    pub fn find_last(&self, window: &[u8]) -> Option<(usize, usize)> {
+        match self {
+            MultiPatternSearcher::Memmem { patterns } => {
+                let mut best: Option<(usize, usize)> = None;
+                for pat in patterns {
+                    let finder = memmem::FinderRev::new(pat);
+                    if let Some(pos) = finder.rfind(window) {
+                        match best {
+                            None => best = Some((pos, pat.len())),
+                            Some((best_pos, _)) if pos > best_pos => best = Some((pos, pat.len())),
+                            _ => {}
+                        }
+                    }
+                }
+                best
+            }
+            MultiPatternSearcher::AhoCorasick { daac, pattern_lens } => {
+                let mut last: Option<(usize, usize)> = None;
+                for m in daac.find_iter(window) {
+                    last = Some((m.start, pattern_lens[m.pattern_id as usize]));
+                }
+                last
+            }
+        }
+    }
+
+    /// Find the **first** (leftmost) pattern match in `window`.
+    /// Returns `(position, pattern_length)` relative to window start.
+    pub fn find_first(&self, window: &[u8]) -> Option<(usize, usize)> {
+        match self {
+            MultiPatternSearcher::Memmem { patterns } => {
+                let mut best: Option<(usize, usize)> = None;
+                for pat in patterns {
+                    let finder = memmem::Finder::new(pat);
+                    if let Some(pos) = finder.find(window) {
+                        match best {
+                            None => best = Some((pos, pat.len())),
+                            Some((best_pos, _)) if pos < best_pos => best = Some((pos, pat.len())),
+                            _ => {}
+                        }
+                    }
+                }
+                best
+            }
+            MultiPatternSearcher::AhoCorasick { daac, pattern_lens } => daac
+                .find_iter(window)
+                .next()
+                .map(|m| (m.start, pattern_lens[m.pattern_id as usize])),
+        }
+    }
+}
+
+/// Compute split position combining single-byte delimiters AND multi-byte patterns.
+///
+/// Checks both delimiter and multi-pattern searches, picks the rightmost match
+/// (backward) or leftmost match (forward fallback). This allows `.delimiters()`
+/// and `.patterns()` to be used together.
+#[inline]
+#[allow(clippy::too_many_arguments)]
+pub fn compute_split_at_combined(
+    text: &[u8],
+    pos: usize,
+    end: usize,
+    delimiters: &[u8],
+    table: Option<&[bool; 256]>,
+    multi_searcher: Option<&MultiPatternSearcher>,
+    prefix_mode: bool,
+    consecutive: bool,
+    forward_fallback: bool,
+) -> usize {
+    let target_end = end.min(text.len());
+    let window = &text[pos..target_end];
+
+    // --- Backward search: find rightmost match across both sources ---
+    let mut best_pos: Option<usize> = None;
+    let mut best_pat_len: usize = 1; // default for single-byte delimiters
+
+    // Check single-byte delimiters
+    if !delimiters.is_empty()
+        && let Some(found) =
+            find_delimiter_boundary(text, delimiters, table, pos, target_end, consecutive, false)
+        && found > pos
+        && found < text.len()
+    {
+        best_pos = Some(found);
+        best_pat_len = 1;
+    }
+
+    // Check multi-byte patterns
+    if let Some(searcher) = multi_searcher
+        && let Some((rel_pos, pat_len)) = searcher.find_last(window)
+    {
+        let abs_pos = pos + rel_pos;
+        if abs_pos > pos {
+            match best_pos {
+                None => {
+                    best_pos = Some(abs_pos);
+                    best_pat_len = pat_len;
+                }
+                Some(bp) if abs_pos > bp => {
+                    best_pos = Some(abs_pos);
+                    best_pat_len = pat_len;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // If we found something in backward search, apply prefix/suffix mode
+    if let Some(found_pos) = best_pos {
+        return if prefix_mode {
+            found_pos
+        } else {
+            found_pos + best_pat_len
+        };
+    }
+
+    // --- Forward fallback: find leftmost match across both sources ---
+    if forward_fallback && target_end < text.len() {
+        let mut first_pos: Option<usize> = None;
+        let mut first_pat_len: usize = 1;
+
+        // Check single-byte delimiters forward
+        if !delimiters.is_empty()
+            && let Some(found) =
+                find_delimiter_boundary(text, delimiters, table, pos, target_end, consecutive, true)
+        {
+            // find_delimiter_boundary with forward_fallback returns positions >= target_end
+            // or text.len() as sentinel
+            if found >= target_end && found < text.len() {
+                first_pos = Some(found);
+                first_pat_len = 1;
+            } else if found == text.len() {
+                first_pos = Some(text.len());
+            }
+        }
+
+        // Check multi-byte patterns forward
+        if let Some(searcher) = multi_searcher {
+            let forward_window = &text[target_end..];
+            if let Some((rel_pos, pat_len)) = searcher.find_first(forward_window) {
+                let abs_pos = target_end + rel_pos;
+                match first_pos {
+                    None => {
+                        first_pos = Some(abs_pos);
+                        first_pat_len = pat_len;
+                    }
+                    Some(fp) if abs_pos < fp => {
+                        first_pos = Some(abs_pos);
+                        first_pat_len = pat_len;
+                    }
+                    _ => {}
+                }
+            } else if first_pos.is_none() {
+                first_pos = Some(text.len());
+            }
+        }
+
+        if let Some(found_pos) = first_pos {
+            if found_pos == text.len() {
+                return text.len();
+            }
+            return if prefix_mode {
+                found_pos
+            } else {
+                found_pos + first_pat_len
+            };
+        }
+    }
+
+    // No match anywhere — hard split at target
+    end
 }
 
 /// Compute the split position given the current state.

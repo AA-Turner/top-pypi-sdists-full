@@ -55,20 +55,27 @@ async def sync_dev_code(
     package_name: str | None = None,
 ) -> bool:
     """Sync SDK + agent code to VM and install in editable mode (dev mode)."""
+    import time
+
+    t_total = time.monotonic()
     sdk_path = Path("/sdk")
     editable_paths: list[str] = []
     agent_synced = False
 
-    logger.debug(f"Syncing SDK: {sdk_path} -> /sdk")
+    t0 = time.monotonic()
+    logger.info("Syncing SDK to %s: %s -> /sdk", hostname, sdk_path)
     await rsync_to(ssh_key, sdk_path, "/sdk", hostname)
+    logger.info("SDK rsync to %s took %.1fs", hostname, time.monotonic() - t0)
     editable_paths.append("/sdk")
 
     # Find the right agent code directory
     agent_code_path = _find_agent_code(agent_code_path, package_name)
 
     if agent_code_path and agent_code_path.exists():
-        logger.debug(f"Syncing agent code: {agent_code_path} -> /app")
+        t0 = time.monotonic()
+        logger.info("Syncing agent code to %s: %s -> /app", hostname, agent_code_path)
         await rsync_to(ssh_key, agent_code_path, "/app", hostname)
+        logger.info("Agent rsync to %s took %.1fs", hostname, time.monotonic() - t0)
         editable_paths.append("/app")
         agent_synced = True
     else:
@@ -79,10 +86,12 @@ async def sync_dev_code(
         )
 
     editables = " ".join(f"-e {p}" for p in editable_paths)
-    logger.debug(f"Installing packages in editable mode: {editable_paths}")
     store_idx = plato_token_simple_index("pypi-store")
     pip_cmd = f"uv pip install --system --index-url {shlex.quote(store_idx)} {editables}"
+    t0 = time.monotonic()
+    logger.info("Installing editable packages on %s: %s", hostname, editable_paths)
     exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, pip_cmd, timeout=300)
+    logger.info("Editable pip install on %s took %.1fs", hostname, time.monotonic() - t0)
     if exit_code != 0:
         raise RuntimeError(f"Failed to install packages: {stderr or stdout}")
 
@@ -93,15 +102,19 @@ async def sync_dev_code(
     tool_cmd = f"uv tool install -e /sdk --force --python 3.12 --index-url {shlex.quote(store_idx)}"
     if agent_synced:
         tool_cmd += " --with-editable /app"
+    t0 = time.monotonic()
+    logger.info("Updating plato CLI tool on %s", hostname)
     exit_code, stdout, stderr = await run_ssh(
         ssh_key,
         hostname,
         tool_cmd,
         timeout=120,
     )
+    logger.info("Plato CLI tool install on %s took %.1fs", hostname, time.monotonic() - t0)
     if exit_code != 0:
         logger.warning("Failed to update plato CLI tool: %s", stderr or stdout)
 
+    logger.info("sync_dev_code total on %s: %.1fs", hostname, time.monotonic() - t_total)
     return agent_synced
 
 
@@ -121,7 +134,7 @@ def build_agent_install_command(package_name: str, version: str) -> str:
         f"--with '{package_name}=={version}' "
         f"--default-index {shlex.quote(store_url)} "
         f"--index {shlex.quote(agents_url)} "
-        f"--prerelease allow --refresh --force"
+        f"--prerelease allow --force"
     )
 
 
@@ -130,32 +143,36 @@ async def install_production_agent(
     hostname: str,
     package_name: str,
     version: str,
-    max_retries: int = 3,
-    retry_delay: float = 10.0,
 ) -> None:
     """Install agent package from PyPI on VM (production mode)."""
-    logger.debug(f"Installing agent package: {package_name}=={version}")
+    import time
+
+    logger.info("Installing agent package: %s==%s on %s", package_name, version, hostname)
+
+    # Check if the agent package is already pre-baked into the VM image.
+    # The Dockerfile stamps /opt/plato-agent-version with "package==version".
+    expected = f"{package_name}=={version}"
+    check_rc, check_out, _ = await run_ssh(
+        ssh_key, hostname, "cat /opt/plato-agent-version 2>/dev/null || true", timeout=5
+    )
+    if check_rc == 0 and check_out.strip() == expected:
+        logger.info("Agent package %s already pre-baked on %s, skipping install", expected, hostname)
+        return
+
     # UV_HTTP_TIMEOUT: bump from default 30s — the plato.so PyPI index
     # intermittently takes longer to respond, causing uv's internal retries
     # to exhaust before a response arrives.
     install_cmd = f"UV_HTTP_TIMEOUT=90 {build_agent_install_command(package_name, version)}"
 
-    last_error = ""
-    for attempt in range(1, max_retries + 1):
-        exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, install_cmd, user="root", timeout=300)
-        if exit_code == 0:
-            return
-        last_error = stderr or stdout
-        if attempt < max_retries:
-            logger.warning(
-                "Agent install failed (attempt %d/%d), retrying in %.0fs: %s",
-                attempt,
-                max_retries,
-                retry_delay,
-                last_error.strip(),
-            )
-            import asyncio
-
-            await asyncio.sleep(retry_delay)
-
-    raise RuntimeError(f"Failed to install agent package after {max_retries} attempts: {last_error}")
+    t0 = time.monotonic()
+    exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, install_cmd, user="root", timeout=300)
+    elapsed = time.monotonic() - t0
+    if exit_code == 0:
+        logger.info(
+            "Agent install succeeded on %s: %.1fs\n%s",
+            hostname,
+            elapsed,
+            (stderr or stdout or "").strip()[-500:],
+        )
+        return
+    raise RuntimeError(f"Failed to install agent package: {stderr or stdout}")

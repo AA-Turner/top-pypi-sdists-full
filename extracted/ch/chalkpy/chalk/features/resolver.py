@@ -2873,6 +2873,7 @@ class StreamResolver(Resolver[P, T]):
         include_message_envelope: bool = False,
         message_header_filters: list[tuple[str, bytes]] | None = None,
         resource_group: str | None = None,
+        deduplication: Deduplication | None = None,
     ):
         super().__init__(
             function_definition=function_definition,
@@ -2946,6 +2947,7 @@ class StreamResolver(Resolver[P, T]):
         self.skip_offline = skip_offline
         self.include_message_envelope = include_message_envelope
         self.message_header_filters = message_header_filters
+        self.deduplication = deduplication
 
     @property
     def output_features(self) -> Sequence[Feature]:
@@ -3864,6 +3866,7 @@ def make_stream_resolver(
     include_message_envelope: bool = False,
     message_header_filters: list[tuple[str, bytes]] | None = None,
     resource_group: Optional[str] = None,
+    deduplication: Optional[Deduplication] = None,
 ) -> StreamResolver:
     """Constructs a streaming resolver that, instead of a Python function,
     defines its output features as column projections on an input message.
@@ -4126,9 +4129,24 @@ def make_stream_resolver(
         include_message_envelope=include_message_envelope,
         message_header_filters=message_header_filters,
         resource_group=resource_group,
+        deduplication=deduplication,
     )
     resolver.add_to_registry(override=False)
     return resolver
+
+
+@dataclass(kw_only=True)
+class Deduplication:
+    """Deduplication policy for stream resolvers.
+
+    Messages whose computed key has been seen within the retention window are dropped.
+    """
+
+    on: Underscore
+    """Underscore expression evaluated against the message to compute the deduplication key."""
+
+    within: Duration
+    """How long to retain seen keys. Accepts Chalk duration strings like '24h', '7d', or a timedelta."""
 
 
 @dataclass(kw_only=True)

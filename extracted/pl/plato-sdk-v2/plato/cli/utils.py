@@ -4,6 +4,7 @@ import asyncio
 import os
 import re
 import shutil
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -12,6 +13,8 @@ import typer
 import yaml
 from rich.console import Console
 from rich.markup import MarkupError
+
+from plato.utils.pypi_index import plato_token_simple_index
 
 # Initialize Rich console - shared across all CLI modules
 console = Console()
@@ -25,6 +28,34 @@ def safe_print(*args, **kwargs):
         fallback_kwargs = dict(kwargs)
         fallback_kwargs.pop("markup", None)
         console.print(*args, markup=False, **fallback_kwargs)
+
+
+def wait_for_pypi_version(
+    package_name: str,
+    version: str,
+    *,
+    repo: str = "agents",
+    api_key: str | None = None,
+    timeout: float = 30.0,
+    poll_interval: float = 2.0,
+) -> None:
+    """Poll a Plato PyPI index until the given version is listed."""
+    index_url = plato_token_simple_index(repo, api_key=api_key)
+    package_url = f"{index_url}{package_name}/"
+    deadline = time.monotonic() + timeout
+    console.print(f"[dim]Waiting for {package_name}=={version} on {repo} index...[/dim]")
+    while time.monotonic() < deadline:
+        try:
+            resp = httpx.get(package_url, timeout=10, follow_redirects=True)
+            if resp.status_code == 200 and version in resp.text:
+                console.print(f"[green]{package_name}=={version} available on {repo} index[/green]")
+                return
+        except httpx.HTTPError:
+            pass
+        time.sleep(poll_interval)
+    console.print(
+        f"[yellow]Warning: {package_name}=={version} not found on {repo} index after {timeout}s, proceeding anyway[/yellow]"
+    )
 
 
 def read_plato_config(config_path: str | Path) -> dict:

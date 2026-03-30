@@ -86,6 +86,7 @@ class PageContext(Serializable):
     request: Request
     response: Response
     page_path: str = ""
+    page_execution_id: Optional[str] = None  # execution_id of the parent GET render
     sent_tasks: List[str] = Field(default_factory=list)
     legacy_thread_data: dict = Field(default_factory=dict)
     mock_execution: PageExecutionMock = Field(default_factory=PageExecutionMock)

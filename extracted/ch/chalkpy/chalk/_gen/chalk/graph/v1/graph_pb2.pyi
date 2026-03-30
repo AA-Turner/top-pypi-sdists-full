@@ -1114,6 +1114,18 @@ class SinkResolver(_message.Message):
         function: _Optional[_Union[FunctionReference, _Mapping]] = ...,
     ) -> None: ...
 
+class DeduplicationStrategy(_message.Message):
+    __slots__ = ("underscore_expr", "window")
+    UNDERSCORE_EXPR_FIELD_NUMBER: _ClassVar[int]
+    WINDOW_FIELD_NUMBER: _ClassVar[int]
+    underscore_expr: _expression_pb2.LogicalExprNode
+    window: _duration_pb2.Duration
+    def __init__(
+        self,
+        underscore_expr: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
+        window: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+    ) -> None: ...
+
 class ParseInfo(_message.Message):
     __slots__ = (
         "parse_function",
@@ -1182,6 +1194,7 @@ class StreamResolver(_message.Message):
         "message_format",
         "header_filters",
         "resource_group",
+        "deduplication_strategy",
     )
     class FeatureExpressionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1218,6 +1231,7 @@ class StreamResolver(_message.Message):
     MESSAGE_FORMAT_FIELD_NUMBER: _ClassVar[int]
     HEADER_FILTERS_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    DEDUPLICATION_STRATEGY_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     params: _containers.RepeatedCompositeFieldContainer[StreamResolverParam]
     outputs: _containers.RepeatedCompositeFieldContainer[ResolverOutput]
@@ -1243,6 +1257,7 @@ class StreamResolver(_message.Message):
     message_format: StreamMessageFormat
     header_filters: _containers.RepeatedCompositeFieldContainer[StreamHeaderFilter]
     resource_group: str
+    deduplication_strategy: DeduplicationStrategy
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -1270,6 +1285,7 @@ class StreamResolver(_message.Message):
         message_format: _Optional[_Union[StreamMessageFormat, str]] = ...,
         header_filters: _Optional[_Iterable[_Union[StreamHeaderFilter, _Mapping]]] = ...,
         resource_group: _Optional[str] = ...,
+        deduplication_strategy: _Optional[_Union[DeduplicationStrategy, _Mapping]] = ...,
     ) -> None: ...
 
 class StreamMessageHeaderEqualityCheck(_message.Message):

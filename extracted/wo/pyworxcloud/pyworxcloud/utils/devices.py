@@ -143,8 +143,8 @@ class DeviceHandler(LDict):
         self.in_topic = data["mqtt_topics"]["command_in"]
         self.out_topic = data["mqtt_topics"]["command_out"]
 
-        if data in ["lawn_perimeter", "lawn_size"]:
-            self.lawn = Lawn(data["lawn_perimeter"], data["lawn_size"])
+        if "lawn_perimeter" in data or "lawn_size" in data:
+            self.lawn = Lawn(data.get("lawn_perimeter"), data.get("lawn_size"))
 
         self.name = (
             data["name"] if not isinstance(data["name"], type(None)) else "No Name"
@@ -364,7 +364,7 @@ class DeviceHandler(LDict):
         result = ScheduleParser(sc_payload, self.protocol).parse()
 
         if "m" in sc_payload or "enabled" in sc_payload:
-            self.capabilities.add(DeviceCapability.PAUSE_MODE)
+            self.capabilities.add(DeviceCapability.PARTY_MODE)
 
         self.partymode_enabled = result.pause_mode_enabled
         self.pause_mode_enabled = result.pause_mode_enabled

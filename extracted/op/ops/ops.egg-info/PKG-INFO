@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ops
-Version: 3.6.0
+Version: 3.7.0
 Summary: The Python library behind great charms
 Author: The Charm Tech team at Canonical Ltd.
 License-Expression: Apache-2.0
@@ -22,9 +22,9 @@ Requires-Dist: PyYAML==6.*
 Requires-Dist: websocket-client==1.*
 Requires-Dist: opentelemetry-api~=1.0
 Provides-Extra: testing
-Requires-Dist: ops-scenario==8.6.0; extra == "testing"
+Requires-Dist: ops-scenario==8.7.0; extra == "testing"
 Provides-Extra: tracing
-Requires-Dist: ops-tracing==3.6.0; extra == "tracing"
+Requires-Dist: ops-tracing==3.7.0; extra == "tracing"
 Provides-Extra: harness
 Dynamic: license-file
 
@@ -32,7 +32,7 @@ Dynamic: license-file
 
 ![CI Status](https://github.com/canonical/operator/actions/workflows/framework-tests.yaml/badge.svg)
 
-The `ops` library is a Python framework for developing and testing Kubernetes and machine [charms](https://charmhub.io/). While charms can be written in any language, `ops` defines the latest standard, and charmers are encouraged to use Python with `ops` for all charms. The library is an official component of the Charm SDK, itself a part of [the Juju universe](https://juju.is/).
+The `ops` library is a Python framework for developing and testing Kubernetes and machine [charms](https://charmhub.io/). While charms can be written in any language, `ops` defines the latest standard, and charmers are encouraged to use Python with `ops` for all charms. The library is an official component of the Charm SDK, itself a part of [the Juju universe](https://canonical.com/juju).
 
 > - `ops` is  [available on PyPI](https://pypi.org/project/ops/).
 > - The latest version of `ops` requires Python 3.10 or above.

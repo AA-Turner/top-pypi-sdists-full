@@ -206,9 +206,14 @@ class PageSDKController:
         js_params_obj = ", ".join(f"{p['name']}: {p['name']}" for p in params)
         return [
             "  const __endpoint = document.querySelector('base')?.getAttribute('href') || window.location.pathname;",
+            "  const __headers = { 'Content-Type': 'application/json' };",
+            "  const __token = document.querySelector('meta[name=\"abstra-auth-token\"]')?.getAttribute('content');",
+            "  if (__token) __headers['Authorization'] = 'Bearer ' + __token;",
+            "  const __pageExecId = document.querySelector('meta[name=\"abstra-execution-id\"]')?.getAttribute('content');",
+            "  if (__pageExecId) __headers['X-Page-Execution-Id'] = __pageExecId;",
             "  const response = await fetch(__endpoint, {",
             '    method: "POST",',
-            '    headers: { "Content-Type": "application/json" },',
+            "    headers: __headers,",
             f'    body: JSON.stringify({{ function: "{name}", params: {{ {js_params_obj} }} }})',
             "  });",
             "  if (!response.ok) {",

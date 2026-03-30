@@ -144,6 +144,7 @@ if patch_lmdb_source:
         'validate-nodedsz-cursor-put',
         'validate-md-depth',
         'validate-md-root',
+        'win32-sparse-file',
     ]
 
     if sys.platform.startswith('win'):
@@ -267,6 +268,7 @@ setup(
         "Topic :: Database",
         "Topic :: Database :: Database Engines/Servers",
     ],
+    python_requires='>=3.9',
     ext_package='lmdb',
     ext_modules=ext_modules,
     install_requires=install_requires,

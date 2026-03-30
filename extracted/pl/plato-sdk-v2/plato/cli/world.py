@@ -9,7 +9,7 @@ from pathlib import Path
 
 import typer
 
-from plato.cli.utils import console, maybe_bump_package_version, require_api_key
+from plato.cli.utils import console, maybe_bump_package_version, require_api_key, wait_for_pypi_version
 from plato.utils.ecr import ECR_REGISTRY, get_image_digest, publish_docker_image, retag_image
 
 world_app = typer.Typer(help="Manage and deploy worlds")
@@ -334,6 +334,7 @@ def world_publish(
             # Get current :latest digest before pushing (to detect changes)
             old_digest = get_image_digest(repository, "latest")
 
+            wait_for_pypi_version(package_name, version, repo="worlds", api_key=api_key)
             console.print("[cyan]Building and pushing Docker image...[/cyan]")
             result = publish_docker_image(
                 name=short_name,

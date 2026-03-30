@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opencage
-Version: 3.3.0
+Version: 3.3.1
 Summary: Wrapper module for the OpenCage Geocoder API
 Author-email: OpenCage GmbH <info@opencagedata.com>
 License-Expression: BSD-3-Clause
@@ -57,6 +57,9 @@ There are two brief video tutorials on YouTube, one [covering forward geocoding]
 
 The module installs an `opencage` CLI tool for geocoding files. Check `opencage --help` or the [CLI tutorial](https://opencagedata.com/tutorials/geocode-commandline).
 
+## Working with AI / Agent Skill
+
+There is an [Agent Skill for working with the OpenCage Geocoding API](https://github.com/OpenCageData/opencage-skills/blob/master/opencage-geocoding-api/SKILL.md) which includes a reference file for developing in Python using this module.
 
 ## Usage
 

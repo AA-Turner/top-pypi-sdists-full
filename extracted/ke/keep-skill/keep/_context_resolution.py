@@ -10,6 +10,7 @@ import logging
 import math
 from typing import TYPE_CHECKING, Any, Optional
 
+from .tracing import get_tracer
 from .types import (
     Item,
     ItemContext,
@@ -21,10 +22,11 @@ from .types import (
     PromptResult,
     PromptInfo,
     TagMap,
+    is_system_id,
     local_date,
     normalize_id,
-    is_part_id,
     parse_version_ref,
+    is_part_id,
 )
 from .utils import _is_hidden, _parse_meta_doc
 
@@ -32,6 +34,7 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+tracer = get_tracer("flow")
 
 
 class ContextResolutionMixin:
@@ -200,6 +203,24 @@ class ContextResolutionMixin:
         if item is None:
             return None
 
+        # System docs are authored reference/configuration content.
+        # Rendering them should show the document itself only; surrounding
+        # context assembly (similar/meta/parts/edges/version nav) adds noise
+        # and unnecessary work.
+        if is_system_id(item.id):
+            perf.record("get_context", "total", time.monotonic() - _ctx_t0,
+                        context_id=id)
+            return ItemContext(
+                item=item,
+                viewing_offset=offset,
+                similar=[],
+                meta={},
+                edges={},
+                parts=[],
+                prev=[],
+                next=[],
+            )
+
         # Version navigation
         prev_refs: list[VersionRef] = []
         next_refs: list[VersionRef] = []
@@ -339,11 +360,10 @@ class ContextResolutionMixin:
         """Render an agent prompt doc with injected context.
 
         Reads ``.prompt/agent/{name}`` from the store, extracts the
-        ``## Prompt`` section, and assembles context.  The prompt text
-        may contain ``{get}`` and ``{find}`` placeholders — the caller
-        expands them with the rendered context and search results.
-        Use ``{find:deep}`` to force deep tag-follow search regardless
-        of the caller's ``deep`` parameter.
+        ``## Prompt`` section, and optionally runs a state doc named in
+        the prompt's ``state`` tag to assemble bindings. Dynamic prompts
+        must use a state doc; runtime does not fall back to bespoke Python
+        retrieval paths.
 
         Args:
             name: Prompt name (e.g. "reflect")
@@ -358,11 +378,12 @@ class ContextResolutionMixin:
             token_budget: Explicit token budget (None = use template default)
 
         Returns:
-            PromptResult with context, search_results, and prompt template,
+            PromptResult with prompt template and optional flow bindings,
             or None if the prompt doc doesn't exist.
         """
         from .analyzers import extract_prompt_section
 
+        self._ensure_sysdocs()
         doc_id = f".prompt/agent/{name}"
         doc = self.get(doc_id)
         if doc is None:
@@ -373,49 +394,22 @@ class ContextResolutionMixin:
             # Fall back to full content if no ## Prompt section
             prompt_body = doc.summary
 
-        # Check for state-doc flow reference in prompt tags.
-        # When present, the flow's bindings replace the default get/find.
         state_doc = (doc.tags or {}).get("state")
         if state_doc:
             return self._render_prompt_via_flow(
                 prompt_body, state_doc, text=text, id=id,
                 since=since, until=until, tags=tags, scope=scope,
-                token_budget=token_budget,
+                token_budget=token_budget, limit=limit, deep=deep,
             )
 
-        # Default path: hardcoded get + find
-        context_id = id or "now"
-        if context_id == "now":
-            self.get_now()  # ensure now exists (auto-creates from bundled doc)
-        ctx = self.get_context(context_id)
-
-        # {find:deep} or {find:deep:N} in the template forces deep search
-        if "{find:deep" in prompt_body:
-            deep = True
-
-        # Ensure retrieval limit is high enough to fill the token budget.
-        # Deep items are rendered in a separate pass from leftover budget,
-        # so the primary fetch size doesn't need to shrink for deep mode.
-        tokens_per_item = 50
-        effective_budget = token_budget or 4000
-        fetch_limit = min(200, max(limit, effective_budget // tokens_per_item))
-
-        # Search: find similar items with available filters
-        search_results = None
-        if text:
-            search_results = self.find(
-                query=text, tags=tags, since=since, until=until, limit=fetch_limit,
-                deep=deep, scope=scope,
-            )
-        elif tags or since or until:
-            search_results = self.find(
-                similar_to=context_id, tags=tags, since=since, until=until,
-                limit=fetch_limit, deep=deep, scope=scope,
+        if "{get}" in prompt_body or "{find" in prompt_body:
+            raise ValueError(
+                f"prompt .prompt/agent/{name} uses dynamic placeholders but has no state tag"
             )
 
         return PromptResult(
-            context=ctx,
-            search_results=search_results,
+            context=None,
+            search_results=None,
             prompt=prompt_body,
             text=text,
             since=since,
@@ -435,14 +429,18 @@ class ContextResolutionMixin:
         tags: Optional[TagMap] = None,
         scope: Optional[str] = None,
         token_budget: Optional[int] = None,
+        limit: int = 10,
+        deep: bool = False,
     ) -> PromptResult:
         """Run a state-doc flow and return a PromptResult with bindings."""
         params: dict[str, Any] = {}
+        context_id = id or "now"
+        if context_id == "now":
+            self.get_now()
+        params["item_id"] = context_id
         if text:
             params["query"] = text
             params["prompt"] = text
-        if id:
-            params["item_id"] = id
         if since:
             params["since"] = since
         if until:
@@ -451,8 +449,22 @@ class ContextResolutionMixin:
             params["tags"] = tags
         if scope:
             params["scope"] = scope
+        if deep:
+            params["deep"] = True
+        if "{find:deep" in prompt_body and "deep" not in params:
+            params["deep"] = True
+        params["limit"] = max(int(limit), 1)
 
-        flow_result = self._run_read_flow(state_doc, params, budget=10)
+        flow_result = self.run_flow_command(
+            state_doc,
+            params=params,
+            budget=10,
+            writable=False,
+        )
+        if flow_result.status != "done":
+            raise ValueError(
+                f"prompt state flow {state_doc!r} failed: {flow_result.status}: {flow_result.data}"
+            )
 
         return PromptResult(
             context=None,
@@ -472,6 +484,7 @@ class ContextResolutionMixin:
             List of PromptInfo with name and summary for each
             ``.prompt/agent/*`` doc in the store.
         """
+        self._ensure_sysdocs()
         prefix = ".prompt/agent/"
         items = self.list_items(
             prefix=prefix, include_hidden=True, limit=100,
@@ -602,15 +615,26 @@ class ContextResolutionMixin:
         Returns:
             Dict of {meta_name: [matching Items]}. Empty results omitted.
         """
+        from .tracing import get_tracer
+
         doc_coll = self._resolve_doc_collection()
+        tracer = get_tracer("keeper")
 
         # Find all .meta/* documents
-        meta_records = self._document_store.query_by_id_prefix(doc_coll, ".meta/")
+        with tracer.start_as_current_span(
+            "resolve_meta.load_docs",
+            attributes={"item_id": item_id},
+        ):
+            meta_records = self._document_store.query_by_id_prefix(doc_coll, ".meta/")
         if not meta_records:
             return {}
 
         # Get current item's tags for context
-        current = self.get(item_id)
+        with tracer.start_as_current_span(
+            "resolve_meta.load_item",
+            attributes={"item_id": item_id},
+        ):
+            current = self.get(item_id)
         if current is None:
             return {}
         current_tags = current.tags
@@ -629,29 +653,40 @@ class ContextResolutionMixin:
         from .state_doc_runtime import make_action_runner, make_state_doc_loader
         env = LocalFlowEnvironment(self)
         loader = make_state_doc_loader(env)
-        runner = make_action_runner(env)
+        runner = make_action_runner(env, context_cache=self._context_cache)
 
         result: dict[str, list[Item]] = {}
 
-        for rec in meta_records:
-            meta_id = rec.id
-            short_name = meta_id.split("/", 1)[1] if "/" in meta_id else meta_id
-            body = (rec.summary or "").strip()
-            if not body:
-                continue
+        with tracer.start_as_current_span(
+            "resolve_meta",
+            attributes={"item_id": item_id, "meta_doc_count": len(meta_records)},
+        ):
+            for rec in meta_records:
+                meta_id = rec.id
+                short_name = meta_id.split("/", 1)[1] if "/" in meta_id else meta_id
+                body = (rec.summary or "").strip()
+                if not body:
+                    continue
 
-            matches = self._run_meta_flow(
-                short_name, body, flow_params, loader=loader, runner=runner,
-            )
+                with tracer.start_as_current_span(
+                    "resolve_meta.doc",
+                    attributes={"item_id": item_id, "meta_doc": short_name},
+                ) as span:
+                    matches = self._run_meta_flow(
+                        short_name, body, flow_params, loader=loader, runner=runner,
+                    )
 
-            # Legacy fallback: try old line-based format
-            if matches is None:
-                matches = self._resolve_meta_legacy(
-                    item_id, current_tags, body, limit_per_doc,
-                )
+                    # Legacy fallback: try old line-based format
+                    if matches is None:
+                        span.set_attribute("legacy", True)
+                        matches = self._resolve_meta_legacy(
+                            item_id, current_tags, body, limit_per_doc,
+                        )
+                    if matches is not None:
+                        span.set_attribute("result_count", len(matches))
 
-            if matches:
-                result[short_name] = matches
+                if matches:
+                    result[short_name] = matches
 
         return result
 
@@ -673,7 +708,11 @@ class ContextResolutionMixin:
         from .state_doc_runtime import run_flow
 
         try:
-            doc = parse_state_doc(name, body)
+            with tracer.start_as_current_span(
+                "resolve_meta.parse_doc",
+                attributes={"meta_doc": name, "body_chars": len(body)},
+            ):
+                doc = parse_state_doc(name, body)
         except (ValueError, RuntimeError):
             return None  # Not a state doc — legacy fallback
 
@@ -685,7 +724,7 @@ class ContextResolutionMixin:
             if loader is None:
                 loader = make_state_doc_loader(env)
             if runner is None:
-                runner = make_action_runner(env)
+                runner = make_action_runner(env, context_cache=self._context_cache)
 
         # Provide the parsed doc directly via an inline loader
         base_loader = loader
@@ -695,14 +734,18 @@ class ContextResolutionMixin:
                 return doc
             return base_loader(doc_name)
 
-        flow_result = run_flow(
-            name,
-            params,
-            budget=1,
-            load_state_doc=_meta_loader,
-            run_action=runner,
-            foreground=True,
-        )
+        with tracer.start_as_current_span(
+            "resolve_meta.run_flow",
+            attributes={"meta_doc": name},
+        ):
+            flow_result = run_flow(
+                name,
+                params,
+                budget=1,
+                load_state_doc=_meta_loader,
+                run_action=runner,
+                foreground=True,
+            )
 
         # If the flow hit an async action, enqueue cursor for daemon
         if flow_result.status == "async" and flow_result.cursor:

@@ -232,7 +232,7 @@ class BatchFeatureSetSource(google.protobuf.message.Message):
     This field is mandatory
     """
     filter_by_feature_set_name: builtins.bool
-    """Optionally filter by feature set name"""
+    """This field is not functional - feature set name is mandatory for verifying user permissions"""
     run_id: builtins.str
     """Filter by run id"""
     def __init__(

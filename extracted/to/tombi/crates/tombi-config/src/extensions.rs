@@ -134,6 +134,35 @@ impl CargoExtensionFeatures {
                 .map_or(true, CargoLspFeatures::path_completion_enabled)
     }
 
+    pub fn inlay_hint_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .lsp()
+                .map_or(true, CargoLspFeatures::inlay_hint_enabled)
+    }
+
+    pub fn dependency_version_inlay_hint_enabled(&self) -> bool {
+        self.enabled()
+            && self.lsp().map_or(
+                true,
+                CargoLspFeatures::dependency_version_inlay_hint_enabled,
+            )
+    }
+
+    pub fn default_features_inlay_hint_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .lsp()
+                .map_or(true, CargoLspFeatures::default_features_inlay_hint_enabled)
+    }
+
+    pub fn workspace_value_inlay_hint_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .lsp()
+                .map_or(true, CargoLspFeatures::workspace_value_inlay_hint_enabled)
+    }
+
     pub fn goto_definition_enabled(&self) -> bool {
         self.enabled()
             && self
@@ -216,6 +245,17 @@ impl CargoExtensionFeatures {
             && self
                 .lsp()
                 .map_or(true, CargoLspFeatures::path_document_link_enabled)
+    }
+
+    pub fn hover_enabled(&self) -> bool {
+        self.enabled() && self.lsp().map_or(true, CargoLspFeatures::hover_enabled)
+    }
+
+    pub fn dependency_detail_hover_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .lsp()
+                .map_or(true, CargoLspFeatures::dependency_detail_hover_enabled)
     }
 
     pub fn crates_io_document_link_enabled(&self) -> bool {
@@ -301,6 +341,13 @@ impl CargoLspFeatures {
         }
     }
 
+    pub fn inlay_hint(&self) -> Option<&CargoInlayHintFeatures> {
+        match self {
+            Self::Enabled(_) => None,
+            Self::Features(features) => features.inlay_hint.as_ref(),
+        }
+    }
+
     pub fn goto_definition(&self) -> Option<&CargoNavigationFeatures> {
         match self {
             Self::Enabled(_) => None,
@@ -326,6 +373,13 @@ impl CargoLspFeatures {
         match self {
             Self::Enabled(_) => None,
             Self::Features(features) => features.code_action.as_ref(),
+        }
+    }
+
+    pub fn hover(&self) -> Option<&CargoHoverFeatures> {
+        match self {
+            Self::Enabled(_) => None,
+            Self::Features(features) => features.hover.as_ref(),
         }
     }
 
@@ -355,6 +409,34 @@ impl CargoLspFeatures {
             && self
                 .completion()
                 .map_or(true, CargoCompletionFeatures::path_enabled)
+    }
+
+    pub fn inlay_hint_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .inlay_hint()
+                .map_or(true, CargoInlayHintFeatures::enabled)
+    }
+
+    pub fn dependency_version_inlay_hint_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .inlay_hint()
+                .map_or(true, CargoInlayHintFeatures::dependency_version_enabled)
+    }
+
+    pub fn default_features_inlay_hint_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .inlay_hint()
+                .map_or(true, CargoInlayHintFeatures::default_features_enabled)
+    }
+
+    pub fn workspace_value_inlay_hint_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .inlay_hint()
+                .map_or(true, CargoInlayHintFeatures::workspace_value_enabled)
     }
 
     pub fn goto_definition_enabled(&self) -> bool {
@@ -441,6 +523,17 @@ impl CargoLspFeatures {
                 .map_or(true, CargoDocumentLinkFeatures::path_enabled)
     }
 
+    pub fn hover_enabled(&self) -> bool {
+        self.enabled() && self.hover().map_or(true, CargoHoverFeatures::enabled)
+    }
+
+    pub fn dependency_detail_hover_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .hover()
+                .map_or(true, CargoHoverFeatures::dependency_detail_enabled)
+    }
+
     pub fn crates_io_document_link_enabled(&self) -> bool {
         self.enabled()
             && self
@@ -496,10 +589,120 @@ impl CargoLspFeatures {
 #[cfg_attr(feature = "jsonschema", schemars(extend("x-tombi-table-keys-order" = tombi_x_keyword::TableKeysOrder::Ascending)))]
 pub struct CargoLspFeatureTree {
     pub completion: Option<CargoCompletionFeatures>,
+    pub inlay_hint: Option<CargoInlayHintFeatures>,
     pub goto_definition: Option<CargoNavigationFeatures>,
     pub goto_declaration: Option<CargoNavigationFeatures>,
     pub document_link: Option<CargoDocumentLinkFeatures>,
+    pub hover: Option<CargoHoverFeatures>,
     pub code_action: Option<CargoCodeActionFeatures>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "jsonschema", schemars(extend("x-tombi-table-keys-order" = tombi_x_keyword::TableKeysOrder::Ascending)))]
+pub enum CargoHoverFeatures {
+    Enabled(EnabledOnly),
+    Features(CargoHoverFeatureTree),
+}
+
+default_to_features!(CargoHoverFeatures, CargoHoverFeatureTree);
+
+impl CargoHoverFeatures {
+    pub fn enabled(&self) -> bool {
+        match self {
+            Self::Enabled(enabled) => enabled.enabled(),
+            Self::Features(_) => true,
+        }
+    }
+
+    pub fn dependency_detail_enabled(&self) -> bool {
+        self.enabled()
+            && match self {
+                Self::Enabled(_) => true,
+                Self::Features(features) => features
+                    .dependency_detail
+                    .as_ref()
+                    .map_or(true, ToggleFeature::enabled),
+            }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "jsonschema", schemars(extend("x-tombi-table-keys-order" = tombi_x_keyword::TableKeysOrder::Ascending)))]
+pub enum CargoInlayHintFeatures {
+    Enabled(EnabledOnly),
+    Features(CargoInlayHintFeatureTree),
+}
+
+default_to_features!(CargoInlayHintFeatures, CargoInlayHintFeatureTree);
+
+impl CargoInlayHintFeatures {
+    pub fn enabled(&self) -> bool {
+        match self {
+            Self::Enabled(enabled) => enabled.enabled(),
+            Self::Features(_) => true,
+        }
+    }
+
+    pub fn dependency_version_enabled(&self) -> bool {
+        self.enabled()
+            && match self {
+                Self::Enabled(_) => true,
+                Self::Features(features) => features
+                    .dependency_version
+                    .as_ref()
+                    .map_or(true, ToggleFeature::enabled),
+            }
+    }
+
+    pub fn default_features_enabled(&self) -> bool {
+        self.enabled()
+            && match self {
+                Self::Enabled(_) => true,
+                Self::Features(features) => features
+                    .default_features
+                    .as_ref()
+                    .map_or(true, ToggleFeature::enabled),
+            }
+    }
+
+    pub fn workspace_value_enabled(&self) -> bool {
+        self.enabled()
+            && match self {
+                Self::Enabled(_) => true,
+                Self::Features(features) => features
+                    .workspace_value
+                    .as_ref()
+                    .map_or(true, ToggleFeature::enabled),
+            }
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[cfg_attr(feature = "serde", serde(rename_all = "kebab-case"))]
+#[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "jsonschema", schemars(extend("x-tombi-table-keys-order" = tombi_x_keyword::TableKeysOrder::Ascending)))]
+pub struct CargoHoverFeatureTree {
+    pub dependency_detail: Option<ToggleFeature>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[cfg_attr(feature = "serde", serde(rename_all = "kebab-case"))]
+#[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "jsonschema", schemars(extend("x-tombi-table-keys-order" = tombi_x_keyword::TableKeysOrder::Ascending)))]
+pub struct CargoInlayHintFeatureTree {
+    pub dependency_version: Option<ToggleFeature>,
+    pub default_features: Option<ToggleFeature>,
+    pub workspace_value: Option<ToggleFeature>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -822,6 +1025,21 @@ impl PyprojectExtensionFeatures {
                 .map_or(true, PyprojectLspFeatures::path_completion_enabled)
     }
 
+    pub fn inlay_hint_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .lsp()
+                .map_or(true, PyprojectLspFeatures::inlay_hint_enabled)
+    }
+
+    pub fn dependency_version_inlay_hint_enabled(&self) -> bool {
+        self.enabled()
+            && self.lsp().map_or(
+                true,
+                PyprojectLspFeatures::dependency_version_inlay_hint_enabled,
+            )
+    }
+
     pub fn goto_definition_enabled(&self) -> bool {
         self.enabled()
             && self
@@ -902,6 +1120,17 @@ impl PyprojectExtensionFeatures {
                 .map_or(true, PyprojectLspFeatures::pypi_org_document_link_enabled)
     }
 
+    pub fn hover_enabled(&self) -> bool {
+        self.enabled() && self.lsp().map_or(true, PyprojectLspFeatures::hover_enabled)
+    }
+
+    pub fn dependency_detail_hover_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .lsp()
+                .map_or(true, PyprojectLspFeatures::dependency_detail_hover_enabled)
+    }
+
     pub fn code_action_enabled(&self) -> bool {
         self.enabled()
             && self
@@ -962,6 +1191,13 @@ impl PyprojectLspFeatures {
         }
     }
 
+    pub fn inlay_hint(&self) -> Option<&PyprojectInlayHintFeatures> {
+        match self {
+            Self::Enabled(_) => None,
+            Self::Features(features) => features.inlay_hint.as_ref(),
+        }
+    }
+
     pub fn goto_definition(&self) -> Option<&PyprojectNavigationFeatures> {
         match self {
             Self::Enabled(_) => None,
@@ -990,6 +1226,13 @@ impl PyprojectLspFeatures {
         }
     }
 
+    pub fn hover(&self) -> Option<&PyprojectHoverFeatures> {
+        match self {
+            Self::Enabled(_) => None,
+            Self::Features(features) => features.hover.as_ref(),
+        }
+    }
+
     pub fn completion_enabled(&self) -> bool {
         self.enabled()
             && self
@@ -1002,6 +1245,20 @@ impl PyprojectLspFeatures {
             && self
                 .completion()
                 .map_or(true, PyprojectCompletionFeatures::path_enabled)
+    }
+
+    pub fn inlay_hint_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .inlay_hint()
+                .map_or(true, PyprojectInlayHintFeatures::enabled)
+    }
+
+    pub fn dependency_version_inlay_hint_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .inlay_hint()
+                .map_or(true, PyprojectInlayHintFeatures::dependency_version_enabled)
     }
 
     pub fn goto_definition_enabled(&self) -> bool {
@@ -1081,6 +1338,17 @@ impl PyprojectLspFeatures {
                 .map_or(true, PyprojectDocumentLinkFeatures::pypi_org_enabled)
     }
 
+    pub fn hover_enabled(&self) -> bool {
+        self.enabled() && self.hover().map_or(true, PyprojectHoverFeatures::enabled)
+    }
+
+    pub fn dependency_detail_hover_enabled(&self) -> bool {
+        self.enabled()
+            && self
+                .hover()
+                .map_or(true, PyprojectHoverFeatures::dependency_detail_enabled)
+    }
+
     pub fn code_action_enabled(&self) -> bool {
         self.enabled()
             && self
@@ -1113,10 +1381,96 @@ impl PyprojectLspFeatures {
 #[cfg_attr(feature = "jsonschema", schemars(extend("x-tombi-table-keys-order" = tombi_x_keyword::TableKeysOrder::Ascending)))]
 pub struct PyprojectLspFeatureTree {
     pub completion: Option<PyprojectCompletionFeatures>,
+    pub inlay_hint: Option<PyprojectInlayHintFeatures>,
     pub goto_definition: Option<PyprojectNavigationFeatures>,
     pub goto_declaration: Option<PyprojectNavigationFeatures>,
     pub document_link: Option<PyprojectDocumentLinkFeatures>,
+    pub hover: Option<PyprojectHoverFeatures>,
     pub code_action: Option<PyprojectCodeActionFeatures>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "jsonschema", schemars(extend("x-tombi-table-keys-order" = tombi_x_keyword::TableKeysOrder::Ascending)))]
+pub enum PyprojectInlayHintFeatures {
+    Enabled(EnabledOnly),
+    Features(PyprojectInlayHintFeatureTree),
+}
+
+default_to_features!(PyprojectInlayHintFeatures, PyprojectInlayHintFeatureTree);
+
+impl PyprojectInlayHintFeatures {
+    pub fn enabled(&self) -> bool {
+        match self {
+            Self::Enabled(enabled) => enabled.enabled(),
+            Self::Features(_) => true,
+        }
+    }
+
+    pub fn dependency_version_enabled(&self) -> bool {
+        self.enabled()
+            && match self {
+                Self::Enabled(_) => true,
+                Self::Features(features) => features
+                    .dependency_version
+                    .as_ref()
+                    .map_or(true, ToggleFeature::enabled),
+            }
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[cfg_attr(feature = "serde", serde(rename_all = "kebab-case"))]
+#[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "jsonschema", schemars(extend("x-tombi-table-keys-order" = tombi_x_keyword::TableKeysOrder::Ascending)))]
+pub struct PyprojectInlayHintFeatureTree {
+    pub dependency_version: Option<ToggleFeature>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "jsonschema", schemars(extend("x-tombi-table-keys-order" = tombi_x_keyword::TableKeysOrder::Ascending)))]
+pub enum PyprojectHoverFeatures {
+    Enabled(EnabledOnly),
+    Features(PyprojectHoverFeatureTree),
+}
+
+default_to_features!(PyprojectHoverFeatures, PyprojectHoverFeatureTree);
+
+impl PyprojectHoverFeatures {
+    pub fn enabled(&self) -> bool {
+        match self {
+            Self::Enabled(enabled) => enabled.enabled(),
+            Self::Features(_) => true,
+        }
+    }
+
+    pub fn dependency_detail_enabled(&self) -> bool {
+        self.enabled()
+            && match self {
+                Self::Enabled(_) => true,
+                Self::Features(features) => features
+                    .dependency_detail
+                    .as_ref()
+                    .map_or(true, ToggleFeature::enabled),
+            }
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[cfg_attr(feature = "serde", serde(rename_all = "kebab-case"))]
+#[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "jsonschema", schemars(extend("x-tombi-table-keys-order" = tombi_x_keyword::TableKeysOrder::Ascending)))]
+pub struct PyprojectHoverFeatureTree {
+    pub dependency_detail: Option<ToggleFeature>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1400,6 +1754,10 @@ impl TombiExtensionFeatures {
                 .lsp()
                 .map_or(true, TombiLspFeatures::path_document_link_enabled)
     }
+
+    pub fn hover_enabled(&self) -> bool {
+        self.enabled() && self.lsp().map_or(true, TombiLspFeatures::hover_enabled)
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -1452,6 +1810,13 @@ impl TombiLspFeatures {
         }
     }
 
+    pub fn hover(&self) -> Option<&EnabledOnly> {
+        match self {
+            Self::Enabled(_) => None,
+            Self::Features(features) => features.hover.as_ref(),
+        }
+    }
+
     pub fn completion_enabled(&self) -> bool {
         self.enabled()
             && self
@@ -1493,6 +1858,10 @@ impl TombiLspFeatures {
                 .document_link()
                 .map_or(true, TombiDocumentLinkFeatures::path_enabled)
     }
+
+    pub fn hover_enabled(&self) -> bool {
+        self.enabled() && self.hover().map_or(true, EnabledOnly::enabled)
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -1505,6 +1874,7 @@ pub struct TombiLspFeatureTree {
     pub completion: Option<TombiCompletionFeatures>,
     pub goto_definition: Option<TombiGotoDefinitionFeatures>,
     pub document_link: Option<TombiDocumentLinkFeatures>,
+    pub hover: Option<EnabledOnly>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1641,5 +2011,47 @@ pub struct ToggleFeature {
 impl ToggleFeature {
     pub fn enabled(&self) -> bool {
         self.enabled.unwrap_or_default().value()
+    }
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cargo_inlay_hint_feature_tree_deserializes_workspace_value_key() {
+        let features: CargoInlayHintFeatureTree = serde_json::from_value(serde_json::json!({
+            "workspace-value": {
+                "enabled": false
+            }
+        }))
+        .expect("workspace-value should deserialize");
+
+        assert_eq!(
+            features.workspace_value,
+            Some(ToggleFeature {
+                enabled: Some(BoolDefaultTrue::from(false)),
+            })
+        );
+    }
+
+    #[test]
+    fn cargo_inlay_hint_feature_tree_serializes_workspace_value_key() {
+        let value = serde_json::to_value(CargoInlayHintFeatureTree {
+            dependency_version: None,
+            default_features: None,
+            workspace_value: Some(ToggleFeature {
+                enabled: Some(BoolDefaultTrue::from(false)),
+            }),
+        })
+        .expect("workspace-value should serialize");
+
+        assert_eq!(
+            value.get("workspace-value"),
+            Some(&serde_json::json!({
+                "enabled": false
+            }))
+        );
+        assert!(value.get("workspace").is_none());
     }
 }

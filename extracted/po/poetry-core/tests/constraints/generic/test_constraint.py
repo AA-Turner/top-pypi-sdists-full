@@ -265,6 +265,31 @@ def test_allows(
             False,
             False,
         ),
+        # "in" / "not in" with MultiConstraint and UnionConstraint
+        (
+            Constraint("tegra", "in"),
+            MultiConstraint(Constraint("win32", "!="), Constraint("linux", "!=")),
+            True,  # "1.2-tegra" contains "tegra" and is neither "win32" nor "linux"
+            False,
+        ),
+        (
+            Constraint("tegra", "not in"),
+            MultiConstraint(Constraint("win32", "!="), Constraint("linux", "!=")),
+            True,  # "darwin" has no "tegra" and is neither "win32" nor "linux"
+            False,
+        ),
+        (
+            Constraint("tegra", "in"),
+            UnionConstraint(Constraint("1.2-tegra"), Constraint("plain")),
+            True,  # "tegra" is in "1.2-tegra"
+            False,
+        ),
+        (
+            Constraint("tegra", "in"),
+            UnionConstraint(Constraint("plain"), Constraint("other")),
+            False,  # "tegra" is not in "plain" or "other"
+            False,
+        ),
     ],
 )
 def test_allows_any_and_allows_all(
@@ -1203,7 +1228,15 @@ def test_intersect_extra(
         (
             Constraint("tegra", "not in"),
             Constraint("rpi", "not in"),
-            AnyConstraint(),
+            # NB not AnyConstraint - eg "tegra-rpi" does not satisfy either constraint
+            (
+                UnionConstraint(
+                    Constraint("tegra", "not in"), Constraint("rpi", "not in")
+                ),
+                UnionConstraint(
+                    Constraint("rpi", "not in"), Constraint("tegra", "not in")
+                ),
+            ),
         ),
         (
             Constraint("tegra", "in"),

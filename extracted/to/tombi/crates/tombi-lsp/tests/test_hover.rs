@@ -387,6 +387,41 @@ mod hover_keys_value {
 
         test_hover_keys_value!(
             #[tokio::test]
+            async fn cargo_dependency_table_field_hover_keeps_schema_metadata(
+                r#"
+                [dependencies]
+                tombi-extension-cargo = { version█ = "0.0.0", workspace = true }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("crates/tombi-lsp/Cargo.toml")),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "dependencies.tombi-extension-cargo.version",
+                "Value": "String?",
+                "Title": Some("Semantic Version Requirement"),
+                "Description": Some("The [version requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html) of the target dependency."),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_workspace_dependency_hover_metadata_disabled_by_extensions(
+                r#"
+                [dependencies]
+                member█ = { workspace = true }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/cargo-hover-disabled/member/Cargo.toml"
+                )),
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "dependencies.member",
+                "Value": "(String | Table)?",
+                "Title": Some("Dependency"),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
             async fn cargo_remote_dependency_hover_offline(
                 r#"
                 [workspace.dependencies]
@@ -480,6 +515,32 @@ mod hover_keys_value {
 
         test_hover_keys_value!(
             #[tokio::test]
+            async fn pyproject_workspace_dependency_hover_metadata_disabled_by_extensions(
+                r#"
+                [project]
+                dependencies = [
+                    "member█",
+                ]
+
+                [tool.uv.workspace]
+                members = ["member"]
+
+                [tool.uv.sources]
+                member = { workspace = true }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join(
+                    "crates/tombi-lsp/tests/fixtures/extensions/pyproject-hover-disabled/pyproject.toml"
+                )),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok({
+                "Keys": "project.dependencies[0]",
+                "Value": "String",
+                "Title": Some("Project mandatory dependency requirements"),
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
             async fn pyproject_remote_dependency_hover_offline(
                 r#"
                 [project]
@@ -496,6 +557,31 @@ mod hover_keys_value {
             ) -> Ok({
                 "Keys": "project.dependencies[0]",
                 "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn pyproject_tool_uv_constraint_dependency_hover_metadata(
+                r#"
+                [tool.uv]
+                constraint-dependencies = [
+                    "tombi-beta█",
+                ]
+
+                [tool.uv.workspace]
+                members = ["python/tombi-beta"]
+
+                [tool.uv.sources]
+                tombi-beta = { workspace = true }
+                "#,
+                SourcePath(tombi_test_lib::project_root_path().join("pyproject.toml")),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok({
+                "Keys": "tool.uv.constraint-dependencies[0]",
+                "Value": "String",
+                "Title": Some("tombi-beta"),
+                "Description": Some("Add your description here"),
             });
         );
 
