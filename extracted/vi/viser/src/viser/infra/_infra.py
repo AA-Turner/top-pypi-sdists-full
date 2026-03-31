@@ -58,6 +58,7 @@ class StateSerializer:
         self._handler = handler
         self._filter = filter
         self._time: float = 0.0
+        self._binary_buffers: list[memoryview] = []
         self._messages: list[tuple[float, dict[str, Any]]] = []
 
     def _insert_message(self, message: Message) -> None:
@@ -67,7 +68,9 @@ class StateSerializer:
         # GUI messages.
         if not self._filter(message):
             return
-        self._messages.append((self._time, message.as_serializable_dict()))
+        self._messages.append(
+            (self._time, message.as_serializable_dict(self._binary_buffers))
+        )
 
     def insert_sleep(self, duration: float) -> None:
         """Insert a sleep into the recorded file. This can be useful for
@@ -85,34 +88,45 @@ class StateSerializer:
         """
         assert self in self._handler._record_handles, "serialize() was already called!"
 
-        packed_bytes = msgspec.msgpack.encode(
+        # Same hybrid format as the live wire path: msgpack metadata with
+        # tagged placeholders for binary arrays, followed by raw aligned
+        # binary data.
+        msgpack_payload = msgspec.msgpack.encode(
             {
                 "durationSeconds": self._time,
                 "messages": self._messages,
                 "viserVersion": viser.__version__,
+                "binaryBufferLengths": tuple(b.nbytes for b in self._binary_buffers),
             }
         )
-        assert isinstance(packed_bytes, bytes)
+        assert isinstance(msgpack_payload, bytes)
         self._handler._record_handles.remove(self)
-        # Use zstd for better compression ratio and speed.
-        # Prepend 8-byte size header for decompressor.
-        compressed = zstandard.ZstdCompressor(level=12).compress(packed_bytes)
-        return len(packed_bytes).to_bytes(8, "little") + compressed
 
-    def show(self, height: int = 400, dark_mode: bool = False) -> None:
-        """Display the serialized scene in a Jupyter notebook or web browser.
+        # Build uncompressed inner payload:
+        #   [8 bytes] msgpack length (little-endian uint64)
+        #   [N bytes] msgpack payload
+        #   [P bytes] padding + aligned binary buffers...
+        msgpack_len_header = len(msgpack_payload).to_bytes(8, "little")
+        parts: list[bytes | memoryview] = [msgpack_len_header, msgpack_payload]
+        _append_aligned_buffers(parts, self._binary_buffers, 8 + len(msgpack_payload))
+        inner = b"".join(parts)
 
-        In Jupyter notebooks/labs, displays an inline IFrame. When running as a
-        script, opens the visualization in the default web browser.
+        # Compress everything together. Recordings aren't latency-sensitive.
+        compressed = zstandard.ZstdCompressor(level=12).compress(inner)
+        return len(inner).to_bytes(8, "little") + compressed
 
-        See also :meth:`viser.ViserServer.show`.
+    def as_html(self, dark_mode: bool = False) -> str:
+        """Get a standalone HTML string for the serialized scene.
+
+        Returns a self-contained HTML document that can be saved to a file
+        or embedded in other contexts.
 
         Args:
-            height: Height of the embedded viewer in pixels.
             dark_mode: Use dark color scheme.
-        """
-        import html as html_module
 
+        Returns:
+            A complete HTML document as a string.
+        """
         scene_bytes = self.serialize()
         scene_b64 = base64.b64encode(scene_bytes).decode("ascii")
 
@@ -129,7 +143,24 @@ class StateSerializer:
             f"window.__VISER_EMBED_CONFIG__={{darkMode:{dark_mode_str}}};"
             f"</script>"
         )
-        modified_html = client_html.replace("</head>", f"{inject_script}</head>")
+        head_end = client_html.index("</head>")
+        return client_html[:head_end] + inject_script + client_html[head_end:]
+
+    def show(self, height: int = 400, dark_mode: bool = False) -> None:
+        """Display the serialized scene in a Jupyter notebook or web browser.
+
+        In Jupyter notebooks/labs, displays an inline IFrame. When running as a
+        script, opens the visualization in the default web browser.
+
+        See also :meth:`viser.ViserServer.show`.
+
+        Args:
+            height: Height of the embedded viewer in pixels.
+            dark_mode: Use dark color scheme.
+        """
+        import html as html_module
+
+        modified_html = self.as_html(dark_mode=dark_mode)
 
         # Display in IPython (Jupyter, Colab, myst-nb, etc.) using srcdoc.
         # This embeds the entire HTML inline, avoiding file serving issues.
@@ -358,12 +389,16 @@ class WebsockServer(WebsockMessageHandler):
         atexit.unregister(self.stop)
 
         # Signal the background thread to stop.
-        self._background_event_loop.call_soon_threadsafe(self._stop_event.set)
+        try:
+            self._background_event_loop.call_soon_threadsafe(self._stop_event.set)
+        except RuntimeError:
+            # Event loop may already be closed during teardown.
+            pass
 
         # Clean up the message buffers. This isn't really necessary, but helps
         # avoid "task destroyed" errors.
         self._broadcast_buffer.set_done()
-        for client in self._client_state_from_id.values():
+        for client in list(self._client_state_from_id.values()):
             client.message_buffer.set_done()
 
         # Wait for the server thread to finish.
@@ -570,7 +605,9 @@ class WebsockServer(WebsockMessageHandler):
                 relpath = "index.html"
             assert http_server_root is not None
 
-            source_path = http_server_root / relpath
+            source_path = (http_server_root / relpath).resolve()
+            if not source_path.is_relative_to(http_server_root.resolve()):
+                return Response(http.HTTPStatus.NOT_FOUND, "NOT FOUND", Headers())
             if not source_path.exists():
                 return Response(http.HTTPStatus.NOT_FOUND, "NOT FOUND", Headers())
 
@@ -674,6 +711,25 @@ class WebsockServer(WebsockMessageHandler):
         event_loop.close()
 
 
+# Pre-allocated padding bytes for 8-byte alignment.
+_ALIGNMENT_PADDING = tuple(b"\x00" * i for i in range(8))
+
+
+def _append_aligned_buffers(
+    parts: list[bytes | memoryview],
+    binary_buffers: list[memoryview],
+    current_offset: int,
+) -> None:
+    """Append binary buffers to `parts` with 8-byte alignment padding."""
+    for buf in binary_buffers:
+        padding = (8 - (current_offset % 8)) % 8
+        if padding:
+            parts.append(_ALIGNMENT_PADDING[padding])
+            current_offset += padding
+        parts.append(buf)
+        current_offset += buf.nbytes
+
+
 async def _message_producer(
     websocket: ServerConnection,
     buffer: AsyncMessageBuffer,
@@ -690,19 +746,52 @@ async def _message_producer(
             break
 
         if client_api_version == 1:
-            # Encode the message structure.
+            # Hybrid wire format: zstd-compressed msgpack metadata, followed
+            # by raw (uncompressed) aligned binary buffers.
+            #
+            # Binary arrays (numpy) are extracted from messages and replaced
+            # with tagged placeholder dicts. This makes msgpack.encode() fast
+            # (it doesn't walk the large arrays). The raw binary data is
+            # appended uncompressed after the zstd-compressed msgpack, with
+            # 8-byte alignment padding.
+            #
+            # On the JS side, typed array views (Float32Array, etc.) are
+            # created directly into the WebSocket's ArrayBuffer — zero-copy
+            # for the binary array data. (The msgpack metadata is still
+            # decompressed and parsed separately.)
+            #
+            # Binary data is left uncompressed because:
+            # - Float/int arrays (point clouds, meshes) compress poorly
+            # - At 30-60fps, zstd compress+decompress cost adds up
+            # - Zero-copy is more valuable than modest compression
+            #
+            # Wire format:
+            #   [8 bytes] decompressed size of msgpack (little-endian uint64)
+            #   [8 bytes] compressed size of msgpack (little-endian uint64)
+            #   [N bytes] zstd-compressed msgpack payload
+            #   [P bytes] padding to 8-byte alignment
+            #   [M bytes] concatenated binary buffers (each 8-byte aligned)
+            binary_buffers: list[memoryview] = []
+            serialized_messages = tuple(
+                message.as_serializable_dict(binary_buffers) for message in outgoing
+            )
             inner = msgspec.msgpack.encode(
                 {
-                    "messages": tuple(
-                        message.as_serializable_dict() for message in outgoing
-                    ),
+                    "messages": serialized_messages,
                     "timestampSec": time.perf_counter(),
+                    "binaryBufferLengths": tuple(b.nbytes for b in binary_buffers),
                 }
             )
-            # Compress and prepend size header (8 bytes, little-endian uint64).
             compressed = zstd.compress(inner)
-            serialized = len(inner).to_bytes(8, "little") + compressed
-            await websocket.send(serialized)
+
+            # Build the wire payload: headers + compressed msgpack + raw binary.
+            parts: list[bytes | memoryview] = [
+                len(inner).to_bytes(8, "little"),
+                len(compressed).to_bytes(8, "little"),
+                compressed,
+            ]
+            _append_aligned_buffers(parts, binary_buffers, 16 + len(compressed))
+            await websocket.send(b"".join(parts))
         elif client_api_version == 0:
             for msg in outgoing:
                 serialized = msgspec.msgpack.encode(msg.as_serializable_dict())

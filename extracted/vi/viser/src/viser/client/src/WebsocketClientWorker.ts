@@ -24,20 +24,67 @@ export type WsWorkerOutgoing =
     }
   | { type: "message_batch"; messages: Message[] };
 
-// Helper function to collect all ArrayBuffer objects. This is used for postMessage() move semantics.
-function collectArrayBuffers(obj: any, buffers: Set<ArrayBufferLike>) {
-  if (obj instanceof ArrayBuffer) {
-    buffers.add(obj);
-  } else if (obj instanceof Uint8Array) {
-    buffers.add(obj.buffer);
-  } else if (obj && typeof obj === "object") {
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        collectArrayBuffers(obj[key], buffers);
-      }
-    }
+import {
+  replaceBinaryPlaceholders,
+  computeBinaryOffsets,
+} from "./BinaryMessageDecode";
+
+type SerializedStruct = {
+  messages: Message[];
+  timestampSec: number;
+  binaryBufferLengths?: number[];
+};
+
+/**
+ * Decode a hybrid wire format message: zstd-compressed msgpack metadata,
+ * followed by raw (uncompressed) aligned binary buffers.
+ *
+ * Wire format:
+ *   [8 bytes] decompressed size of msgpack (little-endian uint64)
+ *   [8 bytes] compressed size of msgpack (little-endian uint64)
+ *   [N bytes] zstd-compressed msgpack payload
+ *   [P bytes] padding to 8-byte alignment
+ *   [M bytes] concatenated binary buffers (each 8-byte aligned)
+ *
+ * Binary arrays in the msgpack are replaced with tagged placeholder objects.
+ * These are reconstructed as typed array views directly into the WebSocket's
+ * ArrayBuffer — zero-copy for the binary array data.
+ */
+function decodeHybridMessage(
+  buffer: ArrayBuffer,
+  zstdDecoder: { decode: (data: Uint8Array, size: number) => Uint8Array },
+): SerializedStruct & { buffer: ArrayBuffer } {
+  const headerView = new DataView(buffer);
+  const decompressedSize = Number(headerView.getBigUint64(0, true));
+  const compressedSize = Number(headerView.getBigUint64(8, true));
+
+  // Decompress msgpack portion only. Binary data is raw/uncompressed.
+  const compressedData = new Uint8Array(buffer, 16, compressedSize);
+  const decompressed = zstdDecoder.decode(compressedData, decompressedSize);
+  const data = msgpack.decode(decompressed) as SerializedStruct;
+
+  // Attach the raw buffer for postMessage transfer semantics.
+  // Mutate instead of spreading ({ ...data, buffer }) to avoid an extra
+  // object allocation on every incoming message.
+  const result = data as SerializedStruct & { buffer: ArrayBuffer };
+  result.buffer = buffer;
+
+  // If no binary buffers, return as-is. Message had no arrays.
+  const bufferLengths = data.binaryBufferLengths;
+  if (!bufferLengths || bufferLengths.length === 0) {
+    return result;
   }
-  return buffers;
+
+  // Compute binary section offsets and replace placeholders with typed array views.
+  const binaryOffsets = computeBinaryOffsets(
+    bufferLengths,
+    16 + compressedSize,
+  );
+  for (const message of data.messages) {
+    replaceBinaryPlaceholders(message, buffer, binaryOffsets, bufferLengths);
+  }
+
+  return result;
 }
 
 {
@@ -60,6 +107,7 @@ function collectArrayBuffers(obj: any, buffers: Set<ArrayBufferLike>) {
     const protocol = `viser-v${VISER_VERSION}`;
     console.log(`Connecting to: ${server!} with protocol: ${protocol}`);
     ws = new WebSocket(server!, [protocol]);
+    ws.binaryType = "arraybuffer";
 
     // Timeout is necessary when we're connecting to an SSH/tunneled port.
     const retryTimeout = setTimeout(() => {
@@ -107,28 +155,13 @@ function collectArrayBuffers(obj: any, buffers: Set<ArrayBufferLike>) {
       lastIdealJsMs?: number;
       jsTimeMinusPythonTime: number;
     } = { jsTimeMinusPythonTime: Infinity };
-    type SerializedStruct = {
-      messages: Message[];
-      timestampSec: number;
-    };
-
     ws.onmessage = async (event) => {
       const dataPromise = (async () => {
-        const buffer = await (event.data.arrayBuffer() as Promise<ArrayBuffer>);
-        const bytes = new Uint8Array(buffer);
-
-        // Read decompressed size from 8-byte little-endian header.
-        const view = new DataView(buffer);
-        const decompressedSize = Number(view.getBigUint64(0, true));
-        const compressedData = bytes.slice(8);
-
-        // Decompress and decode.
+        // binaryType="arraybuffer" ensures event.data is an ArrayBuffer directly
+        // (skips the default Blob->ArrayBuffer async conversion).
+        const buffer = event.data as ArrayBuffer;
         await zstdReady;
-        const decompressed = zstdDecoder.decode(
-          compressedData,
-          decompressedSize,
-        );
-        return msgpack.decode(decompressed) as SerializedStruct;
+        return decodeHybridMessage(buffer, zstdDecoder);
       })();
 
       // Try our best to handle messages in order. If this takes more than 10 seconds, we give up. :)
@@ -147,12 +180,12 @@ function collectArrayBuffers(obj: any, buffers: Set<ArrayBufferLike>) {
 
       // Function to send the message and release the order lock.
       const messages = data.messages;
-      const arrayBuffers = collectArrayBuffers(messages, new Set());
+      // All typed array views point into the original WebSocket ArrayBuffer.
+      // Transfer just that buffer instead of walking the entire message tree.
       const sendFn = () => {
-        postOutgoing(
-          { type: "message_batch", messages: messages },
-          Array.from(arrayBuffers),
-        );
+        postOutgoing({ type: "message_batch", messages: messages }, [
+          data.buffer,
+        ]);
         orderLock.release();
       };
 

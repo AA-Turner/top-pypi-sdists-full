@@ -57,9 +57,8 @@ def compare_dirs(dir1, dir2):
             file1 = os.path.join(dir1, file)
             file2 = os.path.join(dir2, file)
             with open(file1) as f1, open(file2) as f2:
-                # we remove lines with only spaces to avoid false positives
-                actual = [line for line in f1.readlines() if line.strip()]
-                expected = [line for line in f2.readlines() if line.strip()]
+                actual = f1.readlines()
+                expected = f2.readlines()
                 if actual == expected:
                     continue
                 real_diffs = True
@@ -75,38 +74,46 @@ def compare_dirs(dir1, dir2):
         compare_dirs(os.path.join(dir1, subdir), os.path.join(dir2, subdir))
 
 
-def compare_json_logs(logs_io: StringIO, path: Path):
-    ignore_keys = ["file_path"]
+def normalize_log_dicts(log_dicts: list, relative_to: Path | None = None, sort_refactors: bool = False) -> list:
+    normalized = []
+    for log_dict in log_dicts:
+        d = dict(log_dict)
+        if "file_path" in d and relative_to is not None:
+            try:
+                d["file_path"] = str(Path(d["file_path"]).resolve().relative_to(relative_to.resolve()))
+            except ValueError:
+                pass
+        if sort_refactors and "refactors" in d:
+            d["refactors"] = sorted(d["refactors"], key=lambda x: x["log"])
+        normalized.append(d)
+    return sorted(normalized, key=lambda x: x.get("file_path", ""))
 
+
+def compare_json_logs(
+    logs_io: StringIO,
+    path: Path,
+    relative_to: Path,
+):
     logs = logs_io.getvalue()
+    log_dicts = [json.loads(log) for log in logs.strip().split("\n")]
+    normalized_log_dicts = normalize_log_dicts(log_dicts, relative_to)
+
     if os.getenv("GOLDIE_UPDATE"):
         with open(path, "w") as f:
-            f.write(logs)
+            json.dump(normalized_log_dicts, f, indent=2, sort_keys=True)
+            f.write("\n")
 
-    logs = logs.strip().split("\n")
-    log_dicts = [json.loads(log) for log in logs]
-    log_dicts_filtered = [{k: v for k, v in log_dict.items() if k not in ignore_keys} for log_dict in log_dicts]
-    for log_dict in log_dicts_filtered:
-        if "refactors" in log_dict:
-            log_dict["refactors"] = sorted(log_dict["refactors"], key=lambda x: x["log"])
+    expected_log_dicts = json.loads(path.read_text())
+    expected_log_dicts_normalized = normalize_log_dicts(expected_log_dicts, sort_refactors=True)
 
-    expected_logs = open(path).read().strip().split("\n")
-    expected_log_dicts = [json.loads(log) for log in expected_logs]
-    expected_log_dicts_filtered = [
-        {k: v for k, v in log_dict.items() if k not in ignore_keys} for log_dict in expected_log_dicts
-    ]
-    for expected_log_dict in expected_log_dicts_filtered:
-        if "refactors" in expected_log_dict:
-            expected_log_dict["refactors"] = sorted(expected_log_dict["refactors"], key=lambda x: x["log"])
-
-    for log_dict in log_dicts_filtered:
-        if log_dict not in expected_log_dicts_filtered:
+    normalized_log_dicts_for_cmp = normalize_log_dicts(normalized_log_dicts, sort_refactors=True)
+    for log_dict in normalized_log_dicts_for_cmp:
+        if log_dict not in expected_log_dicts_normalized:
             print("Log dict not in expected log dicts:")
             pprint.pprint(log_dict)
             print("Expected log dicts:")
-            pprint.pprint(expected_log_dicts_filtered)
-
-        assert log_dict in expected_log_dicts_filtered
+            pprint.pprint(expected_log_dicts_normalized)
+        assert log_dict in expected_log_dicts_normalized
 
 
 @pytest.mark.parametrize("project_folder", get_project_folders())
@@ -118,15 +125,15 @@ def test_project_refactor(project_folder, request):
     temp_dir = tempfile.mkdtemp(prefix=f"dbt_autofix_test_{project_folder}_")
 
     # Copy the project files to the temporary directory
-    project_path = os.path.join(temp_dir, project_folder)
-    shutil.copytree(source_dir, project_path, dirs_exist_ok=True)
+    temp_project_path = os.path.join(temp_dir, project_folder)
+    shutil.copytree(source_dir, temp_project_path, dirs_exist_ok=True)
     print(f"Copied project '{project_folder}' to temporary directory: {temp_dir}")
 
     # Run refactor_yml on the project
     refactor_logs_io = StringIO()
     with redirect_stdout(refactor_logs_io):
         refactor_yml(
-            path=Path(project_path),
+            path=Path(temp_project_path),
             dry_run=False,
             json_output=True,
             behavior_change=project_dir_to_behavior_change_mode[project_folder],
@@ -135,13 +142,23 @@ def test_project_refactor(project_folder, request):
 
     # Compare with expected output
     expected_dir = os.path.join(dbt_projects_dir, f"{project_folder}{postfix_expected}")
-    if not os.path.exists(expected_dir):
+
+    if os.getenv("GOLDIE_UPDATE"):
+        # Replace the expected files with the refactored project files
+        if os.path.exists(expected_dir):
+            shutil.rmtree(expected_dir)
+        shutil.copytree(temp_project_path, expected_dir)
+    elif not os.path.exists(expected_dir):
         pytest.fail(f"Expected output directory not found: {expected_dir}")  # ty: ignore[invalid-argument-type]
 
-    compare_dirs(project_path, expected_dir)
+    compare_dirs(temp_project_path, expected_dir)
 
     expected_logs_path = Path(dbt_projects_dir, f"{project_folder}_expected.stdout")
-    compare_json_logs(refactor_logs_io, expected_logs_path)
+    compare_json_logs(
+        refactor_logs_io,
+        expected_logs_path,
+        relative_to=Path(temp_project_path).parent,
+    )
 
     # Clean up temporary directory after test
     def cleanup_temp_dir():

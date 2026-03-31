@@ -23,6 +23,7 @@ class LeakedCredentialCheckArgs:
                  enabled: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a LeakedCredentialCheck resource.
+
         :param pulumi.Input[_builtins.str] zone_id: Defines an identifier.
         :param pulumi.Input[_builtins.bool] enabled: Determines whether or not Leaked Credential Checks are enabled.
         """
@@ -62,6 +63,7 @@ class _LeakedCredentialCheckState:
                  zone_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering LeakedCredentialCheck resources.
+
         :param pulumi.Input[_builtins.bool] enabled: Determines whether or not Leaked Credential Checks are enabled.
         :param pulumi.Input[_builtins.str] zone_id: Defines an identifier.
         """
@@ -118,7 +120,8 @@ class LeakedCredentialCheck(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -145,7 +148,8 @@ class LeakedCredentialCheck(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param LeakedCredentialCheckArgs args: The arguments to use to populate this resource's properties.

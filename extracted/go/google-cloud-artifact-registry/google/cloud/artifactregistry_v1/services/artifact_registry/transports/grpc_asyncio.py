@@ -17,45 +17,48 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async, operations_v1
 from google.api_core import retry_async as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
-import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
-from google.cloud.artifactregistry_v1.types import vpcsc_config as gda_vpcsc_config
-from google.cloud.artifactregistry_v1.types import apt_artifact, artifact
-from google.cloud.artifactregistry_v1.types import attachment
+from google.cloud.artifactregistry_v1.types import (
+    apt_artifact,
+    artifact,
+    attachment,
+    export,
+    file,
+    package,
+    repository,
+    rule,
+    settings,
+    tag,
+    version,
+    vpcsc_config,
+    yum_artifact,
+)
 from google.cloud.artifactregistry_v1.types import attachment as gda_attachment
-from google.cloud.artifactregistry_v1.types import export
-from google.cloud.artifactregistry_v1.types import file
 from google.cloud.artifactregistry_v1.types import file as gda_file
-from google.cloud.artifactregistry_v1.types import package
 from google.cloud.artifactregistry_v1.types import package as gda_package
-from google.cloud.artifactregistry_v1.types import repository
 from google.cloud.artifactregistry_v1.types import repository as gda_repository
-from google.cloud.artifactregistry_v1.types import rule
 from google.cloud.artifactregistry_v1.types import rule as gda_rule
-from google.cloud.artifactregistry_v1.types import settings
-from google.cloud.artifactregistry_v1.types import tag
 from google.cloud.artifactregistry_v1.types import tag as gda_tag
-from google.cloud.artifactregistry_v1.types import version
 from google.cloud.artifactregistry_v1.types import version as gda_version
-from google.cloud.artifactregistry_v1.types import vpcsc_config
-from google.cloud.artifactregistry_v1.types import yum_artifact
+from google.cloud.artifactregistry_v1.types import vpcsc_config as gda_vpcsc_config
 
 from .base import DEFAULT_CLIENT_INFO, ArtifactRegistryTransport
 from .grpc import ArtifactRegistryGrpcTransport
@@ -84,7 +87,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -119,7 +122,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -271,6 +274,10 @@ class ArtifactRegistryGrpcAsyncIOTransport(ArtifactRegistryTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport

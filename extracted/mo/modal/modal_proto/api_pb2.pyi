@@ -1202,6 +1202,7 @@ class AppGetLogsRequest(google.protobuf.message.Message):
     FUNCTION_CALL_ID_FIELD_NUMBER: builtins.int
     FILE_DESCRIPTOR_FIELD_NUMBER: builtins.int
     SANDBOX_ID_FIELD_NUMBER: builtins.int
+    SEARCH_TEXT_FIELD_NUMBER: builtins.int
     app_id: builtins.str
     timeout: builtins.float
     last_entry_id: builtins.str
@@ -1212,6 +1213,7 @@ class AppGetLogsRequest(google.protobuf.message.Message):
     function_call_id: builtins.str
     file_descriptor: global___FileDescriptor.ValueType
     sandbox_id: builtins.str
+    search_text: builtins.str
     def __init__(
         self,
         *,
@@ -1225,8 +1227,9 @@ class AppGetLogsRequest(google.protobuf.message.Message):
         function_call_id: builtins.str = ...,
         file_descriptor: global___FileDescriptor.ValueType = ...,
         sandbox_id: builtins.str = ...,
+        search_text: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["app_id", b"app_id", "file_descriptor", b"file_descriptor", "function_call_id", b"function_call_id", "function_id", b"function_id", "input_id", b"input_id", "last_entry_id", b"last_entry_id", "parametrized_function_id", b"parametrized_function_id", "sandbox_id", b"sandbox_id", "task_id", b"task_id", "timeout", b"timeout"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["app_id", b"app_id", "file_descriptor", b"file_descriptor", "function_call_id", b"function_call_id", "function_id", b"function_id", "input_id", b"input_id", "last_entry_id", b"last_entry_id", "parametrized_function_id", b"parametrized_function_id", "sandbox_id", b"sandbox_id", "search_text", b"search_text", "task_id", b"task_id", "timeout", b"timeout"]) -> None: ...
 
 global___AppGetLogsRequest = AppGetLogsRequest
 
@@ -9496,6 +9499,41 @@ class SandboxCreateV2Response(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["sandbox_id", b"sandbox_id", "task_id", b"task_id", "tunnels", b"tunnels"]) -> None: ...
 
 global___SandboxCreateV2Response = SandboxCreateV2Response
+
+class SandboxGetCommandRouterAccessRequest(google.protobuf.message.Message):
+    """Used by the sandbox controller to get command router access for V2 sandboxes.
+    For all other use cases, use TaskGetCommandRouterAccess instead.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SANDBOX_ID_FIELD_NUMBER: builtins.int
+    sandbox_id: builtins.str
+    def __init__(
+        self,
+        *,
+        sandbox_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["sandbox_id", b"sandbox_id"]) -> None: ...
+
+global___SandboxGetCommandRouterAccessRequest = SandboxGetCommandRouterAccessRequest
+
+class SandboxGetCommandRouterAccessResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    JWT_FIELD_NUMBER: builtins.int
+    URL_FIELD_NUMBER: builtins.int
+    jwt: builtins.str
+    url: builtins.str
+    def __init__(
+        self,
+        *,
+        jwt: builtins.str = ...,
+        url: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["jwt", b"jwt", "url", b"url"]) -> None: ...
+
+global___SandboxGetCommandRouterAccessResponse = SandboxGetCommandRouterAccessResponse
 
 class SandboxGetFromNameRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

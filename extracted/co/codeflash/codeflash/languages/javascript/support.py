@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from codeflash.code_utils.git_utils import git_root_dir, mirror_path
 from codeflash.discovery.functions_to_optimize import FunctionToOptimize
 from codeflash.languages.base import CodeContext, FunctionFilterCriteria, HelperFunction, Language, TestInfo, TestResult
 from codeflash.languages.javascript.treesitter import TreeSitterAnalyzer, TreeSitterLanguage, get_analyzer_for_file
@@ -412,7 +413,7 @@ class JavaScriptSupport:
 
         # Validate that the extracted code is syntactically valid
         # If not, raise an error to fail the optimization early
-        if target_code and not self.validate_syntax(target_code):
+        if target_code and not self.validate_syntax(target_code, file_path=function.file_path):
             error_msg = (
                 f"Extracted code for {function.function_name} is not syntactically valid JavaScript. "
                 f"Cannot proceed with optimization."
@@ -1711,10 +1712,13 @@ class JavaScriptSupport:
     def treesitter_language(self) -> TreeSitterLanguage:
         return TreeSitterLanguage.JAVASCRIPT
 
-    def validate_syntax(self, source: str) -> bool:
+    def validate_syntax(self, source: str, file_path: Path | None = None) -> bool:
         """Check if source code is syntactically valid using tree-sitter."""
         try:
-            analyzer = TreeSitterAnalyzer(self.treesitter_language)
+            if file_path is not None:
+                analyzer = get_analyzer_for_file(file_path)
+            else:
+                analyzer = TreeSitterAnalyzer(self.treesitter_language)
             tree = analyzer.parse(source)
             return not tree.root_node.has_error
         except Exception:
@@ -1776,6 +1780,7 @@ class JavaScriptSupport:
         """Apply language-specific postprocessing to generated tests."""
         from codeflash.languages.javascript.edit_tests import (
             disable_ts_check,
+            fix_imports_inside_blocks,
             inject_test_globals,
             normalize_generated_tests_imports,
             sanitize_mocha_imports,
@@ -1806,6 +1811,14 @@ class JavaScriptSupport:
             generated_tests = inject_test_globals(generated_tests, test_framework, module_system)
         if self.language == Language.TYPESCRIPT:
             generated_tests = disable_ts_check(generated_tests)
+
+        # Fix import statements inside function bodies (jest.mock callbacks, describe blocks, etc.)
+        # AI sometimes generates `import X from 'Y'` inside blocks, which is invalid JS syntax.
+        for test in generated_tests.generated_tests:
+            test.generated_original_test_source = fix_imports_inside_blocks(test.generated_original_test_source)
+            test.instrumented_behavior_test_source = fix_imports_inside_blocks(test.instrumented_behavior_test_source)
+            test.instrumented_perf_test_source = fix_imports_inside_blocks(test.instrumented_perf_test_source)
+
         return normalize_generated_tests_imports(generated_tests)
 
     def remove_test_functions_from_generated_tests(
@@ -1903,7 +1916,11 @@ class JavaScriptSupport:
     # === Test Result Comparison ===
 
     def compare_test_results(
-        self, original_results_path: Path, candidate_results_path: Path, project_root: Path | None = None
+        self,
+        original_results_path: Path,
+        candidate_results_path: Path,
+        project_root: Path | None = None,
+        project_classpath: str | None = None,
     ) -> tuple[bool, list]:
         """Compare test results between original and candidate code.
 
@@ -1933,11 +1950,26 @@ class JavaScriptSupport:
 
         return prepare_javascript_module(module_code, module_path)
 
-    def setup_test_config(self, test_cfg: TestConfig, file_path: Path) -> None:
+    def setup_test_config(self, test_cfg: TestConfig, file_path: Path, current_worktree: Path | None) -> None:
         from codeflash.languages.javascript.optimizer import verify_js_requirements
         from codeflash.languages.javascript.test_runner import find_node_project_root
 
         test_cfg.js_project_root = find_node_project_root(file_path)
+        if current_worktree is not None:
+            original_js_root = git_root_dir()
+            worktree_node_modules = test_cfg.js_project_root / "node_modules"
+            original_node_modules = (
+                mirror_path(test_cfg.js_project_root, current_worktree, original_js_root) / "node_modules"
+            )
+            if original_node_modules.exists() and not worktree_node_modules.exists():
+                worktree_node_modules.symlink_to(original_node_modules)
+            # In monorepos, node_modules lives at the repo root, not the package level.
+            # Symlink the root-level node_modules into the worktree so Vitest/npx can resolve deps.
+            if not worktree_node_modules.exists():
+                worktree_root_node_modules = current_worktree / "node_modules"
+                original_root_node_modules = original_js_root / "node_modules"
+                if original_root_node_modules.exists() and not worktree_root_node_modules.exists():
+                    worktree_root_node_modules.symlink_to(original_root_node_modules)
         verify_js_requirements(test_cfg)
 
     def adjust_test_config_for_discovery(self, test_cfg: TestConfig) -> None:

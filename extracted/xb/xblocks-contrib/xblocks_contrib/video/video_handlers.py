@@ -132,7 +132,7 @@ class VideoStudentViewHandlers:
             return response
 
         # If this video lives in library, the code below is not relevant and will error.
-        if not isinstance(self.course_id, CourseLocator):
+        if not isinstance(self.context_key, CourseLocator):
             return response
 
         video_id = request.GET.get('videoId', None)
@@ -144,7 +144,7 @@ class VideoStudentViewHandlers:
         if transcript_name:
             # Get the asset path for course
             asset_path = None
-            course = self.runtime.modulestore.get_course(self.course_id)
+            course = self.runtime.modulestore.get_course(self.context_key)
             if course.static_asset_path:
                 asset_path = course.static_asset_path
             else:
@@ -290,7 +290,7 @@ class VideoStudentViewHandlers:
                 edx_video_id = clean_video_id(self.edx_video_id)
                 log.warning(
                     '[Translation Dispatch] %s: %s',
-                    self.location,
+                    self.usage_key,
                     exc if is_bumper else f'Transcript not found for {edx_video_id}, lang: {self.transcript_language}',
                 )
                 response = self.get_static_transcript(request, transcripts)

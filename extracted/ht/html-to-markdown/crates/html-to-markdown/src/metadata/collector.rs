@@ -2,7 +2,7 @@
 
 use super::config::MetadataConfig;
 use super::extraction::{extract_document_metadata, extract_structured_data};
-use super::types::{ExtendedMetadata, ImageMetadata, ImageType, LinkMetadata};
+use super::types::{HtmlMetadata, ImageMetadata, ImageType, LinkMetadata};
 use std::collections::BTreeMap;
 
 /// Internal metadata collector for single-pass extraction.
@@ -256,13 +256,13 @@ impl MetadataCollector {
     /// Finish collection and return all extracted metadata.
     ///
     /// Performs final processing, validation, and consolidation of all
-    /// collected data into the [`ExtendedMetadata`] output structure.
+    /// collected data into the [`HtmlMetadata`] output structure.
     #[allow(dead_code)]
-    pub(crate) fn finish(self) -> ExtendedMetadata {
+    pub(crate) fn finish(self) -> HtmlMetadata {
         let structured_data = extract_structured_data(self.json_ld);
         let document = extract_document_metadata(self.head_metadata, self.lang, self.dir);
 
-        ExtendedMetadata {
+        HtmlMetadata {
             document,
             headers: self.headers,
             links: self.links,

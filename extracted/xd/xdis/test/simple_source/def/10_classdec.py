@@ -16,12 +16,12 @@ def author(*author_names):
 @author('Me', 'Him')
 @author('You')
 class MyClass(object):
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     @staticmethod
     @staticmethod
-    def static_method():
+    def static_method() -> None:
         pass
 
 x = MyClass()

@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.batch_v1.types import volume
@@ -213,6 +213,7 @@ class TaskStatus(proto.Message):
                 The Task has not been executed when the Job
                 finishes.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         ASSIGNED = 2
@@ -692,6 +693,7 @@ class LifecyclePolicy(proto.Message):
                 Action that tasks in the group will be
                 stopped immediately.
         """
+
         ACTION_UNSPECIFIED = 0
         RETRY_TASK = 1
         FAIL_TASK = 2

@@ -53,6 +53,7 @@ from .providers.base import (
     SummarizationProvider,
 )
 from .providers.embedding_cache import CachingEmbeddingProvider
+from .recovery import is_malformed_db_error
 from .document_store import PartInfo, VersionInfo
 from .types import (
     Item, ItemContext, EdgeRef, TagMap,
@@ -325,10 +326,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 logger.warning("Failed to initialize PlannerStatsStore: %s", e)
 
         # System doc migration deferred to first write (needs embeddings)
-        from .system_docs import _bundled_docs_hash
-        self._needs_sysdoc_migration = (
-            self._config.system_docs_hash != _bundled_docs_hash()
-        )
+        from .system_docs import system_doc_migration_needed
+        self._needs_sysdoc_migration = system_doc_migration_needed(self)
 
         # Direct work queue (replaces FlowEngine for background tasks).
         self._work_queue = None
@@ -874,10 +873,11 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         # Format context as topic keywords only (not summaries).
         # Including raw summary text causes small models to parrot
         # phrases from context into the new summary (contamination).
-        topic_values = set()
+        topic_values: set[str] = set()
         for _, _, item in top:
-            for k, v in filter_non_system_tags(item.tags).items():
-                topic_values.add(v)
+            for key in filter_non_system_tags(item.tags):
+                for value in tag_values(item.tags, key):
+                    topic_values.add(value)
 
         if not topic_values:
             return None
@@ -1704,6 +1704,16 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
     # Write Operations
     # -------------------------------------------------------------------------
 
+    def _restored_processing_tags(
+        self,
+        restored_tags: dict[str, Any],
+    ) -> dict[str, Any]:
+        tags: dict[str, Any] = {}
+        for key in ("_summarized_hash", "_tagged_hash", "_tagged_summary_hash"):
+            if key in restored_tags:
+                tags[key] = restored_tags[key]
+        return tags
+
     # -- Task dispatch methods are in BackgroundProcessingMixin --
     # (_task_idempotency_key, _enqueue_*_background, _dispatch_after_write_flow,
     #  _load_after_write_state_doc, _store_write_context, _consume_write_context)
@@ -1767,14 +1777,35 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         # Preserve analysis watermark across puts (incremental analysis needs
         # the version baseline even when content changes).
         _prev_analyzed_version = None
+        _prev_analyzed_hash = None
         if existing_doc:
             _prev_analyzed_version = existing_doc.tags.get("_analyzed_version")
+            _prev_analyzed_hash = existing_doc.tags.get("_analyzed_hash")
 
         # Compute content hash for change detection
         new_hash = _content_hash(content)
+        new_hash_full = _content_hash_full(content)
+
+        restored_version = None
+        restored_embedding = None
+        if existing_doc is not None and existing_doc.content_hash != new_hash:
+            restored_version = self._document_store.get_latest_version_info_by_content_hash(
+                doc_coll, id, new_hash,
+            )
+            if restored_version is not None:
+                if self._config.embedding is not None and not is_system_id(id):
+                    restored_embedding = self._store.get_embedding(
+                        chroma_coll,
+                        f"{id}@v{restored_version.version}",
+                    )
 
         # Build tags: existing + config + env + user, then replace system tags.
-        merged_tags = {**existing_tags}
+        if restored_version is not None:
+            merged_tags = {
+                **filter_non_system_tags(restored_version.tags),
+            }
+        else:
+            merged_tags = {**existing_tags}
 
         if self._default_tags:
             _merge_tags_additive(merged_tags, self._default_tags)
@@ -1804,8 +1835,23 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
 
         _merge_tags_additive(merged_tags, system_tags, replace_system=True)
 
+        if restored_version is not None:
+            merged_tags.update(
+                self._restored_processing_tags(restored_version.tags)
+            )
+            merged_tags["_restored_hash"] = new_hash
+            merged_tags["_restored_from_version"] = str(restored_version.version)
+            if _prev_analyzed_hash:
+                merged_tags["_analyzed_hash"] = _prev_analyzed_hash
+            if _prev_analyzed_version:
+                merged_tags["_analyzed_version"] = _prev_analyzed_version
+
         # Restore analysis version watermark (dropped by filter_non_system_tags)
-        if _prev_analyzed_version and "_analyzed_version" not in merged_tags:
+        if (
+            restored_version is None
+            and _prev_analyzed_version
+            and "_analyzed_version" not in merged_tags
+        ):
             merged_tags["_analyzed_version"] = _prev_analyzed_version
 
         # Change detection (before embedding to allow early return)
@@ -1858,6 +1904,8 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             # System docs (.prompt/*, .tag/*, .meta/*) store full content
             # as the summary — they are authored content, not items to summarize.
             final_summary = content
+        elif restored_version is not None:
+            final_summary = restored_version.summary
         elif content_unchanged and tags_changed:
             logger.debug("Tags changed for %s", id)
             final_summary = existing_doc.summary
@@ -1884,7 +1932,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 summary=final_summary,
                 tags=merged_tags,
                 content_hash=new_hash,
-                content_hash_full=_content_hash_full(content),
+                content_hash_full=new_hash_full,
                 created_at=created_at,
             )
             if is_system_doc:
@@ -1892,6 +1940,14 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 return _record_to_item(result, changed=not content_unchanged)
             # Try embedding dedup before enqueueing (saves network round-trip)
             if should_index and not content_unchanged:
+                if restored_embedding is not None:
+                    self._store.upsert(
+                        collection=chroma_coll, id=id,
+                        embedding=restored_embedding,
+                        summary=final_summary,
+                        tags=casefold_tags_for_index(merged_tags),
+                    )
+                    return _record_to_item(result, changed=True)
                 donor_embedding = self._try_dedup_embedding(
                     doc_coll, chroma_coll, new_hash, id, content,
                 )
@@ -1937,9 +1993,13 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     if embedding is None:
                         embedding = self._get_embedding_provider().embed(final_summary)
                 else:
-                    embedding = self._try_dedup_embedding(doc_coll, chroma_coll, new_hash, id, content)
-                    if embedding is not None:
-                        _embed_source = "dedup"
+                    if restored_embedding is not None:
+                        embedding = restored_embedding
+                        _embed_source = "restored_version"
+                    else:
+                        embedding = self._try_dedup_embedding(doc_coll, chroma_coll, new_hash, id, content)
+                        if embedding is not None:
+                            _embed_source = "dedup"
                     if embedding is None:
                         embedding = self._get_embedding_provider().embed(final_summary)
                 _embed_span.set_attribute("source", _embed_source)
@@ -1964,7 +2024,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 summary=final_summary,
                 tags=merged_tags,
                 content_hash=new_hash,
-                content_hash_full=_content_hash_full(content),
+                content_hash_full=new_hash_full,
                 created_at=created_at,
             )
 
@@ -2463,9 +2523,6 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                    Search may traverse items outside the scope, but only items whose
                    base ID matches the glob are returned.
         """
-        from .perf_stats import perf
-        _find_t0 = time.monotonic()
-
         if query and similar_to:
             raise ValueError("Specify either query or similar_to, not both")
         if not query and not similar_to:
@@ -2517,14 +2574,14 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
 
             embedding = self._store.get_embedding(chroma_coll, similar_to)
             if embedding is None:
-                with perf.timer("find", "embed"), _get_tracer("keeper").start_as_current_span("embed"):
+                with _get_tracer("keeper").start_as_current_span("embed"):
                     embedding = self._get_embedding_provider().embed(item.summary)
             actual_limit = (limit + 1 if not include_self else limit) * 3
             if deep:
                 actual_limit = max(actual_limit, 30)
             if scope_ids is not None:
                 actual_limit = max(actual_limit, len(scope_ids))
-            with perf.timer("find", "semantic"), _get_tracer("keeper").start_as_current_span("chroma.query"):
+            with _get_tracer("keeper").start_as_current_span("chroma.query"):
                 results = self._store.query_embedding(chroma_coll, embedding, limit=actual_limit, where=where)
 
             if not include_self:
@@ -2537,7 +2594,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             # Hybrid search: semantic + FTS5, fused with RRF.
             # Each list over-fetches independently so RRF can discover
             # items that rank well in one signal but poorly in the other.
-            with perf.timer("find", "embed"), _get_tracer("keeper").start_as_current_span("embed"):
+            with _get_tracer("keeper").start_as_current_span("embed"):
                 embedding = self._get_embedding_provider().embed(query)
             sem_fetch = max(limit * 10, 200)
             fts_fetch = max(limit * 10, 100)
@@ -2546,14 +2603,14 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             if scope_ids is not None:
                 sem_fetch = max(sem_fetch, len(scope_ids))
 
-            with perf.timer("find", "semantic"), _get_tracer("keeper").start_as_current_span("chroma.query"):
+            with _get_tracer("keeper").start_as_current_span("chroma.query"):
                 sem_results = self._store.query_embedding(
                     chroma_coll, embedding, limit=sem_fetch, where=where,
                 )
             sem_items = [r.to_item() for r in sem_results]
             sem_items = self._apply_recency_decay(sem_items)
 
-            with perf.timer("find", "fts"), _get_tracer("keeper").start_as_current_span("fts.query"):
+            with _get_tracer("keeper").start_as_current_span("fts.query"):
                 if scope_ids is not None:
                     fts_rows = self._document_store.query_fts_scoped(
                         doc_coll, query, list(scope_ids),
@@ -2566,7 +2623,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             fts_items = [Item(id=r[0], summary=r[1]) for r in fts_rows]
 
             if fts_items:
-                with perf.timer("find", "rrf"), _get_tracer("keeper").start_as_current_span("rrf"):
+                with _get_tracer("keeper").start_as_current_span("rrf"):
                     items = self._rrf_fuse(sem_items, fts_items)
             else:
                 # FTS unavailable or no matches — use semantic results as-is
@@ -2575,20 +2632,21 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         else:
             # No embedding provider — FTS only
             fetch_limit = limit * 3
-            if scope_ids is not None:
-                fts_rows = self._document_store.query_fts_scoped(
-                    doc_coll, query, list(scope_ids),
-                    limit=fetch_limit, tags=casefolded_tags,
-                )
-            else:
-                fts_rows = self._document_store.query_fts(
-                    doc_coll, query, limit=fetch_limit, tags=casefolded_tags,
-                )
+            with _get_tracer("keeper").start_as_current_span("fts.query"):
+                if scope_ids is not None:
+                    fts_rows = self._document_store.query_fts_scoped(
+                        doc_coll, query, list(scope_ids),
+                        limit=fetch_limit, tags=casefolded_tags,
+                    )
+                else:
+                    fts_rows = self._document_store.query_fts(
+                        doc_coll, query, limit=fetch_limit, tags=casefolded_tags,
+                    )
             items = [Item(id=r[0], summary=r[1]) for r in fts_rows]
 
         # Hydrate search hits from canonical SQLite tags so user tags remain
         # available even when Chroma metadata stores marker fields only.
-        with perf.timer("find", "hydrate"), _get_tracer("keeper").start_as_current_span("hydrate"):
+        with _get_tracer("keeper").start_as_current_span("hydrate"):
             hydrated: list[Item] = []
             for item in items:
                 base_id = item.tags.get(
@@ -2624,95 +2682,92 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         deep_groups: dict[str, list[Item]] = {}
         injected_entity_ids: set[str] = set()
         if deep and embedding is not None:
-            _deep_t0 = time.monotonic()
-            if self._document_store.has_edges(doc_coll):
-                # For similar_to mode, use the anchor item's summary as FTS query
-                deep_query = query if query else ""
+            with _get_tracer("keeper").start_as_current_span("deep.follow"):
+                if self._document_store.has_edges(doc_coll):
+                    # For similar_to mode, use the anchor item's summary as FTS query
+                    deep_query = query if query else ""
 
-                # Entity injection: if query mentions known edge targets
-                # by name, inject them as synthetic primaries so their
-                # edges get traversed even if they didn't rank in search.
-                deep_items = list(items)
-                entity_hits: list[str] = []
-                if deep_query:
-                    # Only consider the top display window as "already present"
-                    _ENTITY_WINDOW = 10
-                    top_ids = {(i.id.split("@")[0] if "@" in i.id else i.id)
-                               for i in items[:_ENTITY_WINDOW]}
-                    entity_hits = self._document_store.find_edge_targets(
-                        doc_coll, deep_query)
-                    # Insert at front so entities are within top_k window
-                    inject_pos = 0
-                    for eid in entity_hits:
-                        if eid not in top_ids:
-                            deep_items.insert(inject_pos, Item(id=eid, summary="", tags={}, score=0.5))
-                            injected_entity_ids.add(eid)
-                            inject_pos += 1
-                    # Remove matched entity phrases from deep FTS query so
-                    # activity/content terms dominate deep evidence. This
-                    # avoids over-blocking standalone content words.
-                    if entity_hits:
-                        cleaned = deep_query
-                        for eid in sorted(entity_hits, key=len, reverse=True):
-                            parts = re.findall(r"[a-z0-9]+", eid.lower())
-                            if not parts:
-                                continue
-                            # Match phrase tokens with flexible separators.
-                            pattern = r"\b" + r"[^a-z0-9]+".join(
-                                re.escape(tok) for tok in parts
-                            ) + r"\b"
-                            cleaned = re.sub(pattern, " ", cleaned, flags=re.IGNORECASE)
-                        kept = re.findall(r"[a-z0-9]+", cleaned.lower())
-                        if kept:
-                            deep_query = " ".join(kept)
+                    # Entity injection: if query mentions known edge targets
+                    # by name, inject them as synthetic primaries so their
+                    # edges get traversed even if they didn't rank in search.
+                    deep_items = list(items)
+                    entity_hits: list[str] = []
+                    if deep_query:
+                        # Only consider the top display window as "already present"
+                        _ENTITY_WINDOW = 10
+                        top_ids = {(i.id.split("@")[0] if "@" in i.id else i.id)
+                                   for i in items[:_ENTITY_WINDOW]}
+                        entity_hits = self._document_store.find_edge_targets(
+                            doc_coll, deep_query)
+                        # Insert at front so entities are within top_k window
+                        inject_pos = 0
+                        for eid in entity_hits:
+                            if eid not in top_ids:
+                                deep_items.insert(inject_pos, Item(id=eid, summary="", tags={}, score=0.5))
+                                injected_entity_ids.add(eid)
+                                inject_pos += 1
+                        # Remove matched entity phrases from deep FTS query so
+                        # activity/content terms dominate deep evidence. This
+                        # avoids over-blocking standalone content words.
+                        if entity_hits:
+                            cleaned = deep_query
+                            for eid in sorted(entity_hits, key=len, reverse=True):
+                                parts = re.findall(r"[a-z0-9]+", eid.lower())
+                                if not parts:
+                                    continue
+                                # Match phrase tokens with flexible separators.
+                                pattern = r"\b" + r"[^a-z0-9]+".join(
+                                    re.escape(tok) for tok in parts
+                                ) + r"\b"
+                                cleaned = re.sub(pattern, " ", cleaned, flags=re.IGNORECASE)
+                            kept = re.findall(r"[a-z0-9]+", cleaned.lower())
+                            if kept:
+                                deep_query = " ".join(kept)
 
-                # Exclude only a few top primaries from deep results.
-                # With deep_primary_cap, most primaries get dropped so
-                # they should remain available as deep sub-items.
-                # Entities are never excluded (they're the group hubs).
-                _DEEP_EXCLUDE = 3
-                exclude = set()
-                for i in items[:_DEEP_EXCLUDE]:
-                    pid = i.id.split("@")[0] if "@" in i.id else i.id
-                    if pid not in injected_entity_ids:
-                        exclude.add(pid)
-                deep_groups = self._deep_edge_follow(
-                    deep_items, chroma_coll, doc_coll,
-                    query=deep_query,
-                    embedding=embedding,
-                    exclude_ids=exclude,
-                )
-                # Inject entities that produced deep groups into the
-                # primary list so they appear as result items and
-                # pass the final_ids filter in the remapping step.
-                if deep_groups:
-                    item_ids = {(i.id.split("@")[0] if "@" in i.id else i.id)
-                                for i in items}
-                    for gk in deep_groups:
-                        if gk not in item_ids:
-                            head = self._document_store.get(doc_coll, gk)
-                            if head:
-                                items.append(_record_to_item(head, score=0.5))
-                            else:
-                                items.append(Item(
-                                    id=gk, summary="", tags={}, score=0.5,
-                                ))
-            else:
-                # For similar_to mode, use the anchor item's summary
-                # as the flow query since the find action requires one.
-                flow_query = query or ""
-                if not flow_query and similar_to:
-                    anchor = self._document_store.get(doc_coll, similar_to)
-                    if anchor:
-                        flow_query = getattr(anchor, "summary", "") or ""
-                deep_groups = self._deep_follow_via_flow(
-                    query=flow_query,
-                    limit=limit,
-                    embedding=embedding,
-                )
-
-        if deep and embedding is not None:
-            perf.record("find", "deep", time.monotonic() - _deep_t0)
+                    # Exclude only a few top primaries from deep results.
+                    # With deep_primary_cap, most primaries get dropped so
+                    # they should remain available as deep sub-items.
+                    # Entities are never excluded (they're the group hubs).
+                    _DEEP_EXCLUDE = 3
+                    exclude = set()
+                    for i in items[:_DEEP_EXCLUDE]:
+                        pid = i.id.split("@")[0] if "@" in i.id else i.id
+                        if pid not in injected_entity_ids:
+                            exclude.add(pid)
+                    deep_groups = self._deep_edge_follow(
+                        deep_items, chroma_coll, doc_coll,
+                        query=deep_query,
+                        embedding=embedding,
+                        exclude_ids=exclude,
+                    )
+                    # Inject entities that produced deep groups into the
+                    # primary list so they appear as result items and
+                    # pass the final_ids filter in the remapping step.
+                    if deep_groups:
+                        item_ids = {(i.id.split("@")[0] if "@" in i.id else i.id)
+                                    for i in items}
+                        for gk in deep_groups:
+                            if gk not in item_ids:
+                                head = self._document_store.get(doc_coll, gk)
+                                if head:
+                                    items.append(_record_to_item(head, score=0.5))
+                                else:
+                                    items.append(Item(
+                                        id=gk, summary="", tags={}, score=0.5,
+                                    ))
+                else:
+                    # For similar_to mode, use the anchor item's summary
+                    # as the flow query since the find action requires one.
+                    flow_query = query or ""
+                    if not flow_query and similar_to:
+                        anchor = self._document_store.get(doc_coll, similar_to)
+                        if anchor:
+                            flow_query = getattr(anchor, "summary", "") or ""
+                    deep_groups = self._deep_follow_via_flow(
+                        query=flow_query,
+                        limit=limit,
+                        embedding=embedding,
+                    )
 
         # Apply common filters
         if since is not None or until is not None:
@@ -2975,7 +3030,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     enriched.append(item)
             return enriched
 
-        with perf.timer("find", "enrich"):
+        with _get_tracer("keeper").start_as_current_span("enrich"):
             if final:
                 self._document_store.touch_many(doc_coll, [i.id for i in final])
                 final = _enrich_from_sqlite(final)
@@ -2985,8 +3040,6 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     pid: _enrich_from_sqlite(group)
                     for pid, group in deep_groups.items()
                 }
-        perf.record("find", "total", time.monotonic() - _find_t0,
-                    context_id=query or similar_to)
         return FindResults(final, deep_groups=deep_groups)
 
     def find(
@@ -3148,42 +3201,47 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         Reads from document store (canonical), falls back to vector store for legacy data.
         Touches accessed_at on successful retrieval.
         """
-        from .perf_stats import perf
-        _get_t0 = time.monotonic()
-
         id = normalize_id(id)
         doc_coll = self._resolve_doc_collection()
         chroma_coll = self._resolve_chroma_collection()
 
-        # Try document store first (canonical)
-        try:
-            with perf.timer("get", "sqlite"):
-                doc_record = self._document_store.get(doc_coll, id)
-        except Exception as e:
-            logger.warning("DocumentStore.get(%s) failed: %s", id, e)
-            if self._is_local and "malformed" in str(e):
-                # SQLite-specific recovery — only for local backends
-                if hasattr(self._document_store, '_try_runtime_recover'):
-                    self._document_store._try_runtime_recover()
-                # Retry once after recovery
-                try:
+        with _get_tracer("keeper").start_as_current_span(
+            "get",
+            attributes={"item_id": id},
+        ) as span:
+            # Try document store first (canonical)
+            try:
+                with _get_tracer("keeper").start_as_current_span("doc_store.get"):
                     doc_record = self._document_store.get(doc_coll, id)
-                except Exception:
+            except Exception as e:
+                logger.warning("DocumentStore.get(%s) failed: %s", id, e)
+                if self._is_local and is_malformed_db_error(e):
+                    span.set_attribute("recovered", True)
+                    # SQLite-specific recovery — only for local backends
+                    if hasattr(self._document_store, '_try_runtime_recover'):
+                        self._document_store._try_runtime_recover()
+                    # Retry once after recovery
+                    try:
+                        with _get_tracer("keeper").start_as_current_span("doc_store.get.retry"):
+                            doc_record = self._document_store.get(doc_coll, id)
+                    except Exception:
+                        doc_record = None
+                else:
                     doc_record = None
-            else:
-                doc_record = None
-        if doc_record:
-            self._document_store.touch(doc_coll, id)
-            perf.record("get", "total", time.monotonic() - _get_t0, context_id=id)
-            return _record_to_item(doc_record)
+            if doc_record:
+                self._document_store.touch(doc_coll, id)
+                span.set_attribute("source", "sqlite")
+                span.set_attribute("found", True)
+                return _record_to_item(doc_record)
 
-        # Fall back to ChromaDB for legacy data
-        with perf.timer("get", "chroma_fallback"):
-            result = self._store.get(chroma_coll, id)
-        perf.record("get", "total", time.monotonic() - _get_t0, context_id=id)
-        if result is None:
-            return None
-        return result.to_item()
+            # Fall back to ChromaDB for legacy data
+            with _get_tracer("keeper").start_as_current_span("chroma.get"):
+                result = self._store.get(chroma_coll, id)
+            span.set_attribute("source", "chroma_fallback")
+            span.set_attribute("found", result is not None)
+            if result is None:
+                return None
+            return result.to_item()
 
     def get(self, id: str) -> Optional[Item]:
         """Retrieve a specific item via the flow host interface."""
@@ -5261,14 +5319,6 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 self._work_queue.close()
             except Exception:
                 pass
-
-        # Log final perf summary before removing ops log handler
-        try:
-            from .perf_stats import perf
-            if perf.summary():
-                perf.log_summary()
-        except Exception:
-            pass
 
         # Remove ops log handler to avoid handler accumulation
         if hasattr(self, '_ops_log_handler') and self._ops_log_handler:

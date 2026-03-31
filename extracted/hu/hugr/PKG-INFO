@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hugr
-Version: 0.15.4
+Version: 0.15.5
 Classifier: Environment :: Console
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -19,8 +19,11 @@ Requires-Dist: pydantic~=2.8
 Requires-Dist: pydantic-extra-types~=2.9
 Requires-Dist: semver~=3.0
 Requires-Dist: typing-extensions~=4.12
-Requires-Dist: sphinx>=8.1.3,<10.0.0 ; extra == 'docs'
+Requires-Dist: sphinx>=8.1.3,<10 ; extra == 'docs'
 Requires-Dist: furo ; extra == 'docs'
+Requires-Dist: myst-parser>=4.0,<6 ; extra == 'docs'
+Requires-Dist: sphinxcontrib-mermaid>=1,<3 ; extra == 'docs'
+Requires-Dist: sphinx-favicon~=1.1.0 ; extra == 'docs'
 Requires-Dist: pytket>=1.34.0 ; extra == 'pytket'
 Provides-Extra: docs
 Provides-Extra: pytket
@@ -51,7 +54,7 @@ The API documentation for this package is [here](https://quantinuum.github.io/hu
 This library is intended to be used as a dependency for other high-level tools.
 See [`guppylang`][] and [`tket2`][] for examples of such tools.
 
-The HUGR specification is [here](https://github.com/quantinuum/hugr/blob/main/specification/hugr.md).
+The HUGR specification is [here](https://quantinuum.github.io/hugr/specification/index.html).
 
   [`guppylang`]: https://pypi.org/project/guppylang/
   [`tket2`]: https://github.com/quantinuum/tket2

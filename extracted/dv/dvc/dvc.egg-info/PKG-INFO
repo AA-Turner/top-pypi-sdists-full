@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dvc
-Version: 3.67.0
+Version: 3.67.1
 Summary: Git for data scientists - manage your code and data together
 Author-email: Dmitry Petrov <dmitry@dvc.org>
 Maintainer-email: Treeverse <support@dvc.org>

@@ -129,4 +129,4 @@ for _var in FLDAS_VARIABLES:
     for _lead in FLDAS_LEADS:
         _key = f"MEAN_FLDAS_{_var}_LEAD{_lead}"
         dict_fldas[_key] = ["FLDAS", f"Mean FLDAS {_var} (lead {_lead})"]
-        fldas_col_map[_key] = f"fldas_{_var}_lead{_lead}"
+        fldas_col_map[_key] = f"fldas_{_var.lower()}_lead{_lead}"

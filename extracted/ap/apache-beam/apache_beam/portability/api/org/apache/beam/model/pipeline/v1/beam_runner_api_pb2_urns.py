@@ -47,6 +47,7 @@ class StandardCoders(object):
     STATE_BACKED_ITERABLE = PropertiesFromEnumValue('beam:coder:state_backed_iterable:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     CUSTOM_WINDOW = PropertiesFromEnumValue('beam:coder:custom_window:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     ROW = PropertiesFromEnumValue('beam:coder:row:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    SCHEMA = PropertiesFromEnumValue('beam:coder:schema:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     SHARDED_KEY = PropertiesFromEnumValue('beam:coder:sharded_key:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     NULLABLE = PropertiesFromEnumValue('beam:coder:nullable:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
 

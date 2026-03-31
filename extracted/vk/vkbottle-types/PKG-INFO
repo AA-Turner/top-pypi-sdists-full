@@ -1,22 +1,15 @@
 Metadata-Version: 2.4
 Name: vkbottle-types
-Version: 5.199.99.12
+Version: 5.199.99.16
 Summary: VK API methods & types for vkbottle.
+Author: timoniq
 License-Expression: MIT
 License-File: LICENSE
-Author: timoniq
-Requires-Python: >=3.9,<4.0
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: msgspec (>=0.19.0,<0.20.0)
-Requires-Dist: pydantic (>=2.11.9,<3.0.0)
-Requires-Dist: typing-extensions (>=4.15.0,<5.0.0)
-Requires-Dist: vkbottle (>=4.6.0,<5.0.0)
+Requires-Python: <4.0,>=3.10
+Requires-Dist: msgspec<0.21.0,>=0.20.0
+Requires-Dist: pydantic<3.0.0,>=2.12.5
+Requires-Dist: typing-extensions<5.0.0,>=4.15.0
+Requires-Dist: vkbottle<5.0.0,>=4.8.0
 Description-Content-Type: text/markdown
 
 # vkbottle-types
@@ -60,11 +53,8 @@ python3 -m patcher -m "Add users.get missing param_name"
 
 ## Генерация типов
 
-Генератор написан `>=Python 3.10`, но типы, которые он генерирует, не используют новые тайп-хинты для поддержки `Python 3.9`.
-
 ```console
 python -m generator
 ```
 
 Подробнее как самому сгенерировать типы в [HOWTO](/HOWTO)
-

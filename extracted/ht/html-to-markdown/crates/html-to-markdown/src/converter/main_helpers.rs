@@ -145,8 +145,8 @@ pub fn extract_head_metadata(
                 if let Some(tl::Node::Tag(child_tag)) = child_handle.get(parser) {
                     // Look for meta tags
                     if child_tag.name().as_utf8_str().eq_ignore_ascii_case("meta")
-                        && !options.strip_tags.contains(&"meta".to_string())
-                        && !options.preserve_tags.contains(&"meta".to_string())
+                        && !options.strip_tags.iter().any(|t| t == "meta")
+                        && !options.preserve_tags.iter().any(|t| t == "meta")
                     {
                         if let (Some(name), Some(content)) = (
                             child_tag.attributes().get("name").flatten(),
@@ -168,8 +168,8 @@ pub fn extract_head_metadata(
                     }
                     // Look for title tag
                     if child_tag.name().as_utf8_str().eq_ignore_ascii_case("title")
-                        && !options.strip_tags.contains(&"title".to_string())
-                        && !options.preserve_tags.contains(&"title".to_string())
+                        && !options.strip_tags.iter().any(|t| t == "title")
+                        && !options.preserve_tags.iter().any(|t| t == "title")
                     {
                         // Extract text content from title tag
                         let mut title_content = String::new();
@@ -283,68 +283,4 @@ pub fn is_inline_element(tag_name: &str) -> bool {
             | "progress"
             | "meter"
     )
-}
-
-/// Handle hOCR document conversion, returning true if handled, false if not hOCR.
-#[allow(deprecated)]
-pub fn handle_hocr_document(
-    dom: &tl::VDom<'_>,
-    parser: &tl::Parser<'_>,
-    options: &ConversionOptions,
-    output: &mut String,
-) -> bool {
-    use crate::converter::utility::attributes::{is_hocr_document, may_be_hocr};
-    use crate::hocr::{convert_to_markdown_with_options as convert_hocr_to_markdown, extract_hocr_document};
-
-    let preprocessed = dom.outer_html();
-    if !may_be_hocr(preprocessed.as_ref()) {
-        return false;
-    }
-
-    let mut is_hocr = false;
-    for child_handle in dom.children() {
-        if is_hocr_document(*child_handle, parser) {
-            is_hocr = true;
-            break;
-        }
-    }
-
-    if !is_hocr {
-        return false;
-    }
-
-    let (elements, metadata) = extract_hocr_document(dom);
-
-    if options.extract_metadata && !options.convert_as_inline {
-        let mut metadata_map = BTreeMap::new();
-        if let Some(system) = metadata.ocr_system {
-            metadata_map.insert("ocr-system".to_string(), system);
-        }
-        if !metadata.ocr_capabilities.is_empty() {
-            metadata_map.insert("ocr-capabilities".to_string(), metadata.ocr_capabilities.join(", "));
-        }
-        if let Some(pages) = metadata.ocr_number_of_pages {
-            metadata_map.insert("ocr-number-of-pages".to_string(), pages.to_string());
-        }
-        if !metadata.ocr_langs.is_empty() {
-            metadata_map.insert("ocr-langs".to_string(), metadata.ocr_langs.join(", "));
-        }
-        if !metadata.ocr_scripts.is_empty() {
-            metadata_map.insert("ocr-scripts".to_string(), metadata.ocr_scripts.join(", "));
-        }
-
-        if !metadata_map.is_empty() {
-            output.push_str(&format_metadata_frontmatter(&metadata_map));
-        }
-    }
-
-    let mut markdown = convert_hocr_to_markdown(&elements, true, options.hocr_spatial_tables);
-
-    if !markdown.trim().is_empty() {
-        markdown.truncate(markdown.trim_end().len());
-        output.push_str(&markdown);
-        output.push('\n');
-    }
-
-    true
 }

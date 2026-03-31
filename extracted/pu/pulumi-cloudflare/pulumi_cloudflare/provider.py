@@ -27,11 +27,13 @@ class ProviderArgs:
                  user_agent_operator_suffix: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a Provider resource.
+
         :param pulumi.Input[_builtins.str] api_key: The API key for operations. Alternatively, can be configured using the `CLOUDFLARE_API_KEY` environment variable. API keys are [now considered legacy by Cloudflare](https://developers.cloudflare.com/fundamentals/api/get-started/keys/#limitations), API tokens should be used instead. Must provide only one of `api_key`, `api_token`, `api_user_service_key`.
         :param pulumi.Input[_builtins.str] api_token: The API Token for operations. Alternatively, can be configured using the `CLOUDFLARE_API_TOKEN` environment variable. Must provide only one of `api_key`, `api_token`, `api_user_service_key`.
         :param pulumi.Input[_builtins.str] api_user_service_key: A special Cloudflare API key good for a restricted set of endpoints. Alternatively, can be configured using the `CLOUDFLARE_API_USER_SERVICE_KEY` environment variable. Must provide only one of `api_key`, `api_token`, `api_user_service_key`.
         :param pulumi.Input[_builtins.str] base_url: Value to override the default HTTP client base URL. Alternatively, can be configured using the `base_url` environment variable.
         :param pulumi.Input[_builtins.str] email: A registered Cloudflare email address. Alternatively, can be configured using the `CLOUDFLARE_EMAIL` environment variable. Required when using `api_key`. Conflicts with `api_token`.
+        :param pulumi.Input[_builtins.str] user_agent_operator_suffix: A value to append to the HTTP User Agent for all API calls. This value is not something most users need to modify however, if you are using a non-standard provider or operator configuration, this is recommended to assist in uniquely identifying your traffic. **Setting this value will remove the Terraform version from the HTTP User Agent string and may have unintended consequences**. Alternatively, can be configured using the `CLOUDFLARE_USER_AGENT_OPERATOR_SUFFIX` environment variable.
         """
         if api_key is not None:
             pulumi.set(__self__, "api_key", api_key)
@@ -109,6 +111,9 @@ class ProviderArgs:
     @_builtins.property
     @pulumi.getter(name="userAgentOperatorSuffix")
     def user_agent_operator_suffix(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A value to append to the HTTP User Agent for all API calls. This value is not something most users need to modify however, if you are using a non-standard provider or operator configuration, this is recommended to assist in uniquely identifying your traffic. **Setting this value will remove the Terraform version from the HTTP User Agent string and may have unintended consequences**. Alternatively, can be configured using the `CLOUDFLARE_USER_AGENT_OPERATOR_SUFFIX` environment variable.
+        """
         return pulumi.get(self, "user_agent_operator_suffix")
 
     @user_agent_operator_suffix.setter
@@ -135,6 +140,7 @@ class Provider(pulumi.ProviderResource):
         construction to achieve fine-grained programmatic control over provider settings. See the
         [documentation](https://www.pulumi.com/docs/reference/programming-model/#providers) for more information.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] api_key: The API key for operations. Alternatively, can be configured using the `CLOUDFLARE_API_KEY` environment variable. API keys are [now considered legacy by Cloudflare](https://developers.cloudflare.com/fundamentals/api/get-started/keys/#limitations), API tokens should be used instead. Must provide only one of `api_key`, `api_token`, `api_user_service_key`.
@@ -142,6 +148,7 @@ class Provider(pulumi.ProviderResource):
         :param pulumi.Input[_builtins.str] api_user_service_key: A special Cloudflare API key good for a restricted set of endpoints. Alternatively, can be configured using the `CLOUDFLARE_API_USER_SERVICE_KEY` environment variable. Must provide only one of `api_key`, `api_token`, `api_user_service_key`.
         :param pulumi.Input[_builtins.str] base_url: Value to override the default HTTP client base URL. Alternatively, can be configured using the `base_url` environment variable.
         :param pulumi.Input[_builtins.str] email: A registered Cloudflare email address. Alternatively, can be configured using the `CLOUDFLARE_EMAIL` environment variable. Required when using `api_key`. Conflicts with `api_token`.
+        :param pulumi.Input[_builtins.str] user_agent_operator_suffix: A value to append to the HTTP User Agent for all API calls. This value is not something most users need to modify however, if you are using a non-standard provider or operator configuration, this is recommended to assist in uniquely identifying your traffic. **Setting this value will remove the Terraform version from the HTTP User Agent string and may have unintended consequences**. Alternatively, can be configured using the `CLOUDFLARE_USER_AGENT_OPERATOR_SUFFIX` environment variable.
         """
         ...
     @overload
@@ -154,6 +161,7 @@ class Provider(pulumi.ProviderResource):
         settings, however an explicit `Provider` instance may be created and passed during resource
         construction to achieve fine-grained programmatic control over provider settings. See the
         [documentation](https://www.pulumi.com/docs/reference/programming-model/#providers) for more information.
+
 
         :param str resource_name: The name of the resource.
         :param ProviderArgs args: The arguments to use to populate this resource's properties.
@@ -242,6 +250,9 @@ class Provider(pulumi.ProviderResource):
     @_builtins.property
     @pulumi.getter(name="userAgentOperatorSuffix")
     def user_agent_operator_suffix(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        A value to append to the HTTP User Agent for all API calls. This value is not something most users need to modify however, if you are using a non-standard provider or operator configuration, this is recommended to assist in uniquely identifying your traffic. **Setting this value will remove the Terraform version from the HTTP User Agent string and may have unintended consequences**. Alternatively, can be configured using the `CLOUDFLARE_USER_AGENT_OPERATOR_SUFFIX` environment variable.
+        """
         return pulumi.get(self, "user_agent_operator_suffix")
 
     @pulumi.output_type

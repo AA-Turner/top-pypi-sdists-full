@@ -3,7 +3,7 @@ Type annotations for partnercentral-account service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_account/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -503,6 +503,8 @@ class PutAllianceLeadContactResponseTypeDef(TypedDict):
 
 class BusinessVerificationResponseTypeDef(TypedDict):
     BusinessVerificationDetails: BusinessVerificationDetailsTypeDef
+    CompletionUrl: NotRequired[str]
+    CompletionUrlExpiresAt: NotRequired[datetime]
 
 
 class VerificationDetailsTypeDef(TypedDict):

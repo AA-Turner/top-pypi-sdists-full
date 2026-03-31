@@ -3,12 +3,16 @@ import os
 import traceback
 from pathlib import Path
 from typing import Literal, Optional, Tuple
+from uuid import uuid4
 
 from abstra_internals.controllers.execution.execution_client import ExecutionClient
 from abstra_internals.controllers.execution.execution_client_form import ClientAbandoned
 from abstra_internals.controllers.sdk.sdk_context import SDKContext
 from abstra_internals.entities.execution import Execution
-from abstra_internals.entities.execution_context import ClientContext
+from abstra_internals.entities.execution_context import (
+    ClientContext,
+    CodeSnippetContext,
+)
 from abstra_internals.environment import IS_PRODUCTION
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.modules import import_as_new
@@ -84,6 +88,45 @@ class ExecutionController:
                     AbstraLogger.capture_exception(e_final)
 
         return {"execution": execution.model_dump()}
+
+    @staticmethod
+    def run_snippet(
+        file_path: Path,
+        worker_id: str,
+        repositories: Repositories,
+    ) -> dict:
+        """Simplified execution for code snippets.
+
+        No execution persistence, no client callbacks, no stage.
+        Wraps with SDKContext so code can use SDK features (tasks, AI, etc.).
+        Returns ok/error plus execution_id so caller can retrieve logs.
+        """
+        snippet_id = str(uuid4())
+        execution_id = f"snippet-{snippet_id}"
+
+        execution = Execution.create(
+            id=execution_id,
+            context=CodeSnippetContext(),
+            stage_id=f"snippet-{snippet_id}",
+            worker_id=worker_id,
+        )
+
+        with SDKContext(execution, None, repositories):
+            try:
+                if not IS_PRODUCTION:
+                    clear_local_modules(file_path, Settings.root_path)
+                import_as_new(file_path.as_posix())
+                return {"ok": True, "error": None, "execution_id": execution_id}
+            except SystemExit as e:
+                if e.code is None or e.code == 0:
+                    return {"ok": True, "error": None, "execution_id": execution_id}
+                return {
+                    "ok": False,
+                    "error": f"SystemExit: {e.code}",
+                    "execution_id": execution_id,
+                }
+            except Exception as e:
+                return {"ok": False, "error": str(e), "execution_id": execution_id}
 
     def _execute_without_exit(self, filepath: Path):
         try:

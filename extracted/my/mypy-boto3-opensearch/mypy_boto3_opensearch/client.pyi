@@ -91,6 +91,8 @@ from .type_defs import (
     DescribeDryRunProgressResponseTypeDef,
     DescribeInboundConnectionsRequestTypeDef,
     DescribeInboundConnectionsResponseTypeDef,
+    DescribeInsightDetailsRequestTypeDef,
+    DescribeInsightDetailsResponseTypeDef,
     DescribeInstanceTypeLimitsRequestTypeDef,
     DescribeInstanceTypeLimitsResponseTypeDef,
     DescribeOutboundConnectionsRequestTypeDef,
@@ -139,6 +141,8 @@ from .type_defs import (
     ListDomainNamesResponseTypeDef,
     ListDomainsForPackageRequestTypeDef,
     ListDomainsForPackageResponseTypeDef,
+    ListInsightsRequestTypeDef,
+    ListInsightsResponseTypeDef,
     ListInstanceTypeDetailsRequestTypeDef,
     ListInstanceTypeDetailsResponseTypeDef,
     ListPackagesForDomainRequestTypeDef,
@@ -596,6 +600,17 @@ class OpenSearchServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#describe_inbound_connections)
         """
 
+    def describe_insight_details(
+        self, **kwargs: Unpack[DescribeInsightDetailsRequestTypeDef]
+    ) -> DescribeInsightDetailsResponseTypeDef:
+        """
+        Describes the details of an existing insight for an Amazon OpenSearch Service
+        domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/describe_insight_details.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#describe_insight_details)
+        """
+
     def describe_instance_type_limits(
         self, **kwargs: Unpack[DescribeInstanceTypeLimitsRequestTypeDef]
     ) -> DescribeInstanceTypeLimitsResponseTypeDef:
@@ -843,6 +858,17 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/list_domains_for_package.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#list_domains_for_package)
+        """
+
+    def list_insights(
+        self, **kwargs: Unpack[ListInsightsRequestTypeDef]
+    ) -> ListInsightsResponseTypeDef:
+        """
+        Lists insights for an Amazon OpenSearch Service domain or Amazon Web Services
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/list_insights.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearch/client/#list_insights)
         """
 
     def list_instance_type_details(

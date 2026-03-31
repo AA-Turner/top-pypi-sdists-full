@@ -282,7 +282,11 @@ def _process_named_underscore_expr(*, expr: Any, ctx: NamedUnderscoreParseContex
         kwargs_processed = {k: _process_named_underscore_expr(expr=v, ctx=ctx) for k, v in expr._chalk__kwargs.items()}
         args_processed = [_process_named_underscore_expr(expr=a, ctx=ctx) for a in expr._chalk__args]
         return UnderscoreFunction(
-            expr._chalk__function_name, *args_processed, _chalk__expr_id=expr._chalk__expr_id, **kwargs_processed
+            expr._chalk__function_name,
+            *args_processed,
+            _chalk__expr_id=expr._chalk__expr_id,
+            _chalk__policies=expr._chalk__policies,
+            **kwargs_processed,
         )
     elif isinstance(expr, UnderscoreCast):
         value_processed = _process_named_underscore_expr(expr=expr._chalk__value, ctx=ctx)

@@ -24,6 +24,7 @@ class SchemaValidationOperationSettingsArgs:
                  zone_id: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a SchemaValidationOperationSettings resource.
+
         :param pulumi.Input[_builtins.str] mitigation_action: When set, this applies a mitigation action to this operation
                
                  - `"log"` - log request when request does not conform to schema for this operation
@@ -89,6 +90,7 @@ class _SchemaValidationOperationSettingsState:
                  zone_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering SchemaValidationOperationSettings resources.
+
         :param pulumi.Input[_builtins.str] mitigation_action: When set, this applies a mitigation action to this operation
                
                  - `"log"` - log request when request does not conform to schema for this operation
@@ -174,7 +176,8 @@ class SchemaValidationOperationSettings(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -209,7 +212,8 @@ class SchemaValidationOperationSettings(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param SchemaValidationOperationSettingsArgs args: The arguments to use to populate this resource's properties.

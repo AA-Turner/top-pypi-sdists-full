@@ -97,6 +97,8 @@ class Runtime:
     subagent_id: str | None = None
     subagent_type: str | None = None
     role: Literal["root", "subagent"] = "root"
+    hook_engine: Any = None
+    """HookEngine instance, set by KimiCLI after soul creation."""
 
     def __post_init__(self) -> None:
         if self.subagent_store is None:
@@ -116,7 +118,7 @@ class Runtime:
         llm: LLM | None,
         session: Session,
         yolo: bool,
-        extra_skills_dirs: list[KaosPath] | None = None,
+        skills_dirs: list[KaosPath] | None = None,
     ) -> Runtime:
         ls_output, agents_md, environment = await asyncio.gather(
             list_directory(session.work_dir),
@@ -127,7 +129,7 @@ class Runtime:
         # Discover and format skills
         skills_roots = await resolve_skills_roots(
             session.work_dir,
-            extra_skills_dirs=extra_skills_dirs,
+            skills_dirs=skills_dirs,
         )
         # Canonicalize so symlinked skill directories match resolved paths
         skills_roots_canonical = [r.canonical() for r in skills_roots]

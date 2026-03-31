@@ -12,6 +12,16 @@ from .configs import SERVER_VERSION
 logger = logging.getLogger("mcp_server_motherduck")
 
 
+def quote_sql_string(value: str) -> str:
+    """Return a single-quoted SQL string literal with internal quotes escaped."""
+    return "'" + value.replace("'", "''") + "'"
+
+
+def quote_sql_identifier(value: str) -> str:
+    """Quote a SQL identifier with double quotes, escaping internal double quotes."""
+    return '"' + value.replace('"', '""') + '"'
+
+
 def _is_read_scaling_connection(conn: duckdb.DuckDBPyConnection) -> bool:
     """
     Check if a MotherDuck connection is using read-scaling.
@@ -54,6 +64,8 @@ class DatabaseClient:
         self._max_chars = max_chars
         self._query_timeout = query_timeout
         self._init_sql = init_sql
+        self._motherduck_token = motherduck_token
+        self._saas_mode = saas_mode
         self._motherduck_connection_parameters = motherduck_connection_parameters
         self.db_path, self.db_type = self._resolve_db_path_type(
             db_path, motherduck_token, saas_mode
@@ -70,8 +82,8 @@ class DatabaseClient:
     def _ensure_connected(self) -> None:
         """Lazily initialize the database connection on first use."""
         if not self._conn_initialized:
-            self._conn_initialized = True
             self.conn = self._initialize_connection()
+            self._conn_initialized = True
 
     def _initialize_connection(self) -> Optional[duckdb.DuckDBPyConnection]:
         """Initialize connection to the MotherDuck or DuckDB database"""
@@ -128,8 +140,9 @@ class DatabaseClient:
             aws_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
             aws_session_token = os.environ.get("AWS_SESSION_TOKEN")
             aws_region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+            aws_endpoint = os.environ.get("AWS_ENDPOINT")
 
-            if aws_access_key and aws_secret_key and not aws_session_token:
+            if aws_access_key and aws_secret_key and not aws_session_token and not aws_endpoint:
                 # Use CREATE SECRET for better credential management
                 conn.execute(f"""
                     CREATE SECRET IF NOT EXISTS s3_secret (
@@ -137,6 +150,17 @@ class DatabaseClient:
                         KEY_ID '{aws_access_key}',
                         SECRET '{aws_secret_key}',
                         REGION '{aws_region}'
+                    );
+                """)
+            elif aws_access_key and aws_secret_key and aws_endpoint and not aws_session_token:
+                # Use CREATE SECRET with ENDPOINT when it is defined
+                conn.execute(f"""
+                    CREATE SECRET IF NOT EXISTS s3_secret (
+                        TYPE S3,
+                        KEY_ID '{aws_access_key}',
+                        SECRET '{aws_secret_key}',
+                        REGION '{aws_region}',
+                        ENDPOINT '{aws_endpoint}'
                     );
                 """)
             elif aws_session_token:
@@ -235,6 +259,10 @@ class DatabaseClient:
         self, db_path: str, motherduck_token: str | None = None, saas_mode: bool = False
     ) -> tuple[str, Literal["duckdb", "motherduck", "s3"]]:
         """Resolve and validate the database path"""
+        # Normalize motherduck: prefix to md:
+        if db_path.startswith("motherduck:"):
+            db_path = "md:" + db_path[len("motherduck:") :]
+
         # Handle S3 paths
         if db_path.startswith("s3://"):
             return db_path, "s3"
@@ -262,8 +290,11 @@ class DatabaseClient:
             elif os.getenv("motherduck_token") or os.getenv("MOTHERDUCK_TOKEN"):
                 token = os.getenv("motherduck_token") or os.getenv("MOTHERDUCK_TOKEN")
                 logger.info("Using MotherDuck token from env to connect to database `md:`")
+                saas_param = "&saas_mode=true" if saas_mode else ""
+                if saas_mode:
+                    logger.info("Connecting to MotherDuck in SaaS mode")
                 return (
-                    f"{db_path}?motherduck_token={token}{md_params}",
+                    f"{db_path}?motherduck_token={token}{saas_param}{md_params}",
                     "motherduck",
                 )
             else:
@@ -434,21 +465,13 @@ class DatabaseClient:
             self.conn = None
 
         # Update database configuration
-        self.db_path = path
         self._read_only = read_only
-
-        # Determine new database type
-        if path.startswith("md:") or path.startswith("motherduck:"):
-            self.db_type = "motherduck"
-        elif path.startswith("s3://"):
-            self.db_type = "s3"
-        elif path == ":memory:":
-            self.db_type = "memory"
-        else:
-            self.db_type = "duckdb"
+        self.db_path, self.db_type = self._resolve_db_path_type(
+            path, self._motherduck_token, self._saas_mode
+        )
 
         # Re-initialize connection (will be None for read-only local DuckDB)
-        self._conn_initialized = True
         self.conn = self._initialize_connection()
+        self._conn_initialized = True
 
         logger.info(f"Switched to database: {path} (read_only={read_only})")

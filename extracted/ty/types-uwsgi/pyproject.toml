@@ -1,18 +1,18 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-uWSGI"
-version = "2.0.0.20250809"
+version = "2.0.0.20260331"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for uWSGI"
 readme = { text = """\
 ## Typing stubs for uWSGI
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`uWSGI`](https://github.com/unbit/uwsgi) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`uWSGI`](https://github.com/unbit/uwsgi) package. It can be used by type checkers
 to check code that uses `uWSGI`. This version of
 `types-uWSGI` aims to provide accurate annotations for
 `uWSGI==2.0.*`.
@@ -27,17 +27,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.16.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.403
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
+[`ccf9411fb1f5bee2a8e3d278889de17a08f7bbe3`](https://github.com/python/typeshed/commit/ccf9411fb1f5bee2a8e3d278889de17a08f7bbe3).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -50,3 +50,7 @@ dependencies = []
 [tool.setuptools]
 packages = ['uwsgidecorators-stubs', 'uwsgi-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'uwsgidecorators-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']
+'uwsgi-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']

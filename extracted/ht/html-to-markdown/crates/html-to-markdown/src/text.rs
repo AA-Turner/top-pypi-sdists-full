@@ -6,15 +6,17 @@ use std::borrow::Cow;
 use std::sync::LazyLock;
 
 /// Regex for escaping miscellaneous characters
-static ESCAPE_MISC_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"([\\&<`\[\]>~#=+|\-])").unwrap());
+static ESCAPE_MISC_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"([\\&<`\[\]>~#=+|\-])").expect("valid regex pattern"));
 
 /// Regex for escaping numbered lists
-static ESCAPE_NUMBERED_LIST_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"([0-9])([.)])").unwrap());
+static ESCAPE_NUMBERED_LIST_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"([0-9])([.)])").expect("valid regex pattern"));
 
 /// Regex for escaping ASCII punctuation (CommonMark spec example 12)
 /// Matches: `! " # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \ ] ^ _ \` { | } ~`
 static ESCAPE_ASCII_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"([!\x22#$%&\x27()*+,\-./:;<=>?@\[\\\]^_`{|}~])").unwrap());
+    LazyLock::new(|| Regex::new(r"([!\x22#$%&\x27()*+,\-./:;<=>?@\[\\\]^_`{|}~])").expect("valid regex pattern"));
 
 /// Escape Markdown special characters in text.
 ///
@@ -99,28 +101,37 @@ pub fn escape(
         }
     }
 
-    let mut result = text.to_string();
+    let mut result: Cow<'_, str> = Cow::Borrowed(text);
 
     if escape_ascii {
-        result = ESCAPE_ASCII_RE.replace_all(&result, r"\$1").to_string();
-        return Cow::Owned(result);
+        result = match ESCAPE_ASCII_RE.replace_all(result.as_ref(), r"\$1") {
+            Cow::Borrowed(_) => result,
+            Cow::Owned(s) => Cow::Owned(s),
+        };
+        return result;
     }
 
     if escape_misc {
-        result = ESCAPE_MISC_RE.replace_all(&result, r"\$1").to_string();
+        result = match ESCAPE_MISC_RE.replace_all(result.as_ref(), r"\$1") {
+            Cow::Borrowed(_) => result,
+            Cow::Owned(s) => Cow::Owned(s),
+        };
 
-        result = ESCAPE_NUMBERED_LIST_RE.replace_all(&result, r"$1\$2").to_string();
+        result = match ESCAPE_NUMBERED_LIST_RE.replace_all(result.as_ref(), r"$1\$2") {
+            Cow::Borrowed(_) => result,
+            Cow::Owned(s) => Cow::Owned(s),
+        };
     }
 
-    if escape_asterisks {
-        result = result.replace('*', r"\*");
+    if escape_asterisks && result.contains('*') {
+        result = Cow::Owned(result.replace('*', r"\*"));
     }
 
-    if escape_underscores {
-        result = result.replace('_', r"\_");
+    if escape_underscores && result.contains('_') {
+        result = Cow::Owned(result.replace('_', r"\_"));
     }
 
-    Cow::Owned(result)
+    result
 }
 
 /// Extract boundary whitespace from text (chomp).

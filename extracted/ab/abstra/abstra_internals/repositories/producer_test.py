@@ -148,7 +148,7 @@ class TestRabbitMQProducerRepository(unittest.TestCase):
             else kwargs["body"]
         )
         self.assertEqual(body_json["type"], "stop")
-        self.assertEqual(body_json["payload"], {"execution_id": "exec-123"})
+        self.assertEqual(body_json["payload"], {"executionId": "exec-123"})
 
 
 if __name__ == "__main__":

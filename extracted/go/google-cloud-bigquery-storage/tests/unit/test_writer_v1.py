@@ -18,9 +18,9 @@ import time
 import unittest
 from unittest import mock
 
+import pytest
 from google.api_core import exceptions
 from google.protobuf import descriptor_pb2
-import pytest
 
 from google.cloud.bigquery_storage_v1 import exceptions as bqstorage_exceptions
 from google.cloud.bigquery_storage_v1 import gapic_version as package_version
@@ -336,9 +336,13 @@ class Test_Connection(unittest.TestCase):
         )
         now = time.monotonic()
         later = now + writer._DEFAULT_TIMEOUT + 1
-        with mock.patch.object(writer.time, "sleep"), mock.patch.object(
-            writer.time, "monotonic", mock.MagicMock(side_effect=(now, later))
-        ), pytest.raises(exceptions.Unknown):
+        with (
+            mock.patch.object(writer.time, "sleep"),
+            mock.patch.object(
+                writer.time, "monotonic", mock.MagicMock(side_effect=(now, later))
+            ),
+            pytest.raises(exceptions.Unknown),
+        ):
             connection.send(initial_request)
 
     @mock.patch("google.api_core.bidi.BidiRpc", autospec=True)

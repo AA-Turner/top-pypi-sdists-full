@@ -2,7 +2,7 @@
 # Bug was not having not having semantic rule for conditional not
 
 # RUNNABLE!
-def init(modules=None):
+def init(modules: list[int] | None=None):
     mods = set() if not modules else set(modules)
     return mods
 
@@ -10,8 +10,8 @@ assert init() == set()
 assert init([1, 2, 3]) == set([1, 2, 3])
 
 # From 3.6 sre_parse
-# Bug was in handling multple COME_FROMS from nested if's
-def _escape(a, b, c, d, e):
+# Bug was in handling multiple COME_FROMS from nested if's
+def _escape(a: bool, b: bool, c: bool, d: bool, e: bool) -> None:
     if a:
         if b:
             if c:

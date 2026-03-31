@@ -1,4 +1,4 @@
-"""Transport layer for sharing files between world and agent VMs (NFS, SSHFS, or rsync)."""
+"""Transport layer for sharing files between world and agent VMs (NFS, SSHFS, git, or rsync)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,8 @@ import asyncio
 import logging
 import shlex
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,8 +15,26 @@ from plato.utils.subprocess import run_local, run_ssh
 
 if TYPE_CHECKING:
     from plato.v2.async_.environment import Environment
+    from plato.worlds.config import GitTransportConfig, MergeAgentConfig
 
 logger = logging.getLogger(__name__)
+
+
+class GitPushConflict(RuntimeError):
+    """Raised when a git push loses a race and the caller should resolve it centrally."""
+
+    def __init__(self, *, commit_sha: str, conflict_ref: str) -> None:
+        super().__init__(f"Git push conflict for commit {commit_sha}")
+        self.commit_sha = commit_sha
+        self.conflict_ref = conflict_ref
+
+
+@dataclass(slots=True)
+class GitPublishedRef:
+    """Published hidden ref produced by a git transport sync."""
+
+    commit_sha: str
+    ref: str
 
 
 # ---------------------------------------------------------------------------
@@ -244,11 +264,11 @@ class RsyncTransport(Transport):
 
 
 class NFSTransport(Transport):
-    """Transport via kernel NFSv4 mount from world VM.
+    """Transport via kernel NFS mount from world VM.
 
-    Exports the workspace path directly via kernel NFS with ``crossmnt`` so
-    that FUSE sub-mounts (lazy DVC) are automatically traversed.  No loopback
-    ext4, no bind mounts — the workspace directory is the NFS pseudo-root.
+    Each workspace is exported independently with its own fsid.
+    No pseudo-root or crossmnt — avoids ESTALE when FUSE sub-mounts
+    have different inode lifetimes.
     """
 
     def __init__(
@@ -307,12 +327,13 @@ class NFSTransport(Transport):
         else:
             logger.info("VM memory tuning applied: %s", stdout.strip())
 
-        # Export the workspace path directly as the NFSv4 pseudo-root.
-        # crossmnt: automatically traverse FUSE sub-mounts (lazy DVC).
+        # Each workspace is exported independently with its own fsid.
+        # No pseudo-root or crossmnt — avoids ESTALE when FUSE sub-mounts
+        # have different inode lifetimes (e.g. empty vs populated workspaces).
         # sync: server acks writes only after disk flush. Slower (3s overhead per
         # write-heavy cycle) but stable — async causes NFS3ERR_IO under heavy
         # concurrent writes from 10+ agents even with sysctl memory caps.
-        export_line = f"{self.path} *(rw,sync,fsid=0,crossmnt,no_subtree_check,no_root_squash)"
+        export_line = f"{self.path} *(rw,sync,fsid=0,no_subtree_check,no_root_squash)"
         exit_code, _, stderr = await run_local(
             f"printf '%s\\n' '{export_line}' > /etc/exports",
             timeout=10,
@@ -371,7 +392,7 @@ class NFSTransport(Transport):
         Raises RuntimeError if the path can't be NFS-exported (e.g. overlayfs).
         """
         await self._setup_workspace_path(path)
-        export_line = f"{path} *(rw,sync,fsid={fsid},crossmnt,no_subtree_check,no_root_squash)"
+        export_line = f"{path} *(rw,sync,fsid={fsid},no_subtree_check,no_root_squash)"
         exit_code, _, stderr = await run_local(
             f"printf '%s\\n' '{export_line}' >> /etc/exports",
             timeout=10,
@@ -723,6 +744,709 @@ class SSHFSTransport(Transport):
             self.ssh_key_path,
             sub_mount,
         )
+        transport.configure_workspace(
+            name=self.workspace_name,
+            repo_root=self.workspace_repo_root,
+            tracked=self.workspace_tracked,
+        )
+        transport.configure_audit_scope(
+            audit_run_id=self.audit_run_id,
+            audit_key=self.audit_key,
+        )
+        return transport
+
+
+# ---------------------------------------------------------------------------
+# Git Transport
+# ---------------------------------------------------------------------------
+
+
+class GitTransport(Transport):
+    """Transport via git clone/push over SSH.
+
+    The world VM hosts a bare git repo at ``{path}/.git-bare``.  Agents clone
+    over SSH on setup, work on an isolated local copy, and push changes back
+    via ``sync_back()``.  A ``post-receive`` hook keeps the world VM working
+    tree at ``{path}`` up to date after each push.
+
+    Concurrent pushes are handled with configurable merge strategies:
+    ``"theirs"`` (accept incoming), ``"ours"`` (keep existing), or ``"agent"``
+    (invoke an LLM merge agent to resolve conflicts).
+    """
+
+    def __init__(
+        self,
+        path: str,
+        world_vm_ip: str,
+        ssh_key_path: Path,
+        mount_path: str | None = None,
+        git_config: GitTransportConfig | None = None,
+        raise_on_conflict: bool = False,
+        publish_ref_prefix: str | None = None,
+    ) -> None:
+        self.path = path
+        self.world_vm_ip = world_vm_ip
+        self.ssh_key_path = ssh_key_path
+        self.mount_path = mount_path
+        self._bare_repo_path = f"{path}/.git-bare"
+        self._raise_on_conflict = raise_on_conflict
+        self._publish_ref_prefix = publish_ref_prefix
+        self._published_ref: GitPublishedRef | None = None
+
+        # Lazy import to avoid circular dependency at module level
+        from plato.worlds.config import GitTransportConfig as _GTC
+
+        self._git_config = git_config or _GTC()
+        # Callback: (hostname, ssh_key_path, workspace_path, conflicted_files) -> None
+        self._merge_resolver: Callable[[str, Path, str, list[str]], Awaitable[None]] | None = None
+        self._sync_lock = asyncio.Lock() if self._git_config.serialize_sync else None
+        self.configure_workspace(name=None, repo_root=None, tracked=False)
+        self.configure_audit_scope(audit_run_id=None, audit_key=None)
+
+    @property
+    def bare_repo_path(self) -> str:
+        """Path to the world's bare repository backing this workspace."""
+        return self._bare_repo_path
+
+    @property
+    def merge_config(self) -> GitTransportConfig:
+        """Git transport configuration for this workspace."""
+        return self._git_config
+
+    @property
+    def sync_lock(self) -> asyncio.Lock | None:
+        """Lock guarding serialized sync/push operations for this workspace."""
+        return self._sync_lock
+
+    @property
+    def raise_on_conflict(self) -> bool:
+        """Whether to surface push conflicts instead of resolving them on the agent VM."""
+        return self._raise_on_conflict
+
+    @property
+    def publish_ref_prefix(self) -> str | None:
+        """Hidden ref prefix used for publish-only orchestrated syncs."""
+        return self._publish_ref_prefix
+
+    @property
+    def published_ref(self) -> GitPublishedRef | None:
+        """Last hidden ref published by this transport instance."""
+        return self._published_ref
+
+    def set_raise_on_conflict(self, enabled: bool) -> None:
+        """Enable or disable conflict reporting mode for orchestrated runs."""
+        self._raise_on_conflict = enabled
+
+    def set_publish_ref_prefix(self, prefix: str | None) -> None:
+        """Enable publish-only sync mode for this transport instance."""
+        self._publish_ref_prefix = prefix
+        self._published_ref = None
+
+    def set_merge_resolver(
+        self,
+        resolver: Callable[[str, Path, str, list[str]], Awaitable[None]],
+    ) -> None:
+        """Set a callback for agent-based merge conflict resolution.
+
+        The resolver receives ``(hostname, ssh_key_path, workspace_path,
+        conflicted_files)``.  The hostname and ssh_key_path allow the
+        resolver to pull conflicted files from the agent VM, run a merge
+        agent, and push resolved files back.  The resolver must stage and
+        commit the resolution on the agent VM.
+        """
+        self._merge_resolver = resolver
+
+    # -- helpers -------------------------------------------------------------
+
+    async def _setup_workspace_path(self, path: str) -> None:
+        """Create workspace directory."""
+        quoted = shlex.quote(path)
+        exit_code, _, stderr = await run_local(f"mkdir -p {quoted}", timeout=10)
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to create workspace path {path}: {stderr}")
+
+    async def _init_bare_repo(self, workspace_path: str, bare_path: str) -> None:
+        """Initialize a bare repo and seed it from the workspace contents."""
+        # Install git if needed (TODO: pre-install in plato-world-base Dockerfile)
+        await run_local(
+            "which git > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq git)",
+            timeout=120,
+        )
+
+        # Mark all directories as safe (world VM is single-tenant, ownership
+        # may differ between root and uid 1000 due to workspace setup)
+        await run_local(
+            "git config --global --add safe.directory '*'",
+            timeout=10,
+        )
+
+        # Init bare repo with explicit main branch.
+        # Remove any stale bare repo left by DVC checkpoint restore to avoid
+        # corrupt packfile errors.
+        q_bare = shlex.quote(bare_path)
+        q_ws = shlex.quote(workspace_path)
+        exit_code, _, stderr = await run_local(
+            f"rm -rf {q_bare} && "
+            f"git init --bare -b main {q_bare} && "
+            # Store received objects as loose files instead of packfiles.
+            # On FUSE-backed workspaces, packfile verification fails due to
+            # read-after-write inconsistency.  Loose objects also deduplicate
+            # better under DVC (which hashes files individually).
+            f"git -C {q_bare} config transfer.unpackLimit 99999",
+            timeout=30,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to init bare repo at {bare_path}: {stderr}")
+
+        # Write default .gitignore from WorkspaceMarker.DEFAULT_DVCIGNORE
+        from plato.markers import WorkspaceMarker
+
+        gitignore_lines = list(WorkspaceMarker.DEFAULT_DVCIGNORE) + [".git-bare"]
+        gitignore_content = "\n".join(gitignore_lines) + "\n"
+        q_gitignore = shlex.quote(f"{workspace_path}/.gitignore")
+        exit_code, _, stderr = await run_local(
+            f"cat > {q_gitignore} << 'GITIGNORE_EOF'\n{gitignore_content}GITIGNORE_EOF",
+            timeout=10,
+        )
+        if exit_code != 0:
+            logger.warning("Failed to write .gitignore: %s", stderr.strip())
+
+        # Seed bare repo with initial commit from workspace contents.
+        # Clean any stale .git first to avoid re-init issues on resume.
+        await run_local(f"rm -rf {q_ws}/.git", timeout=10)
+
+        exit_code, _, stderr = await run_local(
+            f"cd {q_ws} && "
+            "rm -rf .git && "
+            "git init -b main && "
+            "git add -A && "
+            "git -c user.email=plato@plato.dev -c user.name=Plato "
+            "commit -m 'Initial workspace state' --allow-empty && "
+            # Verify files were staged — fail loudly if workspace is empty
+            "{ git log --oneline -1 --stat | grep -q 'file' || "
+            "  echo 'WARNING: no files staged in initial commit' >&2; } && "
+            f"git remote add origin {q_bare} && "
+            "git push origin main && "
+            # Remove the temporary .git — the bare repo is the source of truth
+            f"rm -rf {q_ws}/.git",
+            timeout=self._git_config.seed_timeout,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to seed bare repo: {stderr}")
+
+        # Install post-receive hook to update working tree on push.
+        # flock prevents concurrent checkouts from corrupting the working tree.
+        lock_name = bare_path.replace("/", "_")
+        hook_content = (
+            "#!/bin/bash\n"
+            f"exec 200>/tmp/git-transport-{lock_name}.lock\n"
+            "flock 200\n"
+            "git config --global --add safe.directory '*' 2>/dev/null\n"
+            f"GIT_WORK_TREE={workspace_path} git checkout -f main\n"
+        )
+        q_hook = shlex.quote(f"{bare_path}/hooks/post-receive")
+        exit_code, _, stderr = await run_local(
+            f"cat > {q_hook} << 'HOOK_EOF'\n{hook_content}HOOK_EOF\nchmod +x {q_hook}",
+            timeout=10,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to install post-receive hook: {stderr}")
+
+        logger.info("Git bare repo initialized at %s (workspace: %s)", bare_path, workspace_path)
+
+    async def _copy_ssh_key_to_agent(self, hostname: str) -> str:
+        """Copy the session SSH key to the agent VM. Returns the remote key path."""
+        agent_key_path = "/root/.ssh/world_key"
+        await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            "mkdir -p /root/.ssh && chmod 700 /root/.ssh",
+            timeout=10,
+        )
+        ssh_cmd = (
+            f"ssh -i {self.ssh_key_path} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
+        )
+        proc = await asyncio.create_subprocess_exec(
+            "rsync",
+            "-e",
+            ssh_cmd,
+            str(self.ssh_key_path),
+            f"root@{hostname}:{agent_key_path}",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, rsync_err = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(f"Failed to copy SSH key to agent VM: {rsync_err.decode()}")
+        await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"chmod 600 {agent_key_path}",
+            timeout=10,
+        )
+        return agent_key_path
+
+    async def _head_commit_sha(self, workspace_path: str, hostname: str) -> str:
+        """Return the current HEAD commit SHA from an agent clone."""
+        return await self._git_rev_parse(workspace_path, hostname, "HEAD")
+
+    async def _git_rev_parse(self, workspace_path: str, hostname: str, ref: str) -> str:
+        """Resolve a git ref inside an agent clone."""
+        exit_code, stdout, stderr = await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"cd {workspace_path} && git rev-parse {shlex.quote(ref)}",
+            timeout=10,
+        )
+        if exit_code != 0 or not stdout.strip():
+            raise RuntimeError(f"Failed to resolve git ref {ref} on agent {hostname}: {stderr.strip()}")
+        return stdout.strip()
+
+    async def _git_output(self, workspace_path: str, hostname: str, command: str, timeout: int = 10) -> str:
+        """Run a git subcommand inside an agent clone and return stdout."""
+        exit_code, stdout, stderr = await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"cd {workspace_path} && {command}",
+            timeout=timeout,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to run '{command}' on agent {hostname}: {stderr.strip()}")
+        return stdout.strip()
+
+    async def _auto_commit_changes(self, workspace_path: str, hostname: str, commit_message: str) -> None:
+        """Stage and auto-commit any agent changes, raising on commit failures."""
+        quoted_message = shlex.quote(commit_message)
+        exit_code, stdout, stderr = await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"cd {workspace_path} && git add -A && (git diff --cached --quiet || git commit -m {quoted_message})",
+            timeout=60,
+        )
+        logger.info(
+            "GitTransport auto-commit hostname=%s exit_code=%s stdout=%s stderr=%s",
+            hostname,
+            exit_code,
+            stdout.strip(),
+            stderr.strip(),
+        )
+        if exit_code != 0:
+            status = await self._git_output(workspace_path, hostname, "git status --short", timeout=10)
+            raise RuntimeError(
+                f"Auto-commit failed on agent {hostname}: {stderr.strip() or stdout.strip()} (status={status})"
+            )
+
+    async def _publish_conflict_ref(self, workspace_path: str, hostname: str, commit_sha: str) -> str:
+        """Publish the conflicting commit under a hidden ref so the world VM can fetch it."""
+        conflict_ref = f"refs/plato/conflicts/{commit_sha}"
+        await self._push_head_to_ref(workspace_path, hostname, conflict_ref)
+        return conflict_ref
+
+    async def _push_head_to_ref(self, workspace_path: str, hostname: str, ref: str) -> None:
+        """Push the current HEAD to an arbitrary ref on the world bare repo."""
+        exit_code, _, stderr = await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"cd {workspace_path} && git push --force origin HEAD:{ref}",
+            timeout=60,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to push ref {ref} from agent {hostname}: {stderr.strip()}")
+
+    @staticmethod
+    def _is_push_conflict(stderr: str) -> bool:
+        """Return True when git reports a non-fast-forward style push race."""
+        lowered = stderr.lower()
+        return "non-fast-forward" in lowered or "[rejected]" in lowered or "fetch first" in lowered
+
+    # -- Transport interface -------------------------------------------------
+
+    async def initialize(self) -> None:
+        """Set up bare git repo on the world VM and seed it from workspace contents."""
+        await self._setup_workspace_path(self.path)
+        await self._init_bare_repo(self.path, self._bare_repo_path)
+
+    async def update_bare_repo(self, message: str = "Update workspace") -> None:
+        """Commit current workspace contents to the bare repo.
+
+        Call this after writing files to the workspace directory so that
+        agents will see them when they clone.
+        """
+        msg = shlex.quote(message)
+        q_ws = shlex.quote(self.path)
+        q_bare = shlex.quote(self._bare_repo_path)
+        exit_code, _, stderr = await run_local(
+            f"cd {q_ws} && "
+            "git init -b main && "
+            "git add -A && "
+            f"git -c user.email=plato@plato.dev -c user.name=Plato "
+            f"commit -m {msg} --allow-empty && "
+            f"git push {q_bare} main --force && "
+            f"rm -rf {q_ws}/.git",
+            timeout=60,
+        )
+        if exit_code != 0:
+            logger.warning("Failed to update bare repo: %s", stderr.strip())
+
+    async def setup_agent(self, agent_env: Environment, hostname: str) -> None:
+        """Clone the workspace repo onto the agent VM."""
+        # Install git on agent VM
+        await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            "which git > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq git)",
+            timeout=180,
+        )
+
+        # Copy SSH key and configure SSH for git-over-SSH back to world VM
+        agent_key_path = await self._copy_ssh_key_to_agent(hostname)
+        ssh_config = (
+            f"Host world-git\n"
+            f"    HostName {self.world_vm_ip}\n"
+            f"    User root\n"
+            f"    IdentityFile {agent_key_path}\n"
+            f"    StrictHostKeyChecking no\n"
+            f"    UserKnownHostsFile /dev/null\n"
+            f"    LogLevel ERROR\n"
+        )
+        await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"cat > /root/.ssh/config << 'SSHCFG'\n{ssh_config}SSHCFG",
+            timeout=10,
+        )
+
+        # Clone bare repo to agent mount path
+        remote = self.agent_mount_path
+        exit_code, _, stderr = await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            "git config --global --add safe.directory '*' && "
+            f"rm -rf {remote} && "
+            f"git clone world-git:{self._bare_repo_path} {remote} && "
+            f"cd {remote} && "
+            f"git config user.email agent@plato.dev && "
+            f"git config user.name 'Plato Agent'",
+            timeout=120,
+        )
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to clone git repo on agent VM: {stderr}")
+
+        logger.info("Git repo cloned on agent %s: %s -> %s", hostname, self._bare_repo_path, remote)
+
+    async def sync_back(self, agent_env: Environment, hostname: str) -> None:
+        """Commit and push agent changes back to the world's bare repo.
+
+        When ``serialize_sync`` is enabled (default), concurrent calls are
+        queued so only one agent pushes at a time — avoiding thundering-herd
+        retries when many agents finish simultaneously.
+        """
+        logger.info(
+            "GitTransport.sync_back hostname=%s publish_ref_prefix=%s transport_id=%s",
+            hostname,
+            self._publish_ref_prefix,
+            id(self),
+        )
+        if self._publish_ref_prefix:
+            await self._publish_sync_back_impl(agent_env, hostname)
+            return
+        if self._sync_lock:
+            async with self._sync_lock:
+                await self._sync_back_impl(agent_env, hostname)
+        else:
+            await self._sync_back_impl(agent_env, hostname)
+
+    async def _sync_back_impl(self, agent_env: Environment, hostname: str) -> None:
+        """Inner sync_back implementation."""
+        self._published_ref = None
+        cfg = self._git_config
+        remote = self.agent_mount_path
+
+        # Auto-commit if configured
+        if cfg.commit_on_sync:
+            await self._auto_commit_changes(remote, hostname, cfg.auto_commit_message)
+
+        # Check if there's anything to push
+        exit_code, stdout, _ = await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"cd {remote} && git diff --quiet origin/main..HEAD && echo NOOP || echo PUSH",
+            timeout=10,
+        )
+        if stdout.strip() == "NOOP":
+            logger.debug("No changes to push from agent %s", hostname)
+            return
+
+        # Try push with retries for conflict resolution
+        merge_cfg = cfg.merge_agent
+        for attempt in range(1, merge_cfg.max_retries + 1):
+            exit_code, _, stderr = await run_ssh(
+                self.ssh_key_path,
+                hostname,
+                f"cd {remote} && git push origin main",
+                timeout=60,
+            )
+            if exit_code == 0:
+                logger.info("Git push succeeded from agent %s (attempt %d)", hostname, attempt)
+                return
+
+            logger.warning(
+                "Git push failed from agent %s (attempt %d/%d): %s",
+                hostname,
+                attempt,
+                merge_cfg.max_retries,
+                stderr.strip(),
+            )
+
+            if self._raise_on_conflict and self._is_push_conflict(stderr):
+                await run_ssh(
+                    self.ssh_key_path,
+                    hostname,
+                    f"cd {remote} && git fetch origin",
+                    timeout=30,
+                )
+                commit_sha = await self._head_commit_sha(remote, hostname)
+                conflict_ref = await self._publish_conflict_ref(remote, hostname, commit_sha)
+                raise GitPushConflict(commit_sha=commit_sha, conflict_ref=conflict_ref)
+
+            if attempt == merge_cfg.max_retries:
+                break
+
+            # Resolve based on strategy
+            resolved = await self._resolve_and_retry(agent_env, hostname, remote, merge_cfg)
+            if resolved:
+                logger.info("Git conflict resolved for agent %s without another retry push", hostname)
+                return
+
+        raise RuntimeError(f"Git push failed from agent {hostname} after {merge_cfg.max_retries} attempts")
+
+    async def _publish_sync_back_impl(self, agent_env: Environment, hostname: str) -> None:
+        """Commit and publish agent changes to a hidden ref instead of pushing main."""
+        del agent_env
+        self._published_ref = None
+        cfg = self._git_config
+        remote = self.agent_mount_path
+
+        if cfg.commit_on_sync:
+            await self._auto_commit_changes(remote, hostname, cfg.auto_commit_message)
+
+        head_sha = await self._git_rev_parse(remote, hostname, "HEAD")
+        origin_main_sha = await self._git_rev_parse(remote, hostname, "origin/main")
+        status = await self._git_output(remote, hostname, "git status --short", timeout=10)
+        ahead_behind = await self._git_output(
+            remote,
+            hostname,
+            "git rev-list --left-right --count origin/main...HEAD",
+            timeout=10,
+        )
+        logger.info(
+            "GitTransport publish state hostname=%s head=%s origin_main=%s status=%s ahead_behind=%s",
+            hostname,
+            head_sha,
+            origin_main_sha,
+            status or "<clean>",
+            ahead_behind,
+        )
+
+        if head_sha == origin_main_sha:
+            if status:
+                raise RuntimeError(
+                    f"Agent {hostname} has uncommitted changes after sync but HEAD still matches origin/main: {status}"
+                )
+            logger.info("No committed changes to publish from agent %s", hostname)
+            return
+
+        if not self._publish_ref_prefix:
+            raise RuntimeError("publish_ref_prefix must be set for publish-only sync mode")
+
+        published_ref = f"{self._publish_ref_prefix}/{head_sha}"
+        logger.info("Publishing agent %s commit %s to hidden ref %s", hostname, head_sha, published_ref)
+
+        retries = max(1, cfg.merge_agent.max_retries)
+        for attempt in range(1, retries + 1):
+            try:
+                await self._push_head_to_ref(remote, hostname, published_ref)
+                self._published_ref = GitPublishedRef(commit_sha=head_sha, ref=published_ref)
+                logger.info("Published agent %s commit %s to %s", hostname, head_sha, published_ref)
+                return
+            except RuntimeError:
+                if attempt == retries:
+                    raise
+                logger.warning(
+                    "Publishing hidden ref failed from agent %s (attempt %d/%d)",
+                    hostname,
+                    attempt,
+                    retries,
+                    exc_info=True,
+                )
+
+    async def _resolve_and_retry(
+        self,
+        agent_env: Environment,
+        hostname: str,
+        workspace_path: str,
+        merge_cfg: MergeAgentConfig,
+    ) -> bool:
+        """Fetch remote changes and resolve conflicts based on the configured strategy."""
+        if merge_cfg.strategy == "theirs":
+            # Rebase with -X ours: during rebase, "ours" means the upstream
+            # (remote) side, so this auto-resolves conflicts in favor of remote.
+            exit_code, _, stderr = await run_ssh(
+                self.ssh_key_path,
+                hostname,
+                f"cd {workspace_path} && git fetch origin && git rebase -X ours origin/main",
+                timeout=60,
+            )
+            if exit_code != 0:
+                # Rebase still failed — abort and accept theirs entirely
+                logger.warning("Rebase failed, accepting theirs: %s", stderr.strip())
+                await run_ssh(
+                    self.ssh_key_path,
+                    hostname,
+                    f"cd {workspace_path} && "
+                    "git rebase --abort 2>/dev/null; "
+                    "git fetch origin && "
+                    "git reset --hard origin/main",
+                    timeout=30,
+                )
+            return False
+
+        if merge_cfg.strategy == "ours":
+            # Keep the agent's local commit and overwrite remote main.
+            exit_code, _, stderr = await run_ssh(
+                self.ssh_key_path,
+                hostname,
+                f"cd {workspace_path} && git fetch origin && git push --force origin HEAD:main",
+                timeout=60,
+            )
+            if exit_code != 0:
+                raise RuntimeError(f"Failed to force-push local changes for agent {hostname}: {stderr.strip()}")
+            return True
+
+        # strategy == "agent": try auto-merge, invoke agent on conflicts
+        exit_code, _, stderr = await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"cd {workspace_path} && git fetch origin && git merge origin/main -m 'Merge remote changes'",
+            timeout=60,
+        )
+        if exit_code == 0:
+            return False  # Auto-merge succeeded
+
+        # Conflicts exist — resolve them
+        await self._resolve_merge_conflicts(agent_env, hostname, workspace_path, merge_cfg)
+        return False
+
+    async def _resolve_merge_conflicts(
+        self,
+        agent_env: Environment,
+        hostname: str,
+        workspace_path: str,
+        merge_cfg: MergeAgentConfig,
+    ) -> None:
+        """Resolve git merge conflicts, either automatically or via a merge agent."""
+        # Get list of conflicted files
+        _, stdout, _ = await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"cd {workspace_path} && git diff --name-only --diff-filter=U",
+            timeout=10,
+        )
+        conflicted_files = [f for f in stdout.strip().split("\n") if f]
+        logger.info("Merge conflicts in %d files: %s", len(conflicted_files), conflicted_files)
+
+        if not self._merge_resolver:
+            # No merge resolver set — fall back to accept-theirs
+            logger.warning("No merge resolver configured, resolving conflicts with 'accept theirs'")
+            await self._accept_theirs(hostname, workspace_path, "Auto-resolved conflicts (accept theirs)")
+            return
+
+        # Invoke the merge resolver callback (typically spawns a proper agent via the world)
+        logger.info("Invoking merge resolver for %d conflicts", len(conflicted_files))
+        try:
+            await self._merge_resolver(hostname, self.ssh_key_path, workspace_path, conflicted_files)
+        except Exception:
+            logger.warning("Merge resolver failed, falling back to accept-theirs", exc_info=True)
+            await self._accept_theirs(hostname, workspace_path, "Auto-resolved conflicts (agent failed, accept theirs)")
+            return
+
+        # Verify no remaining conflicts
+        exit_code, remaining, _ = await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"cd {workspace_path} && git diff --name-only --diff-filter=U",
+            timeout=10,
+        )
+        if remaining.strip():
+            logger.warning(
+                "Merge resolver left unresolved conflicts: %s — falling back to accept-theirs",
+                remaining.strip(),
+            )
+            await self._accept_theirs(hostname, workspace_path, "Resolved merge conflicts (with fallback)")
+
+    async def _accept_theirs(self, hostname: str, workspace_path: str, message: str) -> None:
+        """Resolve all conflicts by accepting the remote version."""
+        await run_ssh(
+            self.ssh_key_path,
+            hostname,
+            f"cd {workspace_path} && "
+            "git checkout --theirs . && "
+            "git add -A && "
+            "git -c user.email=plato@plato.dev -c user.name=Plato "
+            f"commit -m {shlex.quote(message)}",
+            timeout=30,
+        )
+
+    async def add_export(self, path: str, fsid: int) -> None:
+        """Initialize an additional bare repo for another workspace."""
+        await self._setup_workspace_path(path)
+        bare_path = f"{path}/.git-bare"
+        await self._init_bare_repo(path, bare_path)
+
+    async def refresh_exports(self) -> None:
+        """No-op for git transport — each repo is independent."""
+
+    async def collect_audit_log(
+        self,
+        hostname: str,
+        audit_key: str | None = None,
+    ) -> str | None:
+        """Collect filesystem audit log from agent VM."""
+        try:
+            key = audit_key or self.audit_key or "plato_workspace"
+            exit_code, stdout, _ = await run_ssh(
+                self.ssh_key_path,
+                hostname,
+                f"ausearch -if /var/log/audit/audit.log --format raw -k {shlex.quote(key)} 2>/dev/null || true",
+                timeout=30,
+            )
+            if exit_code != 0 or not stdout.strip():
+                return None
+            return stdout
+        except Exception:
+            logger.warning("Failed to collect audit log from agent VM", exc_info=True)
+            return None
+
+    async def prepare(self) -> None:
+        """Ensure workspace directory exists."""
+        await self._setup_workspace_path(self.path)
+
+    def with_path(self, path: str) -> GitTransport:
+        sub_mount = None
+        if self.mount_path and path.startswith(self.path + "/"):
+            sub_mount = self.mount_path + path[len(self.path) :]
+        transport = GitTransport(
+            path,
+            self.world_vm_ip,
+            self.ssh_key_path,
+            sub_mount,
+            self._git_config,
+            self._raise_on_conflict,
+            self._publish_ref_prefix,
+        )
+        transport._merge_resolver = self._merge_resolver
+        transport._sync_lock = self._sync_lock
+        transport._published_ref = None
         transport.configure_workspace(
             name=self.workspace_name,
             repo_root=self.workspace_repo_root,

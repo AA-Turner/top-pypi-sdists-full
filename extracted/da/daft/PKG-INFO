@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: daft
-Version: 0.7.5
+Version: 0.7.6
 Requires-Dist: pyarrow>=15.0.0,<24.0.0
 Requires-Dist: fsspec<2026.3.0
 Requires-Dist: tqdm<4.68.0
 Requires-Dist: typing-extensions>=4.0.0 ; python_full_version < '3.11'
 Requires-Dist: packaging
-Requires-Dist: daft[aws,azure,clickhouse,deltalake,gcp,google,gravitino,hudi,huggingface,iceberg,lance,numpy,openai,pandas,postgres,ray,sentence-transformers,sql,transformers,turbopuffer,unity,video] ; extra == 'all'
+Requires-Dist: daft[aws,azure,clickhouse,deltalake,gcp,google,gravitino,hudi,huggingface,iceberg,kafka,lance,numpy,openai,pandas,postgres,ray,sentence-transformers,sql,transformers,turbopuffer,unity,video] ; extra == 'all'
 Requires-Dist: soundfile>=0.13.0,<0.14.0 ; extra == 'audio'
 Requires-Dist: librosa>=0.11.0,<0.12.0 ; extra == 'audio'
 Requires-Dist: boto3<1.43.0 ; extra == 'aws'
@@ -21,6 +21,7 @@ Requires-Dist: pyarrow>=15.0.0,<22.1.0 ; extra == 'hudi'
 Requires-Dist: huggingface-hub<1.5.0 ; extra == 'huggingface'
 Requires-Dist: datasets<4.6.0 ; extra == 'huggingface'
 Requires-Dist: pyiceberg>=0.7.0,!=0.9.1,!=0.10.0,<=0.11.0 ; extra == 'iceberg'
+Requires-Dist: confluent-kafka>=2.6.0,<3.0.0 ; extra == 'kafka'
 Requires-Dist: pylance<0.40.0 ; extra == 'lance'
 Requires-Dist: numpy<2.4.0 ; extra == 'numpy'
 Requires-Dist: openai<2.21.0 ; extra == 'openai'
@@ -59,6 +60,7 @@ Provides-Extra: gravitino
 Provides-Extra: hudi
 Provides-Extra: huggingface
 Provides-Extra: iceberg
+Provides-Extra: kafka
 Provides-Extra: lance
 Provides-Extra: numpy
 Provides-Extra: openai
@@ -96,7 +98,7 @@ Daft: High-Performance Data Engine for AI and Multimodal Workloads
 * **Native multimodal processing:** Process images, audio, video, and embeddings alongside structured data in a single framework
 * **Built-in AI operations:** Run LLM prompts, generate embeddings, and classify data at scale using OpenAI, Transformers, or custom models
 * **Python-native, Rust-powered:** Skip the JVM complexity with Python at its core and Rust under the hood for blazing performance
-* **Seamless scaling:** Start local, scale to distributed clusters on `Ray <https://docs.daft.ai/en/stable/distributed/ray/>`_, `Kubernetes <https://docs.daft.ai/en/stable/distributed/kubernetes/>`_, or `Daft Cloud <https://www.daft.ai/cloud>`_
+* **Seamless scaling:** Start local, scale to distributed clusters on `Ray <https://docs.daft.ai/en/stable/distributed/ray/>`_, `Kubernetes <https://docs.daft.ai/en/stable/distributed/kubernetes/>`_
 * **Universal connectivity:** Access data anywhere (S3, GCS, Iceberg, Delta Lake, Hugging Face, Unity Catalog)
 * **Out-of-box reliability:** Intelligent memory management and sensible defaults eliminate configuration headaches
 

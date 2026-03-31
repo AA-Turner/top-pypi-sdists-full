@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: urwid
-Version: 3.0.5
+Version: 4.0.0
 Summary: A full-featured console (xterm et al.) user interface library
 Author-email: Ian Ward <ian@excess.org>
 License-Expression: LGPL-2.1-only

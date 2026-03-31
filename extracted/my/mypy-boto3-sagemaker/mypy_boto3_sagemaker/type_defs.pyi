@@ -150,6 +150,7 @@ from .literals import (
     ImageVersionSortOrderType,
     ImageVersionStatusType,
     InferenceComponentCapacitySizeTypeType,
+    InferenceComponentPlacementStrategyType,
     InferenceComponentSortKeyType,
     InferenceComponentStatusType,
     InferenceExecutionModeType,
@@ -175,6 +176,7 @@ from .literals import (
     ListWorkforcesSortByOptionsType,
     ListWorkteamsSortByOptionsType,
     MaintenanceStatusType,
+    ManagedInstanceScalingScaleInStrategyType,
     ManagedInstanceScalingStatusType,
     MetricSetSourceType,
     MIGProfileTypeType,
@@ -1152,6 +1154,7 @@ __all__ = (
     "ImageVersionTypeDef",
     "ImportHubContentRequestTypeDef",
     "ImportHubContentResponseTypeDef",
+    "InferenceComponentAvailabilityZoneBalanceTypeDef",
     "InferenceComponentCapacitySizeTypeDef",
     "InferenceComponentComputeResourceRequirementsTypeDef",
     "InferenceComponentContainerSpecificationSummaryTypeDef",
@@ -1165,6 +1168,7 @@ __all__ = (
     "InferenceComponentRollingUpdatePolicyTypeDef",
     "InferenceComponentRuntimeConfigSummaryTypeDef",
     "InferenceComponentRuntimeConfigTypeDef",
+    "InferenceComponentSchedulingConfigTypeDef",
     "InferenceComponentSpecificationSummaryTypeDef",
     "InferenceComponentSpecificationTypeDef",
     "InferenceComponentStartupParametersTypeDef",
@@ -1711,6 +1715,7 @@ __all__ = (
     "ProductionVariantCapacityReservationConfigTypeDef",
     "ProductionVariantCapacityReservationSummaryTypeDef",
     "ProductionVariantCoreDumpConfigTypeDef",
+    "ProductionVariantManagedInstanceScalingScaleInPolicyTypeDef",
     "ProductionVariantManagedInstanceScalingTypeDef",
     "ProductionVariantRoutingConfigTypeDef",
     "ProductionVariantServerlessConfigTypeDef",
@@ -4268,6 +4273,10 @@ class ImageVersionTypeDef(TypedDict):
     Version: int
     FailureReason: NotRequired[str]
 
+class InferenceComponentAvailabilityZoneBalanceTypeDef(TypedDict):
+    EnforcementMode: Literal["PERMISSIVE"]
+    MaxImbalance: NotRequired[int]
+
 InferenceComponentCapacitySizeTypeDef = TypedDict(
     "InferenceComponentCapacitySizeTypeDef",
     {
@@ -4905,11 +4914,6 @@ class RoleGroupAssignmentTypeDef(TypedDict):
     RoleName: str
     GroupPatterns: Sequence[str]
 
-class ProductionVariantManagedInstanceScalingTypeDef(TypedDict):
-    Status: NotRequired[ManagedInstanceScalingStatusType]
-    MinInstanceCount: NotRequired[int]
-    MaxInstanceCount: NotRequired[int]
-
 class ProductionVariantRoutingConfigTypeDef(TypedDict):
     RoutingStrategy: RoutingStrategyType
 
@@ -4990,6 +4994,11 @@ class ProductionVariantCapacityReservationConfigTypeDef(TypedDict):
 class ProductionVariantCoreDumpConfigTypeDef(TypedDict):
     DestinationS3Uri: str
     KmsKeyId: NotRequired[str]
+
+class ProductionVariantManagedInstanceScalingScaleInPolicyTypeDef(TypedDict):
+    Strategy: ManagedInstanceScalingScaleInStrategyType
+    MaximumStepSize: NotRequired[int]
+    CooldownInMinutes: NotRequired[int]
 
 class ProfilerConfigForUpdateTypeDef(TypedDict):
     S3OutputPath: NotRequired[str]
@@ -8976,25 +8985,15 @@ class ListImageVersionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class InferenceComponentSchedulingConfigTypeDef(TypedDict):
+    PlacementStrategy: InferenceComponentPlacementStrategyType
+    AvailabilityZoneBalance: NotRequired[InferenceComponentAvailabilityZoneBalanceTypeDef]
+
 class InferenceComponentRollingUpdatePolicyTypeDef(TypedDict):
     MaximumBatchSize: InferenceComponentCapacitySizeTypeDef
     WaitIntervalInSeconds: int
     MaximumExecutionTimeoutInSeconds: NotRequired[int]
     RollbackMaximumBatchSize: NotRequired[InferenceComponentCapacitySizeTypeDef]
-
-InferenceComponentSpecificationTypeDef = TypedDict(
-    "InferenceComponentSpecificationTypeDef",
-    {
-        "ModelName": NotRequired[str],
-        "Container": NotRequired[InferenceComponentContainerSpecificationTypeDef],
-        "StartupParameters": NotRequired[InferenceComponentStartupParametersTypeDef],
-        "ComputeResourceRequirements": NotRequired[
-            InferenceComponentComputeResourceRequirementsTypeDef
-        ],
-        "BaseInferenceComponentName": NotRequired[str],
-        "DataCacheConfig": NotRequired[InferenceComponentDataCacheConfigTypeDef],
-    },
-)
 
 class ListInferenceComponentsOutputTypeDef(TypedDict):
     InferenceComponents: list[InferenceComponentSummaryTypeDef]
@@ -9394,21 +9393,6 @@ class PartnerAppConfigTypeDef(TypedDict):
     AssignedGroupPatterns: NotRequired[Sequence[str]]
     RoleGroupAssignments: NotRequired[Sequence[RoleGroupAssignmentTypeDef]]
 
-class PendingProductionVariantSummaryTypeDef(TypedDict):
-    VariantName: str
-    DeployedImages: NotRequired[list[DeployedImageTypeDef]]
-    CurrentWeight: NotRequired[float]
-    DesiredWeight: NotRequired[float]
-    CurrentInstanceCount: NotRequired[int]
-    DesiredInstanceCount: NotRequired[int]
-    InstanceType: NotRequired[ProductionVariantInstanceTypeType]
-    AcceleratorType: NotRequired[ProductionVariantAcceleratorTypeType]
-    VariantStatus: NotRequired[list[ProductionVariantStatusTypeDef]]
-    CurrentServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
-    DesiredServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
-    ManagedInstanceScaling: NotRequired[ProductionVariantManagedInstanceScalingTypeDef]
-    RoutingConfig: NotRequired[ProductionVariantRoutingConfigTypeDef]
-
 class SchedulerConfigOutputTypeDef(TypedDict):
     PriorityClasses: NotRequired[list[PriorityClassTypeDef]]
     FairShare: NotRequired[FairShareType]
@@ -9428,23 +9412,11 @@ class ProcessingOutputTypeDef(TypedDict):
     FeatureStoreOutput: NotRequired[ProcessingFeatureStoreOutputTypeDef]
     AppManaged: NotRequired[bool]
 
-class ProductionVariantTypeDef(TypedDict):
-    VariantName: str
-    ModelName: NotRequired[str]
-    InitialInstanceCount: NotRequired[int]
-    InstanceType: NotRequired[ProductionVariantInstanceTypeType]
-    InitialVariantWeight: NotRequired[float]
-    AcceleratorType: NotRequired[ProductionVariantAcceleratorTypeType]
-    CoreDumpConfig: NotRequired[ProductionVariantCoreDumpConfigTypeDef]
-    ServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
-    VolumeSizeInGB: NotRequired[int]
-    ModelDataDownloadTimeoutInSeconds: NotRequired[int]
-    ContainerStartupHealthCheckTimeoutInSeconds: NotRequired[int]
-    EnableSSMAccess: NotRequired[bool]
-    ManagedInstanceScaling: NotRequired[ProductionVariantManagedInstanceScalingTypeDef]
-    RoutingConfig: NotRequired[ProductionVariantRoutingConfigTypeDef]
-    InferenceAmiVersion: NotRequired[ProductionVariantInferenceAmiVersionType]
-    CapacityReservationConfig: NotRequired[ProductionVariantCapacityReservationConfigTypeDef]
+class ProductionVariantManagedInstanceScalingTypeDef(TypedDict):
+    Status: NotRequired[ManagedInstanceScalingStatusType]
+    MinInstanceCount: NotRequired[int]
+    MaxInstanceCount: NotRequired[int]
+    ScaleInPolicy: NotRequired[ProductionVariantManagedInstanceScalingScaleInPolicyTypeDef]
 
 ProfilerConfigUnionTypeDef = Union[ProfilerConfigTypeDef, ProfilerConfigOutputTypeDef]
 ProfilerRuleConfigurationUnionTypeDef = Union[
@@ -9959,20 +9931,6 @@ class ProcessingInputTypeDef(TypedDict):
     S3Input: NotRequired[ProcessingS3InputTypeDef]
     DatasetDefinition: NotRequired[DatasetDefinitionTypeDef]
 
-InferenceComponentSpecificationSummaryTypeDef = TypedDict(
-    "InferenceComponentSpecificationSummaryTypeDef",
-    {
-        "ModelName": NotRequired[str],
-        "Container": NotRequired[InferenceComponentContainerSpecificationSummaryTypeDef],
-        "StartupParameters": NotRequired[InferenceComponentStartupParametersTypeDef],
-        "ComputeResourceRequirements": NotRequired[
-            InferenceComponentComputeResourceRequirementsTypeDef
-        ],
-        "BaseInferenceComponentName": NotRequired[str],
-        "DataCacheConfig": NotRequired[InferenceComponentDataCacheConfigSummaryTypeDef],
-    },
-)
-
 class DescribeEdgeDeploymentPlanResponseTypeDef(TypedDict):
     EdgeDeploymentPlanArn: str
     EdgeDeploymentPlanName: str
@@ -10053,20 +10011,6 @@ class SpaceSettingsSummaryTypeDef(TypedDict):
     AppType: NotRequired[AppTypeType]
     RemoteAccess: NotRequired[FeatureStatusType]
     SpaceStorageSettings: NotRequired[SpaceStorageSettingsTypeDef]
-
-class ProductionVariantSummaryTypeDef(TypedDict):
-    VariantName: str
-    DeployedImages: NotRequired[list[DeployedImageTypeDef]]
-    CurrentWeight: NotRequired[float]
-    DesiredWeight: NotRequired[float]
-    CurrentInstanceCount: NotRequired[int]
-    DesiredInstanceCount: NotRequired[int]
-    VariantStatus: NotRequired[list[ProductionVariantStatusTypeDef]]
-    CurrentServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
-    DesiredServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
-    ManagedInstanceScaling: NotRequired[ProductionVariantManagedInstanceScalingTypeDef]
-    RoutingConfig: NotRequired[ProductionVariantRoutingConfigTypeDef]
-    CapacityReservationConfig: NotRequired[ProductionVariantCapacityReservationSummaryTypeDef]
 
 class InferenceRecommendationTypeDef(TypedDict):
     EndpointConfiguration: EndpointOutputConfigurationTypeDef
@@ -10410,6 +10354,35 @@ class TrialComponentSummaryTypeDef(TypedDict):
 class WorkerAccessConfigurationTypeDef(TypedDict):
     S3Presign: NotRequired[S3PresignTypeDef]
 
+InferenceComponentSpecificationSummaryTypeDef = TypedDict(
+    "InferenceComponentSpecificationSummaryTypeDef",
+    {
+        "ModelName": NotRequired[str],
+        "Container": NotRequired[InferenceComponentContainerSpecificationSummaryTypeDef],
+        "StartupParameters": NotRequired[InferenceComponentStartupParametersTypeDef],
+        "ComputeResourceRequirements": NotRequired[
+            InferenceComponentComputeResourceRequirementsTypeDef
+        ],
+        "BaseInferenceComponentName": NotRequired[str],
+        "DataCacheConfig": NotRequired[InferenceComponentDataCacheConfigSummaryTypeDef],
+        "SchedulingConfig": NotRequired[InferenceComponentSchedulingConfigTypeDef],
+    },
+)
+InferenceComponentSpecificationTypeDef = TypedDict(
+    "InferenceComponentSpecificationTypeDef",
+    {
+        "ModelName": NotRequired[str],
+        "Container": NotRequired[InferenceComponentContainerSpecificationTypeDef],
+        "StartupParameters": NotRequired[InferenceComponentStartupParametersTypeDef],
+        "ComputeResourceRequirements": NotRequired[
+            InferenceComponentComputeResourceRequirementsTypeDef
+        ],
+        "BaseInferenceComponentName": NotRequired[str],
+        "DataCacheConfig": NotRequired[InferenceComponentDataCacheConfigTypeDef],
+        "SchedulingConfig": NotRequired[InferenceComponentSchedulingConfigTypeDef],
+    },
+)
+
 class InferenceComponentDeploymentConfigOutputTypeDef(TypedDict):
     RollingUpdatePolicy: InferenceComponentRollingUpdatePolicyTypeDef
     AutoRollbackConfiguration: NotRequired[AutoRollbackConfigOutputTypeDef]
@@ -10417,14 +10390,6 @@ class InferenceComponentDeploymentConfigOutputTypeDef(TypedDict):
 class InferenceComponentDeploymentConfigTypeDef(TypedDict):
     RollingUpdatePolicy: InferenceComponentRollingUpdatePolicyTypeDef
     AutoRollbackConfiguration: NotRequired[AutoRollbackConfigTypeDef]
-
-class CreateInferenceComponentInputTypeDef(TypedDict):
-    InferenceComponentName: str
-    EndpointName: str
-    VariantName: NotRequired[str]
-    Specification: NotRequired[InferenceComponentSpecificationTypeDef]
-    RuntimeConfig: NotRequired[InferenceComponentRuntimeConfigTypeDef]
-    Tags: NotRequired[Sequence[TagTypeDef]]
 
 class ResourceConfigOutputTypeDef(TypedDict):
     InstanceType: NotRequired[TrainingInstanceTypeType]
@@ -10682,12 +10647,6 @@ DescribePartnerAppResponseTypeDef = TypedDict(
 )
 PartnerAppConfigUnionTypeDef = Union[PartnerAppConfigTypeDef, PartnerAppConfigOutputTypeDef]
 
-class PendingDeploymentSummaryTypeDef(TypedDict):
-    EndpointConfigName: str
-    ProductionVariants: NotRequired[list[PendingProductionVariantSummaryTypeDef]]
-    StartTime: NotRequired[datetime]
-    ShadowProductionVariants: NotRequired[list[PendingProductionVariantSummaryTypeDef]]
-
 class DescribeClusterSchedulerConfigResponseTypeDef(TypedDict):
     ClusterSchedulerConfigArn: str
     ClusterSchedulerConfigId: str
@@ -10714,6 +10673,53 @@ class ProcessingOutputConfigOutputTypeDef(TypedDict):
 class ProcessingOutputConfigTypeDef(TypedDict):
     Outputs: Sequence[ProcessingOutputTypeDef]
     KmsKeyId: NotRequired[str]
+
+class PendingProductionVariantSummaryTypeDef(TypedDict):
+    VariantName: str
+    DeployedImages: NotRequired[list[DeployedImageTypeDef]]
+    CurrentWeight: NotRequired[float]
+    DesiredWeight: NotRequired[float]
+    CurrentInstanceCount: NotRequired[int]
+    DesiredInstanceCount: NotRequired[int]
+    InstanceType: NotRequired[ProductionVariantInstanceTypeType]
+    AcceleratorType: NotRequired[ProductionVariantAcceleratorTypeType]
+    VariantStatus: NotRequired[list[ProductionVariantStatusTypeDef]]
+    CurrentServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
+    DesiredServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
+    ManagedInstanceScaling: NotRequired[ProductionVariantManagedInstanceScalingTypeDef]
+    RoutingConfig: NotRequired[ProductionVariantRoutingConfigTypeDef]
+
+class ProductionVariantSummaryTypeDef(TypedDict):
+    VariantName: str
+    DeployedImages: NotRequired[list[DeployedImageTypeDef]]
+    CurrentWeight: NotRequired[float]
+    DesiredWeight: NotRequired[float]
+    CurrentInstanceCount: NotRequired[int]
+    DesiredInstanceCount: NotRequired[int]
+    VariantStatus: NotRequired[list[ProductionVariantStatusTypeDef]]
+    CurrentServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
+    DesiredServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
+    ManagedInstanceScaling: NotRequired[ProductionVariantManagedInstanceScalingTypeDef]
+    RoutingConfig: NotRequired[ProductionVariantRoutingConfigTypeDef]
+    CapacityReservationConfig: NotRequired[ProductionVariantCapacityReservationSummaryTypeDef]
+
+class ProductionVariantTypeDef(TypedDict):
+    VariantName: str
+    ModelName: NotRequired[str]
+    InitialInstanceCount: NotRequired[int]
+    InstanceType: NotRequired[ProductionVariantInstanceTypeType]
+    InitialVariantWeight: NotRequired[float]
+    AcceleratorType: NotRequired[ProductionVariantAcceleratorTypeType]
+    CoreDumpConfig: NotRequired[ProductionVariantCoreDumpConfigTypeDef]
+    ServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
+    VolumeSizeInGB: NotRequired[int]
+    ModelDataDownloadTimeoutInSeconds: NotRequired[int]
+    ContainerStartupHealthCheckTimeoutInSeconds: NotRequired[int]
+    EnableSSMAccess: NotRequired[bool]
+    ManagedInstanceScaling: NotRequired[ProductionVariantManagedInstanceScalingTypeDef]
+    RoutingConfig: NotRequired[ProductionVariantRoutingConfigTypeDef]
+    InferenceAmiVersion: NotRequired[ProductionVariantInferenceAmiVersionType]
+    CapacityReservationConfig: NotRequired[ProductionVariantCapacityReservationConfigTypeDef]
 
 class UpdateTrainingJobRequestTypeDef(TypedDict):
     TrainingJobName: str
@@ -11298,6 +11304,14 @@ class WorkteamTypeDef(TypedDict):
     NotificationConfiguration: NotRequired[NotificationConfigurationTypeDef]
     WorkerAccessConfiguration: NotRequired[WorkerAccessConfigurationTypeDef]
 
+class CreateInferenceComponentInputTypeDef(TypedDict):
+    InferenceComponentName: str
+    EndpointName: str
+    VariantName: NotRequired[str]
+    Specification: NotRequired[InferenceComponentSpecificationTypeDef]
+    RuntimeConfig: NotRequired[InferenceComponentRuntimeConfigTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
 class DescribeInferenceComponentOutputTypeDef(TypedDict):
     InferenceComponentName: str
     InferenceComponentArn: str
@@ -11674,6 +11688,12 @@ class ProcessingJobTypeDef(TypedDict):
 ProcessingOutputConfigUnionTypeDef = Union[
     ProcessingOutputConfigTypeDef, ProcessingOutputConfigOutputTypeDef
 ]
+
+class PendingDeploymentSummaryTypeDef(TypedDict):
+    EndpointConfigName: str
+    ProductionVariants: NotRequired[list[PendingProductionVariantSummaryTypeDef]]
+    StartTime: NotRequired[datetime]
+    ShadowProductionVariants: NotRequired[list[PendingProductionVariantSummaryTypeDef]]
 
 class CreateProjectInputTypeDef(TypedDict):
     ProjectName: str
@@ -12094,24 +12114,6 @@ class DescribeEndpointConfigOutputTypeDef(TypedDict):
     MetricsConfig: MetricsConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class DescribeEndpointOutputTypeDef(TypedDict):
-    EndpointName: str
-    EndpointArn: str
-    EndpointConfigName: str
-    ProductionVariants: list[ProductionVariantSummaryTypeDef]
-    DataCaptureConfig: DataCaptureConfigSummaryTypeDef
-    EndpointStatus: EndpointStatusType
-    FailureReason: str
-    CreationTime: datetime
-    LastModifiedTime: datetime
-    LastDeploymentConfig: DeploymentConfigOutputTypeDef
-    AsyncInferenceConfig: AsyncInferenceConfigOutputTypeDef
-    PendingDeploymentSummary: PendingDeploymentSummaryTypeDef
-    ExplainerConfig: ExplainerConfigOutputTypeDef
-    ShadowProductionVariants: list[ProductionVariantSummaryTypeDef]
-    MetricsConfig: MetricsConfigTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
 ExplainerConfigUnionTypeDef = Union[ExplainerConfigTypeDef, ExplainerConfigOutputTypeDef]
 
 class ListSpacesResponseTypeDef(TypedDict):
@@ -12480,6 +12482,24 @@ class CreateProcessingJobRequestTypeDef(TypedDict):
     NetworkConfig: NotRequired[NetworkConfigUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ExperimentConfig: NotRequired[ExperimentConfigTypeDef]
+
+class DescribeEndpointOutputTypeDef(TypedDict):
+    EndpointName: str
+    EndpointArn: str
+    EndpointConfigName: str
+    ProductionVariants: list[ProductionVariantSummaryTypeDef]
+    DataCaptureConfig: DataCaptureConfigSummaryTypeDef
+    EndpointStatus: EndpointStatusType
+    FailureReason: str
+    CreationTime: datetime
+    LastModifiedTime: datetime
+    LastDeploymentConfig: DeploymentConfigOutputTypeDef
+    AsyncInferenceConfig: AsyncInferenceConfigOutputTypeDef
+    PendingDeploymentSummary: PendingDeploymentSummaryTypeDef
+    ExplainerConfig: ExplainerConfigOutputTypeDef
+    ShadowProductionVariants: list[ProductionVariantSummaryTypeDef]
+    MetricsConfig: MetricsConfigTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateFlowDefinitionRequestTypeDef(TypedDict):
     FlowDefinitionName: str

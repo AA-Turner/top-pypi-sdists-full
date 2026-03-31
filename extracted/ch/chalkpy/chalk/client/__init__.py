@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from chalk._gen.chalk.auth.v1.permissions_pb2 import Permission
+from chalk.client.api import APINamespace, Datasource, DatasourceAPI, DatasourceTestResult, IntegrationKind
 from chalk.client.client import ChalkAPIClientProtocol, ChalkClient
 from chalk.client.client_async import AsyncChalkClient
 from chalk.client.exc import ChalkAuthException, ChalkBaseException
@@ -34,6 +35,7 @@ from chalk.client.models import (
 from chalk.client.response import Dataset, DatasetRevision, OnlineQueryResult
 
 __all__ = [
+    "APINamespace",
     "AsyncChalkClient",
     "BranchDeployResponse",
     "BranchIdParam",
@@ -44,6 +46,10 @@ __all__ = [
     "ChalkClient",
     "ChalkError",
     "ChalkException",
+    "Datasource",
+    "DatasourceAPI",
+    "DatasourceTestResult",
+    "IntegrationKind",
     "Dataset",
     "DatasetFilter",
     "DatasetRevision",

@@ -118,13 +118,14 @@ class VLLMGeneration:
 
         > Parameters for vLLM:
 
-        mode (`str`, *optional*, defaults to `"server"`): vLLM mode. Must be one of `"server"` or
-            `"colocate"`.
+        mode (`str`, *optional*, defaults to `"colocate"`):
+            vLLM mode. Must be one of `"colocate"` or `"server"`.
 
-            - `"server"`: The trainer will send generation requests to a separate vLLM server. Make sure a TRL vLLM
-              server is running (start with `trl vllm-serve`).
             - `"colocate"`: vLLM will run in the same process and share the training GPUs. This avoids the need for a
               separate server but may cause resource contention with training.
+            - `"server"`: The trainer will send generation requests to a separate vLLM server. Make sure a TRL vLLM
+              server is running (start with `trl vllm-serve`).
+
         structured_outputs_regex (`str`, *optional*):
             Regex for vLLM structured outputs. If `None` (default), structured outputs is disabled.
 
@@ -219,7 +220,7 @@ class VLLMGeneration:
         is_fsdp_enabled: bool,
         processing_class: PreTrainedTokenizerBase | ProcessorMixin,
         # vLLM configuration
-        mode: str = "server",
+        mode: str = "colocate",
         structured_outputs_regex: str | None = None,
         # Server mode configuration
         server_base_url: str | None = None,
@@ -534,13 +535,12 @@ class VLLMGeneration:
             profiler: Optional profiler for performance tracking.
 
         Returns:
-            Tuple of (prompt_ids, completion_ids, logprobs, logprob_token_ids, extra_fields).
+            Tuple of (prompt_ids, completion_ids, logprobs, logprob_token_ids).
 
             - `prompt_ids`: `list[list[int]]` of shape `(batch_size, prompt_len)`.
             - `completion_ids`: `list[list[int]]` of shape `(batch_size, completion_len)`.
             - `logprobs`: `list[list[list[float | None]]]` of shape `(batch_size, completion_len, num_logprobs)`.
             - `logprob_token_ids`: `list[list[list[int]]]` of shape `(batch_size, completion_len, num_logprobs)`.
-            - `extra_fields`: `dict` of additional per-completion fields from a custom `rollout_func`.
 
             `num_logprobs` is 1 when `logprobs=0`, or up to N+1 when `logprobs=N` (the sampled token is always included
             and may fall outside the top-N).
@@ -610,15 +610,11 @@ class VLLMGeneration:
                         images=ordered_set_of_images,
                         **sampling_params,
                     )
-                    # Extract required fields and collect any extra fields for reward functions
-                    required_keys = {"prompt_ids", "completion_ids", "logprobs", "logprob_token_ids"}
-                    extra_fields = {k: v for k, v in output.items() if k not in required_keys}
                     payload = (
                         output["prompt_ids"],
                         output["completion_ids"],
                         output["logprobs"],
                         output.get("logprob_token_ids"),
-                        extra_fields,
                     )
             else:
                 payload = None
@@ -626,7 +622,7 @@ class VLLMGeneration:
             # Broadcast the completions from the main process to all processes, ensuring each process receives its corresponding slice.
             obj_list = [payload]
             broadcast_object_list(obj_list, from_process=0)
-            all_prompt_ids, all_completion_ids, all_logprobs, all_logprob_token_ids, all_extra_fields = obj_list[0]
+            all_prompt_ids, all_completion_ids, all_logprobs, all_logprob_token_ids = obj_list[0]
 
             # vllm_client.generate(n=num_generations) returns num_generations completions per prompt.
             # Duplicate prompt_ids to align with per-completion entries.
@@ -640,14 +636,6 @@ class VLLMGeneration:
             completion_ids = all_completion_ids[process_slice]
             logprobs = all_logprobs[process_slice] if all_logprobs is not None else None
             logprob_token_ids = all_logprob_token_ids[process_slice] if all_logprob_token_ids is not None else None
-
-            # Slice extra fields dict-of-lists per process (extra fields are per-completion, like completion_ids)
-            extra_fields = {}
-            for key, values in all_extra_fields.items():
-                if isinstance(values, list):
-                    extra_fields[key] = values[process_slice]
-                else:
-                    extra_fields[key] = values
 
         # Generate completions using colocated vLLM instances: each device holds vLLM copy and work on their own batch of prompts
         elif self.mode == "colocate":
@@ -731,9 +719,7 @@ class VLLMGeneration:
                 logprobs = all_logprobs
                 logprob_token_ids = all_logprob_token_ids
 
-            extra_fields = {}  # No extra fields for colocate mode
-
             if self.enable_sleep_mode:
                 self.llm.sleep(level=2)
 
-        return prompt_ids, completion_ids, logprobs, logprob_token_ids, extra_fields
+        return prompt_ids, completion_ids, logprobs, logprob_token_ids

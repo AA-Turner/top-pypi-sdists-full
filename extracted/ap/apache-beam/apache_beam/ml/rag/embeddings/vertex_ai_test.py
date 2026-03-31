@@ -20,6 +20,8 @@ import shutil
 import tempfile
 import unittest
 
+import pytest
+
 import apache_beam as beam
 from apache_beam.ml.rag.types import Chunk
 from apache_beam.ml.rag.types import Content
@@ -52,6 +54,7 @@ def chunk_approximately_equals(expected, actual):
       all(isinstance(x, float) for x in actual.embedding.dense_embedding))
 
 
+@pytest.mark.vertex_ai_postcommit
 @unittest.skipIf(
     not VERTEX_AI_AVAILABLE, "Vertex AI dependencies not available")
 class VertexAITextEmbeddingsTest(unittest.TestCase):

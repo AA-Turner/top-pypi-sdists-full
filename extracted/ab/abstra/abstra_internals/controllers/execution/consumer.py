@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -27,9 +28,16 @@ from abstra_internals.repositories.consumer import (
     ControlQueueMessage,
     QueueMessage,
 )
-from abstra_internals.repositories.producer import LocalProducerRepository
+from abstra_internals.repositories.models import (
+    RunSnippetMessage,
+    StopExecutionMessage,
+)
+from abstra_internals.repositories.producer import (
+    LocalProducerRepository,
+)
 from abstra_internals.repositories.project.project import StageWithFile
 from abstra_internals.settings import Settings
+from abstra_internals.utils.rabbitmq_connection import RabbitMQConnection
 
 
 class StageNotFound(Exception):
@@ -96,13 +104,14 @@ class ConsumerController:
             try:
                 if isinstance(msg, ControlQueueMessage):
                     control_msg = msg.message
-                    if control_msg.type == "stop":
-                        execution_id = control_msg.payload.get("execution_id")
-                        if execution_id:
+                    if isinstance(control_msg, StopExecutionMessage):
+                        if control_msg.payload.execution_id:
                             AbstraLogger.info(
-                                f"[ConsumerController] Received stop request for execution {execution_id}"
+                                f"[ConsumerController] Received stop request for execution {control_msg.payload.execution_id}"
                             )
-                            self.executor_pool.kill_execution(execution_id)
+                            self.executor_pool.kill_execution(
+                                control_msg.payload.execution_id
+                            )
                     elif control_msg.type == "ping":
                         AbstraLogger.debug(
                             "[ConsumerController] Received ping message for worker warmup"
@@ -165,7 +174,7 @@ class ConsumerController:
                     break
 
                 if isinstance(msg, ControlQueueMessage):
-                    self.consumer.threadsafe_ack(msg)
+                    self.executor.submit(self._handle_control_message, msg=msg)
                     continue
 
                 self.executor.submit(
@@ -190,6 +199,52 @@ class ConsumerController:
         if self.executor:
             self.executor.shutdown(wait=True)
             self.executor = None
+
+    def _handle_control_message(self, msg: ControlQueueMessage) -> None:
+        try:
+            control_msg = msg.message
+            if isinstance(control_msg, StopExecutionMessage):
+                self.executor_pool.kill_execution(control_msg.payload.execution_id)
+            elif isinstance(control_msg, RunSnippetMessage):
+                control_msg.connection = msg.connection
+                self._handle_run_snippet(control_msg)
+
+            self.consumer.threadsafe_ack(msg)
+        except Exception as e:
+            AbstraLogger.error(
+                f"[ConsumerController] Error handling control message: {e}"
+            )
+            self.consumer.threadsafe_nack(msg)
+
+    def _handle_run_snippet(self, msg: RunSnippetMessage) -> None:
+        response = self.executor_pool.run_snippet(
+            code=msg.payload.code,
+            worker_id=self.worker_id,
+            title=msg.payload.title,
+        )
+
+        result = {
+            "ok": response.success,
+            "error": response.error,
+            "logs": response.logs or [],
+        }
+        self._send_snippet_result(msg, result)
+
+    def _send_snippet_result(self, msg: RunSnippetMessage, result: dict) -> None:
+        result_json = json.dumps(result)
+
+        if msg.connection:
+            msg.connection.send(result_json)
+            msg.connection.close()
+        elif RABBITMQ_CONNECTION_URI:
+            correlation_id = msg.correlation_id or ""
+            with RabbitMQConnection(
+                connection_uri=RABBITMQ_CONNECTION_URI,
+                send_queue=f"worker_to_server_{correlation_id}",
+                recv_queue=f"server_to_worker_{correlation_id}",
+                execution_id=correlation_id,
+            ) as conn:
+                conn.send(result_json)
 
     def run_subprocess(self, msg: QueueMessage) -> None:
         execution_id = msg.preexecution.execution_id

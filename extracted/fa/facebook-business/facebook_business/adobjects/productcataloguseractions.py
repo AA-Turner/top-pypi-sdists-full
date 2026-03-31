@@ -24,10 +24,9 @@ class ProductCatalogUserActions(
         self._api = api
 
     class Field(AbstractObject.Field):
-        actions = 'actions'
+        pass
 
     _field_types = {
-        'actions': 'list<string>',
     }
     @classmethod
     def _get_field_enum_info(cls):

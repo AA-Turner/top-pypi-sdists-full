@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -120,6 +120,7 @@ class Application(proto.Message):
             SYSTEM_DISABLED (3):
                 Application has been disabled by the system.
         """
+
         UNSPECIFIED = 0
         SERVING = 1
         USER_DISABLED = 2
@@ -138,6 +139,7 @@ class Application(proto.Message):
             CLOUD_DATASTORE_COMPATIBILITY (3):
                 Cloud Firestore in Datastore Mode
         """
+
         DATABASE_TYPE_UNSPECIFIED = 0
         CLOUD_DATASTORE = 1
         CLOUD_FIRESTORE = 2

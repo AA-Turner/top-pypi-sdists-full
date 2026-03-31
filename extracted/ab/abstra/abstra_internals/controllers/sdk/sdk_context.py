@@ -19,7 +19,7 @@ class SDKContext:
     def __init__(
         self,
         execution: Execution,
-        client: ExecutionClient,
+        client: Optional[ExecutionClient],
         repositories: Repositories,
         user_jwt: Optional[str] = None,
     ):

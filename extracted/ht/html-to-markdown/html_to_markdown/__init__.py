@@ -3,39 +3,16 @@
 This package provides high-performance HTML to Markdown conversion
 powered by Rust with a clean Python API.
 
-V2 API (current):
-    from html_to_markdown import convert, ConversionOptions, ConversionOptionsHandle
+API:
+    from html_to_markdown import convert, ConversionOptions
 
-    options = ConversionOptionsHandle()  # or use ConversionOptions dataclass
-    markdown = convert(html, options)
-
-V1 API (backward compatibility):
-    from html_to_markdown import convert_to_markdown
-
-    markdown = convert_to_markdown(html, heading_style="atx")
+    result = convert("<h1>Hello</h1>")
+    print(result["content"])  # "# Hello\n"
 """
 
-from html_to_markdown._html_to_markdown import ConversionOptionsHandle
 from html_to_markdown.api import (
-    InlineImage,
-    InlineImageConfig,
-    InlineImageWarning,
-    MetadataConfig,
-    OptionsHandle,
-    TableData,
-    TableExtractionResult,
+    ConversionResult,
     convert,
-    convert_with_async_visitor,
-    convert_with_handle,
-    convert_with_inline_images,
-    convert_with_inline_images_handle,
-    convert_with_metadata,
-    convert_with_metadata_handle,
-    convert_with_tables,
-    convert_with_visitor,
-    create_options_handle,
-    start_profiling,
-    stop_profiling,
 )
 from html_to_markdown.exceptions import (
     ConflictingOptionsError,
@@ -45,39 +22,18 @@ from html_to_markdown.exceptions import (
     MissingDependencyError,
 )
 from html_to_markdown.options import ConversionOptions, OutputFormat, PreprocessingOptions
-from html_to_markdown.v1_compat import convert_to_markdown, markdownify
 
 __all__ = [
     "ConflictingOptionsError",
     "ConversionOptions",
-    "ConversionOptionsHandle",
+    "ConversionResult",
     "EmptyHtmlError",
     "HtmlToMarkdownError",
-    "InlineImage",
-    "InlineImageConfig",
-    "InlineImageWarning",
     "InvalidParserError",
-    "MetadataConfig",
     "MissingDependencyError",
-    "OptionsHandle",
     "OutputFormat",
     "PreprocessingOptions",
-    "TableData",
-    "TableExtractionResult",
     "convert",
-    "convert_to_markdown",
-    "convert_with_async_visitor",
-    "convert_with_handle",
-    "convert_with_inline_images",
-    "convert_with_inline_images_handle",
-    "convert_with_metadata",
-    "convert_with_metadata_handle",
-    "convert_with_tables",
-    "convert_with_visitor",
-    "create_options_handle",
-    "markdownify",
-    "start_profiling",
-    "stop_profiling",
 ]
 
-__version__ = "2.30.0"
+__version__ = "3.0.0"

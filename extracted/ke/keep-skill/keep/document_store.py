@@ -21,13 +21,15 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .const import SQLITE_BUSY_TIMEOUT_MS
+from .recovery import is_malformed_db_error
+from .tracing import get_tracer
 from .types import normalize_tag_map, tag_values, utc_now
 
 logger = logging.getLogger(__name__)
 
 
 # Schema version for migrations
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 
 @dataclass
@@ -98,7 +100,7 @@ class DocumentStore:
         try:
             self._init_db()
         except sqlite3.DatabaseError as e:
-            if "malformed" in str(e):
+            if is_malformed_db_error(e):
                 logger.warning("Database malformed, attempting recovery: %s", self._db_path)
                 self._recover_malformed()
             else:
@@ -146,22 +148,173 @@ class DocumentStore:
 
         # Run schema migrations (serialized across processes)
         self._migrate_schema()
-
-        # Detect FTS5 availability (tables may already exist from prior migration).
-        # All three FTS tables must exist for full hybrid search.
-        if not self._fts_available:
-            try:
-                self._execute("SELECT 1 FROM documents_fts LIMIT 0")
-                self._execute("SELECT 1 FROM parts_fts LIMIT 0")
-                self._execute("SELECT 1 FROM versions_fts LIMIT 0")
-                self._fts_available = True
-            except sqlite3.OperationalError:
-                pass  # Tables don't exist or FTS5 not available
+        self._ensure_fts_schema()
 
         # Quick integrity check for existing databases
         result = self._execute("PRAGMA quick_check").fetchone()
         if result[0] != "ok":
             raise sqlite3.DatabaseError("database disk image is malformed")
+
+    def _fts_tables_present(self) -> bool:
+        """Return whether all FTS tables are available."""
+        try:
+            self._execute("SELECT 1 FROM documents_fts LIMIT 0")
+            self._execute("SELECT 1 FROM parts_fts LIMIT 0")
+            self._execute("SELECT 1 FROM versions_fts LIMIT 0")
+            return True
+        except sqlite3.OperationalError:
+            return False
+
+    def _fts_object_exists(self, name: str) -> bool:
+        """Return whether a SQLite object exists."""
+        row = self._execute(
+            "SELECT 1 FROM sqlite_master WHERE name = ? LIMIT 1",
+            (name,),
+        ).fetchone()
+        return row is not None
+
+    def _drop_orphaned_fts_schema(self, prefix: str) -> None:
+        """Drop orphaned FTS triggers and shadow tables when the virtual table is missing."""
+        if self._fts_object_exists(prefix):
+            return
+
+        shadow_names = (
+            f"{prefix}_data",
+            f"{prefix}_idx",
+            f"{prefix}_docsize",
+            f"{prefix}_config",
+        )
+        trigger_names = (
+            f"{prefix}_ai",
+            f"{prefix}_ad",
+            f"{prefix}_au",
+        )
+
+        if not any(self._fts_object_exists(name) for name in (*shadow_names, *trigger_names)):
+            return
+
+        for name in trigger_names:
+            self._execute(f"DROP TRIGGER IF EXISTS {name}")
+        for name in shadow_names:
+            self._execute(f"DROP TABLE IF EXISTS {name}")
+
+        logger.warning("Dropped orphaned FTS schema for %s", prefix)
+
+    def _ensure_fts_schema(self) -> None:
+        """Ensure the FTS schema exists even on already-migrated stores."""
+        if self._fts_tables_present():
+            self._fts_available = True
+            return
+
+        try:
+            for prefix in ("documents_fts", "parts_fts", "versions_fts"):
+                self._drop_orphaned_fts_schema(prefix)
+
+            self._execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts
+                USING fts5(
+                    summary,
+                    content='documents',
+                    content_rowid='rowid',
+                    tokenize='porter unicode61'
+                )
+            """)
+            self._execute("""
+                CREATE TRIGGER IF NOT EXISTS documents_fts_ai
+                AFTER INSERT ON documents BEGIN
+                    INSERT INTO documents_fts(rowid, summary)
+                    VALUES (new.rowid, new.summary);
+                END
+            """)
+            self._execute("""
+                CREATE TRIGGER IF NOT EXISTS documents_fts_ad
+                AFTER DELETE ON documents BEGIN
+                    INSERT INTO documents_fts(documents_fts, rowid, summary)
+                    VALUES('delete', old.rowid, old.summary);
+                END
+            """)
+            self._execute("""
+                CREATE TRIGGER IF NOT EXISTS documents_fts_au
+                AFTER UPDATE OF summary ON documents BEGIN
+                    INSERT INTO documents_fts(documents_fts, rowid, summary)
+                    VALUES('delete', old.rowid, old.summary);
+                    INSERT INTO documents_fts(rowid, summary)
+                    VALUES (new.rowid, new.summary);
+                END
+            """)
+            self._execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS parts_fts
+                USING fts5(
+                    summary, content,
+                    content='document_parts',
+                    content_rowid='rowid',
+                    tokenize='porter unicode61'
+                )
+            """)
+            self._execute("""
+                CREATE TRIGGER IF NOT EXISTS parts_fts_ai
+                AFTER INSERT ON document_parts BEGIN
+                    INSERT INTO parts_fts(rowid, summary, content)
+                    VALUES (new.rowid, new.summary, new.content);
+                END
+            """)
+            self._execute("""
+                CREATE TRIGGER IF NOT EXISTS parts_fts_ad
+                AFTER DELETE ON document_parts BEGIN
+                    INSERT INTO parts_fts(parts_fts, rowid, summary, content)
+                    VALUES('delete', old.rowid, old.summary, old.content);
+                END
+            """)
+            self._execute("""
+                CREATE TRIGGER IF NOT EXISTS parts_fts_au
+                AFTER UPDATE OF summary, content ON document_parts BEGIN
+                    INSERT INTO parts_fts(parts_fts, rowid, summary, content)
+                    VALUES('delete', old.rowid, old.summary, old.content);
+                    INSERT INTO parts_fts(rowid, summary, content)
+                    VALUES (new.rowid, new.summary, new.content);
+                END
+            """)
+            self._execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS versions_fts
+                USING fts5(
+                    summary,
+                    content='document_versions',
+                    content_rowid='rowid',
+                    tokenize='porter unicode61'
+                )
+            """)
+            self._execute("""
+                CREATE TRIGGER IF NOT EXISTS versions_fts_ai
+                AFTER INSERT ON document_versions BEGIN
+                    INSERT INTO versions_fts(rowid, summary)
+                    VALUES (new.rowid, new.summary);
+                END
+            """)
+            self._execute("""
+                CREATE TRIGGER IF NOT EXISTS versions_fts_ad
+                AFTER DELETE ON document_versions BEGIN
+                    INSERT INTO versions_fts(versions_fts, rowid, summary)
+                    VALUES('delete', old.rowid, old.summary);
+                END
+            """)
+            self._execute("""
+                CREATE TRIGGER IF NOT EXISTS versions_fts_au
+                AFTER UPDATE OF summary ON document_versions BEGIN
+                    INSERT INTO versions_fts(versions_fts, rowid, summary)
+                    VALUES('delete', old.rowid, old.summary);
+                    INSERT INTO versions_fts(rowid, summary)
+                    VALUES (new.rowid, new.summary);
+                END
+            """)
+            self._execute("INSERT INTO documents_fts(documents_fts) VALUES('rebuild')")
+            self._execute("INSERT INTO parts_fts(parts_fts) VALUES('rebuild')")
+            self._execute("INSERT INTO versions_fts(versions_fts) VALUES('rebuild')")
+        except sqlite3.OperationalError:
+            logger.info("FTS5 not available, full-text search disabled")
+            self._fts_available = False
+            return
+
+        self._fts_available = self._fts_tables_present()
 
     def _migrate_schema(self) -> None:
         """Run schema migrations using PRAGMA user_version.
@@ -743,14 +896,32 @@ class DocumentStore:
 
         Returns True if recovery succeeded, False otherwise.
         """
-        try:
-            logger.warning("Runtime database malformation detected, attempting recovery: %s", self._db_path)
-            self._recover_malformed()
-            logger.warning("Runtime recovery succeeded")
-            return True
-        except Exception as e:
-            logger.error("Runtime recovery failed: %s", e)
-            return False
+        with self._lock:
+            try:
+                if self._conn is not None:
+                    try:
+                        result = self._conn.execute("PRAGMA quick_check").fetchone()
+                    except sqlite3.DatabaseError as quick_check_err:
+                        if not is_malformed_db_error(quick_check_err):
+                            raise
+                    else:
+                        if result and result[0] == "ok":
+                            logger.info(
+                                "Runtime recovery skipped; database already healthy: %s",
+                                self._db_path,
+                            )
+                            return True
+
+                logger.warning(
+                    "Runtime database malformation detected, attempting recovery: %s",
+                    self._db_path,
+                )
+                self._recover_malformed()
+                logger.warning("Runtime recovery succeeded")
+                return True
+            except Exception as e:
+                logger.error("Runtime recovery failed: %s", e)
+                return False
 
     @staticmethod
     def _now() -> str:
@@ -1168,7 +1339,7 @@ class DocumentStore:
                 self._conn.commit()
         except sqlite3.DatabaseError as e:
             logger.warning("touch(%s) failed (non-fatal): %s", id, e)
-            if "malformed" in str(e):
+            if is_malformed_db_error(e):
                 self._try_runtime_recover()
 
     def touch_many(self, collection: str, ids: list[str]) -> None:
@@ -1326,6 +1497,31 @@ class DocumentStore:
         """, (id, collection, content_hash))
         row = cursor.fetchone()
         return row["version"] if row else None
+
+    def get_latest_version_info_by_content_hash(
+        self,
+        collection: str,
+        id: str,
+        content_hash: str,
+    ) -> Optional[VersionInfo]:
+        """Return the newest archived version matching *content_hash*."""
+        cursor = self._execute("""
+            SELECT version, summary, tags_json, content_hash, created_at
+            FROM document_versions
+            WHERE id = ? AND collection = ? AND content_hash = ?
+            ORDER BY version DESC
+            LIMIT 1
+        """, (id, collection, content_hash))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return VersionInfo(
+            version=row["version"],
+            summary=row["summary"],
+            tags=json.loads(row["tags_json"]) if row["tags_json"] else {},
+            created_at=row["created_at"],
+            content_hash=row["content_hash"],
+        )
 
     def delete_all_versions(self, collection: str, id: str) -> int:
         """Delete all archived versions for a document.
@@ -2322,90 +2518,95 @@ class DocumentStore:
             bm25_rank is negative (more negative = better match).
             Returns empty list if FTS5 is not available.
         """
-        from .perf_stats import perf
-
         if not self._fts_available:
             return []
         fts_query = self._build_fts_query(query)
         if fts_query is None:
             return []
 
-        import time
-        _fts_t0 = time.monotonic()
+        with get_tracer("doc_store").start_as_current_span(
+            "doc_store.query_fts",
+            attributes={
+                "collection": collection,
+                "limit": limit,
+                "query": query,
+                "tag_count": len(tags or {}),
+            },
+        ) as span:
+            # --- Search documents ---
+            doc_sql = """
+                SELECT d.id, d.summary, f.rank
+                FROM documents_fts f
+                JOIN documents d ON d.rowid = f.rowid
+                WHERE documents_fts MATCH ?
+                AND d.collection = ?
+            """
+            doc_params: list[Any] = [fts_query, collection]
+            if tags:
+                for k in tags:
+                    for v in tag_values(tags, k):
+                        doc_sql += (
+                            " AND EXISTS ("
+                            "SELECT 1 FROM json_each(d.tags_json, ?) jv "
+                            "WHERE CAST(jv.value AS TEXT) = ?)"
+                        )
+                        doc_params.extend([f"$.{k}", v])
+            doc_sql += " ORDER BY f.rank LIMIT ?"
+            doc_params.append(limit)
+            doc_rows = self._execute(doc_sql, doc_params).fetchall()
 
-        # --- Search documents ---
-        doc_sql = """
-            SELECT d.id, d.summary, f.rank
-            FROM documents_fts f
-            JOIN documents d ON d.rowid = f.rowid
-            WHERE documents_fts MATCH ?
-            AND d.collection = ?
-        """
-        doc_params: list[Any] = [fts_query, collection]
-        if tags:
-            for k in tags:
-                for v in tag_values(tags, k):
-                    doc_sql += (
-                        " AND EXISTS ("
-                        "SELECT 1 FROM json_each(d.tags_json, ?) jv "
-                        "WHERE CAST(jv.value AS TEXT) = ?)"
-                    )
-                    doc_params.extend([f"$.{k}", v])
-        doc_sql += " ORDER BY f.rank LIMIT ?"
-        doc_params.append(limit)
-        doc_rows = self._execute(doc_sql, doc_params).fetchall()
+            # --- Search parts (summary + content) ---
+            part_sql = """
+                SELECT p.id || '@p' || p.part_num, p.summary, f.rank
+                FROM parts_fts f
+                JOIN document_parts p ON p.rowid = f.rowid
+                WHERE parts_fts MATCH ?
+                AND p.collection = ?
+            """
+            part_params: list[Any] = [fts_query, collection]
+            if tags:
+                for k in tags:
+                    for v in tag_values(tags, k):
+                        part_sql += (
+                            " AND EXISTS ("
+                            "SELECT 1 FROM json_each(p.tags_json, ?) jv "
+                            "WHERE CAST(jv.value AS TEXT) = ?)"
+                        )
+                        part_params.extend([f"$.{k}", v])
+            part_sql += " ORDER BY f.rank LIMIT ?"
+            part_params.append(limit)
+            part_rows = self._execute(part_sql, part_params).fetchall()
 
-        # --- Search parts (summary + content) ---
-        part_sql = """
-            SELECT p.id || '@p' || p.part_num, p.summary, f.rank
-            FROM parts_fts f
-            JOIN document_parts p ON p.rowid = f.rowid
-            WHERE parts_fts MATCH ?
-            AND p.collection = ?
-        """
-        part_params: list[Any] = [fts_query, collection]
-        if tags:
-            for k in tags:
-                for v in tag_values(tags, k):
-                    part_sql += (
-                        " AND EXISTS ("
-                        "SELECT 1 FROM json_each(p.tags_json, ?) jv "
-                        "WHERE CAST(jv.value AS TEXT) = ?)"
-                    )
-                    part_params.extend([f"$.{k}", v])
-        part_sql += " ORDER BY f.rank LIMIT ?"
-        part_params.append(limit)
-        part_rows = self._execute(part_sql, part_params).fetchall()
+            # --- Search versions ---
+            ver_sql = """
+                SELECT v.id || '@v' || v.version, v.summary, f.rank
+                FROM versions_fts f
+                JOIN document_versions v ON v.rowid = f.rowid
+                WHERE versions_fts MATCH ?
+                AND v.collection = ?
+            """
+            ver_params: list[Any] = [fts_query, collection]
+            if tags:
+                for k in tags:
+                    for v in tag_values(tags, k):
+                        ver_sql += (
+                            " AND EXISTS ("
+                            "SELECT 1 FROM json_each(v.tags_json, ?) jv "
+                            "WHERE CAST(jv.value AS TEXT) = ?)"
+                        )
+                        ver_params.extend([f"$.{k}", v])
+            ver_sql += " ORDER BY f.rank LIMIT ?"
+            ver_params.append(limit)
+            ver_rows = self._execute(ver_sql, ver_params).fetchall()
 
-        # --- Search versions ---
-        ver_sql = """
-            SELECT v.id || '@v' || v.version, v.summary, f.rank
-            FROM versions_fts f
-            JOIN document_versions v ON v.rowid = f.rowid
-            WHERE versions_fts MATCH ?
-            AND v.collection = ?
-        """
-        ver_params: list[Any] = [fts_query, collection]
-        if tags:
-            for k in tags:
-                for v in tag_values(tags, k):
-                    ver_sql += (
-                        " AND EXISTS ("
-                        "SELECT 1 FROM json_each(v.tags_json, ?) jv "
-                        "WHERE CAST(jv.value AS TEXT) = ?)"
-                    )
-                    ver_params.extend([f"$.{k}", v])
-        ver_sql += " ORDER BY f.rank LIMIT ?"
-        ver_params.append(limit)
-        ver_rows = self._execute(ver_sql, ver_params).fetchall()
-
-        # Merge by BM25 rank (more negative = better), take top `limit`
-        combined = [(row[0], row[1], row[2]) for row in doc_rows]
-        combined.extend((row[0], row[1], row[2]) for row in part_rows)
-        combined.extend((row[0], row[1], row[2]) for row in ver_rows)
-        combined.sort(key=lambda r: r[2])  # sort by rank ascending (best first)
-        perf.record("fts", "query", time.monotonic() - _fts_t0)
-        return combined[:limit]
+            # Merge by BM25 rank (more negative = better), take top `limit`
+            combined = [(row[0], row[1], row[2]) for row in doc_rows]
+            combined.extend((row[0], row[1], row[2]) for row in part_rows)
+            combined.extend((row[0], row[1], row[2]) for row in ver_rows)
+            combined.sort(key=lambda r: r[2])  # sort by rank ascending (best first)
+            limited = combined[:limit]
+            span.set_attribute("result_count", len(limited))
+            return limited
 
     def query_fts_scoped(
         self,
@@ -2427,82 +2628,94 @@ class DocumentStore:
         if fts_query is None:
             return []
 
-        placeholders = ",".join("?" * len(ids))
+        with get_tracer("doc_store").start_as_current_span(
+            "doc_store.query_fts_scoped",
+            attributes={
+                "collection": collection,
+                "limit": limit,
+                "query": query,
+                "scope_size": len(ids),
+                "tag_count": len(tags or {}),
+            },
+        ) as span:
+            placeholders = ",".join("?" * len(ids))
 
-        # --- Search documents ---
-        doc_sql = f"""
-            SELECT d.id, d.summary, f.rank
-            FROM documents_fts f
-            JOIN documents d ON d.rowid = f.rowid
-            WHERE documents_fts MATCH ?
-            AND d.collection = ?
-            AND d.id IN ({placeholders})
-        """
-        doc_params: list[Any] = [fts_query, collection, *ids]
-        if tags:
-            for k in tags:
-                for v in tag_values(tags, k):
-                    doc_sql += (
-                        " AND EXISTS ("
-                        "SELECT 1 FROM json_each(d.tags_json, ?) jv "
-                        "WHERE CAST(jv.value AS TEXT) = ?)"
-                    )
-                    doc_params.extend([f"$.{k}", v])
-        doc_sql += " ORDER BY f.rank LIMIT ?"
-        doc_params.append(limit)
-        doc_rows = self._execute(doc_sql, doc_params).fetchall()
+            # --- Search documents ---
+            doc_sql = f"""
+                SELECT d.id, d.summary, f.rank
+                FROM documents_fts f
+                JOIN documents d ON d.rowid = f.rowid
+                WHERE documents_fts MATCH ?
+                AND d.collection = ?
+                AND d.id IN ({placeholders})
+            """
+            doc_params: list[Any] = [fts_query, collection, *ids]
+            if tags:
+                for k in tags:
+                    for v in tag_values(tags, k):
+                        doc_sql += (
+                            " AND EXISTS ("
+                            "SELECT 1 FROM json_each(d.tags_json, ?) jv "
+                            "WHERE CAST(jv.value AS TEXT) = ?)"
+                        )
+                        doc_params.extend([f"$.{k}", v])
+            doc_sql += " ORDER BY f.rank LIMIT ?"
+            doc_params.append(limit)
+            doc_rows = self._execute(doc_sql, doc_params).fetchall()
 
-        # --- Search parts ---
-        part_sql = f"""
-            SELECT p.id || '@p' || p.part_num, p.summary, f.rank
-            FROM parts_fts f
-            JOIN document_parts p ON p.rowid = f.rowid
-            WHERE parts_fts MATCH ?
-            AND p.collection = ?
-            AND p.id IN ({placeholders})
-        """
-        part_params: list[Any] = [fts_query, collection, *ids]
-        if tags:
-            for k in tags:
-                for v in tag_values(tags, k):
-                    part_sql += (
-                        " AND EXISTS ("
-                        "SELECT 1 FROM json_each(p.tags_json, ?) jv "
-                        "WHERE CAST(jv.value AS TEXT) = ?)"
-                    )
-                    part_params.extend([f"$.{k}", v])
-        part_sql += " ORDER BY f.rank LIMIT ?"
-        part_params.append(limit)
-        part_rows = self._execute(part_sql, part_params).fetchall()
+            # --- Search parts ---
+            part_sql = f"""
+                SELECT p.id || '@p' || p.part_num, p.summary, f.rank
+                FROM parts_fts f
+                JOIN document_parts p ON p.rowid = f.rowid
+                WHERE parts_fts MATCH ?
+                AND p.collection = ?
+                AND p.id IN ({placeholders})
+            """
+            part_params: list[Any] = [fts_query, collection, *ids]
+            if tags:
+                for k in tags:
+                    for v in tag_values(tags, k):
+                        part_sql += (
+                            " AND EXISTS ("
+                            "SELECT 1 FROM json_each(p.tags_json, ?) jv "
+                            "WHERE CAST(jv.value AS TEXT) = ?)"
+                        )
+                        part_params.extend([f"$.{k}", v])
+            part_sql += " ORDER BY f.rank LIMIT ?"
+            part_params.append(limit)
+            part_rows = self._execute(part_sql, part_params).fetchall()
 
-        # --- Search versions ---
-        ver_sql = f"""
-            SELECT v.id || '@v' || v.version, v.summary, f.rank
-            FROM versions_fts f
-            JOIN document_versions v ON v.rowid = f.rowid
-            WHERE versions_fts MATCH ?
-            AND v.collection = ?
-            AND v.id IN ({placeholders})
-        """
-        ver_params: list[Any] = [fts_query, collection, *ids]
-        if tags:
-            for k in tags:
-                for v in tag_values(tags, k):
-                    ver_sql += (
-                        " AND EXISTS ("
-                        "SELECT 1 FROM json_each(v.tags_json, ?) jv "
-                        "WHERE CAST(jv.value AS TEXT) = ?)"
-                    )
-                    ver_params.extend([f"$.{k}", v])
-        ver_sql += " ORDER BY f.rank LIMIT ?"
-        ver_params.append(limit)
-        ver_rows = self._execute(ver_sql, ver_params).fetchall()
+            # --- Search versions ---
+            ver_sql = f"""
+                SELECT v.id || '@v' || v.version, v.summary, f.rank
+                FROM versions_fts f
+                JOIN document_versions v ON v.rowid = f.rowid
+                WHERE versions_fts MATCH ?
+                AND v.collection = ?
+                AND v.id IN ({placeholders})
+            """
+            ver_params: list[Any] = [fts_query, collection, *ids]
+            if tags:
+                for k in tags:
+                    for v in tag_values(tags, k):
+                        ver_sql += (
+                            " AND EXISTS ("
+                            "SELECT 1 FROM json_each(v.tags_json, ?) jv "
+                            "WHERE CAST(jv.value AS TEXT) = ?)"
+                        )
+                        ver_params.extend([f"$.{k}", v])
+            ver_sql += " ORDER BY f.rank LIMIT ?"
+            ver_params.append(limit)
+            ver_rows = self._execute(ver_sql, ver_params).fetchall()
 
-        combined = [(row[0], row[1], row[2]) for row in doc_rows]
-        combined.extend((row[0], row[1], row[2]) for row in part_rows)
-        combined.extend((row[0], row[1], row[2]) for row in ver_rows)
-        combined.sort(key=lambda r: r[2])
-        return combined[:limit]
+            combined = [(row[0], row[1], row[2]) for row in doc_rows]
+            combined.extend((row[0], row[1], row[2]) for row in part_rows)
+            combined.extend((row[0], row[1], row[2]) for row in ver_rows)
+            combined.sort(key=lambda r: r[2])
+            limited = combined[:limit]
+            span.set_attribute("result_count", len(limited))
+            return limited
 
     def query_by_id_glob(
         self,

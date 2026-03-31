@@ -17,20 +17,20 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async
 from google.api_core import retry_async as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
 from google.analytics.admin_v1beta.types import analytics_admin, resources
 
@@ -61,7 +61,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -96,7 +96,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -236,6 +236,10 @@ class AnalyticsAdminServiceGrpcAsyncIOTransport(AnalyticsAdminServiceTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -924,12 +928,12 @@ class AnalyticsAdminServiceGrpcAsyncIOTransport(AnalyticsAdminServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_measurement_protocol_secret" not in self._stubs:
-            self._stubs[
-                "get_measurement_protocol_secret"
-            ] = self._logged_channel.unary_unary(
-                "/google.analytics.admin.v1beta.AnalyticsAdminService/GetMeasurementProtocolSecret",
-                request_serializer=analytics_admin.GetMeasurementProtocolSecretRequest.serialize,
-                response_deserializer=resources.MeasurementProtocolSecret.deserialize,
+            self._stubs["get_measurement_protocol_secret"] = (
+                self._logged_channel.unary_unary(
+                    "/google.analytics.admin.v1beta.AnalyticsAdminService/GetMeasurementProtocolSecret",
+                    request_serializer=analytics_admin.GetMeasurementProtocolSecretRequest.serialize,
+                    response_deserializer=resources.MeasurementProtocolSecret.deserialize,
+                )
             )
         return self._stubs["get_measurement_protocol_secret"]
 
@@ -957,12 +961,12 @@ class AnalyticsAdminServiceGrpcAsyncIOTransport(AnalyticsAdminServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "list_measurement_protocol_secrets" not in self._stubs:
-            self._stubs[
-                "list_measurement_protocol_secrets"
-            ] = self._logged_channel.unary_unary(
-                "/google.analytics.admin.v1beta.AnalyticsAdminService/ListMeasurementProtocolSecrets",
-                request_serializer=analytics_admin.ListMeasurementProtocolSecretsRequest.serialize,
-                response_deserializer=analytics_admin.ListMeasurementProtocolSecretsResponse.deserialize,
+            self._stubs["list_measurement_protocol_secrets"] = (
+                self._logged_channel.unary_unary(
+                    "/google.analytics.admin.v1beta.AnalyticsAdminService/ListMeasurementProtocolSecrets",
+                    request_serializer=analytics_admin.ListMeasurementProtocolSecretsRequest.serialize,
+                    response_deserializer=analytics_admin.ListMeasurementProtocolSecretsResponse.deserialize,
+                )
             )
         return self._stubs["list_measurement_protocol_secrets"]
 
@@ -989,12 +993,12 @@ class AnalyticsAdminServiceGrpcAsyncIOTransport(AnalyticsAdminServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "create_measurement_protocol_secret" not in self._stubs:
-            self._stubs[
-                "create_measurement_protocol_secret"
-            ] = self._logged_channel.unary_unary(
-                "/google.analytics.admin.v1beta.AnalyticsAdminService/CreateMeasurementProtocolSecret",
-                request_serializer=analytics_admin.CreateMeasurementProtocolSecretRequest.serialize,
-                response_deserializer=resources.MeasurementProtocolSecret.deserialize,
+            self._stubs["create_measurement_protocol_secret"] = (
+                self._logged_channel.unary_unary(
+                    "/google.analytics.admin.v1beta.AnalyticsAdminService/CreateMeasurementProtocolSecret",
+                    request_serializer=analytics_admin.CreateMeasurementProtocolSecretRequest.serialize,
+                    response_deserializer=resources.MeasurementProtocolSecret.deserialize,
+                )
             )
         return self._stubs["create_measurement_protocol_secret"]
 
@@ -1021,12 +1025,12 @@ class AnalyticsAdminServiceGrpcAsyncIOTransport(AnalyticsAdminServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "delete_measurement_protocol_secret" not in self._stubs:
-            self._stubs[
-                "delete_measurement_protocol_secret"
-            ] = self._logged_channel.unary_unary(
-                "/google.analytics.admin.v1beta.AnalyticsAdminService/DeleteMeasurementProtocolSecret",
-                request_serializer=analytics_admin.DeleteMeasurementProtocolSecretRequest.serialize,
-                response_deserializer=empty_pb2.Empty.FromString,
+            self._stubs["delete_measurement_protocol_secret"] = (
+                self._logged_channel.unary_unary(
+                    "/google.analytics.admin.v1beta.AnalyticsAdminService/DeleteMeasurementProtocolSecret",
+                    request_serializer=analytics_admin.DeleteMeasurementProtocolSecretRequest.serialize,
+                    response_deserializer=empty_pb2.Empty.FromString,
+                )
             )
         return self._stubs["delete_measurement_protocol_secret"]
 
@@ -1053,12 +1057,12 @@ class AnalyticsAdminServiceGrpcAsyncIOTransport(AnalyticsAdminServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_measurement_protocol_secret" not in self._stubs:
-            self._stubs[
-                "update_measurement_protocol_secret"
-            ] = self._logged_channel.unary_unary(
-                "/google.analytics.admin.v1beta.AnalyticsAdminService/UpdateMeasurementProtocolSecret",
-                request_serializer=analytics_admin.UpdateMeasurementProtocolSecretRequest.serialize,
-                response_deserializer=resources.MeasurementProtocolSecret.deserialize,
+            self._stubs["update_measurement_protocol_secret"] = (
+                self._logged_channel.unary_unary(
+                    "/google.analytics.admin.v1beta.AnalyticsAdminService/UpdateMeasurementProtocolSecret",
+                    request_serializer=analytics_admin.UpdateMeasurementProtocolSecretRequest.serialize,
+                    response_deserializer=resources.MeasurementProtocolSecret.deserialize,
+                )
             )
         return self._stubs["update_measurement_protocol_secret"]
 
@@ -1089,12 +1093,12 @@ class AnalyticsAdminServiceGrpcAsyncIOTransport(AnalyticsAdminServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "acknowledge_user_data_collection" not in self._stubs:
-            self._stubs[
-                "acknowledge_user_data_collection"
-            ] = self._logged_channel.unary_unary(
-                "/google.analytics.admin.v1beta.AnalyticsAdminService/AcknowledgeUserDataCollection",
-                request_serializer=analytics_admin.AcknowledgeUserDataCollectionRequest.serialize,
-                response_deserializer=analytics_admin.AcknowledgeUserDataCollectionResponse.deserialize,
+            self._stubs["acknowledge_user_data_collection"] = (
+                self._logged_channel.unary_unary(
+                    "/google.analytics.admin.v1beta.AnalyticsAdminService/AcknowledgeUserDataCollection",
+                    request_serializer=analytics_admin.AcknowledgeUserDataCollectionRequest.serialize,
+                    response_deserializer=analytics_admin.AcknowledgeUserDataCollectionResponse.deserialize,
+                )
             )
         return self._stubs["acknowledge_user_data_collection"]
 
@@ -1124,12 +1128,12 @@ class AnalyticsAdminServiceGrpcAsyncIOTransport(AnalyticsAdminServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "search_change_history_events" not in self._stubs:
-            self._stubs[
-                "search_change_history_events"
-            ] = self._logged_channel.unary_unary(
-                "/google.analytics.admin.v1beta.AnalyticsAdminService/SearchChangeHistoryEvents",
-                request_serializer=analytics_admin.SearchChangeHistoryEventsRequest.serialize,
-                response_deserializer=analytics_admin.SearchChangeHistoryEventsResponse.deserialize,
+            self._stubs["search_change_history_events"] = (
+                self._logged_channel.unary_unary(
+                    "/google.analytics.admin.v1beta.AnalyticsAdminService/SearchChangeHistoryEvents",
+                    request_serializer=analytics_admin.SearchChangeHistoryEventsRequest.serialize,
+                    response_deserializer=analytics_admin.SearchChangeHistoryEventsResponse.deserialize,
+                )
             )
         return self._stubs["search_change_history_events"]
 
@@ -1731,12 +1735,12 @@ class AnalyticsAdminServiceGrpcAsyncIOTransport(AnalyticsAdminServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "get_data_retention_settings" not in self._stubs:
-            self._stubs[
-                "get_data_retention_settings"
-            ] = self._logged_channel.unary_unary(
-                "/google.analytics.admin.v1beta.AnalyticsAdminService/GetDataRetentionSettings",
-                request_serializer=analytics_admin.GetDataRetentionSettingsRequest.serialize,
-                response_deserializer=resources.DataRetentionSettings.deserialize,
+            self._stubs["get_data_retention_settings"] = (
+                self._logged_channel.unary_unary(
+                    "/google.analytics.admin.v1beta.AnalyticsAdminService/GetDataRetentionSettings",
+                    request_serializer=analytics_admin.GetDataRetentionSettingsRequest.serialize,
+                    response_deserializer=resources.DataRetentionSettings.deserialize,
+                )
             )
         return self._stubs["get_data_retention_settings"]
 
@@ -1763,12 +1767,12 @@ class AnalyticsAdminServiceGrpcAsyncIOTransport(AnalyticsAdminServiceTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "update_data_retention_settings" not in self._stubs:
-            self._stubs[
-                "update_data_retention_settings"
-            ] = self._logged_channel.unary_unary(
-                "/google.analytics.admin.v1beta.AnalyticsAdminService/UpdateDataRetentionSettings",
-                request_serializer=analytics_admin.UpdateDataRetentionSettingsRequest.serialize,
-                response_deserializer=resources.DataRetentionSettings.deserialize,
+            self._stubs["update_data_retention_settings"] = (
+                self._logged_channel.unary_unary(
+                    "/google.analytics.admin.v1beta.AnalyticsAdminService/UpdateDataRetentionSettings",
+                    request_serializer=analytics_admin.UpdateDataRetentionSettingsRequest.serialize,
+                    response_deserializer=resources.DataRetentionSettings.deserialize,
+                )
             )
         return self._stubs["update_data_retention_settings"]
 

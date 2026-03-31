@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Glances
-Version: 4.5.2
+Version: 4.5.3
 Summary: A cross-platform curses-based monitoring tool
 Author-email: Nicolas Hennion <nicolas@nicolargo.com>
 License-Expression: LGPL-3.0-only
@@ -44,10 +44,12 @@ Provides-Extra: containers
 Requires-Dist: docker>=6.1.1; extra == "containers"
 Requires-Dist: packaging; extra == "containers"
 Requires-Dist: podman; extra == "containers"
+Requires-Dist: pylxd>=2.3.1; extra == "containers"
 Requires-Dist: python-dateutil; extra == "containers"
 Requires-Dist: six; extra == "containers"
 Provides-Extra: export
 Requires-Dist: bernhard; extra == "export"
+Requires-Dist: clickhouse-connect; extra == "export"
 Requires-Dist: elasticsearch; extra == "export"
 Requires-Dist: graphitesender; extra == "export"
 Requires-Dist: ibmcloudant; extra == "export"
@@ -427,6 +429,7 @@ Extra dependencies:
 - ``podman`` (for the Containers Podman monitoring support)
 - ``potsdb`` (for the OpenTSDB export module)
 - ``prometheus_client`` (for the Prometheus export module)
+- ``pylxd`` (for the LXC Containers monitoring support)
 - ``psycopg[binary]`` (for the PostgreSQL/TimeScale export module)
 - ``pygal`` (for the graph export module)
 - ``pymdstat`` (for RAID support) [Linux-only]

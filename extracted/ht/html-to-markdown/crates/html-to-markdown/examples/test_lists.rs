@@ -1,6 +1,11 @@
 //! Example: Testing HTML list conversion (ordered and unordered lists)
 
-use html_to_markdown_rs::convert;
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
+}
 
 fn main() {
     let html = "<ol><li>First item</li><li>Second item</li><li>Third item</li></ol>";

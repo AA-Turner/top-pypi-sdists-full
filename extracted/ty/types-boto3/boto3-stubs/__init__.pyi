@@ -135,6 +135,7 @@ from types_boto3_dax.client import DAXClient
 from types_boto3_deadline.client import DeadlineCloudClient
 from types_boto3_detective.client import DetectiveClient
 from types_boto3_devicefarm.client import DeviceFarmClient
+from types_boto3_devops_agent.client import DevOpsAgentServiceClient
 from types_boto3_devops_guru.client import DevOpsGuruClient
 from types_boto3_directconnect.client import DirectConnectClient
 from types_boto3_discovery.client import ApplicationDiscoveryServiceClient
@@ -2580,6 +2581,24 @@ def client(
 ) -> DeviceFarmClient:
     """
     Create client for DeviceFarm service.
+    """
+
+@overload
+def client(
+    service_name: Literal["devops-agent"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> DevOpsAgentServiceClient:
+    """
+    Create client for DevOpsAgentService service.
     """
 
 @overload

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.datacatalog_v1beta1.types import common, timestamps
@@ -97,6 +97,7 @@ class Taxonomy(proto.Message):
                 Fine grained access control policy, which
                 enables access control on tagged resources.
         """
+
         POLICY_TYPE_UNSPECIFIED = 0
         FINE_GRAINED_ACCESS_CONTROL = 1
 

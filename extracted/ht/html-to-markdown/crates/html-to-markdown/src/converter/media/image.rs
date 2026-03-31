@@ -171,14 +171,6 @@ pub(crate) fn handle_inline_data_image(
     collector.push_image(index, image);
 }
 
-/// Check if heading tag allows inline images based on configuration.
-pub(crate) fn heading_allows_inline_images(
-    tag_name: &str,
-    keep_inline_images_in: &std::collections::HashSet<String>,
-) -> bool {
-    keep_inline_images_in.contains(tag_name)
-}
-
 /// Extract non-empty trimmed string or return None.
 #[cfg(feature = "inline-images")]
 fn non_empty_trimmed(value: &str) -> Option<String> {

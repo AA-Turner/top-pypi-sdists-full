@@ -12,6 +12,8 @@ use std::rc::Rc;
 #[cfg(feature = "inline-images")]
 use crate::inline_images::InlineImageCollector;
 
+use crate::types::structure_collector::StructureCollectorHandle;
+
 /// Handle type for inline image collector when feature is enabled.
 #[cfg(feature = "inline-images")]
 pub type InlineCollectorHandle = Rc<RefCell<InlineImageCollector>>;
@@ -99,6 +101,10 @@ pub struct Context {
     #[cfg(feature = "visitor")]
     /// Stores the first visitor error encountered during traversal.
     pub(crate) visitor_error: Rc<RefCell<Option<String>>>,
+    /// Optional structure collector for building a [`crate::types::DocumentStructure`].
+    ///
+    /// Populated when `options.include_document_structure == true`.
+    pub(crate) structure_collector: Option<StructureCollectorHandle>,
 }
 
 impl Context {
@@ -115,6 +121,7 @@ impl Context {
         #[cfg(not(feature = "metadata"))] _metadata_collector: Option<()>,
         #[cfg(feature = "visitor")] visitor: Option<crate::visitor::VisitorHandle>,
         #[cfg(not(feature = "visitor"))] _visitor: Option<()>,
+        structure_collector: Option<StructureCollectorHandle>,
     ) -> Self {
         #[cfg(feature = "metadata")]
         let (
@@ -178,6 +185,7 @@ impl Context {
             visitor: visitor.clone(),
             #[cfg(feature = "visitor")]
             visitor_error: Rc::new(RefCell::new(None)),
+            structure_collector,
         }
     }
 }

@@ -11,7 +11,29 @@ from skylos.analyzer import analyze as run_analyze
 from skylos.baseline import load_baseline
 from skylos.constants import parse_exclude_folders
 from skylos.config import load_config
+from skylos.debt.baseline import (
+    annotate_hotspots as annotate_debt_hotspots,
+    load_baseline as load_debt_baseline,
+)
+from skylos.debt.engine import collect_debt_signals
+from skylos.debt.scoring import (
+    build_hotspots as build_debt_hotspots,
+    refresh_hotspot_priority as refresh_debt_hotspot_priority,
+)
 from skylos.file_discovery import discover_source_files
+from skylos.agent_payload import (
+    build_action_reason as _build_action_reason,
+    build_action_subtitle as _build_action_subtitle,
+    build_action_title as _build_action_title,
+    build_headline as _build_headline,
+    build_ranked_actions as _build_ranked_actions,
+    build_summary as _build_summary,
+    command_center_payload as _command_center_payload,
+    infer_action_type as _infer_action_type,
+    infer_safe_fix as _infer_safe_fix,
+    render_status_table as _render_status_table,
+    severity_score as _severity_score,
+)
 
 STATE_DIR = ".skylos"
 STATE_FILE = "agent_state.json"
@@ -180,7 +202,7 @@ def compose_agent_state(
     return {
         "project_root": str(Path(project_root).resolve()),
         "generated_at": utc_now(),
-        "state_version": 2,
+        "state_version": 3,
         "file_signatures": signatures,
         "changed_files": changed_files,
         "baseline_present": baseline_present,
@@ -208,6 +230,11 @@ def compose_agent_state(
                     "rule_id": action["rule_id"],
                     "message": action["message"],
                     "safe_fix": action["safe_fix"],
+                    "hotspot_score": action.get("hotspot_score"),
+                    "priority_score": action.get("priority_score"),
+                    "signal_count": action.get("signal_count"),
+                    "primary_dimension": action.get("primary_dimension"),
+                    "baseline_status": action.get("baseline_status"),
                 }
                 for action in actions[:10]
             ],
@@ -346,10 +373,20 @@ def refresh_agent_state(
     result = json.loads(raw) if isinstance(raw, str) else raw
 
     normalized = normalize_findings(
-        result, project_root, include_dead_code=include_dead_code
+        result,
+        project_root,
+        include_dead_code=include_dead_code,
+        changed_files=changed_files,
+        use_debt_baseline=use_baseline,
     )
     baseline = load_baseline(project_root) if use_baseline else None
+    debt_baseline = load_debt_baseline(project_root) if use_baseline else None
     known = set((baseline or {}).get("fingerprints", []))
+    debt_known = {
+        str(item.get("fingerprint"))
+        for item in (debt_baseline or {}).get("hotspots", [])
+        if item.get("fingerprint")
+    }
 
     previous_fingerprints = {
         finding.get("fingerprint", "")
@@ -359,7 +396,12 @@ def refresh_agent_state(
 
     for finding in normalized:
         fingerprint = finding["fingerprint"]
-        finding["is_new_vs_baseline"] = fingerprint not in known if baseline else True
+        if finding.get("category") == "debt":
+            finding["is_new_vs_baseline"] = (
+                fingerprint not in debt_known if debt_baseline else False
+            )
+        else:
+            finding["is_new_vs_baseline"] = fingerprint not in known if baseline else False
         finding["is_new_since_last_scan"] = fingerprint not in previous_fingerprints
         finding["is_in_changed_file"] = finding["file"] in changed_files
 
@@ -368,7 +410,7 @@ def refresh_agent_state(
         signatures=signatures,
         findings=normalized,
         changed_files=changed_files,
-        baseline_present=bool(baseline),
+        baseline_present=bool(baseline or debt_baseline),
         triage=triage,
     )
     save_agent_state(project_root, state, state_file=state_file)
@@ -478,6 +520,8 @@ def normalize_findings(
     project_root: str | Path,
     *,
     include_dead_code: bool = True,
+    changed_files: list[str] | None = None,
+    use_debt_baseline: bool = True,
 ) -> list[dict[str, Any]]:
     root = Path(project_root).resolve()
     findings: list[dict[str, Any]] = []
@@ -507,6 +551,14 @@ def normalize_findings(
     _append_findings(findings, result.get("danger") or [], root, "security", "HIGH")
     _append_findings(findings, result.get("secrets") or [], root, "secrets", "HIGH")
     _append_findings(findings, result.get("quality") or [], root, "quality", "MEDIUM")
+    _append_debt_hotspots(
+        findings,
+        result,
+        root,
+        changed_files=changed_files or [],
+        include_dead_code=include_dead_code,
+        use_baseline=use_debt_baseline,
+    )
 
     findings.sort(
         key=lambda item: (
@@ -523,54 +575,7 @@ def normalize_findings(
 def build_ranked_actions(
     findings: list[dict[str, Any]], changed_files: list[str]
 ) -> list[dict[str, Any]]:
-    changed = set(changed_files)
-    actions: list[dict[str, Any]] = []
-    for finding in findings:
-        if finding.get("is_dismissed") or finding.get("is_snoozed"):
-            continue
-        score = severity_score(finding["severity"]) * 100
-        if finding.get("is_new_vs_baseline"):
-            score += 220
-        if finding.get("is_new_since_last_scan"):
-            score += 140
-        if finding["file"] in changed:
-            score += 160
-        if finding["category"] in {"security", "secrets"}:
-            score += 60
-        if finding["category"] == "dead_code":
-            score -= 75
-        if finding.get("confidence") is not None:
-            score += min(int(finding["confidence"]), 100)
-
-        actions.append(
-            {
-                "id": finding["fingerprint"],
-                "title": build_action_title(finding),
-                "subtitle": build_action_subtitle(finding),
-                "reason": build_action_reason(finding),
-                "file": finding["file"],
-                "absolute_file": finding["absolute_file"],
-                "line": finding["line"],
-                "severity": finding["severity"],
-                "category": finding["category"],
-                "score": score,
-                "action_type": infer_action_type(finding),
-                "command_hint": f"open:{finding['absolute_file']}:{finding['line']}",
-                "rule_id": finding["rule_id"],
-                "message": finding["message"],
-                "safe_fix": infer_safe_fix(finding),
-            }
-        )
-
-    actions.sort(
-        key=lambda item: (
-            -int(item["score"]),
-            item["file"],
-            int(item["line"]),
-            item["title"],
-        )
-    )
-    return actions
+    return _build_ranked_actions(findings, changed_files)
 
 
 def build_summary(
@@ -581,58 +586,13 @@ def build_summary(
     *,
     triage_counts: dict[str, int] | None = None,
 ) -> dict[str, Any]:
-    critical = sum(
-        1 for item in findings if str(item["severity"]).upper() == "CRITICAL"
+    return _build_summary(
+        findings,
+        actions,
+        changed_files,
+        baseline_present,
+        triage_counts=triage_counts,
     )
-    high = sum(1 for item in findings if str(item["severity"]).upper() == "HIGH")
-    medium = sum(
-        1 for item in findings if str(item["severity"]).upper() in {"MEDIUM", "WARN"}
-    )
-    new_total = sum(1 for item in findings if item.get("is_new_vs_baseline"))
-    changed_total = sum(1 for item in findings if item.get("is_in_changed_file"))
-    changed_file_count = len(
-        {item["file"] for item in findings if item.get("is_in_changed_file")}
-    )
-    dismissed = int((triage_counts or {}).get("dismissed", 0))
-    snoozed = int((triage_counts or {}).get("snoozed", 0))
-
-    headline = build_headline(
-        critical=critical,
-        high=high,
-        new_total=new_total,
-        changed_total=changed_total,
-        baseline_present=baseline_present,
-        total=len(findings),
-    )
-
-    subtitle_parts = []
-    if changed_file_count:
-        subtitle_parts.append(
-            f"{changed_total} finding(s) in {changed_file_count} changed file(s)"
-        )
-    if baseline_present:
-        subtitle_parts.append(f"{new_total} new vs baseline")
-    if actions:
-        subtitle_parts.append(f"{len(actions)} ranked action(s)")
-    if snoozed:
-        subtitle_parts.append(f"{snoozed} snoozed")
-    if dismissed:
-        subtitle_parts.append(f"{dismissed} dismissed")
-    subtitle = " | ".join(subtitle_parts) if subtitle_parts else "No active actions"
-
-    return {
-        "headline": headline,
-        "subtitle": subtitle,
-        "total_findings": len(findings),
-        "new_findings": new_total,
-        "critical": critical,
-        "high": high,
-        "medium": medium,
-        "changed_file_count": changed_file_count,
-        "changed_files": changed_files,
-        "dismissed": dismissed,
-        "snoozed": snoozed,
-    }
 
 
 def build_headline(
@@ -644,34 +604,124 @@ def build_headline(
     baseline_present: bool,
     total: int,
 ) -> str:
-    urgent = critical + high
-    if urgent > 0 and changed_total > 0:
-        return f"{urgent} urgent finding(s) need attention in changed code"
-    if urgent > 0:
-        return f"{urgent} urgent finding(s) need attention"
-    if baseline_present and new_total > 0:
-        return f"{new_total} new finding(s) since baseline"
-    if changed_total > 0:
-        return f"{changed_total} finding(s) in files you changed"
-    if total > 0:
-        return f"{total} tracked finding(s) in repository"
-    return "No active findings"
+    return _build_headline(
+        critical=critical,
+        high=high,
+        new_total=new_total,
+        changed_total=changed_total,
+        baseline_present=baseline_present,
+        total=total,
+    )
 
 
 def render_status_table(state: dict[str, Any], *, limit: int = 10) -> dict[str, Any]:
-    summary = state.get("summary") or {}
-    actions = state.get("actions") or []
-    return {
-        "headline": summary.get("headline", "No active findings"),
-        "subtitle": summary.get("subtitle", ""),
-        "actions": actions[:limit],
-    }
+    return _render_status_table(state, limit=limit)
 
 
 def command_center_payload(state: dict[str, Any], *, limit: int = 10) -> dict[str, Any]:
-    payload = dict(state.get("command_center") or {})
-    payload["items"] = list((payload.get("items") or [])[:limit])
-    return payload
+    return _command_center_payload(state, limit=limit)
+
+
+def _append_debt_hotspots(
+    out: list[dict[str, Any]],
+    result: dict[str, Any],
+    project_root: Path,
+    *,
+    changed_files: list[str],
+    include_dead_code: bool,
+    use_baseline: bool,
+) -> None:
+    signals = collect_debt_signals(result, project_root=project_root)
+    if not include_dead_code:
+        signals = [signal for signal in signals if signal.source_category != "dead_code"]
+    if not signals:
+        return
+
+    hotspots = build_debt_hotspots(signals, changed_files=set(changed_files))
+    if use_baseline:
+        baseline = load_debt_baseline(project_root)
+        if baseline:
+            annotate_debt_hotspots(hotspots, baseline)
+    refresh_debt_hotspot_priority(hotspots)
+
+    for hotspot in hotspots:
+        first_signal = hotspot.signals[0] if hotspot.signals else None
+        line = int(first_signal.line) if first_signal else 1
+        absolute = str(resolve_file_path(hotspot.file, project_root))
+        out.append(
+            {
+                "fingerprint": hotspot.fingerprint,
+                "rule_id": "SKY-DEBT",
+                "category": "debt",
+                "severity": debt_hotspot_severity(hotspot),
+                "message": debt_hotspot_message(hotspot),
+                "file": hotspot.file,
+                "absolute_file": absolute,
+                "line": line,
+                "confidence": None,
+                "hotspot_score": hotspot.score,
+                "priority_score": hotspot.priority_score,
+                "signal_count": hotspot.signal_count,
+                "dimension_count": hotspot.dimension_count,
+                "primary_dimension": hotspot.primary_dimension,
+                "baseline_status": hotspot.baseline_status,
+                "score_delta": hotspot.score_delta,
+            }
+        )
+
+
+def debt_hotspot_severity(hotspot: dict[str, Any] | Any) -> str:
+    signals = (
+        list(hotspot.get("signals") or [])
+        if isinstance(hotspot, dict)
+        else list(getattr(hotspot, "signals", []) or [])
+    )
+    if not signals:
+        return "MEDIUM"
+
+    strongest = max(
+        (
+            normalize_severity(
+                getattr(signal, "severity", None)
+                if not isinstance(signal, dict)
+                else signal.get("severity"),
+                "LOW",
+            )
+            for signal in signals
+        ),
+        key=severity_score,
+    )
+    return strongest
+
+
+def debt_hotspot_message(hotspot: dict[str, Any] | Any) -> str:
+    if isinstance(hotspot, dict):
+        primary_dimension = str(hotspot.get("primary_dimension") or "maintainability")
+        signal_count = int(hotspot.get("signal_count") or 0)
+        score = float(hotspot.get("score") or 0.0)
+        signals = list(hotspot.get("signals") or [])
+    else:
+        primary_dimension = str(
+            getattr(hotspot, "primary_dimension", None) or "maintainability"
+        )
+        signal_count = int(getattr(hotspot, "signal_count", None) or 0)
+        score = float(getattr(hotspot, "score", None) or 0.0)
+        signals = list(getattr(hotspot, "signals", []) or [])
+    lead = ""
+    if signals:
+        first_signal = signals[0]
+        lead = str(
+            getattr(first_signal, "message", None)
+            if not isinstance(first_signal, dict)
+            else first_signal.get("message")
+            or ""
+        ).strip()
+
+    detail = (
+        f"Technical debt hotspot: {primary_dimension} "
+        f"({signal_count} signal(s), score {score:.2f})"
+    )
+    return f"{detail}. {lead}" if lead else detail
 
 
 def _append_findings(
@@ -788,58 +838,27 @@ def normalize_severity(raw: Any, default: str) -> str:
 
 
 def severity_score(severity: str) -> int:
-    normalized = str(severity).upper()
-    if normalized == "CRITICAL":
-        return 5
-    if normalized == "HIGH":
-        return 4
-    if normalized in {"MEDIUM", "WARN"}:
-        return 3
-    if normalized == "LOW":
-        return 2
-    return 1
+    return _severity_score(severity)
 
 
 def build_action_title(finding: dict[str, Any]) -> str:
-    if finding["category"] == "dead_code":
-        return f"Clean up {finding['message']}"
-    return f"Review {finding['severity']} {finding['rule_id']}"
+    return _build_action_title(finding)
 
 
 def build_action_subtitle(finding: dict[str, Any]) -> str:
-    location = f"{finding['file']}:{finding['line']}"
-    return f"{finding['message']} ({location})"
+    return _build_action_subtitle(finding)
 
 
 def build_action_reason(finding: dict[str, Any]) -> str:
-    reasons = []
-    if finding.get("is_new_vs_baseline"):
-        reasons.append("new vs baseline")
-    if finding.get("is_new_since_last_scan"):
-        reasons.append("new since last scan")
-    if finding.get("is_in_changed_file"):
-        reasons.append("in changed file")
-    if not reasons:
-        reasons.append("ranked by severity")
-    return ", ".join(reasons)
+    return _build_action_reason(finding)
 
 
 def infer_action_type(finding: dict[str, Any]) -> str:
-    if finding["category"] == "dead_code":
-        return "cleanup"
-    if finding["severity"] in {"CRITICAL", "HIGH"}:
-        return "inspect_now"
-    return "review"
+    return _infer_action_type(finding)
 
 
 def infer_safe_fix(finding: dict[str, Any]) -> str | None:
-    if finding["category"] != "dead_code":
-        return None
-    if finding["rule_id"] == "SKY-U002":
-        return "remove_import"
-    if finding["rule_id"] == "SKY-U001":
-        return "remove_function"
-    return None
+    return _infer_safe_fix(finding)
 
 
 def parse_utc_timestamp(value: Any) -> datetime | None:

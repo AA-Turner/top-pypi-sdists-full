@@ -264,6 +264,16 @@ def update_feature_names(df, method):
         if parts[0] == "AEF" and len(parts) >= 2:
             cei = "_".join(parts[:2])  # AEF_1, AEF_2, ...
             stage_parts = parts[2:]
+        elif parts[0] == "MEAN" and len(parts) >= 2 and parts[1] == "FLDAS":
+            # MEAN_FLDAS_SoilMoist_tavg_LEAD0_1_2_3
+            # Find LEADn token to split CEI name from stage numbers
+            lead_idx = next((i for i, p in enumerate(parts) if p.startswith("LEAD")), None)
+            if lead_idx is not None:
+                cei = "_".join(parts[:lead_idx + 1])
+                stage_parts = parts[lead_idx + 1:]
+            else:
+                cei = "_".join(parts[:2])
+                stage_parts = parts[2:]
         elif len(parts) >= 2 and parts[1].isdigit():
             cei = parts[0]
             stage_parts = parts[1:]

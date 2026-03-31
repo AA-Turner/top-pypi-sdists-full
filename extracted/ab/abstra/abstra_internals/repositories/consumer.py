@@ -22,8 +22,31 @@ from abstra_internals.repositories.models import (
     ControlQueueMessage,
     PreExecution,
     QueueMessage,
+    RunSnippetMessage,
+    RunSnippetPayload,
+    StopExecutionMessage,
+    StopExecutionPayload,
 )
 from abstra_internals.utils import deserialize
+
+__all__ = [
+    "ControlMessage",
+    "ControlQueueMessage",
+    "RunSnippetMessage",
+    "RunSnippetPayload",
+    "StopExecutionMessage",
+    "StopExecutionPayload",
+]
+
+
+def _parse_control_message(data: dict) -> ControlMessage:
+    """Dispatch raw control message dict to the correct typed subclass."""
+    msg_type = data.get("type")
+    if msg_type == "stop":
+        return StopExecutionMessage.model_validate(data)
+    elif msg_type == "run_snippet":
+        return RunSnippetMessage.model_validate(data)
+    return ControlMessage.model_validate(data)
 
 
 class Consumer(ABC):
@@ -247,9 +270,12 @@ class RabbitMQConsumer(Consumer):
         self.connection.add_callback_threadsafe(callback)
 
     def _deserialize(self, body: bytes) -> Union[QueueMessage, ControlQueueMessage]:
-        preexecution_data = PreExecution.model_validate(
-            deserialize(body.decode("utf-8"))
-        )
+        data = deserialize(body.decode("utf-8"))
+        if "type" in data:
+            typed_msg = _parse_control_message(data)
+            return ControlQueueMessage(message=typed_msg, delivery_tag=0)
+
+        preexecution_data = PreExecution.model_validate(data)
         return QueueMessage(
             preexecution=preexecution_data,
             delivery_tag=0,  # This will be overwritten by iter
@@ -618,11 +644,10 @@ class RabbitMQFanoutConsumer(Consumer):
         self.connection.add_callback_threadsafe(callback)
 
     def _deserialize(self, body: bytes) -> ControlQueueMessage:
-        control_message = ControlMessage.model_validate(
-            deserialize(body.decode("utf-8"))
-        )
+        data = deserialize(body.decode("utf-8"))
+        typed_msg = _parse_control_message(data)
         return ControlQueueMessage(
-            message=control_message,
+            message=typed_msg,
             delivery_tag=0,
         )
 

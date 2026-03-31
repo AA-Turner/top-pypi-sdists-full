@@ -1,6 +1,11 @@
 #![allow(missing_docs)]
 
-use html_to_markdown_rs::convert;
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
+}
 
 /// Regression test for <https://github.com/kreuzberg-dev/html-to-markdown/issues/212>
 ///

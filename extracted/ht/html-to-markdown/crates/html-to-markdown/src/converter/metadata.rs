@@ -100,7 +100,7 @@ fn handle_head(
                                 let json = child_tag.inner_text(parser);
                                 let json = json.trim();
                                 if !json.is_empty() {
-                                    let json = decode_html_entities(json).clone();
+                                    let json = decode_html_entities(json);
                                     if !json.is_empty() {
                                         collector.borrow_mut().add_json_ld(json);
                                     }

@@ -1,47 +1,12 @@
-Metadata-Version: 1.1
+Metadata-Version: 2.4
 Name: appier
-Version: 1.36.0
+Version: 1.37.2
 Summary: Appier Framework
 Home-page: http://appier.hive.pt
 Author: Hive Solutions Lda.
 Author-email: development@hive.pt
 License: Apache License, Version 2.0
-Description: `Appier <http://appier.hive.pt>`__
-        ==================================
-        
-        Joyful Python Web App development
-        
-        Appier is an object-oriented Python web framework built for super fast app development.
-        It's as lightweight as possible, but not too lightweight.
-        It gives you the power of bigger frameworks, without their complexity.
-        
-        Installation
-        ------------
-        
-            pip install appier
-        
-        Usage
-        -----
-        
-        .. code:: python
-        
-            import appier
-        
-            class HelloApp(appier.App):
-        
-                @appier.route("/", "GET")
-                def hello(self):
-                    return "Hello World"
-        
-            HelloApp().serve()
-        
-        More
-        ----
-        
-        For more information consult the `website <http://appier.hive.pt>`__.
-        
 Keywords: appier framework web json wsgi
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Utilities
 Classifier: License :: OSI Approved :: Apache Software License
@@ -62,3 +27,47 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
+
+`Appier <http://appier.hive.pt>`__
+==================================
+
+Joyful Python Web App development
+
+Appier is an object-oriented Python web framework built for super fast app development.
+It's as lightweight as possible, but not too lightweight.
+It gives you the power of bigger frameworks, without their complexity.
+
+Installation
+------------
+
+    pip install appier
+
+Usage
+-----
+
+.. code:: python
+
+    import appier
+
+    class HelloApp(appier.App):
+
+        @appier.route("/", "GET")
+        def hello(self):
+            return "Hello World"
+
+    HelloApp().serve()
+
+More
+----
+
+For more information consult the `website <http://appier.hive.pt>`__.

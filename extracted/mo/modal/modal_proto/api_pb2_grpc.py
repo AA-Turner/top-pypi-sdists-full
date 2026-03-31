@@ -620,6 +620,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.SandboxCreateV2Request.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.SandboxCreateV2Response.FromString,
                 )
+        self.SandboxGetCommandRouterAccess = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxGetCommandRouterAccess',
+                request_serializer=modal__proto_dot_api__pb2.SandboxGetCommandRouterAccessRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.SandboxGetCommandRouterAccessResponse.FromString,
+                )
         self.SandboxGetFromName = channel.unary_unary(
                 '/modal.client.ModalClient/SandboxGetFromName',
                 request_serializer=modal__proto_dot_api__pb2.SandboxGetFromNameRequest.SerializeToString,
@@ -1715,6 +1720,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SandboxGetCommandRouterAccess(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SandboxGetFromName(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2738,6 +2749,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.SandboxCreateV2,
                     request_deserializer=modal__proto_dot_api__pb2.SandboxCreateV2Request.FromString,
                     response_serializer=modal__proto_dot_api__pb2.SandboxCreateV2Response.SerializeToString,
+            ),
+            'SandboxGetCommandRouterAccess': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxGetCommandRouterAccess,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxGetCommandRouterAccessRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.SandboxGetCommandRouterAccessResponse.SerializeToString,
             ),
             'SandboxGetFromName': grpc.unary_unary_rpc_method_handler(
                     servicer.SandboxGetFromName,
@@ -5143,6 +5159,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxCreateV2',
             modal__proto_dot_api__pb2.SandboxCreateV2Request.SerializeToString,
             modal__proto_dot_api__pb2.SandboxCreateV2Response.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SandboxGetCommandRouterAccess(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxGetCommandRouterAccess',
+            modal__proto_dot_api__pb2.SandboxGetCommandRouterAccessRequest.SerializeToString,
+            modal__proto_dot_api__pb2.SandboxGetCommandRouterAccessResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

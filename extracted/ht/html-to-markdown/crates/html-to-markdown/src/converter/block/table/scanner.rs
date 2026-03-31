@@ -3,10 +3,8 @@
 //! Provides the TableScan struct and scanning functions for analyzing table structure
 //! to determine if it should be rendered as a Markdown table or converted to list format.
 
+use crate::converter::utility::content::normalized_tag_name;
 use std::borrow::Cow;
-
-/// Maximum allowed table columns to prevent unbounded memory usage.
-const MAX_TABLE_COLS: usize = 1000;
 
 /// Scan results for a table element.
 ///
@@ -25,8 +23,8 @@ pub struct TableScan {
     pub has_header: bool,
     /// Whether the table has a caption element
     pub has_caption: bool,
-    /// Whether the table contains nested tables
-    pub has_nested_table: bool,
+    /// Number of nested tables found inside this table
+    pub nested_table_count: usize,
     /// Count of anchor elements in the table
     pub link_count: usize,
     /// Whether the table contains text content (not empty)
@@ -111,7 +109,7 @@ fn scan_table_node(
                             }
                         }
                     }
-                    "table" if !is_root => scan.has_nested_table = true,
+                    "table" if !is_root => scan.nested_table_count += 1,
                     "tr" | "row" => {
                         let mut cell_count = 0;
                         for child in tag.children().top().iter() {
@@ -144,17 +142,5 @@ fn scan_table_node(
             }
             _ => {}
         }
-    }
-}
-
-/// Normalize HTML tag names to lowercase.
-///
-/// Converts tag names to a consistent lowercase form for comparison.
-fn normalized_tag_name(raw: Cow<'_, str>) -> Cow<'_, str> {
-    let lowercased = raw.to_lowercase();
-    if lowercased.as_str() == raw.as_ref() {
-        raw
-    } else {
-        Cow::Owned(lowercased)
     }
 }

@@ -16,15 +16,15 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -813,6 +813,12 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[ConferenceRecordsServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -891,9 +897,7 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
 
             """
 
-            http_options = (
-                _BaseConferenceRecordsServiceRestTransport._BaseGetConferenceRecord._get_http_options()
-            )
+            http_options = _BaseConferenceRecordsServiceRestTransport._BaseGetConferenceRecord._get_http_options()
 
             request, metadata = self._interceptor.pre_get_conference_record(
                 request, metadata
@@ -1040,9 +1044,7 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
 
             """
 
-            http_options = (
-                _BaseConferenceRecordsServiceRestTransport._BaseGetParticipant._get_http_options()
-            )
+            http_options = _BaseConferenceRecordsServiceRestTransport._BaseGetParticipant._get_http_options()
 
             request, metadata = self._interceptor.pre_get_participant(request, metadata)
             transcoded_request = _BaseConferenceRecordsServiceRestTransport._BaseGetParticipant._get_transcoded_request(
@@ -1196,9 +1198,7 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
 
             """
 
-            http_options = (
-                _BaseConferenceRecordsServiceRestTransport._BaseGetParticipantSession._get_http_options()
-            )
+            http_options = _BaseConferenceRecordsServiceRestTransport._BaseGetParticipantSession._get_http_options()
 
             request, metadata = self._interceptor.pre_get_participant_session(
                 request, metadata
@@ -1346,9 +1346,7 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
 
             """
 
-            http_options = (
-                _BaseConferenceRecordsServiceRestTransport._BaseGetRecording._get_http_options()
-            )
+            http_options = _BaseConferenceRecordsServiceRestTransport._BaseGetRecording._get_http_options()
 
             request, metadata = self._interceptor.pre_get_recording(request, metadata)
             transcoded_request = _BaseConferenceRecordsServiceRestTransport._BaseGetRecording._get_transcoded_request(
@@ -1497,9 +1495,7 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
 
             """
 
-            http_options = (
-                _BaseConferenceRecordsServiceRestTransport._BaseGetTranscript._get_http_options()
-            )
+            http_options = _BaseConferenceRecordsServiceRestTransport._BaseGetTranscript._get_http_options()
 
             request, metadata = self._interceptor.pre_get_transcript(request, metadata)
             transcoded_request = _BaseConferenceRecordsServiceRestTransport._BaseGetTranscript._get_transcoded_request(
@@ -1647,9 +1643,7 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
 
             """
 
-            http_options = (
-                _BaseConferenceRecordsServiceRestTransport._BaseGetTranscriptEntry._get_http_options()
-            )
+            http_options = _BaseConferenceRecordsServiceRestTransport._BaseGetTranscriptEntry._get_http_options()
 
             request, metadata = self._interceptor.pre_get_transcript_entry(
                 request, metadata
@@ -1799,9 +1793,7 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
 
             """
 
-            http_options = (
-                _BaseConferenceRecordsServiceRestTransport._BaseListConferenceRecords._get_http_options()
-            )
+            http_options = _BaseConferenceRecordsServiceRestTransport._BaseListConferenceRecords._get_http_options()
 
             request, metadata = self._interceptor.pre_list_conference_records(
                 request, metadata
@@ -1949,9 +1941,7 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
                     Response of ListParticipants method.
             """
 
-            http_options = (
-                _BaseConferenceRecordsServiceRestTransport._BaseListParticipants._get_http_options()
-            )
+            http_options = _BaseConferenceRecordsServiceRestTransport._BaseListParticipants._get_http_options()
 
             request, metadata = self._interceptor.pre_list_participants(
                 request, metadata
@@ -2102,9 +2092,7 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
                     Response of ListParticipants method.
             """
 
-            http_options = (
-                _BaseConferenceRecordsServiceRestTransport._BaseListParticipantSessions._get_http_options()
-            )
+            http_options = _BaseConferenceRecordsServiceRestTransport._BaseListParticipantSessions._get_http_options()
 
             request, metadata = self._interceptor.pre_list_participant_sessions(
                 request, metadata
@@ -2251,9 +2239,7 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
                     Response for ListRecordings method.
             """
 
-            http_options = (
-                _BaseConferenceRecordsServiceRestTransport._BaseListRecordings._get_http_options()
-            )
+            http_options = _BaseConferenceRecordsServiceRestTransport._BaseListRecordings._get_http_options()
 
             request, metadata = self._interceptor.pre_list_recordings(request, metadata)
             transcoded_request = _BaseConferenceRecordsServiceRestTransport._BaseListRecordings._get_transcoded_request(
@@ -2401,9 +2387,7 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
 
             """
 
-            http_options = (
-                _BaseConferenceRecordsServiceRestTransport._BaseListTranscriptEntries._get_http_options()
-            )
+            http_options = _BaseConferenceRecordsServiceRestTransport._BaseListTranscriptEntries._get_http_options()
 
             request, metadata = self._interceptor.pre_list_transcript_entries(
                 request, metadata
@@ -2550,9 +2534,7 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
                     Response for ListTranscripts method.
             """
 
-            http_options = (
-                _BaseConferenceRecordsServiceRestTransport._BaseListTranscripts._get_http_options()
-            )
+            http_options = _BaseConferenceRecordsServiceRestTransport._BaseListTranscripts._get_http_options()
 
             request, metadata = self._interceptor.pre_list_transcripts(
                 request, metadata
@@ -2719,7 +2701,9 @@ class ConferenceRecordsServiceRestTransport(_BaseConferenceRecordsServiceRestTra
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListParticipantSessions(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListParticipantSessions(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_recordings(

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: mwaa_dr
-Version: 2.1.1
+Version: 2.2.0
 Summary: DR Solution for Amazon Managed Workflows for Apache Airflow (MWAA)
 License: Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
         
@@ -29,6 +29,7 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: smart-open>=7.0.4
+Dynamic: license-file
 
 # MWAA Disaster Recovery
 

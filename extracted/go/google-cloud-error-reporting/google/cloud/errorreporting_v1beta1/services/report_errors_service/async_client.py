@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 import logging as std_logging
-from collections import OrderedDict
 import re
+from collections import OrderedDict
 from typing import (
-    Dict,
     Callable,
+    Dict,
     Mapping,
     MutableMapping,
     MutableSequence,
@@ -29,16 +29,15 @@ from typing import (
     Union,
 )
 
-from google.cloud.errorreporting_v1beta1 import gapic_version as package_version
-
-from google.api_core.client_options import ClientOptions
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
+from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
+from google.cloud.errorreporting_v1beta1 import gapic_version as package_version
 
 try:
     OptionalRetry = Union[retries.AsyncRetry, gapic_v1.method._MethodDefault, None]
@@ -46,9 +45,10 @@ except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
 from google.cloud.errorreporting_v1beta1.types import report_errors_service
-from .transports.base import ReportErrorsServiceTransport, DEFAULT_CLIENT_INFO
-from .transports.grpc_asyncio import ReportErrorsServiceGrpcAsyncIOTransport
+
 from .client import ReportErrorsServiceClient
+from .transports.base import DEFAULT_CLIENT_INFO, ReportErrorsServiceTransport
+from .transports.grpc_asyncio import ReportErrorsServiceGrpcAsyncIOTransport
 
 try:
     from google.api_core import client_logging  # type: ignore
@@ -110,7 +110,10 @@ class ReportErrorsServiceAsyncClient:
         Returns:
             ReportErrorsServiceAsyncClient: The constructed client.
         """
-        return ReportErrorsServiceClient.from_service_account_info.__func__(ReportErrorsServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ReportErrorsServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ReportErrorsServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -126,7 +129,10 @@ class ReportErrorsServiceAsyncClient:
         Returns:
             ReportErrorsServiceAsyncClient: The constructed client.
         """
-        return ReportErrorsServiceClient.from_service_account_file.__func__(ReportErrorsServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ReportErrorsServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ReportErrorsServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -164,7 +170,9 @@ class ReportErrorsServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return ReportErrorsServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return ReportErrorsServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> ReportErrorsServiceTransport:
@@ -176,7 +184,7 @@ class ReportErrorsServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:

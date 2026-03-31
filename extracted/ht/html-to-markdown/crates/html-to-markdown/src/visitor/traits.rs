@@ -1,7 +1,6 @@
 //! Visitor traits for HTML to Markdown conversion.
 //!
 //! This module contains the synchronous visitor trait.
-//! For async version, see `async_traits.rs`.
 
 use super::types::{NodeContext, VisitResult};
 

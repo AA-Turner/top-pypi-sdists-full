@@ -5,12 +5,12 @@ import abc
 import unittest
 from inspect import isabstract
 
-def test_abstractmethod_integration(self):
+def test_abstractmethod_integration(self) -> None:
     for abstractthing in [abc.abstractmethod]:
         class C(metaclass=abc.ABCMeta):
             @abstractthing
-            def foo(self): pass  # abstract
-            def bar(self): pass  # concrete
+            def foo(self) -> None: pass  # abstract
+            def bar(self) -> None: pass  # concrete
         assert C.__abstractmethods__, {"foo"}
         assert isabstract(C)
         pass

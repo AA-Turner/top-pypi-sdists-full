@@ -3,7 +3,7 @@
 # if/else in the presence of better Python bytecode generatation
 
 # RUNNABLE!
-def foo(foldnuls, word):
+def foo(foldnuls: bool, word: bool) -> int:
     x = 5 if foldnuls and not word else 6
     return x
 

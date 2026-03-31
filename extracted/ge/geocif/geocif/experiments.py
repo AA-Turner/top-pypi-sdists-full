@@ -57,7 +57,7 @@ def main_models(logger, parser, models):
     originals = {c: parser.get(c, "models") for c in countries}
 
     for model in models:
-        parser.set("DEFAULT", "experiment_name", f"exp0_{model}")
+        parser.set("DEFAULT", "experiment_name", "model_comparison")
         # Override every country's models list to just this one model
         for country in countries:
             parser.set(country, "models", f'["{model}"]')
@@ -131,7 +131,7 @@ def optimize_hyperparameters(inputs, logger, parser, n_trials=30):
         params = {
             "feature_selection": trial.suggest_categorical(
                 "feature_selection",
-                ["SelectKBest", "BorutaPy", "gOMP", "none"],
+                ["SelectKBest", "gOMP", "none"],
             ),
             "lag_years": trial.suggest_int("lag_years", 1, 5),
             "lag_yield_as_feature": trial.suggest_categorical(
@@ -280,13 +280,16 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
 
     # Hyperparameter search space (for summary display)
     hp_space = [
-        ("feature_selection", ["SelectKBest", "BorutaPy", "Leshy", "RFECV", "RFE", "gOMP", "none"]),
+        ("feature_selection", ["SelectKBest", "gOMP", "none"]),
         ("lag_years", list(range(1, 6))),
         ("lag_yield_as_feature", [True, False]),
         ("median_years", list(range(2, 6))),
         ("median_yield_as_feature", [True, False]),
         ("analogous_year_yield_as_feature", [True, False]),
         ("check_yield_trend", [True, False]),
+        ("use_spatial_neighbors", [True, False]),
+        ("spatial_neighbor_method", ["knn", "full"]),
+        ("spatial_neighbor_k", list(range(2, 9))),
     ]
 
     total_combos = 1
@@ -310,7 +313,9 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
     study = optimize_hyperparameters(inputs, logger, parser, n_trials=n_trials)
 
     # Analyze model comparison (Experiment 0)
-    model_exp_list = [("models", "models", "models", "str", model_experiment)]
+    # Lookup is handled via "Model" column in _load_experiment_results;
+    # tuple only provides the experiment label ("models") for plot grouping
+    model_exp_list = [("models", "model_comparison", "", "str", model_experiment)]
     analyze_experiments(parser, model_exp_list, logger)
 
     # Analyze optimization results
@@ -377,6 +382,13 @@ def _load_experiment_results(parser, experiments):
     df_all["param_value"] = df_all["Experiment Name"].map(
         lambda x: lookup.get(x, {}).get("value", "unknown")
     )
+
+    # For model_comparison experiments, use the "Model" DB column as param_value
+    if "model_comparison" in df_all["Experiment Name"].values:
+        mask = df_all["Experiment Name"] == "model_comparison"
+        df_all.loc[mask, "experiment"] = "models"
+        df_all.loc[mask, "param_value"] = df_all.loc[mask, "Model"]
+
     return df_all[df_all["experiment"] != "unknown"].copy()
 
 

@@ -4,8 +4,9 @@ from unittest.mock import MagicMock, patch
 
 from abstra_internals.controllers.execution.consumer import ConsumerController
 from abstra_internals.repositories.consumer import (
-    ControlMessage,
     ControlQueueMessage,
+    StopExecutionMessage,
+    StopExecutionPayload,
 )
 from abstra_internals.repositories.execution import WebEditorExecutionRepository
 from abstra_internals.settings import SettingsController
@@ -40,9 +41,7 @@ class TestWebEditorKill(unittest.TestCase):
             durable=True,
         )
 
-        expected_payload = ControlMessage(
-            type="stop", payload={"execution_id": execution_id}
-        )
+        expected_payload = StopExecutionMessage.create(execution_id)
 
         # Verify the call arguments
         call_args = mock_channel.basic_publish.call_args
@@ -75,8 +74,8 @@ class TestWebEditorKill(unittest.TestCase):
 
         # Prepare a control message
         execution_id = "test-exec-id"
-        control_msg = ControlMessage(
-            type="stop", payload={"execution_id": execution_id}
+        control_msg = StopExecutionMessage(
+            payload=StopExecutionPayload(execution_id=execution_id)
         )
         queue_msg = ControlQueueMessage(message=control_msg, delivery_tag=123)
 

@@ -17,13 +17,13 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.bigquery_storage_v1 import gapic_version as package_version
 from google.cloud.bigquery_storage_v1.types import storage, stream
@@ -83,6 +83,10 @@ class BigQueryReadTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
 
         # Save the scopes.
@@ -131,6 +135,8 @@ class BigQueryReadTransport(abc.ABC):
         if ":" not in host:
             host += ":443"
         self._host = host
+
+        self._wrapped_methods: Dict[Callable, Callable] = {}
 
     @property
     def host(self):

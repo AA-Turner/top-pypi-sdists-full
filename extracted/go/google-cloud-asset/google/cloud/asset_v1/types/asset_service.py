@@ -17,13 +17,13 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import expr_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.expr_pb2 as expr_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.asset_v1.types import assets as gca_assets
@@ -116,6 +116,7 @@ class ContentType(proto.Enum):
         RELATIONSHIP (7):
             The related resources.
     """
+
     CONTENT_TYPE_UNSPECIFIED = 0
     RESOURCE = 1
     IAM_POLICY = 2
@@ -910,6 +911,7 @@ class PartitionSpec(proto.Message):
                 additional timestamp column representing when
                 the request was received.
         """
+
         PARTITION_KEY_UNSPECIFIED = 0
         READ_TIME = 1
         REQUEST_TIME = 2
@@ -1888,23 +1890,23 @@ class AnalyzeIamPolicyResponse(proto.Message):
             number=1,
             message="IamPolicyAnalysisQuery",
         )
-        analysis_results: MutableSequence[
-            gca_assets.IamPolicyAnalysisResult
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message=gca_assets.IamPolicyAnalysisResult,
+        analysis_results: MutableSequence[gca_assets.IamPolicyAnalysisResult] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message=gca_assets.IamPolicyAnalysisResult,
+            )
         )
         fully_explored: bool = proto.Field(
             proto.BOOL,
             number=3,
         )
-        non_critical_errors: MutableSequence[
-            gca_assets.IamPolicyAnalysisState
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=5,
-            message=gca_assets.IamPolicyAnalysisState,
+        non_critical_errors: MutableSequence[gca_assets.IamPolicyAnalysisState] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=5,
+                message=gca_assets.IamPolicyAnalysisState,
+            )
         )
 
     main_analysis: IamPolicyAnalysis = proto.Field(
@@ -1912,12 +1914,12 @@ class AnalyzeIamPolicyResponse(proto.Message):
         number=1,
         message=IamPolicyAnalysis,
     )
-    service_account_impersonation_analysis: MutableSequence[
-        IamPolicyAnalysis
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=IamPolicyAnalysis,
+    service_account_impersonation_analysis: MutableSequence[IamPolicyAnalysis] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=IamPolicyAnalysis,
+        )
     )
     fully_explored: bool = proto.Field(
         proto.BOOL,
@@ -2032,6 +2034,7 @@ class IamPolicyAnalysisOutputConfig(proto.Message):
                     additional timestamp column representing when
                     the request was received.
             """
+
             PARTITION_KEY_UNSPECIFIED = 0
             REQUEST_TIME = 1
 
@@ -2448,6 +2451,7 @@ class AnalyzeMoveRequest(proto.Message):
                 will prevent the specified resource move at
                 runtime.
         """
+
         ANALYSIS_VIEW_UNSPECIFIED = 0
         FULL = 1
         BASIC = 2
@@ -3320,6 +3324,7 @@ class AnalyzerOrgPolicyConstraint(proto.Message):
                     constraints. Indicate that enforcement is on for
                     boolean constraints.
             """
+
             CONSTRAINT_DEFAULT_UNSPECIFIED = 0
             ALLOW = 1
             DENY = 2
@@ -3452,6 +3457,7 @@ class AnalyzerOrgPolicyConstraint(proto.Message):
                     Constraint applied when enforcing forced
                     tagging.
             """
+
             METHOD_TYPE_UNSPECIFIED = 0
             CREATE = 1
             UPDATE = 2
@@ -3470,6 +3476,7 @@ class AnalyzerOrgPolicyConstraint(proto.Message):
                 DENY (2):
                     Deny action type.
             """
+
             ACTION_TYPE_UNSPECIFIED = 0
             ALLOW = 1
             DENY = 2
@@ -3849,12 +3856,12 @@ class AnalyzeOrgPolicyGovernedContainersResponse(proto.Message):
             proto.STRING,
             number=7,
         )
-        effective_tags: MutableSequence[
-            gca_assets.EffectiveTagDetails
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=8,
-            message=gca_assets.EffectiveTagDetails,
+        effective_tags: MutableSequence[gca_assets.EffectiveTagDetails] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=8,
+                message=gca_assets.EffectiveTagDetails,
+            )
         )
 
     @property
@@ -4045,12 +4052,12 @@ class AnalyzeOrgPolicyGovernedAssetsResponse(proto.Message):
             proto.STRING,
             number=8,
         )
-        effective_tags: MutableSequence[
-            gca_assets.EffectiveTagDetails
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=9,
-            message=gca_assets.EffectiveTagDetails,
+        effective_tags: MutableSequence[gca_assets.EffectiveTagDetails] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=9,
+                message=gca_assets.EffectiveTagDetails,
+            )
         )
 
     class GovernedIamPolicy(proto.Message):

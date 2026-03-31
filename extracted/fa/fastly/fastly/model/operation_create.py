@@ -70,6 +70,10 @@ class OperationCreate(ModelComposed):
             'CONNECT': "CONNECT",
             'TRACE': "TRACE",
         },
+        ('status',): {
+            'SAVED': "SAVED",
+            'IGNORED': "IGNORED",
+        },
     }
 
     validations = {
@@ -106,6 +110,7 @@ class OperationCreate(ModelComposed):
             'path': (str,),  # noqa: E501
             'description': (str,),  # noqa: E501
             'tag_ids': ([str],),  # noqa: E501
+            'status': (str,),  # noqa: E501
         }
 
     @cached_property
@@ -119,6 +124,7 @@ class OperationCreate(ModelComposed):
         'path': 'path',  # noqa: E501
         'description': 'description',  # noqa: E501
         'tag_ids': 'tag_ids',  # noqa: E501
+        'status': 'status',  # noqa: E501
     }
 
     read_only_vars = {
@@ -165,6 +171,7 @@ class OperationCreate(ModelComposed):
                                 _visited_composed_classes = (Animal,)
             description (str): A description of what the operation does.. [optional]  # noqa: E501
             tag_ids ([str]): An array of operation tag IDs associated with this operation.. [optional]  # noqa: E501
+            status (str): The status to assign to the operation. Defaults to SAVED if omitted.. [optional] if omitted the server will use the default value of "SAVED"  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)
@@ -269,6 +276,7 @@ class OperationCreate(ModelComposed):
                                 _visited_composed_classes = (Animal,)
             description (str): A description of what the operation does.. [optional]  # noqa: E501
             tag_ids ([str]): An array of operation tag IDs associated with this operation.. [optional]  # noqa: E501
+            status (str): The status to assign to the operation. Defaults to SAVED if omitted.. [optional] if omitted the server will use the default value of "SAVED"  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)

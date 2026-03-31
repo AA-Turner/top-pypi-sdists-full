@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "extra-platforms"
-version = "11.0.3"
+version = "11.0.4"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
@@ -139,6 +139,7 @@ keywords = [
   "Ubuntu",
   "Ultramarine",
   "Unix",
+  "Void Linux",
   "VS Code Terminal",
   "WebAssembly (32-bit)",
   "WebAssembly (64-bit)",
@@ -257,7 +258,7 @@ extra-platforms = "extra_platforms.__main__:main"
 [project.urls]
 "Changelog" = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 "Documentation" = "https://kdeldycke.github.io/extra-platforms"
-"Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v11.0.3"
+"Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v11.0.4"
 "Funding" = "https://github.com/sponsors/kdeldycke"
 "Homepage" = "https://github.com/kdeldycke/extra-platforms"
 "Issues" = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -384,7 +385,7 @@ run.source = [ "extra_platforms" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "11.0.3"
+current_version = "11.0.4"
 allow_dirty = true
 ignore_missing_files = true
 # Parse versions with an optional .devN suffix (PEP 440).
@@ -443,9 +444,18 @@ warn_return_any = true
 warn_unreachable = true
 pretty = true
 
+[tool.lychee]
+exclude = [
+    # GitHub issue comment fragments are dynamically loaded and cannot be verified.
+    "^https://github.com/.+/issues/[0-9]+#issuecomment-.*$",
+    # Skip suggesting redirecting generic download links to their binary artefact.
+    "^https://github.com/.+/releases/.+/download/.*$",
+    # Allow redirects of generic DOI URLs to their specific Zenodo release page.
+    "^https://doi.org/.+/zenodo.*$",
+]
+
 [tool.repomatic]
-# We don't want repomatic's skills in this repository. And no need for custom label or zizmor configuration either.
-init.exclude = [ "labels", "zizmor" ]
+# We don't need custom label configuration, and the debug workflow is not used in this project.
+exclude = [ "labels", "workflows/debug.yaml" ]
 # Building the package with Nuitka is overkill.
 nuitka.enabled = false
-workflow.sync-exclude = [ "debug.yaml" ]

@@ -31,7 +31,7 @@ class _Client:
     client_type: int
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.4.0"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.4.1"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -163,7 +163,7 @@ class Client:
     client_type: int
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.4.0"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.4.1"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.

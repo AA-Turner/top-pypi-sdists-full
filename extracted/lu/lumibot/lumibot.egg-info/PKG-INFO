@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lumibot
-Version: 4.4.56
+Version: 4.4.57
 Summary: Backtesting and Trading Library, Made by Lumiwealth
 Home-page: https://github.com/Lumiwealth/lumibot
 Author: Robert Grzesik
@@ -29,7 +29,7 @@ Requires-Dist: bcrypt
 Requires-Dist: pytest
 Requires-Dist: yappi>=1.6.0
 Requires-Dist: scipy>=1.14.0
-Requires-Dist: quantstats-lumi>=1.1.1
+Requires-Dist: quantstats-lumi<1.2.0,>=1.1.3
 Requires-Dist: python-dotenv
 Requires-Dist: ccxt>=4.4.80
 Requires-Dist: termcolor
@@ -48,11 +48,16 @@ Requires-Dist: databento>=0.42.0
 Requires-Dist: holidays
 Requires-Dist: psutil
 Requires-Dist: openai
+Requires-Dist: google-adk>=1.19.0
+Requires-Dist: google-genai>=1.68.0
+Requires-Dist: anyio>=4.10.0
+Requires-Dist: mcp>=1.26.0
 Requires-Dist: schwab-py>=1.5.0
 Requires-Dist: Flask>=2.3
 Requires-Dist: free-proxy
 Requires-Dist: requests-oauthlib
 Requires-Dist: boto3>=1.40.64
+Requires-Dist: httpx
 Provides-Extra: thetadata
 Requires-Dist: thetadata; extra == "thetadata"
 Dynamic: author
@@ -103,6 +108,25 @@ To get started with Lumibot, you can check out our documentation below.
 
 **Check out the documentation for the project here: 👉 <http://lumibot.lumiwealth.com/> 👈**
 
+## AI Trading Agents and Agentic Backtesting
+
+Lumibot now includes a built-in AI trading agent runtime for strategies. You can create an agent with `self.agents.create(...)`, run it from `initialize()`, `on_trading_iteration()`, `on_filled_order()`, or any other lifecycle method, and reuse the same strategy in both backtests and live trading.
+
+- Build an **AI trading agent** directly inside a LumiBot strategy
+- Use **DuckDB** as the query surface for time-series analysis instead of dumping raw bars into prompts
+- Replay identical agent decisions in **backtests** without paying for another model call
+- Mount external **MCP servers** for news, macro, filings, or any other domain-specific tools
+- Use LumiBot's internal runtime prompt plus your own system prompt, with structured traces and default per-run summaries for debugging
+- Keep the strategy in charge of timing, risk rules, and execution
+
+Start here:
+
+- Sphinx docs: <https://lumibot.lumiwealth.com/agents.html>
+- Backtesting docs: <https://lumibot.lumiwealth.com/backtesting.html>
+- Stock example: [lumibot/example_strategies/agent_stock_backtest.py](https://github.com/Lumiwealth/lumibot/blob/dev/lumibot/example_strategies/agent_stock_backtest.py)
+- Option example: [lumibot/example_strategies/agent_option_backtest.py](https://github.com/Lumiwealth/lumibot/blob/dev/lumibot/example_strategies/agent_option_backtest.py)
+- Repo guide: [docs/AI_TRADING_AGENTS.md](https://github.com/Lumiwealth/lumibot/blob/dev/docs/AI_TRADING_AGENTS.md)
+
 ## Build Trading Bots with AI
 
 Want to build trading bots without code? Check out our new platform [BotSpot](https://botspot.trade/sales?utm_source=lumibot+docs&utm_medium=documentation&utm_campaign=GitHub+Readme) where you can create and deploy trading strategies using AI! BotSpot allows you to:
@@ -131,7 +155,17 @@ python -m lumibot.example_strategies.stock_buy_and_hold
 
 ## Backtesting data sources (env override)
 
-You can select a backtesting data source via the `BACKTESTING_DATA_SOURCE` environment variable (this overrides any explicit `datasource_class` in code):
+You can select a backtesting data source via the `BACKTESTING_DATA_SOURCE` environment variable (this overrides any explicit `datasource_class` in code). When your environment already chooses the provider, call `Strategy.backtest(...)` or `Strategy.run_backtest(...)` with `datasource_class=None`:
+
+```python
+MyStrategy.backtest(
+    datasource_class=None,
+    backtesting_start=None,
+    backtesting_end=None,
+)
+```
+
+Environment-driven routing still works the same way:
 
 ```bash
 # Single-provider backtesting (examples)

@@ -3,7 +3,7 @@
 # in the "if" instead
 
 # RUNNABLE!
-def instruction_sequence_value(instrs, a, b):
+def instruction_sequence_value(instrs, a: bool, b: bool):
     for instr in instrs:
         if a:
             a = 6

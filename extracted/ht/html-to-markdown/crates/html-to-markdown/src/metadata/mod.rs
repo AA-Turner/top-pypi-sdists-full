@@ -40,14 +40,14 @@
 //! - [`ImageMetadata`]: Image element with src, alt, title, dimensions, type, and attributes
 //! - [`StructuredData`]: Structured data block with type and raw JSON
 //! - [`MetadataConfig`]: Configuration controlling extraction granularity and size limits
-//! - [`ExtendedMetadata`]: Top-level result containing all extracted metadata
+//! - [`HtmlMetadata`]: Top-level result containing all extracted metadata
 //!
 //! # Examples
 //!
-//! ## Basic Usage with `convert_with_metadata`
+//! ## Basic Usage with `convert()`
 //!
 //! ```ignore
-//! use html_to_markdown_rs::{convert_with_metadata, MetadataConfig};
+//! use html_to_markdown_rs::convert;
 //!
 //! let html = r#"
 //!   <html lang="en">
@@ -63,8 +63,8 @@
 //!   </html>
 //! "#;
 //!
-//! let config = MetadataConfig::default();
-//! let (markdown, metadata) = convert_with_metadata(html, None, config)?;
+//! let result = convert(html, None)?;
+//! let metadata = result.metadata.unwrap();
 //!
 //! // Access document metadata
 //! assert_eq!(metadata.document.title, Some("My Article".to_string()));
@@ -88,28 +88,26 @@
 //! ## Selective Extraction
 //!
 //! ```ignore
-//! use html_to_markdown_rs::{convert_with_metadata, MetadataConfig};
+//! use html_to_markdown_rs::{convert, ConversionOptions};
 //!
-//! let config = MetadataConfig {
-//!     extract_headers: true,
-//!     extract_links: true,
-//!     extract_images: false,  // Skip images
-//!     extract_structured_data: false,  // Skip structured data
-//!     max_structured_data_size: 0,
+//! let options = ConversionOptions {
+//!     extract_metadata: false,  // Disable metadata extraction
+//!     ..Default::default()
 //! };
 //!
-//! let (markdown, metadata) = convert_with_metadata(html, None, config)?;
-//! assert_eq!(metadata.images.len(), 0);  // Images not extracted
+//! let result = convert(html, Some(options))?;
+//! assert!(result.metadata.is_none());  // Metadata not extracted
 //! # Ok::<(), html_to_markdown_rs::ConversionError>(())
 //! ```
 //!
 //! ## Analyzing Link Types
 //!
 //! ```ignore
-//! use html_to_markdown_rs::{convert_with_metadata, MetadataConfig};
+//! use html_to_markdown_rs::convert;
 //! use html_to_markdown_rs::metadata::LinkType;
 //!
-//! let (_markdown, metadata) = convert_with_metadata(html, None, MetadataConfig::default())?;
+//! let result = convert(html, None)?;
+//! let metadata = result.metadata.unwrap();
 //!
 //! for link in &metadata.links {
 //!     match link.link_type {
@@ -129,11 +127,13 @@
 //! This enables easy export to JSON, YAML, or other formats:
 //!
 //! ```ignore
-//! use html_to_markdown_rs::{convert_with_metadata, MetadataConfig};
+//! use html_to_markdown_rs::convert;
 //!
-//! let (_markdown, metadata) = convert_with_metadata(html, None, MetadataConfig::default())?;
-//! let json = serde_json::to_string_pretty(&metadata)?;
-//! println!("{}", json);
+//! let result = convert(html, None)?;
+//! if let Some(metadata) = &result.metadata {
+//!     let json = serde_json::to_string_pretty(metadata)?;
+//!     println!("{}", json);
+//! }
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
@@ -146,8 +146,8 @@ pub mod types;
 pub use collector::MetadataCollector;
 pub use config::{DEFAULT_MAX_STRUCTURED_DATA_SIZE, MetadataConfig, MetadataConfigUpdate};
 pub use types::{
-    DocumentMetadata, ExtendedMetadata, HeaderMetadata, ImageMetadata, ImageType, LinkMetadata, LinkType,
-    StructuredData, StructuredDataType, TextDirection,
+    DocumentMetadata, HeaderMetadata, HtmlMetadata, ImageMetadata, ImageType, LinkMetadata, LinkType, StructuredData,
+    StructuredDataType, TextDirection,
 };
 
 // Internal handle type for shared mutable access during tree traversal

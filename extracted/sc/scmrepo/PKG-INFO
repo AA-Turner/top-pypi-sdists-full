@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scmrepo
-Version: 3.6.1
+Version: 3.6.2
 Summary: scmrepo
 Author-email: Treeverse <support@dvc.org>
 License-Expression: Apache-2.0
@@ -18,7 +18,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: gitpython>3
-Requires-Dist: dulwich>=0.24.3
+Requires-Dist: dulwich<2,>=0.24.3
 Requires-Dist: pygit2>=1.14.0
 Requires-Dist: pygtrie>=2.3.2
 Requires-Dist: fsspec[tqdm]>=2024.2.0

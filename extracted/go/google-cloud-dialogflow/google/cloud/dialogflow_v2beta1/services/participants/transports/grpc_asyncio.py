@@ -17,9 +17,12 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async
 from google.api_core import retry_async as retries
@@ -28,13 +31,10 @@ from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
-from google.cloud.dialogflow_v2beta1.types import participant as gcd_participant
 from google.cloud.dialogflow_v2beta1.types import participant
+from google.cloud.dialogflow_v2beta1.types import participant as gcd_participant
 
 from .base import DEFAULT_CLIENT_INFO, ParticipantsTransport
 from .grpc import ParticipantsGrpcTransport
@@ -63,7 +63,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -98,7 +98,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -239,6 +239,10 @@ class ParticipantsGrpcAsyncIOTransport(ParticipantsTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -519,12 +523,12 @@ class ParticipantsGrpcAsyncIOTransport(ParticipantsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "streaming_analyze_content" not in self._stubs:
-            self._stubs[
-                "streaming_analyze_content"
-            ] = self._logged_channel.stream_stream(
-                "/google.cloud.dialogflow.v2beta1.Participants/StreamingAnalyzeContent",
-                request_serializer=participant.StreamingAnalyzeContentRequest.serialize,
-                response_deserializer=participant.StreamingAnalyzeContentResponse.deserialize,
+            self._stubs["streaming_analyze_content"] = (
+                self._logged_channel.stream_stream(
+                    "/google.cloud.dialogflow.v2beta1.Participants/StreamingAnalyzeContent",
+                    request_serializer=participant.StreamingAnalyzeContentRequest.serialize,
+                    response_deserializer=participant.StreamingAnalyzeContentResponse.deserialize,
+                )
             )
         return self._stubs["streaming_analyze_content"]
 
@@ -551,12 +555,12 @@ class ParticipantsGrpcAsyncIOTransport(ParticipantsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "bidi_streaming_analyze_content" not in self._stubs:
-            self._stubs[
-                "bidi_streaming_analyze_content"
-            ] = self._logged_channel.stream_stream(
-                "/google.cloud.dialogflow.v2beta1.Participants/BidiStreamingAnalyzeContent",
-                request_serializer=participant.BidiStreamingAnalyzeContentRequest.serialize,
-                response_deserializer=participant.BidiStreamingAnalyzeContentResponse.deserialize,
+            self._stubs["bidi_streaming_analyze_content"] = (
+                self._logged_channel.stream_stream(
+                    "/google.cloud.dialogflow.v2beta1.Participants/BidiStreamingAnalyzeContent",
+                    request_serializer=participant.BidiStreamingAnalyzeContentRequest.serialize,
+                    response_deserializer=participant.BidiStreamingAnalyzeContentResponse.deserialize,
+                )
             )
         return self._stubs["bidi_streaming_analyze_content"]
 

@@ -17,14 +17,14 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import date_pb2  # type: ignore
-from google.type import dayofweek_pb2  # type: ignore
-from google.type import timeofday_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.date_pb2 as date_pb2  # type: ignore
+import google.type.dayofweek_pb2 as dayofweek_pb2  # type: ignore
+import google.type.timeofday_pb2 as timeofday_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dlp_v2.types import storage
@@ -55,7 +55,11 @@ __protobuf__ = proto.module(
         "ConnectionState",
         "ExcludeInfoTypes",
         "ExcludeByHotword",
+        "ExcludeByImageFindings",
         "ExclusionRule",
+        "AdjustByMatchingInfoTypes",
+        "AdjustByImageFindings",
+        "AdjustmentRule",
         "InspectionRule",
         "InspectionRuleSet",
         "InspectConfig",
@@ -68,6 +72,7 @@ __protobuf__ = proto.module(
         "ContentLocation",
         "MetadataLocation",
         "StorageMetadataLabel",
+        "KeyValueMetadataLabel",
         "DocumentLocation",
         "RecordLocation",
         "TableLocation",
@@ -264,6 +269,10 @@ __protobuf__ = proto.module(
         "HybridContentItem",
         "HybridFindingDetails",
         "HybridInspectResponse",
+        "ImageContainmentType",
+        "Overlap",
+        "Encloses",
+        "FullyInside",
         "ListProjectDataProfilesRequest",
         "ListProjectDataProfilesResponse",
         "ListTableDataProfilesRequest",
@@ -343,6 +352,7 @@ class TransformationResultStatusType(proto.Enum):
             This will be set when the transformation and
             storing of it is successful.
     """
+
     STATE_TYPE_UNSPECIFIED = 0
     INVALID_TRANSFORM = 1
     BIGQUERY_MAX_ROW_SIZE_EXCEEDED = 2
@@ -364,6 +374,7 @@ class TransformationContainerType(proto.Enum):
         TRANSFORM_TABLE (3):
             A table.
     """
+
     TRANSFORM_UNKNOWN_CONTAINER = 0
     TRANSFORM_BODY = 1
     TRANSFORM_METADATA = 2
@@ -407,6 +418,7 @@ class TransformationType(proto.Enum):
         REDACT_IMAGE (14):
             Redact image
     """
+
     TRANSFORMATION_TYPE_UNSPECIFIED = 0
     RECORD_SUPPRESSION = 1
     REPLACE_VALUE = 2
@@ -438,6 +450,7 @@ class ProfileGeneration(proto.Enum):
             The profile is an update to a previous
             profile.
     """
+
     PROFILE_GENERATION_UNSPECIFIED = 0
     PROFILE_GENERATION_NEW = 1
     PROFILE_GENERATION_UPDATE = 2
@@ -465,6 +478,7 @@ class BigQueryTableTypeCollection(proto.Enum):
             table types will not have partial profiles
             generated.
     """
+
     BIG_QUERY_COLLECTION_UNSPECIFIED = 0
     BIG_QUERY_COLLECTION_ALL_TYPES = 1
     BIG_QUERY_COLLECTION_ONLY_SUPPORTED_TYPES = 2
@@ -485,6 +499,7 @@ class BigQueryTableType(proto.Enum):
         BIG_QUERY_TABLE_TYPE_SNAPSHOT (3):
             A snapshot of a BigQuery table.
     """
+
     BIG_QUERY_TABLE_TYPE_UNSPECIFIED = 0
     BIG_QUERY_TABLE_TYPE_TABLE = 1
     BIG_QUERY_TABLE_TYPE_EXTERNAL_BIG_LAKE = 2
@@ -508,6 +523,7 @@ class DataProfileUpdateFrequency(proto.Enum):
             The data profile can be updated up to once
             every 30 days. Default.
     """
+
     UPDATE_FREQUENCY_UNSPECIFIED = 0
     UPDATE_FREQUENCY_NEVER = 1
     UPDATE_FREQUENCY_DAILY = 2
@@ -525,6 +541,7 @@ class BigQueryTableModification(proto.Enum):
             A table will be considered modified when the
             last_modified_time from BigQuery has been updated.
     """
+
     TABLE_MODIFICATION_UNSPECIFIED = 0
     TABLE_MODIFIED_TIMESTAMP = 1
 
@@ -543,6 +560,7 @@ class BigQuerySchemaModification(proto.Enum):
             Profiles should be regenerated when columns
             are removed from the table.
     """
+
     SCHEMA_MODIFICATION_UNSPECIFIED = 0
     SCHEMA_NEW_COLUMNS = 1
     SCHEMA_REMOVED_COLUMNS = 2
@@ -571,6 +589,7 @@ class RelationalOperator(proto.Enum):
         EXISTS (7):
             Exists
     """
+
     RELATIONAL_OPERATOR_UNSPECIFIED = 0
     EQUAL_TO = 1
     NOT_EQUAL_TO = 2
@@ -614,11 +633,25 @@ class MatchingType(proto.Enum):
             - Regex: finding doesn't match the regex
             - Exclude infoType: no intersection with
               affecting infoTypes findings
+        MATCHING_TYPE_RULE_SPECIFIC (4):
+            Rule-specific match.
+
+            The matching logic is based on the specific rule being used.
+            This is required for rules where the matching behavior is
+            not a simple string comparison (e.g., image containment).
+            This matching type can only be used with the
+            ``ExcludeByImageFindings`` rule.
+
+            - Exclude by image findings: The matching logic is defined
+              within ``ExcludeByImageFindings`` based on spatial
+              relationships between bounding boxes.
     """
+
     MATCHING_TYPE_UNSPECIFIED = 0
     MATCHING_TYPE_FULL_MATCH = 1
     MATCHING_TYPE_PARTIAL_MATCH = 2
     MATCHING_TYPE_INVERSE_MATCH = 3
+    MATCHING_TYPE_RULE_SPECIFIC = 4
 
 
 class ContentOption(proto.Enum):
@@ -634,6 +667,7 @@ class ContentOption(proto.Enum):
         CONTENT_IMAGE (2):
             Images found in the data.
     """
+
     CONTENT_UNSPECIFIED = 0
     CONTENT_TEXT = 1
     CONTENT_IMAGE = 2
@@ -648,9 +682,13 @@ class MetadataType(proto.Enum):
         STORAGE_METADATA (2):
             General file metadata provided by Cloud
             Storage.
+        CONTENT_METADATA (3):
+            Metadata extracted from the files.
     """
+
     METADATATYPE_UNSPECIFIED = 0
     STORAGE_METADATA = 2
+    CONTENT_METADATA = 3
 
 
 class InfoTypeSupportedBy(proto.Enum):
@@ -664,6 +702,7 @@ class InfoTypeSupportedBy(proto.Enum):
         RISK_ANALYSIS (2):
             Supported by the risk analysis operations.
     """
+
     ENUM_TYPE_UNSPECIFIED = 0
     INSPECT = 1
     RISK_ANALYSIS = 2
@@ -681,6 +720,7 @@ class DlpJobType(proto.Enum):
         RISK_ANALYSIS_JOB (2):
             The job executed a Risk Analysis computation.
     """
+
     DLP_JOB_TYPE_UNSPECIFIED = 0
     INSPECT_JOB = 1
     RISK_ANALYSIS_JOB = 2
@@ -705,6 +745,7 @@ class StoredInfoTypeState(proto.Enum):
             StoredInfoType, use the ``UpdateStoredInfoType`` method to
             create a new version.
     """
+
     STORED_INFO_TYPE_STATE_UNSPECIFIED = 0
     PENDING = 1
     READY = 2
@@ -731,6 +772,7 @@ class ResourceVisibility(proto.Enum):
         RESOURCE_VISIBILITY_RESTRICTED (20):
             Visible only to specific users.
     """
+
     RESOURCE_VISIBILITY_UNSPECIFIED = 0
     RESOURCE_VISIBILITY_PUBLIC = 10
     RESOURCE_VISIBILITY_INCONCLUSIVE = 15
@@ -749,6 +791,7 @@ class EncryptionStatus(proto.Enum):
         ENCRYPTION_CUSTOMER_MANAGED (2):
             Customer provides the key.
     """
+
     ENCRYPTION_STATUS_UNSPECIFIED = 0
     ENCRYPTION_GOOGLE_MANAGED = 1
     ENCRYPTION_CUSTOMER_MANAGED = 2
@@ -770,6 +813,7 @@ class NullPercentageLevel(proto.Enum):
         NULL_PERCENTAGE_HIGH (4):
             A lot of null entries.
     """
+
     NULL_PERCENTAGE_LEVEL_UNSPECIFIED = 0
     NULL_PERCENTAGE_VERY_LOW = 1
     NULL_PERCENTAGE_LOW = 2
@@ -797,6 +841,7 @@ class UniquenessScoreLevel(proto.Enum):
             High uniqueness, possibly a column of free
             text or unique identifiers.
     """
+
     UNIQUENESS_SCORE_LEVEL_UNSPECIFIED = 0
     UNIQUENESS_SCORE_LOW = 1
     UNIQUENESS_SCORE_MEDIUM = 2
@@ -830,6 +875,7 @@ class ConnectionState(proto.Enum):
             properties will automatically mark it as
             AVAILABLE.
     """
+
     CONNECTION_STATE_UNSPECIFIED = 0
     MISSING_CREDENTIALS = 1
     AVAILABLE = 2
@@ -890,6 +936,47 @@ class ExcludeByHotword(proto.Message):
     )
 
 
+class ExcludeByImageFindings(proto.Message):
+    r"""The rule to exclude image findings based on spatial
+    relationships with other image findings. For example, exclude an
+    image finding if it overlaps with another image finding.
+    This rule is silently ignored if the content being inspected is
+    not an image.
+
+    Attributes:
+        info_types (MutableSequence[google.cloud.dlp_v2.types.InfoType]):
+            A list of image-supported infoTypes—excluding `document
+            infoTypes <https://cloud.google.com/sensitive-data-protection/docs/infotypes-reference#documents>`__—to
+            be used as context for the exclusion rule. A finding is
+            excluded if its bounding box has the specified spatial
+            relationship (defined by ``image_containment_type``) with a
+            finding of an infoType in this list.
+
+            For example, if ``InspectionRuleSet.info_types`` includes
+            ``OBJECT_TYPE/PERSON`` and this ``exclusion_rule`` specifies
+            ``info_types`` as ``OBJECT_TYPE/PERSON/PASSPORT`` with
+            ``image_containment_type`` set to ``encloses``, then
+            ``OBJECT_TYPE/PERSON`` findings will be excluded if they are
+            fully contained within the bounding box of an
+            ``OBJECT_TYPE/PERSON/PASSPORT`` finding.
+        image_containment_type (google.cloud.dlp_v2.types.ImageContainmentType):
+            Specifies the required spatial relationship
+            between the bounding boxes of the target finding
+            and the context infoType findings.
+    """
+
+    info_types: MutableSequence[storage.InfoType] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message=storage.InfoType,
+    )
+    image_containment_type: "ImageContainmentType" = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        message="ImageContainmentType",
+    )
+
+
 class ExclusionRule(proto.Message):
     r"""The rule that specifies conditions when findings of infoTypes
     specified in ``InspectionRuleSet`` are removed from results.
@@ -921,6 +1008,12 @@ class ExclusionRule(proto.Message):
             includes the column name.
 
             This field is a member of `oneof`_ ``type``.
+        exclude_by_image_findings (google.cloud.dlp_v2.types.ExcludeByImageFindings):
+            Exclude findings based on image containment
+            rules. For example, exclude an image finding if
+            it overlaps with another image finding.
+
+            This field is a member of `oneof`_ ``type``.
         matching_type (google.cloud.dlp_v2.types.MatchingType):
             How the rule is applied, see MatchingType
             documentation for details.
@@ -950,10 +1043,170 @@ class ExclusionRule(proto.Message):
         oneof="type",
         message="ExcludeByHotword",
     )
+    exclude_by_image_findings: "ExcludeByImageFindings" = proto.Field(
+        proto.MESSAGE,
+        number=6,
+        oneof="type",
+        message="ExcludeByImageFindings",
+    )
     matching_type: "MatchingType" = proto.Field(
         proto.ENUM,
         number=4,
         enum="MatchingType",
+    )
+
+
+class AdjustByMatchingInfoTypes(proto.Message):
+    r"""AdjustmentRule condition for matching infoTypes.
+
+    Attributes:
+        info_types (MutableSequence[google.cloud.dlp_v2.types.InfoType]):
+            Sensitive Data Protection adjusts the likelihood of a
+            finding if that finding also matches one of these infoTypes.
+
+            For example, you can create a rule to adjust the likelihood
+            of a ``PHONE_NUMBER`` finding if the string is found within
+            a document that is classified as
+            ``DOCUMENT_TYPE/HR/RESUME``. To configure this, set
+            ``PHONE_NUMBER`` in ``InspectionRuleSet.info_types``. Add an
+            ``adjustment_rule`` with an
+            ``adjust_by_matching_info_types.info_types`` that contains
+            ``DOCUMENT_TYPE/HR/RESUME``. In this case, the likelihood of
+            the ``PHONE_NUMBER`` finding is adjusted, but the likelihood
+            of the ``DOCUMENT_TYPE/HR/RESUME`` finding is not.
+        min_likelihood (google.cloud.dlp_v2.types.Likelihood):
+            Required. Minimum likelihood of the
+            ``adjust_by_matching_info_types.info_types`` finding. If the
+            likelihood is lower than this value, Sensitive Data
+            Protection doesn't adjust the likelihood of the
+            ``InspectionRuleSet.info_types`` finding.
+        matching_type (google.cloud.dlp_v2.types.MatchingType):
+            How the adjustment rule is applied.
+
+            Only ``MATCHING_TYPE_PARTIAL_MATCH`` is supported:
+
+            - Partial match: adjusts the findings of infoTypes specified
+              in the inspection rule when they have a nonempty
+              intersection with a finding of an infoType specified in
+              this adjustment rule.
+    """
+
+    info_types: MutableSequence[storage.InfoType] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message=storage.InfoType,
+    )
+    min_likelihood: storage.Likelihood = proto.Field(
+        proto.ENUM,
+        number=2,
+        enum=storage.Likelihood,
+    )
+    matching_type: "MatchingType" = proto.Field(
+        proto.ENUM,
+        number=3,
+        enum="MatchingType",
+    )
+
+
+class AdjustByImageFindings(proto.Message):
+    r"""AdjustmentRule condition for image findings.
+    This rule is silently ignored if the content being inspected is
+    not an image.
+
+    Attributes:
+        info_types (MutableSequence[google.cloud.dlp_v2.types.InfoType]):
+            A list of image-supported infoTypes—excluding `document
+            infoTypes <https://cloud.google.com/sensitive-data-protection/docs/infotypes-reference#documents>`__—to
+            be used as context for the adjustment rule. Sensitive Data
+            Protection adjusts the likelihood of an image finding if its
+            bounding box has the specified spatial relationship (defined
+            by ``image_containment_type``) with a finding of an infoType
+            in this list.
+
+            For example, you can create a rule to adjust the likelihood
+            of a ``US_PASSPORT`` finding if it is enclosed by a finding
+            of ``OBJECT_TYPE/PERSON/PASSPORT``. To configure this, set
+            ``US_PASSPORT`` in ``InspectionRuleSet.info_types``. Add an
+            ``adjustment_rule`` with an
+            ``adjust_by_image_findings.info_types`` that contains
+            ``OBJECT_TYPE/PERSON/PASSPORT`` and
+            ``image_containment_type`` set to ``encloses``. In this
+            case, the likelihood of the ``US_PASSPORT`` finding is
+            adjusted, but the likelihood of the
+            ``OBJECT_TYPE/PERSON/PASSPORT`` finding is not.
+        min_likelihood (google.cloud.dlp_v2.types.Likelihood):
+            Required. Minimum likelihood of the
+            ``adjust_by_image_findings.info_types`` finding. If the
+            likelihood is lower than this value, Sensitive Data
+            Protection doesn't adjust the likelihood of the
+            ``InspectionRuleSet.info_types`` finding.
+        image_containment_type (google.cloud.dlp_v2.types.ImageContainmentType):
+            Specifies the required spatial relationship
+            between the bounding boxes of the target finding
+            and the context infoType findings.
+    """
+
+    info_types: MutableSequence[storage.InfoType] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=1,
+        message=storage.InfoType,
+    )
+    min_likelihood: storage.Likelihood = proto.Field(
+        proto.ENUM,
+        number=2,
+        enum=storage.Likelihood,
+    )
+    image_containment_type: "ImageContainmentType" = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        message="ImageContainmentType",
+    )
+
+
+class AdjustmentRule(proto.Message):
+    r"""Rule that specifies conditions when a certain infoType's
+    finding details should be adjusted.
+
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        adjust_by_matching_info_types (google.cloud.dlp_v2.types.AdjustByMatchingInfoTypes):
+            Set of infoTypes for which findings would
+            affect this rule.
+
+            This field is a member of `oneof`_ ``conditions``.
+        adjust_by_image_findings (google.cloud.dlp_v2.types.AdjustByImageFindings):
+            AdjustmentRule condition for image findings.
+
+            This field is a member of `oneof`_ ``conditions``.
+        likelihood_adjustment (google.cloud.dlp_v2.types.CustomInfoType.DetectionRule.LikelihoodAdjustment):
+            Likelihood adjustment to apply to the
+            infoType.
+    """
+
+    adjust_by_matching_info_types: "AdjustByMatchingInfoTypes" = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        oneof="conditions",
+        message="AdjustByMatchingInfoTypes",
+    )
+    adjust_by_image_findings: "AdjustByImageFindings" = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        oneof="conditions",
+        message="AdjustByImageFindings",
+    )
+    likelihood_adjustment: storage.CustomInfoType.DetectionRule.LikelihoodAdjustment = (
+        proto.Field(
+            proto.MESSAGE,
+            number=2,
+            message=storage.CustomInfoType.DetectionRule.LikelihoodAdjustment,
+        )
     )
 
 
@@ -977,6 +1230,10 @@ class InspectionRule(proto.Message):
             Exclusion rule.
 
             This field is a member of `oneof`_ ``type``.
+        adjustment_rule (google.cloud.dlp_v2.types.AdjustmentRule):
+            Adjustment rule.
+
+            This field is a member of `oneof`_ ``type``.
     """
 
     hotword_rule: storage.CustomInfoType.DetectionRule.HotwordRule = proto.Field(
@@ -990,6 +1247,12 @@ class InspectionRule(proto.Message):
         number=2,
         oneof="type",
         message="ExclusionRule",
+    )
+    adjustment_rule: "AdjustmentRule" = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        oneof="type",
+        message="AdjustmentRule",
     )
 
 
@@ -1085,11 +1348,11 @@ class InspectConfig(proto.Message):
         content_options (MutableSequence[google.cloud.dlp_v2.types.ContentOption]):
             Deprecated and unused.
         rule_set (MutableSequence[google.cloud.dlp_v2.types.InspectionRuleSet]):
-            Set of rules to apply to the findings for
-            this InspectConfig. Exclusion rules, contained
-            in the set are executed in the end, other rules
-            are executed in the order they are specified for
-            each info type.
+            Set of rules to apply to the findings for this
+            InspectConfig. Exclusion rules, contained in the set are
+            executed in the end, other rules are executed in the order
+            they are specified for each info type. Not supported for the
+            ``metadata_key_value_expression`` CustomInfoType.
     """
 
     class InfoTypeLikelihood(proto.Message):
@@ -1215,12 +1478,12 @@ class InspectConfig(proto.Message):
         number=2,
         enum=storage.Likelihood,
     )
-    min_likelihood_per_info_type: MutableSequence[
-        InfoTypeLikelihood
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=11,
-        message=InfoTypeLikelihood,
+    min_likelihood_per_info_type: MutableSequence[InfoTypeLikelihood] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=11,
+            message=InfoTypeLikelihood,
+        )
     )
     limits: FindingLimits = proto.Field(
         proto.MESSAGE,
@@ -1310,6 +1573,7 @@ class ByteContentItem(proto.Message):
             AI_MODEL (18):
                 AI model file types. Only used for profiling.
         """
+
         BYTES_TYPE_UNSPECIFIED = 0
         IMAGE = 6
         IMAGE_JPEG = 1
@@ -1719,6 +1983,11 @@ class ContentLocation(proto.Message):
 class MetadataLocation(proto.Message):
     r"""Metadata Location
 
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
@@ -1726,6 +1995,10 @@ class MetadataLocation(proto.Message):
             Type of metadata containing the finding.
         storage_label (google.cloud.dlp_v2.types.StorageMetadataLabel):
             Storage metadata.
+
+            This field is a member of `oneof`_ ``label``.
+        key_value_metadata_label (google.cloud.dlp_v2.types.KeyValueMetadataLabel):
+            Metadata key that contains the finding.
 
             This field is a member of `oneof`_ ``label``.
     """
@@ -1741,6 +2014,12 @@ class MetadataLocation(proto.Message):
         oneof="label",
         message="StorageMetadataLabel",
     )
+    key_value_metadata_label: "KeyValueMetadataLabel" = proto.Field(
+        proto.MESSAGE,
+        number=4,
+        oneof="label",
+        message="KeyValueMetadataLabel",
+    )
 
 
 class StorageMetadataLabel(proto.Message):
@@ -1750,6 +2029,26 @@ class StorageMetadataLabel(proto.Message):
     Attributes:
         key (str):
             Label name.
+    """
+
+    key: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+
+
+class KeyValueMetadataLabel(proto.Message):
+    r"""The metadata key that contains a finding.
+
+    Attributes:
+        key (str):
+            The metadata key. The format depends on the source of the
+            metadata.
+
+            Example:
+
+            - ``MSIP_Label_122709e3-8f6b-4860-985f-7f722a94f61e_Enabled``
+              (a Microsoft Purview Information Protection key example)
     """
 
     key: str = proto.Field(
@@ -2092,12 +2391,12 @@ class RedactImageRequest(proto.Message):
         number=2,
         message="InspectConfig",
     )
-    image_redaction_configs: MutableSequence[
-        ImageRedactionConfig
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=5,
-        message=ImageRedactionConfig,
+    image_redaction_configs: MutableSequence[ImageRedactionConfig] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=5,
+            message=ImageRedactionConfig,
+        )
     )
     include_findings: bool = proto.Field(
         proto.BOOL,
@@ -2570,6 +2869,7 @@ class OutputStorageConfig(proto.Message):
             ALL_COLUMNS (5):
                 Schema containing all columns.
         """
+
         OUTPUT_SCHEMA_UNSPECIFIED = 0
         BASIC_COLUMNS = 1
         GCS_COLUMNS = 2
@@ -2918,6 +3218,7 @@ class LocationSupport(proto.Message):
             ANY_LOCATION (2):
                 Feature may be used anywhere. Default value.
         """
+
         REGIONALIZATION_SCOPE_UNSPECIFIED = 0
         REGIONAL = 1
         ANY_LOCATION = 2
@@ -2967,7 +3268,28 @@ class InfoTypeDescription(proto.Message):
             specific infoTypes. For example, the "GEOGRAPHIC_DATA"
             general infoType would have set for this field "LOCATION",
             "LOCATION_COORDINATES", and "STREET_ADDRESS".
+        launch_status (google.cloud.dlp_v2.types.InfoTypeDescription.InfoTypeLaunchStatus):
+            The launch status of the infoType.
     """
+
+    class InfoTypeLaunchStatus(proto.Enum):
+        r"""The launch status of an infoType.
+
+        Values:
+            INFO_TYPE_LAUNCH_STATUS_UNSPECIFIED (0):
+                Unspecified.
+            GENERAL_AVAILABILITY (1):
+                InfoType is generally available.
+            PUBLIC_PREVIEW (2):
+                InfoType is in public preview.
+            PRIVATE_PREVIEW (3):
+                InfoType is in private preview.
+        """
+
+        INFO_TYPE_LAUNCH_STATUS_UNSPECIFIED = 0
+        GENERAL_AVAILABILITY = 1
+        PUBLIC_PREVIEW = 2
+        PRIVATE_PREVIEW = 3
 
     name: str = proto.Field(
         proto.STRING,
@@ -3013,6 +3335,11 @@ class InfoTypeDescription(proto.Message):
     specific_info_types: MutableSequence[str] = proto.RepeatedField(
         proto.STRING,
         number=12,
+    )
+    launch_status: InfoTypeLaunchStatus = proto.Field(
+        proto.ENUM,
+        number=13,
+        enum=InfoTypeLaunchStatus,
     )
 
 
@@ -3165,6 +3492,7 @@ class InfoTypeCategory(proto.Message):
                 The infoType is typically used in Google
                 internally.
         """
+
         LOCATION_UNSPECIFIED = 0
         GLOBAL = 1
         ARGENTINA = 2
@@ -3236,6 +3564,7 @@ class InfoTypeCategory(proto.Message):
                 The infoType is typically used in the
                 telecommunications industry.
         """
+
         INDUSTRY_UNSPECIFIED = 0
         FINANCE = 1
         HEALTH = 2
@@ -3275,6 +3604,7 @@ class InfoTypeCategory(proto.Message):
             CUSTOM (8):
                 Category for ``CustomInfoType`` types.
         """
+
         TYPE_UNSPECIFIED = 0
         PII = 1
         SPII = 2
@@ -3819,12 +4149,12 @@ class PrivacyMetric(proto.Message):
                 message=storage.FieldId,
             )
 
-        quasi_ids: MutableSequence[
-            "PrivacyMetric.KMapEstimationConfig.TaggedField"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="PrivacyMetric.KMapEstimationConfig.TaggedField",
+        quasi_ids: MutableSequence["PrivacyMetric.KMapEstimationConfig.TaggedField"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="PrivacyMetric.KMapEstimationConfig.TaggedField",
+            )
         )
         region_code: str = proto.Field(
             proto.STRING,
@@ -4172,12 +4502,12 @@ class AnalyzeDataSourceRiskDetails(proto.Message):
                 proto.INT64,
                 number=3,
             )
-            top_sensitive_values: MutableSequence[
-                "ValueFrequency"
-            ] = proto.RepeatedField(
-                proto.MESSAGE,
-                number=4,
-                message="ValueFrequency",
+            top_sensitive_values: MutableSequence["ValueFrequency"] = (
+                proto.RepeatedField(
+                    proto.MESSAGE,
+                    number=4,
+                    message="ValueFrequency",
+                )
             )
 
         class LDiversityHistogramBucket(proto.Message):
@@ -5071,6 +5401,7 @@ class TimePartConfig(proto.Message):
             HOUR_OF_DAY (6):
                 [0-23]
         """
+
         TIME_PART_UNSPECIFIED = 0
         YEAR = 1
         MONTH = 2
@@ -5292,6 +5623,7 @@ class CharsToIgnore(proto.Message):
             WHITESPACE (5):
                 Whitespace character, one of [ \\t\\n\\x0B\\f\\r]
         """
+
         COMMON_CHARS_TO_IGNORE_UNSPECIFIED = 0
         NUMERIC = 1
         ALPHA_UPPER_CASE = 2
@@ -5622,6 +5954,7 @@ class CryptoReplaceFfxFpeConfig(proto.Message):
             ALPHA_NUMERIC (4):
                 ``[0-9A-Za-z]`` (radix of 62)
         """
+
         FFX_COMMON_NATIVE_ALPHABET_UNSPECIFIED = 0
         NUMERIC = 1
         HEXADECIMAL = 2
@@ -6086,6 +6419,7 @@ class RecordCondition(proto.Message):
                 AND (1):
                     Conditional AND
             """
+
             LOGICAL_OPERATOR_UNSPECIFIED = 0
             AND = 1
 
@@ -6123,12 +6457,12 @@ class TransformationOverview(proto.Message):
         proto.INT64,
         number=2,
     )
-    transformation_summaries: MutableSequence[
-        "TransformationSummary"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message="TransformationSummary",
+    transformation_summaries: MutableSequence["TransformationSummary"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message="TransformationSummary",
+        )
     )
 
 
@@ -6173,6 +6507,7 @@ class TransformationSummary(proto.Message):
             ERROR (2):
                 Transformation had an error.
         """
+
         TRANSFORMATION_RESULT_CODE_UNSPECIFIED = 0
         SUCCESS = 1
         ERROR = 2
@@ -6665,6 +7000,7 @@ class Error(proto.Message):
                 File store cluster is not supported for
                 profile generation.
         """
+
         ERROR_INFO_UNSPECIFIED = 0
         IMAGE_SCAN_UNAVAILABLE_IN_REGION = 1
         FILE_STORE_CLUSTER_UNSUPPORTED = 2
@@ -6752,6 +7088,7 @@ class JobTrigger(proto.Message):
             CANCELLED (3):
                 Trigger is cancelled and can not be resumed.
         """
+
         STATUS_UNSPECIFIED = 0
         HEALTHY = 1
         PAUSED = 2
@@ -7120,12 +7457,12 @@ class Action(proto.Message):
             number=9,
             oneof="output",
         )
-        file_types_to_transform: MutableSequence[
-            storage.FileType
-        ] = proto.RepeatedField(
-            proto.ENUM,
-            number=8,
-            enum=storage.FileType,
+        file_types_to_transform: MutableSequence[storage.FileType] = (
+            proto.RepeatedField(
+                proto.ENUM,
+                number=8,
+                enum=storage.FileType,
+            )
         )
 
     class JobNotificationEmails(proto.Message):
@@ -8133,6 +8470,7 @@ class DataProfileAction(proto.Message):
             ERROR_CHANGED (4):
                 A user (non-internal) error occurred.
         """
+
         EVENT_TYPE_UNSPECIFIED = 0
         NEW_PROFILE = 1
         CHANGED_PROFILE = 2
@@ -8232,6 +8570,7 @@ class DataProfileAction(proto.Message):
                 FILE_STORE_PROFILE (3):
                     The full file store data profile.
             """
+
             DETAIL_LEVEL_UNSPECIFIED = 0
             TABLE_PROFILE = 1
             RESOURCE_NAME = 2
@@ -8387,12 +8726,12 @@ class DataProfileAction(proto.Message):
             number=1,
             message="DataProfileAction.TagResources.TagCondition",
         )
-        profile_generations_to_tag: MutableSequence[
-            "ProfileGeneration"
-        ] = proto.RepeatedField(
-            proto.ENUM,
-            number=2,
-            enum="ProfileGeneration",
+        profile_generations_to_tag: MutableSequence["ProfileGeneration"] = (
+            proto.RepeatedField(
+                proto.ENUM,
+                number=2,
+                enum="ProfileGeneration",
+            )
         )
         lower_data_risk_to_low: bool = proto.Field(
             proto.BOOL,
@@ -8824,6 +9163,7 @@ class DiscoveryConfig(proto.Message):
             PAUSED (2):
                 The discovery config is paused temporarily.
         """
+
         STATUS_UNSPECIFIED = 0
         RUNNING = 1
         PAUSED = 2
@@ -9624,6 +9964,7 @@ class DiscoveryCloudSqlConditions(proto.Message):
             POSTGRES (3):
                 PostgreSQL database.
         """
+
         DATABASE_ENGINE_UNSPECIFIED = 0
         ALL_SUPPORTED_DATABASE_ENGINES = 1
         MYSQL = 2
@@ -9642,6 +9983,7 @@ class DiscoveryCloudSqlConditions(proto.Message):
             DATABASE_RESOURCE_TYPE_TABLE (2):
                 Tables.
         """
+
         DATABASE_RESOURCE_TYPE_UNSPECIFIED = 0
         DATABASE_RESOURCE_TYPE_ALL_SUPPORTED_TYPES = 1
         DATABASE_RESOURCE_TYPE_TABLE = 2
@@ -9703,6 +10045,7 @@ class DiscoveryCloudSqlGenerationCadence(proto.Message):
                 REMOVED_COLUMNS (2):
                     Columns have been removed from the table.
             """
+
             SQL_SCHEMA_MODIFICATION_UNSPECIFIED = 0
             NEW_COLUMNS = 1
             REMOVED_COLUMNS = 2
@@ -10080,6 +10423,7 @@ class DiscoveryCloudStorageConditions(proto.Message):
                 Scan objects with the dual-regional storage
                 class. This will incur retrieval fees.
         """
+
         CLOUD_STORAGE_OBJECT_ATTRIBUTE_UNSPECIFIED = 0
         ALL_SUPPORTED_OBJECTS = 1
         STANDARD = 2
@@ -10110,24 +10454,25 @@ class DiscoveryCloudStorageConditions(proto.Message):
                 should be set. Scanning Autoclass-enabled buckets can affect
                 object storage classes.
         """
+
         CLOUD_STORAGE_BUCKET_ATTRIBUTE_UNSPECIFIED = 0
         ALL_SUPPORTED_BUCKETS = 1
         AUTOCLASS_DISABLED = 2
         AUTOCLASS_ENABLED = 3
 
-    included_object_attributes: MutableSequence[
-        CloudStorageObjectAttribute
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=1,
-        enum=CloudStorageObjectAttribute,
+    included_object_attributes: MutableSequence[CloudStorageObjectAttribute] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=1,
+            enum=CloudStorageObjectAttribute,
+        )
     )
-    included_bucket_attributes: MutableSequence[
-        CloudStorageBucketAttribute
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=2,
-        enum=CloudStorageBucketAttribute,
+    included_bucket_attributes: MutableSequence[CloudStorageBucketAttribute] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=2,
+            enum=CloudStorageBucketAttribute,
+        )
     )
 
 
@@ -10505,6 +10850,7 @@ class AmazonS3BucketConditions(proto.Message):
             TYPE_GENERAL_PURPOSE (2):
                 A general purpose Amazon S3 bucket.
         """
+
         TYPE_UNSPECIFIED = 0
         TYPE_ALL_SUPPORTED = 1
         TYPE_GENERAL_PURPOSE = 2
@@ -10528,6 +10874,7 @@ class AmazonS3BucketConditions(proto.Message):
                 Objects in the S3 Intelligent-Tiering access
                 tiers.
         """
+
         UNSPECIFIED = 0
         ALL_SUPPORTED_CLASSES = 1
         STANDARD = 2
@@ -10987,6 +11334,7 @@ class DlpJob(proto.Message):
                 finished no more calls to hybridInspect may be
                 made. ACTIVE jobs can transition to DONE.
         """
+
         JOB_STATE_UNSPECIFIED = 0
         PENDING = 1
         RUNNING = 2
@@ -12121,6 +12469,71 @@ class HybridInspectResponse(proto.Message):
     r"""Quota exceeded errors will be thrown once quota has been met."""
 
 
+class ImageContainmentType(proto.Message):
+    r"""Specifies the relationship between bounding boxes for image
+    findings.
+
+    This message has `oneof`_ fields (mutually exclusive fields).
+    For each oneof, at most one member field can be set at the same time.
+    Setting any member of the oneof automatically clears all other
+    members.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        encloses (google.cloud.dlp_v2.types.Encloses):
+            The context finding's bounding box must fully
+            contain the target finding's bounding box.
+
+            This field is a member of `oneof`_ ``type``.
+        fully_inside (google.cloud.dlp_v2.types.FullyInside):
+            The context finding's bounding box must be
+            fully inside the target finding's bounding box.
+
+            This field is a member of `oneof`_ ``type``.
+        overlaps (google.cloud.dlp_v2.types.Overlap):
+            The context finding's bounding box and the
+            target finding's bounding box must have a
+            non-zero intersection.
+
+            This field is a member of `oneof`_ ``type``.
+    """
+
+    encloses: "Encloses" = proto.Field(
+        proto.MESSAGE,
+        number=1,
+        oneof="type",
+        message="Encloses",
+    )
+    fully_inside: "FullyInside" = proto.Field(
+        proto.MESSAGE,
+        number=2,
+        oneof="type",
+        message="FullyInside",
+    )
+    overlaps: "Overlap" = proto.Field(
+        proto.MESSAGE,
+        number=3,
+        oneof="type",
+        message="Overlap",
+    )
+
+
+class Overlap(proto.Message):
+    r"""Defines a condition for overlapping bounding boxes."""
+
+
+class Encloses(proto.Message):
+    r"""Defines a condition where one bounding box encloses another."""
+
+
+class FullyInside(proto.Message):
+    r"""Defines a condition where one bounding box is fully inside
+    another.
+
+    """
+
+
 class ListProjectDataProfilesRequest(proto.Message):
     r"""Request to list the profiles generated for a given
     organization or project.
@@ -12547,6 +12960,7 @@ class DataRiskLevel(proto.Message):
                 Re-identification of users may be possible.
                 Consider limiting usage and or removing SPII.
         """
+
         RISK_SCORE_UNSPECIFIED = 0
         RISK_LOW = 10
         RISK_UNKNOWN = 12
@@ -12779,6 +13193,7 @@ class TableDataProfile(proto.Message):
                 profile_status.status.code is 0, the profile succeeded,
                 otherwise, it failed.
         """
+
         STATE_UNSPECIFIED = 0
         RUNNING = 1
         DONE = 2
@@ -13077,6 +13492,7 @@ class ColumnDataProfile(proto.Message):
                 profile_status.status.code is 0, the profile succeeded,
                 otherwise, it failed.
         """
+
         STATE_UNSPECIFIED = 0
         RUNNING = 1
         DONE = 2
@@ -13133,6 +13549,7 @@ class ColumnDataProfile(proto.Message):
             TYPE_RANGE_TIMESTAMP (18):
                 ``Range<Timestamp>`` type.
         """
+
         COLUMN_DATA_TYPE_UNSPECIFIED = 0
         TYPE_INT64 = 1
         TYPE_BOOL = 2
@@ -13162,6 +13579,7 @@ class ColumnDataProfile(proto.Message):
             COLUMN_POLICY_TAGGED (1):
                 Column has policy tag applied.
         """
+
         COLUMN_POLICY_STATE_UNSPECIFIED = 0
         COLUMN_POLICY_TAGGED = 1
 
@@ -13375,6 +13793,7 @@ class FileStoreDataProfile(proto.Message):
                 profile_status.status.code is 0, the profile succeeded,
                 otherwise, it failed.
         """
+
         STATE_UNSPECIFIED = 0
         RUNNING = 1
         DONE = 2
@@ -13477,12 +13896,12 @@ class FileStoreDataProfile(proto.Message):
         proto.STRING,
         number=18,
     )
-    file_store_info_type_summaries: MutableSequence[
-        "FileStoreInfoTypeSummary"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=21,
-        message="FileStoreInfoTypeSummary",
+    file_store_info_type_summaries: MutableSequence["FileStoreInfoTypeSummary"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=21,
+            message="FileStoreInfoTypeSummary",
+        )
     )
     sample_findings_table: storage.BigQueryTable = proto.Field(
         proto.MESSAGE,
@@ -13690,12 +14109,12 @@ class FileClusterSummary(proto.Message):
         number=1,
         message="FileClusterType",
     )
-    file_store_info_type_summaries: MutableSequence[
-        "FileStoreInfoTypeSummary"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message="FileStoreInfoTypeSummary",
+    file_store_info_type_summaries: MutableSequence["FileStoreInfoTypeSummary"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="FileStoreInfoTypeSummary",
+        )
     )
     sensitivity_score: storage.SensitivityScore = proto.Field(
         proto.MESSAGE,
@@ -13889,12 +14308,12 @@ class ListFileStoreDataProfilesResponse(proto.Message):
     def raw_page(self):
         return self
 
-    file_store_data_profiles: MutableSequence[
-        "FileStoreDataProfile"
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message="FileStoreDataProfile",
+    file_store_data_profiles: MutableSequence["FileStoreDataProfile"] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="FileStoreDataProfile",
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,
@@ -13967,6 +14386,7 @@ class DataProfilePubSubCondition(proto.Message):
             MEDIUM_OR_HIGH (2):
                 Medium or high risk/sensitivity detected.
         """
+
         PROFILE_SCORE_BUCKET_UNSPECIFIED = 0
         HIGH = 1
         MEDIUM_OR_HIGH = 2
@@ -14033,6 +14453,7 @@ class DataProfilePubSubCondition(proto.Message):
                 AND (2):
                     Conditional AND.
             """
+
             LOGICAL_OPERATOR_UNSPECIFIED = 0
             OR = 1
             AND = 2
@@ -14042,12 +14463,12 @@ class DataProfilePubSubCondition(proto.Message):
             number=1,
             enum="DataProfilePubSubCondition.PubSubExpressions.PubSubLogicalOperator",
         )
-        conditions: MutableSequence[
-            "DataProfilePubSubCondition.PubSubCondition"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="DataProfilePubSubCondition.PubSubCondition",
+        conditions: MutableSequence["DataProfilePubSubCondition.PubSubCondition"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="DataProfilePubSubCondition.PubSubCondition",
+            )
         )
 
     expressions: PubSubExpressions = proto.Field(
@@ -14462,6 +14883,7 @@ class CloudSqlProperties(proto.Message):
             DATABASE_ENGINE_POSTGRES (2):
                 Cloud SQL for PostgreSQL instance.
         """
+
         DATABASE_ENGINE_UNKNOWN = 0
         DATABASE_ENGINE_MYSQL = 1
         DATABASE_ENGINE_POSTGRES = 2
@@ -14569,6 +14991,7 @@ class FileClusterType(proto.Message):
             CLUSTER_AI_MODEL (10):
                 AI models like .tflite etc.
         """
+
         CLUSTER_UNSPECIFIED = 0
         CLUSTER_UNKNOWN = 1
         CLUSTER_TEXT = 2
@@ -14723,13 +15146,14 @@ class Domain(proto.Message):
                 Indicates that the data profile is related to
                 code.
         """
+
         CATEGORY_UNSPECIFIED = 0
         AI = 1
         CODE = 2
 
     class Signal(proto.Enum):
         r"""The signal used to determine the category.
-        This list may increase over time.
+        New values may be added in the future.
 
         Values:
             SIGNAL_UNSPECIFIED (0):
@@ -14738,7 +15162,12 @@ class Domain(proto.Message):
                 One or more machine learning models are
                 present.
             TEXT_EMBEDDING (2):
-                A table appears to be a text embedding.
+                A table appears to contain text embeddings.
+            EMBEDDING (7):
+                A table appears to contain embeddings of any type (for
+                example, text, image, multimodal). The ``TEXT_EMBEDDING``
+                signal might also be present if the table contains text
+                embeddings.
             VERTEX_PLUGIN (3):
                 The `Cloud SQL Vertex
                 AI <https://cloud.google.com/sql/docs/postgres/integrate-cloud-sql-with-vertex-ai>`__
@@ -14753,9 +15182,11 @@ class Domain(proto.Message):
                 If the service determines the category type. For example,
                 Vertex AI assets would always have a ``Category`` of ``AI``.
         """
+
         SIGNAL_UNSPECIFIED = 0
         MODEL = 1
         TEXT_EMBEDDING = 2
+        EMBEDDING = 7
         VERTEX_PLUGIN = 3
         VECTOR_PLUGIN = 4
         SOURCE_CODE = 5

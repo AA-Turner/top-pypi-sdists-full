@@ -6,8 +6,9 @@ from unittest.mock import MagicMock
 from abstra_internals.controllers.execution.consumer import ConsumerController
 from abstra_internals.repositories.consumer import (
     Consumer,
-    ControlMessage,
     ControlQueueMessage,
+    StopExecutionMessage,
+    StopExecutionPayload,
 )
 from abstra_internals.settings import SettingsController
 
@@ -71,8 +72,8 @@ class TestWebEditorKillIntegration(unittest.TestCase):
         try:
             # 3. Simulate sending a kill message from "Web Editor"
             execution_id = "exec-123"
-            control_msg = ControlMessage(
-                type="stop", payload={"execution_id": execution_id}
+            control_msg = StopExecutionMessage(
+                payload=StopExecutionPayload(execution_id=execution_id)
             )
             queue_msg = ControlQueueMessage(message=control_msg, delivery_tag=1)
 

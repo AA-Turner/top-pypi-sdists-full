@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from mcp.types import ImageContent, TextContent
 
-from fastmcp import FastMCP
+from fastmcp import Client, FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.experimental.transforms.code_mode import (
     CodeMode,
@@ -16,7 +16,7 @@ from fastmcp.experimental.transforms.code_mode import (
     _ensure_async,
 )
 from fastmcp.server.context import Context
-from fastmcp.tools.tool import Tool, ToolResult
+from fastmcp.tools.base import Tool, ToolResult
 
 
 def _unwrap_result(result: ToolResult) -> Any:
@@ -362,7 +362,7 @@ async def test_code_mode_custom_discovery_tool_function() -> None:
 
     def list_all(get_catalog: GetToolCatalog) -> Tool:
         async def list_tools(
-            ctx: Context = None,  # type: ignore[assignment]
+            ctx: Context = None,  # type: ignore[assignment]  # ty:ignore[invalid-parameter-default]
         ) -> str:
             """List all available tools."""
             tools = await get_catalog(ctx)
@@ -505,6 +505,32 @@ async def test_code_mode_search_respects_disabled_tool_visibility() -> None:
     result = await _run_tool(mcp, "search", {"query": "secret"})
     text = _unwrap_string_result(result)
     assert "secret" not in text or "No tools" in text
+
+
+async def test_code_mode_execute_sees_mid_run_visibility_changes() -> None:
+    """Unlocking a tool mid-execution makes it callable in the same run."""
+    mcp = FastMCP("CodeMode Unlock")
+
+    @mcp.tool
+    async def unlock(ctx: Context) -> str:
+        await ctx.enable_components(names={"secret"}, components={"tool"})
+        return "unlocked"
+
+    @mcp.tool
+    async def secret() -> str:
+        return "secret-ok"
+
+    mcp.disable(names={"secret"}, components={"tool"})
+    mcp.add_transform(CodeMode(sandbox_provider=_UnsafeTestSandboxProvider()))
+
+    async with Client(mcp) as client:
+        result = await client.call_tool(
+            "execute",
+            {
+                "code": "await call_tool('unlock', {})\nreturn await call_tool('secret', {})"
+            },
+        )
+        assert result.data == {"result": "secret-ok"}
 
 
 async def test_code_mode_execute_respects_tool_auth() -> None:

@@ -22,6 +22,7 @@ class RandomUuid4Args:
                  keepers: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a RandomUuid4 resource.
+
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] keepers: Arbitrary map of values that, when changed, will trigger recreation of resource. See the main provider documentation for more information.
         """
         if keepers is not None:
@@ -47,6 +48,7 @@ class _RandomUuid4State:
                  result: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering RandomUuid4 resources.
+
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] keepers: Arbitrary map of values that, when changed, will trigger recreation of resource. See the main provider documentation for more information.
         :param pulumi.Input[_builtins.str] result: The generated uuid presented in string format.
         """
@@ -112,14 +114,13 @@ class RandomUuid4(pulumi.CustomResource):
         The `pulumi import` command can be used, for example:
 
         Random UUID's can be imported. This can be used to replace a config
-
         value with a value interpolated from the random provider without
-
         experiencing diffs.
 
         ```sh
         $ pulumi import random:index/randomUuid4:RandomUuid4 main 7e4436da-7c71-486e-a57c-830b25fff7bd
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -155,14 +156,13 @@ class RandomUuid4(pulumi.CustomResource):
         The `pulumi import` command can be used, for example:
 
         Random UUID's can be imported. This can be used to replace a config
-
         value with a value interpolated from the random provider without
-
         experiencing diffs.
 
         ```sh
         $ pulumi import random:index/randomUuid4:RandomUuid4 main 7e4436da-7c71-486e-a57c-830b25fff7bd
         ```
+
 
         :param str resource_name: The name of the resource.
         :param RandomUuid4Args args: The arguments to use to populate this resource's properties.

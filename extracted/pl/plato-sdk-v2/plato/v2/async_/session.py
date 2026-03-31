@@ -36,6 +36,7 @@ from plato._generated.api.v2.sessions import evaluate as sessions_evaluate
 from plato._generated.api.v2.sessions import execute as sessions_execute
 from plato._generated.api.v2.sessions import get_public_url as sessions_get_public_url
 from plato._generated.api.v2.sessions import heartbeat as sessions_heartbeat
+from plato._generated.api.v2.sessions import link_testcase as sessions_link_testcase
 from plato._generated.api.v2.sessions import make as sessions_make
 from plato._generated.api.v2.sessions import remove_job as sessions_remove_job
 from plato._generated.api.v2.sessions import reset as sessions_reset
@@ -66,6 +67,7 @@ from plato._generated.models import (
     ExecuteCommandResponse,
     Flow,
     HeartbeatTimeout,
+    LinkTestcaseRequest,
     RemoveJobRequest,
     ResetSessionRequest,
     ResetSessionResponse,
@@ -724,6 +726,26 @@ class Session:
 
         body = AppApiV2SchemasSessionEvaluateRequest(value=value)
         return await sessions_evaluate.asyncio(
+            client=self._http,
+            session_id=self.session_id,
+            body=body,
+            x_api_key=self._api_key,
+        )
+
+    async def link_testcase(self, testcase_id: str) -> None:
+        """Link a test case to this session.
+
+        Associates the session with a test case so that :meth:`evaluate` can
+        score it.  Useful for Chronos-created sessions that need
+        testcase-driven scoring without creating a separate SDK session.
+
+        Args:
+            testcase_id: Public ID of the test case to link.
+        """
+        self._check_closed()
+
+        body = LinkTestcaseRequest(testcase_id=testcase_id)
+        await sessions_link_testcase.asyncio(
             client=self._http,
             session_id=self.session_id,
             body=body,

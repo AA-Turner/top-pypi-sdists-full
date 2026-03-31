@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.asset_v1p5beta1.types import assets as gca_assets
@@ -48,6 +48,7 @@ class ContentType(proto.Enum):
             The Access Context Manager policy set on an
             asset.
     """
+
     CONTENT_TYPE_UNSPECIFIED = 0
     RESOURCE = 1
     IAM_POLICY = 2

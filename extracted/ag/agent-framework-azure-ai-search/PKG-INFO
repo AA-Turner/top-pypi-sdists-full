@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-azure-ai-search
-Version: 1.0.0b260319
+Version: 1.0.0b260330
 Summary: Azure AI Search integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.0.0rc5
+Requires-Dist: agent-framework-core>=1.0.0rc6
 Requires-Dist: azure-search-documents>=11.7.0b2,<11.7.0b3
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
@@ -40,7 +40,7 @@ The Azure AI Search integration provides context providers for RAG (Retrieval Au
 
 ### Basic Usage Example
 
-See the [Azure AI Search context provider examples](../../samples/02-agents/providers/azure_ai/) which demonstrate:
+See the [Azure AI Search context provider examples](../../samples/02-agents/context_providers/azure_ai_search/) which demonstrate:
 
 - Semantic search with hybrid (vector + keyword) queries
 - Agentic mode with Knowledge Bases for complex multi-hop reasoning

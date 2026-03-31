@@ -4,7 +4,7 @@
 //! be easily converted to language-specific structures (PyDict, JsObject, etc.).
 
 use html_to_markdown_rs::metadata::{
-    DocumentMetadata, ExtendedMetadata, HeaderMetadata, ImageMetadata, LinkMetadata, StructuredData, TextDirection,
+    DocumentMetadata, HeaderMetadata, HtmlMetadata, ImageMetadata, LinkMetadata, StructuredData, TextDirection,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -133,9 +133,9 @@ impl From<StructuredData> for StructuredDataIntermediate {
     }
 }
 
-/// Intermediate representation for `ExtendedMetadata`.
+/// Intermediate representation for `HtmlMetadata`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExtendedMetadataIntermediate {
+pub struct HtmlMetadataIntermediate {
     pub document: DocumentMetadataIntermediate,
     pub headers: Vec<HeaderMetadataIntermediate>,
     pub links: Vec<LinkMetadataIntermediate>,
@@ -143,8 +143,8 @@ pub struct ExtendedMetadataIntermediate {
     pub structured_data: Vec<StructuredDataIntermediate>,
 }
 
-impl From<ExtendedMetadata> for ExtendedMetadataIntermediate {
-    fn from(metadata: ExtendedMetadata) -> Self {
+impl From<HtmlMetadata> for HtmlMetadataIntermediate {
+    fn from(metadata: HtmlMetadata) -> Self {
         Self {
             document: metadata.document.into(),
             headers: metadata.headers.into_iter().map(Into::into).collect(),

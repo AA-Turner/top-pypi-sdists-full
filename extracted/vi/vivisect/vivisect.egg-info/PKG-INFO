@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vivisect
-Version: 1.3.0
+Version: 1.3.1
 Summary: Pure python disassembler, debugger, emulator, and static analysis framework
 Author-email: The Vivisect Peeps <vivdevs@r4780y.com>
 License: Apache License 2.0
@@ -16,8 +16,8 @@ Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: pyasn1<0.6.0,>=0.5.0
-Requires-Dist: pyasn1-modules<0.4.0,>=0.3.0
+Requires-Dist: pyasn1<1.0.0,>=0.6.3
+Requires-Dist: pyasn1-modules<1.0.0,>=0.4.0
 Requires-Dist: cxxfilt<0.4.0,>=0.3.0
 Requires-Dist: msgpack<2.0.0,>=1.0.0
 Requires-Dist: pycparser>=2.20
@@ -26,6 +26,7 @@ Requires-Dist: bump2version<1.1.0,>=1.0.0; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx<7.2.0,>=7.1.0; extra == "docs"
 Requires-Dist: sphinx-rtd-theme<1.3.0,>=1.2.0; extra == "docs"
+Requires-Dist: jinja2<3.2.0; extra == "docs"
 Provides-Extra: gui
 Requires-Dist: pyqt5==5.15.7; extra == "gui"
 Requires-Dist: pyqtwebengine==5.15.6; extra == "gui"

@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.automl_v1beta1 import gapic_version as package_version
 
@@ -61,19 +61,28 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.automl_v1beta1.services.auto_ml import pagers
 from google.cloud.automl_v1beta1.types import (
+    annotation_spec,
+    classification,
+    column_spec,
+    data_stats,
+    data_types,
+    dataset,
+    detection,
+    image,
+    io,
+    model,
     model_evaluation,
     operations,
     regression,
     service,
-)
-from google.cloud.automl_v1beta1.types import (
+    table_spec,
     tables,
     text,
     text_extraction,
@@ -81,16 +90,9 @@ from google.cloud.automl_v1beta1.types import (
     translation,
     video,
 )
-from google.cloud.automl_v1beta1.types import annotation_spec, classification
-from google.cloud.automl_v1beta1.types import column_spec
 from google.cloud.automl_v1beta1.types import column_spec as gca_column_spec
-from google.cloud.automl_v1beta1.types import data_stats, data_types
-from google.cloud.automl_v1beta1.types import dataset
 from google.cloud.automl_v1beta1.types import dataset as gca_dataset
-from google.cloud.automl_v1beta1.types import detection, image, io
-from google.cloud.automl_v1beta1.types import model
 from google.cloud.automl_v1beta1.types import model as gca_model
-from google.cloud.automl_v1beta1.types import table_spec
 from google.cloud.automl_v1beta1.types import table_spec as gca_table_spec
 
 from .transports.base import DEFAULT_CLIENT_INFO, AutoMlTransport
@@ -153,7 +155,7 @@ class AutoMlClient(metaclass=AutoMlClientMeta):
     """
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -161,7 +163,7 @@ class AutoMlClient(metaclass=AutoMlClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -171,6 +173,10 @@ class AutoMlClient(metaclass=AutoMlClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -598,7 +604,7 @@ class AutoMlClient(metaclass=AutoMlClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -695,7 +701,7 @@ class AutoMlClient(metaclass=AutoMlClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -782,18 +788,16 @@ class AutoMlClient(metaclass=AutoMlClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = AutoMlClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            AutoMlClient._read_environment_variables()
+        )
         self._client_cert_source = AutoMlClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = AutoMlClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -821,8 +825,7 @@ class AutoMlClient(metaclass=AutoMlClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(AutoMlTransport, transport)
             self._api_endpoint = self._transport.host

@@ -91,7 +91,10 @@ __all__ = (
     "DeleteMemoryRecordOutputTypeDef",
     "EvaluateRequestTypeDef",
     "EvaluateResponseTypeDef",
+    "EvaluationContentTypeDef",
+    "EvaluationExpectedTrajectoryTypeDef",
     "EvaluationInputTypeDef",
+    "EvaluationReferenceInputTypeDef",
     "EvaluationResultContentTypeDef",
     "EvaluationTargetTypeDef",
     "EventMetadataFilterExpressionTypeDef",
@@ -397,6 +400,14 @@ class EvaluationInputTypeDef(TypedDict):
 class EvaluationTargetTypeDef(TypedDict):
     spanIds: NotRequired[Sequence[str]]
     traceIds: NotRequired[Sequence[str]]
+
+
+class EvaluationContentTypeDef(TypedDict):
+    text: NotRequired[str]
+
+
+class EvaluationExpectedTrajectoryTypeDef(TypedDict):
+    toolNames: NotRequired[Sequence[str]]
 
 
 class TokenUsageTypeDef(TypedDict):
@@ -820,12 +831,6 @@ class RightExpressionTypeDef(TypedDict):
     metadataValue: NotRequired[MetadataValueTypeDef]
 
 
-class EvaluateRequestTypeDef(TypedDict):
-    evaluatorId: str
-    evaluationInput: EvaluationInputTypeDef
-    evaluationTarget: NotRequired[EvaluationTargetTypeDef]
-
-
 ListMemoryExtractionJobsInputTypeDef = TypedDict(
     "ListMemoryExtractionJobsInputTypeDef",
     {
@@ -1010,6 +1015,13 @@ class PayloadTypeTypeDef(TypedDict):
     blob: NotRequired[Mapping[str, Any]]
 
 
+class EvaluationReferenceInputTypeDef(TypedDict):
+    context: ContextTypeDef
+    expectedResponse: NotRequired[EvaluationContentTypeDef]
+    assertions: NotRequired[Sequence[EvaluationContentTypeDef]]
+    expectedTrajectory: NotRequired[EvaluationExpectedTrajectoryTypeDef]
+
+
 class EvaluationResultContentTypeDef(TypedDict):
     evaluatorArn: str
     evaluatorId: str
@@ -1021,6 +1033,7 @@ class EvaluationResultContentTypeDef(TypedDict):
     tokenUsage: NotRequired[TokenUsageTypeDef]
     errorMessage: NotRequired[str]
     errorCode: NotRequired[str]
+    ignoredReferenceInputFields: NotRequired[list[str]]
 
 
 EventMetadataFilterExpressionTypeDef = TypedDict(
@@ -1164,6 +1177,13 @@ class EventTypeDef(TypedDict):
 
 
 PayloadTypeUnionTypeDef = Union[PayloadTypeTypeDef, PayloadTypeOutputTypeDef]
+
+
+class EvaluateRequestTypeDef(TypedDict):
+    evaluatorId: str
+    evaluationInput: EvaluationInputTypeDef
+    evaluationTarget: NotRequired[EvaluationTargetTypeDef]
+    evaluationReferenceInputs: NotRequired[Sequence[EvaluationReferenceInputTypeDef]]
 
 
 class EvaluateResponseTypeDef(TypedDict):

@@ -1,6 +1,6 @@
 [project]
 name = "authzed"
-version = "1.24.3"
+version = "1.24.4"
 description = "Client library for SpiceDB."
 license = "Apache-2.0"
 authors = [{ name = "Authzed", email = "support@authzed.com" }]
@@ -19,11 +19,16 @@ dependencies = [
   "protobuf>=5.26,<7",
   "grpc-interceptor>=0.15.4,<0.16",
   "googleapis-common-protos>=1.65.0,<2",
+]
+
+[project.optional-dependencies]
+validation = [
   "protovalidate>=0.7.1,<1.2.0",
 ]
 
 [dependency-groups]
 dev = [
+  "protovalidate>=0.7.1,<1.2.0",
   "grpc-stubs~=1.53",
   "grpcio-tools>=1.63,<1.79",
   "mypy==1.19.1",
@@ -46,7 +51,6 @@ build-backend = "uv_build"
 module-name = [
   "authzed",
   "buf",
-  "google",
   "grpcutil",
   "protoc_gen_openapiv2",
   "validate",

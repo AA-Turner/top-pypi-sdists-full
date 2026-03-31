@@ -1,6 +1,8 @@
 //! This module provides access to the QCS QPU API
 use std::{convert::TryFrom, fmt, time::Duration};
 
+use tonic::codec::CompressionEncoding;
+
 #[cfg(feature = "stubs")]
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_complex_enum, gen_stub_pymethods};
 
@@ -30,16 +32,19 @@ use qcs_api_client_grpc::{
     tonic::{parse_uri, wrap_channel_with, wrap_channel_with_retry},
 };
 pub use qcs_api_client_openapi::apis::Error as OpenApiError;
-use qcs_api_client_openapi::apis::{
-    endpoints_api::{
-        get_default_endpoint as api_get_default_endpoint, get_endpoint, GetDefaultEndpointError,
-        GetEndpointError,
-    },
-    quantum_processors_api::{
-        list_quantum_processor_accessors, ListQuantumProcessorAccessorsError,
-    },
-};
 use qcs_api_client_openapi::models::QuantumProcessorAccessorType;
+use qcs_api_client_openapi::{
+    apis::{
+        endpoints_api::{
+            get_default_endpoint as api_get_default_endpoint, get_endpoint,
+            GetDefaultEndpointError, GetEndpointError,
+        },
+        quantum_processors_api::{
+            get_quantum_processor_accessors, GetQuantumProcessorAccessorsError,
+        },
+    },
+    models::QuantumProcessorAccessor,
+};
 
 use crate::executable::Parameters;
 
@@ -624,7 +629,9 @@ pub trait ExecutionTarget<'a> {
             .max_encoding_message_size(MAX_CONTROLLER_OUTBOUND_REQUEST_SIZE)
             // do not limit the received response size, although practically the limit is 4Gb due
             // to the frame_length of the message being a u32.
-            .max_decoding_message_size(u32::MAX as usize))
+            .max_decoding_message_size(u32::MAX as usize)
+            .accept_compressed(CompressionEncoding::Gzip)
+            .send_compressed(CompressionEncoding::Gzip))
     }
 
     /// Get a GRPC connection to a QPU, without specifying the API to use.
@@ -744,38 +751,26 @@ async fn get_accessor_with_cache(
 }
 
 async fn get_accessor(quantum_processor_id: &str, client: &Qcs) -> Result<String, QpuApiError> {
-    let mut min = None;
-    let mut next_page_token = None;
-    loop {
-        let accessors = list_quantum_processor_accessors(
-            &client.get_openapi_client(),
-            quantum_processor_id,
-            Some(100),
-            next_page_token.as_deref(),
-        )
-        .await?;
+    let accessors =
+        get_quantum_processor_accessors(&client.get_openapi_client(), quantum_processor_id).await?;
 
-        let accessor = accessors
-            .accessors
-            .into_iter()
-            .filter(|acc| {
-                acc.live
-                // `as_deref` needed to work around the `Option<Box<_>>` type.
-                && acc.access_type.as_deref() == Some(&QuantumProcessorAccessorType::GatewayV1)
-            })
-            .min_by_key(|acc| acc.rank.unwrap_or(i64::MAX));
+    let min = select_min_accessor(accessors.accessors);
 
-        min = std::cmp::min_by_key(min, accessor, |acc| {
-            acc.as_ref().and_then(|acc| acc.rank).unwrap_or(i64::MAX)
-        });
-
-        next_page_token.clone_from(&accessors.next_page_token);
-        if next_page_token.is_none() {
-            break;
-        }
-    }
     min.map(|accessor| accessor.url)
         .ok_or_else(|| QpuApiError::GatewayNotFound(quantum_processor_id.to_string()))
+}
+
+/// Select the accessor with the lowest rank from a list of accessors.
+/// - Prefer `Some({ rank: None })` to `None`.
+/// - Prefer the first accessor encountered among those with the same rank value.
+fn select_min_accessor(
+    accessors: Vec<QuantumProcessorAccessor>,
+) -> Option<QuantumProcessorAccessor> {
+    accessors
+        .into_iter()
+        .filter(|accessor| accessor.live)
+        .filter(|accessor| accessor.access_type == QuantumProcessorAccessorType::GatewayV1)
+        .min_by_key(|accessor| accessor.rank.unwrap_or(i64::MAX))
 }
 
 #[cached(
@@ -801,11 +796,10 @@ async fn get_default_endpoint(
 ) -> Result<String, QpuApiError> {
     let default_endpoint =
         api_get_default_endpoint(&client.get_openapi_client(), quantum_processor_id).await?;
-    let addresses = default_endpoint.addresses.as_ref();
-    let grpc_address = addresses.grpc.as_ref();
-    grpc_address
+    default_endpoint
+        .addresses
+        .grpc
         .ok_or_else(|| QpuApiError::QpuEndpointNotFound(quantum_processor_id.into()))
-        .cloned()
 }
 
 /// Errors that can occur while attempting to establish a connection to the QPU.
@@ -829,7 +823,7 @@ pub enum QpuApiError {
 
     /// Error due to failure to get accessors for quantum processor
     #[error("Failed to get accessors for quantum processor: {0}")]
-    AccessorRequestFailed(#[from] OpenApiError<ListQuantumProcessorAccessorsError>),
+    AccessorRequestFailed(#[from] OpenApiError<GetQuantumProcessorAccessorsError>),
 
     /// Error due to failure to find gateway for quantum processor
     #[error("No gateway found for quantum processor: {0}")]
@@ -877,9 +871,7 @@ pub enum QpuApiError {
 
 #[cfg(test)]
 mod test {
-    use crate::qpu::api::ExecutionOptions;
-
-    use super::ExecutionOptionsBuilder;
+    use super::*;
 
     #[test]
     fn test_default_execution_options() {
@@ -887,5 +879,19 @@ mod test {
             ExecutionOptions::default(),
             ExecutionOptionsBuilder::default().build().unwrap(),
         );
+    }
+
+    #[test]
+    fn test_select_min_accessor_prefers_some_to_none() {
+        let expected = QuantumProcessorAccessor {
+            live: true,
+            access_type: QuantumProcessorAccessorType::GatewayV1,
+            rank: None,
+            url: "url".to_string(),
+        };
+
+        let accessors = vec![expected.clone()];
+        let actual = select_min_accessor(accessors);
+        assert_eq!(expected, actual.expect("expected Some accessor"));
     }
 }

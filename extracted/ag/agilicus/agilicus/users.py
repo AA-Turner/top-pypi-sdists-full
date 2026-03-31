@@ -518,7 +518,8 @@ def list_combined_user_details(ctx, org_id=None, **kwargs):
     org_id = input_helpers.get_org_from_input_or_ctx(ctx, org_id=org_id, **kwargs)
     apiclient = context.get_apiclient_from_ctx(ctx)
     input_helpers.pop_item_if_none(kwargs)
-    kwargs["type"] = "user"
+    if not kwargs.get("type"):
+        kwargs["type"] = ["user"]
     if kwargs.get("search_params", None):
         kwargs["search_params"] = [*kwargs["search_params"]]
     results = apiclient.user_api.list_combined_user_details(org_id=org_id, **kwargs)

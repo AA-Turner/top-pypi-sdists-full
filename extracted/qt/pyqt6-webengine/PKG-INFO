@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: PyQt6-WebEngine
-Version: 6.10.0
-Requires-Python: >=3.9
+Version: 6.11.0
+Requires-Python: >=3.10
 Summary: Python bindings for the Qt WebEngine framework
 Description-Content-Type: text/markdown
 Project-Url: homepage, https://www.riverbankcomputing.com/software/pyqtwebengine/

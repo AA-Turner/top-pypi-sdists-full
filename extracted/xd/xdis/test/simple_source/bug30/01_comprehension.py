@@ -1,5 +1,5 @@
 # From abc.py
-def __new__(cls, value, bases, namespace):
+def __new__(cls, value, bases, namespace) -> None:
     {name
      for name, value in namespace.items()
      if getattr(value, "__isabstractmethod__", False)}

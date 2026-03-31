@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
 import logging as std_logging
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
     Callable,
     Dict,
@@ -32,8 +33,8 @@ from typing import (
     Union,
     cast,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
@@ -43,7 +44,6 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.artifactregistry_v1beta2 import gapic_version as package_version
 
@@ -63,22 +63,28 @@ _LOGGER = std_logging.getLogger(__name__)
 
 import google.api_core.operation as operation  # type: ignore
 import google.api_core.operation_async as operation_async  # type: ignore
-from google.cloud.location import locations_pb2  # type: ignore
 import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
 import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+from google.cloud.location import locations_pb2  # type: ignore
 
 from google.cloud.artifactregistry_v1beta2.services.artifact_registry import pagers
-from google.cloud.artifactregistry_v1beta2.types import apt_artifact, file, package
+from google.cloud.artifactregistry_v1beta2.types import (
+    apt_artifact,
+    file,
+    package,
+    repository,
+    service,
+    settings,
+    tag,
+    version,
+    yum_artifact,
+)
 from google.cloud.artifactregistry_v1beta2.types import repository as gda_repository
-from google.cloud.artifactregistry_v1beta2.types import repository
-from google.cloud.artifactregistry_v1beta2.types import service, settings
-from google.cloud.artifactregistry_v1beta2.types import tag
 from google.cloud.artifactregistry_v1beta2.types import tag as gda_tag
-from google.cloud.artifactregistry_v1beta2.types import version, yum_artifact
 
 from .transports.base import DEFAULT_CLIENT_INFO, ArtifactRegistryTransport
 from .transports.grpc import ArtifactRegistryGrpcTransport
@@ -94,9 +100,7 @@ class ArtifactRegistryClientMeta(type):
     objects.
     """
 
-    _transport_registry = (
-        OrderedDict()
-    )  # type: Dict[str, Type[ArtifactRegistryTransport]]
+    _transport_registry = OrderedDict()  # type: Dict[str, Type[ArtifactRegistryTransport]]
     _transport_registry["grpc"] = ArtifactRegistryGrpcTransport
     _transport_registry["grpc_asyncio"] = ArtifactRegistryGrpcAsyncIOTransport
     _transport_registry["rest"] = ArtifactRegistryRestTransport
@@ -140,7 +144,7 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
     """
 
     @staticmethod
-    def _get_default_mtls_endpoint(api_endpoint):
+    def _get_default_mtls_endpoint(api_endpoint) -> Optional[str]:
         """Converts api endpoint to mTLS endpoint.
 
         Convert "*.sandbox.googleapis.com" and "*.googleapis.com" to
@@ -148,7 +152,7 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
         Args:
             api_endpoint (Optional[str]): the api endpoint to convert.
         Returns:
-            str: converted mTLS api endpoint.
+            Optional[str]: converted mTLS api endpoint.
         """
         if not api_endpoint:
             return api_endpoint
@@ -158,6 +162,10 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
         )
 
         m = mtls_endpoint_re.match(api_endpoint)
+        if m is None:
+            # Could not parse api_endpoint; return as-is.
+            return api_endpoint
+
         name, mtls, sandbox, googledomain = m.groups()
         if mtls or not googledomain:
             return api_endpoint
@@ -606,7 +614,7 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
     @staticmethod
     def _get_api_endpoint(
         api_override, client_cert_source, universe_domain, use_mtls_endpoint
-    ):
+    ) -> str:
         """Return the API endpoint used by the client.
 
         Args:
@@ -703,7 +711,7 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
             error._details.append(json.dumps(cred_info))
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -792,18 +800,16 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = ArtifactRegistryClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            ArtifactRegistryClient._read_environment_variables()
+        )
         self._client_cert_source = ArtifactRegistryClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
         self._universe_domain = ArtifactRegistryClient._get_universe_domain(
             universe_domain_opt, self._universe_domain_env
         )
-        self._api_endpoint = None  # updated below, depending on `transport`
+        self._api_endpoint: str = ""  # updated below, depending on `transport`
 
         # Initialize the universe domain validation.
         self._is_universe_domain_valid = False
@@ -831,8 +837,7 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(ArtifactRegistryTransport, transport)
             self._api_endpoint = self._transport.host
@@ -3785,7 +3790,7 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
 
     def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3811,8 +3816,12 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3821,7 +3830,7 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3830,7 +3839,7 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,
@@ -3844,7 +3853,7 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
 
     def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -3870,8 +3879,12 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -3880,7 +3893,7 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -3889,7 +3902,7 @@ class ArtifactRegistryClient(metaclass=ArtifactRegistryClientMeta):
         try:
             # Send the request.
             response = rpc(
-                request,
+                request_pb,
                 retry=retry,
                 timeout=timeout,
                 metadata=metadata,

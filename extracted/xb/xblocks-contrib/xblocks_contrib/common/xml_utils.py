@@ -139,7 +139,7 @@ def own_metadata(block: XBlock) -> dict[str, Any]:
             except TypeError as exception:
                 exception_message = "{message}, Block-location:{location}, Field-name:{field_name}".format(
                     message=str(exception),
-                    location=str(block.location),
+                    location=str(block.usage_key),
                     field_name=field.name
                 )
                 raise TypeError(exception_message)  # lint-amnesty, pylint: disable=raise-missing-from
@@ -486,12 +486,12 @@ class LegacyXmlMixin:
                 aside.add_xml_to_node(aside_node)
                 xml_object.append(aside_node)
 
-        not_to_clean_fields = self.metadata_to_not_to_clean.get(self.category, ())
+        not_to_clean_fields = self.metadata_to_not_to_clean.get(self.usage_key.block_type, ())
         self.clean_metadata_from_xml(xml_object, excluded_fields=not_to_clean_fields)
 
         # Set the tag on both nodes so we get the file path right.
-        xml_object.tag = self.category
-        node.tag = self.category
+        xml_object.tag = self.usage_key.block_type
+        node.tag = self.usage_key.block_type
 
         # Add the non-inherited metadata
         for attr in sorted(own_metadata(self)):
@@ -506,7 +506,7 @@ class LegacyXmlMixin:
                     logging.exception(
                         'Failed to serialize metadata attribute %s with value %s in module %s. '
                         'This could mean data loss!!!',
-                        attr, val, self.url_name
+                        attr, val, self.usage_key.block_id
                     )
 
         for key, value in self.xml_attributes.items():
@@ -515,8 +515,8 @@ class LegacyXmlMixin:
 
         if self.export_to_file():
             # Write the definition to a file
-            url_path = name_to_pathname(self.url_name)
-            filepath = self._format_filepath(self.category, url_path)
+            url_path = name_to_pathname(self.usage_key.block_id)
+            filepath = self._format_filepath(self.usage_key.block_type, url_path)
             self.runtime.export_fs.makedirs(os.path.dirname(filepath), recreate=True)
             with self.runtime.export_fs.open(filepath, 'wb') as fileobj:
                 ElementTree(xml_object).write(fileobj, pretty_print=True, encoding='utf-8')
@@ -531,16 +531,16 @@ class LegacyXmlMixin:
 
         # Do not override an existing value for the course.
         if not node.get('url_name'):
-            node.set('url_name', self.url_name)
+            node.set('url_name', self.usage_key.block_id)
 
         # We do not need to cater the `course` category here in xblocks_contrib,
         # because course export is handled in the edx-platform code.
 
         # Special case for course pointers:
-        # if self.category == 'course':
+        # if self.usage_key.block_type == 'course':
         #     # add org and course attributes on the pointer tag
-        #     node.set('org', self.location.org)
-        #     node.set('course', self.location.course)
+        #     node.set('org', self.usage_key.org)
+        #     node.set('course', self.usage_key.course)
 
     def definition_to_xml(self, resource_fs):
         """

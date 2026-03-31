@@ -139,6 +139,7 @@ class ModalClientModal:
         self.SandboxCreate = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SandboxCreate, client, server_url)
         self.SandboxCreateConnectToken = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SandboxCreateConnectToken, client, server_url)
         self.SandboxCreateV2 = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SandboxCreateV2, client, server_url)
+        self.SandboxGetCommandRouterAccess = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SandboxGetCommandRouterAccess, client, server_url)
         self.SandboxGetFromName = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SandboxGetFromName, client, server_url)
         self.SandboxGetLogs = modal._grpc_client.UnaryStreamWrapper(grpclib_stub.SandboxGetLogs, client, server_url)
         self.SandboxGetResourceUsage = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SandboxGetResourceUsage, client, server_url)

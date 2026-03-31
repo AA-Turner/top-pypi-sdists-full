@@ -28,6 +28,7 @@ class ListArgs:
                  items: Optional[pulumi.Input[Sequence[pulumi.Input['ListItemArgs']]]] = None):
         """
         The set of arguments for constructing a List resource.
+
         :param pulumi.Input[_builtins.str] account_id: The Account ID for this resource.
         :param pulumi.Input[_builtins.str] kind: The type of the list. Each type supports specific list items (IP addresses, ASNs, hostnames or redirects).
                Available values: "ip", "redirect", "hostname", "asn".
@@ -119,6 +120,7 @@ class _ListState:
                  num_referencing_filters: Optional[pulumi.Input[_builtins.float]] = None):
         """
         Input properties used for looking up and filtering List resources.
+
         :param pulumi.Input[_builtins.str] account_id: The Account ID for this resource.
         :param pulumi.Input[_builtins.str] created_on: The RFC 3339 timestamp of when the list was created.
         :param pulumi.Input[_builtins.str] description: An informative summary of the list.
@@ -272,13 +274,18 @@ class List(pulumi.CustomResource):
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        ## Example Usage
+        > The `List` resource supports defining list items in line with the
+          `items` attribute. The provider also has a `ListItem` resource for
+          managing items as independent resources. Using both in line `items` definitions
+          _and_ `get_list_items` on the same list is not supported and will cause
+          Terraform into an irreconcilable state.
 
         ## Import
 
         ```sh
         $ pulumi import cloudflare:index/list:List example '<account_id>/<list_id>'
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -296,13 +303,18 @@ class List(pulumi.CustomResource):
                  args: ListArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        ## Example Usage
+        > The `List` resource supports defining list items in line with the
+          `items` attribute. The provider also has a `ListItem` resource for
+          managing items as independent resources. Using both in line `items` definitions
+          _and_ `get_list_items` on the same list is not supported and will cause
+          Terraform into an irreconcilable state.
 
         ## Import
 
         ```sh
         $ pulumi import cloudflare:index/list:List example '<account_id>/<list_id>'
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ListArgs args: The arguments to use to populate this resource's properties.

@@ -239,10 +239,19 @@ class TestRunner:
 
         await self._install_editable_packages()
         self._print("[setup] Code synced and packages installed")
-        # Resolve ${VAR} placeholders from Chronos analyzer-env settings
-        # (same as the Chronos backend launch flow)
+        # Resolve ${VAR} placeholders in world config. First from Chronos
+        # analyzer-env (same as the backend launch flow), then from pass_env
+        # values so GitHub Actions secrets forwarded via pass_env also work.
         world_config = self.config.world.config or {}
         await resolve_config_env_vars(world_config, self.api_key)
+        pass_env_values = {name: val for name in self.config.test.pass_env if (val := os.environ.get(name))}
+        if pass_env_values:
+            from plato.cli.chronos.env import substitute_env_vars
+
+            substituted = substitute_env_vars(world_config, pass_env_values)
+            if isinstance(substituted, dict):
+                world_config.clear()
+                world_config.update(substituted)
         # Resolve agent package → image URIs (same as dev runner / Chronos backend)
         await resolve_agent_images(world_config, self.api_key)
         await self._write_runtime_files()
@@ -268,7 +277,10 @@ class TestRunner:
                 targets.append(SyncTarget(local_path=resolved, remote_path=f"/extra/{name}"))
 
         if self.config.dev.sync_sdk:
-            sdk_root = get_sdk_root()
+            if isinstance(self.config.dev.sync_sdk, Path):
+                sdk_root = self._resolve_path(self.config.dev.sync_sdk)
+            else:
+                sdk_root = get_sdk_root()
             if sdk_root and (sdk_root / "pyproject.toml").exists():
                 targets.append(SyncTarget(local_path=sdk_root, remote_path="/sdk"))
 

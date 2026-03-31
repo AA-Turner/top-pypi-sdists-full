@@ -22,17 +22,17 @@ try:
 except ImportError:  # pragma: NO COVER
     import mock
 
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,7 +43,13 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.api_core import (
+    client_options,
     future,
     gapic_v1,
     grpc_helpers,
@@ -52,19 +58,13 @@ from google.api_core import (
     operations_v1,
     path_template,
 )
-from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.iam_v3.services.principal_access_boundary_policies import (
     PrincipalAccessBoundaryPoliciesAsyncClient,
@@ -133,6 +133,7 @@ def test__get_default_mtls_endpoint():
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert (
         PrincipalAccessBoundaryPoliciesClient._get_default_mtls_endpoint(None) is None
@@ -162,6 +163,12 @@ def test__get_default_mtls_endpoint():
     assert (
         PrincipalAccessBoundaryPoliciesClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        PrincipalAccessBoundaryPoliciesClient._get_default_mtls_endpoint(
+            custom_endpoint
+        )
+        == custom_endpoint
     )
 
 
@@ -1078,10 +1085,9 @@ def test_principal_access_boundary_policies_client_get_mtls_endpoint_and_cert_so
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1126,10 +1132,9 @@ def test_principal_access_boundary_policies_client_get_mtls_endpoint_and_cert_so
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1165,10 +1170,9 @@ def test_principal_access_boundary_policies_client_get_mtls_endpoint_and_cert_so
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -1429,13 +1433,13 @@ def test_principal_access_boundary_policies_client_create_channel_credentials_fi
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1485,9 +1489,7 @@ def test_create_principal_access_boundary_policy(request_type, transport: str = 
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
-        )
+        request = principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -1520,11 +1522,12 @@ def test_create_principal_access_boundary_policy_non_empty_request_with_auto_pop
         client.create_principal_access_boundary_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest(
-            parent="parent_value",
-            principal_access_boundary_policy_id="principal_access_boundary_policy_id_value",
+        assert (
+            args[0]
+            == principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest(
+                parent="parent_value",
+                principal_access_boundary_policy_id="principal_access_boundary_policy_id_value",
+            )
         )
 
 
@@ -1647,9 +1650,7 @@ async def test_create_principal_access_boundary_policy_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
-        )
+        request = principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -1668,9 +1669,7 @@ def test_create_principal_access_boundary_policy_field_headers():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
-    )
+    request = principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
 
     request.parent = "parent_value"
 
@@ -1702,9 +1701,7 @@ async def test_create_principal_access_boundary_policy_field_headers_async():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
-    )
+    request = principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
 
     request.parent = "parent_value"
 
@@ -1887,9 +1884,7 @@ def test_get_principal_access_boundary_policy(request_type, transport: str = "gr
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
-        )
+        request = principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -1928,10 +1923,11 @@ def test_get_principal_access_boundary_policy_non_empty_request_with_auto_popula
         client.get_principal_access_boundary_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest(
-            name="name_value",
+        assert (
+            args[0]
+            == principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest(
+                name="name_value",
+            )
         )
 
 
@@ -2049,9 +2045,7 @@ async def test_get_principal_access_boundary_policy_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
-        )
+        request = principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -2077,9 +2071,7 @@ def test_get_principal_access_boundary_policy_field_headers():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
-    )
+    request = principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
 
     request.name = "name_value"
 
@@ -2113,9 +2105,7 @@ async def test_get_principal_access_boundary_policy_field_headers_async():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
-    )
+    request = principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
 
     request.name = "name_value"
 
@@ -2259,9 +2249,7 @@ def test_update_principal_access_boundary_policy(request_type, transport: str = 
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
-        )
+        request = principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -2279,9 +2267,7 @@ def test_update_principal_access_boundary_policy_non_empty_request_with_auto_pop
     # Populate all string fields in the request which are not UUID4
     # since we want to check that UUID4 are populated automatically
     # if they meet the requirements of AIP 4235.
-    request = (
-        principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
-    )
+    request = principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
 
     # Mock the actual call within the gRPC stub, and fake the request.
     with mock.patch.object(
@@ -2418,9 +2404,7 @@ async def test_update_principal_access_boundary_policy_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
-        )
+        request = principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -2439,9 +2423,7 @@ def test_update_principal_access_boundary_policy_field_headers():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
-    )
+    request = principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
 
     request.principal_access_boundary_policy.name = "name_value"
 
@@ -2473,9 +2455,7 @@ async def test_update_principal_access_boundary_policy_field_headers_async():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
-    )
+    request = principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
 
     request.principal_access_boundary_policy.name = "name_value"
 
@@ -2641,9 +2621,7 @@ def test_delete_principal_access_boundary_policy(request_type, transport: str = 
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
-        )
+        request = principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -2676,11 +2654,12 @@ def test_delete_principal_access_boundary_policy_non_empty_request_with_auto_pop
         client.delete_principal_access_boundary_policy(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest(
-            name="name_value",
-            etag="etag_value",
+        assert (
+            args[0]
+            == principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest(
+                name="name_value",
+                etag="etag_value",
+            )
         )
 
 
@@ -2803,9 +2782,7 @@ async def test_delete_principal_access_boundary_policy_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
-        )
+        request = principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -2824,9 +2801,7 @@ def test_delete_principal_access_boundary_policy_field_headers():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
-    )
+    request = principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
 
     request.name = "name_value"
 
@@ -2858,9 +2833,7 @@ async def test_delete_principal_access_boundary_policy_field_headers_async():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
-    )
+    request = principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
 
     request.name = "name_value"
 
@@ -3002,9 +2975,7 @@ def test_list_principal_access_boundary_policies(request_type, transport: str = 
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
-        )
+        request = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -3038,11 +3009,12 @@ def test_list_principal_access_boundary_policies_non_empty_request_with_auto_pop
         client.list_principal_access_boundary_policies(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest(
-            parent="parent_value",
-            page_token="page_token_value",
+        assert (
+            args[0]
+            == principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest(
+                parent="parent_value",
+                page_token="page_token_value",
+            )
         )
 
 
@@ -3157,9 +3129,7 @@ async def test_list_principal_access_boundary_policies_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
-        )
+        request = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -3179,9 +3149,7 @@ def test_list_principal_access_boundary_policies_field_headers():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
-    )
+    request = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
 
     request.parent = "parent_value"
 
@@ -3189,9 +3157,7 @@ def test_list_principal_access_boundary_policies_field_headers():
     with mock.patch.object(
         type(client.transport.list_principal_access_boundary_policies), "__call__"
     ) as call:
-        call.return_value = (
-            principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
-        )
+        call.return_value = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
         client.list_principal_access_boundary_policies(request)
 
         # Establish that the underlying gRPC stub method was called.
@@ -3215,9 +3181,7 @@ async def test_list_principal_access_boundary_policies_field_headers_async():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
-    )
+    request = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
 
     request.parent = "parent_value"
 
@@ -3253,9 +3217,7 @@ def test_list_principal_access_boundary_policies_flattened():
         type(client.transport.list_principal_access_boundary_policies), "__call__"
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
-        )
+        call.return_value = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
         # Call the method with a truthy value for each flattened field,
         # using the keyword arguments to the method.
         client.list_principal_access_boundary_policies(
@@ -3296,9 +3258,7 @@ async def test_list_principal_access_boundary_policies_flattened_async():
         type(client.transport.list_principal_access_boundary_policies), "__call__"
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
-        )
+        call.return_value = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
 
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
@@ -3582,9 +3542,7 @@ def test_search_principal_access_boundary_policy_bindings(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls) == 1
         _, args, _ = call.mock_calls[0]
-        request = (
-            principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
-        )
+        request = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -3619,11 +3577,12 @@ def test_search_principal_access_boundary_policy_bindings_non_empty_request_with
         client.search_principal_access_boundary_policy_bindings(request=request)
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        assert args[
-            0
-        ] == principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest(
-            name="name_value",
-            page_token="page_token_value",
+        assert (
+            args[0]
+            == principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest(
+                name="name_value",
+                page_token="page_token_value",
+            )
         )
 
 
@@ -3741,9 +3700,7 @@ async def test_search_principal_access_boundary_policy_bindings_async(
         # Establish that the underlying gRPC stub method was called.
         assert len(call.mock_calls)
         _, args, _ = call.mock_calls[0]
-        request = (
-            principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
-        )
+        request = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
         assert args[0] == request
 
     # Establish that the response is the type that we expect.
@@ -3765,9 +3722,7 @@ def test_search_principal_access_boundary_policy_bindings_field_headers():
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
-    )
+    request = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
 
     request.name = "name_value"
 
@@ -3776,9 +3731,7 @@ def test_search_principal_access_boundary_policy_bindings_field_headers():
         type(client.transport.search_principal_access_boundary_policy_bindings),
         "__call__",
     ) as call:
-        call.return_value = (
-            principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
-        )
+        call.return_value = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
         client.search_principal_access_boundary_policy_bindings(request)
 
         # Establish that the underlying gRPC stub method was called.
@@ -3802,9 +3755,7 @@ async def test_search_principal_access_boundary_policy_bindings_field_headers_as
 
     # Any value that is part of the HTTP/1.1 URI should be sent as
     # a field header. Set these to a non-empty value.
-    request = (
-        principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
-    )
+    request = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
 
     request.name = "name_value"
 
@@ -3842,9 +3793,7 @@ def test_search_principal_access_boundary_policy_bindings_flattened():
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
-        )
+        call.return_value = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
         # Call the method with a truthy value for each flattened field,
         # using the keyword arguments to the method.
         client.search_principal_access_boundary_policy_bindings(
@@ -3886,9 +3835,7 @@ async def test_search_principal_access_boundary_policy_bindings_flattened_async(
         "__call__",
     ) as call:
         # Designate an appropriate return value for the call.
-        call.return_value = (
-            principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
-        )
+        call.return_value = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
 
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
@@ -4216,9 +4163,9 @@ def test_create_principal_access_boundary_policy_rest_required_fields(
     )
 
     jsonified_request["parent"] = "parent_value"
-    jsonified_request[
-        "principalAccessBoundaryPolicyId"
-    ] = "principal_access_boundary_policy_id_value"
+    jsonified_request["principalAccessBoundaryPolicyId"] = (
+        "principal_access_boundary_policy_id_value"
+    )
 
     unset_fields = transport_class(
         credentials=ga_credentials.AnonymousCredentials()
@@ -5091,9 +5038,7 @@ def test_list_principal_access_boundary_policies_rest_required_fields(
     request = request_type(**request_init)
 
     # Designate an appropriate value for the returned response.
-    return_value = (
-        principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
-    )
+    return_value = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(Session, "request") as req:
         # We need to mock transcode() because providing default values
@@ -5158,9 +5103,7 @@ def test_list_principal_access_boundary_policies_rest_flattened():
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(type(client.transport._session), "request") as req:
         # Designate an appropriate value for the returned response.
-        return_value = (
-            principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
-        )
+        return_value = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
 
         # get arguments that satisfy an http rule for this method
         sample_request = {"parent": "organizations/sample1/locations/sample2"}
@@ -5379,9 +5322,7 @@ def test_search_principal_access_boundary_policy_bindings_rest_required_fields(
     request = request_type(**request_init)
 
     # Designate an appropriate value for the returned response.
-    return_value = (
-        principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
-    )
+    return_value = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(Session, "request") as req:
         # We need to mock transcode() because providing default values
@@ -5446,9 +5387,7 @@ def test_search_principal_access_boundary_policy_bindings_rest_flattened():
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(type(client.transport._session), "request") as req:
         # Designate an appropriate value for the returned response.
-        return_value = (
-            principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
-        )
+        return_value = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
 
         # get arguments that satisfy an http rule for this method
         sample_request = {
@@ -5705,9 +5644,7 @@ def test_create_principal_access_boundary_policy_empty_call_grpc():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
 
         assert args[0] == request_msg
 
@@ -5732,9 +5669,7 @@ def test_get_principal_access_boundary_policy_empty_call_grpc():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
 
         assert args[0] == request_msg
 
@@ -5757,9 +5692,7 @@ def test_update_principal_access_boundary_policy_empty_call_grpc():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
 
         assert args[0] == request_msg
 
@@ -5782,9 +5715,7 @@ def test_delete_principal_access_boundary_policy_empty_call_grpc():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
 
         assert args[0] == request_msg
 
@@ -5801,17 +5732,13 @@ def test_list_principal_access_boundary_policies_empty_call_grpc():
     with mock.patch.object(
         type(client.transport.list_principal_access_boundary_policies), "__call__"
     ) as call:
-        call.return_value = (
-            principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
-        )
+        call.return_value = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
         client.list_principal_access_boundary_policies(request=None)
 
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
 
         assert args[0] == request_msg
 
@@ -5829,17 +5756,13 @@ def test_search_principal_access_boundary_policy_bindings_empty_call_grpc():
         type(client.transport.search_principal_access_boundary_policy_bindings),
         "__call__",
     ) as call:
-        call.return_value = (
-            principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
-        )
+        call.return_value = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
         client.search_principal_access_boundary_policy_bindings(request=None)
 
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
 
         assert args[0] == request_msg
 
@@ -5880,9 +5803,7 @@ async def test_create_principal_access_boundary_policy_empty_call_grpc_asyncio()
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
 
         assert args[0] == request_msg
 
@@ -5914,9 +5835,7 @@ async def test_get_principal_access_boundary_policy_empty_call_grpc_asyncio():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
 
         assert args[0] == request_msg
 
@@ -5943,9 +5862,7 @@ async def test_update_principal_access_boundary_policy_empty_call_grpc_asyncio()
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
 
         assert args[0] == request_msg
 
@@ -5972,9 +5889,7 @@ async def test_delete_principal_access_boundary_policy_empty_call_grpc_asyncio()
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
 
         assert args[0] == request_msg
 
@@ -6003,9 +5918,7 @@ async def test_list_principal_access_boundary_policies_empty_call_grpc_asyncio()
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
 
         assert args[0] == request_msg
 
@@ -6035,9 +5948,7 @@ async def test_search_principal_access_boundary_policy_bindings_empty_call_grpc_
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
 
         assert args[0] == request_msg
 
@@ -6060,8 +5971,9 @@ def test_create_principal_access_boundary_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6212,22 +6124,23 @@ def test_create_principal_access_boundary_policy_rest_interceptors(null_intercep
     )
     client = PrincipalAccessBoundaryPoliciesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "post_create_principal_access_boundary_policy",
-    ) as post, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "post_create_principal_access_boundary_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "pre_create_principal_access_boundary_policy",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "post_create_principal_access_boundary_policy",
+        ) as post,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "post_create_principal_access_boundary_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "pre_create_principal_access_boundary_policy",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6247,9 +6160,7 @@ def test_create_principal_access_boundary_policy_rest_interceptors(null_intercep
         return_value = json_format.MessageToJson(operations_pb2.Operation())
         req.return_value.content = return_value
 
-        request = (
-            principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
-        )
+        request = principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
@@ -6284,8 +6195,9 @@ def test_get_principal_access_boundary_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6365,20 +6277,22 @@ def test_get_principal_access_boundary_policy_rest_interceptors(null_interceptor
     )
     client = PrincipalAccessBoundaryPoliciesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "post_get_principal_access_boundary_policy",
-    ) as post, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "post_get_principal_access_boundary_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "pre_get_principal_access_boundary_policy",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "post_get_principal_access_boundary_policy",
+        ) as post,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "post_get_principal_access_boundary_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "pre_get_principal_access_boundary_policy",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6400,9 +6314,7 @@ def test_get_principal_access_boundary_policy_rest_interceptors(null_interceptor
         )
         req.return_value.content = return_value
 
-        request = (
-            principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
-        )
+        request = principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
@@ -6444,8 +6356,9 @@ def test_update_principal_access_boundary_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6600,22 +6513,23 @@ def test_update_principal_access_boundary_policy_rest_interceptors(null_intercep
     )
     client = PrincipalAccessBoundaryPoliciesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "post_update_principal_access_boundary_policy",
-    ) as post, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "post_update_principal_access_boundary_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "pre_update_principal_access_boundary_policy",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "post_update_principal_access_boundary_policy",
+        ) as post,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "post_update_principal_access_boundary_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "pre_update_principal_access_boundary_policy",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6635,9 +6549,7 @@ def test_update_principal_access_boundary_policy_rest_interceptors(null_intercep
         return_value = json_format.MessageToJson(operations_pb2.Operation())
         req.return_value.content = return_value
 
-        request = (
-            principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
-        )
+        request = principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
@@ -6672,8 +6584,9 @@ def test_delete_principal_access_boundary_policy_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6732,22 +6645,23 @@ def test_delete_principal_access_boundary_policy_rest_interceptors(null_intercep
     )
     client = PrincipalAccessBoundaryPoliciesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        operation.Operation, "_set_result_from_operation"
-    ), mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "post_delete_principal_access_boundary_policy",
-    ) as post, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "post_delete_principal_access_boundary_policy_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "pre_delete_principal_access_boundary_policy",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(operation.Operation, "_set_result_from_operation"),
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "post_delete_principal_access_boundary_policy",
+        ) as post,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "post_delete_principal_access_boundary_policy_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "pre_delete_principal_access_boundary_policy",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6767,9 +6681,7 @@ def test_delete_principal_access_boundary_policy_rest_interceptors(null_intercep
         return_value = json_format.MessageToJson(operations_pb2.Operation())
         req.return_value.content = return_value
 
-        request = (
-            principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
-        )
+        request = principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
@@ -6802,8 +6714,9 @@ def test_list_principal_access_boundary_policies_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -6868,20 +6781,22 @@ def test_list_principal_access_boundary_policies_rest_interceptors(null_intercep
     )
     client = PrincipalAccessBoundaryPoliciesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "post_list_principal_access_boundary_policies",
-    ) as post, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "post_list_principal_access_boundary_policies_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "pre_list_principal_access_boundary_policies",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "post_list_principal_access_boundary_policies",
+        ) as post,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "post_list_principal_access_boundary_policies_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "pre_list_principal_access_boundary_policies",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -6903,17 +6818,13 @@ def test_list_principal_access_boundary_policies_rest_interceptors(null_intercep
         )
         req.return_value.content = return_value
 
-        request = (
-            principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
-        )
+        request = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
         ]
         pre.return_value = request, metadata
-        post.return_value = (
-            principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
-        )
+        post.return_value = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse()
         post_with_metadata.return_value = (
             principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesResponse(),
             metadata,
@@ -6945,8 +6856,9 @@ def test_search_principal_access_boundary_policy_bindings_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -7017,20 +6929,22 @@ def test_search_principal_access_boundary_policy_bindings_rest_interceptors(
     )
     client = PrincipalAccessBoundaryPoliciesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "post_search_principal_access_boundary_policy_bindings",
-    ) as post, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "post_search_principal_access_boundary_policy_bindings_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
-        "pre_search_principal_access_boundary_policy_bindings",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "post_search_principal_access_boundary_policy_bindings",
+        ) as post,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "post_search_principal_access_boundary_policy_bindings_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.PrincipalAccessBoundaryPoliciesRestInterceptor,
+            "pre_search_principal_access_boundary_policy_bindings",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -7052,17 +6966,13 @@ def test_search_principal_access_boundary_policy_bindings_rest_interceptors(
         )
         req.return_value.content = return_value
 
-        request = (
-            principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
-        )
+        request = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
         metadata = [
             ("key", "val"),
             ("cephalopod", "squid"),
         ]
         pre.return_value = request, metadata
-        post.return_value = (
-            principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
-        )
+        post.return_value = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse()
         post_with_metadata.return_value = (
             principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsResponse(),
             metadata,
@@ -7094,8 +7004,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -7167,9 +7078,7 @@ def test_create_principal_access_boundary_policy_empty_call_rest():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.CreatePrincipalAccessBoundaryPolicyRequest()
 
         assert args[0] == request_msg
 
@@ -7191,9 +7100,7 @@ def test_get_principal_access_boundary_policy_empty_call_rest():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.GetPrincipalAccessBoundaryPolicyRequest()
 
         assert args[0] == request_msg
 
@@ -7215,9 +7122,7 @@ def test_update_principal_access_boundary_policy_empty_call_rest():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.UpdatePrincipalAccessBoundaryPolicyRequest()
 
         assert args[0] == request_msg
 
@@ -7239,9 +7144,7 @@ def test_delete_principal_access_boundary_policy_empty_call_rest():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.DeletePrincipalAccessBoundaryPolicyRequest()
 
         assert args[0] == request_msg
 
@@ -7263,9 +7166,7 @@ def test_list_principal_access_boundary_policies_empty_call_rest():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.ListPrincipalAccessBoundaryPoliciesRequest()
 
         assert args[0] == request_msg
 
@@ -7288,9 +7189,7 @@ def test_search_principal_access_boundary_policy_bindings_empty_call_rest():
         # Establish that the underlying stub method was called.
         call.assert_called()
         _, args, _ = call.mock_calls[0]
-        request_msg = (
-            principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
-        )
+        request_msg = principal_access_boundary_policies_service.SearchPrincipalAccessBoundaryPolicyBindingsRequest()
 
         assert args[0] == request_msg
 
@@ -7376,11 +7275,14 @@ def test_principal_access_boundary_policies_base_transport():
 
 def test_principal_access_boundary_policies_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.iam_v3.services.principal_access_boundary_policies.transports.PrincipalAccessBoundaryPoliciesTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.iam_v3.services.principal_access_boundary_policies.transports.PrincipalAccessBoundaryPoliciesTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.PrincipalAccessBoundaryPoliciesTransport(
@@ -7397,9 +7299,12 @@ def test_principal_access_boundary_policies_base_transport_with_credentials_file
 
 def test_principal_access_boundary_policies_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.iam_v3.services.principal_access_boundary_policies.transports.PrincipalAccessBoundaryPoliciesTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.iam_v3.services.principal_access_boundary_policies.transports.PrincipalAccessBoundaryPoliciesTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.PrincipalAccessBoundaryPoliciesTransport()
@@ -7478,11 +7383,12 @@ def test_principal_access_boundary_policies_transport_create_channel(
 ):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -8150,6 +8056,40 @@ async def test_get_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_operation_flattened():
+    client = PrincipalAccessBoundaryPoliciesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = PrincipalAccessBoundaryPoliciesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
 
 
 def test_transport_close_grpc():

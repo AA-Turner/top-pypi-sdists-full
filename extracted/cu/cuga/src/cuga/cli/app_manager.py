@@ -50,6 +50,19 @@ class AppManager:
         return int(os.environ.get("DYNACONF_SERVER_PORTS__CRM_API", str(settings.server_ports.crm_api)))
 
     @property
+    def docs_port(self) -> int:
+        return _port("DOCS_MCP", str(getattr(settings.server_ports, "docs_mcp", 8113)))
+
+    @property
+    def oak_health_port(self) -> int:
+        return int(
+            os.environ.get(
+                "DYNACONF_SERVER_PORTS__OAK_HEALTH_API",
+                str(getattr(settings.server_ports, "oak_health_api", 8090)),
+            )
+        )
+
+    @property
     def registry_port(self) -> int:
         return settings.server_ports.registry
 
@@ -62,6 +75,8 @@ class AppManager:
         email: bool = False,
         filesystem: bool = False,
         crm: bool = False,
+        docs: bool = False,
+        oak_health: bool = False,
     ) -> list[int]:
         """Return ports to clean for given app flags."""
         ports: list[int] = []
@@ -71,6 +86,10 @@ class AppManager:
             ports.extend([self.email_sink_port, self.email_mcp_port])
         if crm:
             ports.append(self.crm_port)
+        if docs:
+            ports.append(self.docs_port)
+        if oak_health:
+            ports.append(self.oak_health_port)
         return ports
 
     def start_email(self, use_cache: bool = True) -> tuple[int, int]:
@@ -113,6 +132,16 @@ class AppManager:
         time.sleep(2)
         return self.fs_port
 
+    def start_docs(self, use_cache: bool = True) -> int:
+        """Start docs MCP server. Returns docs_port."""
+        port = self.docs_port
+        logger.info(f"Starting docs MCP server on port {port}")
+        cmd = ["uv", "run", "python", "docs/examples/docs_mcp/docs_mcp_server.py"]
+        self._run("docs-mcp", cmd, {"DYNACONF_SERVER_PORTS__DOCS_MCP": str(port)})
+        logger.info("Docs MCP server started")
+        time.sleep(2)
+        return port
+
     def start_crm(self, crm_db_path: str, use_cache: bool = True) -> int:
         """Start CRM API server. Returns crm_port."""
         port = settings.server_ports.crm_api
@@ -126,6 +155,19 @@ class AppManager:
         )
         logger.info("CRM API server started")
         self._wait_http(port, "CRM API server")
+        return port
+
+    def start_oak_health(self, use_cache: bool = True) -> int:
+        """Start cuga-oak-health OpenAPI server via uvx (bind port 8090 in current release)."""
+        port = self.oak_health_port
+        logger.info("Starting cuga-oak-health OpenAPI server via uvx")
+        cmd = ["uvx"] + ([] if use_cache else ["--no-cache"]) + ["cuga-oak-health"]
+        self._run(
+            "oak-health",
+            cmd,
+            {"DYNACONF_SERVER_PORTS__OAK_HEALTH_API": str(port), "PORT": str(port)},
+        )
+        self._wait_http(port, "Oak Health API")
         return port
 
     def start_registry(self, host: str = "0.0.0.0"):
@@ -145,23 +187,28 @@ class AppManager:
 
     def start_demo(self, host: str = "0.0.0.0", sandbox: bool = False):
         """Start demo server. Returns process."""
-        server_path = os.path.join(PACKAGE_ROOT, "backend", "server", "main.py")
+        ssl_keyfile = os.environ.get("SSL_KEYFILE", "").strip()
+        ssl_certfile = os.environ.get("SSL_CERTFILE", "").strip()
+        use_ssl = bool(ssl_keyfile and ssl_certfile)
+
+        app_import = "cuga.backend.server.main:app"
+        uvicorn_base = [
+            "uvicorn",
+            app_import,
+            "--host",
+            host,
+            "--port",
+            str(self.demo_port),
+        ]
+        if use_ssl:
+            uvicorn_base += ["--ssl-keyfile", ssl_keyfile, "--ssl-certfile", ssl_certfile]
+
         if sandbox:
-            cmd = [
-                "uv",
-                "run",
-                "--group",
-                "sandbox",
-                "fastapi",
-                "dev",
-                server_path,
-                "--host",
-                host,
-                "--no-reload",
-                "--port",
-                str(self.demo_port),
-            ]
+            cmd = ["uv", "run", "--group", "sandbox"] + uvicorn_base
+        elif use_ssl:
+            cmd = uvicorn_base
         else:
+            server_path = os.path.join(PACKAGE_ROOT, "backend", "server", "main.py")
             cmd = [
                 "fastapi",
                 "dev",
@@ -172,6 +219,7 @@ class AppManager:
                 "--port",
                 str(self.demo_port),
             ]
+
         proc = self._run("demo", cmd, None)
         if proc:
             self._wait_http(self.demo_port, "Demo server")
@@ -232,11 +280,28 @@ class AppManager:
                 self._kill_process(proc.pid)
             del self._processes["crm-server"]
 
+    def stop_docs(self) -> None:
+        """Stop docs MCP server if running."""
+        if "docs-mcp" in self._processes:
+            proc = self._processes["docs-mcp"]
+            if proc and proc.poll() is None:
+                self._kill_process(proc.pid)
+            del self._processes["docs-mcp"]
+
+    def stop_oak_health(self) -> None:
+        if "oak-health" in self._processes:
+            proc = self._processes["oak-health"]
+            if proc and proc.poll() is None:
+                self._kill_process(proc.pid)
+            del self._processes["oak-health"]
+
     def stop_apps(
         self,
         email: bool = False,
         filesystem: bool = False,
         crm: bool = False,
+        docs: bool = False,
+        oak_health: bool = False,
     ) -> None:
         """Stop specified app servers."""
         if email:
@@ -245,6 +310,10 @@ class AppManager:
             self.stop_filesystem()
         if crm:
             self.stop_crm()
+        if docs:
+            self.stop_docs()
+        if oak_health:
+            self.stop_oak_health()
 
     def prepare_workspace(self, workspace_path: str, copy_examples: bool = True) -> list[str]:
         """Create workspace dir and optionally copy example files. Returns list of copied paths."""

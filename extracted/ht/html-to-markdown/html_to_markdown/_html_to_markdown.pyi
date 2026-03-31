@@ -1,8 +1,4 @@
-from typing import Literal, TypeAlias, TypedDict
-
-class OutputFormat:
-    MARKDOWN: str
-    DJOT: str
+from typing import Any, Literal, TypedDict
 
 class PreprocessingOptions:
     enabled: bool
@@ -33,7 +29,6 @@ class ConversionOptions:
     autolinks: bool
     default_title: bool
     br_in_tables: bool
-    hocr_spatial_tables: bool
     highlight_style: Literal["double-equal", "html", "bold", "none"]
     extract_metadata: bool
     whitespace_mode: Literal["normalized", "strict"]
@@ -53,6 +48,11 @@ class ConversionOptions:
     preserve_tags: list[str]
     skip_images: bool
     output_format: Literal["markdown", "djot"]
+    include_document_structure: bool
+    extract_images: bool
+    max_image_size: int
+    capture_svg: bool
+    infer_dimensions: bool
 
     def __init__(
         self,
@@ -70,7 +70,6 @@ class ConversionOptions:
         autolinks: bool = True,
         default_title: bool = False,
         br_in_tables: bool = False,
-        hocr_spatial_tables: bool = True,
         highlight_style: Literal["double-equal", "html", "bold", "none"] = "double-equal",
         extract_metadata: bool = True,
         whitespace_mode: Literal["normalized", "strict"] = "normalized",
@@ -90,180 +89,44 @@ class ConversionOptions:
         preserve_tags: list[str] = [],
         skip_images: bool = False,
         output_format: Literal["markdown", "djot"] = "markdown",
+        include_document_structure: bool = False,
+        extract_images: bool = False,
+        max_image_size: int = 5_242_880,
+        capture_svg: bool = False,
+        infer_dimensions: bool = True,
     ) -> None: ...
 
-class InlineImageConfig:
-    max_decoded_size_bytes: int
-    filename_prefix: str | None
-    capture_svg: bool
-    infer_dimensions: bool
-
-    def __init__(
-        self,
-        max_decoded_size_bytes: int = ...,
-        filename_prefix: str | None = None,
-        capture_svg: bool = True,
-        infer_dimensions: bool = False,
-    ) -> None: ...
-
-class ConversionOptionsHandle:
-    def __init__(self, options: ConversionOptions | None = None) -> None: ...
-
-class InlineImage(TypedDict):
-    data: bytes
-    format: str
-    filename: str | None
-    description: str | None
-    dimensions: tuple[int, int] | None
-    source: Literal["img_data_uri", "svg_element"]
-    attributes: dict[str, str]
-
-class InlineImageWarning(TypedDict):
-    index: int
-    message: str
-
-class MetadataConfig:
-    extract_document: bool
-    extract_headers: bool
-    extract_links: bool
-    extract_images: bool
-    extract_structured_data: bool
-    max_structured_data_size: int
-
-    def __init__(
-        self,
-        *,
-        extract_document: bool = True,
-        extract_headers: bool = True,
-        extract_links: bool = True,
-        extract_images: bool = True,
-        extract_structured_data: bool = True,
-        max_structured_data_size: int = 1_000_000,
-    ) -> None: ...
-
-class DocumentMetadata(TypedDict):
-    title: str | None
-    description: str | None
-    keywords: list[str]
-    author: str | None
-    canonical_url: str | None
-    base_href: str | None
-    language: str | None
-    text_direction: str | None
-    open_graph: dict[str, str]
-    twitter_card: dict[str, str]
-    meta_tags: dict[str, str]
-
-class HeaderMetadata(TypedDict):
-    level: int
-    text: str
-    id: str | None
-    depth: int
-    html_offset: int
-
-class LinkMetadata(TypedDict):
-    href: str
-    text: str
-    title: str | None
-    link_type: str
-    rel: list[str]
-    attributes: dict[str, str]
-
-class ImageMetadata(TypedDict):
-    src: str
-    alt: str | None
-    title: str | None
-    dimensions: tuple[int, int] | None
-    image_type: str
-    attributes: dict[str, str]
-
-class StructuredData(TypedDict):
-    data_type: str
-    raw_json: str
-    schema_type: str | None
-
-class ExtendedMetadata(TypedDict):
-    document: DocumentMetadata
-    headers: list[HeaderMetadata]
-    links: list[LinkMetadata]
-    images: list[ImageMetadata]
-    structured_data: list[StructuredData]
-
-class TableData(TypedDict):
-    cells: list[list[str]]
-    markdown: str
-    is_header_row: list[bool]
-
-class TableExtractionResult(TypedDict):
+class GridCell(TypedDict):
     content: str
-    metadata: ExtendedMetadata | None
-    tables: list[TableData]
+    row: int
+    col: int
+    row_span: int
+    col_span: int
+    is_header: bool
 
-def convert(html: str, options: ConversionOptions | None = None) -> str: ...
-def convert_with_inline_images(
-    html: str,
-    options: ConversionOptions | None = None,
-    image_config: InlineImageConfig | None = None,
-) -> tuple[str, list[InlineImage], list[InlineImageWarning]]: ...
-def convert_with_inline_images_handle(
-    html: str,
-    handle: ConversionOptionsHandle,
-    image_config: InlineImageConfig | None = None,
-) -> tuple[str, list[InlineImage], list[InlineImageWarning]]: ...
-def convert_with_metadata(
-    html: str,
-    options: ConversionOptions | None = None,
-    metadata_config: MetadataConfig | None = None,
-) -> tuple[str, ExtendedMetadata]: ...
-def convert_with_metadata_handle(
-    html: str,
-    handle: ConversionOptionsHandle,
-    metadata_config: MetadataConfig | None = None,
-) -> tuple[str, ExtendedMetadata]: ...
-def convert_with_tables(
-    html: str,
-    options: ConversionOptions | None = None,
-    metadata_config: MetadataConfig | None = None,
-) -> TableExtractionResult: ...
-def create_options_handle(options: ConversionOptions | None = None) -> ConversionOptionsHandle: ...
-def convert_with_options_handle(html: str, handle: ConversionOptionsHandle) -> str: ...
+class TableGrid(TypedDict):
+    rows: int
+    cols: int
+    cells: list[GridCell]
 
-class NodeContext(TypedDict):
-    node_type: str
-    """Coarse-grained node type classification (e.g., 'text', 'element', 'heading')"""
-    tag_name: str
-    """Raw HTML tag name (e.g., 'div', 'h1', 'custom-element')"""
-    attributes: dict[str, str]
-    """All HTML attributes as key-value pairs"""
-    depth: int
-    """Depth in the DOM tree (0 = root)"""
-    index_in_parent: int
-    """Index among siblings (0-based)"""
-    parent_tag: str | None
-    """Parent element's tag name (None if root)"""
-    is_inline: bool
-    """Whether this element is treated as inline vs block"""
+class ExtractedTable(TypedDict):
+    grid: TableGrid
+    markdown: str
 
-VisitResult: TypeAlias = dict[str, str]
-"""Result of a visitor callback.
+class ProcessingWarning(TypedDict):
+    message: str
+    kind: str
 
-Allows visitors to control the conversion flow. Must be a dictionary with a 'type' key:
-- {'type': 'continue'} - Continue with default conversion
-- {'type': 'skip'} - Skip this element entirely
-- {'type': 'preserve_html'} - Preserve original HTML
-- {'type': 'custom', 'output': 'markdown'} - Replace with custom markdown
-- {'type': 'error', 'message': 'error message'} - Stop with error
-"""
+class ConversionResult(TypedDict):
+    content: str | None
+    document: None
+    metadata: dict[str, Any] | None
+    tables: list[ExtractedTable]
+    images: list[Any]
+    warnings: list[ProcessingWarning]
 
-def convert_with_visitor(
+def convert(
     html: str,
     options: ConversionOptions | None = None,
     visitor: object | None = None,
-) -> str: ...
-def convert_with_async_visitor(
-    html: str,
-    options: ConversionOptions | None = None,
-    visitor: object | None = None,
-) -> str: ...
-def start_profiling(output_path: str, frequency: int | None = None) -> None: ...
-def stop_profiling() -> None: ...
+) -> ConversionResult: ...

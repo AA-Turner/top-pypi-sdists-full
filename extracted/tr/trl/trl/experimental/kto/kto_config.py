@@ -15,13 +15,11 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from transformers import TrainingArguments
-
-from ...trainer.base_config import BaseConfig
+from ...trainer.base_config import _BaseConfig
 
 
 @dataclass
-class KTOConfig(BaseConfig):
+class KTOConfig(_BaseConfig):
     # docstyle-ignore
     r"""
     Configuration class for the [`experimental.kto.KTOTrainer`].
@@ -74,7 +72,7 @@ class KTOConfig(BaseConfig):
     > - `learning_rate`: Defaults to `1e-6` instead of `5e-5`.
     """
 
-    _VALID_DICT_FIELDS = TrainingArguments._VALID_DICT_FIELDS + ["model_init_kwargs"]
+    _VALID_DICT_FIELDS = _BaseConfig._VALID_DICT_FIELDS + ["model_init_kwargs"]
 
     # Parameters whose default values are overridden from TrainingArguments
     learning_rate: float = field(
@@ -143,8 +141,3 @@ class KTOConfig(BaseConfig):
         default=None,
         metadata={"help": "Number of processes to use for processing the dataset."},
     )
-
-    def __post_init__(self):
-        self.bf16 = not (self.fp16) if self.bf16 is None else self.bf16
-
-        super().__post_init__()

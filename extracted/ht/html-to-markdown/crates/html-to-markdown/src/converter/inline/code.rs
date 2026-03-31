@@ -10,6 +10,8 @@
 //! - Visitor callbacks for custom code processing
 //! - Whitespace normalization for kbd/samp elements
 
+#[cfg(feature = "visitor")]
+use crate::converter::utility::content::collect_tag_attributes;
 use crate::options::ConversionOptions;
 use crate::text;
 #[allow(unused_imports)]
@@ -120,11 +122,7 @@ fn handle_code(
             let code_output = if let Some(ref visitor_handle) = ctx.visitor {
                 use crate::visitor::{NodeContext, NodeType, VisitResult};
 
-                let attributes: BTreeMap<String, String> = tag
-                    .attributes()
-                    .iter()
-                    .filter_map(|(k, v)| v.as_ref().map(|val| (k.to_string(), val.to_string())))
-                    .collect();
+                let attributes: BTreeMap<String, String> = collect_tag_attributes(tag);
 
                 let node_id = node_handle.get_inner();
                 let parent_tag = dom_ctx.parent_tag_name(node_id, parser);

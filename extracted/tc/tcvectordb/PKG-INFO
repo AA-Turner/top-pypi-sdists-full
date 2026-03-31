@@ -1,10 +1,17 @@
-Metadata-Version: 1.2
+Metadata-Version: 2.1
 Name: tcvectordb
-Version: 2.1.0
+Version: 2.1.1
 Summary: Tencent VectorDB Python SDK
-Home-page: UNKNOWN
+Home-page: 
 Author: tencent vdb team
-License: UNKNOWN
-Description: UNKNOWN
-Platform: UNKNOWN
 Requires-Python: >=3
+License-File: LICENSE
+Requires-Dist: requests
+Requires-Dist: cos-python-sdk-v5
+Requires-Dist: grpcio
+Requires-Dist: grpcio-tools
+Requires-Dist: cachetools
+Requires-Dist: urllib3
+Requires-Dist: tcvdb-text
+Requires-Dist: numpy
+Requires-Dist: ujson

@@ -19,42 +19,7 @@ use std::borrow::Cow;
 /// "Text \\[escaped\\]" → "Text \\[escaped\\]"
 /// ```
 pub fn escape_link_label(text: &str) -> String {
-    if text.is_empty() {
-        return String::new();
-    }
-
-    let mut result = String::with_capacity(text.len());
-    let mut backslash_count = 0usize;
-    let mut bracket_depth = 0usize;
-
-    for ch in text.chars() {
-        if ch == '\\' {
-            result.push('\\');
-            backslash_count += 1;
-            continue;
-        }
-
-        let is_escaped = backslash_count % 2 == 1;
-        backslash_count = 0;
-
-        match ch {
-            '[' if !is_escaped => {
-                bracket_depth = bracket_depth.saturating_add(1);
-                result.push('[');
-            }
-            ']' if !is_escaped => {
-                if bracket_depth == 0 {
-                    result.push('\\');
-                } else {
-                    bracket_depth -= 1;
-                }
-                result.push(']');
-            }
-            _ => result.push(ch),
-        }
-    }
-
-    result
+    crate::converter::utility::content::escape_link_label(text)
 }
 
 /// Escape malformed angle brackets in markdown output.

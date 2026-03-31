@@ -25,6 +25,7 @@ class StreamCaptionLanguageArgs:
                  file: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a StreamCaptionLanguage resource.
+
         :param pulumi.Input[_builtins.str] account_id: Identifier.
         :param pulumi.Input[_builtins.str] identifier: A Cloudflare-generated unique identifier for a media item.
         :param pulumi.Input[_builtins.str] language: The language tag in BCP 47 format.
@@ -97,6 +98,7 @@ class _StreamCaptionLanguageState:
                  status: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering StreamCaptionLanguage resources.
+
         :param pulumi.Input[_builtins.str] account_id: Identifier.
         :param pulumi.Input[_builtins.str] file: The WebVTT file containing the caption or subtitle content.
         :param pulumi.Input[_builtins.bool] generated: Whether the caption was generated via AI.
@@ -233,7 +235,8 @@ class StreamCaptionLanguage(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -263,7 +266,8 @@ class StreamCaptionLanguage(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param StreamCaptionLanguageArgs args: The arguments to use to populate this resource's properties.

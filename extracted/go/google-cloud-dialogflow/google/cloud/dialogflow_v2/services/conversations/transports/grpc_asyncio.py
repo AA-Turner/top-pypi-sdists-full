@@ -17,9 +17,12 @@ import inspect
 import json
 import logging as std_logging
 import pickle
-from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Awaitable, Callable, Dict, Optional, Sequence, Tuple, Union
 
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, grpc_helpers_async
 from google.api_core import retry_async as retries
@@ -28,14 +31,10 @@ from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
 from grpc.experimental import aio  # type: ignore
-import proto  # type: ignore
 
-from google.cloud.dialogflow_v2.types import conversation
+from google.cloud.dialogflow_v2.types import conversation, participant
 from google.cloud.dialogflow_v2.types import conversation as gcd_conversation
-from google.cloud.dialogflow_v2.types import participant
 
 from .base import DEFAULT_CLIENT_INFO, ConversationsTransport
 from .grpc import ConversationsGrpcTransport
@@ -64,7 +63,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -99,7 +98,7 @@ class _LoggingClientAIOInterceptor(
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -240,6 +239,10 @@ class ConversationsGrpcAsyncIOTransport(ConversationsTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
             google.auth.exceptions.MutualTlsChannelError: If mutual TLS transport
@@ -557,12 +560,12 @@ class ConversationsGrpcAsyncIOTransport(ConversationsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "suggest_conversation_summary" not in self._stubs:
-            self._stubs[
-                "suggest_conversation_summary"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.dialogflow.v2.Conversations/SuggestConversationSummary",
-                request_serializer=gcd_conversation.SuggestConversationSummaryRequest.serialize,
-                response_deserializer=gcd_conversation.SuggestConversationSummaryResponse.deserialize,
+            self._stubs["suggest_conversation_summary"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.dialogflow.v2.Conversations/SuggestConversationSummary",
+                    request_serializer=gcd_conversation.SuggestConversationSummaryRequest.serialize,
+                    response_deserializer=gcd_conversation.SuggestConversationSummaryResponse.deserialize,
+                )
             )
         return self._stubs["suggest_conversation_summary"]
 
@@ -589,12 +592,12 @@ class ConversationsGrpcAsyncIOTransport(ConversationsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "generate_stateless_summary" not in self._stubs:
-            self._stubs[
-                "generate_stateless_summary"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.dialogflow.v2.Conversations/GenerateStatelessSummary",
-                request_serializer=conversation.GenerateStatelessSummaryRequest.serialize,
-                response_deserializer=conversation.GenerateStatelessSummaryResponse.deserialize,
+            self._stubs["generate_stateless_summary"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.dialogflow.v2.Conversations/GenerateStatelessSummary",
+                    request_serializer=conversation.GenerateStatelessSummaryRequest.serialize,
+                    response_deserializer=conversation.GenerateStatelessSummaryResponse.deserialize,
+                )
             )
         return self._stubs["generate_stateless_summary"]
 
@@ -621,12 +624,12 @@ class ConversationsGrpcAsyncIOTransport(ConversationsTransport):
         # gRPC handles serialization and deserialization, so we just need
         # to pass in the functions for each.
         if "generate_stateless_suggestion" not in self._stubs:
-            self._stubs[
-                "generate_stateless_suggestion"
-            ] = self._logged_channel.unary_unary(
-                "/google.cloud.dialogflow.v2.Conversations/GenerateStatelessSuggestion",
-                request_serializer=conversation.GenerateStatelessSuggestionRequest.serialize,
-                response_deserializer=conversation.GenerateStatelessSuggestionResponse.deserialize,
+            self._stubs["generate_stateless_suggestion"] = (
+                self._logged_channel.unary_unary(
+                    "/google.cloud.dialogflow.v2.Conversations/GenerateStatelessSuggestion",
+                    request_serializer=conversation.GenerateStatelessSuggestionRequest.serialize,
+                    response_deserializer=conversation.GenerateStatelessSuggestionResponse.deserialize,
+                )
             )
         return self._stubs["generate_stateless_suggestion"]
 

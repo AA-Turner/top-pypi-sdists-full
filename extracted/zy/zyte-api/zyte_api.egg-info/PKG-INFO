@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zyte-api
-Version: 0.8.2
+Version: 0.9.0
 Summary: Python interface to Zyte API
 Home-page: https://github.com/zytedata/python-zyte-api
 Author: Zyte Group Ltd

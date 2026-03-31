@@ -59,6 +59,7 @@ from chalk._gen.chalk.server.v1.graph_pb2 import (
     PythonVersion,
 )
 from chalk._gen.chalk.server.v1.graph_pb2_grpc import GraphServiceStub
+from chalk._gen.chalk.server.v1.integrations_pb2_grpc import IntegrationsServiceStub
 from chalk._gen.chalk.server.v1.log_pb2_grpc import LogSearchServiceStub
 from chalk._gen.chalk.server.v1.model_registry_pb2 import (
     CreateModelArtifactRequest,
@@ -393,6 +394,12 @@ class StubProvider:
         return DataPlaneJobQueueServiceStub(self._server_channel)
 
     @cached_property
+    def integrations_stub(self) -> IntegrationsServiceStub:
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return IntegrationsServiceStub(self._server_channel)
+
+    @cached_property
     def aggregate_stub(self) -> "AggregateServiceStub":
         from chalk._gen.chalk.aggregate.v1.service_pb2_grpc import AggregateServiceStub
 
@@ -628,6 +635,9 @@ class StubRefresher:
 
     def call_streaming_stub(self, fn: Callable[[SimpleStreamingServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.streaming_stub)
+
+    def call_integrations_stub(self, fn: Callable[[IntegrationsServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.integrations_stub)
 
     def call_aggregate_stub(self, fn: Callable[[AggregateServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.aggregate_stub)

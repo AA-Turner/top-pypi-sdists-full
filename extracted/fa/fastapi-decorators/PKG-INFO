@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-decorators
-Version: 1.0.19
+Version: 1.0.20
 Summary: Create decorators for your endpoints using FastAPI dependencies.
 Project-URL: Homepage, https://github.com/Minibrams/fastapi-decorators
 Project-URL: Documentation, https://github.com/Minibrams/fastapi-decorators
@@ -142,8 +142,6 @@ def get_a_very_expensive_resource():
 ```
 
 # Usage examples
-
-A more detailed version of the documentation is available [here](https://fastapi-decorators.abrams.dk/).
 
 - [Usage examples](#usage-examples)
   - [Using `depends()` directly](#using-depends-directly)

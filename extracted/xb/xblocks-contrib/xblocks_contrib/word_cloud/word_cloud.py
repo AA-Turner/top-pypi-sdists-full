@@ -9,7 +9,6 @@ import uuid
 
 from django.utils.translation import gettext_noop as _
 from lxml import etree
-from opaque_keys.edx.keys import UsageKey
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
 from xblock.fields import Boolean, Dict, Integer, List, Scope, String
@@ -98,26 +97,6 @@ class WordCloudBlock(StudioEditableXBlockMixin, LegacyXmlMixin, XBlock):
         help=_("Top num_top_words words for word cloud."),
         scope=Scope.user_state_summary
     )
-
-    @property
-    def category(self):
-        return self.scope_ids.block_type
-
-    @property
-    def url_name(self):
-        return self.location.block_id
-
-    @property
-    def location(self):
-        return self.scope_ids.usage_id
-
-    @location.setter
-    def location(self, value):
-        assert isinstance(value, UsageKey)
-        self.scope_ids = self.scope_ids._replace(
-            def_id=value,  # Note: assigning a UsageKey as def_id is OK in old mongo / import system but wrong in split
-            usage_id=value,
-        )
 
     @staticmethod
     def workbench_scenarios():
@@ -342,4 +321,4 @@ class WordCloudBlock(StudioEditableXBlockMixin, LegacyXmlMixin, XBlock):
     def definition_to_xml(self, resource_fs):
         if self.data:
             return etree.fromstring(self.data)
-        return etree.Element(self.category)
+        return etree.Element(self.usage_key.block_type)

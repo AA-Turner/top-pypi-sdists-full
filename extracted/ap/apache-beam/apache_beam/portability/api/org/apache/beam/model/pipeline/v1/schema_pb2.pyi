@@ -13,6 +13,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
+import org.apache.beam.model.pipeline.v1.beam_runner_api_pb2
 import sys
 import typing
 
@@ -605,3 +606,54 @@ class LogicalTypeValue(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["value", b"value"]) -> None: ...
 
 global___LogicalTypeValue = LogicalTypeValue
+
+@typing_extensions.final
+class SchemaCoderPayload(google.protobuf.message.Message):
+    """Information needed to represent a Coder of type SCHEMA."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    @typing_extensions.final
+    class AdditionalCoderInfo(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        URN_FIELD_NUMBER: builtins.int
+        PAYLOAD_FIELD_NUMBER: builtins.int
+        urn: builtins.str
+        payload: builtins.bytes
+        def __init__(
+            self,
+            *,
+            urn: builtins.str | None = ...,
+            payload: builtins.bytes | None = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing_extensions.Literal["payload", b"payload", "urn", b"urn"]) -> None: ...
+
+    SCHEMA_FIELD_NUMBER: builtins.int
+    TO_ROW_FN_FIELD_NUMBER: builtins.int
+    FROM_ROW_FN_FIELD_NUMBER: builtins.int
+    ADDITIONAL_CODER_INFOS_FIELD_NUMBER: builtins.int
+    @property
+    def schema(self) -> global___Schema:
+        """The schema to use for encoding corresponding Row types."""
+    @property
+    def to_row_fn(self) -> org.apache.beam.model.pipeline.v1.beam_runner_api_pb2.FunctionSpec:
+        """Function mapping from underlying object to Row type."""
+    @property
+    def from_row_fn(self) -> org.apache.beam.model.pipeline.v1.beam_runner_api_pb2.FunctionSpec:
+        """Function mapping from Row type to underlying object."""
+    @property
+    def additional_coder_infos(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SchemaCoderPayload.AdditionalCoderInfo]:
+        """Any additional information SDKs need to encode/decode elements."""
+    def __init__(
+        self,
+        *,
+        schema: global___Schema | None = ...,
+        to_row_fn: org.apache.beam.model.pipeline.v1.beam_runner_api_pb2.FunctionSpec | None = ...,
+        from_row_fn: org.apache.beam.model.pipeline.v1.beam_runner_api_pb2.FunctionSpec | None = ...,
+        additional_coder_infos: collections.abc.Iterable[global___SchemaCoderPayload.AdditionalCoderInfo] | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["from_row_fn", b"from_row_fn", "schema", b"schema", "to_row_fn", b"to_row_fn"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["additional_coder_infos", b"additional_coder_infos", "from_row_fn", b"from_row_fn", "schema", b"schema", "to_row_fn", b"to_row_fn"]) -> None: ...
+
+global___SchemaCoderPayload = SchemaCoderPayload

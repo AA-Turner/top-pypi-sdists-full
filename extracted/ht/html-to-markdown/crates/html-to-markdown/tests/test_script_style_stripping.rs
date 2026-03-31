@@ -1,12 +1,6 @@
 #![allow(missing_docs)]
 
-//! Tests for script and style tag stripping before parsing.
-//!
-//! This test suite verifies that script and style tags are completely removed
-//! from HTML before parsing, preventing the tl parser from misinterpreting
-//! HTML-like content inside scripts as actual tags.
-
-use html_to_markdown_rs::{ConversionOptions, MetadataConfig, convert, convert_with_metadata};
+use html_to_markdown_rs::ConversionOptions;
 
 #[test]
 fn test_strip_simple_script_tag() {
@@ -117,13 +111,9 @@ fn test_preserve_json_ld_script() {
 </body>
 </html>"#;
 
-    let options = ConversionOptions {
-        extract_metadata: true,
-        ..Default::default()
-    };
-
-    let (markdown, metadata) =
-        convert_with_metadata(html, Some(options), MetadataConfig::default(), None).expect("Failed to convert");
+    let result = html_to_markdown_rs::convert(html, None).expect("Failed to convert");
+    let metadata = result.metadata;
+    let markdown = result.content.unwrap_or_default();
 
     println!("Markdown:\n{markdown}");
     println!("Metadata: {:?}", metadata.document.title);
@@ -174,13 +164,9 @@ fn test_multiple_script_tags() {
 </body>
 </html>"#;
 
-    let options = ConversionOptions {
-        extract_metadata: true,
-        ..Default::default()
-    };
-
-    let (markdown, metadata) =
-        convert_with_metadata(html, Some(options), MetadataConfig::default(), None).expect("Failed to convert");
+    let result = html_to_markdown_rs::convert(html, None).expect("Failed to convert");
+    let metadata = result.metadata;
+    let markdown = result.content.unwrap_or_default();
 
     println!("Markdown:\n{markdown}");
 
@@ -235,13 +221,9 @@ fn test_reuters_like_structure() {
 </body>
 </html>"#;
 
-    let options = ConversionOptions {
-        extract_metadata: true,
-        ..Default::default()
-    };
-
-    let (markdown, metadata) =
-        convert_with_metadata(html, Some(options), MetadataConfig::default(), None).expect("Failed to convert");
+    let result = html_to_markdown_rs::convert(html, None).expect("Failed to convert");
+    let metadata = result.metadata;
+    let markdown = result.content.unwrap_or_default();
 
     println!("Markdown output:\n{markdown}");
     println!("Metadata title: {:?}", metadata.document.title);
@@ -404,4 +386,11 @@ fn test_inline_script_attributes_not_affected() {
         !result.contains("console.log('bad')"),
         "Should remove script tag content"
     );
+}
+
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
 }

@@ -79,8 +79,6 @@ pub struct ConversionOptions {
     #[pyo3(get, set)]
     pub br_in_tables: bool,
     #[pyo3(get, set)]
-    pub hocr_spatial_tables: bool,
-    #[pyo3(get, set)]
     pub highlight_style: String,
     #[pyo3(get, set)]
     pub extract_metadata: bool,
@@ -118,6 +116,16 @@ pub struct ConversionOptions {
     pub skip_images: bool,
     #[pyo3(get, set)]
     pub output_format: String,
+    #[pyo3(get, set)]
+    pub include_document_structure: bool,
+    #[pyo3(get, set)]
+    pub extract_images: bool,
+    #[pyo3(get, set)]
+    pub max_image_size: u64,
+    #[pyo3(get, set)]
+    pub capture_svg: bool,
+    #[pyo3(get, set)]
+    pub infer_dimensions: bool,
 }
 
 #[pymethods]
@@ -138,7 +146,6 @@ impl ConversionOptions {
         autolinks=true,
         default_title=false,
         br_in_tables=false,
-        hocr_spatial_tables=true,
         highlight_style="double-equal".to_string(),
         extract_metadata=true,
         whitespace_mode="normalized".to_string(),
@@ -157,7 +164,12 @@ impl ConversionOptions {
         preserve_tags=Vec::new(),
         encoding="utf-8".to_string(),
         skip_images=false,
-        output_format="markdown".to_string()
+        output_format="markdown".to_string(),
+        include_document_structure=false,
+        extract_images=false,
+        max_image_size=5242880u64,
+        capture_svg=false,
+        infer_dimensions=true
     ))]
     pub fn new(
         heading_style: String,
@@ -173,7 +185,6 @@ impl ConversionOptions {
         autolinks: bool,
         default_title: bool,
         br_in_tables: bool,
-        hocr_spatial_tables: bool,
         highlight_style: String,
         extract_metadata: bool,
         whitespace_mode: String,
@@ -193,6 +204,11 @@ impl ConversionOptions {
         encoding: String,
         skip_images: bool,
         output_format: String,
+        include_document_structure: bool,
+        extract_images: bool,
+        max_image_size: u64,
+        capture_svg: bool,
+        infer_dimensions: bool,
     ) -> Self {
         Self {
             heading_style,
@@ -208,7 +224,6 @@ impl ConversionOptions {
             autolinks,
             default_title,
             br_in_tables,
-            hocr_spatial_tables,
             highlight_style,
             extract_metadata,
             whitespace_mode,
@@ -229,6 +244,11 @@ impl ConversionOptions {
             encoding,
             skip_images,
             output_format,
+            include_document_structure,
+            extract_images,
+            max_image_size,
+            capture_svg,
+            infer_dimensions,
         }
     }
 }
@@ -250,7 +270,6 @@ impl ConversionOptions {
             autolinks: self.autolinks,
             default_title: self.default_title,
             br_in_tables: self.br_in_tables,
-            hocr_spatial_tables: self.hocr_spatial_tables,
             highlight_style: HighlightStyle::parse(self.highlight_style.as_str()),
             extract_metadata: self.extract_metadata,
             whitespace_mode: WhitespaceMode::parse(self.whitespace_mode.as_str()),
@@ -270,6 +289,11 @@ impl ConversionOptions {
             preserve_tags: self.preserve_tags.clone(),
             skip_images: self.skip_images,
             output_format: OutputFormat::parse(self.output_format.as_str()),
+            include_document_structure: self.include_document_structure,
+            extract_images: self.extract_images,
+            max_image_size: self.max_image_size,
+            capture_svg: self.capture_svg,
+            infer_dimensions: self.infer_dimensions,
         }
     }
 }

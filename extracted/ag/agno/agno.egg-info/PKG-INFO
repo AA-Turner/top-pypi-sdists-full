@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.5.11
+Version: 2.5.12
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -337,6 +337,8 @@ Provides-Extra: cartesia
 Requires-Dist: cartesia; extra == "cartesia"
 Provides-Extra: confluence
 Requires-Dist: atlassian-python-api; extra == "confluence"
+Provides-Extra: docling
+Requires-Dist: docling; extra == "docling"
 Provides-Extra: ddg
 Requires-Dist: ddgs; extra == "ddg"
 Provides-Extra: duckdb
@@ -495,8 +497,6 @@ Provides-Extra: markdown
 Requires-Dist: unstructured<0.18.31; extra == "markdown"
 Requires-Dist: markdown; extra == "markdown"
 Requires-Dist: aiofiles; extra == "markdown"
-Provides-Extra: docling
-Requires-Dist: docling; extra == "docling"
 Provides-Extra: chonkie
 Requires-Dist: chonkie[semantic]; extra == "chonkie"
 Requires-Dist: chonkie[code]; extra == "chonkie"
@@ -567,6 +567,7 @@ Requires-Dist: agno[scrapegraph]; extra == "tools"
 Requires-Dist: agno[valyu]; extra == "tools"
 Requires-Dist: agno[yfinance]; extra == "tools"
 Requires-Dist: agno[confluence]; extra == "tools"
+Requires-Dist: agno[docling]; extra == "tools"
 Requires-Dist: agno[notion]; extra == "tools"
 Requires-Dist: agno[oxylabs]; extra == "tools"
 Requires-Dist: agno[zep]; extra == "tools"

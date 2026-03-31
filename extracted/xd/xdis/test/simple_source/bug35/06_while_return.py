@@ -1,9 +1,9 @@
 # From Python 3.4 asynchat.py
-# Tests presence or absense of
+# Tests presence or absence of
 # SETUP_LOOP testexpr return_stmts POP_BLOCK COME_FROM_LOOP
 # Note: that there is no JUMP_BACK because of the return_stmts.
 
-def initiate_send(a, b, c, num_sent):
+def initiate_send(a: int, b: int, c: int, num_sent: bool):
     while a and b:
         try:
             1 / (b - 1)
@@ -15,7 +15,7 @@ def initiate_send(a, b, c, num_sent):
         return c
 
 
-def initiate_send2(a, b):
+def initiate_send2(a: int, b: int) -> int | None:
     while a and b:
         try:
             1 / (b - 1)

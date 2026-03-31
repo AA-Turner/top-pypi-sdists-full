@@ -271,6 +271,34 @@ class TestSnapGene(unittest.TestCase):
                 count_primer_features += 1
         self.assertEqual(count_primer_features, 1)
 
+    def test_remove_linebreaks_from_qualifier_values(self):
+        """Test that linebreaks are removed from qualifier values.
+
+        Otherwise, when writing to GenBank, the linebreaks will be preserved,
+        messing up the format.
+        """
+        record = SeqIO.read("SnapGene/linebreak_in_qualifier_text.dna", "snapgene")
+        for feature in record.features:
+            for qualifier in feature.qualifiers:
+                for value in feature.qualifiers[qualifier]:
+                    self.assertFalse("\n" in value)
+                    self.assertFalse("\r" in value)
+
+    def test_looped_feature(self):
+        """Read a file that has a circular sequence with a feature that spans the entire sequence"""
+
+        # If the feature spans the sequence from start to end
+        record = SeqIO.read("SnapGene/looped_feature_origin.dna", "snapgene")
+        self.assertEqual(record.annotations["topology"], "circular")
+        self.assertEqual(len(record.features), 1)
+        self.assertEqual(str(record.features[0].location), "[0:10](+)")
+
+        # If the feature spans the entire sequence, but starts somewhere in the middle
+        record = SeqIO.read("SnapGene/looped_feature.dna", "snapgene")
+        self.assertEqual(record.annotations["topology"], "circular")
+        self.assertEqual(len(record.features), 1)
+        self.assertEqual(str(record.features[0].location), "join{[2:10](+), [0:2](+)}")
+
 
 class TestCorruptedSnapGene(unittest.TestCase):
     def setUp(self):

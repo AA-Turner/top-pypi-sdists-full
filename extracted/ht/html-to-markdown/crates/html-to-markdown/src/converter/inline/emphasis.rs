@@ -8,6 +8,8 @@
 //! - Visitor callbacks for custom emphasis processing
 //! - Bootstrap caret detection (.caret class)
 
+#[cfg(feature = "visitor")]
+use crate::converter::utility::content::collect_tag_attributes;
 use crate::options::{ConversionOptions, OutputFormat};
 #[allow(unused_imports)]
 use std::collections::BTreeMap;
@@ -106,11 +108,7 @@ fn handle_strong(
             use crate::visitor::{NodeContext, NodeType, VisitResult};
 
             let text_content = get_text_content(node_handle, parser, dom_ctx);
-            let attributes: BTreeMap<String, String> = tag
-                .attributes()
-                .iter()
-                .filter_map(|(k, v)| v.as_ref().map(|val| (k.to_string(), val.to_string())))
-                .collect();
+            let attributes: BTreeMap<String, String> = collect_tag_attributes(tag);
 
             let node_id = node_handle.get_inner();
             let parent_tag = dom_ctx.parent_tag_name(node_id, parser);
@@ -246,11 +244,7 @@ fn handle_emphasis(
             use crate::visitor::{NodeContext, NodeType, VisitResult};
 
             let text_content = get_text_content(node_handle, parser, dom_ctx);
-            let attributes: BTreeMap<String, String> = tag
-                .attributes()
-                .iter()
-                .filter_map(|(k, v)| v.as_ref().map(|val| (k.to_string(), val.to_string())))
-                .collect();
+            let attributes: BTreeMap<String, String> = collect_tag_attributes(tag);
 
             let node_id = node_handle.get_inner();
             let parent_tag = dom_ctx.parent_tag_name(node_id, parser);

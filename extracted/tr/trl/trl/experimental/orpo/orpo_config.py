@@ -15,13 +15,11 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from transformers import TrainingArguments
-
-from ...trainer.base_config import BaseConfig
+from ...trainer.base_config import _BaseConfig
 
 
 @dataclass
-class ORPOConfig(BaseConfig):
+class ORPOConfig(_BaseConfig):
     # docstyle-ignore
     r"""
     Configuration class for the [`experimental.orpo.ORPOTrainer`].
@@ -49,9 +47,6 @@ class ORPOConfig(BaseConfig):
             Whether to disable dropout in the model.
         padding_value (`int`, *optional*):
             Padding value to use. If `None`, the padding value of the tokenizer is used.
-        truncation_mode (`str`, *optional*, defaults to `"keep_end"`):
-            Truncation mode to use when the prompt is too long. Possible values are `"keep_end"` or `"keep_start"`.
-            This argument is required if you want to use the default data collator.
         generate_during_eval (`bool`, *optional*, defaults to `False`):
             If `True`, generates and logs completions from the model to W&B or Comet during evaluation.
         is_encoder_decoder (`bool`, *optional*):
@@ -71,7 +66,7 @@ class ORPOConfig(BaseConfig):
     > - `learning_rate`: Defaults to `1e-6` instead of `5e-5`.
     """
 
-    _VALID_DICT_FIELDS = TrainingArguments._VALID_DICT_FIELDS + ["model_init_kwargs"]
+    _VALID_DICT_FIELDS = _BaseConfig._VALID_DICT_FIELDS + ["model_init_kwargs"]
 
     # Parameters whose default values are overridden from TrainingArguments
     learning_rate: float = field(
@@ -104,13 +99,6 @@ class ORPOConfig(BaseConfig):
     padding_value: int | None = field(
         default=None,
         metadata={"help": "Padding value to use. If `None`, the padding value of the tokenizer is used."},
-    )
-    truncation_mode: str = field(
-        default="keep_end",
-        metadata={
-            "help": "Truncation mode to use when the prompt is too long.",
-            "choices": ["keep_end", "keep_start"],
-        },
     )
     generate_during_eval: bool = field(
         default=False,

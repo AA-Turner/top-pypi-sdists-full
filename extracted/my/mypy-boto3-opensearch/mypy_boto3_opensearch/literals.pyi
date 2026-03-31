@@ -47,6 +47,12 @@ __all__ = (
     "InboundConnectionStatusCodeType",
     "IndexStatusType",
     "InitiatedByType",
+    "InsightEntityTypeType",
+    "InsightFieldTypeType",
+    "InsightPriorityLevelType",
+    "InsightSortOrderType",
+    "InsightStatusType",
+    "InsightTypeType",
     "ListApplicationsPaginatorName",
     "LogTypeType",
     "MaintenanceStatusType",
@@ -163,6 +169,12 @@ InboundConnectionStatusCodeType = Literal[
 ]
 IndexStatusType = Literal["CREATED", "DELETED", "UPDATED"]
 InitiatedByType = Literal["CUSTOMER", "SERVICE"]
+InsightEntityTypeType = Literal["Account", "DomainName"]
+InsightFieldTypeType = Literal["metric", "text"]
+InsightPriorityLevelType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
+InsightSortOrderType = Literal["ASC", "DESC"]
+InsightStatusType = Literal["ACTIVE", "DISMISSED", "RESOLVED"]
+InsightTypeType = Literal["EVENT", "RECOMMENDATION"]
 ListApplicationsPaginatorName = Literal["list_applications"]
 LogTypeType = Literal["AUDIT_LOGS", "ES_APPLICATION_LOGS", "INDEX_SLOW_LOGS", "SEARCH_SLOW_LOGS"]
 MaintenanceStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PENDING", "TIMED_OUT"]
@@ -458,6 +470,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -740,6 +753,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

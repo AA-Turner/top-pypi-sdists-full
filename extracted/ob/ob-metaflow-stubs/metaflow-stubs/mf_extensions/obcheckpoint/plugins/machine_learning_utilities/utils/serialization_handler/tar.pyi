@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-03-16T23:47:56.025679                                                            #
+# Generated on 2026-03-31T03:38:01.729800                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.utils.serialization_handler.base
 

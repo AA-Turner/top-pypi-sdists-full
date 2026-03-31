@@ -1009,6 +1009,9 @@ class ViserServer(DeprecatedAttributeShim if not TYPE_CHECKING else object):
         This is an experimental feature that relies on an external server; it shouldn't
         be relied on for critical applications.
 
+        Args:
+            verbose: Whether to print status messages.
+
         Returns:
             Share URL as string, or None if connection fails or is closed.
         """
@@ -1229,6 +1232,9 @@ class ViserServer(DeprecatedAttributeShim if not TYPE_CHECKING else object):
             filter=lambda message: "Gui" not in type(message).__name__
         )
         # Insert current scene state.
-        for message in self._websock_server._broadcast_buffer.message_from_id.values():
+        buffer = self._websock_server._broadcast_buffer
+        with buffer.buffer_lock:
+            messages = list(buffer.message_from_id.values())
+        for message in messages:
             serializer._insert_message(message)
         return serializer

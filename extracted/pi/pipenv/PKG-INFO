@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipenv
-Version: 2026.4.0
+Version: 2026.5.0
 Summary: Python Development Workflow for Humans.
 Author-email: Pipenv maintainer team <matteius@gmail.com>
 License: MIT License (MIT)
@@ -25,6 +25,8 @@ Requires-Dist: certifi
 Requires-Dist: packaging>=22
 Requires-Dist: setuptools>=67
 Requires-Dist: virtualenv>=20.24.2
+Provides-Extra: completion
+Requires-Dist: argcomplete>=3.1; extra == "completion"
 Provides-Extra: dev
 Requires-Dist: beautifulsoup4; extra == "dev"
 Requires-Dist: black==26.3.1; extra == "dev"

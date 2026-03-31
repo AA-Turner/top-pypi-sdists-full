@@ -4,7 +4,12 @@
 
 #[test]
 fn test_strong_blockquote_strong_newlines() {
-    use html_to_markdown_rs::convert;
+    fn convert(
+        html: &str,
+        opts: Option<html_to_markdown_rs::ConversionOptions>,
+    ) -> html_to_markdown_rs::error::Result<String> {
+        html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
+    }
 
     // Test case from issue #176: strong + blockquote + strong
     let html = r"<strong>2. Point two</strong><blockquote>Option Explicit
@@ -30,7 +35,12 @@ End Function</blockquote><strong>3. Point three</strong>";
 
 #[test]
 fn test_paragraph_blockquote_paragraph_newlines() {
-    use html_to_markdown_rs::convert;
+    fn convert(
+        html: &str,
+        opts: Option<html_to_markdown_rs::ConversionOptions>,
+    ) -> html_to_markdown_rs::error::Result<String> {
+        html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
+    }
 
     // Control test: p + blockquote + p should work correctly
     let html = r"<p>First paragraph</p><blockquote>A quote</blockquote><p>Second paragraph</p>";

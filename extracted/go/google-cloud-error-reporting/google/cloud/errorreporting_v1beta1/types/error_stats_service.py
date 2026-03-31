@@ -17,12 +17,11 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.errorreporting_v1beta1.types import common
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-
 
 __protobuf__ = proto.module(
     package="google.devtools.clouderrorreporting.v1beta1",
@@ -72,6 +71,7 @@ class TimedCountAlignment(proto.Enum):
             This can result in a different size of the first
             time period.
     """
+
     ERROR_COUNT_ALIGNMENT_UNSPECIFIED = 0
     ALIGNMENT_EQUAL_ROUNDED = 1
     ALIGNMENT_EQUAL_AT_END = 2
@@ -96,6 +96,7 @@ class ErrorGroupOrder(proto.Enum):
             Number of affected users in the given time
             window in descending order.
     """
+
     GROUP_ORDER_UNSPECIFIED = 0
     COUNT_DESC = 1
     LAST_SEEN_DESC = 2
@@ -555,6 +556,7 @@ class QueryTimeRange(proto.Message):
                 Retrieve data for the last 30 days.
                 Recommended minimum timed count duration: 1 day.
         """
+
         PERIOD_UNSPECIFIED = 0
         PERIOD_1_HOUR = 1
         PERIOD_6_HOURS = 2

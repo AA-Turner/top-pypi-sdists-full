@@ -2,7 +2,7 @@
 
 
 class C:
-    def sort(self, l, reverse, key_fn):
+    def sort(self, l: list[str], reverse, key_fn):
         # PyPy example of CALL_METHOD_KW 2
         # 2 keyword arguments and no positional arguments
         return l.sort(reverse=reverse, key=key_fn)

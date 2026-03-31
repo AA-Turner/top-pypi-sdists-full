@@ -1,5 +1,8 @@
 # pylint: disable=missing-function-docstring
 
+import json
+from typing import Any, Dict, List, Union
+
 from lxml import etree
 
 from contentstack_utils.automate import Automate
@@ -9,6 +12,95 @@ from contentstack_utils.render.options import Options
 
 
 class Utils(Automate):
+
+    @staticmethod
+    def _variants_map_from_entry(entry: dict) -> dict:
+        publish_details = entry.get("publish_details")
+        if not isinstance(publish_details, dict):
+            return {}
+        raw = publish_details.get("variants")
+        return raw if isinstance(raw, dict) else {}
+
+    @staticmethod
+    def _aliases_from_variants_map(variants_map: dict) -> List[str]:
+        aliases: List[str] = []
+        for _variant_uid, value in variants_map.items():
+            if not isinstance(value, dict):
+                continue
+            alias = value.get("alias")
+            if alias is None:
+                continue
+            alias_str = str(alias).strip()
+            if alias_str:
+                aliases.append(alias_str)
+        return aliases
+
+    @staticmethod
+    def _variant_aliases_for_entry(entry: dict, content_type_uid: str = "") -> Dict[str, Any]:
+        if entry is None:
+            raise ValueError("entry cannot be None")
+        if not isinstance(entry, dict):
+            raise TypeError("entry must be a dict")
+        uid = entry.get("uid")
+        if uid is None or (isinstance(uid, str) and uid.strip() == ""):
+            raise ValueError("entry must contain a non-empty uid")
+        entry_uid = str(uid)
+        ct = entry.get("_content_type_uid")
+        if ct is None or ct == "":
+            ct = content_type_uid or ""
+        contenttype_uid = "" if ct is None else str(ct)
+        variants_map = Utils._variants_map_from_entry(entry)
+        aliases = Utils._aliases_from_variants_map(variants_map)
+        return {
+            "entry_uid": entry_uid,
+            "contenttype_uid": contenttype_uid,
+            "variants": aliases,
+        }
+
+    @staticmethod
+    def get_variant_aliases(
+        entry_or_entries: Union[dict, List[dict]],
+        content_type_uid: str = "",
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """
+        Extract variant aliases from a CDA entry (or list of entries).
+
+        The entry must have been fetched with ``x-cs-variant-uid`` set to variant
+        aliases (not UIDs) for ``publish_details.variants`` to be present.
+
+        :param entry_or_entries: A single entry dict, or a list of entry dicts.
+        :param content_type_uid: Used when ``entry._content_type_uid`` is absent;
+            ignored when ``entry_or_entries`` is a list (each entry supplies its own).
+        :raises ValueError: if ``entry_or_entries`` is None, an entry is None, or an
+            entry has no non-empty ``uid``.
+        :raises TypeError: if a single entry is not a dict, or a list is expected but
+            another type was passed for the multi-entry overload.
+        """
+        if entry_or_entries is None:
+            raise ValueError("entry is required and cannot be None")
+        if isinstance(entry_or_entries, list):
+            return [Utils._variant_aliases_for_entry(e, "") for e in entry_or_entries]
+        if isinstance(entry_or_entries, dict):
+            return Utils._variant_aliases_for_entry(entry_or_entries, content_type_uid or "")
+        raise TypeError("entry must be a dict or a list of dicts")
+
+    @staticmethod
+    def get_variant_metadata_tags(entries: List[dict]) -> Dict[str, str]:
+        """
+        Build a ``data-csvariants`` HTML data-attribute payload from entry objects.
+
+        :param entries: List of CDA entry dicts (same shape as for multi-entry
+            :meth:`get_variant_aliases`).
+        :raises ValueError: if ``entries`` is None.
+        :raises TypeError: if ``entries`` is not a list.
+        """
+        if entries is None:
+            raise ValueError("entries is required and cannot be None")
+        if not isinstance(entries, list):
+            raise TypeError("entries must be a list")
+        results = Utils.get_variant_aliases(entries)
+        payload = json.dumps(results, separators=(",", ":"))
+        return {"data-csvariants": payload}
 
     @staticmethod
     def render(entry_obj, key_path: list, option: Options):

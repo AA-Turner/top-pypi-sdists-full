@@ -2,24 +2,8 @@
 //!
 //! Provides helper functions for tag name normalization and comparison.
 
-use std::borrow::Cow;
-
-/// Normalize HTML tag names to lowercase.
-///
-/// Converts tag names to a consistent lowercase form for comparison.
-pub(super) fn normalized_tag_name(raw: Cow<'_, str>) -> Cow<'_, str> {
-    let lowercased = raw.to_lowercase();
-    if lowercased.as_str() == raw.as_ref() {
-        raw
-    } else {
-        Cow::Owned(lowercased)
-    }
-}
-
-/// Check tag name equality with case-insensitive comparison.
-pub(super) fn tag_name_eq(name: Cow<'_, str>, needle: &str) -> bool {
-    name.eq_ignore_ascii_case(needle)
-}
+pub(super) use crate::converter::main_helpers::tag_name_eq;
+pub(super) use crate::converter::utility::content::normalized_tag_name;
 
 /// Check if a node has a specific tag name.
 ///

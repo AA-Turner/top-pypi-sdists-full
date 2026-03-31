@@ -15,14 +15,14 @@ use std::collections::BTreeMap;
 
 use crate::converter::dom_context::DomContext;
 use crate::converter::main_helpers::{
-    extract_head_metadata, format_metadata_frontmatter, handle_hocr_document, has_custom_element_tags,
-    repair_with_html5ever, trim_line_end_whitespace, trim_trailing_whitespace,
+    extract_head_metadata, format_metadata_frontmatter, has_custom_element_tags, repair_with_html5ever,
+    trim_line_end_whitespace, trim_trailing_whitespace,
 };
 use crate::converter::plain_text::extract_plain_text;
 use crate::converter::preprocessing_helpers::{has_inline_block_misnest, should_drop_for_preprocessing};
 use crate::converter::utility::caching::build_dom_context;
 use crate::converter::utility::content::normalized_tag_name;
-use crate::converter::utility::preprocessing::{preprocess_html, strip_script_and_style_tags};
+use crate::converter::utility::preprocessing::{preprocess_html, strip_hidden_elements, strip_script_and_style_tags};
 use crate::converter::utility::serialization::serialize_tag_to_html;
 use crate::options::OutputFormat;
 
@@ -31,12 +31,13 @@ use crate::error::Result;
 use crate::options::ConversionOptions;
 
 use crate::converter::context::{Context, InlineCollectorHandle};
+use crate::types::structure_collector::StructureCollectorHandle;
 
 /// Converts HTML to Markdown using the provided conversion options.
 ///
 /// This is the main entry point for HTML to Markdown conversion.
 pub fn convert_html(html: &str, options: &ConversionOptions) -> Result<String> {
-    convert_html_impl(html, options, None, None, None)
+    convert_html_impl(html, options, None, None, None, None).map(|(md, _)| md)
 }
 
 /// Converts HTML to Markdown with a custom visitor for callbacks during traversal.
@@ -49,26 +50,13 @@ pub fn convert_html_with_visitor(
     options: &ConversionOptions,
     visitor: Option<crate::visitor::VisitorHandle>,
 ) -> Result<String> {
-    convert_html_impl(html, options, None, None, visitor)
-}
-
-/// Converts HTML to Markdown with an async visitor for callbacks during traversal.
-///
-/// Async variant with async visitor callbacks for Promise-based bindings.
-#[cfg(feature = "async-visitor")]
-#[allow(clippy::future_not_send)]
-pub async fn convert_html_with_visitor_async(
-    html: &str,
-    options: &ConversionOptions,
-    visitor: Option<crate::visitor_helpers::AsyncVisitorHandle>,
-) -> Result<String> {
-    convert_html_impl_async(html, options, None, None, visitor).await
+    convert_html_impl(html, options, None, None, visitor, None).map(|(md, _)| md)
 }
 
 /// Internal implementation of HTML to Markdown conversion.
 ///
-/// This function handles the actual conversion logic with optional inline image collection,
-/// metadata extraction, and visitor callbacks depending on enabled features.
+/// Returns `(markdown, Option<DocumentStructure>)`.  The structure is populated when
+/// `options.include_document_structure == true` and a `structure_collector` handle is provided.
 #[cfg_attr(
     any(not(feature = "inline-images"), not(feature = "metadata"), not(feature = "visitor")),
     allow(unused_variables)
@@ -82,10 +70,13 @@ pub(crate) fn convert_html_impl(
     #[cfg(not(feature = "metadata"))] _metadata_collector: Option<()>,
     #[cfg(feature = "visitor")] visitor: Option<crate::visitor::VisitorHandle>,
     #[cfg(not(feature = "visitor"))] _visitor: Option<()>,
-) -> Result<String> {
+    structure_collector: Option<StructureCollectorHandle>,
+) -> Result<(String, Option<crate::types::DocumentStructure>)> {
     // Strip script and style tags completely to prevent parser confusion from HTML-like content
     // inside script/style elements. This preserves JSON-LD for metadata extraction.
     let stripped = strip_script_and_style_tags(html);
+    // Strip elements with the `hidden` attribute before parsing.
+    let stripped = strip_hidden_elements(&stripped);
     let mut preprocessed = preprocess_html(&stripped).into_owned();
     let mut preprocessed_len = preprocessed.len();
 
@@ -112,11 +103,6 @@ pub(crate) fn convert_html_impl(
     };
     let mut parser = dom.parser();
     let mut output = String::with_capacity(preprocessed_len.saturating_add(preprocessed_len / 4));
-
-    // Check and handle hOCR documents
-    if handle_hocr_document(&dom, parser, options, &mut output) {
-        return Ok(output);
-    }
 
     let mut dom_ctx = build_dom_context(&dom, parser, preprocessed_len);
 
@@ -211,13 +197,37 @@ pub(crate) fn convert_html_impl(
     }
 
     #[cfg(all(feature = "metadata", feature = "visitor"))]
-    let ctx = Context::new(options, inline_collector, metadata_collector, visitor);
+    let ctx = Context::new(
+        options,
+        inline_collector,
+        metadata_collector,
+        visitor,
+        structure_collector.as_ref().map(std::rc::Rc::clone),
+    );
     #[cfg(all(feature = "metadata", not(feature = "visitor")))]
-    let ctx = Context::new(options, inline_collector, metadata_collector, _visitor);
+    let ctx = Context::new(
+        options,
+        inline_collector,
+        metadata_collector,
+        _visitor,
+        structure_collector.as_ref().map(std::rc::Rc::clone),
+    );
     #[cfg(all(not(feature = "metadata"), feature = "visitor"))]
-    let ctx = Context::new(options, inline_collector, _metadata_collector, visitor);
+    let ctx = Context::new(
+        options,
+        inline_collector,
+        _metadata_collector,
+        visitor,
+        structure_collector.as_ref().map(std::rc::Rc::clone),
+    );
     #[cfg(all(not(feature = "metadata"), not(feature = "visitor")))]
-    let ctx = Context::new(options, inline_collector, _metadata_collector, _visitor);
+    let ctx = Context::new(
+        options,
+        inline_collector,
+        _metadata_collector,
+        _visitor,
+        structure_collector.as_ref().map(std::rc::Rc::clone),
+    );
 
     for child_handle in dom.children() {
         walk_node(child_handle, parser, &mut output, options, &ctx, 0, &dom_ctx);
@@ -228,20 +238,32 @@ pub(crate) fn convert_html_impl(
         return Err(crate::error::ConversionError::Visitor(err.clone()));
     }
 
+    // Drop ctx before unwrapping the structure collector Rc — ctx holds a cloned Rc
+    // reference to the same collector, and Rc::try_unwrap requires exactly one reference.
+    drop(ctx);
+
     // If plain text was requested, discard the markdown output and return plain text.
     // The full pipeline was still run above so that metadata + visitor callbacks fire.
     if is_plain_text {
         let plain = extract_plain_text(&dom, parser, options);
-        return Ok(plain);
+        let document =
+            structure_collector.and_then(|sc| std::rc::Rc::try_unwrap(sc).ok().map(|cell| cell.into_inner().finish()));
+        return Ok((plain, document));
     }
 
     trim_line_end_whitespace(&mut output);
     let trimmed = output.trim_end_matches('\n');
-    if trimmed.is_empty() {
-        Ok(String::new())
+    let markdown = if trimmed.is_empty() {
+        String::new()
     } else {
-        Ok(format!("{trimmed}\n"))
-    }
+        format!("{trimmed}\n")
+    };
+
+    // Finish the structure collector if present.
+    let document =
+        structure_collector.and_then(|sc| std::rc::Rc::try_unwrap(sc).ok().map(|cell| cell.into_inner().finish()));
+
+    Ok((markdown, document))
 }
 // has_more_than_one_char moved to main_helpers
 // is_inline_element available from utility::content
@@ -473,6 +495,34 @@ pub(crate) fn walk_node(
                     );
                 }
 
+                // Quote element routed to semantic dispatcher
+                "q" => {
+                    crate::converter::semantic::dispatch_semantic_handler(
+                        &tag_name,
+                        node_handle,
+                        parser,
+                        output,
+                        options,
+                        ctx,
+                        depth,
+                        dom_ctx,
+                    );
+                }
+
+                // Figure elements routed to semantic dispatcher
+                "figure" | "figcaption" => {
+                    crate::converter::semantic::dispatch_semantic_handler(
+                        &tag_name,
+                        node_handle,
+                        parser,
+                        output,
+                        options,
+                        ctx,
+                        depth,
+                        dom_ctx,
+                    );
+                }
+
                 // Semantic interactive elements routed to semantic dispatcher
                 "details" | "summary" | "dialog" | "menu" => {
                     crate::converter::semantic::dispatch_semantic_handler(
@@ -568,25 +618,4 @@ pub(crate) fn walk_node(
 
         tl::Node::Comment(_) => {}
     }
-}
-/// Async equivalent of `convert_html_impl` for Promise-based visitor callbacks.
-#[cfg(feature = "async-visitor")]
-#[allow(clippy::future_not_send)]
-pub(crate) async fn convert_html_impl_async(
-    html: &str,
-    options: &ConversionOptions,
-    _inline_collector: Option<InlineCollectorHandle>,
-    #[cfg(feature = "metadata")] _metadata_collector: Option<crate::metadata::MetadataCollectorHandle>,
-    #[cfg(not(feature = "metadata"))] _metadata_collector: Option<()>,
-    visitor: Option<crate::visitor_helpers::AsyncVisitorHandle>,
-) -> Result<String> {
-    if visitor.is_some() {
-        return Err(crate::error::ConversionError::ParseError(
-            "Async visitor not yet implemented. Use AsyncToSyncVisitorBridge.".to_string(),
-        ));
-    }
-    #[cfg(feature = "visitor")]
-    return convert_html_impl(html, options, _inline_collector, _metadata_collector, None);
-    #[cfg(not(feature = "visitor"))]
-    return convert_html_impl(html, options, _inline_collector, _metadata_collector, ());
 }

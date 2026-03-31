@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_cloudflare
-Version: 6.13.0
+Version: 6.13.1
 Summary: A Pulumi package for creating and managing Cloudflare cloud resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

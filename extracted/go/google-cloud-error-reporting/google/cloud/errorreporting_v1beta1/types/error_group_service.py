@@ -21,7 +21,6 @@ import proto  # type: ignore
 
 from google.cloud.errorreporting_v1beta1.types import common
 
-
 __protobuf__ = proto.module(
     package="google.devtools.clouderrorreporting.v1beta1",
     manifest={

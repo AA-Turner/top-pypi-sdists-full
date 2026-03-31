@@ -1,8 +1,10 @@
 import json
+import mimetypes
 from pathlib import Path
 
 import flask
 import flask_sock
+import jwt as pyjwt
 
 from abstra_internals.constants import get_public_dir
 from abstra_internals.controllers.execution.drain import (
@@ -353,13 +355,36 @@ def get_player_bp(controller: MainController):
             resp.headers["X-Abstra-Debug"] = "true"
         return resp
 
-    @bp.get("/_page-home/_static/<path:filename>")
-    def page_home_static(filename):
-        return flask.send_from_directory(get_public_dir(), filename)
+    def _serve_page_static(filename: str):
+        token = flask.request.args.get("token")
+        if not token:
+            flask.abort(403)
 
-    @bp.get("/_page/<path:page_path>/_static/<path:filename>")
+        try:
+            payload = pyjwt.decode(
+                token, key=CLOUD_API_PROD_SHARED_TOKEN, algorithms=["HS256"]
+            )
+        except (pyjwt.ExpiredSignatureError, pyjwt.InvalidTokenError):
+            flask.abort(403)
+
+        if payload.get("asset") != filename:
+            flask.abort(403)
+
+        file_path = (Settings.root_path / filename).resolve()
+        if not file_path.is_relative_to(Settings.root_path) or not file_path.is_file():
+            flask.abort(404)
+
+        mimetypes.add_type("application/javascript", ".js")
+        mimetypes.add_type("text/css", ".css")
+        return flask.send_file(file_path)
+
+    @bp.get("/_page-home/<path:filename>")
+    def page_home_static(filename):
+        return _serve_page_static(filename)
+
+    @bp.get("/_page/<page_path>/<path:filename>")
     def page_static(page_path, filename):
-        return flask.send_from_directory(get_public_dir(), filename)
+        return _serve_page_static(filename)
 
     @bp.route("/_page-home", methods=["GET", "POST"])
     @player_usage

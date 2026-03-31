@@ -1,26 +1,25 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: asyncgui
-Version: 0.9.3
+Version: 0.10.0
 Summary: A minimalistic async library that focuses on fast responsiveness
-License: MIT
 Keywords: async
 Author: Nattōsai Mitō
-Author-email: flow4re2c@gmail.com
-Requires-Python: >=3.9,<4.0
+Author-email: Nattōsai Mitō <flow4re2c@gmail.com>
+License-Expression: MIT
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
-Requires-Dist: exceptiongroup (>=1.0.4,<2.0.0) ; python_version < "3.11"
-Project-URL: Homepage, https://github.com/asyncgui/asyncgui
+Classifier: Operating System :: OS Independent
+Requires-Dist: exceptiongroup>=1.0.4,<2 ; python_full_version < '3.11'
+Requires-Python: >=3.10, <4.0
+Project-URL: Documentation, https://asyncgui.github.io/asyncgui/
 Project-URL: Repository, https://github.com/asyncgui/asyncgui
 Description-Content-Type: text/markdown
 
@@ -49,16 +48,16 @@ pip install "asyncgui>=0.9,<0.10"
 
 ## Tested on
 
-- CPython 3.9
 - CPython 3.10
 - CPython 3.11
 - CPython 3.12
 - CPython 3.13
+- CPython 3.14
 - PyPy 3.10
 
-## Async libraries that rely on this
+## Dependants
 
 - [asynckivy](https://github.com/asyncgui/asynckivy)
 - [asynctkinter](https://github.com/asyncgui/asynctkinter)
+- [asynctkinter2](https://github.com/asyncgui/asynctkinter2)
 - [asyncpygame](https://github.com/asyncgui/asyncpygame)
-

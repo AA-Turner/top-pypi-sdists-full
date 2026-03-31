@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: mcp-server-motherduck
-Version: 1.0.3
+Version: 1.0.4
 Summary: A MCP server for MotherDuck and local DuckDB
 Author-email: tdoehmen <till@motherduck.com>
 License-File: LICENSE
 Requires-Python: >=3.10
 Requires-Dist: click>=8.1.8
-Requires-Dist: duckdb==1.4.4
+Requires-Dist: duckdb==1.5.1
 Requires-Dist: fastmcp<3,>=2.14
 Requires-Dist: pytz>=2025.2
 Provides-Extra: dev
@@ -204,6 +204,7 @@ For production deployments with third-party access, we recommend **[MotherDuck R
 | `AWS_SECRET_ACCESS_KEY` | AWS secret key for S3 database connections |
 | `AWS_SESSION_TOKEN` | AWS session token for temporary credentials (IAM roles, SSO, EC2 instance profiles) |
 | `AWS_DEFAULT_REGION` | AWS region for S3 connections |
+| `AWS_ENDPOINT` | AWS endpoint for S3 connections |
 
 ## Troubleshooting
 

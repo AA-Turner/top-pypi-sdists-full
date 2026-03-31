@@ -1,4 +1,5 @@
-# Copyright 2014 Google LLC
+# -*- coding: utf-8 -*-
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+#
 """Shortcut methods for getting set up with Google Cloud Datastore.
 
 You'll typically use these to get started with the API:
@@ -54,8 +55,6 @@ The main concepts with this API are:
   when race conditions may occur.
 """
 
-
-from google.cloud.datastore.version import __version__
 from google.cloud.datastore.batch import Batch
 from google.cloud.datastore.client import Client
 from google.cloud.datastore.entity import Entity
@@ -63,6 +62,7 @@ from google.cloud.datastore.key import Key
 from google.cloud.datastore.query import Query
 from google.cloud.datastore.query_profile import ExplainOptions
 from google.cloud.datastore.transaction import Transaction
+from google.cloud.datastore.version import __version__
 
 __all__ = [
     "__version__",

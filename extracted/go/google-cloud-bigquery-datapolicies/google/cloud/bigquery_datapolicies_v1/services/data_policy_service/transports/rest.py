@@ -16,18 +16,18 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -617,6 +617,12 @@ class DataPolicyServiceRestTransport(_BaseDataPolicyServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[DataPolicyServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -695,9 +701,7 @@ class DataPolicyServiceRestTransport(_BaseDataPolicyServiceRestTransport):
                     Represents the label-policy binding.
             """
 
-            http_options = (
-                _BaseDataPolicyServiceRestTransport._BaseCreateDataPolicy._get_http_options()
-            )
+            http_options = _BaseDataPolicyServiceRestTransport._BaseCreateDataPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_create_data_policy(
                 request, metadata
@@ -844,9 +848,7 @@ class DataPolicyServiceRestTransport(_BaseDataPolicyServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseDataPolicyServiceRestTransport._BaseDeleteDataPolicy._get_http_options()
-            )
+            http_options = _BaseDataPolicyServiceRestTransport._BaseDeleteDataPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_data_policy(
                 request, metadata
@@ -868,7 +870,7 @@ class DataPolicyServiceRestTransport(_BaseDataPolicyServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -958,9 +960,7 @@ class DataPolicyServiceRestTransport(_BaseDataPolicyServiceRestTransport):
                     Represents the label-policy binding.
             """
 
-            http_options = (
-                _BaseDataPolicyServiceRestTransport._BaseGetDataPolicy._get_http_options()
-            )
+            http_options = _BaseDataPolicyServiceRestTransport._BaseGetDataPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_get_data_policy(request, metadata)
             transcoded_request = _BaseDataPolicyServiceRestTransport._BaseGetDataPolicy._get_transcoded_request(
@@ -1178,9 +1178,7 @@ class DataPolicyServiceRestTransport(_BaseDataPolicyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataPolicyServiceRestTransport._BaseGetIamPolicy._get_http_options()
-            )
+            http_options = _BaseDataPolicyServiceRestTransport._BaseGetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_get_iam_policy(request, metadata)
             transcoded_request = _BaseDataPolicyServiceRestTransport._BaseGetIamPolicy._get_transcoded_request(
@@ -1331,9 +1329,7 @@ class DataPolicyServiceRestTransport(_BaseDataPolicyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataPolicyServiceRestTransport._BaseListDataPolicies._get_http_options()
-            )
+            http_options = _BaseDataPolicyServiceRestTransport._BaseListDataPolicies._get_http_options()
 
             request, metadata = self._interceptor.pre_list_data_policies(
                 request, metadata
@@ -1482,9 +1478,7 @@ class DataPolicyServiceRestTransport(_BaseDataPolicyServiceRestTransport):
                     Represents the label-policy binding.
             """
 
-            http_options = (
-                _BaseDataPolicyServiceRestTransport._BaseRenameDataPolicy._get_http_options()
-            )
+            http_options = _BaseDataPolicyServiceRestTransport._BaseRenameDataPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_rename_data_policy(
                 request, metadata
@@ -1709,9 +1703,7 @@ class DataPolicyServiceRestTransport(_BaseDataPolicyServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseDataPolicyServiceRestTransport._BaseSetIamPolicy._get_http_options()
-            )
+            http_options = _BaseDataPolicyServiceRestTransport._BaseSetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_set_iam_policy(request, metadata)
             transcoded_request = _BaseDataPolicyServiceRestTransport._BaseSetIamPolicy._get_transcoded_request(
@@ -1860,9 +1852,7 @@ class DataPolicyServiceRestTransport(_BaseDataPolicyServiceRestTransport):
                     Response message for ``TestIamPermissions`` method.
             """
 
-            http_options = (
-                _BaseDataPolicyServiceRestTransport._BaseTestIamPermissions._get_http_options()
-            )
+            http_options = _BaseDataPolicyServiceRestTransport._BaseTestIamPermissions._get_http_options()
 
             request, metadata = self._interceptor.pre_test_iam_permissions(
                 request, metadata
@@ -2014,9 +2004,7 @@ class DataPolicyServiceRestTransport(_BaseDataPolicyServiceRestTransport):
                     Represents the label-policy binding.
             """
 
-            http_options = (
-                _BaseDataPolicyServiceRestTransport._BaseUpdateDataPolicy._get_http_options()
-            )
+            http_options = _BaseDataPolicyServiceRestTransport._BaseUpdateDataPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_update_data_policy(
                 request, metadata

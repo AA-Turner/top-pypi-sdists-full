@@ -60,7 +60,7 @@ for i in range(3):
     l.append(lj)
 
 i = j = k = 1
-def f():
+def f() -> int:
     global i
     i += 1
     return i

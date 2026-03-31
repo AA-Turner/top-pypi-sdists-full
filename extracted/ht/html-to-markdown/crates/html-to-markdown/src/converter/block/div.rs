@@ -6,6 +6,7 @@
 //! - List continuations: Uses list indentation
 //! - Block context: Adds surrounding newlines for proper block separation
 
+use crate::converter::main_helpers::trim_trailing_whitespace;
 use crate::options::ConversionOptions;
 use tl::{NodeHandle, Parser};
 
@@ -128,13 +129,6 @@ pub(crate) fn handle(
                 output.push_str("\n\n");
             }
         }
-    }
-}
-
-/// Helper function to trim trailing whitespace
-fn trim_trailing_whitespace(output: &mut String) {
-    while output.ends_with(' ') || output.ends_with('\t') {
-        output.pop();
     }
 }
 

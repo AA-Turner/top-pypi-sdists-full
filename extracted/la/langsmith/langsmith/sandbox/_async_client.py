@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from typing import Any, Optional
 
 import httpx
@@ -23,7 +24,9 @@ from langsmith.sandbox._helpers import (
     handle_pool_error,
     handle_sandbox_creation_error,
     handle_volume_creation_error,
+    merge_headers,
     parse_error_response,
+    validate_ttl,
 )
 from langsmith.sandbox._models import (
     Pool,
@@ -47,6 +50,9 @@ def _get_default_api_endpoint() -> str:
 def _get_default_api_key() -> Optional[str]:
     """Get the default API key from environment."""
     return ls_utils.get_env_var("API_KEY")
+
+
+RequestHeaders = Optional[Mapping[str, str]]
 
 
 class AsyncSandboxClient:
@@ -94,6 +100,12 @@ class AsyncSandboxClient:
             transport=transport, timeout=timeout, headers=headers
         )
 
+    def _request_headers(self, headers: RequestHeaders) -> Optional[dict[str, str]]:
+        """Merge default client headers with per-request overrides."""
+        if headers is None:
+            return None
+        return merge_headers(self._http.headers, headers)
+
     async def aclose(self) -> None:
         """Close the async HTTP client."""
         await self._http.aclose()
@@ -139,6 +151,7 @@ class AsyncSandboxClient:
         size: str,
         *,
         timeout: int = 60,
+        headers: RequestHeaders = None,
     ) -> Volume:
         """Create a new persistent volume.
 
@@ -167,14 +180,19 @@ class AsyncSandboxClient:
         }
 
         try:
-            response = await self._http.post(url, json=payload, timeout=timeout + 30)
+            response = await self._http.post(
+                url,
+                json=payload,
+                timeout=timeout + 30,
+                headers=self._request_headers(headers),
+            )
             response.raise_for_status()
             return Volume.from_dict(response.json())
         except httpx.HTTPStatusError as e:
             handle_volume_creation_error(e)
             raise  # pragma: no cover
 
-    async def get_volume(self, name: str) -> Volume:
+    async def get_volume(self, name: str, *, headers: RequestHeaders = None) -> Volume:
         """Get a volume by name.
 
         Args:
@@ -190,7 +208,7 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/volumes/{name}"
 
         try:
-            response = await self._http.get(url)
+            response = await self._http.get(url, headers=self._request_headers(headers))
             response.raise_for_status()
             return Volume.from_dict(response.json())
         except httpx.HTTPStatusError as e:
@@ -201,7 +219,7 @@ class AsyncSandboxClient:
             handle_client_http_error(e)
             raise  # pragma: no cover
 
-    async def list_volumes(self) -> list[Volume]:
+    async def list_volumes(self, *, headers: RequestHeaders = None) -> list[Volume]:
         """List all volumes.
 
         Returns:
@@ -210,7 +228,7 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/volumes"
 
         try:
-            response = await self._http.get(url)
+            response = await self._http.get(url, headers=self._request_headers(headers))
             response.raise_for_status()
             data = response.json()
             return [Volume.from_dict(v) for v in data.get("volumes", [])]
@@ -223,7 +241,7 @@ class AsyncSandboxClient:
             handle_client_http_error(e)
             raise  # pragma: no cover
 
-    async def delete_volume(self, name: str) -> None:
+    async def delete_volume(self, name: str, *, headers: RequestHeaders = None) -> None:
         """Delete a volume.
 
         Args:
@@ -237,7 +255,9 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/volumes/{name}"
 
         try:
-            response = await self._http.delete(url)
+            response = await self._http.delete(
+                url, headers=self._request_headers(headers)
+            )
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
@@ -255,6 +275,7 @@ class AsyncSandboxClient:
         *,
         new_name: Optional[str] = None,
         size: Optional[str] = None,
+        headers: RequestHeaders = None,
     ) -> Volume:
         """Update a volume's name and/or size.
 
@@ -285,10 +306,12 @@ class AsyncSandboxClient:
 
         if not payload:
             # Nothing to update, just return the current volume
-            return await self.get_volume(name)
+            return await self.get_volume(name, headers=headers)
 
         try:
-            response = await self._http.patch(url, json=payload)
+            response = await self._http.patch(
+                url, json=payload, headers=self._request_headers(headers)
+            )
             response.raise_for_status()
             return Volume.from_dict(response.json())
         except httpx.HTTPStatusError as e:
@@ -320,6 +343,7 @@ class AsyncSandboxClient:
         memory: str = "512Mi",
         storage: Optional[str] = None,
         volume_mounts: Optional[list[VolumeMountSpec]] = None,
+        headers: RequestHeaders = None,
     ) -> SandboxTemplate:
         """Create a new SandboxTemplate.
 
@@ -359,14 +383,18 @@ class AsyncSandboxClient:
             ]
 
         try:
-            response = await self._http.post(url, json=payload)
+            response = await self._http.post(
+                url, json=payload, headers=self._request_headers(headers)
+            )
             response.raise_for_status()
             return SandboxTemplate.from_dict(response.json())
         except httpx.HTTPStatusError as e:
             handle_client_http_error(e)
             raise  # pragma: no cover
 
-    async def get_template(self, name: str) -> SandboxTemplate:
+    async def get_template(
+        self, name: str, *, headers: RequestHeaders = None
+    ) -> SandboxTemplate:
         """Get a SandboxTemplate by name.
 
         Args:
@@ -382,7 +410,7 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/templates/{name}"
 
         try:
-            response = await self._http.get(url)
+            response = await self._http.get(url, headers=self._request_headers(headers))
             response.raise_for_status()
             return SandboxTemplate.from_dict(response.json())
         except httpx.HTTPStatusError as e:
@@ -393,7 +421,9 @@ class AsyncSandboxClient:
             handle_client_http_error(e)
             raise  # pragma: no cover
 
-    async def list_templates(self) -> list[SandboxTemplate]:
+    async def list_templates(
+        self, *, headers: RequestHeaders = None
+    ) -> list[SandboxTemplate]:
         """List all SandboxTemplates.
 
         Returns:
@@ -402,7 +432,7 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/templates"
 
         try:
-            response = await self._http.get(url)
+            response = await self._http.get(url, headers=self._request_headers(headers))
             response.raise_for_status()
             data = response.json()
             return [SandboxTemplate.from_dict(t) for t in data.get("templates", [])]
@@ -415,7 +445,9 @@ class AsyncSandboxClient:
             handle_client_http_error(e)
             raise  # pragma: no cover
 
-    async def update_template(self, name: str, *, new_name: str) -> SandboxTemplate:
+    async def update_template(
+        self, name: str, *, new_name: str, headers: RequestHeaders = None
+    ) -> SandboxTemplate:
         """Update a template's display name.
 
         Args:
@@ -434,7 +466,9 @@ class AsyncSandboxClient:
         payload = {"name": new_name}
 
         try:
-            response = await self._http.patch(url, json=payload)
+            response = await self._http.patch(
+                url, json=payload, headers=self._request_headers(headers)
+            )
             response.raise_for_status()
             return SandboxTemplate.from_dict(response.json())
         except httpx.HTTPStatusError as e:
@@ -450,7 +484,9 @@ class AsyncSandboxClient:
             handle_client_http_error(e)
             raise  # pragma: no cover
 
-    async def delete_template(self, name: str) -> None:
+    async def delete_template(
+        self, name: str, *, headers: RequestHeaders = None
+    ) -> None:
         """Delete a SandboxTemplate.
 
         Args:
@@ -464,7 +500,9 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/templates/{name}"
 
         try:
-            response = await self._http.delete(url)
+            response = await self._http.delete(
+                url, headers=self._request_headers(headers)
+            )
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
@@ -489,6 +527,7 @@ class AsyncSandboxClient:
         replicas: int,
         *,
         timeout: int = 30,
+        headers: RequestHeaders = None,
     ) -> Pool:
         """Create a new Sandbox Pool.
 
@@ -523,14 +562,19 @@ class AsyncSandboxClient:
 
         try:
             http_timeout = timeout + 30
-            response = await self._http.post(url, json=payload, timeout=http_timeout)
+            response = await self._http.post(
+                url,
+                json=payload,
+                timeout=http_timeout,
+                headers=self._request_headers(headers),
+            )
             response.raise_for_status()
             return Pool.from_dict(response.json())
         except httpx.HTTPStatusError as e:
             handle_pool_error(e)
             raise  # pragma: no cover
 
-    async def get_pool(self, name: str) -> Pool:
+    async def get_pool(self, name: str, *, headers: RequestHeaders = None) -> Pool:
         """Get a Pool by name.
 
         Args:
@@ -546,7 +590,7 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/pools/{name}"
 
         try:
-            response = await self._http.get(url)
+            response = await self._http.get(url, headers=self._request_headers(headers))
             response.raise_for_status()
             return Pool.from_dict(response.json())
         except httpx.HTTPStatusError as e:
@@ -557,7 +601,7 @@ class AsyncSandboxClient:
             handle_client_http_error(e)
             raise  # pragma: no cover
 
-    async def list_pools(self) -> list[Pool]:
+    async def list_pools(self, *, headers: RequestHeaders = None) -> list[Pool]:
         """List all Pools.
 
         Returns:
@@ -566,7 +610,7 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/pools"
 
         try:
-            response = await self._http.get(url)
+            response = await self._http.get(url, headers=self._request_headers(headers))
             response.raise_for_status()
             data = response.json()
             return [Pool.from_dict(p) for p in data.get("pools", [])]
@@ -585,6 +629,7 @@ class AsyncSandboxClient:
         *,
         new_name: Optional[str] = None,
         replicas: Optional[int] = None,
+        headers: RequestHeaders = None,
     ) -> Pool:
         """Update a Pool's name and/or replica count.
 
@@ -616,10 +661,12 @@ class AsyncSandboxClient:
 
         if not payload:
             # Nothing to update, just return the current pool
-            return await self.get_pool(name)
+            return await self.get_pool(name, headers=headers)
 
         try:
-            response = await self._http.patch(url, json=payload)
+            response = await self._http.patch(
+                url, json=payload, headers=self._request_headers(headers)
+            )
             response.raise_for_status()
             return Pool.from_dict(response.json())
         except httpx.HTTPStatusError as e:
@@ -635,7 +682,7 @@ class AsyncSandboxClient:
             handle_pool_error(e)
             raise  # pragma: no cover
 
-    async def delete_pool(self, name: str) -> None:
+    async def delete_pool(self, name: str, *, headers: RequestHeaders = None) -> None:
         """Delete a Pool.
 
         This will terminate all sandboxes in the pool.
@@ -650,7 +697,9 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/pools/{name}"
 
         try:
-            response = await self._http.delete(url)
+            response = await self._http.delete(
+                url, headers=self._request_headers(headers)
+            )
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
@@ -669,6 +718,9 @@ class AsyncSandboxClient:
         *,
         name: Optional[str] = None,
         timeout: int = 30,
+        ttl_seconds: Optional[int] = None,
+        idle_ttl_seconds: Optional[int] = None,
+        headers: RequestHeaders = None,
     ) -> AsyncSandbox:
         """Create a sandbox and return an AsyncSandbox instance.
 
@@ -685,6 +737,12 @@ class AsyncSandboxClient:
             template_name: Name of the SandboxTemplate to use.
             name: Optional sandbox name (auto-generated if not provided).
             timeout: Timeout in seconds when waiting for ready.
+            ttl_seconds: Maximum lifetime in seconds from creation. The sandbox
+                will be automatically deleted after this duration. Must be a
+                multiple of 60. 0 or None disables this TTL.
+            idle_ttl_seconds: Idle timeout in seconds. The sandbox will be
+                automatically deleted after this duration of inactivity. Must be
+                a multiple of 60. 0 or None disables this TTL.
 
         Returns:
             AsyncSandbox instance.
@@ -693,11 +751,15 @@ class AsyncSandboxClient:
             ResourceTimeoutError: If timeout waiting for sandbox to be ready.
             ResourceCreationError: If sandbox creation fails.
             SandboxClientError: For other errors.
+            ValueError: If TTL values are invalid.
         """
         sb = await self.create_sandbox(
             template_name=template_name,
             name=name,
             timeout=timeout,
+            ttl_seconds=ttl_seconds,
+            idle_ttl_seconds=idle_ttl_seconds,
+            headers=headers,
         )
         sb._auto_delete = True
         return sb
@@ -709,6 +771,9 @@ class AsyncSandboxClient:
         name: Optional[str] = None,
         timeout: int = 30,
         wait_for_ready: bool = True,
+        ttl_seconds: Optional[int] = None,
+        idle_ttl_seconds: Optional[int] = None,
+        headers: RequestHeaders = None,
     ) -> AsyncSandbox:
         """Create a new Sandbox.
 
@@ -723,6 +788,12 @@ class AsyncSandboxClient:
             wait_for_ready: If True (default), block until sandbox is ready.
                 If False, return immediately with status "provisioning". Use
                 get_sandbox_status() or wait_for_sandbox() to poll for readiness.
+            ttl_seconds: Maximum lifetime in seconds from creation. The sandbox
+                will be automatically deleted after this duration. Must be a
+                multiple of 60. 0 or None disables this TTL.
+            idle_ttl_seconds: Idle timeout in seconds. The sandbox will be
+                automatically deleted after this duration of inactivity. Must be
+                a multiple of 60. 0 or None disables this TTL.
 
         Returns:
             Created AsyncSandbox. When wait_for_ready=False, the sandbox will have
@@ -732,7 +803,11 @@ class AsyncSandboxClient:
             ResourceTimeoutError: If timeout waiting for sandbox to be ready.
             ResourceCreationError: If sandbox creation fails.
             SandboxClientError: For other errors.
+            ValueError: If TTL values are invalid.
         """
+        validate_ttl(ttl_seconds, "ttl_seconds")
+        validate_ttl(idle_ttl_seconds, "idle_ttl_seconds")
+
         url = f"{self._base_url}/boxes"
 
         payload: dict[str, Any] = {
@@ -743,11 +818,20 @@ class AsyncSandboxClient:
             payload["timeout"] = timeout
         if name:
             payload["name"] = name
+        if ttl_seconds is not None:
+            payload["ttl_seconds"] = ttl_seconds
+        if idle_ttl_seconds is not None:
+            payload["idle_ttl_seconds"] = idle_ttl_seconds
 
         http_timeout = (timeout + 30) if wait_for_ready else 30
 
         try:
-            response = await self._http.post(url, json=payload, timeout=http_timeout)
+            response = await self._http.post(
+                url,
+                json=payload,
+                timeout=http_timeout,
+                headers=self._request_headers(headers),
+            )
             response.raise_for_status()
             return AsyncSandbox.from_dict(
                 response.json(), client=self, auto_delete=False
@@ -756,7 +840,9 @@ class AsyncSandboxClient:
             handle_sandbox_creation_error(e)
             raise  # pragma: no cover
 
-    async def get_sandbox(self, name: str) -> AsyncSandbox:
+    async def get_sandbox(
+        self, name: str, *, headers: RequestHeaders = None
+    ) -> AsyncSandbox:
         """Get a Sandbox by name.
 
         The sandbox is NOT automatically deleted. Use delete_sandbox() for cleanup.
@@ -774,7 +860,7 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/boxes/{name}"
 
         try:
-            response = await self._http.get(url)
+            response = await self._http.get(url, headers=self._request_headers(headers))
             response.raise_for_status()
             return AsyncSandbox.from_dict(
                 response.json(), client=self, auto_delete=False
@@ -787,7 +873,9 @@ class AsyncSandboxClient:
             handle_client_http_error(e)
             raise  # pragma: no cover
 
-    async def list_sandboxes(self) -> list[AsyncSandbox]:
+    async def list_sandboxes(
+        self, *, headers: RequestHeaders = None
+    ) -> list[AsyncSandbox]:
         """List all Sandboxes.
 
         Returns:
@@ -796,7 +884,7 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/boxes"
 
         try:
-            response = await self._http.get(url)
+            response = await self._http.get(url, headers=self._request_headers(headers))
             response.raise_for_status()
             data = response.json()
             return [
@@ -812,12 +900,24 @@ class AsyncSandboxClient:
             handle_client_http_error(e)
             raise  # pragma: no cover
 
-    async def update_sandbox(self, name: str, *, new_name: str) -> AsyncSandbox:
-        """Update a sandbox's display name.
+    async def update_sandbox(
+        self,
+        name: str,
+        *,
+        new_name: Optional[str] = None,
+        ttl_seconds: Optional[int] = None,
+        idle_ttl_seconds: Optional[int] = None,
+        headers: RequestHeaders = None,
+    ) -> AsyncSandbox:
+        """Update a sandbox's properties.
 
         Args:
             name: Current sandbox name.
             new_name: New display name.
+            ttl_seconds: Maximum lifetime in seconds from creation. Must be a
+                multiple of 60. 0 disables this TTL.
+            idle_ttl_seconds: Idle timeout in seconds. Must be a multiple of 60.
+                0 disables this TTL.
 
         Returns:
             Updated AsyncSandbox.
@@ -826,12 +926,24 @@ class AsyncSandboxClient:
             ResourceNotFoundError: If sandbox not found.
             ResourceNameConflictError: If new_name is already in use.
             SandboxClientError: For other errors.
+            ValueError: If TTL values are invalid.
         """
+        validate_ttl(ttl_seconds, "ttl_seconds")
+        validate_ttl(idle_ttl_seconds, "idle_ttl_seconds")
+
         url = f"{self._base_url}/boxes/{name}"
-        payload = {"name": new_name}
+        payload: dict[str, Any] = {}
+        if new_name is not None:
+            payload["name"] = new_name
+        if ttl_seconds is not None:
+            payload["ttl_seconds"] = ttl_seconds
+        if idle_ttl_seconds is not None:
+            payload["idle_ttl_seconds"] = idle_ttl_seconds
 
         try:
-            response = await self._http.patch(url, json=payload)
+            response = await self._http.patch(
+                url, json=payload, headers=self._request_headers(headers)
+            )
             response.raise_for_status()
             return AsyncSandbox.from_dict(
                 response.json(), client=self, auto_delete=False
@@ -849,7 +961,9 @@ class AsyncSandboxClient:
             handle_client_http_error(e)
             raise  # pragma: no cover
 
-    async def delete_sandbox(self, name: str) -> None:
+    async def delete_sandbox(
+        self, name: str, *, headers: RequestHeaders = None
+    ) -> None:
         """Delete a Sandbox.
 
         Args:
@@ -862,7 +976,9 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/boxes/{name}"
 
         try:
-            response = await self._http.delete(url)
+            response = await self._http.delete(
+                url, headers=self._request_headers(headers)
+            )
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
@@ -871,7 +987,9 @@ class AsyncSandboxClient:
                 ) from e
             handle_client_http_error(e)
 
-    async def get_sandbox_status(self, name: str) -> ResourceStatus:
+    async def get_sandbox_status(
+        self, name: str, *, headers: RequestHeaders = None
+    ) -> ResourceStatus:
         """Get the provisioning status of a sandbox.
 
         This is a lightweight endpoint designed for high-frequency polling
@@ -891,7 +1009,7 @@ class AsyncSandboxClient:
         url = f"{self._base_url}/boxes/{name}/status"
 
         try:
-            response = await self._http.get(url)
+            response = await self._http.get(url, headers=self._request_headers(headers))
             response.raise_for_status()
             return ResourceStatus.from_dict(response.json())
         except httpx.HTTPStatusError as e:
@@ -908,6 +1026,7 @@ class AsyncSandboxClient:
         *,
         timeout: int = 120,
         poll_interval: float = 1.0,
+        headers: RequestHeaders = None,
     ) -> AsyncSandbox:
         """Poll until a sandbox reaches "ready" or "failed" status.
 
@@ -932,9 +1051,9 @@ class AsyncSandboxClient:
 
         deadline = time.monotonic() + timeout
         while True:
-            status = await self.get_sandbox_status(name)
+            status = await self.get_sandbox_status(name, headers=headers)
             if status.status == "ready":
-                return await self.get_sandbox(name)
+                return await self.get_sandbox(name, headers=headers)
             if status.status == "failed":
                 raise ResourceCreationError(
                     status.status_message or "Sandbox provisioning failed",

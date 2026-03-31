@@ -97,6 +97,8 @@ __all__ = (
     "CreateLogAnomalyDetectorResponseTypeDef",
     "CreateLogGroupRequestTypeDef",
     "CreateLogStreamRequestTypeDef",
+    "CreateLookupTableRequestTypeDef",
+    "CreateLookupTableResponseTypeDef",
     "CreateScheduledQueryRequestTypeDef",
     "CreateScheduledQueryResponseTypeDef",
     "DataSourceFilterTypeDef",
@@ -119,6 +121,7 @@ __all__ = (
     "DeleteLogAnomalyDetectorRequestTypeDef",
     "DeleteLogGroupRequestTypeDef",
     "DeleteLogStreamRequestTypeDef",
+    "DeleteLookupTableRequestTypeDef",
     "DeleteMetricFilterRequestTypeDef",
     "DeleteQueryDefinitionRequestTypeDef",
     "DeleteQueryDefinitionResponseTypeDef",
@@ -165,6 +168,8 @@ __all__ = (
     "DescribeLogStreamsRequestPaginateTypeDef",
     "DescribeLogStreamsRequestTypeDef",
     "DescribeLogStreamsResponseTypeDef",
+    "DescribeLookupTablesRequestTypeDef",
+    "DescribeLookupTablesResponseTypeDef",
     "DescribeMetricFiltersRequestPaginateTypeDef",
     "DescribeMetricFiltersRequestTypeDef",
     "DescribeMetricFiltersResponseTypeDef",
@@ -220,6 +225,8 @@ __all__ = (
     "GetLogObjectResponseTypeDef",
     "GetLogRecordRequestTypeDef",
     "GetLogRecordResponseTypeDef",
+    "GetLookupTableRequestTypeDef",
+    "GetLookupTableResponseTypeDef",
     "GetQueryResultsRequestTypeDef",
     "GetQueryResultsResponseTypeDef",
     "GetScheduledQueryHistoryRequestPaginateTypeDef",
@@ -278,6 +285,7 @@ __all__ = (
     "LogGroupSummaryTypeDef",
     "LogGroupTypeDef",
     "LogStreamTypeDef",
+    "LookupTableTypeDef",
     "LowerCaseStringOutputTypeDef",
     "LowerCaseStringTypeDef",
     "LowerCaseStringUnionTypeDef",
@@ -405,6 +413,8 @@ __all__ = (
     "UpdateAnomalyRequestTypeDef",
     "UpdateDeliveryConfigurationRequestTypeDef",
     "UpdateLogAnomalyDetectorRequestTypeDef",
+    "UpdateLookupTableRequestTypeDef",
+    "UpdateLookupTableResponseTypeDef",
     "UpdateScheduledQueryRequestTypeDef",
     "UpdateScheduledQueryResponseTypeDef",
     "UpperCaseStringOutputTypeDef",
@@ -540,6 +550,13 @@ class CreateLogStreamRequestTypeDef(TypedDict):
     logGroupName: str
     logStreamName: str
 
+class CreateLookupTableRequestTypeDef(TypedDict):
+    lookupTableName: str
+    tableBody: str
+    description: NotRequired[str]
+    kmsKeyId: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
 DataSourceFilterTypeDef = TypedDict(
     "DataSourceFilterTypeDef",
     {
@@ -614,6 +631,9 @@ class DeleteLogGroupRequestTypeDef(TypedDict):
 class DeleteLogStreamRequestTypeDef(TypedDict):
     logGroupName: str
     logStreamName: str
+
+class DeleteLookupTableRequestTypeDef(TypedDict):
+    lookupTableArn: str
 
 class DeleteMetricFilterRequestTypeDef(TypedDict):
     logGroupName: str
@@ -789,6 +809,21 @@ class LogStreamTypeDef(TypedDict):
     uploadSequenceToken: NotRequired[str]
     arn: NotRequired[str]
     storedBytes: NotRequired[int]
+
+class DescribeLookupTablesRequestTypeDef(TypedDict):
+    lookupTableNamePrefix: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class LookupTableTypeDef(TypedDict):
+    lookupTableArn: NotRequired[str]
+    lookupTableName: NotRequired[str]
+    description: NotRequired[str]
+    tableFields: NotRequired[list[str]]
+    recordsCount: NotRequired[int]
+    sizeBytes: NotRequired[int]
+    lastUpdatedTime: NotRequired[int]
+    kmsKeyId: NotRequired[str]
 
 class DescribeMetricFiltersRequestTypeDef(TypedDict):
     logGroupName: NotRequired[str]
@@ -970,6 +1005,9 @@ class InternalStreamingExceptionTypeDef(TypedDict):
 class GetLogRecordRequestTypeDef(TypedDict):
     logRecordPointer: str
     unmask: NotRequired[bool]
+
+class GetLookupTableRequestTypeDef(TypedDict):
+    lookupTableArn: str
 
 class GetQueryResultsRequestTypeDef(TypedDict):
     queryId: str
@@ -1348,6 +1386,12 @@ class UpdateLogAnomalyDetectorRequestTypeDef(TypedDict):
     filterPattern: NotRequired[str]
     anomalyVisibilityTime: NotRequired[int]
 
+class UpdateLookupTableRequestTypeDef(TypedDict):
+    lookupTableArn: str
+    tableBody: str
+    description: NotRequired[str]
+    kmsKeyId: NotRequired[str]
+
 class UpperCaseStringTypeDef(TypedDict):
     withKeys: Sequence[str]
 
@@ -1411,6 +1455,11 @@ class CreateLogAnomalyDetectorResponseTypeDef(TypedDict):
     anomalyDetectorArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateLookupTableResponseTypeDef(TypedDict):
+    lookupTableArn: str
+    createdAt: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateScheduledQueryResponseTypeDef(TypedDict):
     scheduledQueryArn: str
     state: ScheduledQueryStateType
@@ -1452,6 +1501,16 @@ class GetLogAnomalyDetectorResponseTypeDef(TypedDict):
 
 class GetLogRecordResponseTypeDef(TypedDict):
     logRecord: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetLookupTableResponseTypeDef(TypedDict):
+    lookupTableArn: str
+    lookupTableName: str
+    description: str
+    tableBody: str
+    sizeBytes: int
+    lastUpdatedTime: int
+    kmsKeyId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListLogAnomalyDetectorsResponseTypeDef(TypedDict):
@@ -1497,6 +1556,11 @@ class StartQueryResponseTypeDef(TypedDict):
 
 class StopQueryResponseTypeDef(TypedDict):
     success: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateLookupTableResponseTypeDef(TypedDict):
+    lookupTableArn: str
+    lastUpdatedTime: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 CSVUnionTypeDef = Union[CSVTypeDef, CSVOutputTypeDef]
@@ -1770,6 +1834,11 @@ class DescribeLogGroupsResponseTypeDef(TypedDict):
 
 class DescribeLogStreamsResponseTypeDef(TypedDict):
     logStreams: list[LogStreamTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class DescribeLookupTablesResponseTypeDef(TypedDict):
+    lookupTables: list[LookupTableTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

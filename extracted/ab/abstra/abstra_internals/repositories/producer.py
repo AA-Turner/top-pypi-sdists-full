@@ -27,8 +27,10 @@ from abstra_internals.environment import (
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.models import (
     ControlMessage,
+    ControlQueueMessage,
     PreExecution,
     QueueMessage,
+    StopExecutionMessage,
 )
 from abstra_internals.utils import serialize
 from abstra_internals.utils.rabbitmq_connection import RabbitMQConnection
@@ -49,6 +51,10 @@ class ProducerRepository(ABC):
     def enqueue_fire_and_forget(
         self, stage_id: str, context: ClientContext, user_jwt: Optional[str] = None
     ) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def enqueue_control(self, message: ControlMessage) -> ConnectionProtocol:
         raise NotImplementedError()
 
     def consume_and_forward(self, conn: ConnectionProtocol, stage_id: str) -> None:
@@ -107,6 +113,17 @@ class LocalProducerRepository(ProducerRepository):
                 connection=child_conn,
             ),
         )
+
+    def enqueue_control(self, message: ControlMessage) -> Connection:
+        parent_conn, child_conn = Pipe()
+        self.queue.put(
+            ControlQueueMessage(
+                message=message,
+                delivery_tag=0,
+                connection=child_conn,
+            )
+        )
+        return parent_conn
 
 
 class RabbitMQProducerRepository(ProducerRepository):
@@ -201,6 +218,32 @@ class RabbitMQProducerRepository(ProducerRepository):
             send_queue=f"server_to_worker_{execution_id}",
             recv_queue=f"worker_to_server_{execution_id}",
             execution_id=execution_id,
+            auto_start_consumer=False,
+        )
+
+        return rabbitmq_connection
+
+    def enqueue_control(self, message: ControlMessage) -> ConnectionProtocol:
+        correlation_id = uuid4().__str__()
+
+        enriched_message = message.model_copy(update={"correlation_id": correlation_id})
+
+        with self._connect_with_retry() as connection:
+            with connection.channel() as channel:
+                channel: BlockingChannel
+                channel.queue_declare(queue=self.queue_name, durable=True)
+                channel.basic_publish(
+                    body=enriched_message.dump_json(),
+                    routing_key=self.queue_name,
+                    exchange=RABBITMQ_DEFAUT_EXCHANGE,
+                    properties=self.props,
+                )
+
+        rabbitmq_connection = RabbitMQConnection(
+            connection_uri=self.connection_uri,
+            send_queue=f"server_to_worker_{correlation_id}",
+            recv_queue=f"worker_to_server_{correlation_id}",
+            execution_id=correlation_id,
             auto_start_consumer=False,
         )
 
@@ -359,7 +402,7 @@ class WebEditorControlProducerRepository:
         raise last_exception or AMQPConnectionError("Failed to connect to RabbitMQ")
 
     def stop_execution(self, execution_id: str):
-        payload = ControlMessage(type="stop", payload={"execution_id": execution_id})
+        payload = StopExecutionMessage.create(execution_id)
 
         with self._connect_with_retry() as connection:
             with connection.channel() as channel:
@@ -379,7 +422,7 @@ class WebEditorControlProducerRepository:
     def restart_workers(self):
         """Broadcast restart message to all workers.
         Used after updating abstra version to ensure workers reload with new code."""
-        payload = ControlMessage(type="restart", payload={})
+        payload = ControlMessage(type="restart")
 
         with self._connect_with_retry() as connection:
             with connection.channel() as channel:

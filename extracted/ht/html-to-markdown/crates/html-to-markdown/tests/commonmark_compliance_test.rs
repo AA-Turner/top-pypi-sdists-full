@@ -1,13 +1,6 @@
 #![allow(missing_docs)]
 
-//! `CommonMark` Specification Compliance Tests
-//!
-//! This test suite verifies that our HTML-to-Markdown converter produces
-//! CommonMark-compliant output by testing against the official `CommonMark` spec.
-//!
-//! The test cases are derived from <https://spec.commonmark.org>/
-
-use html_to_markdown_rs::{ConversionOptions, convert};
+use html_to_markdown_rs::ConversionOptions;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -288,4 +281,11 @@ fn test_commonmark_compliance() {
 /// Normalize markdown for comparison
 fn normalize_markdown(md: &str) -> String {
     md.trim_end().to_string()
+}
+
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
 }

@@ -22,6 +22,7 @@ class RandomUuid7Args:
                  keepers: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a RandomUuid7 resource.
+
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] keepers: Arbitrary map of values that, when changed, will trigger recreation of resource. See the main provider documentation for more information.
         """
         if keepers is not None:
@@ -47,6 +48,7 @@ class _RandomUuid7State:
                  result: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering RandomUuid7 resources.
+
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] keepers: Arbitrary map of values that, when changed, will trigger recreation of resource. See the main provider documentation for more information.
         :param pulumi.Input[_builtins.str] result: The generated uuid presented in string format.
         """
@@ -112,14 +114,13 @@ class RandomUuid7(pulumi.CustomResource):
         The `pulumi import` command can be used, for example:
 
         Random UUID's can be imported. This can be used to replace a config
-
         value with a value interpolated from the random provider without
-
         experiencing diffs.
 
         ```sh
         $ pulumi import random:index/randomUuid7:RandomUuid7 main 0197ad85-fe6e-7e92-a2f5-7550daa83030
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -155,14 +156,13 @@ class RandomUuid7(pulumi.CustomResource):
         The `pulumi import` command can be used, for example:
 
         Random UUID's can be imported. This can be used to replace a config
-
         value with a value interpolated from the random provider without
-
         experiencing diffs.
 
         ```sh
         $ pulumi import random:index/randomUuid7:RandomUuid7 main 0197ad85-fe6e-7e92-a2f5-7550daa83030
         ```
+
 
         :param str resource_name: The name of the resource.
         :param RandomUuid7Args args: The arguments to use to populate this resource's properties.

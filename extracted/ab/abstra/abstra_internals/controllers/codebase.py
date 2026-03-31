@@ -116,7 +116,14 @@ class CodebaseController:
         # Ensure we are listing relative to root
         full_path = Settings.root_path / path
 
-        ALWAYS_HIDDEN = {".git", ".venv", "venv", "__pycache__"}
+        ALWAYS_HIDDEN = {
+            ".git",
+            ".venv",
+            "venv",
+            "__pycache__",
+            ".pyrefly_buffer.py",
+            "pyrefly.toml",
+        }
 
         return [
             AbstraLibApiEditorCodebaseFilesGetResponseItem(

@@ -18,10 +18,10 @@ from .common import (
     ErrorEvent,
     ErrorGroup,
     HttpRequestContext,
+    ResolutionStatus,
     ServiceContext,
     SourceLocation,
     TrackingIssue,
-    ResolutionStatus,
 )
 from .error_group_service import (
     GetGroupRequest,
@@ -30,6 +30,7 @@ from .error_group_service import (
 from .error_stats_service import (
     DeleteEventsRequest,
     DeleteEventsResponse,
+    ErrorGroupOrder,
     ErrorGroupStats,
     ListEventsRequest,
     ListEventsResponse,
@@ -38,7 +39,6 @@ from .error_stats_service import (
     QueryTimeRange,
     ServiceContextFilter,
     TimedCount,
-    ErrorGroupOrder,
     TimedCountAlignment,
 )
 from .report_errors_service import (

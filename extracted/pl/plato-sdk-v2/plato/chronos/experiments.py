@@ -27,7 +27,7 @@ from plato.chronos.models import (
     ExperimentFileUpdateRequest,
     ExperimentFileVersionCreateRequest,
     LaunchExperimentRequest,
-    LaunchJobResponse,
+    LaunchExperimentResponse,
     TargetReviewSpec,
 )
 
@@ -204,16 +204,27 @@ class AsyncExperiments:
     # Launch
     # -----------------------------------------------------------------------
 
-    async def launch(self, *, version_id: str) -> LaunchJobResponse:
-        """Launch a session from an experiment version.
+    async def launch(
+        self,
+        *,
+        version_id: str,
+        dataset_row_indices: list[int] | None = None,
+    ) -> LaunchExperimentResponse:
+        """Launch sessions from an experiment version.
 
         The backend pulls the full config from the version's config_json,
-        resolves env var placeholders, and auto-links the session to the version.
+        resolves env var and dataset placeholders, and auto-links sessions
+        to the version.
+
+        Args:
+            version_id: The experiment version public ID.
+            dataset_row_indices: Optional list of 0-based row indices from the
+                linked dataset. If None and a dataset is linked, all rows are used.
         """
         return await launch_experiment.asyncio(
             self._client,
             version_public_id=version_id,
-            body=LaunchExperimentRequest(),
+            body=LaunchExperimentRequest(dataset_row_indices=dataset_row_indices),
         )
 
     # -----------------------------------------------------------------------
@@ -364,11 +375,16 @@ class Experiments:
             ),
         )
 
-    def launch(self, *, version_id: str) -> LaunchJobResponse:
+    def launch(
+        self,
+        *,
+        version_id: str,
+        dataset_row_indices: list[int] | None = None,
+    ) -> LaunchExperimentResponse:
         return launch_experiment.sync(
             self._client,
             version_public_id=version_id,
-            body=LaunchExperimentRequest(),
+            body=LaunchExperimentRequest(dataset_row_indices=dataset_row_indices),
         )
 
     def attach_session(self, *, version_id: str, session_id: str) -> None:

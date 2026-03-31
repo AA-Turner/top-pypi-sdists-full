@@ -3,12 +3,10 @@ from __future__ import annotations
 import datetime
 import json
 import pkgutil
-from multiprocessing import Pipe
 from pathlib import Path
 from shutil import move
-from tempfile import mkdtemp, mktemp
+from tempfile import mkdtemp
 from typing import Any, Literal, Optional
-from uuid import uuid4
 
 import flask
 
@@ -22,8 +20,6 @@ from abstra_internals.controllers.execution.drain import (
     drain_until_response,
     normalize_response,
 )
-from abstra_internals.controllers.execution.execution import ExecutionController
-from abstra_internals.controllers.execution.execution_client import HeadlessClient
 from abstra_internals.credentials import (
     delete_credentials,
     get_credentials,
@@ -2729,29 +2725,18 @@ class MainController:
 
         Use this code for testing parts of the code you want to build before writing, debugging or auxiliary tasks.
         """
+        from abstra_internals.repositories.models import RunSnippetMessage
 
-        tempfile = Path(mktemp(suffix=".py"))
+        message = RunSnippetMessage.create(code=code, title=title)
+        conn = self.repositories.producer.enqueue_control(message)
 
-        stage = self.create_job(title, str(tempfile), (0, 0))
-        tempfile.write_text(code, encoding="utf-8")
-
-        context = JobContext()
-        _, child_conn = Pipe()
-        client = HeadlessClient(context=context, conn=child_conn, production_mode=False)
-
-        execution_result = ExecutionController(
-            repositories=self.repositories,
-            stage=stage,
-            client=client,
-            context=context,
-        ).run(
-            execution_id=uuid4().__str__(),
-            worker_id="debug-snippet-worker",
-        )
-
-        self.delete_stage(stage.id, remove_file=True)
-
-        return execution_result
+        try:
+            result = conn.recv()
+            if isinstance(result, str):
+                result = json.loads(result)
+            return result
+        finally:
+            conn.close()
 
     def add_and_install_requirement(self, name: str, version: str | None = None):
         """

@@ -1,16 +1,6 @@
 #![allow(missing_docs)]
 
-//! Tests for the `skip_images` functionality.
-//!
-//! This test suite verifies that the `skip_images` option correctly omits all `<img>` tags
-//! from the markdown output when enabled, while preserving all other content.
-//!
-//! The `skip_images` option is useful for:
-//! - Text-only extraction from HTML documents
-//! - Filtering out visual content for accessibility or reduced bandwidth
-//! - Converting image-heavy documents to plain text markdown
-
-use html_to_markdown_rs::{ConversionOptions, convert};
+use html_to_markdown_rs::ConversionOptions;
 
 #[test]
 fn test_skip_images_enabled() {
@@ -522,4 +512,11 @@ fn test_skip_images_preserves_links_and_formatting() {
 
     // Should not contain image
     assert!(!result.contains("![Ignored]"), "Should not contain image");
+}
+
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
 }

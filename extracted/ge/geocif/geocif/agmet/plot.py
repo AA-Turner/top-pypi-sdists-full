@@ -100,6 +100,7 @@ class AgmetPlotter:
         region=None,
         boundary_gdf=None,
         highlight_gdf=None,
+        admin_level=None,
     ):
         self.df = df.copy()
         self.names_cols = names_cols
@@ -116,6 +117,7 @@ class AgmetPlotter:
         self.region = region
         self.boundary_gdf = boundary_gdf
         self.highlight_gdf = highlight_gdf
+        self.admin_level = admin_level
 
         self.use_forecast = False
         self.color_list = get_colors("tableau", only_colors=True)
@@ -456,8 +458,10 @@ class AgmetPlotter:
             return
         try:
             gdf = self.boundary_gdf
+            # Derive column name from config admin_level (e.g. "admin_2" → "ADMIN2")
+            level_num = self.admin_level.replace("admin_", "") if self.admin_level else "1"
             name_col = next(
-                (c for c in ["ADM1_NAME", "ADMIN1", "ADM2_NAME", "NAME_1", "name"] if c in gdf.columns),
+                (c for c in [f"ADM{level_num}_NAME", f"ADMIN{level_num}"] if c in gdf.columns),
                 None,
             )
             if name_col is None:

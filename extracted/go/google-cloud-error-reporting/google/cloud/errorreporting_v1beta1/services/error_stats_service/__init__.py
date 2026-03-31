@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .client import ErrorStatsServiceClient
 from .async_client import ErrorStatsServiceAsyncClient
+from .client import ErrorStatsServiceClient
 
 __all__ = (
     "ErrorStatsServiceClient",

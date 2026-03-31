@@ -1252,8 +1252,9 @@ import mathutils
 class bpy_struct[_GenericType1]:
     """built-in base class for all classes in bpy.types."""
 
-    id_data: ID | None
-    """ The `bpy.types.ID` object this data-block is from or None, (not available for all data types) (readonly)"""
+    @property
+    def id_data(self) -> ID | None:
+        """The `bpy.types.ID` object this data-block is from or None, (not available for all data types) (readonly)"""
 
     bl_rna: BlenderRNA
 
@@ -1575,8 +1576,9 @@ class bpy_prop:
     data: typing.Any
     """ The data this property is using, type `bpy.types.bpy_struct`"""
 
-    id_data: ID | None
-    """ The `bpy.types.ID` object this data-block is from or None, (not available for all data types) (readonly)"""
+    @property
+    def id_data(self) -> ID | None:
+        """The `bpy.types.ID` object this data-block is from or None, (not available for all data types) (readonly)"""
 
     rna_type: typing.Any
     """ The property type for introspection."""
@@ -2589,8 +2591,9 @@ class AnnotationStrokes(bpy_prop, bpy_prop_collection[AnnotationStroke], bpy_str
 class AreaSpaces(bpy_prop, bpy_prop_collection[Space], bpy_struct):
     """Collection of spaces"""
 
-    active: Space | None
-    """ Space currently being displayed in this area (readonly)"""
+    @property
+    def active(self) -> Space | None:
+        """Space currently being displayed in this area (readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -6233,8 +6236,9 @@ class DynamicPaintSurfaces(
 ):
     """Collection of Dynamic Paint Canvas surfaces"""
 
-    active: DynamicPaintSurface | None
-    """ Active Dynamic Paint surface being displayed (readonly)"""
+    @property
+    def active(self) -> DynamicPaintSurface | None:
+        """Active Dynamic Paint surface being displayed (readonly)"""
 
     active_index: int | None
     """ (in [0, inf], default 0)"""
@@ -7174,14 +7178,17 @@ class KeyConfigurations(bpy_prop, bpy_prop_collection[KeyConfig], bpy_struct):
     active: KeyConfig | None
     """ Active key configuration (preset)"""
 
-    addon: KeyConfig | None
-    """ Key configuration that can be extended by add-ons, and is added to the active configuration when handling events (readonly)"""
+    @property
+    def addon(self) -> KeyConfig | None:
+        """Key configuration that can be extended by add-ons, and is added to the active configuration when handling events (readonly)"""
 
-    default: KeyConfig | None
-    """ Default builtin key configuration (readonly)"""
+    @property
+    def default(self) -> KeyConfig | None:
+        """Default builtin key configuration (readonly)"""
 
-    user: KeyConfig | None
-    """ Final key configuration that combines keymaps from the active and add-on configurations, and can be edited by the user (readonly)"""
+    @property
+    def user(self) -> KeyConfig | None:
+        """Final key configuration that combines keymaps from the active and add-on configurations, and can be edited by the user (readonly)"""
 
     def new(self, name: str) -> KeyConfig:
         """new
@@ -8011,8 +8018,9 @@ class LineStyleThicknessModifiers(
 class Linesets(bpy_prop, bpy_prop_collection[FreestyleLineSet], bpy_struct):
     """Line sets for associating lines and style parameters"""
 
-    active: FreestyleLineSet | None
-    """ Active line set being displayed (readonly)"""
+    @property
+    def active(self) -> FreestyleLineSet | None:
+        """Active line set being displayed (readonly)"""
 
     active_index: int | None
     """ Index of active line set slot (in [0, inf], default 0)"""
@@ -8438,8 +8446,9 @@ class MeshVertices(bpy_prop, bpy_prop_collection[MeshVertex], bpy_struct):
 class MetaBallElements(bpy_prop, bpy_prop_collection[MetaElement], bpy_struct):
     """Collection of metaball elements"""
 
-    active: MetaElement | None
-    """ Last selected element (readonly)"""
+    @property
+    def active(self) -> MetaElement | None:
+        """Last selected element (readonly)"""
 
     def new(
         self,
@@ -10711,8 +10720,9 @@ class ParticleSettingsTextureSlots(
 class ParticleSystems(bpy_prop, bpy_prop_collection[ParticleSystem], bpy_struct):
     """Collection of particle systems"""
 
-    active: ParticleSystem | None
-    """ Active particle system being displayed (readonly)"""
+    @property
+    def active(self) -> ParticleSystem | None:
+        """Active particle system being displayed (readonly)"""
 
     active_index: int | None
     """ Index of active particle system slot (in [0, inf], default 0)"""
@@ -11268,8 +11278,9 @@ class SplinePoints(bpy_prop, bpy_prop_collection[SplinePoint], bpy_struct):
 class SpreadsheetTables(bpy_prop, bpy_prop_collection[SpreadsheetTable], bpy_struct):
     """Active table and persisted state of previously displayed tables"""
 
-    active: SpreadsheetTable | None
-    """ (readonly)"""
+    @property
+    def active(self) -> SpreadsheetTable | None:
+        """(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -12948,8 +12959,9 @@ class ActionChannelbag(bpy_struct):
     groups: ActionChannelbagGroups
     """ Groupings of F-Curves for display purposes, in e.g. the dopesheet and graph editor (default None, readonly)"""
 
-    slot: ActionSlot | None
-    """ The Slot that the Channelbag's animation data is for (readonly)"""
+    @property
+    def slot(self) -> ActionSlot | None:
+        """The Slot that the Channelbag's animation data is for (readonly)"""
 
     slot_handle: int
     """ (in [-inf, inf], default 0, readonly)"""
@@ -13088,8 +13100,9 @@ class ActionGroup(bpy_struct):
     color_set: typing.Literal[bpy.stub_internal.rna_enums.ColorSetsItems]
     """ Custom color set to use (default 'DEFAULT')"""
 
-    colors: ThemeBoneColorSet
-    """ Copy of the colors associated with the group's color set (readonly, never None)"""
+    @property
+    def colors(self) -> ThemeBoneColorSet:
+        """Copy of the colors associated with the group's color set (readonly, never None)"""
 
     is_custom_color_set: bool
     """ Color set is user-defined instead of a fixed theme color set (default False, readonly)"""
@@ -13427,8 +13440,9 @@ class Addon(bpy_struct):
     module: str
     """ Module name (default "", never None)"""
 
-    preferences: AddonPreferences | None
-    """ (readonly)"""
+    @property
+    def preferences(self) -> AddonPreferences | None:
+        """(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -13728,8 +13742,9 @@ class AnimData(bpy_struct):
 class AnimViz(bpy_struct):
     """Settings for the visualization of motion"""
 
-    motion_path: AnimVizMotionPaths
-    """ Motion Path settings for visualization (readonly, never None)"""
+    @property
+    def motion_path(self) -> AnimVizMotionPaths:
+        """Motion Path settings for visualization (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -13837,8 +13852,9 @@ class AnimVizMotionPaths(bpy_struct):
 class Annotation(ID, bpy_struct):
     """Freehand annotation sketchbook"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     layers: AnnotationLayers
     """ (default None, readonly)"""
@@ -13914,8 +13930,9 @@ class AnnotationFrame(bpy_struct):
 class AnnotationLayer(bpy_struct):
     """Collection of related sketches"""
 
-    active_frame: AnnotationFrame | None
-    """ Frame currently being displayed for this layer (readonly)"""
+    @property
+    def active_frame(self) -> AnnotationFrame | None:
+        """Frame currently being displayed for this layer (readonly)"""
 
     annotation_hide: bool
     """ Set annotation Visibility (default False)"""
@@ -14242,8 +14259,9 @@ class AreaLight(Light, ID, bpy_struct):
 class Armature(ID, bpy_struct):
     """Armature data-block containing a hierarchy of bones, usually used for rigging characters"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     axes_position: float
     """ The position for the axes on the bone. Increasing the value moves it closer to the tip; decreasing moves it closer to the root. (in [0, 1], default 0.0)"""
@@ -14604,11 +14622,13 @@ class AssetRepresentation(bpy_struct):
     is_online: bool
     """ True if this asset is accessed via internet, not stored on disk (default False, readonly)"""
 
-    local_id: ID | None
-    """ The local data-block this asset represents; only valid if that is a data-block in this file (readonly)"""
+    @property
+    def local_id(self) -> ID | None:
+        """The local data-block this asset represents; only valid if that is a data-block in this file (readonly)"""
 
-    metadata: AssetMetaData | None
-    """ Additional information about the asset (readonly)"""
+    @property
+    def metadata(self) -> AssetMetaData | None:
+        """Additional information about the asset (readonly)"""
 
     name: str
     """ (default "", readonly, never None)"""
@@ -14992,8 +15012,9 @@ class BakeSettings(bpy_struct):
     height: int
     """ Vertical dimension of the baking map (in [4, 10000], default 512)"""
 
-    image_settings: ImageFormatSettings
-    """ (readonly, never None)"""
+    @property
+    def image_settings(self) -> ImageFormatSettings:
+        """(readonly, never None)"""
 
     margin: int
     """ Extends the baked result as a post process filter (in [0, 32767], default 16)"""
@@ -15115,8 +15136,9 @@ class BevelModifier(Modifier, bpy_struct):
     angle_limit: float
     """ Angle above which to bevel edges (in [0, 3.14159], default 0.523599)"""
 
-    custom_profile: CurveProfile | None
-    """ The path for the custom profile (readonly)"""
+    @property
+    def custom_profile(self) -> CurveProfile | None:
+        """The path for the custom profile (readonly)"""
 
     edge_weight: str
     """ Attribute name for edge weight (default "", never None)"""
@@ -15308,8 +15330,9 @@ class BlendData(bpy_struct):
     collections: BlendDataCollections
     """ Collection data-blocks (default None, readonly)"""
 
-    colorspace: BlendFileColorspace
-    """ Information about the color space used for data-blocks in a blend file (readonly, never None)"""
+    @property
+    def colorspace(self) -> BlendFileColorspace:
+        """Information about the color space used for data-blocks in a blend file (readonly, never None)"""
 
     curves: BlendDataCurves
     """ Curve data-blocks (default None, readonly)"""
@@ -15541,8 +15564,11 @@ class BlendFileColorspace(bpy_struct):
     is_missing_opencolorio_config: bool
     """ A color space, view or display was not found, which likely means the OpenColorIO config used to create this blend file is missing (default False, readonly)"""
 
-    working_space: typing.Literal["Linear Rec.709", "Linear Rec.2020", "ACEScg"]
-    """ Color space used for all scene linear colors in this file, and for compositing, shader and geometry nodes processing (readonly)"""
+    @property
+    def working_space(
+        self,
+    ) -> typing.Literal["Linear Rec.709", "Linear Rec.2020", "ACEScg"]:
+        """Color space used for all scene linear colors in this file, and for compositing, shader and geometry nodes processing (readonly)"""
 
     working_space_interop_id: str
     """ Unique identifier for common color spaces, as defined by the Color Interop Forum. May be empty if there is no interop ID for the working space. Common values are lin_rec709_scene, lin_rec2020_scene and lin_ap1_scene (for ACEScg) (default "", readonly, never None)"""
@@ -15638,8 +15664,9 @@ class BlendImportContextItem(bpy_struct):
     ]
     """ How this item has been handled by the append operation. Only set if the data has been appended (default 'UNSET', readonly)"""
 
-    id: ID | None
-    """ The imported ID. None until it has been linked or appended. May be the same as reusable_local_id when appended (readonly)"""
+    @property
+    def id(self) -> ID | None:
+        """The imported ID. None until it has been linked or appended. May be the same as reusable_local_id when appended (readonly)"""
 
     id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems]
     """ ID type of the item (default 'ACTION', readonly)"""
@@ -15651,20 +15678,23 @@ class BlendImportContextItem(bpy_struct):
     ]
     """ Various status info about an item after it has been imported (default set(), readonly)"""
 
-    library_override_id: ID | None
-    """ The library override of the linked ID. None until it has been created (readonly)"""
+    @property
+    def library_override_id(self) -> ID | None:
+        """The library override of the linked ID. None until it has been created (readonly)"""
 
     name: str
     """ ID name of the item (default "", readonly, never None)"""
 
-    reusable_local_id: ID | None
-    """ The already existing local ID that may be reused in append & reuse case. None until it has been found (readonly)"""
+    @property
+    def reusable_local_id(self) -> ID | None:
+        """The already existing local ID that may be reused in append & reuse case. None until it has been found (readonly)"""
 
     source_libraries: BlendImportContextLibraries
     """ List of libraries to search and import that ID from. The ID will be imported from the first file in that list that contains it (default None, readonly)"""
 
-    source_library: Library | None
-    """ Library ID representing the blendfile from which the ID was imported. None until the ID has been linked or appended (readonly)"""
+    @property
+    def source_library(self) -> Library | None:
+        """Library ID representing the blendfile from which the ID was imported. None until the ID has been linked or appended (readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -15745,11 +15775,13 @@ class BlendTexture(Texture, ID, bpy_struct):
     use_flip_axis: typing.Literal["HORIZONTAL", "VERTICAL"]
     """ Flip the texture's X and Y axis (default 'HORIZONTAL')"""
 
-    users_material: tuple[Material, ...]
-    """ Materials that use this texture(readonly)"""
+    @property
+    def users_material(self) -> tuple[Material, ...]:
+        """Materials that use this texture(readonly)"""
 
-    users_object_modifier: tuple[Object, ...]
-    """ Object modifiers that use this texture(readonly)"""
+    @property
+    def users_object_modifier(self) -> tuple[Object, ...]:
+        """Object modifiers that use this texture(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -16087,8 +16119,9 @@ class BoidSettings(bpy_struct):
     accuracy: float
     """ Accuracy of attack (in [0, 1], default 0.0)"""
 
-    active_boid_state: BoidRule | None
-    """ (readonly)"""
+    @property
+    def active_boid_state(self) -> BoidRule | None:
+        """(readonly)"""
 
     active_boid_state_index: int | None
     """ (in [0, inf], default 0)"""
@@ -16193,8 +16226,9 @@ class BoidSettings(bpy_struct):
 class BoidState(bpy_struct):
     """Boid state for boid physics"""
 
-    active_boid_rule: BoidRule | None
-    """ (readonly)"""
+    @property
+    def active_boid_rule(self) -> BoidRule | None:
+        """(readonly)"""
 
     active_boid_rule_index: int | None
     """ (in [0, inf], default 0)"""
@@ -16320,8 +16354,9 @@ class Bone(bpy_struct):
     collections: BoneCollectionMemberships
     """ Bone Collections that contain this bone (default None, readonly)"""
 
-    color: BoneColor | None
-    """ (readonly)"""
+    @property
+    def color(self) -> BoneColor | None:
+        """(readonly)"""
 
     display_type: typing.Literal[
         "ARMATURE_DEFINED", "OCTAHEDRAL", "STICK", "BBONE", "ENVELOPE", "WIRE"
@@ -16366,8 +16401,9 @@ class Bone(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    parent: Bone | None
-    """ Parent bone (in same Armature) (readonly)"""
+    @property
+    def parent(self) -> Bone | None:
+        """Parent bone (in same Armature) (readonly)"""
 
     show_wire: bool
     """ Bone is always displayed in wireframe regardless of viewport shading mode (useful for non-obstructive custom bone shapes) (default False)"""
@@ -16667,8 +16703,9 @@ class BoneCollection(bpy_struct):
 class BoneColor(bpy_struct):
     """Theme color or custom color of a bone"""
 
-    custom: ThemeBoneColorSet
-    """ The custom bone colors, used when palette is 'CUSTOM' (readonly, never None)"""
+    @property
+    def custom(self) -> ThemeBoneColorSet:
+        """The custom bone colors, used when palette is 'CUSTOM' (readonly, never None)"""
 
     is_custom: bool
     """ A color palette is user-defined, instead of using a theme-defined one (default False, readonly)"""
@@ -16957,8 +16994,9 @@ class Brush(ID, bpy_struct):
     automasking_cavity_blur_steps: int
     """ The number of times the cavity mask is blurred (in [0, 25], default 0)"""
 
-    automasking_cavity_curve: CurveMapping | None
-    """ Curve used for the sensitivity (readonly)"""
+    @property
+    def automasking_cavity_curve(self) -> CurveMapping | None:
+        """Curve used for the sensitivity (readonly)"""
 
     automasking_cavity_factor: float
     """ The contrast of the cavity mask (in [0, 5], default 1.0)"""
@@ -17020,8 +17058,9 @@ class Brush(ID, bpy_struct):
     boundary_offset: float
     """ Offset of the boundary origin in relation to the brush radius (in [0, 30], default 0.0)"""
 
-    brush_capabilities: BrushCapabilities
-    """ Brush's capabilities (readonly, never None)"""
+    @property
+    def brush_capabilities(self) -> BrushCapabilities:
+        """Brush's capabilities (readonly, never None)"""
 
     cloth_constraint_softbody_strength: float
     """ How much the cloth preserves the original shape, acting as a soft body (in [0, 1], default 0.0)"""
@@ -17074,39 +17113,47 @@ class Brush(ID, bpy_struct):
     cursor_overlay_alpha: int
     """ (in [0, 100], default 33)"""
 
-    curve_distance_falloff: CurveMapping
-    """ Editable falloff curve (readonly, never None)"""
+    @property
+    def curve_distance_falloff(self) -> CurveMapping:
+        """Editable falloff curve (readonly, never None)"""
 
     curve_distance_falloff_preset: typing.Literal[
         bpy.stub_internal.rna_enums.BrushCurvePresetItems
     ]
     """ (default 'CUSTOM')"""
 
-    curve_jitter: CurveMapping | None
-    """ Curve used to map pressure to brush jitter (readonly)"""
+    @property
+    def curve_jitter(self) -> CurveMapping | None:
+        """Curve used to map pressure to brush jitter (readonly)"""
 
-    curve_random_hue: CurveMapping | None
-    """ Curve used for modulating effect (readonly)"""
+    @property
+    def curve_random_hue(self) -> CurveMapping | None:
+        """Curve used for modulating effect (readonly)"""
 
-    curve_random_saturation: CurveMapping | None
-    """ Curve used for modulating effect (readonly)"""
+    @property
+    def curve_random_saturation(self) -> CurveMapping | None:
+        """Curve used for modulating effect (readonly)"""
 
-    curve_random_value: CurveMapping | None
-    """ Curve used for modulating effect (readonly)"""
+    @property
+    def curve_random_value(self) -> CurveMapping | None:
+        """Curve used for modulating effect (readonly)"""
 
-    curve_size: CurveMapping | None
-    """ Curve used to map pressure to brush size (readonly)"""
+    @property
+    def curve_size(self) -> CurveMapping | None:
+        """Curve used to map pressure to brush size (readonly)"""
 
-    curve_strength: CurveMapping | None
-    """ Curve used to map pressure to brush strength (readonly)"""
+    @property
+    def curve_strength(self) -> CurveMapping | None:
+        """Curve used to map pressure to brush strength (readonly)"""
 
     curves_sculpt_brush_type: typing.Literal[
         bpy.stub_internal.rna_enums.BrushCurvesSculptBrushTypeItems
     ]
     """ (default 'COMB')"""
 
-    curves_sculpt_settings: BrushCurvesSculptSettings | None
-    """ (readonly)"""
+    @property
+    def curves_sculpt_settings(self) -> BrushCurvesSculptSettings | None:
+        """(readonly)"""
 
     dash_ratio: float
     """ Ratio of samples in a cycle that the brush is enabled (in [0, 1], default 1.0)"""
@@ -17156,8 +17203,9 @@ class Brush(ID, bpy_struct):
     ]
     """ (default 'SMOOTH')"""
 
-    gpencil_settings: BrushGpencilSettings | None
-    """ (readonly)"""
+    @property
+    def gpencil_settings(self) -> BrushGpencilSettings | None:
+        """(readonly)"""
 
     gpencil_vertex_brush_type: typing.Literal[
         bpy.stub_internal.rna_enums.BrushGpencilVertexTypesItems
@@ -17172,8 +17220,9 @@ class Brush(ID, bpy_struct):
     grad_spacing: int
     """ Spacing before brush gradient goes full circle (in [1, 10000], default 0)"""
 
-    gradient: ColorRamp | None
-    """ (readonly)"""
+    @property
+    def gradient(self) -> ColorRamp | None:
+        """(readonly)"""
 
     gradient_fill_mode: typing.Literal["LINEAR", "RADIAL"]
     """ (default 'LINEAR')"""
@@ -17198,8 +17247,9 @@ class Brush(ID, bpy_struct):
     ]
     """ (default 'DRAW')"""
 
-    image_paint_capabilities: BrushCapabilitiesImagePaint
-    """ (readonly, never None)"""
+    @property
+    def image_paint_capabilities(self) -> BrushCapabilitiesImagePaint:
+        """(readonly, never None)"""
 
     input_samples: int
     """ Number of input samples to average together to smooth the brush stroke (in [1, 64], default 1)"""
@@ -17241,8 +17291,9 @@ class Brush(ID, bpy_struct):
     """ Position of mask stencil in viewport (array of 2 items, in [-inf, inf], default (256.0, 256.0))"""
 
     mask_texture: Texture | None
-    mask_texture_slot: BrushTextureSlot | None
-    """ (readonly)"""
+    @property
+    def mask_texture_slot(self) -> BrushTextureSlot | None:
+        """(readonly)"""
 
     mask_tool: typing.Literal["DRAW", "SMOOTH"]
     """ (default 'DRAW')"""
@@ -17311,8 +17362,9 @@ class Brush(ID, bpy_struct):
     ]
     """ (default 'DRAW')"""
 
-    sculpt_capabilities: BrushCapabilitiesSculpt
-    """ (readonly, never None)"""
+    @property
+    def sculpt_capabilities(self) -> BrushCapabilitiesSculpt:
+        """(readonly, never None)"""
 
     sculpt_plane: typing.Literal["AREA", "VIEW", "X", "Y", "Z"]
     """ (default 'AREA')"""
@@ -17386,8 +17438,9 @@ class Brush(ID, bpy_struct):
     texture_sample_bias: float
     """ Value added to texture samples (in [-1, 1], default 0.0)"""
 
-    texture_slot: BrushTextureSlot | None
-    """ (readonly)"""
+    @property
+    def texture_slot(self) -> BrushTextureSlot | None:
+        """(readonly)"""
 
     tilt_strength_factor: float
     """ How much the tilt of the pen will affect the brush. Negative values indicate inverting the tilt directions. (in [-1, 1], default 0.0)"""
@@ -17619,8 +17672,9 @@ class Brush(ID, bpy_struct):
     ]
     """ (default 'DRAW')"""
 
-    vertex_paint_capabilities: BrushCapabilitiesVertexPaint
-    """ (readonly, never None)"""
+    @property
+    def vertex_paint_capabilities(self) -> BrushCapabilitiesVertexPaint:
+        """(readonly, never None)"""
 
     weight: float
     """ Vertex weight when brush is applied (in [0, 1], default 1.0)"""
@@ -17630,8 +17684,9 @@ class Brush(ID, bpy_struct):
     ]
     """ (default 'DRAW')"""
 
-    weight_paint_capabilities: BrushCapabilitiesWeightPaint
-    """ (readonly, never None)"""
+    @property
+    def weight_paint_capabilities(self) -> BrushCapabilitiesWeightPaint:
+        """(readonly, never None)"""
 
     wet_mix: float
     """ Amount of paint that is picked from the surface into the brush color (in [0, 1], default 0.0)"""
@@ -17946,8 +18001,9 @@ class BrushCurvesSculptSettings(bpy_struct):
     curve_length: float
     """ Length of newly added curves when it is not interpolated from other curves (in [0, inf], default 0.0)"""
 
-    curve_parameter_falloff: CurveMapping | None
-    """ Falloff that is applied from the tip to the root of each curve (readonly)"""
+    @property
+    def curve_parameter_falloff(self) -> CurveMapping | None:
+        """Falloff that is applied from the tip to the root of each curve (readonly)"""
 
     curve_radius: float
     """ Radius of newly added curves when it is not interpolated from other curves (in [0, inf], default 0.01)"""
@@ -18031,32 +18087,41 @@ class BrushGpencilSettings(bpy_struct):
     caps_type: typing.Literal["ROUND", "FLAT"]
     """ The shape of the start and end of the stroke (default 'ROUND')"""
 
-    curve_jitter: CurveMapping | None
-    """ Curve used for the jitter effect (readonly)"""
+    @property
+    def curve_jitter(self) -> CurveMapping | None:
+        """Curve used for the jitter effect (readonly)"""
 
-    curve_random_hue: CurveMapping | None
-    """ Curve used for modulating effect (readonly)"""
+    @property
+    def curve_random_hue(self) -> CurveMapping | None:
+        """Curve used for modulating effect (readonly)"""
 
-    curve_random_pressure: CurveMapping | None
-    """ Curve used for modulating effect (readonly)"""
+    @property
+    def curve_random_pressure(self) -> CurveMapping | None:
+        """Curve used for modulating effect (readonly)"""
 
-    curve_random_saturation: CurveMapping | None
-    """ Curve used for modulating effect (readonly)"""
+    @property
+    def curve_random_saturation(self) -> CurveMapping | None:
+        """Curve used for modulating effect (readonly)"""
 
-    curve_random_strength: CurveMapping | None
-    """ Curve used for modulating effect (readonly)"""
+    @property
+    def curve_random_strength(self) -> CurveMapping | None:
+        """Curve used for modulating effect (readonly)"""
 
-    curve_random_uv: CurveMapping | None
-    """ Curve used for modulating effect (readonly)"""
+    @property
+    def curve_random_uv(self) -> CurveMapping | None:
+        """Curve used for modulating effect (readonly)"""
 
-    curve_random_value: CurveMapping | None
-    """ Curve used for modulating effect (readonly)"""
+    @property
+    def curve_random_value(self) -> CurveMapping | None:
+        """Curve used for modulating effect (readonly)"""
 
-    curve_sensitivity: CurveMapping | None
-    """ Curve used for the sensitivity (readonly)"""
+    @property
+    def curve_sensitivity(self) -> CurveMapping | None:
+        """Curve used for the sensitivity (readonly)"""
 
-    curve_strength: CurveMapping | None
-    """ Curve used for the strength (readonly)"""
+    @property
+    def curve_strength(self) -> CurveMapping | None:
+        """Curve used for the strength (readonly)"""
 
     dilate: int
     """ Number of pixels to expand or contract fill area (in [-40, 40], default 1)"""
@@ -18656,8 +18721,9 @@ class CacheFile(ID, bpy_struct):
     active_index: int | None
     """ (in [0, inf], default 0)"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     filepath: str
     """ Path to external displacements file (default "", never None, blend relative // prefix supported)"""
@@ -18806,8 +18872,9 @@ class Camera(ID, bpy_struct):
     angle_y: float
     """ Camera lens vertical field of view (in [0.00640536, 3.01675], default 0.0)"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     background_images: CameraBackgroundImages
     """ List of background images (default None, readonly)"""
@@ -18857,8 +18924,9 @@ class Camera(ID, bpy_struct):
     display_size: float
     """ Apparent size of the Camera object in the 3D View (in [0.01, 1000], default 1.0)"""
 
-    dof: CameraDOFSettings | None
-    """ (readonly)"""
+    @property
+    def dof(self) -> CameraDOFSettings | None:
+        """(readonly)"""
 
     fisheye_fov: float
     """ Field of view for the fisheye lens (in [0.1745, 31.4159], default 3.14159)"""
@@ -18979,8 +19047,9 @@ class Camera(ID, bpy_struct):
     show_sensor: bool
     """ Show sensor size (film gate) in Camera view (default False)"""
 
-    stereo: CameraStereoData
-    """ (readonly, never None)"""
+    @property
+    def stereo(self) -> CameraStereoData:
+        """(readonly, never None)"""
 
     type: typing.Literal["PERSP", "ORTHO", "PANO", "CUSTOM"]
     """ Camera types (default 'PERSP')"""
@@ -19037,8 +19106,9 @@ class CameraBackgroundImage(bpy_struct):
     clip: MovieClip | None
     """ Movie clip displayed and edited in this space"""
 
-    clip_user: MovieClipUser
-    """ Parameters defining which frame of the movie clip is displayed (readonly, never None)"""
+    @property
+    def clip_user(self) -> MovieClipUser:
+        """Parameters defining which frame of the movie clip is displayed (readonly, never None)"""
 
     display_depth: typing.Literal["BACK", "FRONT"]
     """ Display under or over everything (default 'BACK')"""
@@ -19049,8 +19119,9 @@ class CameraBackgroundImage(bpy_struct):
     image: Image | None
     """ Image displayed and edited in this space"""
 
-    image_user: ImageUser
-    """ Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
+    @property
+    def image_user(self) -> ImageUser:
+        """Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
 
     is_override_data: bool
     """ In a local override camera, whether this background image comes from the linked reference camera, or is local to the override (default True, readonly)"""
@@ -19541,8 +19612,9 @@ class ClothCollisionSettings(bpy_struct):
 class ClothModifier(Modifier, bpy_struct):
     """Cloth simulation modifier"""
 
-    collision_settings: ClothCollisionSettings
-    """ (readonly, never None)"""
+    @property
+    def collision_settings(self) -> ClothCollisionSettings:
+        """(readonly, never None)"""
 
     hair_grid_max: bpy_prop_array[float]
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0), readonly)"""
@@ -19553,14 +19625,17 @@ class ClothModifier(Modifier, bpy_struct):
     hair_grid_resolution: bpy_prop_array[int]
     """ (array of 3 items, in [-inf, inf], default (0, 0, 0), readonly)"""
 
-    point_cache: PointCache
-    """ (readonly, never None)"""
+    @property
+    def point_cache(self) -> PointCache:
+        """(readonly, never None)"""
 
-    settings: ClothSettings
-    """ (readonly, never None)"""
+    @property
+    def settings(self) -> ClothSettings:
+        """(readonly, never None)"""
 
-    solver_result: ClothSolverResult | None
-    """ (readonly)"""
+    @property
+    def solver_result(self) -> ClothSolverResult | None:
+        """(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -19626,8 +19701,9 @@ class ClothSettings(bpy_struct):
     density_target: float
     """ Maximum density of hair (in [0, 10000], default 0.0)"""
 
-    effector_weights: EffectorWeights | None
-    """ (readonly)"""
+    @property
+    def effector_weights(self) -> EffectorWeights | None:
+        """(readonly)"""
 
     fluid_density: float
     """ Density (kg/l) of the fluid contained inside the object, used to create a hydrostatic pressure gradient simulating the weight of the internal fluid, or buoyancy from the surrounding fluid if negative (in [-inf, inf], default 0.0)"""
@@ -19878,11 +19954,13 @@ class CloudsTexture(Texture, ID, bpy_struct):
     noise_type: typing.Literal["SOFT_NOISE", "HARD_NOISE"]
     """ (default 'SOFT_NOISE')"""
 
-    users_material: tuple[Material, ...]
-    """ Materials that use this texture(readonly)"""
+    @property
+    def users_material(self) -> tuple[Material, ...]:
+        """Materials that use this texture(readonly)"""
 
-    users_object_modifier: tuple[Object, ...]
-    """ Object modifiers that use this texture(readonly)"""
+    @property
+    def users_object_modifier(self) -> tuple[Object, ...]:
+        """Object modifiers that use this texture(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -19973,11 +20051,13 @@ class Collection(ID, bpy_struct):
     use_lineart_intersection_priority: bool
     """ Assign intersection priority value for this collection (default False)"""
 
-    children_recursive: list[Collection]
-    """ A list of all children from this collection.(readonly)"""
+    @property
+    def children_recursive(self) -> list[Collection]:
+        """A list of all children from this collection.(readonly)"""
 
-    users_dupli_group: tuple[Object, ...]
-    """ The collection instance objects this collection is used in(readonly)"""
+    @property
+    def users_dupli_group(self) -> tuple[Object, ...]:
+        """The collection instance objects this collection is used in(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -20010,8 +20090,9 @@ class Collection(ID, bpy_struct):
 class CollectionChild(bpy_struct):
     """Child collection with its collection related settings"""
 
-    light_linking: CollectionLightLinking
-    """ Light linking settings of the collection object (readonly, never None)"""
+    @property
+    def light_linking(self) -> CollectionLightLinking:
+        """Light linking settings of the collection object (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -20042,8 +20123,9 @@ class CollectionChild(bpy_struct):
         """
 
 class CollectionExport(bpy_struct):
-    export_properties: PropertyGroup | None
-    """ Properties associated with the configured exporter (readonly)"""
+    @property
+    def export_properties(self) -> PropertyGroup | None:
+        """Properties associated with the configured exporter (readonly)"""
 
     filepath: str
     """ The file path used for exporting (default "", never None, blend relative // prefix supported)"""
@@ -20085,8 +20167,9 @@ class CollectionExport(bpy_struct):
 class CollectionImport(bpy_struct):
     """Importer configured for the collection"""
 
-    import_properties: PropertyGroup | None
-    """ Properties associated with the configured importer (readonly)"""
+    @property
+    def import_properties(self) -> PropertyGroup | None:
+        """Properties associated with the configured importer (readonly)"""
 
     is_open: bool
     """ Whether the panel is expanded or closed (default False)"""
@@ -20156,8 +20239,9 @@ class CollectionLightLinking(bpy_struct):
 class CollectionObject(bpy_struct):
     """Object of a collection with its collection related settings"""
 
-    light_linking: CollectionLightLinking
-    """ Light linking settings of the collection (readonly, never None)"""
+    @property
+    def light_linking(self) -> CollectionLightLinking:
+        """Light linking settings of the collection (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -20190,8 +20274,9 @@ class CollectionObject(bpy_struct):
 class CollectionProperty(Property, bpy_struct):
     """RNA collection property to define lists, arrays and mappings"""
 
-    fixed_type: Struct | None
-    """ Fixed pointer type, empty if variable type (readonly)"""
+    @property
+    def fixed_type(self) -> Struct | None:
+        """Fixed pointer type, empty if variable type (readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -20224,8 +20309,9 @@ class CollectionProperty(Property, bpy_struct):
 class CollisionModifier(Modifier, bpy_struct):
     """Collision modifier defining modifier stack position used for collision"""
 
-    settings: CollisionSettings
-    """ (readonly, never None)"""
+    @property
+    def settings(self) -> CollisionSettings:
+        """(readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -20334,8 +20420,9 @@ class CollisionSettings(bpy_struct):
 class ColorBalanceModifier(StripModifier, bpy_struct):
     """Color balance modifier for sequence strip"""
 
-    color_balance: StripColorBalanceData | None
-    """ (readonly)"""
+    @property
+    def color_balance(self) -> StripColorBalanceData | None:
+        """(readonly)"""
 
     color_multiply: float
     """ Multiply the intensity of each pixel (in [0, 20], default 1.0)"""
@@ -20482,8 +20569,9 @@ class ColorManagedSequencerColorspaceSettings(bpy_struct):
 class ColorManagedViewSettings(bpy_struct):
     """Color management settings used for displaying images on the display"""
 
-    curve_mapping: CurveMapping | None
-    """ Color curve mapping applied before display transform (readonly)"""
+    @property
+    def curve_mapping(self) -> CurveMapping | None:
+        """Color curve mapping applied before display transform (readonly)"""
 
     exposure: float
     """ Exposure (stops) applied before display transform, multiplying by 2^exposure (in [-32, 32], default 0.0)"""
@@ -20578,8 +20666,9 @@ class ColorMapping(bpy_struct):
     brightness: float
     """ Adjust the brightness of the texture (in [0, 2], default 0.0)"""
 
-    color_ramp: ColorRamp | None
-    """ (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """(readonly)"""
 
     contrast: float
     """ Adjust the contrast of the texture (in [0, 5], default 0.0)"""
@@ -21785,11 +21874,13 @@ class CompositorNodeConvertColorSpace(CompositorNode, NodeInternal, Node, bpy_st
 class CompositorNodeConvertToDisplay(CompositorNode, NodeInternal, Node, bpy_struct):
     """Convert from scene linear to display color space, with a view transform and look for tone mapping"""
 
-    display_settings: ColorManagedDisplaySettings | None
-    """ Color management display device settings (readonly)"""
+    @property
+    def display_settings(self) -> ColorManagedDisplaySettings | None:
+        """Color management display device settings (readonly)"""
 
-    view_settings: ColorManagedViewSettings | None
-    """ Color management view transform settings (readonly)"""
+    @property
+    def view_settings(self) -> ColorManagedViewSettings | None:
+        """Color management view transform settings (readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -22171,8 +22262,9 @@ class CompositorNodeCryptomatteV2(CompositorNode, NodeInternal, Node, bpy_struct
 class CompositorNodeCurveRGB(CompositorNode, NodeInternal, Node, bpy_struct):
     """Perform level adjustments on each color channel of an image"""
 
-    mapping: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def mapping(self) -> CurveMapping | None:
+        """(readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -23146,8 +23238,9 @@ class CompositorNodeGroup(CompositorNode, NodeInternal, Node, bpy_struct):
 class CompositorNodeHueCorrect(CompositorNode, NodeInternal, Node, bpy_struct):
     """Adjust hue, saturation, and value with a curve"""
 
-    mapping: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def mapping(self) -> CurveMapping | None:
+        """(readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -24333,8 +24426,9 @@ class CompositorNodeOutputFile(CompositorNode, NodeInternal, Node, bpy_struct):
     file_output_items: NodeCompositorFileOutputItems
     """ (default None, readonly)"""
 
-    format: ImageFormatSettings | None
-    """ (readonly)"""
+    @property
+    def format(self) -> ImageFormatSettings | None:
+        """(readonly)"""
 
     save_as_render: bool
     """ Apply render part of display transform when saving byte image (default False)"""
@@ -25396,8 +25490,9 @@ class CompositorNodeSwitchView(CompositorNode, NodeInternal, Node, bpy_struct):
 class CompositorNodeTime(CompositorNode, NodeInternal, Node, bpy_struct):
     """Generate a factor value (from 0.0 to 1.0) between scene start and end time, using a curve mapping"""
 
-    curve: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """(readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -26113,65 +26208,83 @@ class ConstraintTargetBone(bpy_struct):
 class Context(bpy_struct):
     """Current windowmanager and data contextButtons ContextClip ContextFile ContextImage ContextNode ContextScreen ContextSequencer ContextText ContextView3D ContextMethods"""
 
-    area: Area | None
-    """ (readonly)"""
+    @property
+    def area(self) -> Area | None:
+        """(readonly)"""
 
-    asset: AssetRepresentation | None
-    """ (readonly)"""
+    @property
+    def asset(self) -> AssetRepresentation | None:
+        """(readonly)"""
 
-    blend_data: BlendData | None
-    """ (readonly)"""
+    @property
+    def blend_data(self) -> BlendData | None:
+        """(readonly)"""
 
-    collection: Collection | None
-    """ (readonly)"""
+    @property
+    def collection(self) -> Collection | None:
+        """(readonly)"""
 
     engine: str
     """ (default "", readonly, never None)"""
 
-    gizmo_group: GizmoGroup | None
-    """ (readonly)"""
+    @property
+    def gizmo_group(self) -> GizmoGroup | None:
+        """(readonly)"""
 
-    layer_collection: LayerCollection | None
-    """ (readonly)"""
+    @property
+    def layer_collection(self) -> LayerCollection | None:
+        """(readonly)"""
 
     mode: typing.Literal[bpy.stub_internal.rna_enums.ContextModeItems]
     """ (default 'EDIT_MESH', readonly)"""
 
-    preferences: Preferences | None
-    """ (readonly)"""
+    @property
+    def preferences(self) -> Preferences | None:
+        """(readonly)"""
 
-    region: Region | None
-    """ (readonly)"""
+    @property
+    def region(self) -> Region | None:
+        """(readonly)"""
 
-    region_data: RegionView3D | None
-    """ (readonly)"""
+    @property
+    def region_data(self) -> RegionView3D | None:
+        """(readonly)"""
 
-    region_popup: Region | None
-    """ The temporary region for pop-ups (including menus and pop-overs) (readonly)"""
+    @property
+    def region_popup(self) -> Region | None:
+        """The temporary region for pop-ups (including menus and pop-overs) (readonly)"""
 
-    scene: Scene | None
-    """ (readonly)"""
+    @property
+    def scene(self) -> Scene | None:
+        """(readonly)"""
 
-    screen: Screen | None
-    """ (readonly)"""
+    @property
+    def screen(self) -> Screen | None:
+        """(readonly)"""
 
-    space_data: Space | None
-    """ The current space, may be None in background-mode, when the cursor is outside the window or when using menu-search (readonly)"""
+    @property
+    def space_data(self) -> Space | None:
+        """The current space, may be None in background-mode, when the cursor is outside the window or when using menu-search (readonly)"""
 
-    tool_settings: ToolSettings | None
-    """ (readonly)"""
+    @property
+    def tool_settings(self) -> ToolSettings | None:
+        """(readonly)"""
 
-    view_layer: ViewLayer | None
-    """ (readonly)"""
+    @property
+    def view_layer(self) -> ViewLayer | None:
+        """(readonly)"""
 
-    window: Window | None
-    """ (readonly)"""
+    @property
+    def window(self) -> Window | None:
+        """(readonly)"""
 
-    window_manager: WindowManager | None
-    """ (readonly)"""
+    @property
+    def window_manager(self) -> WindowManager | None:
+        """(readonly)"""
 
-    workspace: WorkSpace | None
-    """ (readonly)"""
+    @property
+    def workspace(self) -> WorkSpace | None:
+        """(readonly)"""
 
     texture_slot: TextureSlot | None
     world: World | None
@@ -26738,8 +26851,9 @@ class CryptomatteEntry(bpy_struct):
 class Curve(ID, bpy_struct):
     """Curve data-block storing curves, splines and NURBS"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     bevel_depth: float
     """ Radius of the bevel geometry, not including extrusion (in [-inf, inf], default 0.0)"""
@@ -26762,8 +26876,9 @@ class Curve(ID, bpy_struct):
     bevel_object: Object | None
     """ The name of the Curve object that defines the bevel shape"""
 
-    bevel_profile: CurveProfile | None
-    """ The path for the curve's custom profile (readonly)"""
+    @property
+    def bevel_profile(self) -> CurveProfile | None:
+        """The path for the curve's custom profile (readonly)"""
 
     bevel_resolution: int
     """ The number of segments in each quarter-circle of the bevel (in [0, 32], default 4)"""
@@ -26813,8 +26928,9 @@ class Curve(ID, bpy_struct):
     resolution_v: int
     """ The number of computed points in the V direction between every pair of control points (in [1, 1024], default 12)"""
 
-    shape_keys: Key | None
-    """ (readonly)"""
+    @property
+    def shape_keys(self) -> Key | None:
+        """(readonly)"""
 
     splines: CurveSplines
     """ Collection of splines in this curve data object (default None, readonly)"""
@@ -27384,8 +27500,9 @@ class CurveSlice(bpy_struct):
 class Curves(ID, bpy_struct):
     """Hair data-block for hair curves"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     attributes: AttributeGroupCurves
     """ Geometry attributes (default None, readonly)"""
@@ -27526,8 +27643,9 @@ class Curves(ID, bpy_struct):
 class CurvesModifier(StripModifier, bpy_struct):
     """RGB curves modifier for sequence strip"""
 
-    curve_mapping: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def curve_mapping(self) -> CurveMapping | None:
+        """(readonly)"""
 
     open_mask_input_panel: bool
     """ (default False)"""
@@ -27920,20 +28038,24 @@ class Depsgraph(bpy_struct):
     objects: bpy_prop_collection[Object]
     """ Evaluated objects in the dependency graph (default None, readonly)"""
 
-    scene: Scene | None
-    """ Original scene dependency graph is built for (readonly)"""
+    @property
+    def scene(self) -> Scene | None:
+        """Original scene dependency graph is built for (readonly)"""
 
-    scene_eval: Scene | None
-    """ Scene at its evaluated state (readonly)"""
+    @property
+    def scene_eval(self) -> Scene | None:
+        """Scene at its evaluated state (readonly)"""
 
     updates: bpy_prop_collection[DepsgraphUpdate]
     """ Updates to data-blocks (default None, readonly)"""
 
-    view_layer: ViewLayer | None
-    """ Original view layer dependency graph is built for (readonly)"""
+    @property
+    def view_layer(self) -> ViewLayer | None:
+        """Original view layer dependency graph is built for (readonly)"""
 
-    view_layer_eval: ViewLayer | None
-    """ View layer at its evaluated state (readonly)"""
+    @property
+    def view_layer_eval(self) -> ViewLayer | None:
+        """View layer at its evaluated state (readonly)"""
 
     def debug_relations_graphviz(self, *, filepath: str = "") -> str:
         """debug_relations_graphviz
@@ -28008,8 +28130,9 @@ class Depsgraph(bpy_struct):
 class DepsgraphObjectInstance(bpy_struct):
     """Extended information about dependency graph object iterator (Warning: All data here is evaluated one, not original .blend IDs)"""
 
-    instance_object: Object | None
-    """ Evaluated object which is being instanced by this iterator (readonly)"""
+    @property
+    def instance_object(self) -> Object | None:
+        """Evaluated object which is being instanced by this iterator (readonly)"""
 
     is_instance: bool
     """ Denotes if the object is generated by another object (default False, readonly)"""
@@ -28017,17 +28140,20 @@ class DepsgraphObjectInstance(bpy_struct):
     matrix_world: mathutils.Matrix
     """ Generated transform matrix in world space (multi-dimensional array of 4 * 4 items, in [-inf, inf], default ((0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)), readonly)"""
 
-    object: Object | None
-    """ Evaluated object the iterator points to (readonly)"""
+    @property
+    def object(self) -> Object | None:
+        """Evaluated object the iterator points to (readonly)"""
 
     orco: mathutils.Vector
     """ Generated coordinates in parent object space (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0), readonly)"""
 
-    parent: Object | None
-    """ If the object is an instance, the parent object that generated it (readonly)"""
+    @property
+    def parent(self) -> Object | None:
+        """If the object is an instance, the parent object that generated it (readonly)"""
 
-    particle_system: ParticleSystem | None
-    """ Evaluated particle system that this object was instanced from (readonly)"""
+    @property
+    def particle_system(self) -> ParticleSystem | None:
+        """Evaluated particle system that this object was instanced from (readonly)"""
 
     persistent_id: bpy_prop_array[int]
     """ Persistent identifier for inter-frame matching of objects with motion blur (array of 8 items, in [-inf, inf], default (0, 0, 0, 0, 0, 0, 0, 0), readonly)"""
@@ -28075,8 +28201,9 @@ class DepsgraphObjectInstance(bpy_struct):
 class DepsgraphUpdate(bpy_struct):
     """Information about ID that was updated"""
 
-    id: ID | None
-    """ Updated data-block (readonly)"""
+    @property
+    def id(self) -> ID | None:
+        """Updated data-block (readonly)"""
 
     is_updated_geometry: bool
     """ Object geometry is updated (default False, readonly)"""
@@ -28260,11 +28387,13 @@ class DistortedNoiseTexture(Texture, ID, bpy_struct):
     noise_scale: float
     """ Scaling for noise input (in [0.0001, inf], default 0.25)"""
 
-    users_material: tuple[Material, ...]
-    """ Materials that use this texture(readonly)"""
+    @property
+    def users_material(self) -> tuple[Material, ...]:
+        """Materials that use this texture(readonly)"""
 
-    users_object_modifier: tuple[Object, ...]
-    """ Object modifiers that use this texture(readonly)"""
+    @property
+    def users_object_modifier(self) -> tuple[Object, ...]:
+        """Object modifiers that use this texture(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -28408,8 +28537,9 @@ class DopeSheet(bpy_struct):
     show_worlds: bool
     """ Include visualization of world related animation data (default True)"""
 
-    source: ID | None
-    """ ID-Block representing source data, usually ID_SCE (i.e. Scene) (readonly)"""
+    @property
+    def source(self) -> ID | None:
+        """ID-Block representing source data, usually ID_SCE (i.e. Scene) (readonly)"""
 
     use_datablock_sort: bool
     """ Alphabetically sorts data-blocks - mainly objects in the scene (disable to increase viewport speed) (default True)"""
@@ -28636,8 +28766,9 @@ class DynamicPaintBrushSettings(bpy_struct):
     paint_distance: float
     """ Maximum distance from brush to mesh surface to affect paint (in [0, 500], default 0.0)"""
 
-    paint_ramp: ColorRamp | None
-    """ Color ramp used to define proximity falloff (readonly)"""
+    @property
+    def paint_ramp(self) -> ColorRamp | None:
+        """Color ramp used to define proximity falloff (readonly)"""
 
     paint_source: typing.Literal[
         "PARTICLE_SYSTEM", "POINT", "DISTANCE", "VOLUME_DISTANCE", "VOLUME"
@@ -28698,8 +28829,9 @@ class DynamicPaintBrushSettings(bpy_struct):
     velocity_max: float
     """ Velocity considered as maximum influence (Blender units per frame) (in [0.0001, 10], default 0.0)"""
 
-    velocity_ramp: ColorRamp | None
-    """ Color ramp used to define brush velocity effect (readonly)"""
+    @property
+    def velocity_ramp(self) -> ColorRamp | None:
+        """Color ramp used to define brush velocity effect (readonly)"""
 
     wave_clamp: float
     """ Maximum level of surface intersection used to influence waves (use 0.0 to disable) (in [0, 50], default 0.0)"""
@@ -28775,11 +28907,13 @@ class DynamicPaintCanvasSettings(bpy_struct):
 class DynamicPaintModifier(Modifier, bpy_struct):
     """Dynamic Paint modifier"""
 
-    brush_settings: DynamicPaintBrushSettings | None
-    """ (readonly)"""
+    @property
+    def brush_settings(self) -> DynamicPaintBrushSettings | None:
+        """(readonly)"""
 
-    canvas_settings: DynamicPaintCanvasSettings | None
-    """ (readonly)"""
+    @property
+    def canvas_settings(self) -> DynamicPaintCanvasSettings | None:
+        """(readonly)"""
 
     ui_type: typing.Literal[bpy.stub_internal.rna_enums.PropDynamicpaintTypeItems]
     """ (default 'CANVAS')"""
@@ -28854,8 +28988,9 @@ class DynamicPaintSurface(bpy_struct):
     effect_ui: typing.Literal["SPREAD", "DRIP", "SHRINK"]
     """ (default 'SPREAD')"""
 
-    effector_weights: EffectorWeights | None
-    """ (readonly)"""
+    @property
+    def effector_weights(self) -> EffectorWeights | None:
+        """(readonly)"""
 
     frame_end: int
     """ Simulation end frame (in [1, 1048574], default 0)"""
@@ -28900,8 +29035,9 @@ class DynamicPaintSurface(bpy_struct):
     output_name_b: str
     """ Name used to save output from this surface (default "", never None)"""
 
-    point_cache: PointCache
-    """ (readonly, never None)"""
+    @property
+    def point_cache(self) -> PointCache:
+        """(readonly, never None)"""
 
     shrink_speed: float
     """ How fast shrink effect moves on the canvas surface (in [0.001, 10], default 0.0)"""
@@ -29011,8 +29147,9 @@ class DynamicPaintSurface(bpy_struct):
 class EQCurveMappingData(bpy_struct):
     """EQCurveMappingData"""
 
-    curve_mapping: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def curve_mapping(self) -> CurveMapping | None:
+        """(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -29194,8 +29331,9 @@ class EditBone(bpy_struct):
     collections: bpy_prop_collection[BoneCollection]
     """ Bone Collections that contain this bone (default None, readonly)"""
 
-    color: BoneColor | None
-    """ (readonly)"""
+    @property
+    def color(self) -> BoneColor | None:
+        """(readonly)"""
 
     display_type: typing.Literal[
         "ARMATURE_DEFINED", "OCTAHEDRAL", "STICK", "BBONE", "ENVELOPE", "WIRE"
@@ -29417,20 +29555,23 @@ class EffectStrip(Strip, bpy_struct):
     color_saturation: float
     """ Adjust the intensity of the input's color (in [0, 20], default 1.0)"""
 
-    crop: StripCrop | None
-    """ (readonly)"""
+    @property
+    def crop(self) -> StripCrop | None:
+        """(readonly)"""
 
     multiply_alpha: bool
     """ Multiply alpha along with color channels (default False)"""
 
-    proxy: StripProxy | None
-    """ (readonly)"""
+    @property
+    def proxy(self) -> StripProxy | None:
+        """(readonly)"""
 
     strobe: float
     """ Only display every nth frame (in [1, 30], default 0.0)"""
 
-    transform: StripTransform | None
-    """ (readonly)"""
+    @property
+    def transform(self) -> StripTransform | None:
+        """(readonly)"""
 
     use_deinterlace: bool
     """ Remove fields from video movies (default False)"""
@@ -29656,8 +29797,9 @@ class EvaluateClosureNodeViewerPathElem(ViewerPathElem, bpy_struct):
     evaluate_node_id: int
     """ (in [-inf, inf], default 0)"""
 
-    source_node_tree: NodeTree | None
-    """ (readonly)"""
+    @property
+    def source_node_tree(self) -> NodeTree | None:
+        """(readonly)"""
 
     source_output_node_id: int
     """ (in [-inf, inf], default 0)"""
@@ -29744,8 +29886,9 @@ class Event(bpy_struct):
     mouse_y: int
     """ The window relative vertical location of the mouse (in [-inf, inf], default 0, readonly)"""
 
-    ndof_motion: NDOFMotionEventData | None
-    """ NDOF motion event data (readonly)"""
+    @property
+    def ndof_motion(self) -> NDOFMotionEventData | None:
+        """NDOF motion event data (readonly)"""
 
     oskey: bool
     """ True when the Cmd key is held (default False, readonly)"""
@@ -29774,8 +29917,9 @@ class Event(bpy_struct):
     value_prev: typing.Literal[bpy.stub_internal.rna_enums.EventValueItems]
     """ The type of event, only applies to some (default 'NOTHING', readonly)"""
 
-    xr: XrEventData | None
-    """ XR event data (readonly)"""
+    @property
+    def xr(self) -> XrEventData | None:
+        """XR event data (readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -29881,8 +30025,9 @@ class FCurve(bpy_struct):
     data_path: str
     """ RNA Path to property affected by F-Curve (default "", never None)"""
 
-    driver: Driver | None
-    """ Channel Driver (only set for Driver F-Curves) (readonly)"""
+    @property
+    def driver(self) -> Driver | None:
+        """Channel Driver (only set for Driver F-Curves) (readonly)"""
 
     extrapolation: typing.Literal["CONSTANT", "LINEAR"]
     """ Method used for evaluating value of F-Curve outside first and last keyframes (default 'CONSTANT')"""
@@ -31071,8 +31216,9 @@ class FileAssetSelectParams(FileSelectParams, bpy_struct):
     catalog_id: str
     """ The UUID of the catalog shown in the browser (default "", never None)"""
 
-    filter_asset_id: FileAssetSelectIDFilter
-    """ Which asset types to show/hide, when browsing an asset library (readonly, never None)"""
+    @property
+    def filter_asset_id(self) -> FileAssetSelectIDFilter:
+        """Which asset types to show/hide, when browsing an asset library (readonly, never None)"""
 
     import_method: typing.Literal[
         "FOLLOW_PREFS", "LINK", "APPEND", "APPEND_REUSE", "PACK"
@@ -31217,8 +31363,9 @@ For Example: ".blend;.ble"(default "", never None)"""
 class FileSelectEntry(bpy_struct):
     """A file viewable in the File Browser"""
 
-    asset_data: AssetMetaData | None
-    """ Asset data, valid if the file represents an asset (readonly)"""
+    @property
+    def asset_data(self) -> AssetMetaData | None:
+        """Asset data, valid if the file represents an asset (readonly)"""
 
     name: str
     """ (default "", readonly, never None)"""
@@ -31438,8 +31585,9 @@ class FileSelectParams(bpy_struct):
     filter_glob: str
     """ UNIX shell-like filename patterns matching, supports wildcards ('*') and list of patterns separated by ';' (default "", never None)"""
 
-    filter_id: FileSelectIDFilter
-    """ Which ID types to show/hide, when browsing a library (readonly, never None)"""
+    @property
+    def filter_id(self) -> FileSelectIDFilter:
+        """Which ID types to show/hide, when browsing a library (readonly, never None)"""
 
     filter_search: str
     """ Filter by name or tag, supports '*' wildcard (default "", never None)"""
@@ -32179,8 +32327,9 @@ class FluidDomainSettings(bpy_struct):
     color_grid: bpy_prop_array[float]
     """ Smoke color grid (array of 32 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), readonly)"""
 
-    color_ramp: ColorRamp | None
-    """ (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """(readonly)"""
 
     color_ramp_field: typing.Literal["NONE"]
     """ Simulation field to color map (default 'NONE')"""
@@ -32212,8 +32361,9 @@ class FluidDomainSettings(bpy_struct):
     effector_group: Collection | None
     """ Limit effectors to this collection"""
 
-    effector_weights: EffectorWeights | None
-    """ (readonly)"""
+    @property
+    def effector_weights(self) -> EffectorWeights | None:
+        """(readonly)"""
 
     export_manta_script: bool
     """ Generate and export Mantaflow script from current domain settings during bake. This is only needed if you plan to analyze the cache (e.g. view grids, velocity vectors, particles) in Mantaflow directly (outside of Blender) after baking the simulation. (default False)"""
@@ -32789,14 +32939,17 @@ class FluidFlowSettings(bpy_struct):
 class FluidModifier(Modifier, bpy_struct):
     """Fluid simulation modifier"""
 
-    domain_settings: FluidDomainSettings | None
-    """ (readonly)"""
+    @property
+    def domain_settings(self) -> FluidDomainSettings | None:
+        """(readonly)"""
 
-    effector_settings: FluidEffectorSettings | None
-    """ (readonly)"""
+    @property
+    def effector_settings(self) -> FluidEffectorSettings | None:
+        """(readonly)"""
 
-    flow_settings: FluidFlowSettings | None
-    """ (readonly)"""
+    @property
+    def flow_settings(self) -> FluidFlowSettings | None:
+        """(readonly)"""
 
     fluid_type: typing.Literal["NONE", "DOMAIN", "FLOW", "EFFECTOR"]
     """ (default 'NONE')"""
@@ -33255,8 +33408,9 @@ class FreestyleLineStyle(ID, bpy_struct):
     angle_min: float
     """ Minimum 2D angle for splitting chains (in [0, 3.14159], default 0.0)"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     caps: typing.Literal["BUTT", "ROUND", "SQUARE"]
     """ Select the shape of both ends of strokes (default 'BUTT')"""
@@ -36690,8 +36844,9 @@ class GPENCIL_UL_matslots(UIList, bpy_struct):
 class GPencilInterpolateSettings(bpy_struct):
     """Settings for Grease Pencil interpolation tools"""
 
-    interpolation_curve: CurveMapping | None
-    """ Custom curve to control 'sequence' interpolation between Grease Pencil frames (readonly)"""
+    @property
+    def interpolation_curve(self) -> CurveMapping | None:
+        """Custom curve to control 'sequence' interpolation between Grease Pencil frames (readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -36782,8 +36937,9 @@ class GPencilSculptGuide(bpy_struct):
 class GPencilSculptSettings(bpy_struct):
     """General properties for Grease Pencil stroke sculpting tools"""
 
-    guide: GPencilSculptGuide | None
-    """ (readonly)"""
+    @property
+    def guide(self) -> GPencilSculptGuide | None:
+        """(readonly)"""
 
     intersection_threshold: float
     """ Threshold for stroke intersections (in [0, 10], default 0.1)"""
@@ -36791,11 +36947,13 @@ class GPencilSculptSettings(bpy_struct):
     lock_axis: typing.Literal["VIEW", "AXIS_Y", "AXIS_X", "AXIS_Z", "CURSOR"]
     """ (default 'VIEW')"""
 
-    multiframe_falloff_curve: CurveMapping | None
-    """ Custom curve to control falloff of brush effect by Grease Pencil frames (readonly)"""
+    @property
+    def multiframe_falloff_curve(self) -> CurveMapping | None:
+        """Custom curve to control falloff of brush effect by Grease Pencil frames (readonly)"""
 
-    thickness_primitive_curve: CurveMapping | None
-    """ Custom curve to control primitive thickness (readonly)"""
+    @property
+    def thickness_primitive_curve(self) -> CurveMapping | None:
+        """Custom curve to control primitive thickness (readonly)"""
 
     use_automasking_layer_active: bool
     """ Affect only the Active Layer (default False)"""
@@ -40496,8 +40654,9 @@ class GeometryNodeFlipFaces(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeForeachGeometryElementInput(
     GeometryNode, NodeInternal, Node, bpy_struct
 ):
-    paired_output: Node | None
-    """ Zone output node that this input node is paired with (readonly)"""
+    @property
+    def paired_output(self) -> Node | None:
+        """Zone output node that this input node is paired with (readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -44866,8 +45025,9 @@ class GeometryNodeMenuSwitch(GeometryNode, NodeInternal, Node, bpy_struct):
     data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'GEOMETRY')"""
 
-    enum_definition: Node | None
-    """ The enum definition can now be accessed directly on the node. This exists for backward compatibility. (readonly)"""
+    @property
+    def enum_definition(self) -> Node | None:
+        """The enum definition can now be accessed directly on the node. This exists for backward compatibility. (readonly)"""
 
     enum_items: NodeMenuSwitchItems
     """ (default None, readonly)"""
@@ -46592,8 +46752,9 @@ class GeometryNodeRemoveAttribute(GeometryNode, NodeInternal, Node, bpy_struct):
         """
 
 class GeometryNodeRepeatInput(GeometryNode, NodeInternal, Node, bpy_struct):
-    paired_output: Node | None
-    """ Zone output node that this input node is paired with (readonly)"""
+    @property
+    def paired_output(self) -> Node | None:
+        """Zone output node that this input node is paired with (readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -49277,8 +49438,9 @@ class GeometryNodeSetSplineResolution(GeometryNode, NodeInternal, Node, bpy_stru
 class GeometryNodeSimulationInput(GeometryNode, NodeInternal, Node, bpy_struct):
     """Input data for the simulation zone"""
 
-    paired_output: Node | None
-    """ Zone output node that this input node is paired with (readonly)"""
+    @property
+    def paired_output(self) -> Node | None:
+        """Zone output node that this input node is paired with (readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -51321,8 +51483,9 @@ class Gizmo(bpy_struct):
     color_highlight: mathutils.Color
     """ (array of 3 items, in [0, inf], default (0.0, 0.0, 0.0))"""
 
-    group: GizmoGroup | None
-    """ Gizmo group this gizmo is a member of (readonly)"""
+    @property
+    def group(self) -> GizmoGroup | None:
+        """Gizmo group this gizmo is a member of (readonly)"""
 
     hide: bool
     """ (default False)"""
@@ -51354,8 +51517,9 @@ class Gizmo(bpy_struct):
     matrix_world: mathutils.Matrix
     """ (multi-dimensional array of 4 * 4 items, in [-inf, inf], default ((0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)), readonly)"""
 
-    properties: GizmoProperties
-    """ (readonly, never None)"""
+    @property
+    def properties(self) -> GizmoProperties:
+        """(readonly, never None)"""
 
     scale_basis: float
     """ (in [0, inf], default 0.0)"""
@@ -51993,8 +52157,9 @@ class GreasePencil(ID, bpy_struct):
     after_color: mathutils.Color
     """ Base color for ghosts after the active frame (array of 3 items, in [0, 1], default (0.12549, 0.082353, 0.529412))"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     attributes: AttributeGroupGreasePencil
     """ Geometry attributes (default None, readonly)"""
@@ -52383,8 +52548,9 @@ class GreasePencilColorModifier(Modifier, bpy_struct):
     color_mode: typing.Literal["BOTH", "STROKE", "FILL"]
     """ Attributes to modify (default 'BOTH')"""
 
-    custom_curve: CurveMapping | None
-    """ Custom curve to apply effect (readonly)"""
+    @property
+    def custom_curve(self) -> CurveMapping | None:
+        """Custom curve to apply effect (readonly)"""
 
     hue: float
     """ Color hue offset (in [0, 1], default 0.5)"""
@@ -52878,8 +53044,9 @@ class GreasePencilHookModifier(Modifier, bpy_struct):
     center: bpy_prop_array[float]
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    custom_curve: CurveMapping | None
-    """ Custom curve to apply effect (readonly)"""
+    @property
+    def custom_curve(self) -> CurveMapping | None:
+        """Custom curve to apply effect (readonly)"""
 
     falloff_radius: float
     """ If not zero, the distance from the hook where influence ends (in [0, inf], default 0.0)"""
@@ -53786,8 +53953,9 @@ class GreasePencilMultiplyModifier(Modifier, bpy_struct):
 class GreasePencilNoiseModifier(Modifier, bpy_struct):
     """Noise effect modifier"""
 
-    custom_curve: CurveMapping | None
-    """ Custom curve to apply effect (readonly)"""
+    @property
+    def custom_curve(self) -> CurveMapping | None:
+        """Custom curve to apply effect (readonly)"""
 
     factor: float
     """ Amount of noise to apply (in [0, inf], default 0.5)"""
@@ -54009,8 +54177,9 @@ class GreasePencilOpacityModifier(Modifier, bpy_struct):
     color_mode: typing.Literal["BOTH", "STROKE", "FILL", "HARDNESS"]
     """ Attributes to modify (default 'BOTH')"""
 
-    custom_curve: CurveMapping | None
-    """ Custom curve to apply effect (readonly)"""
+    @property
+    def custom_curve(self) -> CurveMapping | None:
+        """Custom curve to apply effect (readonly)"""
 
     hardness_factor: float
     """ Factor of stroke hardness (in [0, inf], default 1.0)"""
@@ -54394,8 +54563,9 @@ class GreasePencilSimplifyModifier(Modifier, bpy_struct):
 class GreasePencilSmoothModifier(Modifier, bpy_struct):
     """Smooth effect modifier"""
 
-    custom_curve: CurveMapping | None
-    """ Custom curve to apply effect (readonly)"""
+    @property
+    def custom_curve(self) -> CurveMapping | None:
+        """Custom curve to apply effect (readonly)"""
 
     factor: float
     """ Amount of smooth to apply (in [0, 1], default 1.0)"""
@@ -54661,8 +54831,9 @@ class GreasePencilTextureModifier(Modifier, bpy_struct):
 class GreasePencilThickModifierData(Modifier, bpy_struct):
     """Adjust stroke thickness"""
 
-    custom_curve: CurveMapping | None
-    """ Custom curve to apply effect (readonly)"""
+    @property
+    def custom_curve(self) -> CurveMapping | None:
+        """Custom curve to apply effect (readonly)"""
 
     invert_layer_filter: bool
     """ Invert layer filter (default False)"""
@@ -54884,11 +55055,13 @@ class GreasePencilTintModifier(Modifier, bpy_struct):
     color_mode: typing.Literal["BOTH", "STROKE", "FILL"]
     """ Attributes to modify (default 'BOTH')"""
 
-    color_ramp: ColorRamp | None
-    """ Gradient tinting colors (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """Gradient tinting colors (readonly)"""
 
-    custom_curve: CurveMapping | None
-    """ Custom curve to apply effect (readonly)"""
+    @property
+    def custom_curve(self) -> CurveMapping | None:
+        """Custom curve to apply effect (readonly)"""
 
     factor: float
     """ Factor for tinting (in [0, 2], default 0.5)"""
@@ -54993,14 +55166,17 @@ class GreasePencilTreeNode(bpy_struct):
     name: str
     """ The name of the tree node (default "", never None)"""
 
-    next_node: typing_extensions.Self | None
-    """ The layer tree node after (i.e. above) this one (readonly)"""
+    @property
+    def next_node(self) -> typing_extensions.Self | None:
+        """The layer tree node after (i.e. above) this one (readonly)"""
 
-    parent_group: GreasePencilLayerGroup | None
-    """ The parent group of this layer tree node (readonly)"""
+    @property
+    def parent_group(self) -> GreasePencilLayerGroup | None:
+        """The parent group of this layer tree node (readonly)"""
 
-    prev_node: typing_extensions.Self | None
-    """ The layer tree node before (i.e. below) this one (readonly)"""
+    @property
+    def prev_node(self) -> typing_extensions.Self | None:
+        """The layer tree node before (i.e. below) this one (readonly)"""
 
     select: bool
     """ Tree node is selected (default False)"""
@@ -55271,8 +55447,9 @@ class Header(bpy_struct):
     bl_space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
     """ The space where the header is going to be used in (default 'EMPTY')"""
 
-    layout: UILayout | None
-    """ Structure of the header in the UI (readonly)"""
+    @property
+    def layout(self) -> UILayout | None:
+        """Structure of the header in the UI (readonly)"""
 
     def draw(self, context: Context) -> None:
         """Draw UI elements into the header UI layout
@@ -55376,8 +55553,9 @@ class HookModifier(Modifier, bpy_struct):
     center: mathutils.Vector
     """ Center of the hook, used for falloff and display (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    falloff_curve: CurveMapping | None
-    """ Custom falloff curve (readonly)"""
+    @property
+    def falloff_curve(self) -> CurveMapping | None:
+        """Custom falloff curve (readonly)"""
 
     falloff_radius: float
     """ If not zero, the distance from the hook where influence ends (in [0, inf], default 0.0)"""
@@ -55456,8 +55634,9 @@ class HookModifier(Modifier, bpy_struct):
 class HueCorrectModifier(StripModifier, bpy_struct):
     """Hue correction modifier for sequence strip"""
 
-    curve_mapping: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def curve_mapping(self) -> CurveMapping | None:
+        """(readonly)"""
 
     open_mask_input_panel: bool
     """ (default False)"""
@@ -55584,11 +55763,13 @@ class ID(bpy_struct):
     is_runtime_data: bool
     """ This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base. (default False)"""
 
-    library: Library
-    """ Library file the data-block is linked from (readonly)"""
+    @property
+    def library(self) -> Library:
+        """Library file the data-block is linked from (readonly)"""
 
-    library_weak_reference: LibraryWeakReference | None
-    """ Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies) (readonly)"""
+    @property
+    def library_weak_reference(self) -> LibraryWeakReference | None:
+        """Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies) (readonly)"""
 
     name: str
     """ Unique data-block ID name (within a same type and library) (default "", never None)"""
@@ -55596,14 +55777,17 @@ class ID(bpy_struct):
     name_full: str
     """ Unique data-block ID name, including library one if any (default "", readonly, never None)"""
 
-    original: typing_extensions.Self | None
-    """ Actual data-block from .blend file (Main database) that generated that evaluated one (readonly)"""
+    @property
+    def original(self) -> typing_extensions.Self | None:
+        """Actual data-block from .blend file (Main database) that generated that evaluated one (readonly)"""
 
-    override_library: IDOverrideLibrary | None
-    """ Library override data (readonly)"""
+    @property
+    def override_library(self) -> IDOverrideLibrary | None:
+        """Library override data (readonly)"""
 
-    preview: ImagePreview | None
-    """ Preview image and icon of this data-block (always None if not supported for this type of data) (readonly)"""
+    @property
+    def preview(self) -> ImagePreview | None:
+        """Preview image and icon of this data-block (always None if not supported for this type of data) (readonly)"""
 
     session_uid: int
     """ A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file (in [-inf, inf], default 0, readonly)"""
@@ -55808,8 +55992,9 @@ class ID(bpy_struct):
 class IDOverrideLibrary(bpy_struct):
     """Struct gathering all data needed by overridden linked IDs"""
 
-    hierarchy_root: ID | None
-    """ Library override ID used as root of the override hierarchy this ID is a member of (readonly)"""
+    @property
+    def hierarchy_root(self) -> ID | None:
+        """Library override ID used as root of the override hierarchy this ID is a member of (readonly)"""
 
     is_in_hierarchy: bool
     """ Whether this library override is defined as part of a library hierarchy, or as a single, isolated and autonomous override (default True)"""
@@ -55820,8 +56005,9 @@ class IDOverrideLibrary(bpy_struct):
     properties: IDOverrideLibraryProperties
     """ List of overridden properties (default None, readonly)"""
 
-    reference: ID | None
-    """ Linked ID used as reference by this override (readonly)"""
+    @property
+    def reference(self) -> ID | None:
+        """Linked ID used as reference by this override (readonly)"""
 
     def operations_update(self) -> None:
         """Update the library override operations based on the differences between this override ID and its reference"""
@@ -55949,8 +56135,9 @@ class IDOverrideLibraryPropertyOperation(bpy_struct):
     ]
     """ What override operation is performed (default 'REPLACE', readonly)"""
 
-    subitem_local_id: ID | None
-    """ Collection of IDs only, used to disambiguate between potential IDs with same name from different libraries (readonly)"""
+    @property
+    def subitem_local_id(self) -> ID | None:
+        """Collection of IDs only, used to disambiguate between potential IDs with same name from different libraries (readonly)"""
 
     subitem_local_index: int
     """ Used to handle changes into collection (in [-1, inf], default -1, readonly)"""
@@ -55958,8 +56145,9 @@ class IDOverrideLibraryPropertyOperation(bpy_struct):
     subitem_local_name: str
     """ Used to handle changes into collection (default "", readonly, never None)"""
 
-    subitem_reference_id: ID | None
-    """ Collection of IDs only, used to disambiguate between potential IDs with same name from different libraries (readonly)"""
+    @property
+    def subitem_reference_id(self) -> ID | None:
+        """Collection of IDs only, used to disambiguate between potential IDs with same name from different libraries (readonly)"""
 
     subitem_reference_index: int
     """ Used to handle changes into collection (in [-1, inf], default -1, readonly)"""
@@ -56034,8 +56222,9 @@ class IDPropertyWrapPtr(bpy_struct):
         """
 
 class IDViewerPathElem(ViewerPathElem, bpy_struct):
-    id: ID | None
-    """ (readonly)"""
+    @property
+    def id(self) -> ID | None:
+        """(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -56361,8 +56550,9 @@ class Image(ID, bpy_struct):
     channels: int
     """ Number of channels in pixels buffer (in [0, inf], default 0, readonly)"""
 
-    colorspace_settings: ColorManagedInputColorspaceSettings | None
-    """ Input color space settings (readonly)"""
+    @property
+    def colorspace_settings(self) -> ColorManagedInputColorspaceSettings | None:
+        """Input color space settings (readonly)"""
 
     depth: int
     """ Image bit depth (in [0, inf], default 0, readonly)"""
@@ -56409,8 +56599,9 @@ class Image(ID, bpy_struct):
     is_stereo_3d: bool
     """ Image has left and right views (default False, readonly)"""
 
-    packed_file: PackedFile | None
-    """ First packed file of the image (readonly)"""
+    @property
+    def packed_file(self) -> PackedFile | None:
+        """First packed file of the image (readonly)"""
 
     packed_files: bpy_prop_collection[ImagePackedFile]
     """ Collection of packed images (default None, readonly)"""
@@ -56433,8 +56624,9 @@ class Image(ID, bpy_struct):
     source: typing.Literal["FILE", "SEQUENCE", "MOVIE", "GENERATED", "VIEWER", "TILED"]
     """ Where the image comes from (default 'FILE')"""
 
-    stereo_3d_format: Stereo3dFormat
-    """ Settings for stereo 3d (readonly, never None)"""
+    @property
+    def stereo_3d_format(self) -> Stereo3dFormat:
+        """Settings for stereo 3d (readonly, never None)"""
 
     tiles: UDIMTiles
     """ Tiles of the image (default None, readonly)"""
@@ -56622,8 +56814,9 @@ class ImageFormatSettings(bpy_struct):
     compression: int
     """ Amount of time to determine best compression: 0 = no compression with fast file output, 100 = maximum lossless compression with slow file output (in [0, 100], default 15)"""
 
-    display_settings: ColorManagedDisplaySettings | None
-    """ Settings of device saved image would be displayed on (readonly)"""
+    @property
+    def display_settings(self) -> ColorManagedDisplaySettings | None:
+        """Settings of device saved image would be displayed on (readonly)"""
 
     exr_codec: typing.Literal[bpy.stub_internal.rna_enums.ExrCodecItems]
     """ Compression codec settings for OpenEXR (default 'NONE')"""
@@ -56637,8 +56830,9 @@ class ImageFormatSettings(bpy_struct):
     jpeg2k_codec: typing.Literal["JP2", "J2K"]
     """ Codec settings for JPEG 2000 (default 'JP2')"""
 
-    linear_colorspace_settings: ColorManagedInputColorspaceSettings | None
-    """ Output color space settings (readonly)"""
+    @property
+    def linear_colorspace_settings(self) -> ColorManagedInputColorspaceSettings | None:
+        """Output color space settings (readonly)"""
 
     media_type: typing.Literal["IMAGE", "MULTI_LAYER_IMAGE", "VIDEO"]
     """ The type of media to save (default 'IMAGE')"""
@@ -56646,8 +56840,9 @@ class ImageFormatSettings(bpy_struct):
     quality: int
     """ Quality for image formats that support lossy compression (in [0, 100], default 90)"""
 
-    stereo_3d_format: Stereo3dFormat
-    """ Settings for stereo 3D (readonly, never None)"""
+    @property
+    def stereo_3d_format(self) -> Stereo3dFormat:
+        """Settings for stereo 3D (readonly, never None)"""
 
     tiff_codec: typing.Literal["NONE", "DEFLATE", "LZW", "PACKBITS"]
     """ Compression mode for TIFF (default 'DEFLATE')"""
@@ -56670,8 +56865,9 @@ class ImageFormatSettings(bpy_struct):
     use_preview: bool
     """ When rendering animations, save JPG preview images in same directory (default False)"""
 
-    view_settings: ColorManagedViewSettings | None
-    """ Color management settings applied on image before saving (readonly)"""
+    @property
+    def view_settings(self) -> ColorManagedViewSettings | None:
+        """Color management settings applied on image before saving (readonly)"""
 
     views_format: typing.Literal[bpy.stub_internal.rna_enums.ViewsFormatMultiviewItems]
     """ Format of multiview media (default 'INDIVIDUAL')"""
@@ -56708,8 +56904,9 @@ class ImagePackedFile(bpy_struct):
     filepath: str
     """ (default "", never None, blend relative // prefix supported)"""
 
-    packed_file: PackedFile | None
-    """ (readonly)"""
+    @property
+    def packed_file(self) -> PackedFile | None:
+        """(readonly)"""
 
     tile_number: int
     """ (in [-inf, inf], default 0, readonly)"""
@@ -56930,8 +57127,9 @@ class ImageStrip(Strip, bpy_struct):
     color_saturation: float
     """ Adjust the intensity of the input's color (in [0, 20], default 1.0)"""
 
-    colorspace_settings: ColorManagedInputColorspaceSettings | None
-    """ Input color space settings (readonly)"""
+    @property
+    def colorspace_settings(self) -> ColorManagedInputColorspaceSettings | None:
+        """Input color space settings (readonly)"""
 
     content_trim_end: int
     """ Number of frames to ignore from the end of the underlying source. The source content is trimmed, and future frames are turned into holds (in [0, inf], default 0)"""
@@ -56939,8 +57137,9 @@ class ImageStrip(Strip, bpy_struct):
     content_trim_start: int
     """ Number of frames to ignore from the start of the underlying source. The source content is trimmed, and previous frames are turned into holds (in [0, inf], default 0)"""
 
-    crop: StripCrop | None
-    """ (readonly)"""
+    @property
+    def crop(self) -> StripCrop | None:
+        """(readonly)"""
 
     directory: str
     """ (default "", never None, blend relative // prefix supported)"""
@@ -56951,20 +57150,23 @@ class ImageStrip(Strip, bpy_struct):
     multiply_alpha: bool
     """ Multiply alpha along with color channels (default False)"""
 
-    proxy: StripProxy | None
-    """ (readonly)"""
+    @property
+    def proxy(self) -> StripProxy | None:
+        """(readonly)"""
 
     retiming_keys: RetimingKeys
     """ (default None, readonly)"""
 
-    stereo_3d_format: Stereo3dFormat
-    """ Settings for stereo 3D (readonly, never None)"""
+    @property
+    def stereo_3d_format(self) -> Stereo3dFormat:
+        """Settings for stereo 3D (readonly, never None)"""
 
     strobe: float
     """ Only display every nth frame (in [1, 30], default 0.0)"""
 
-    transform: StripTransform | None
-    """ (readonly)"""
+    @property
+    def transform(self) -> StripTransform | None:
+        """(readonly)"""
 
     use_deinterlace: bool
     """ Remove fields from video movies (default False)"""
@@ -57041,8 +57243,9 @@ class ImageTexture(Texture, ID, bpy_struct):
     """ Multiply the filter size used by interpolation (in [0.1, 50], default 1.0)"""
 
     image: Image | None
-    image_user: ImageUser | None
-    """ Parameters defining which layer, pass and frame of the image is displayed (readonly)"""
+    @property
+    def image_user(self) -> ImageUser | None:
+        """Parameters defining which layer, pass and frame of the image is displayed (readonly)"""
 
     invert_alpha: bool
     """ Invert all the alpha values in the image (default False)"""
@@ -57080,11 +57283,13 @@ class ImageTexture(Texture, ID, bpy_struct):
     use_normal_map: bool
     """ Use image RGB values for normal mapping (default False)"""
 
-    users_material: tuple[Material, ...]
-    """ Materials that use this texture(readonly)"""
+    @property
+    def users_material(self) -> tuple[Material, ...]:
+        """Materials that use this texture(readonly)"""
 
-    users_object_modifier: tuple[Object, ...]
-    """ Object modifiers that use this texture(readonly)"""
+    @property
+    def users_object_modifier(self) -> tuple[Object, ...]:
+        """Object modifiers that use this texture(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -57480,8 +57685,9 @@ class Itasc(IKParam, bpy_struct):
 class Key(ID, bpy_struct):
     """Shape keys data-block containing different shapes of geometric data-blocks"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     eval_time: float
     """ Evaluation time for absolute shape keys (in [0, 1.04857e+06], default 0.0)"""
@@ -57489,14 +57695,16 @@ class Key(ID, bpy_struct):
     key_blocks: bpy_prop_collection[ShapeKey]
     """ Shape keys (default None, readonly)"""
 
-    reference_key: ShapeKey
-    """ (readonly, never None)"""
+    @property
+    def reference_key(self) -> ShapeKey:
+        """(readonly, never None)"""
 
     use_relative: bool
     """ Make shape keys relative, otherwise play through shapes as a sequence using the evaluation time (default False)"""
 
-    user: ID
-    """ Data-block using these shape keys (readonly, never None)"""
+    @property
+    def user(self) -> ID:
+        """Data-block using these shape keys (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -57538,8 +57746,9 @@ class KeyConfig(bpy_struct):
     name: str
     """ Name of the key configuration (default "", never None)"""
 
-    preferences: KeyConfigPreferences | None
-    """ (readonly)"""
+    @property
+    def preferences(self) -> KeyConfigPreferences | None:
+        """(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -57743,8 +57952,9 @@ class KeyMapItem(bpy_struct):
     oskey_ui: bool
     """ Operating system key pressed (default False)"""
 
-    properties: OperatorProperties | None
-    """ Properties to set when the operator is called (readonly)"""
+    @property
+    def properties(self) -> OperatorProperties | None:
+        """Properties to set when the operator is called (readonly)"""
 
     propvalue: typing.Literal[bpy.stub_internal.rna_enums.KeymapPropvalueItems]
     """ The value this event translates to in a modal keymap (default 'NONE')"""
@@ -57911,8 +58121,9 @@ class KeyingSet(bpy_struct):
     paths: KeyingSetPaths
     """ Keying Set Paths to define settings that get keyframed together (default None, readonly)"""
 
-    type_info: KeyingSetInfo | None
-    """ Callback function defines for built-in Keying Sets (readonly)"""
+    @property
+    def type_info(self) -> KeyingSetInfo | None:
+        """Callback function defines for built-in Keying Sets (readonly)"""
 
     use_insertkey_needed: bool
     """ Only insert keyframes where they're needed in the relevant F-Curves (default False)"""
@@ -58297,8 +58508,9 @@ class LaplacianSmoothModifier(Modifier, bpy_struct):
 class Lattice(ID, bpy_struct):
     """Lattice data-block defining a grid for deforming other objects"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     interpolation_type_u: typing.Literal[
         "KEY_LINEAR", "KEY_CARDINAL", "KEY_CATMULL_ROM", "KEY_BSPLINE"
@@ -58330,8 +58542,9 @@ class Lattice(ID, bpy_struct):
     points_w: int
     """ Points in W direction (cannot be changed when there are shape keys) (in [1, 64], default 0)"""
 
-    shape_keys: Key | None
-    """ (readonly)"""
+    @property
+    def shape_keys(self) -> Key | None:
+        """(readonly)"""
 
     use_outside: bool
     """ Only display and take into account the outer vertices (default False)"""
@@ -58492,8 +58705,9 @@ class LayerCollection(bpy_struct):
     children: bpy_prop_collection[LayerCollection]
     """ Layer collection children (default None, readonly)"""
 
-    collection: Collection
-    """ Collection this layer collection is wrapping (readonly, never None)"""
+    @property
+    def collection(self) -> Collection:
+        """Collection this layer collection is wrapping (readonly, never None)"""
 
     exclude: bool
     """ Exclude from view layer (default False)"""
@@ -58598,8 +58812,9 @@ class Library(ID, bpy_struct):
     archive_libraries: bpy_prop_collection[Library]
     """ Archive libraries of packed IDs, generated (and owned) by this source library (default None, readonly)"""
 
-    archive_parent_library: typing_extensions.Self | None
-    """ Source library from which this archive of packed IDs was generated (readonly)"""
+    @property
+    def archive_parent_library(self) -> typing_extensions.Self | None:
+        """Source library from which this archive of packed IDs was generated (readonly)"""
 
     filepath: str
     """ Path to the library .blend file (default "", never None, blend relative // prefix supported)"""
@@ -58613,17 +58828,20 @@ class Library(ID, bpy_struct):
     needs_liboverride_resync: bool
     """ True if this library contains library overrides that are linked in current blendfile, and that had to be recursively resynced on load (it is recommended to open and re-save that library blendfile then) (default False)"""
 
-    packed_file: PackedFile | None
-    """ (readonly)"""
+    @property
+    def packed_file(self) -> PackedFile | None:
+        """(readonly)"""
 
-    parent: Library | None
-    """ (readonly)"""
+    @property
+    def parent(self) -> Library | None:
+        """(readonly)"""
 
     version: bpy_prop_array[int]
     """ Version of Blender the library .blend was saved with (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
-    users_id: tuple[ID, ...]
-    """ ID data-blocks that use this library(readonly)"""
+    @property
+    def users_id(self) -> tuple[ID, ...]:
+        """ID data-blocks that use this library(readonly)"""
 
     def reload(self) -> None:
         """Reload this library and all its linked data-blocks"""
@@ -58696,8 +58914,9 @@ class LibraryWeakReference(bpy_struct):
 class Light(ID, bpy_struct):
     """Light data-block for lighting a scene"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     color: mathutils.Color
     """ Light color (array of 3 items, in [0, inf], default (1.0, 1.0, 1.0))"""
@@ -58806,8 +59025,9 @@ class Light(ID, bpy_struct):
 class LightProbe(ID, bpy_struct):
     """Light Probe data-block for lighting capture objects"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     clip_start: float
     """ Probe clip start, below which objects will not appear in reflections (in [1e-06, inf], default 0.8)"""
@@ -59394,8 +59614,9 @@ class LineStyleAlphaModifier_AlongStroke(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -59466,8 +59687,9 @@ class LineStyleAlphaModifier_CreaseAngle(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -59538,8 +59760,9 @@ class LineStyleAlphaModifier_Curvature_3D(
     curvature_min: float
     """ Minimum Curvature (in [0, 10000], default 0.0)"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -59604,8 +59827,9 @@ class LineStyleAlphaModifier_DistanceFromCamera(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -59676,8 +59900,9 @@ class LineStyleAlphaModifier_DistanceFromObject(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -59751,8 +59976,9 @@ class LineStyleAlphaModifier_Material(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -59839,8 +60065,9 @@ class LineStyleAlphaModifier_Noise(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -59911,8 +60138,9 @@ class LineStyleAlphaModifier_Tangent(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -60002,8 +60230,9 @@ class LineStyleColorModifier_AlongStroke(
     blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    color_ramp: ColorRamp | None
-    """ Color ramp used to change line color (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """Color ramp used to change line color (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -60059,8 +60288,9 @@ class LineStyleColorModifier_CreaseAngle(
     blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    color_ramp: ColorRamp | None
-    """ Color ramp used to change line color (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """Color ramp used to change line color (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -60110,8 +60340,9 @@ class LineStyleColorModifier_Curvature_3D(
     blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    color_ramp: ColorRamp | None
-    """ Color ramp used to change line color (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """Color ramp used to change line color (readonly)"""
 
     curvature_max: float
     """ Maximum Curvature (in [-inf, inf], default 0.0)"""
@@ -60167,8 +60398,9 @@ class LineStyleColorModifier_DistanceFromCamera(
     blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    color_ramp: ColorRamp | None
-    """ Color ramp used to change line color (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """Color ramp used to change line color (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -60224,8 +60456,9 @@ class LineStyleColorModifier_DistanceFromObject(
     blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    color_ramp: ColorRamp | None
-    """ Color ramp used to change line color (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """Color ramp used to change line color (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -60284,8 +60517,9 @@ class LineStyleColorModifier_Material(
     blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    color_ramp: ColorRamp | None
-    """ Color ramp used to change line color (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """Color ramp used to change line color (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -60360,8 +60594,9 @@ class LineStyleColorModifier_Noise(
     blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    color_ramp: ColorRamp | None
-    """ Color ramp used to change line color (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """Color ramp used to change line color (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -60417,8 +60652,9 @@ class LineStyleColorModifier_Tangent(
     blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    color_ramp: ColorRamp | None
-    """ Color ramp used to change line color (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """Color ramp used to change line color (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -61348,8 +61584,9 @@ class LineStyleThicknessModifier_AlongStroke(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -61496,8 +61733,9 @@ class LineStyleThicknessModifier_CreaseAngle(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -61576,8 +61814,9 @@ class LineStyleThicknessModifier_Curvature_3D(
     curvature_min: float
     """ Minimum Curvature (in [0, 10000], default 0.0)"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -61650,8 +61889,9 @@ class LineStyleThicknessModifier_DistanceFromCamera(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -61730,8 +61970,9 @@ class LineStyleThicknessModifier_DistanceFromObject(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -61813,8 +62054,9 @@ class LineStyleThicknessModifier_Material(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -61977,8 +62219,9 @@ class LineStyleThicknessModifier_Tangent(
     ]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
-    curve: CurveMapping | None
-    """ Curve used for the curve mapping (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """Curve used for the curve mapping (readonly)"""
 
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
@@ -62508,8 +62751,9 @@ class Macro(bpy_struct):
     name: str
     """ (default "", readonly, never None)"""
 
-    properties: OperatorProperties
-    """ (readonly, never None)"""
+    @property
+    def properties(self) -> OperatorProperties:
+        """(readonly, never None)"""
 
     def report(
         self,
@@ -62581,11 +62825,13 @@ class MagicTexture(Texture, ID, bpy_struct):
     turbulence: float
     """ Turbulence of the noise (in [0.0001, inf], default 5.0)"""
 
-    users_material: tuple[Material, ...]
-    """ Materials that use this texture(readonly)"""
+    @property
+    def users_material(self) -> tuple[Material, ...]:
+        """Materials that use this texture(readonly)"""
 
-    users_object_modifier: tuple[Object, ...]
-    """ Object modifiers that use this texture(readonly)"""
+    @property
+    def users_object_modifier(self) -> tuple[Object, ...]:
+        """Object modifiers that use this texture(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -62693,11 +62939,13 @@ class MarbleTexture(Texture, ID, bpy_struct):
     turbulence: float
     """ Turbulence of the bandnoise and ringnoise types (in [0.0001, inf], default 5.0)"""
 
-    users_material: tuple[Material, ...]
-    """ Materials that use this texture(readonly)"""
+    @property
+    def users_material(self) -> tuple[Material, ...]:
+        """Materials that use this texture(readonly)"""
 
-    users_object_modifier: tuple[Object, ...]
-    """ Object modifiers that use this texture(readonly)"""
+    @property
+    def users_object_modifier(self) -> tuple[Object, ...]:
+        """Object modifiers that use this texture(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -62733,8 +62981,9 @@ class Mask(ID, bpy_struct):
     active_layer_index: int | None
     """ Index of active layer in list of all mask's layers (in [-inf, inf], default 0)"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     frame_end: int
     """ Final frame of the mask (used for sequencer) (in [0, 1048574], default 0)"""
@@ -63026,8 +63275,9 @@ class MaskSplinePoint(bpy_struct):
     ]
     """ Handle type (default 'FREE')"""
 
-    parent: MaskParent | None
-    """ (readonly)"""
+    @property
+    def parent(self) -> MaskParent | None:
+        """(readonly)"""
 
     select: bool
     """ Selection status of the control point. (Deprecated: use Select Control Point instead) (default False)"""
@@ -63139,8 +63389,9 @@ class MaskStrip(Strip, bpy_struct):
     content_trim_start: int
     """ Number of frames to ignore from the start of the underlying source. The source content is trimmed, and previous frames are turned into holds (in [0, inf], default 0)"""
 
-    crop: StripCrop | None
-    """ (readonly)"""
+    @property
+    def crop(self) -> StripCrop | None:
+        """(readonly)"""
 
     mask: Mask | None
     """ Mask that this strip uses"""
@@ -63151,8 +63402,9 @@ class MaskStrip(Strip, bpy_struct):
     strobe: float
     """ Only display every nth frame (in [1, 30], default 0.0)"""
 
-    transform: StripTransform | None
-    """ (readonly)"""
+    @property
+    def transform(self) -> StripTransform | None:
+        """(readonly)"""
 
     use_deinterlace: bool
     """ Remove fields from video movies (default False)"""
@@ -63234,8 +63486,9 @@ class Material(ID, bpy_struct):
     alpha_threshold: float
     """ A pixel is rendered only if its alpha value is above this threshold (in [0, 1], default 0.5)"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     blend_method: typing.Literal["OPAQUE", "CLIP", "HASHED", "BLEND"]
     """ Blend Mode for Transparent Faces (Deprecated: use 'surface_render_method') (default 'OPAQUE')"""
@@ -63249,8 +63502,9 @@ class Material(ID, bpy_struct):
     displacement_method: typing.Literal["BUMP", "DISPLACEMENT", "BOTH"]
     """ Method to use for the displacement (default 'BUMP')"""
 
-    grease_pencil: MaterialGPencilStyle | None
-    """ Grease Pencil color settings for material (readonly)"""
+    @property
+    def grease_pencil(self) -> MaterialGPencilStyle | None:
+        """Grease Pencil color settings for material (readonly)"""
 
     is_grease_pencil: bool
     """ True if this material has Grease Pencil data (default False, readonly)"""
@@ -63261,8 +63515,9 @@ class Material(ID, bpy_struct):
     line_priority: int
     """ The line color of a higher priority is used at material boundaries (in [0, 32767], default 0)"""
 
-    lineart: MaterialLineArt | None
-    """ Line Art settings for material (readonly)"""
+    @property
+    def lineart(self) -> MaterialLineArt | None:
+        """Line Art settings for material (readonly)"""
 
     max_vertex_displacement: float
     """ The max distance a vertex can be displaced. Displacements over this threshold may cause visibility issues. (in [0, inf], default 0.0)"""
@@ -63608,8 +63863,9 @@ class Menu(bpy_struct):
     bl_translation_context: str
     """ (default "*", never None)"""
 
-    layout: UILayout | None
-    """ Defines the structure of the menu in the UI (readonly)"""
+    @property
+    def layout(self) -> UILayout | None:
+        """Defines the structure of the menu in the UI (readonly)"""
 
     @classmethod
     def poll(cls, context: Context) -> bool:
@@ -63732,8 +63988,9 @@ class Menu(bpy_struct):
 class Mesh(ID, bpy_struct):
     """Mesh data-block defining geometric surfaces"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     attributes: AttributeGroupMesh
     """ Geometry attributes (default None, readonly)"""
@@ -63792,8 +64049,9 @@ class Mesh(ID, bpy_struct):
     remesh_voxel_size: float
     """ Size of the voxel in object space used for volume evaluation. Lower values preserve finer details. (in [0, inf], default 0.1)"""
 
-    shape_keys: Key | None
-    """ (readonly)"""
+    @property
+    def shape_keys(self) -> Key | None:
+        """(readonly)"""
 
     skin_vertices: bpy_prop_collection[MeshSkinVertexLayer]
     """ All skin vertices (default None, readonly)"""
@@ -64944,8 +65202,9 @@ class MeshVertex(bpy_struct):
 class MetaBall(ID, bpy_struct):
     """Metaball data-block to define blobby surfaces"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     cycles: typing.Any
     """ Cycles mesh settings (readonly)"""
@@ -65116,14 +65375,16 @@ class MetaStrip(Strip, bpy_struct):
     content_trim_start: int
     """ Number of frames to ignore from the start of the underlying source. The source content is trimmed, and previous frames are turned into holds (in [0, inf], default 0)"""
 
-    crop: StripCrop | None
-    """ (readonly)"""
+    @property
+    def crop(self) -> StripCrop | None:
+        """(readonly)"""
 
     multiply_alpha: bool
     """ Multiply alpha along with color channels (default False)"""
 
-    proxy: StripProxy | None
-    """ (readonly)"""
+    @property
+    def proxy(self) -> StripProxy | None:
+        """(readonly)"""
 
     strips: StripsMeta
     """ Strips nested in meta strip (default None, readonly)"""
@@ -65131,8 +65392,9 @@ class MetaStrip(Strip, bpy_struct):
     strobe: float
     """ Only display every nth frame (in [1, 30], default 0.0)"""
 
-    transform: StripTransform | None
-    """ (readonly)"""
+    @property
+    def transform(self) -> StripTransform | None:
+        """(readonly)"""
 
     use_deinterlace: bool
     """ Remove fields from video movies (default False)"""
@@ -65471,14 +65733,16 @@ class MotionPathVert(bpy_struct):
 class MovieClip(ID, bpy_struct):
     """MovieClip data-block referencing an external movie file"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     annotation: Annotation | None
     """ Annotation data for this movie clip"""
 
-    colorspace_settings: ColorManagedInputColorspaceSettings | None
-    """ Input color space settings (readonly)"""
+    @property
+    def colorspace_settings(self) -> ColorManagedInputColorspaceSettings | None:
+        """Input color space settings (readonly)"""
 
     display_aspect: mathutils.Vector
     """ Display Aspect for this clip, does not affect rendering (array of 2 items, in [0.1, inf], default (1.0, 1.0))"""
@@ -65498,8 +65762,9 @@ class MovieClip(ID, bpy_struct):
     frame_start: int
     """ Global scene frame number at which this movie starts playing (affects all data associated with a clip) (in [-inf, inf], default 1)"""
 
-    proxy: MovieClipProxy | None
-    """ (readonly)"""
+    @property
+    def proxy(self) -> MovieClipProxy | None:
+        """(readonly)"""
 
     size: bpy_prop_array[int]
     """ Width and height in pixels, zero when image data cannot be loaded (array of 2 items, in [-inf, inf], default (0, 0), readonly)"""
@@ -65507,8 +65772,9 @@ class MovieClip(ID, bpy_struct):
     source: typing.Literal["SEQUENCE", "MOVIE"]
     """ Where the clip comes from (default 'SEQUENCE', readonly)"""
 
-    tracking: MovieTracking | None
-    """ (readonly)"""
+    @property
+    def tracking(self) -> MovieTracking | None:
+        """(readonly)"""
 
     use_proxy: bool
     """ Use a preview proxy and/or timecode index for this clip (default False)"""
@@ -65675,8 +65941,9 @@ class MovieClipStrip(Strip, bpy_struct):
     content_trim_start: int
     """ Number of frames to ignore from the start of the underlying source. The source content is trimmed, and previous frames are turned into holds (in [0, inf], default 0)"""
 
-    crop: StripCrop | None
-    """ (readonly)"""
+    @property
+    def crop(self) -> StripCrop | None:
+        """(readonly)"""
 
     fps: float
     """ Frames per second (in [-inf, inf], default 0.0, readonly)"""
@@ -65690,8 +65957,9 @@ class MovieClipStrip(Strip, bpy_struct):
     strobe: float
     """ Only display every nth frame (in [1, 30], default 0.0)"""
 
-    transform: StripTransform | None
-    """ (readonly)"""
+    @property
+    def transform(self) -> StripTransform | None:
+        """(readonly)"""
 
     undistort: bool
     """ Use the undistorted version of the clip (default False)"""
@@ -65839,8 +66107,9 @@ class MovieStrip(Strip, bpy_struct):
     color_saturation: float
     """ Adjust the intensity of the input's color (in [0, 20], default 1.0)"""
 
-    colorspace_settings: ColorManagedInputColorspaceSettings | None
-    """ Input color space settings (readonly)"""
+    @property
+    def colorspace_settings(self) -> ColorManagedInputColorspaceSettings | None:
+        """Input color space settings (readonly)"""
 
     content_trim_end: int
     """ Number of frames to ignore from the end of the underlying source. The source content is trimmed, and future frames are turned into holds (in [0, inf], default 0)"""
@@ -65848,8 +66117,9 @@ class MovieStrip(Strip, bpy_struct):
     content_trim_start: int
     """ Number of frames to ignore from the start of the underlying source. The source content is trimmed, and previous frames are turned into holds (in [0, inf], default 0)"""
 
-    crop: StripCrop | None
-    """ (readonly)"""
+    @property
+    def crop(self) -> StripCrop | None:
+        """(readonly)"""
 
     elements: bpy_prop_collection[StripElement]
     """ (default None, readonly)"""
@@ -65863,14 +66133,16 @@ class MovieStrip(Strip, bpy_struct):
     multiply_alpha: bool
     """ Multiply alpha along with color channels (default False)"""
 
-    proxy: StripProxy | None
-    """ (readonly)"""
+    @property
+    def proxy(self) -> StripProxy | None:
+        """(readonly)"""
 
     retiming_keys: RetimingKeys
     """ (default None, readonly)"""
 
-    stereo_3d_format: Stereo3dFormat
-    """ Settings for stereo 3D (readonly, never None)"""
+    @property
+    def stereo_3d_format(self) -> Stereo3dFormat:
+        """Settings for stereo 3D (readonly, never None)"""
 
     stream_index: int
     """ For files with several movie streams, use the stream with the given index (in [0, 20], default 0)"""
@@ -65878,8 +66150,9 @@ class MovieStrip(Strip, bpy_struct):
     strobe: float
     """ Only display every nth frame (in [1, 30], default 0.0)"""
 
-    transform: StripTransform | None
-    """ (readonly)"""
+    @property
+    def transform(self) -> StripTransform | None:
+        """(readonly)"""
 
     use_deinterlace: bool
     """ Remove fields from video movies (default False)"""
@@ -65951,11 +66224,13 @@ class MovieTracking(bpy_struct):
     active_object_index: int | None
     """ Index of active object (in [-inf, inf], default 0)"""
 
-    camera: MovieTrackingCamera | None
-    """ (readonly)"""
+    @property
+    def camera(self) -> MovieTrackingCamera | None:
+        """(readonly)"""
 
-    dopesheet: MovieTrackingDopesheet | None
-    """ (readonly)"""
+    @property
+    def dopesheet(self) -> MovieTrackingDopesheet | None:
+        """(readonly)"""
 
     objects: MovieTrackingObjects
     """ Collection of objects in this tracking data object (default None, readonly)"""
@@ -65963,14 +66238,17 @@ class MovieTracking(bpy_struct):
     plane_tracks: MovieTrackingPlaneTracks
     """ Collection of plane tracks in this tracking data object. Deprecated, use objects[name].plane_tracks (default None, readonly)"""
 
-    reconstruction: MovieTrackingReconstruction | None
-    """ (readonly)"""
+    @property
+    def reconstruction(self) -> MovieTrackingReconstruction | None:
+        """(readonly)"""
 
-    settings: MovieTrackingSettings | None
-    """ (readonly)"""
+    @property
+    def settings(self) -> MovieTrackingSettings | None:
+        """(readonly)"""
 
-    stabilization: MovieTrackingStabilization | None
-    """ (readonly)"""
+    @property
+    def stabilization(self) -> MovieTrackingStabilization | None:
+        """(readonly)"""
 
     tracks: MovieTrackingTracks
     """ Collection of tracks in this tracking data object. Deprecated, use objects[name].tracks (default None, readonly)"""
@@ -66221,8 +66499,9 @@ class MovieTrackingObject(bpy_struct):
     plane_tracks: MovieTrackingObjectPlaneTracks
     """ Collection of plane tracks in this tracking data object (default None, readonly)"""
 
-    reconstruction: MovieTrackingReconstruction | None
-    """ (readonly)"""
+    @property
+    def reconstruction(self) -> MovieTrackingReconstruction | None:
+        """(readonly)"""
 
     scale: float
     """ Scale of object solution in camera space (in [0.0001, 10000], default 1.0)"""
@@ -66917,11 +67196,13 @@ class MusgraveTexture(Texture, ID, bpy_struct):
     offset: float
     """ The fractal offset (in [0, 6], default 1.0)"""
 
-    users_material: tuple[Material, ...]
-    """ Materials that use this texture(readonly)"""
+    @property
+    def users_material(self) -> tuple[Material, ...]:
+        """Materials that use this texture(readonly)"""
 
-    users_object_modifier: tuple[Object, ...]
-    """ Object modifiers that use this texture(readonly)"""
+    @property
+    def users_object_modifier(self) -> tuple[Object, ...]:
+        """Object modifiers that use this texture(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -67485,8 +67766,9 @@ class Node(bpy_struct):
         """
 
 class NodeClosureInput(NodeInternal, Node, bpy_struct):
-    paired_output: Node | None
-    """ Zone output node that this input node is paired with (readonly)"""
+    @property
+    def paired_output(self) -> Node | None:
+        """Zone output node that this input node is paired with (readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -67809,8 +68091,9 @@ class NodeCompositorFileOutputItem(bpy_struct):
     color: bpy_prop_array[float]
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
-    format: ImageFormatSettings | None
-    """ (readonly)"""
+    @property
+    def format(self) -> ImageFormatSettings | None:
+        """(readonly)"""
 
     name: str
     """ (default "", never None)"""
@@ -68834,11 +69117,13 @@ class NodeJoinBundle(NodeInternal, Node, bpy_struct):
 class NodeLink(bpy_struct):
     """Link between nodes in a node tree"""
 
-    from_node: Node | None
-    """ (readonly)"""
+    @property
+    def from_node(self) -> Node | None:
+        """(readonly)"""
 
-    from_socket: NodeSocket | None
-    """ (readonly)"""
+    @property
+    def from_socket(self) -> NodeSocket | None:
+        """(readonly)"""
 
     is_hidden: bool
     """ Link is hidden due to invisible sockets (default False, readonly)"""
@@ -68852,11 +69137,13 @@ class NodeLink(bpy_struct):
     multi_input_sort_id: int
     """ Used to sort multiple links coming into the same input. The highest ID is at the top. (in [0, inf], default 0, readonly)"""
 
-    to_node: Node | None
-    """ (readonly)"""
+    @property
+    def to_node(self) -> Node | None:
+        """(readonly)"""
 
-    to_socket: NodeSocket | None
-    """ (readonly)"""
+    @property
+    def to_socket(self) -> NodeSocket | None:
+        """(readonly)"""
 
     def swap_multi_input_sort_id(self, other: typing_extensions.Self) -> None:
         """Swap the order of two links connected to the same multi-input socket
@@ -69127,8 +69414,9 @@ class NodeSocket(bpy_struct):
     name: str
     """ Socket name (default "", never None)"""
 
-    node: Node | None
-    """ Node owning this socket (readonly)"""
+    @property
+    def node(self) -> Node | None:
+        """Node owning this socket (readonly)"""
 
     pin_gizmo: bool
     """ Keep gizmo visible even when the node is not selected (default False)"""
@@ -69142,8 +69430,9 @@ class NodeSocket(bpy_struct):
     type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketTypeItems]
     """ Data type (default 'VALUE')"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     def bl_system_properties_get(
         self, *, do_create: bool | None = False
@@ -69212,8 +69501,9 @@ class NodeSocketBool(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bool
     """ (default False)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69246,8 +69536,9 @@ class NodeSocketBool(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketBundle(NodeSocketStandard, NodeSocket, bpy_struct):
     """Bundle socket of a node"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69280,8 +69571,9 @@ class NodeSocketBundle(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketClosure(NodeSocketStandard, NodeSocket, bpy_struct):
     """Closure socket of a node"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69315,8 +69607,9 @@ class NodeSocketCollection(NodeSocketStandard, NodeSocket, bpy_struct):
     """Collection socket of a node"""
 
     default_value: Collection | None
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69352,8 +69645,9 @@ class NodeSocketColor(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[float]
     """ (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69389,8 +69683,9 @@ class NodeSocketFloat(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: float
     """ (in [-inf, inf], default 0.0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69426,8 +69721,9 @@ class NodeSocketFloatAngle(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: float
     """ (in [-inf, inf], default 0.0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69463,8 +69759,9 @@ class NodeSocketFloatColorTemperature(NodeSocketStandard, NodeSocket, bpy_struct
     default_value: float
     """ (in [-inf, inf], default 0.0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69500,8 +69797,9 @@ class NodeSocketFloatDistance(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: float
     """ (in [-inf, inf], default 0.0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69537,8 +69835,9 @@ class NodeSocketFloatFactor(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: float
     """ (in [0, 1], default 0.0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69574,8 +69873,9 @@ class NodeSocketFloatFrequency(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: float
     """ (in [-inf, inf], default 0.0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69611,8 +69911,9 @@ class NodeSocketFloatMass(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: float
     """ (in [-inf, inf], default 0.0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69648,8 +69949,9 @@ class NodeSocketFloatPercentage(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: float
     """ (in [-inf, inf], default 0.0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69685,8 +69987,9 @@ class NodeSocketFloatTime(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: float
     """ (in [-inf, inf], default 0.0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69722,8 +70025,9 @@ class NodeSocketFloatTimeAbsolute(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: float
     """ (in [-inf, inf], default 0.0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69759,8 +70063,9 @@ class NodeSocketFloatUnsigned(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: float
     """ (in [0, inf], default 0.0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69796,8 +70101,9 @@ class NodeSocketFloatWavelength(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: float
     """ (in [-inf, inf], default 0.0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69831,8 +70137,9 @@ class NodeSocketFont(NodeSocketStandard, NodeSocket, bpy_struct):
     """Font socket of a node"""
 
     default_value: VectorFont | None
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69865,8 +70172,9 @@ class NodeSocketFont(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketGeometry(NodeSocketStandard, NodeSocket, bpy_struct):
     """Geometry socket of a node"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69900,8 +70208,9 @@ class NodeSocketImage(NodeSocketStandard, NodeSocket, bpy_struct):
     """Image socket of a node"""
 
     default_value: Image | None
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69937,8 +70246,9 @@ class NodeSocketInt(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: int
     """ (in [-inf, inf], default 0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -69974,8 +70284,9 @@ class NodeSocketIntFactor(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: int
     """ (in [0, inf], default 1)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70011,8 +70322,9 @@ class NodeSocketIntPercentage(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: int
     """ (in [0, inf], default 100)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70048,8 +70360,9 @@ class NodeSocketIntUnsigned(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: int
     """ (in [0, inf], default 0)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70085,8 +70398,9 @@ class NodeSocketIntVector2D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[int]
     """ (array of 2 items, in [-inf, inf], default (0, 0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70122,8 +70436,9 @@ class NodeSocketIntVector3D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[int]
     """ (array of 3 items, in [-inf, inf], default (0, 0, 0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70159,8 +70474,9 @@ class NodeSocketIntVectorFactor2D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[int]
     """ (array of 2 items, in [0, inf], default (0, 0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70196,8 +70512,9 @@ class NodeSocketIntVectorFactor3D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[int]
     """ (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70233,8 +70550,9 @@ class NodeSocketIntVectorPercentage2D(NodeSocketStandard, NodeSocket, bpy_struct
     default_value: bpy_prop_array[int]
     """ (array of 2 items, in [0, inf], default (0, 0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70270,8 +70588,9 @@ class NodeSocketIntVectorPercentage3D(NodeSocketStandard, NodeSocket, bpy_struct
     default_value: bpy_prop_array[int]
     """ (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70307,8 +70626,9 @@ class NodeSocketIntVectorUnsigned2D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[int]
     """ (array of 2 items, in [0, inf], default (0, 0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70344,8 +70664,9 @@ class NodeSocketIntVectorUnsigned3D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[int]
     """ (array of 3 items, in [0, inf], default (0, 0, 0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70379,8 +70700,9 @@ class NodeSocketMask(NodeSocketStandard, NodeSocket, bpy_struct):
     """Mask socket of a node"""
 
     default_value: Mask | None
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70414,8 +70736,9 @@ class NodeSocketMaterial(NodeSocketStandard, NodeSocket, bpy_struct):
     """Material socket of a node"""
 
     default_value: Material | None
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70448,8 +70771,9 @@ class NodeSocketMaterial(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketMatrix(NodeSocketStandard, NodeSocket, bpy_struct):
     """Matrix value socket of a node"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70483,8 +70807,9 @@ class NodeSocketMenu(NodeSocketStandard, NodeSocket, bpy_struct):
     """Menu socket of a node"""
 
     default_value: str
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70518,8 +70843,9 @@ class NodeSocketObject(NodeSocketStandard, NodeSocket, bpy_struct):
     """Object socket of a node"""
 
     default_value: Object | None
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70555,8 +70881,9 @@ class NodeSocketRotation(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Euler
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70590,8 +70917,9 @@ class NodeSocketScene(NodeSocketStandard, NodeSocket, bpy_struct):
     """Scene socket of a node"""
 
     default_value: Scene | None
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70624,8 +70952,9 @@ class NodeSocketScene(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketShader(NodeSocketStandard, NodeSocket, bpy_struct):
     """Shader socket of a node"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70659,8 +70988,9 @@ class NodeSocketSound(NodeSocketStandard, NodeSocket, bpy_struct):
     """Sound socket of a node"""
 
     default_value: Sound | None
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70691,8 +71021,9 @@ class NodeSocketSound(NodeSocketStandard, NodeSocket, bpy_struct):
         """
 
 class NodeSocketStandard(NodeSocket, bpy_struct):
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     def draw(self, context: Context, layout: UILayout, node: Node, text: str) -> None:
         """Draw socket
@@ -70752,8 +71083,9 @@ class NodeSocketString(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: str
     """ (default "", never None)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70789,8 +71121,9 @@ class NodeSocketStringFilePath(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: str
     """ (default "", never None, blend relative // prefix supported)"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70824,8 +71157,9 @@ class NodeSocketText(NodeSocketStandard, NodeSocket, bpy_struct):
     """Text socket of a node"""
 
     default_value: Text | None
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70859,8 +71193,9 @@ class NodeSocketTexture(NodeSocketStandard, NodeSocket, bpy_struct):
     """Texture socket of a node"""
 
     default_value: Texture | None
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70896,8 +71231,9 @@ class NodeSocketVector(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[float]
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70933,8 +71269,9 @@ class NodeSocketVector2D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[float]
     """ (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -70970,8 +71307,9 @@ class NodeSocketVector4D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[float]
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71007,8 +71345,9 @@ class NodeSocketVectorAcceleration(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71044,8 +71383,9 @@ class NodeSocketVectorAcceleration2D(NodeSocketStandard, NodeSocket, bpy_struct)
     default_value: mathutils.Vector
     """ (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71081,8 +71421,9 @@ class NodeSocketVectorAcceleration4D(NodeSocketStandard, NodeSocket, bpy_struct)
     default_value: mathutils.Vector
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71118,8 +71459,9 @@ class NodeSocketVectorDirection(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71155,8 +71497,9 @@ class NodeSocketVectorDirection2D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71192,8 +71535,9 @@ class NodeSocketVectorDirection4D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71229,8 +71573,9 @@ class NodeSocketVectorEuler(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Euler
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71266,8 +71611,9 @@ class NodeSocketVectorEuler2D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[float]
     """ (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71303,8 +71649,9 @@ class NodeSocketVectorEuler4D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Quaternion
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71340,8 +71687,9 @@ class NodeSocketVectorFactor(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[float]
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71377,8 +71725,9 @@ class NodeSocketVectorFactor2D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[float]
     """ (array of 2 items, in [0, 1], default (0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71414,8 +71763,9 @@ class NodeSocketVectorFactor4D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71451,8 +71801,9 @@ class NodeSocketVectorPercentage(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[float]
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71488,8 +71839,9 @@ class NodeSocketVectorPercentage2D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[float]
     """ (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71525,8 +71877,9 @@ class NodeSocketVectorPercentage4D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: bpy_prop_array[float]
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71562,8 +71915,9 @@ class NodeSocketVectorTranslation(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71599,8 +71953,9 @@ class NodeSocketVectorTranslation2D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71636,8 +71991,9 @@ class NodeSocketVectorTranslation4D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71673,8 +72029,9 @@ class NodeSocketVectorVelocity(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71710,8 +72067,9 @@ class NodeSocketVectorVelocity2D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71747,8 +72105,9 @@ class NodeSocketVectorVelocity4D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71784,8 +72143,9 @@ class NodeSocketVectorXYZ(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71821,8 +72181,9 @@ class NodeSocketVectorXYZ2D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71858,8 +72219,9 @@ class NodeSocketVectorXYZ4D(NodeSocketStandard, NodeSocket, bpy_struct):
     default_value: mathutils.Vector
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71892,8 +72254,9 @@ class NodeSocketVectorXYZ4D(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeSocketVirtual(NodeSocketStandard, NodeSocket, bpy_struct):
     """Virtual socket of a node"""
 
-    links: NodeLinks | None
-    """ List of node links from or to this socket.(readonly)"""
+    @property
+    def links(self) -> NodeLinks | None:
+        """List of node links from or to this socket.(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -71988,8 +72351,9 @@ class NodeStoreBundleItem(NodeInternal, Node, bpy_struct):
 class NodeTree(ID, bpy_struct):
     """Node tree consisting of linked nodes used for shading, textures and compositing"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     annotation: Annotation | None
     """ Annotation data"""
@@ -72036,8 +72400,9 @@ class NodeTree(ID, bpy_struct):
     description: str
     """ Description of the node tree (default "", never None)"""
 
-    interface: NodeTreeInterface | None
-    """ Interface declaration for this node tree (readonly)"""
+    @property
+    def interface(self) -> NodeTreeInterface | None:
+        """Interface declaration for this node tree (readonly)"""
 
     links: NodeLinks
     """ (default None, readonly)"""
@@ -72257,8 +72622,9 @@ class NodeTreeInterfaceItem(bpy_struct):
     ]
     """ Type of interface item (default 'PANEL', readonly)"""
 
-    parent: NodeTreeInterfacePanel | None
-    """ Panel that contains the item (readonly)"""
+    @property
+    def parent(self) -> NodeTreeInterfacePanel | None:
+        """Panel that contains the item (readonly)"""
 
     position: int
     """ Position of the item in its parent panel (in [-1, inf], default 0, readonly)"""
@@ -77095,8 +77461,9 @@ class NodeTreeInterfaceSocketVectorXYZ4D(
 class NodeTreePath(bpy_struct):
     """Element of the node space tree path"""
 
-    node_tree: NodeTree | None
-    """ Base node tree from context (readonly)"""
+    @property
+    def node_tree(self) -> NodeTree | None:
+        """Base node tree from context (readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -77242,8 +77609,9 @@ class NodesModifierBake(bpy_struct):
     frame_start: int
     """ Frame where the baking starts (in [-inf, inf], default 0)"""
 
-    node: Node | None
-    """ Bake node or simulation output node that corresponds to this bake. This node may be deeply nested in the modifier node group. It can be none in some cases like missing linked data blocks. (readonly)"""
+    @property
+    def node(self) -> Node | None:
+        """Bake node or simulation output node that corresponds to this bake. This node may be deeply nested in the modifier node group. It can be none in some cases like missing linked data blocks. (readonly)"""
 
     use_custom_path: bool
     """ Specify a path where the baked data should be stored manually (default False)"""
@@ -77390,11 +77758,13 @@ class NodesModifierWarning(bpy_struct):
 class NoiseTexture(Texture, ID, bpy_struct):
     """Procedural noise texture"""
 
-    users_material: tuple[Material, ...]
-    """ Materials that use this texture(readonly)"""
+    @property
+    def users_material(self) -> tuple[Material, ...]:
+        """Materials that use this texture(readonly)"""
 
-    users_object_modifier: tuple[Object, ...]
-    """ Object modifiers that use this texture(readonly)"""
+    @property
+    def users_object_modifier(self) -> tuple[Object, ...]:
+        """Object modifiers that use this texture(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -77497,8 +77867,9 @@ class Object(ID, bpy_struct):
     active_selection_set: int | None
     """ Index of the currently active selection set (in [-inf, inf], default 0)"""
 
-    active_shape_key: ShapeKey | None
-    """ Current shape key (readonly)"""
+    @property
+    def active_shape_key(self) -> ShapeKey | None:
+        """Current shape key (readonly)"""
 
     active_shape_key_index: int | None
     """ Current shape key index (in [-32768, 32767], default 0)"""
@@ -77506,17 +77877,20 @@ class Object(ID, bpy_struct):
     add_rest_position_attribute: bool
     """ Add a "rest_position" attribute that is a copy of the position attribute before shape keys and modifiers are evaluated (default False)"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
-    animation_visualization: AnimViz
-    """ Animation data for this data-block (readonly, never None)"""
+    @property
+    def animation_visualization(self) -> AnimViz:
+        """Animation data for this data-block (readonly, never None)"""
 
     bound_box: bpy_prop_array[float]
     """ Object's bounding box in object-space coordinates, all values are -1.0 when not available (multi-dimensional array of 8 * 3 items, in [-inf, inf], default ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)), readonly)"""
 
-    collision: CollisionSettings | None
-    """ Settings for using the object as a collider in physics simulation (readonly)"""
+    @property
+    def collision(self) -> CollisionSettings | None:
+        """Settings for using the object as a collider in physics simulation (readonly)"""
 
     color: bpy_prop_array[float]
     """ Object color and alpha, used when the Object Color mode is enabled (array of 4 items, in [0, inf], default (1.0, 1.0, 1.0, 1.0))"""
@@ -77561,8 +77935,9 @@ class Object(ID, bpy_struct):
     """ Absolute bounding box dimensions of the object.
 Warning: Assigning to it or its members multiple consecutive times will not work correctly, as this needs up-to-date evaluated data(array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    display: ObjectDisplay
-    """ Object display settings for 3D viewport (readonly, never None)"""
+    @property
+    def display(self) -> ObjectDisplay:
+        """Object display settings for 3D viewport (readonly, never None)"""
 
     display_bounds_type: typing.Literal["BOX", "SPHERE", "CYLINDER", "CONE", "CAPSULE"]
     """ Object boundary display type (default 'BOX')"""
@@ -77587,8 +77962,9 @@ Warning: Assigning to it or its members multiple consecutive times will not work
     empty_image_side: typing.Literal["DOUBLE_SIDED", "FRONT", "BACK"]
     """ Show front/back side (default 'DOUBLE_SIDED')"""
 
-    field: FieldSettings | None
-    """ Settings for using the object as a field in physics simulation (readonly)"""
+    @property
+    def field(self) -> FieldSettings | None:
+        """Settings for using the object as a field in physics simulation (readonly)"""
 
     hide_probe_plane: bool
     """ Globally disable in planar light probes (default False)"""
@@ -77611,8 +77987,9 @@ Warning: Assigning to it or its members multiple consecutive times will not work
     hide_viewport: bool
     """ Globally disable in viewports (default False)"""
 
-    image_user: ImageUser
-    """ Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
+    @property
+    def image_user(self) -> ImageUser:
+        """Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
 
     instance_collection: Collection | None
     """ Instance an existing collection"""
@@ -77638,14 +78015,16 @@ Warning: Assigning to it or its members multiple consecutive times will not work
     is_shadow_catcher: bool
     """ Only render shadows and reflections on this object, for compositing renders into real footage. Objects with this setting are considered to already exist in the footage, objects without it are synthetic objects being composited into it. (default False)"""
 
-    light_linking: ObjectLightLinking
-    """ Light linking settings (readonly, never None)"""
+    @property
+    def light_linking(self) -> ObjectLightLinking:
+        """Light linking settings (readonly, never None)"""
 
     lightgroup: str
     """ Lightgroup that the object belongs to (default "", never None)"""
 
-    lineart: ObjectLineArt | None
-    """ Line Art settings for the object (readonly)"""
+    @property
+    def lineart(self) -> ObjectLineArt | None:
+        """Line Art settings for the object (readonly)"""
 
     location: mathutils.Vector
     """ Location of the object (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
@@ -77687,8 +78066,9 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     modifiers: ObjectModifiers
     """ Modifiers affecting the geometric data of the object (default None, readonly)"""
 
-    motion_path: MotionPath | None
-    """ Motion Path for this element (readonly)"""
+    @property
+    def motion_path(self) -> MotionPath | None:
+        """Motion Path for this element (readonly)"""
 
     parent: Object | None
     """ Parent object"""
@@ -77710,14 +78090,17 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     pass_index: int
     """ Index number for the "Object Index" render pass (in [0, 32767], default 0)"""
 
-    pose: Pose | None
-    """ Current pose for armatures (readonly)"""
+    @property
+    def pose(self) -> Pose | None:
+        """Current pose for armatures (readonly)"""
 
-    rigid_body: RigidBodyObject | None
-    """ Settings for rigid body simulation (readonly)"""
+    @property
+    def rigid_body(self) -> RigidBodyObject | None:
+        """Settings for rigid body simulation (readonly)"""
 
-    rigid_body_constraint: RigidBodyConstraint | None
-    """ Constraint constraining rigid bodies (readonly)"""
+    @property
+    def rigid_body_constraint(self) -> RigidBodyConstraint | None:
+        """Constraint constraining rigid bodies (readonly)"""
 
     rotation_axis_angle: bpy_prop_array[float]
     """ Angle of Rotation for Axis-Angle rotation representation (array of 4 items, in [-inf, inf], default (0.0, 0.0, 1.0, 0.0))"""
@@ -77791,8 +78174,9 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     show_wire: bool
     """ Display the object's wireframe over solid shading (default False)"""
 
-    soft_body: SoftBodySettings | None
-    """ Settings for soft body simulation (readonly)"""
+    @property
+    def soft_body(self) -> SoftBodySettings | None:
+        """Settings for soft body simulation (readonly)"""
 
     track_axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
     """ Axis that points in the 'forward' direction (applies to Instance Vertices when Align to Vertex Normal is enabled) (default 'POS_X')"""
@@ -77860,17 +78244,21 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     visible_volume_scatter: bool
     """ Object visibility to volume scattering rays (default True)"""
 
-    children: tuple[Object, ...]
-    """ All the children of this object.(readonly)"""
+    @property
+    def children(self) -> tuple[Object, ...]:
+        """All the children of this object.(readonly)"""
 
-    children_recursive: list[Object]
-    """ A list of all children from this object.(readonly)"""
+    @property
+    def children_recursive(self) -> list[Object]:
+        """A list of all children from this object.(readonly)"""
 
-    users_collection: tuple[Collection, ...]
-    """ The collections this object is in.(readonly)"""
+    @property
+    def users_collection(self) -> tuple[Collection, ...]:
+        """The collections this object is in.(readonly)"""
 
-    users_scene: tuple[Scene, ...]
-    """ The scenes this object is in.(readonly)"""
+    @property
+    def users_scene(self) -> tuple[Scene, ...]:
+        """The scenes this object is in.(readonly)"""
 
     def select_get(self, *, view_layer: ViewLayer | None = None) -> bool:
         """Test if the object is selected. The selection state is per view layer.
@@ -78265,8 +78653,9 @@ class ObjectBase(bpy_struct):
     hide_viewport: bool
     """ Temporarily hide in viewport (default False)"""
 
-    object: Object | None
-    """ Object this base links to (readonly)"""
+    @property
+    def object(self) -> Object | None:
+        """Object this base links to (readonly)"""
 
     select: bool
     """ Object base selection state (default False)"""
@@ -78624,8 +79013,9 @@ class Operator(bpy_struct):
     has_reports: bool
     """ Operator has a set of reports (warnings and errors) from last execution (default False, readonly)"""
 
-    layout: UILayout | None
-    """ (readonly)"""
+    @property
+    def layout(self) -> UILayout | None:
+        """(readonly)"""
 
     macros: bpy_prop_collection[Macro]
     """ (default None, readonly)"""
@@ -78633,11 +79023,13 @@ class Operator(bpy_struct):
     name: str
     """ (default "", readonly, never None)"""
 
-    options: OperatorOptions
-    """ Runtime options (readonly, never None)"""
+    @property
+    def options(self) -> OperatorOptions:
+        """Runtime options (readonly, never None)"""
 
-    properties: OperatorProperties
-    """ (readonly, never None)"""
+    @property
+    def properties(self) -> OperatorProperties:
+        """(readonly, never None)"""
 
     bl_property: str
     """ The name of a property to use as this operators primary property.
@@ -78810,8 +79202,9 @@ class OperatorFileListElement(PropertyGroup, bpy_struct):
 class OperatorMacro(bpy_struct):
     """Storage of a sub operator in a macro after it has been added"""
 
-    properties: OperatorProperties
-    """ (readonly, never None)"""
+    @property
+    def properties(self) -> OperatorProperties:
+        """(readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -79291,14 +79684,17 @@ class PackedFile(bpy_struct):
         """
 
 class Paint(bpy_struct):
-    brush: Brush | None
-    """ Active brush (readonly)"""
+    @property
+    def brush(self) -> Brush | None:
+        """Active brush (readonly)"""
 
-    brush_asset_reference: AssetWeakReference | None
-    """ A weak reference to the matching brush asset, used e.g. to restore the last used brush on file load (readonly)"""
+    @property
+    def brush_asset_reference(self) -> AssetWeakReference | None:
+        """A weak reference to the matching brush asset, used e.g. to restore the last used brush on file load (readonly)"""
 
-    cavity_curve: CurveMapping
-    """ Editable cavity curve (readonly, never None)"""
+    @property
+    def cavity_curve(self) -> CurveMapping:
+        """Editable cavity curve (readonly, never None)"""
 
     palette: Palette | None
     """ Active Palette"""
@@ -79336,8 +79732,9 @@ class Paint(bpy_struct):
     tile_z: bool
     """ Tile along Z axis (default False)"""
 
-    unified_paint_settings: UnifiedPaintSettings
-    """ (readonly, never None)"""
+    @property
+    def unified_paint_settings(self) -> UnifiedPaintSettings:
+        """(readonly, never None)"""
 
     use_cavity: bool
     """ Mask painting according to mesh geometry cavity (default False)"""
@@ -79567,14 +79964,16 @@ class Panel(bpy_struct):
     bl_ui_units_x: int
     """ When set, defines popup panel width (in [0, inf], default 0)"""
 
-    custom_data: Constraint | None
-    """ Panel data (readonly)"""
+    @property
+    def custom_data(self) -> Constraint | None:
+        """Panel data (readonly)"""
 
     is_popover: bool
     """ (default False, readonly)"""
 
-    layout: UILayout | None
-    """ Defines the structure of the panel in the UI (readonly)"""
+    @property
+    def layout(self) -> UILayout | None:
+        """Defines the structure of the panel in the UI (readonly)"""
 
     text: str
     """ Override for the panel label in the UI (default "", never None)"""
@@ -79758,8 +80157,9 @@ class ParticleBrush(bpy_struct):
     count: int
     """ Particle count (in [1, 1000], default 10)"""
 
-    curve: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """(readonly)"""
 
     length_mode: typing.Literal["GROW", "SHRINK"]
     """ (default 'GROW')"""
@@ -79847,8 +80247,9 @@ class ParticleDupliWeight(bpy_struct):
 class ParticleEdit(bpy_struct):
     """Properties of particle editing mode"""
 
-    brush: ParticleBrush | None
-    """ (readonly)"""
+    @property
+    def brush(self) -> ParticleBrush | None:
+        """(readonly)"""
 
     default_key_count: int
     """ How many keys to make new particles with (in [2, 32767], default 5)"""
@@ -79868,8 +80269,9 @@ class ParticleEdit(bpy_struct):
     is_hair: bool
     """ Editing hair (default False, readonly)"""
 
-    object: Object | None
-    """ The edited object (readonly)"""
+    @property
+    def object(self) -> Object | None:
+        """The edited object (readonly)"""
 
     select_mode: typing.Literal["PATH", "POINT", "TIP"]
     """ Particle select and display mode (default 'PATH')"""
@@ -80142,8 +80544,9 @@ class ParticleKey(bpy_struct):
 class ParticleSettings(ID, bpy_struct):
     """Particle settings, reusable by multiple particle systems"""
 
-    active_instanceweight: ParticleDupliWeight | None
-    """ (readonly)"""
+    @property
+    def active_instanceweight(self) -> ParticleDupliWeight | None:
+        """(readonly)"""
 
     active_instanceweight_index: int | None
     """ (in [0, inf], default 0)"""
@@ -80175,8 +80578,9 @@ class ParticleSettings(ID, bpy_struct):
     ]
     """ What axis is used to change particle rotation with time (default 'VELOCITY')"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     apply_effector_to_children: bool
     """ Apply effectors to children (default False)"""
@@ -80187,8 +80591,9 @@ class ParticleSettings(ID, bpy_struct):
     bending_random: float
     """ Random stiffness of hairs (in [0, 1], default 0.0)"""
 
-    boids: BoidSettings | None
-    """ (readonly)"""
+    @property
+    def boids(self) -> BoidSettings | None:
+        """(readonly)"""
 
     branch_threshold: float
     """ Threshold of branching (in [0, 1], default 0.0)"""
@@ -80229,8 +80634,9 @@ class ParticleSettings(ID, bpy_struct):
     child_type: typing.Literal["NONE", "SIMPLE", "INTERPOLATED"]
     """ Create child particles (default 'NONE')"""
 
-    clump_curve: CurveMapping | None
-    """ Curve defining clump tapering (readonly)"""
+    @property
+    def clump_curve(self) -> CurveMapping | None:
+        """Curve defining clump tapering (readonly)"""
 
     clump_factor: float
     """ Amount of clumping (in [-1, 1], default 0.0)"""
@@ -80286,8 +80692,9 @@ class ParticleSettings(ID, bpy_struct):
     effector_amount: int
     """ How many particles are effectors (0 is all particles) (in [0, 10000], default 0)"""
 
-    effector_weights: EffectorWeights | None
-    """ (readonly)"""
+    @property
+    def effector_weights(self) -> EffectorWeights | None:
+        """(readonly)"""
 
     emit_from: typing.Literal["VERT", "FACE", "VOLUME"]
     """ Where to emit particles from (default 'FACE')"""
@@ -80295,14 +80702,17 @@ class ParticleSettings(ID, bpy_struct):
     factor_random: float
     """ Give the starting velocity a random variation (in [0, 200], default 0.0)"""
 
-    fluid: SPHFluidSettings | None
-    """ (readonly)"""
+    @property
+    def fluid(self) -> SPHFluidSettings | None:
+        """(readonly)"""
 
-    force_field_1: FieldSettings | None
-    """ (readonly)"""
+    @property
+    def force_field_1(self) -> FieldSettings | None:
+        """(readonly)"""
 
-    force_field_2: FieldSettings | None
-    """ (readonly)"""
+    @property
+    def force_field_2(self) -> FieldSettings | None:
+        """(readonly)"""
 
     frame_end: float
     """ Frame number to stop emitting particles (in [-1.04857e+06, 1.04857e+06], default 200.0)"""
@@ -80492,8 +80902,9 @@ class ParticleSettings(ID, bpy_struct):
     roughness_2_threshold: float
     """ Amount of particles left untouched by random roughness (in [0, 1], default 0.0)"""
 
-    roughness_curve: CurveMapping | None
-    """ Curve defining roughness (readonly)"""
+    @property
+    def roughness_curve(self) -> CurveMapping | None:
+        """Curve defining roughness (readonly)"""
 
     roughness_end_shape: float
     """ Shape of endpoint roughness (in [0, 10], default 1.0)"""
@@ -80555,8 +80966,9 @@ class ParticleSettings(ID, bpy_struct):
     twist: float
     """ Number of turns around parent along the strand (in [-100000, 100000], default 0.0)"""
 
-    twist_curve: CurveMapping | None
-    """ Curve defining twist (readonly)"""
+    @property
+    def twist_curve(self) -> CurveMapping | None:
+        """Curve defining twist (readonly)"""
 
     type: typing.Literal["EMITTER", "HAIR"]
     """ Particle type (default 'EMITTER')"""
@@ -80830,8 +81242,9 @@ class ParticleSettingsTextureSlot(TextureSlot, bpy_struct):
 class ParticleSystem(bpy_struct):
     """Particle system in an object"""
 
-    active_particle_target: ParticleTarget | None
-    """ (readonly)"""
+    @property
+    def active_particle_target(self) -> ParticleTarget | None:
+        """(readonly)"""
 
     active_particle_target_index: int | None
     """ (in [0, inf], default 0)"""
@@ -80842,8 +81255,9 @@ class ParticleSystem(bpy_struct):
     child_seed: int
     """ Offset in the random number table for child particles, to get a different randomized result (in [0, inf], default 0)"""
 
-    cloth: ClothModifier
-    """ Cloth dynamics for hair (readonly, never None)"""
+    @property
+    def cloth(self) -> ClothModifier:
+        """Cloth dynamics for hair (readonly, never None)"""
 
     dt_frac: float
     """ The current simulation time step size, as a fraction of a frame (in [0.00990099, 1], default 0.0, readonly)"""
@@ -80908,8 +81322,9 @@ class ParticleSystem(bpy_struct):
     particles: bpy_prop_collection[Particle]
     """ Particles generated by the particle system (default None, readonly)"""
 
-    point_cache: PointCache
-    """ (readonly, never None)"""
+    @property
+    def point_cache(self) -> PointCache:
+        """(readonly, never None)"""
 
     reactor_target_object: Object | None
     """ For reactor systems, the object that has the target particle system (empty if same object)"""
@@ -81047,8 +81462,9 @@ class ParticleSystem(bpy_struct):
 class ParticleSystemModifier(Modifier, bpy_struct):
     """Particle system simulation modifier"""
 
-    particle_system: ParticleSystem
-    """ Particle System that this modifier controls (readonly, never None)"""
+    @property
+    def particle_system(self) -> ParticleSystem:
+        """Particle System that this modifier controls (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -81460,8 +81876,9 @@ class PointCacheItem(bpy_struct):
 class PointCloud(ID, bpy_struct):
     """Point cloud data-block"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     attributes: AttributeGroupPointCloud
     """ Geometry attributes (default None, readonly)"""
@@ -81577,8 +81994,9 @@ class PointLight(Light, ID, bpy_struct):
 class PointerProperty(Property, bpy_struct):
     """RNA pointer property to point to another RNA struct"""
 
-    fixed_type: Struct | None
-    """ Fixed pointer type, empty if variable type (readonly)"""
+    @property
+    def fixed_type(self) -> Struct | None:
+        """Fixed pointer type, empty if variable type (readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -81611,14 +82029,16 @@ class PointerProperty(Property, bpy_struct):
 class Pose(bpy_struct):
     """A collection of pose channels, including settings for animating bones"""
 
-    animation_visualization: AnimViz
-    """ Animation data for this data-block (readonly, never None)"""
+    @property
+    def animation_visualization(self) -> AnimViz:
+        """Animation data for this data-block (readonly, never None)"""
 
     bones: bpy_prop_collection[PoseBone]
     """ Individual pose bones for the armature (default None, readonly)"""
 
-    ik_param: IKParam | None
-    """ Parameters for IK solver (readonly)"""
+    @property
+    def ik_param(self) -> IKParam | None:
+        """Parameters for IK solver (readonly)"""
 
     ik_solver: typing.Literal["LEGACY", "ITASC"]
     """ Selection of IK solver for IK chain (default 'LEGACY')"""
@@ -81718,11 +82138,13 @@ class PoseBone(bpy_struct):
     bbone_curveoutz: float
     """ Z-axis handle offset for end of the B-Bone's curve, adjusts curvature (in [-inf, inf], default 0.0)"""
 
-    bbone_custom_handle_end: typing_extensions.Self | None
-    """ Bone that serves as the end handle for the B-Bone curve (readonly)"""
+    @property
+    def bbone_custom_handle_end(self) -> typing_extensions.Self | None:
+        """Bone that serves as the end handle for the B-Bone curve (readonly)"""
 
-    bbone_custom_handle_start: typing_extensions.Self | None
-    """ Bone that serves as the start handle for the B-Bone curve (readonly)"""
+    @property
+    def bbone_custom_handle_start(self) -> typing_extensions.Self | None:
+        """Bone that serves as the start handle for the B-Bone curve (readonly)"""
 
     bbone_easein: float
     """ Length of first Bézier Handle (for B-Bones only) (in [-inf, inf], default 0.0)"""
@@ -81742,14 +82164,17 @@ class PoseBone(bpy_struct):
     bbone_scaleout: mathutils.Vector
     """ Scale factors for the end of the B-Bone, adjusts thickness (for tapering effects) (array of 3 items, in [-inf, inf], default (1.0, 1.0, 1.0))"""
 
-    bone: Bone
-    """ Bone associated with this PoseBone (readonly, never None)"""
+    @property
+    def bone(self) -> Bone:
+        """Bone associated with this PoseBone (readonly, never None)"""
 
-    child: typing_extensions.Self | None
-    """ Child of this pose bone (readonly)"""
+    @property
+    def child(self) -> typing_extensions.Self | None:
+        """Child of this pose bone (readonly)"""
 
-    color: BoneColor | None
-    """ (readonly)"""
+    @property
+    def color(self) -> BoneColor | None:
+        """(readonly)"""
 
     constraints: PoseBoneConstraints
     """ Constraints that act on this pose channel (default None, readonly)"""
@@ -81856,14 +82281,16 @@ class PoseBone(bpy_struct):
     matrix_channel: mathutils.Matrix
     """ 4×4 matrix of the bone's location/rotation/scale channels (including animation and drivers) and the effect of bone constraints (multi-dimensional array of 4 * 4 items, in [-inf, inf], default ((0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)), readonly)"""
 
-    motion_path: MotionPath | None
-    """ Motion Path for this element (readonly)"""
+    @property
+    def motion_path(self) -> MotionPath | None:
+        """Motion Path for this element (readonly)"""
 
     name: str
     """ (default "", never None)"""
 
-    parent: PoseBone | None
-    """ Parent of this pose bone (readonly)"""
+    @property
+    def parent(self) -> PoseBone | None:
+        """Parent of this pose bone (readonly)"""
 
     rotation_axis_angle: bpy_prop_array[float]
     """ Angle of Rotation for Axis-Angle rotation representation (array of 4 items, in [-inf, inf], default (0.0, 0.0, 1.0, 0.0))"""
@@ -82061,32 +82488,39 @@ class Preferences(bpy_struct):
     app_template: str
     """ (default "", never None)"""
 
-    apps: PreferencesApps
-    """ Preferences that work only for apps (readonly, never None)"""
+    @property
+    def apps(self) -> PreferencesApps:
+        """Preferences that work only for apps (readonly, never None)"""
 
     autoexec_paths: PathCompareCollection
     """ (default None, readonly)"""
 
-    edit: PreferencesEdit
-    """ Settings for interacting with Blender data (readonly, never None)"""
+    @property
+    def edit(self) -> PreferencesEdit:
+        """Settings for interacting with Blender data (readonly, never None)"""
 
-    experimental: PreferencesExperimental
-    """ Settings for features that are still early in their development stage (readonly, never None)"""
+    @property
+    def experimental(self) -> PreferencesExperimental:
+        """Settings for features that are still early in their development stage (readonly, never None)"""
 
-    extensions: PreferencesExtensions
-    """ Settings for extensions (readonly, never None)"""
+    @property
+    def extensions(self) -> PreferencesExtensions:
+        """Settings for extensions (readonly, never None)"""
 
-    filepaths: PreferencesFilePaths
-    """ Default paths for external files (readonly, never None)"""
+    @property
+    def filepaths(self) -> PreferencesFilePaths:
+        """Default paths for external files (readonly, never None)"""
 
-    inputs: PreferencesInput
-    """ Settings for input devices (readonly, never None)"""
+    @property
+    def inputs(self) -> PreferencesInput:
+        """Settings for input devices (readonly, never None)"""
 
     is_dirty: bool
     """ Preferences have changed (default False)"""
 
-    keymap: PreferencesKeymap
-    """ Shortcut setup for keyboards and other input devices (readonly, never None)"""
+    @property
+    def keymap(self) -> PreferencesKeymap:
+        """Shortcut setup for keyboards and other input devices (readonly, never None)"""
 
     show_hidden_ids: bool
     """ Show data-blocks with dot-prefixed names in search menus (default False)"""
@@ -82094,8 +82528,9 @@ class Preferences(bpy_struct):
     studio_lights: StudioLights
     """ (default None, readonly)"""
 
-    system: PreferencesSystem
-    """ Graphics driver and operating system settings (readonly, never None)"""
+    @property
+    def system(self) -> PreferencesSystem:
+        """Graphics driver and operating system settings (readonly, never None)"""
 
     themes: bpy_prop_collection[Theme]
     """ (default None, readonly)"""
@@ -82112,8 +82547,9 @@ class Preferences(bpy_struct):
     version: bpy_prop_array[int]
     """ Version of Blender the userpref.blend was saved with (array of 3 items, in [0, inf], default (0, 0, 0), readonly)"""
 
-    view: PreferencesView
-    """ Preferences related to viewing data (readonly, never None)"""
+    @property
+    def view(self) -> PreferencesView:
+        """Preferences related to viewing data (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -82803,11 +83239,13 @@ class PreferencesInput(bpy_struct):
     view_zoom_method: typing.Literal["CONTINUE", "DOLLY", "SCALE"]
     """ Which style to use for viewport scaling (default 'DOLLY')"""
 
-    walk_navigation: WalkNavigation
-    """ Settings for walk navigation mode (readonly, never None)"""
+    @property
+    def walk_navigation(self) -> WalkNavigation:
+        """Settings for walk navigation mode (readonly, never None)"""
 
-    xr_navigation: XrNavigation
-    """ Settings for navigation in XR (readonly, never None)"""
+    @property
+    def xr_navigation(self) -> XrNavigation:
+        """Settings for navigation in XR (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -83310,8 +83748,9 @@ It improves shape readability of very dense meshes, but increases eye fatigue wh
     view_frame_type: typing.Literal["KEEP_RANGE", "SECONDS", "KEYFRAMES"]
     """ How zooming to frame focuses around current frame (default 'KEEP_RANGE')"""
 
-    weight_color_range: ColorRamp
-    """ Color range used for weight visualization in weight painting mode (readonly, never None)"""
+    @property
+    def weight_color_range(self) -> ColorRamp:
+        """Color range used for weight visualization in weight painting mode (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -83558,8 +83997,9 @@ class Property(bpy_struct):
     name: str
     """ Human readable name (default "", readonly, never None)"""
 
-    srna: Struct | None
-    """ Struct definition used for properties assigned to this item (readonly)"""
+    @property
+    def srna(self) -> Struct | None:
+        """Struct definition used for properties assigned to this item (readonly)"""
 
     subtype: typing.Literal[bpy.stub_internal.rna_enums.PropertySubtypeItems]
     """ Semantic interpretation of the property (default 'NONE', readonly)"""
@@ -83674,8 +84114,9 @@ class PropertyGroupItem(bpy_struct):
     float_array: bpy_prop_array[float]
     """ (array of 1 items, in [-inf, inf], default (0.0,))"""
 
-    group: PropertyGroup | None
-    """ (readonly)"""
+    @property
+    def group(self) -> PropertyGroup | None:
+        """(readonly)"""
 
     id: ID | None
     idp_array: bpy_prop_collection[PropertyGroup]
@@ -83938,8 +84379,9 @@ class Region(bpy_struct):
     ]
     """ Alignment of the region within the area (default 'NONE', readonly)"""
 
-    data: typing.Any | None
-    """ Region specific data (the type depends on the region type) (readonly)"""
+    @property
+    def data(self) -> typing.Any | None:
+        """Region specific data (the type depends on the region type) (readonly)"""
 
     height: int
     """ Region height (in [0, 32767], default 0, readonly)"""
@@ -83947,8 +84389,9 @@ class Region(bpy_struct):
     type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
     """ Type of this region (default 'WINDOW', readonly)"""
 
-    view2d: View2D
-    """ 2D view of the region (readonly, never None)"""
+    @property
+    def view2d(self) -> View2D:
+        """2D view of the region (readonly, never None)"""
 
     width: int
     """ Region width (in [0, 32767], default 0, readonly)"""
@@ -84172,8 +84615,9 @@ class RenderEngine(bpy_struct):
     bl_use_stereo_viewport: bool
     """ Support rendering stereo 3D viewport (default False)"""
 
-    camera_override: Object | None
-    """ (readonly)"""
+    @property
+    def camera_override(self) -> Object | None:
+        """(readonly)"""
 
     is_animation: bool
     """ (default False)"""
@@ -84184,8 +84628,9 @@ class RenderEngine(bpy_struct):
     layer_override: bpy_prop_array[bool]
     """ (array of 20 items, default (False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False))"""
 
-    render: RenderSettings | None
-    """ (readonly)"""
+    @property
+    def render(self) -> RenderSettings | None:
+        """(readonly)"""
 
     resolution_x: int
     """ (in [-inf, inf], default 0, readonly)"""
@@ -84788,8 +85233,9 @@ class RenderSettings(bpy_struct):
     ]
     """ Quality of anisotropic filtering in materials (default 'FILTER_2')"""
 
-    bake: BakeSettings
-    """ (readonly, never None)"""
+    @property
+    def bake(self) -> BakeSettings:
+        """(readonly, never None)"""
 
     border_max_x: float
     """ Maximum X value for the render region (in [0, 1], default 1.0)"""
@@ -84824,8 +85270,9 @@ class RenderSettings(bpy_struct):
     engine: typing.Literal["BLENDER_EEVEE"]
     """ Engine to use for rendering (default 'BLENDER_EEVEE')"""
 
-    ffmpeg: FFmpegSettings | None
-    """ FFmpeg related settings for the scene (readonly)"""
+    @property
+    def ffmpeg(self) -> FFmpegSettings | None:
+        """FFmpeg related settings for the scene (readonly)"""
 
     file_extension: str
     """ The file extension used for saving renders (default "", readonly, never None)"""
@@ -84860,8 +85307,9 @@ class RenderSettings(bpy_struct):
     has_multiple_engines: bool
     """ More than one rendering engine is available (default False, readonly)"""
 
-    image_settings: ImageFormatSettings
-    """ (readonly, never None)"""
+    @property
+    def image_settings(self) -> ImageFormatSettings:
+        """(readonly, never None)"""
 
     is_movie_format: bool
     """ When true the format is a movie (default False, readonly)"""
@@ -84881,8 +85329,9 @@ class RenderSettings(bpy_struct):
     motion_blur_shutter: float
     """ Time taken in frames between shutter open and close (in [0, inf], default 0.5)"""
 
-    motion_blur_shutter_curve: CurveMapping | None
-    """ Curve defining the shutter's openness over time (readonly)"""
+    @property
+    def motion_blur_shutter_curve(self) -> CurveMapping | None:
+        """Curve defining the shutter's openness over time (readonly)"""
 
     pixel_aspect_x: float
     """ Horizontal aspect ratio - for anamorphic or non-square pixel output (in [1, 200], default 1.0)"""
@@ -85593,14 +86042,16 @@ class RigidBodyWorld(bpy_struct):
     constraints: Collection | None
     """ Collection containing rigid body constraint objects"""
 
-    effector_weights: EffectorWeights | None
-    """ (readonly)"""
+    @property
+    def effector_weights(self) -> EffectorWeights | None:
+        """(readonly)"""
 
     enabled: bool
     """ Simulation will be evaluated (default True)"""
 
-    point_cache: PointCache
-    """ (readonly, never None)"""
+    @property
+    def point_cache(self) -> PointCache:
+        """(readonly, never None)"""
 
     solver_iterations: int
     """ Number of constraint solver iterations made per simulation step (higher values are more accurate but slower) (in [1, 1000], default 10)"""
@@ -85945,8 +86396,9 @@ class Scene(ID, bpy_struct):
     allow_preroll: bool
     """ Allows playing back frames before the playback start frame (default False)"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     annotation: Annotation | None
     """ Data-block used for annotations in the 3D view"""
@@ -85977,14 +86429,16 @@ class Scene(ID, bpy_struct):
     camera: Object | None
     """ Active camera, used for rendering the scene"""
 
-    collection: Collection
-    """ Scene root collection that owns all the objects and other collections instantiated in the scene (readonly, never None)"""
+    @property
+    def collection(self) -> Collection:
+        """Scene root collection that owns all the objects and other collections instantiated in the scene (readonly, never None)"""
 
     compositing_node_group: NodeTree | None
     """ Compositor Nodes"""
 
-    cursor: View3DCursor
-    """ (readonly, never None)"""
+    @property
+    def cursor(self) -> View3DCursor:
+        """(readonly, never None)"""
 
     cycles: typing.Any
     """ Cycles render settings (readonly)"""
@@ -85992,14 +86446,17 @@ class Scene(ID, bpy_struct):
     cycles_curves: typing.Any
     """ Cycles curves rendering settings (readonly)"""
 
-    display: SceneDisplay | None
-    """ Scene display settings for 3D viewport (readonly)"""
+    @property
+    def display(self) -> SceneDisplay | None:
+        """Scene display settings for 3D viewport (readonly)"""
 
-    display_settings: ColorManagedDisplaySettings | None
-    """ Settings of device saved image would be displayed on (readonly)"""
+    @property
+    def display_settings(self) -> ColorManagedDisplaySettings | None:
+        """Settings of device saved image would be displayed on (readonly)"""
 
-    eevee: SceneEEVEE | None
-    """ EEVEE settings for the scene (readonly)"""
+    @property
+    def eevee(self) -> SceneEEVEE | None:
+        """EEVEE settings for the scene (readonly)"""
 
     frame_current: int
     """ Current frame, to update animation data from Python frame_set() instead (in [-1048574, 1048574], default 1)"""
@@ -86031,11 +86488,13 @@ class Scene(ID, bpy_struct):
     gravity: mathutils.Vector
     """ Constant acceleration in a given direction (array of 3 items, in [-inf, inf], default (0.0, 0.0, -9.81))"""
 
-    grease_pencil_settings: SceneGpencil | None
-    """ Grease Pencil settings for the scene (readonly)"""
+    @property
+    def grease_pencil_settings(self) -> SceneGpencil | None:
+        """Grease Pencil settings for the scene (readonly)"""
 
-    hydra: SceneHydra | None
-    """ Hydra settings for the scene (readonly)"""
+    @property
+    def hydra(self) -> SceneHydra | None:
+        """Hydra settings for the scene (readonly)"""
 
     is_nla_tweakmode: bool
     """ Whether there is any action referenced by NLA being edited (strictly read-only) (default False, readonly)"""
@@ -86057,20 +86516,27 @@ class Scene(ID, bpy_struct):
     ]
     """ What to do when playback reaches the last frame (default 'INFINITE')"""
 
-    render: RenderSettings
-    """ (readonly, never None)"""
+    @property
+    def render(self) -> RenderSettings:
+        """(readonly, never None)"""
 
-    rigidbody_world: RigidBodyWorld | None
-    """ (readonly)"""
+    @property
+    def rigidbody_world(self) -> RigidBodyWorld | None:
+        """(readonly)"""
 
-    safe_areas: DisplaySafeAreas
-    """ (readonly, never None)"""
+    @property
+    def safe_areas(self) -> DisplaySafeAreas:
+        """(readonly, never None)"""
 
-    sequence_editor: SequenceEditor | None
-    """ (readonly)"""
+    @property
+    def sequence_editor(self) -> SequenceEditor | None:
+        """(readonly)"""
 
-    sequencer_colorspace_settings: ColorManagedSequencerColorspaceSettings | None
-    """ Settings of color space sequencer is working in (readonly)"""
+    @property
+    def sequencer_colorspace_settings(
+        self,
+    ) -> ColorManagedSequencerColorspaceSettings | None:
+        """Settings of color space sequencer is working in (readonly)"""
 
     show_keys_from_selected_only: bool
     """ Only include channels relating to selected objects and data (default True)"""
@@ -86096,14 +86562,16 @@ class Scene(ID, bpy_struct):
     timeline_markers: TimelineMarkers
     """ Markers used in all timelines for the current scene (default None, readonly)"""
 
-    tool_settings: ToolSettings
-    """ (readonly, never None)"""
+    @property
+    def tool_settings(self) -> ToolSettings:
+        """(readonly, never None)"""
 
     transform_orientation_slots: bpy_prop_collection[TransformOrientationSlot]
     """ (default None, readonly)"""
 
-    unit_settings: UnitSettings
-    """ Unit editing settings (readonly, never None)"""
+    @property
+    def unit_settings(self) -> UnitSettings:
+        """Unit editing settings (readonly, never None)"""
 
     use_audio: bool
     """ Play back of audio from Sequence Editor, otherwise mute audio (default False)"""
@@ -86129,8 +86597,9 @@ class Scene(ID, bpy_struct):
     view_layers: ViewLayers
     """ (default None, readonly)"""
 
-    view_settings: ColorManagedViewSettings | None
-    """ Color management settings applied on image before saving (readonly)"""
+    @property
+    def view_settings(self) -> ColorManagedViewSettings | None:
+        """Color management settings applied on image before saving (readonly)"""
 
     world: World | None
     """ World used for rendering the scene"""
@@ -86242,8 +86711,9 @@ class SceneDisplay(bpy_struct):
     render_aa: typing.Literal["OFF", "FXAA", "5", "8", "11", "16", "32"]
     """ Method of anti-aliasing when rendering final image (default '8')"""
 
-    shading: View3DShading | None
-    """ Shading settings for OpenGL render engine (readonly)"""
+    @property
+    def shading(self) -> View3DShading | None:
+        """Shading settings for OpenGL render engine (readonly)"""
 
     shadow_focus: float
     """ Shadow factor hardness (in [0, 1], default 0.0)"""
@@ -86377,8 +86847,9 @@ class SceneEEVEE(bpy_struct):
     ray_tracing_method: typing.Literal["PROBE", "SCREEN"]
     """ Select the tracing method used to find scene-ray intersections (default 'SCREEN')"""
 
-    ray_tracing_options: RaytraceEEVEE | None
-    """ EEVEE settings for tracing reflections (readonly)"""
+    @property
+    def ray_tracing_options(self) -> RaytraceEEVEE | None:
+        """EEVEE settings for tracing reflections (readonly)"""
 
     shadow_pool_size: typing.Literal["16", "32", "64", "128", "256", "512", "1024"]
     """ Size of the shadow pool, a bigger pool size allows for more shadows in the scene but might not fit into GPU memory (default '512')"""
@@ -86621,8 +87092,9 @@ class SceneStrip(Strip, bpy_struct):
     content_trim_start: int
     """ Number of frames to ignore from the start of the underlying source. The source content is trimmed, and previous frames are turned into holds (in [0, inf], default 0)"""
 
-    crop: StripCrop | None
-    """ (readonly)"""
+    @property
+    def crop(self) -> StripCrop | None:
+        """(readonly)"""
 
     fps: float
     """ Frames per second (in [-inf, inf], default 0.0, readonly)"""
@@ -86630,8 +87102,9 @@ class SceneStrip(Strip, bpy_struct):
     multiply_alpha: bool
     """ Multiply alpha along with color channels (default False)"""
 
-    proxy: StripProxy | None
-    """ (readonly)"""
+    @property
+    def proxy(self) -> StripProxy | None:
+        """(readonly)"""
 
     retiming_keys: RetimingKeys
     """ (default None, readonly)"""
@@ -86648,8 +87121,9 @@ class SceneStrip(Strip, bpy_struct):
     strobe: float
     """ Only display every nth frame (in [1, 30], default 0.0)"""
 
-    transform: StripTransform | None
-    """ (readonly)"""
+    @property
+    def transform(self) -> StripTransform | None:
+        """(readonly)"""
 
     use_annotations: bool
     """ Show Annotations in OpenGL previews (default True)"""
@@ -86709,8 +87183,9 @@ class Scopes(bpy_struct):
     accuracy: float
     """ Proportion of original image source pixel lines to sample (in [0, 100], default 0.0)"""
 
-    histogram: Histogram | None
-    """ Histogram for viewing image statistics (readonly)"""
+    @property
+    def histogram(self) -> Histogram | None:
+        """Histogram for viewing image statistics (readonly)"""
 
     use_full_resolution: bool
     """ Sample every pixel of the image (default False)"""
@@ -86960,11 +87435,13 @@ class Sculpt(Paint, bpy_struct):
     automasking_cavity_blur_steps: int
     """ The number of times the cavity mask is blurred (in [0, 25], default 0)"""
 
-    automasking_cavity_curve: CurveMapping | None
-    """ Curve used for the sensitivity (readonly)"""
+    @property
+    def automasking_cavity_curve(self) -> CurveMapping | None:
+        """Curve used for the sensitivity (readonly)"""
 
-    automasking_cavity_curve_op: CurveMapping | None
-    """ Curve used for the sensitivity (readonly)"""
+    @property
+    def automasking_cavity_curve_op(self) -> CurveMapping | None:
+        """Curve used for the sensitivity (readonly)"""
 
     automasking_cavity_factor: float
     """ The contrast of the cavity mask (in [0, 5], default 1.0)"""
@@ -89693,8 +90170,9 @@ class ShaderNodeEmission(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeFloatCurve(ShaderNode, NodeInternal, Node, bpy_struct):
     """Map an input float to a curve and outputs a float value"""
 
-    mapping: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def mapping(self) -> CurveMapping | None:
+        """(readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -91364,8 +91842,9 @@ class ShaderNodeRGB(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeRGBCurve(ShaderNode, NodeInternal, Node, bpy_struct):
     """Apply color corrections for each color channel"""
 
-    mapping: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def mapping(self) -> CurveMapping | None:
+        """(readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -92006,8 +92485,9 @@ class ShaderNodeTangent(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexBrick(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate a procedural texture producing bricks"""
 
-    color_mapping: ColorMapping
-    """ Color mapping settings (readonly, never None)"""
+    @property
+    def color_mapping(self) -> ColorMapping:
+        """Color mapping settings (readonly, never None)"""
 
     offset: float
     """ Determines the brick offset of the various rows (in [0, 1], default 0.5)"""
@@ -92021,8 +92501,9 @@ class ShaderNodeTexBrick(ShaderNode, NodeInternal, Node, bpy_struct):
     squash_frequency: int
     """ How often rows consist of "squished" bricks (in [1, 99], default 2)"""
 
-    texture_mapping: TexMapping
-    """ Texture coordinate mapping settings (readonly, never None)"""
+    @property
+    def texture_mapping(self) -> TexMapping:
+        """Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -92078,11 +92559,13 @@ class ShaderNodeTexBrick(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexChecker(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate a checkerboard texture"""
 
-    color_mapping: ColorMapping
-    """ Color mapping settings (readonly, never None)"""
+    @property
+    def color_mapping(self) -> ColorMapping:
+        """Color mapping settings (readonly, never None)"""
 
-    texture_mapping: TexMapping
-    """ Texture coordinate mapping settings (readonly, never None)"""
+    @property
+    def texture_mapping(self) -> TexMapping:
+        """Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -92200,12 +92683,14 @@ class ShaderNodeTexCoord(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexEnvironment(ShaderNode, NodeInternal, Node, bpy_struct):
     """Sample an image file as an environment texture. Typically used to light the scene with the background node"""
 
-    color_mapping: ColorMapping
-    """ Color mapping settings (readonly, never None)"""
+    @property
+    def color_mapping(self) -> ColorMapping:
+        """Color mapping settings (readonly, never None)"""
 
     image: Image | None
-    image_user: ImageUser
-    """ Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
+    @property
+    def image_user(self) -> ImageUser:
+        """Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
 
     interpolation: typing.Literal["Linear", "Closest", "Cubic", "Smart"]
     """ Texture interpolation (default 'Linear')"""
@@ -92213,8 +92698,9 @@ class ShaderNodeTexEnvironment(ShaderNode, NodeInternal, Node, bpy_struct):
     projection: typing.Literal["EQUIRECTANGULAR", "MIRROR_BALL"]
     """ Projection of the input image (default 'EQUIRECTANGULAR')"""
 
-    texture_mapping: TexMapping
-    """ Texture coordinate mapping settings (readonly, never None)"""
+    @property
+    def texture_mapping(self) -> TexMapping:
+        """Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -92270,14 +92756,16 @@ class ShaderNodeTexEnvironment(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexGabor(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate Gabor noise"""
 
-    color_mapping: ColorMapping
-    """ Color mapping settings (readonly, never None)"""
+    @property
+    def color_mapping(self) -> ColorMapping:
+        """Color mapping settings (readonly, never None)"""
 
     gabor_type: typing.Literal["2D", "3D"]
     """ The type of Gabor noise to evaluate (default '2D')"""
 
-    texture_mapping: TexMapping
-    """ Texture coordinate mapping settings (readonly, never None)"""
+    @property
+    def texture_mapping(self) -> TexMapping:
+        """Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -92333,8 +92821,9 @@ class ShaderNodeTexGabor(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexGradient(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate interpolated color and intensity values based on the input vector"""
 
-    color_mapping: ColorMapping
-    """ Color mapping settings (readonly, never None)"""
+    @property
+    def color_mapping(self) -> ColorMapping:
+        """Color mapping settings (readonly, never None)"""
 
     gradient_type: typing.Literal[
         "LINEAR",
@@ -92347,8 +92836,9 @@ class ShaderNodeTexGradient(ShaderNode, NodeInternal, Node, bpy_struct):
     ]
     """ Style of the color blending (default 'LINEAR')"""
 
-    texture_mapping: TexMapping
-    """ Texture coordinate mapping settings (readonly, never None)"""
+    @property
+    def texture_mapping(self) -> TexMapping:
+        """Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -92467,15 +92957,17 @@ class ShaderNodeTexIES(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexImage(ShaderNode, NodeInternal, Node, bpy_struct):
     """Sample an image file as a texture"""
 
-    color_mapping: ColorMapping
-    """ Color mapping settings (readonly, never None)"""
+    @property
+    def color_mapping(self) -> ColorMapping:
+        """Color mapping settings (readonly, never None)"""
 
     extension: typing.Literal["REPEAT", "EXTEND", "CLIP", "MIRROR"]
     """ How the image is extrapolated past its original bounds (default 'REPEAT')"""
 
     image: Image | None
-    image_user: ImageUser
-    """ Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
+    @property
+    def image_user(self) -> ImageUser:
+        """Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
 
     interpolation: typing.Literal["Linear", "Closest", "Cubic", "Smart"]
     """ Texture interpolation (default 'Linear')"""
@@ -92486,8 +92978,9 @@ class ShaderNodeTexImage(ShaderNode, NodeInternal, Node, bpy_struct):
     projection_blend: float
     """ For box projection, amount of blend to use between sides (in [0, 1], default 0.0)"""
 
-    texture_mapping: TexMapping
-    """ Texture coordinate mapping settings (readonly, never None)"""
+    @property
+    def texture_mapping(self) -> TexMapping:
+        """Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -92543,11 +93036,13 @@ class ShaderNodeTexImage(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexMagic(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate a psychedelic color texture"""
 
-    color_mapping: ColorMapping
-    """ Color mapping settings (readonly, never None)"""
+    @property
+    def color_mapping(self) -> ColorMapping:
+        """Color mapping settings (readonly, never None)"""
 
-    texture_mapping: TexMapping
-    """ Texture coordinate mapping settings (readonly, never None)"""
+    @property
+    def texture_mapping(self) -> TexMapping:
+        """Texture coordinate mapping settings (readonly, never None)"""
 
     turbulence_depth: int
     """ Level of detail in the added turbulent noise (in [0, 10], default 0)"""
@@ -92606,8 +93101,9 @@ class ShaderNodeTexMagic(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexNoise(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate fractal Perlin noise"""
 
-    color_mapping: ColorMapping
-    """ Color mapping settings (readonly, never None)"""
+    @property
+    def color_mapping(self) -> ColorMapping:
+        """Color mapping settings (readonly, never None)"""
 
     noise_dimensions: typing.Literal["1D", "2D", "3D", "4D"]
     """ Number of dimensions to output noise for (default '1D')"""
@@ -92624,8 +93120,9 @@ class ShaderNodeTexNoise(ShaderNode, NodeInternal, Node, bpy_struct):
     normalize: bool
     """ Normalize outputs to 0.0 to 1.0 range (default False)"""
 
-    texture_mapping: TexMapping
-    """ Texture coordinate mapping settings (readonly, never None)"""
+    @property
+    def texture_mapping(self) -> TexMapping:
+        """Texture coordinate mapping settings (readonly, never None)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -92692,8 +93189,9 @@ class ShaderNodeTexSky(ShaderNode, NodeInternal, Node, bpy_struct):
     altitude: float
     """ Height from sea level (in [0, 100000], default 100.0)"""
 
-    color_mapping: ColorMapping
-    """ Color mapping settings (readonly, never None)"""
+    @property
+    def color_mapping(self) -> ColorMapping:
+        """Color mapping settings (readonly, never None)"""
 
     ground_albedo: float
     """ Ground color that is subtly reflected in the sky (in [0, 1], default 0.0)"""
@@ -92725,8 +93223,9 @@ class ShaderNodeTexSky(ShaderNode, NodeInternal, Node, bpy_struct):
     sun_size: float
     """ Size of sun disc (in [0, 1.5708], default 0.00951204)"""
 
-    texture_mapping: TexMapping
-    """ Texture coordinate mapping settings (readonly, never None)"""
+    @property
+    def texture_mapping(self) -> TexMapping:
+        """Texture coordinate mapping settings (readonly, never None)"""
 
     turbidity: float
     """ Atmospheric turbidity (in [1, 10], default 0.0)"""
@@ -92785,8 +93284,9 @@ class ShaderNodeTexSky(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeTexVoronoi(ShaderNode, NodeInternal, Node, bpy_struct):
     """Generate Worley noise based on the distance to random points. Typically used to generate textures such as stones, water, or biological cells"""
 
-    color_mapping: ColorMapping
-    """ Color mapping settings (readonly, never None)"""
+    @property
+    def color_mapping(self) -> ColorMapping:
+        """Color mapping settings (readonly, never None)"""
 
     distance: typing.Literal["EUCLIDEAN", "MANHATTAN", "CHEBYCHEV", "MINKOWSKI"]
     """ The distance metric used to compute the texture (default 'EUCLIDEAN')"""
@@ -92799,8 +93299,9 @@ class ShaderNodeTexVoronoi(ShaderNode, NodeInternal, Node, bpy_struct):
     normalize: bool
     """ Normalize output Distance to 0.0 to 1.0 range (default False)"""
 
-    texture_mapping: TexMapping
-    """ Texture coordinate mapping settings (readonly, never None)"""
+    @property
+    def texture_mapping(self) -> TexMapping:
+        """Texture coordinate mapping settings (readonly, never None)"""
 
     voronoi_dimensions: typing.Literal["1D", "2D", "3D", "4D"]
     """ Number of dimensions to output noise for (default '1D')"""
@@ -92862,14 +93363,16 @@ class ShaderNodeTexWave(ShaderNode, NodeInternal, Node, bpy_struct):
     bands_direction: typing.Literal["X", "Y", "Z", "DIAGONAL"]
     """ (default 'X')"""
 
-    color_mapping: ColorMapping
-    """ Color mapping settings (readonly, never None)"""
+    @property
+    def color_mapping(self) -> ColorMapping:
+        """Color mapping settings (readonly, never None)"""
 
     rings_direction: typing.Literal["X", "Y", "Z", "SPHERICAL"]
     """ (default 'X')"""
 
-    texture_mapping: TexMapping
-    """ Texture coordinate mapping settings (readonly, never None)"""
+    @property
+    def texture_mapping(self) -> TexMapping:
+        """Texture coordinate mapping settings (readonly, never None)"""
 
     wave_profile: typing.Literal["SIN", "SAW", "TRI"]
     """ (default 'SIN')"""
@@ -93154,8 +93657,9 @@ class ShaderNodeUVMap(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeValToRGB(ShaderNode, NodeInternal, Node, bpy_struct):
     """Map values to colors with the use of a gradient"""
 
-    color_ramp: ColorRamp | None
-    """ (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """(readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -93265,8 +93769,9 @@ class ShaderNodeValue(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeVectorCurve(ShaderNode, NodeInternal, Node, bpy_struct):
     """Map input vector components with curves"""
 
-    mapping: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def mapping(self) -> CurveMapping | None:
+        """(readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -94681,11 +95186,13 @@ class SmoothModifier(Modifier, bpy_struct):
 class SoftBodyModifier(Modifier, bpy_struct):
     """Soft body simulation modifier"""
 
-    point_cache: PointCache
-    """ (readonly, never None)"""
+    @property
+    def point_cache(self) -> PointCache:
+        """(readonly, never None)"""
 
-    settings: SoftBodySettings
-    """ (readonly, never None)"""
+    @property
+    def settings(self) -> SoftBodySettings:
+        """(readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -94748,8 +95255,9 @@ class SoftBodySettings(bpy_struct):
     damping: float
     """ Edge spring friction (in [0, 50], default 0.0)"""
 
-    effector_weights: EffectorWeights | None
-    """ (readonly)"""
+    @property
+    def effector_weights(self) -> EffectorWeights | None:
+        """(readonly)"""
 
     error_threshold: float
     """ The Runge-Kutta ODE solver error limit, low value gives more precision, high values speed (in [0.001, 10], default 0.0)"""
@@ -95003,8 +95511,9 @@ class Sound(ID, bpy_struct):
     filepath: str
     """ Sound sample file used by this Sound data-block (default "", never None, blend relative // prefix supported)"""
 
-    packed_file: PackedFile | None
-    """ (readonly)"""
+    @property
+    def packed_file(self) -> PackedFile | None:
+        """(readonly)"""
 
     samplerate: int
     """ Sample rate of the audio in Hz (in [-inf, inf], default 0, readonly)"""
@@ -95253,8 +95762,9 @@ class SpaceClipEditor(Space, bpy_struct):
     clip: MovieClip | None
     """ Movie clip displayed and edited in this space"""
 
-    clip_user: MovieClipUser
-    """ Parameters defining which frame of the movie clip is displayed (readonly, never None)"""
+    @property
+    def clip_user(self) -> MovieClipUser:
+        """Parameters defining which frame of the movie clip is displayed (readonly, never None)"""
 
     cursor_location: mathutils.Vector
     """ 2D cursor location for this view (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
@@ -95277,8 +95787,9 @@ class SpaceClipEditor(Space, bpy_struct):
     mode: typing.Literal[bpy.stub_internal.rna_enums.ClipEditorModeItems]
     """ Editing context being displayed (default 'TRACKING')"""
 
-    overlay: SpaceClipOverlay
-    """ Settings for display of overlays in the Movie Clip editor (readonly, never None)"""
+    @property
+    def overlay(self) -> SpaceClipOverlay:
+        """Settings for display of overlays in the Movie Clip editor (readonly, never None)"""
 
     path_length: int
     """ Length of displaying path, in frames (in [0, inf], default 20)"""
@@ -95288,8 +95799,9 @@ class SpaceClipEditor(Space, bpy_struct):
     ]
     """ Pivot center for rotation/scaling (default 'MEDIAN_POINT')"""
 
-    scopes: MovieClipScopes | None
-    """ Scopes to visualize movie clip statistics (readonly)"""
+    @property
+    def scopes(self) -> MovieClipScopes | None:
+        """Scopes to visualize movie clip statistics (readonly)"""
 
     show_annotation: bool
     """ Show annotations for this view (default True)"""
@@ -95594,16 +96106,18 @@ class SpaceDopeSheetEditor(Space, bpy_struct):
     cache_softbody: bool
     """ Show the active object's softbody point cache (default False)"""
 
-    dopesheet: DopeSheet | None
-    """ Settings for filtering animation data (readonly)"""
+    @property
+    def dopesheet(self) -> DopeSheet | None:
+        """Settings for filtering animation data (readonly)"""
 
     mode: typing.Literal[
         "DOPESHEET", "ACTION", "SHAPEKEY", "GPENCIL", "MASK", "CACHEFILE", "TIMELINE"
     ]
     """ Editing context being displayed (default 'ACTION')"""
 
-    overlays: SpaceDopeSheetOverlay
-    """ Settings for display of overlays (readonly, never None)"""
+    @property
+    def overlays(self) -> SpaceDopeSheetOverlay:
+        """Settings for display of overlays (readonly, never None)"""
 
     show_cache: bool
     """ Show the status of cached frames in the timeline (default False)"""
@@ -95748,8 +96262,9 @@ class SpaceDopeSheetOverlay(bpy_struct):
 class SpaceFileBrowser(Space, bpy_struct):
     """File browser space data"""
 
-    active_operator: Operator | None
-    """ (readonly)"""
+    @property
+    def active_operator(self) -> Operator | None:
+        """(readonly)"""
 
     bookmarks: bpy_prop_collection[FileBrowserFSMenuEntry]
     """ User's bookmarks (default None)"""
@@ -95760,11 +96275,13 @@ class SpaceFileBrowser(Space, bpy_struct):
     browse_mode: typing.Literal[bpy.stub_internal.rna_enums.SpaceFileBrowseModeItems]
     """ Type of the File Editor view (regular file browsing or asset browsing) (default 'FILES')"""
 
-    operator: Operator | None
-    """ (readonly)"""
+    @property
+    def operator(self) -> Operator | None:
+        """(readonly)"""
 
-    params: FileSelectParams | None
-    """ Parameters and Settings for the Filebrowser (readonly)"""
+    @property
+    def params(self) -> FileSelectParams | None:
+        """Parameters and Settings for the Filebrowser (readonly)"""
 
     recent_folders: bpy_prop_collection[FileBrowserFSMenuEntry]
     """ (default None)"""
@@ -95878,8 +96395,9 @@ class SpaceGraphEditor(Space, bpy_struct):
     cursor_position_y: float
     """ Graph Editor 2D-Value cursor - Y-Value component (in [-inf, inf], default 0.0)"""
 
-    dopesheet: DopeSheet | None
-    """ Settings for filtering animation data (readonly)"""
+    @property
+    def dopesheet(self) -> DopeSheet | None:
+        """Settings for filtering animation data (readonly)"""
 
     has_ghost_curves: bool
     """ Graph Editor instance has some ghost curves stored (default False, readonly)"""
@@ -96016,8 +96534,9 @@ class SpaceImageEditor(Space, bpy_struct):
     image: Image | None
     """ Image displayed and edited in this space"""
 
-    image_user: ImageUser
-    """ Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
+    @property
+    def image_user(self) -> ImageUser:
+        """Parameters defining which layer, pass and frame of the image is displayed (readonly, never None)"""
 
     mask: Mask | None
     """ Mask displayed and edited in this space"""
@@ -96031,8 +96550,9 @@ class SpaceImageEditor(Space, bpy_struct):
     mode: typing.Literal[bpy.stub_internal.rna_enums.SpaceImageModeAllItems]
     """ Editing context being displayed (default 'VIEW')"""
 
-    overlay: SpaceImageOverlay
-    """ Settings for display of overlays in the UV/Image editor (readonly, never None)"""
+    @property
+    def overlay(self) -> SpaceImageOverlay:
+        """Settings for display of overlays in the UV/Image editor (readonly, never None)"""
 
     pivot_point: typing.Literal[
         "BOUNDING_BOX_CENTER",
@@ -96043,11 +96563,13 @@ class SpaceImageEditor(Space, bpy_struct):
     ]
     """ Rotation/Scaling Pivot (default 'BOUNDING_BOX_CENTER')"""
 
-    sample_histogram: Histogram | None
-    """ Sampled colors along line (readonly)"""
+    @property
+    def sample_histogram(self) -> Histogram | None:
+        """Sampled colors along line (readonly)"""
 
-    scopes: Scopes | None
-    """ Scopes to visualize image statistics (readonly)"""
+    @property
+    def scopes(self) -> Scopes | None:
+        """Scopes to visualize image statistics (readonly)"""
 
     show_annotation: bool
     """ Show annotations for this view (default False)"""
@@ -96112,8 +96634,9 @@ class SpaceImageEditor(Space, bpy_struct):
     use_realtime_update: bool
     """ Update other affected window spaces automatically to reflect changes during interactive operations such as transform (default False)"""
 
-    uv_editor: SpaceUVEditor
-    """ UV editor settings (readonly, never None)"""
+    @property
+    def uv_editor(self) -> SpaceUVEditor:
+        """UV editor settings (readonly, never None)"""
 
     zoom: bpy_prop_array[float]
     """ Zoom factor (array of 2 items, in [-inf, inf], default (0.0, 0.0), readonly)"""
@@ -96304,8 +96827,9 @@ class SpaceInfo(Space, bpy_struct):
 class SpaceNLA(Space, bpy_struct):
     """NLA editor space data"""
 
-    dopesheet: DopeSheet | None
-    """ Settings for filtering animation data (readonly)"""
+    @property
+    def dopesheet(self) -> DopeSheet | None:
+        """Settings for filtering animation data (readonly)"""
 
     show_local_markers: bool
     """ Show action-local markers on the strips, useful when synchronizing timing across strips (default True)"""
@@ -96409,14 +96933,17 @@ class SpaceNodeEditor(Space, bpy_struct):
     cursor_location: mathutils.Vector
     """ Location for adding new nodes (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    edit_tree: NodeTree | None
-    """ Node tree being displayed and edited (readonly)"""
+    @property
+    def edit_tree(self) -> NodeTree | None:
+        """Node tree being displayed and edited (readonly)"""
 
-    id: ID | None
-    """ Data-block whose nodes are being edited (readonly)"""
+    @property
+    def id(self) -> ID | None:
+        """Data-block whose nodes are being edited (readonly)"""
 
-    id_from: ID | None
-    """ Data-block from which the edited data-block is linked (readonly)"""
+    @property
+    def id_from(self) -> ID | None:
+        """Data-block from which the edited data-block is linked (readonly)"""
 
     insert_offset_direction: typing.Literal["RIGHT", "LEFT"]
     """ Direction to offset nodes on insertion (default 'RIGHT')"""
@@ -96425,8 +96952,9 @@ class SpaceNodeEditor(Space, bpy_struct):
     """ Base node tree from context"""
 
     node_tree_sub_type: str
-    overlay: SpaceNodeOverlay
-    """ Settings for display of overlays in the Node Editor (readonly, never None)"""
+    @property
+    def overlay(self) -> SpaceNodeOverlay:
+        """Settings for display of overlays in the Node Editor (readonly, never None)"""
 
     path: SpaceNodeEditorPath
     """ Path from the data-block to the currently edited node tree (default None, readonly)"""
@@ -97003,8 +97531,9 @@ class SpaceSequenceEditor(Space, bpy_struct):
     annotation: Annotation | None
     """ Annotation data for this Preview region"""
 
-    cache_overlay: SequencerCacheOverlay
-    """ Settings for display of overlays (readonly, never None)"""
+    @property
+    def cache_overlay(self) -> SequencerCacheOverlay:
+        """Settings for display of overlays (readonly, never None)"""
 
     cursor_location: mathutils.Vector
     """ 2D cursor location for this view (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
@@ -97023,8 +97552,9 @@ class SpaceSequenceEditor(Space, bpy_struct):
     preview_channels: typing.Literal["COLOR_ALPHA", "COLOR"]
     """ Channels of the preview to display (default 'COLOR')"""
 
-    preview_overlay: SequencerPreviewOverlay
-    """ Settings for display of overlays (readonly, never None)"""
+    @property
+    def preview_overlay(self) -> SequencerPreviewOverlay:
+        """Settings for display of overlays (readonly, never None)"""
 
     proxy_render_size: typing.Literal[
         "NONE", "SCENE", "PROXY_25", "PROXY_50", "PROXY_75", "PROXY_100"
@@ -97079,8 +97609,9 @@ class SpaceSequenceEditor(Space, bpy_struct):
     show_transform_preview: bool
     """ Show a preview of the start or end frame of a strip while transforming its respective handle (default False)"""
 
-    timeline_overlay: SequencerTimelineOverlay
-    """ Settings for display of overlays (readonly, never None)"""
+    @property
+    def timeline_overlay(self) -> SequencerTimelineOverlay:
+        """Settings for display of overlays (readonly, never None)"""
 
     use_clamp_view: bool
     """ Limit timeline height to maximum used channel slot (default False)"""
@@ -97205,8 +97736,9 @@ class SpaceSpreadsheet(Space, bpy_struct):
     use_filter: bool
     """ (default False)"""
 
-    viewer_path: ViewerPath | None
-    """ Path to the data that is displayed in the spreadsheet (readonly)"""
+    @property
+    def viewer_path(self) -> ViewerPath | None:
+        """Path to the data that is displayed in the spreadsheet (readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -97509,8 +98041,9 @@ class SpaceView3D(Space, bpy_struct):
     lens: float
     """ Viewport lens angle (in [1, 250], default 50.0)"""
 
-    local_view: typing_extensions.Self | None
-    """ Display an isolated subset of objects, apart from the scene visibility (readonly)"""
+    @property
+    def local_view(self) -> typing_extensions.Self | None:
+        """Display an isolated subset of objects, apart from the scene visibility (readonly)"""
 
     lock_bone: str
     """ 3D View center is locked to this bone's position (default "", never None)"""
@@ -97527,11 +98060,13 @@ class SpaceView3D(Space, bpy_struct):
     mirror_xr_session: bool
     """ Synchronize the viewer perspective of virtual reality sessions with this 3D viewport (default False)"""
 
-    overlay: View3DOverlay
-    """ Settings for display of overlays in the 3D viewport (readonly, never None)"""
+    @property
+    def overlay(self) -> View3DOverlay:
+        """Settings for display of overlays in the 3D viewport (readonly, never None)"""
 
-    region_3d: RegionView3D | None
-    """ 3D region for this space. When the space is in quad view, the camera region (readonly)"""
+    @property
+    def region_3d(self) -> RegionView3D | None:
+        """3D region for this space. When the space is in quad view, the camera region (readonly)"""
 
     region_quadviews: bpy_prop_collection[RegionView3D]
     """ 3D regions (the third one defines quad view settings, the fourth one is same as 'region_3d') (default None, readonly)"""
@@ -97548,8 +98083,9 @@ class SpaceView3D(Space, bpy_struct):
     render_border_min_y: float
     """ Minimum Y value for the render region (in [0, 1], default 0.0)"""
 
-    shading: View3DShading
-    """ Settings for shading in the 3D viewport (readonly, never None)"""
+    @property
+    def shading(self) -> View3DShading:
+        """Settings for shading in the 3D viewport (readonly, never None)"""
 
     show_bundle_names: bool
     """ Show names for reconstructed tracks objects (default False)"""
@@ -97815,8 +98351,9 @@ class SpaceView3D(Space, bpy_struct):
 class Speaker(ID, bpy_struct):
     """Speaker data-block for 3D audio speaker objects"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     attenuation: float
     """ How strong the distance affects volume, depending on distance model (in [0, inf], default 1.0)"""
@@ -98255,8 +98792,9 @@ class SpreadsheetColumn(bpy_struct):
     data_type: typing.Literal["INT32", "FLOAT", "BOOLEAN", "INSTANCES"]
     """ The data type of the corresponding column visible in the spreadsheet (default 'BOOLEAN', readonly)"""
 
-    id: SpreadsheetColumnID | None
-    """ Data used to identify the corresponding data from the data source (readonly)"""
+    @property
+    def id(self) -> SpreadsheetColumnID | None:
+        """Data used to identify the corresponding data from the data source (readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -98403,8 +98941,9 @@ class SpreadsheetTable(bpy_struct):
     columns: bpy_prop_collection[SpreadsheetColumn]
     """ Columns within the table (default None, readonly)"""
 
-    id: SpreadsheetTableID | None
-    """ Data used to identify the table (readonly)"""
+    @property
+    def id(self) -> SpreadsheetTableID | None:
+        """Data used to identify the table (readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -98486,8 +99025,9 @@ class SpreadsheetTableIDGeometry(SpreadsheetTableID, bpy_struct):
     object_eval_state: typing.Literal["EVALUATED", "ORIGINAL", "VIEWER_NODE"]
     """ (default 'EVALUATED', readonly)"""
 
-    viewer_path: ViewerPath | None
-    """ Path to the data that is displayed (readonly)"""
+    @property
+    def viewer_path(self) -> ViewerPath | None:
+        """Path to the data that is displayed (readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -99394,8 +99934,9 @@ class StripTransform(bpy_struct):
 class Struct(bpy_struct):
     """RNA structure definition"""
 
-    base: typing_extensions.Self | None
-    """ Struct definition this is derived from (readonly)"""
+    @property
+    def base(self) -> typing_extensions.Self | None:
+        """Struct definition this is derived from (readonly)"""
 
     description: str
     """ Description of the Struct's purpose (default "", readonly, never None)"""
@@ -99409,11 +99950,13 @@ class Struct(bpy_struct):
     name: str
     """ Human readable name (default "", readonly, never None)"""
 
-    name_property: StringProperty | None
-    """ Property that gives the name of the struct (readonly)"""
+    @property
+    def name_property(self) -> StringProperty | None:
+        """Property that gives the name of the struct (readonly)"""
 
-    nested: typing_extensions.Self | None
-    """ Struct in which this struct is always nested, and to which it logically belongs (readonly)"""
+    @property
+    def nested(self) -> typing_extensions.Self | None:
+        """Struct in which this struct is always nested, and to which it logically belongs (readonly)"""
 
     properties: bpy_prop_collection[Property]
     """ Properties in the struct (default None, readonly)"""
@@ -99481,11 +100024,13 @@ class StucciTexture(Texture, ID, bpy_struct):
     turbulence: float
     """ Turbulence of the noise (in [0.0001, inf], default 5.0)"""
 
-    users_material: tuple[Material, ...]
-    """ Materials that use this texture(readonly)"""
+    @property
+    def users_material(self) -> tuple[Material, ...]:
+        """Materials that use this texture(readonly)"""
 
-    users_object_modifier: tuple[Object, ...]
-    """ Object modifiers that use this texture(readonly)"""
+    @property
+    def users_object_modifier(self) -> tuple[Object, ...]:
+        """Object modifiers that use this texture(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -100097,8 +100642,9 @@ class Text(ID, bpy_struct):
     current_character: int
     """ Index of current character in current line, and also start index of character in selection if one exists (in [0, inf], default 0)"""
 
-    current_line: TextLine
-    """ Current line, and start line of selection if one exists (readonly, never None)"""
+    @property
+    def current_line(self) -> TextLine:
+        """Current line, and start line of selection if one exists (readonly, never None)"""
 
     current_line_index: int
     """ Index of current TextLine in TextLine collection (in [-inf, inf], default 0)"""
@@ -100124,8 +100670,9 @@ class Text(ID, bpy_struct):
     select_end_character: int
     """ Index of character after end of selection in the selection end line (in [0, inf], default 0)"""
 
-    select_end_line: TextLine
-    """ End line of selection (readonly, never None)"""
+    @property
+    def select_end_line(self) -> TextLine:
+        """End line of selection (readonly, never None)"""
 
     select_end_line_index: int
     """ Index of last TextLine in selection (in [-inf, inf], default 0)"""
@@ -100356,8 +100903,9 @@ class TextCurve(Curve, ID, bpy_struct):
     body_format: bpy_prop_collection[TextCharacterFormat]
     """ Stores the style of each character (default None, readonly)"""
 
-    edit_format: TextCharacterFormat | None
-    """ Editing settings character formatting (readonly)"""
+    @property
+    def edit_format(self) -> TextCharacterFormat | None:
+        """Editing settings character formatting (readonly)"""
 
     family: str
     """ Use objects as font characters (give font objects a common name followed by the character they represent, eg. 'family-a', 'family-b', etc, set this setting to 'family-', and turn on Vertex Instancing) (default "", never None)"""
@@ -100591,11 +101139,13 @@ class TextStrip(EffectStrip, Strip, bpy_struct):
 class Texture(ID, bpy_struct):
     """Texture data-block used by materials, lights, worlds and brushes"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
-    color_ramp: ColorRamp | None
-    """ (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """(readonly)"""
 
     contrast: float
     """ Adjust the contrast of the texture (in [0, 5], default 1.0)"""
@@ -100633,11 +101183,13 @@ class Texture(ID, bpy_struct):
     use_preview_alpha: bool
     """ Show Alpha in Preview Render (default False)"""
 
-    users_material: tuple[Material, ...]
-    """ Materials that use this texture(readonly)"""
+    @property
+    def users_material(self) -> tuple[Material, ...]:
+        """Materials that use this texture(readonly)"""
 
-    users_object_modifier: tuple[Object, ...]
-    """ Object modifiers that use this texture(readonly)"""
+    @property
+    def users_object_modifier(self) -> tuple[Object, ...]:
+        """Object modifiers that use this texture(readonly)"""
 
     def evaluate(
         self, value: collections.abc.Sequence[float] | mathutils.Vector | None
@@ -101033,8 +101585,9 @@ class TextureNodeCoordinates(TextureNode, NodeInternal, Node, bpy_struct):
         """
 
 class TextureNodeCurveRGB(TextureNode, NodeInternal, Node, bpy_struct):
-    mapping: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def mapping(self) -> CurveMapping | None:
+        """(readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -101088,8 +101641,9 @@ class TextureNodeCurveRGB(TextureNode, NodeInternal, Node, bpy_struct):
         """
 
 class TextureNodeCurveTime(TextureNode, NodeInternal, Node, bpy_struct):
-    curve: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def curve(self) -> CurveMapping | None:
+        """(readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -101354,8 +101908,9 @@ class TextureNodeHueSaturation(TextureNode, NodeInternal, Node, bpy_struct):
 
 class TextureNodeImage(TextureNode, NodeInternal, Node, bpy_struct):
     image: Image | None
-    image_user: ImageUser | None
-    """ Parameters defining the image duration, offset and related settings (readonly)"""
+    @property
+    def image_user(self) -> ImageUser | None:
+        """Parameters defining the image duration, offset and related settings (readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -102558,8 +103113,9 @@ class TextureNodeValToNor(TextureNode, NodeInternal, Node, bpy_struct):
         """
 
 class TextureNodeValToRGB(TextureNode, NodeInternal, Node, bpy_struct):
-    color_ramp: ColorRamp | None
-    """ (readonly)"""
+    @property
+    def color_ramp(self) -> ColorRamp | None:
+        """(readonly)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -102742,71 +103298,89 @@ class Theme(bpy_struct):
     bone_color_sets: bpy_prop_collection[ThemeBoneColorSet]
     """ (default None, readonly, never None)"""
 
-    clip_editor: ThemeClipEditor
-    """ (readonly, never None)"""
+    @property
+    def clip_editor(self) -> ThemeClipEditor:
+        """(readonly, never None)"""
 
     collection_color: bpy_prop_collection[ThemeCollectionColor]
     """ (default None, readonly, never None)"""
 
-    common: ThemeCommon
-    """ Theme properties shared by different editors (readonly, never None)"""
+    @property
+    def common(self) -> ThemeCommon:
+        """Theme properties shared by different editors (readonly, never None)"""
 
-    console: ThemeConsole
-    """ (readonly, never None)"""
+    @property
+    def console(self) -> ThemeConsole:
+        """(readonly, never None)"""
 
-    dopesheet_editor: ThemeDopeSheet
-    """ (readonly, never None)"""
+    @property
+    def dopesheet_editor(self) -> ThemeDopeSheet:
+        """(readonly, never None)"""
 
-    file_browser: ThemeFileBrowser
-    """ (readonly, never None)"""
+    @property
+    def file_browser(self) -> ThemeFileBrowser:
+        """(readonly, never None)"""
 
     filepath: str
     """ The path to the preset loaded into this theme (if any) (default "", never None)"""
 
-    graph_editor: ThemeGraphEditor
-    """ (readonly, never None)"""
+    @property
+    def graph_editor(self) -> ThemeGraphEditor:
+        """(readonly, never None)"""
 
-    image_editor: ThemeImageEditor
-    """ (readonly, never None)"""
+    @property
+    def image_editor(self) -> ThemeImageEditor:
+        """(readonly, never None)"""
 
-    info: ThemeInfo
-    """ (readonly, never None)"""
+    @property
+    def info(self) -> ThemeInfo:
+        """(readonly, never None)"""
 
     name: str
     """ Name of the theme (default "", never None)"""
 
-    nla_editor: ThemeNLAEditor
-    """ (readonly, never None)"""
+    @property
+    def nla_editor(self) -> ThemeNLAEditor:
+        """(readonly, never None)"""
 
-    node_editor: ThemeNodeEditor
-    """ (readonly, never None)"""
+    @property
+    def node_editor(self) -> ThemeNodeEditor:
+        """(readonly, never None)"""
 
-    outliner: ThemeOutliner
-    """ (readonly, never None)"""
+    @property
+    def outliner(self) -> ThemeOutliner:
+        """(readonly, never None)"""
 
-    preferences: ThemePreferences
-    """ (readonly, never None)"""
+    @property
+    def preferences(self) -> ThemePreferences:
+        """(readonly, never None)"""
 
-    properties: ThemeProperties
-    """ (readonly, never None)"""
+    @property
+    def properties(self) -> ThemeProperties:
+        """(readonly, never None)"""
 
-    regions: ThemeRegions
-    """ Theme properties for common editor regions (readonly, never None)"""
+    @property
+    def regions(self) -> ThemeRegions:
+        """Theme properties for common editor regions (readonly, never None)"""
 
-    sequence_editor: ThemeSequenceEditor
-    """ (readonly, never None)"""
+    @property
+    def sequence_editor(self) -> ThemeSequenceEditor:
+        """(readonly, never None)"""
 
-    spreadsheet: ThemeSpreadsheet
-    """ (readonly, never None)"""
+    @property
+    def spreadsheet(self) -> ThemeSpreadsheet:
+        """(readonly, never None)"""
 
-    statusbar: ThemeStatusBar
-    """ (readonly, never None)"""
+    @property
+    def statusbar(self) -> ThemeStatusBar:
+        """(readonly, never None)"""
 
     strip_color: bpy_prop_collection[ThemeStripColor]
     """ (default None, readonly, never None)"""
 
-    text_editor: ThemeTextEditor
-    """ (readonly, never None)"""
+    @property
+    def text_editor(self) -> ThemeTextEditor:
+        """(readonly, never None)"""
 
     theme_area: typing.Literal[
         "USER_INTERFACE",
@@ -102835,14 +103409,17 @@ class Theme(bpy_struct):
     ]
     """ (default 'USER_INTERFACE')"""
 
-    topbar: ThemeTopBar
-    """ (readonly, never None)"""
+    @property
+    def topbar(self) -> ThemeTopBar:
+        """(readonly, never None)"""
 
-    user_interface: ThemeUserInterface
-    """ (readonly, never None)"""
+    @property
+    def user_interface(self) -> ThemeUserInterface:
+        """(readonly, never None)"""
 
-    view_3d: ThemeView3D
-    """ (readonly, never None)"""
+    @property
+    def view_3d(self) -> ThemeView3D:
+        """(readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -102957,8 +103534,9 @@ class ThemeClipEditor(bpy_struct):
     selected_marker: mathutils.Color
     """ Color of selected marker (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -103025,11 +103603,13 @@ class ThemeCollectionColor(bpy_struct):
 class ThemeCommon(bpy_struct):
     """Theme properties shared by different editors"""
 
-    anim: ThemeCommonAnim
-    """ (readonly, never None)"""
+    @property
+    def anim(self) -> ThemeCommonAnim:
+        """(readonly, never None)"""
 
-    curves: ThemeCommonCurves
-    """ (readonly, never None)"""
+    @property
+    def curves(self) -> ThemeCommonCurves:
+        """(readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -103250,8 +103830,9 @@ class ThemeConsole(bpy_struct):
     select: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -103308,8 +103889,9 @@ class ThemeDopeSheet(bpy_struct):
     simulated_frames: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     summary: bpy_prop_array[float]
     """ Color of summary channel (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
@@ -103351,8 +103933,9 @@ class ThemeFileBrowser(bpy_struct):
     selected_file: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -103480,8 +104063,9 @@ class ThemeGraphEditor(bpy_struct):
     grid: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     vertex: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
@@ -103577,8 +104161,9 @@ class ThemeImageEditor(bpy_struct):
     scope_back: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     uv_shadow: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
@@ -103659,8 +104244,9 @@ class ThemeInfo(bpy_struct):
     info_warning_text: mathutils.Color
     """ Foreground color of Warning icon (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -103720,8 +104306,9 @@ class ThemeNLAEditor(bpy_struct):
     sound_strips_selected: mathutils.Color
     """ Selected Sound Strip (for timing speaker sounds) (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     strips: mathutils.Color
     """ Unselected Action-Clip Strip (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
@@ -103850,8 +104437,9 @@ class ThemeNodeEditor(bpy_struct):
     simulation_zone: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     texture_node: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
@@ -103920,8 +104508,9 @@ class ThemeOutliner(bpy_struct):
     selected_object: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -103957,8 +104546,9 @@ class ThemePreferences(bpy_struct):
     match: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -103994,8 +104584,9 @@ class ThemeProperties(bpy_struct):
     match: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -104028,17 +104619,21 @@ class ThemeProperties(bpy_struct):
 class ThemeRegions(bpy_struct):
     """Theme settings for regions that are common among editors"""
 
-    asset_shelf: ThemeRegionsAssetShelf
-    """ (readonly, never None)"""
+    @property
+    def asset_shelf(self) -> ThemeRegionsAssetShelf:
+        """(readonly, never None)"""
 
-    channels: ThemeRegionsChannels
-    """ (readonly, never None)"""
+    @property
+    def channels(self) -> ThemeRegionsChannels:
+        """(readonly, never None)"""
 
-    scrubbing: ThemeRegionsScrubbing
-    """ (readonly, never None)"""
+    @property
+    def scrubbing(self) -> ThemeRegionsScrubbing:
+        """(readonly, never None)"""
 
-    sidebars: ThemeRegionsSidebars
-    """ (readonly, never None)"""
+    @property
+    def sidebars(self) -> ThemeRegionsSidebars:
+        """(readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -104279,8 +104874,9 @@ class ThemeSequenceEditor(bpy_struct):
     selected_text: bpy_prop_array[float]
     """ Text strip editing selection (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     text_strip: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
@@ -104370,8 +104966,9 @@ class ThemeSpaceGeneric(bpy_struct):
         """
 
 class ThemeSpaceGradient(bpy_struct):
-    gradients: ThemeGradientColors
-    """ (readonly, never None)"""
+    @property
+    def gradients(self) -> ThemeGradientColors:
+        """(readonly, never None)"""
 
     header: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
@@ -104425,8 +105022,9 @@ class ThemeSpreadsheet(bpy_struct):
     row_alternate: bpy_prop_array[float]
     """ Overlay color on every other row (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -104459,8 +105057,9 @@ class ThemeSpreadsheet(bpy_struct):
 class ThemeStatusBar(bpy_struct):
     """Theme settings for the Status Bar"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -104527,14 +105126,17 @@ class ThemeStripColor(bpy_struct):
 class ThemeStyle(bpy_struct):
     """Theme settings for style sets"""
 
-    panel_title: ThemeFontStyle
-    """ (readonly, never None)"""
+    @property
+    def panel_title(self) -> ThemeFontStyle:
+        """(readonly, never None)"""
 
-    tooltip: ThemeFontStyle
-    """ (readonly, never None)"""
+    @property
+    def tooltip(self) -> ThemeFontStyle:
+        """(readonly, never None)"""
 
-    widget: ThemeFontStyle
-    """ (readonly, never None)"""
+    @property
+    def widget(self) -> ThemeFontStyle:
+        """(readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -104579,8 +105181,9 @@ class ThemeTextEditor(bpy_struct):
     selected_text: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     syntax_builtin: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
@@ -104637,8 +105240,9 @@ class ThemeTextEditor(bpy_struct):
 class ThemeTopBar(bpy_struct):
     """Theme settings for the Top Bar"""
 
-    space: ThemeSpaceGeneric
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGeneric:
+        """Settings for space (readonly, never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -104785,71 +105389,93 @@ class ThemeUserInterface(bpy_struct):
     transparent_checker_size: int
     """ Size of checkerboard pattern indicating transparent areas (in [2, 48], default 0)"""
 
-    wcol_box: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_box(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_curve: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_curve(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_list_item: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_list_item(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_menu: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_menu(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_menu_back: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_menu_back(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_menu_item: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_menu_item(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_num: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_num(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_numslider: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_numslider(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_option: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_option(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_pie_menu: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_pie_menu(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_progress: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_progress(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_pulldown: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_pulldown(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_radio: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_radio(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_regular: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_regular(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_scroll: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_scroll(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_state: ThemeWidgetStateColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_state(self) -> ThemeWidgetStateColors:
+        """(readonly, never None)"""
 
-    wcol_tab: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_tab(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_text: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_text(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_toggle: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_toggle(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_tool: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_tool(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_toolbar_item: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_toolbar_item(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
-    wcol_tooltip: ThemeWidgetColors
-    """ (readonly, never None)"""
+    @property
+    def wcol_tooltip(self) -> ThemeWidgetColors:
+        """(readonly, never None)"""
 
     widget_emboss: bpy_prop_array[float]
     """ Color of the 1px shadow line underlying widgets (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
@@ -105035,8 +105661,9 @@ class ThemeView3D(bpy_struct):
     skin_root: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
 
-    space: ThemeSpaceGradient
-    """ Settings for space (readonly, never None)"""
+    @property
+    def space(self) -> ThemeSpaceGradient:
+        """Settings for space (readonly, never None)"""
 
     speaker: mathutils.Color
     """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
@@ -105365,29 +105992,36 @@ class ToolSettings(bpy_struct):
     auto_keying_mode: typing.Literal["ADD_REPLACE_KEYS", "REPLACE_KEYS"]
     """ Can add additional constraints on when auto keying can insert keyframes (default 'ADD_REPLACE_KEYS')"""
 
-    curve_paint_settings: CurvePaintSettings
-    """ (readonly, never None)"""
+    @property
+    def curve_paint_settings(self) -> CurvePaintSettings:
+        """(readonly, never None)"""
 
-    curves_sculpt: CurvesSculpt | None
-    """ (readonly)"""
+    @property
+    def curves_sculpt(self) -> CurvesSculpt | None:
+        """(readonly)"""
 
-    custom_bevel_profile_preset: CurveProfile | None
-    """ Used for defining a profile's path (readonly)"""
+    @property
+    def custom_bevel_profile_preset(self) -> CurveProfile | None:
+        """Used for defining a profile's path (readonly)"""
 
     double_threshold: float
     """ Threshold distance for Auto Merge (in [0, 1], default 0.001)"""
 
-    gpencil_interpolate: GPencilInterpolateSettings | None
-    """ Settings for Grease Pencil interpolation tools (readonly)"""
+    @property
+    def gpencil_interpolate(self) -> GPencilInterpolateSettings | None:
+        """Settings for Grease Pencil interpolation tools (readonly)"""
 
-    gpencil_paint: GpPaint | None
-    """ (readonly)"""
+    @property
+    def gpencil_paint(self) -> GpPaint | None:
+        """(readonly)"""
 
-    gpencil_sculpt: GPencilSculptSettings | None
-    """ Settings for stroke sculpting tools and brushes (readonly)"""
+    @property
+    def gpencil_sculpt(self) -> GPencilSculptSettings | None:
+        """Settings for stroke sculpting tools and brushes (readonly)"""
 
-    gpencil_sculpt_paint: GpSculptPaint | None
-    """ (readonly)"""
+    @property
+    def gpencil_sculpt_paint(self) -> GpSculptPaint | None:
+        """(readonly)"""
 
     gpencil_selectmode_edit: typing.Literal[
         bpy.stub_internal.rna_enums.GreasePencilSelectmodeItems
@@ -105405,14 +106039,17 @@ class ToolSettings(bpy_struct):
     gpencil_surface_offset: float
     """ Offset along the normal when drawing on surfaces (in [-inf, inf], default 0.15)"""
 
-    gpencil_vertex_paint: GpVertexPaint | None
-    """ (readonly)"""
+    @property
+    def gpencil_vertex_paint(self) -> GpVertexPaint | None:
+        """(readonly)"""
 
-    gpencil_weight_paint: GpWeightPaint | None
-    """ (readonly)"""
+    @property
+    def gpencil_weight_paint(self) -> GpWeightPaint | None:
+        """(readonly)"""
 
-    image_paint: ImagePaint | None
-    """ (readonly)"""
+    @property
+    def image_paint(self) -> ImagePaint | None:
+        """(readonly)"""
 
     keyframe_type: typing.Literal[
         bpy.stub_internal.rna_enums.BeztripleKeyframeTypeItems
@@ -105431,11 +106068,13 @@ class ToolSettings(bpy_struct):
     normal_vector: mathutils.Vector
     """ Normal vector used to copy, add or multiply (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    paint_mode: PaintModeSettings | None
-    """ (readonly)"""
+    @property
+    def paint_mode(self) -> PaintModeSettings | None:
+        """(readonly)"""
 
-    particle_edit: ParticleEdit | None
-    """ (readonly)"""
+    @property
+    def particle_edit(self) -> ParticleEdit | None:
+        """(readonly)"""
 
     plane_axis: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ The axis used for placing the base region (default 'Z')"""
@@ -105463,11 +106102,13 @@ class ToolSettings(bpy_struct):
     proportional_size: float
     """ Display size for proportional editing circle (in [1e-05, 5000], default 1.0)"""
 
-    sculpt: Sculpt | None
-    """ (readonly)"""
+    @property
+    def sculpt(self) -> Sculpt | None:
+        """(readonly)"""
 
-    sequencer_tool_settings: SequencerToolSettings
-    """ (readonly, never None)"""
+    @property
+    def sequencer_tool_settings(self) -> SequencerToolSettings:
+        """(readonly, never None)"""
 
     show_uv_local_view: bool
     """ Display only faces with the currently displayed image assigned (default False)"""
@@ -105533,8 +106174,9 @@ class ToolSettings(bpy_struct):
     snap_uv_element: set[typing.Literal["INCREMENT", "GRID", "VERTEX"]]
     """ Type of element to snap to (default {'INCREMENT'})"""
 
-    statvis: MeshStatVis
-    """ (readonly, never None)"""
+    @property
+    def statvis(self) -> MeshStatVis:
+        """(readonly, never None)"""
 
     transform_pivot_point: typing.Literal[
         "BOUNDING_BOX_CENTER",
@@ -105728,8 +106370,9 @@ class ToolSettings(bpy_struct):
     use_uv_select_sync: bool
     """ Keep UV and edit mode mesh selection in sync (default True)"""
 
-    uv_sculpt: UvSculpt | None
-    """ (readonly)"""
+    @property
+    def uv_sculpt(self) -> UvSculpt | None:
+        """(readonly)"""
 
     uv_sculpt_all_islands: bool
     """ Brush operates on all islands (default False)"""
@@ -105754,11 +106397,13 @@ class ToolSettings(bpy_struct):
     vertex_group_weight: float
     """ Weight to assign in vertex groups (in [0, 1], default 1.0)"""
 
-    vertex_paint: VertexPaint | None
-    """ (readonly)"""
+    @property
+    def vertex_paint(self) -> VertexPaint | None:
+        """(readonly)"""
 
-    weight_paint: VertexPaint | None
-    """ (readonly)"""
+    @property
+    def weight_paint(self) -> VertexPaint | None:
+        """(readonly)"""
 
     workspace_tool_type: typing.Literal["DEFAULT", "FALLBACK"]
     """ Action when dragging in the viewport (default 'FALLBACK')"""
@@ -106101,8 +106746,9 @@ class TransformOrientation(bpy_struct):
         """
 
 class TransformOrientationSlot(bpy_struct):
-    custom_orientation: TransformOrientation | None
-    """ (readonly)"""
+    @property
+    def custom_orientation(self) -> TransformOrientation | None:
+        """(readonly)"""
 
     type: typing.Literal[bpy.stub_internal.rna_enums.TransformOrientationItems]
     """ Transformation orientation (default 'GLOBAL')"""
@@ -107862,8 +108508,9 @@ class UIList(bpy_struct):
         """
 
 class UIPieMenu(bpy_struct):
-    layout: UILayout | None
-    """ (readonly)"""
+    @property
+    def layout(self) -> UILayout | None:
+        """(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -107894,8 +108541,9 @@ class UIPieMenu(bpy_struct):
         """
 
 class UIPopover(bpy_struct):
-    layout: UILayout | None
-    """ (readonly)"""
+    @property
+    def layout(self) -> UILayout | None:
+        """(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -107926,8 +108574,9 @@ class UIPopover(bpy_struct):
         """
 
 class UIPopupMenu(bpy_struct):
-    layout: UILayout | None
-    """ (readonly)"""
+    @property
+    def layout(self) -> UILayout | None:
+        """(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -108697,8 +109346,9 @@ class UserSolidLight(bpy_struct):
         """
 
 class UvSculpt(bpy_struct):
-    curve_distance_falloff: CurveMapping | None
-    """ (readonly)"""
+    @property
+    def curve_distance_falloff(self) -> CurveMapping | None:
+        """(readonly)"""
 
     curve_distance_falloff_preset: typing.Literal[
         bpy.stub_internal.rna_enums.BrushCurvePresetItems
@@ -109565,8 +110215,9 @@ class VectorFont(ID, bpy_struct):
     filepath: str
     """ (default "", never None, blend relative // prefix supported)"""
 
-    packed_file: PackedFile | None
-    """ (readonly)"""
+    @property
+    def packed_file(self) -> PackedFile | None:
+        """(readonly)"""
 
     def pack(self) -> None:
         """Pack the font into the current blend file"""
@@ -109783,8 +110434,9 @@ class VertexWeightEditModifier(Modifier, bpy_struct):
     invert_mask_vertex_group: bool
     """ Invert vertex group mask influence (default False)"""
 
-    map_curve: CurveMapping | None
-    """ Custom mapping curve (readonly)"""
+    @property
+    def map_curve(self) -> CurveMapping | None:
+        """Custom mapping curve (readonly)"""
 
     mask_constant: float
     """ Global influence of current modifications on vgroup (in [-inf, inf], default 1.0)"""
@@ -109965,8 +110617,9 @@ class VertexWeightProximityModifier(Modifier, bpy_struct):
     invert_mask_vertex_group: bool
     """ Invert vertex group mask influence (default False)"""
 
-    map_curve: CurveMapping | None
-    """ Custom mapping curve (readonly)"""
+    @property
+    def map_curve(self) -> CurveMapping | None:
+        """Custom mapping curve (readonly)"""
 
     mask_constant: float
     """ Global influence of current modifications on vgroup (in [-inf, inf], default 1.0)"""
@@ -110522,8 +111175,9 @@ class View3DShading(bpy_struct):
     ]
     """ Render Pass to show in the viewport (default 'COMBINED')"""
 
-    selected_studio_light: StudioLight | None
-    """ Selected StudioLight (readonly)"""
+    @property
+    def selected_studio_light(self) -> StudioLight | None:
+        """Selected StudioLight (readonly)"""
 
     shadow_intensity: float
     """ Darkness of shadows (in [0, 1], default 0.5)"""
@@ -110643,8 +111297,9 @@ class View3DShading(bpy_struct):
 class ViewLayer(bpy_struct):
     """View layer"""
 
-    active_aov: AOV | None
-    """ Active AOV (readonly)"""
+    @property
+    def active_aov(self) -> AOV | None:
+        """Active AOV (readonly)"""
 
     active_aov_index: int | None
     """ Index of active AOV (in [0, inf], default 0)"""
@@ -110652,8 +111307,9 @@ class ViewLayer(bpy_struct):
     active_layer_collection: LayerCollection | None
     """ Active layer collection in this view layer's hierarchy (never None)"""
 
-    active_lightgroup: Lightgroup | None
-    """ Active Lightgroup (readonly)"""
+    @property
+    def active_lightgroup(self) -> Lightgroup | None:
+        """Active Lightgroup (readonly)"""
 
     active_lightgroup_index: int | None
     """ Index of active lightgroup (in [0, inf], default 0)"""
@@ -110664,20 +111320,24 @@ class ViewLayer(bpy_struct):
     cycles: typing.Any
     """ Cycles ViewLayer Settings (readonly)"""
 
-    depsgraph: Depsgraph | None
-    """ Dependencies in the scene data (readonly)"""
+    @property
+    def depsgraph(self) -> Depsgraph | None:
+        """Dependencies in the scene data (readonly)"""
 
-    eevee: ViewLayerEEVEE
-    """ View layer settings for EEVEE (readonly, never None)"""
+    @property
+    def eevee(self) -> ViewLayerEEVEE:
+        """View layer settings for EEVEE (readonly, never None)"""
 
-    freestyle_settings: FreestyleSettings
-    """ (readonly, never None)"""
+    @property
+    def freestyle_settings(self) -> FreestyleSettings:
+        """(readonly, never None)"""
 
     has_export_collections: bool
     """ At least one Collection in this View Layer has an exporter (default False, readonly)"""
 
-    layer_collection: LayerCollection
-    """ Root of collections hierarchy of this view layer, its 'collection' pointer property is the same as the scene's master collection (readonly, never None)"""
+    @property
+    def layer_collection(self) -> LayerCollection:
+        """Root of collections hierarchy of this view layer, its 'collection' pointer property is the same as the scene's master collection (readonly, never None)"""
 
     lightgroups: Lightgroups
     """ (default None, readonly)"""
@@ -111022,11 +111682,13 @@ class ViewerPathElem(bpy_struct):
 class Volume(ID, bpy_struct):
     """Volume data-block for 3D volume grids"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
-    display: VolumeDisplay | None
-    """ Volume display settings for 3D viewport (readonly)"""
+    @property
+    def display(self) -> VolumeDisplay | None:
+        """Volume display settings for 3D viewport (readonly)"""
 
     filepath: str
     """ Volume file used by this Volume data-block (default "", never None, blend relative // prefix supported)"""
@@ -111049,11 +111711,13 @@ class Volume(ID, bpy_struct):
     materials: IDMaterials
     """ (default None, readonly)"""
 
-    packed_file: PackedFile | None
-    """ (readonly)"""
+    @property
+    def packed_file(self) -> PackedFile | None:
+        """(readonly)"""
 
-    render: VolumeRender | None
-    """ Volume render settings for 3D viewport (readonly)"""
+    @property
+    def render(self) -> VolumeRender | None:
+        """Volume render settings for 3D viewport (readonly)"""
 
     sequence_mode: typing.Literal["CLIP", "EXTEND", "REPEAT", "PING_PONG"]
     """ Sequence playback mode (default 'CLIP')"""
@@ -111395,11 +112059,13 @@ class VoronoiTexture(Texture, ID, bpy_struct):
     weight_4: float
     """ Voronoi feature weight 4 (in [-2, 2], default 0.0)"""
 
-    users_material: tuple[Material, ...]
-    """ Materials that use this texture(readonly)"""
+    @property
+    def users_material(self) -> tuple[Material, ...]:
+        """Materials that use this texture(readonly)"""
 
-    users_object_modifier: tuple[Object, ...]
-    """ Object modifiers that use this texture(readonly)"""
+    @property
+    def users_object_modifier(self) -> tuple[Object, ...]:
+        """Object modifiers that use this texture(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -111553,8 +112219,9 @@ class WarpModifier(Modifier, bpy_struct):
     bone_to: str
     """ Bone defining offset (default "", never None)"""
 
-    falloff_curve: CurveMapping | None
-    """ Custom falloff curve (readonly)"""
+    @property
+    def falloff_curve(self) -> CurveMapping | None:
+        """Custom falloff curve (readonly)"""
 
     falloff_radius: float
     """ Radius to apply (in [-inf, inf], default 1.0)"""
@@ -111877,8 +112544,9 @@ class Window(bpy_struct):
     modal_operators: bpy_prop_collection[Operator]
     """ A list of currently running modal operators (default None, readonly)"""
 
-    parent: Window | None
-    """ Active workspace and scene follow this window (readonly)"""
+    @property
+    def parent(self) -> Window | None:
+        """Active workspace and scene follow this window (readonly)"""
 
     scene: Scene
     """ Active scene to be edited in the window (never None)"""
@@ -111886,8 +112554,9 @@ class Window(bpy_struct):
     screen: Screen
     """ Active workspace screen showing in the window (never None)"""
 
-    stereo_3d_display: Stereo3dDisplay
-    """ Settings for stereo 3D display (readonly, never None)"""
+    @property
+    def stereo_3d_display(self) -> Stereo3dDisplay:
+        """Settings for stereo 3D display (readonly, never None)"""
 
     support_hdr_color: bool
     """ The window has a HDR graphics buffer that wide gamut and high dynamic range colors can be written to, in extended sRGB color space. (default False, readonly)"""
@@ -112060,11 +112729,13 @@ class WindowManager(ID, bpy_struct):
     windows: Windows
     """ Open windows (default None, readonly)"""
 
-    xr_session_settings: XrSessionSettings
-    """ (readonly, never None)"""
+    @property
+    def xr_session_settings(self) -> XrSessionSettings:
+        """(readonly, never None)"""
 
-    xr_session_state: XrSessionState | None
-    """ Runtime state information about the VR session (readonly)"""
+    @property
+    def xr_session_state(self) -> XrSessionState | None:
+        """Runtime state information about the VR session (readonly)"""
 
     clipboard: str
     """ Clipboard text storage."""
@@ -112592,11 +113263,13 @@ class WoodTexture(Texture, ID, bpy_struct):
     wood_type: typing.Literal["BANDS", "RINGS", "BANDNOISE", "RINGNOISE"]
     """ (default 'BANDS')"""
 
-    users_material: tuple[Material, ...]
-    """ Materials that use this texture(readonly)"""
+    @property
+    def users_material(self) -> tuple[Material, ...]:
+        """Materials that use this texture(readonly)"""
 
-    users_object_modifier: tuple[Object, ...]
-    """ Object modifiers that use this texture(readonly)"""
+    @property
+    def users_object_modifier(self) -> tuple[Object, ...]:
+        """Object modifiers that use this texture(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -112815,8 +113488,9 @@ class WorkSpaceTool(bpy_struct):
 class World(ID, bpy_struct):
     """World data-block describing the environment and ambient lighting of a scene"""
 
-    animation_data: AnimData | None
-    """ Animation data for this data-block (readonly)"""
+    @property
+    def animation_data(self) -> AnimData | None:
+        """Animation data for this data-block (readonly)"""
 
     color: mathutils.Color
     """ Color of the background (array of 3 items, in [0, inf], default (0.05, 0.05, 0.05))"""
@@ -112827,14 +113501,16 @@ class World(ID, bpy_struct):
     cycles_visibility: typing.Any
     """ Cycles visibility settings (readonly)"""
 
-    light_settings: WorldLighting
-    """ World lighting settings (readonly, never None)"""
+    @property
+    def light_settings(self) -> WorldLighting:
+        """World lighting settings (readonly, never None)"""
 
     lightgroup: str
     """ Lightgroup that the world belongs to (default "", never None)"""
 
-    mist_settings: WorldMistSettings
-    """ World mist settings (readonly, never None)"""
+    @property
+    def mist_settings(self) -> WorldMistSettings:
+        """World mist settings (readonly, never None)"""
 
     node_tree: ShaderNodeTree | None
     """ Node tree for node based worlds"""
@@ -113120,8 +113796,9 @@ class XrActionMapItem(bpy_struct):
     op_name: str
     """ Name of operator (translated) to call on action event (default "", readonly, never None)"""
 
-    op_properties: OperatorProperties | None
-    """ Properties to set when the operator is called (readonly)"""
+    @property
+    def op_properties(self) -> OperatorProperties | None:
+        """Properties to set when the operator is called (readonly)"""
 
     pose_is_controller_aim: bool
     """ The action poses will be used for the VR controller aims (default False)"""
@@ -113345,8 +114022,9 @@ class XrSessionSettings(bpy_struct):
     icon_from_show_object_viewport: int
     """ (in [-inf, inf], default 0, readonly)"""
 
-    shading: View3DShading
-    """ (readonly, never None)"""
+    @property
+    def shading(self) -> View3DShading:
+        """(readonly, never None)"""
 
     show_annotation: bool
     """ Show annotations for this view (default False)"""

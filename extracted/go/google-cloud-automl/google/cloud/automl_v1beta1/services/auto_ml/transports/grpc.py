@@ -16,26 +16,30 @@
 import json
 import logging as std_logging
 import pickle
-from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Callable, Dict, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, grpc_helpers, operations_v1
 import google.auth  # type: ignore
+import google.protobuf.message
+import grpc  # type: ignore
+import proto  # type: ignore
+from google.api_core import gapic_v1, grpc_helpers, operations_v1
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.protobuf.json_format import MessageToJson
-import google.protobuf.message
-import grpc  # type: ignore
-import proto  # type: ignore
 
-from google.cloud.automl_v1beta1.types import annotation_spec
-from google.cloud.automl_v1beta1.types import column_spec
+from google.cloud.automl_v1beta1.types import (
+    annotation_spec,
+    column_spec,
+    dataset,
+    model,
+    model_evaluation,
+    service,
+    table_spec,
+)
 from google.cloud.automl_v1beta1.types import column_spec as gca_column_spec
-from google.cloud.automl_v1beta1.types import dataset
 from google.cloud.automl_v1beta1.types import dataset as gca_dataset
-from google.cloud.automl_v1beta1.types import model, model_evaluation, service
-from google.cloud.automl_v1beta1.types import table_spec
 from google.cloud.automl_v1beta1.types import table_spec as gca_table_spec
 
 from .base import DEFAULT_CLIENT_INFO, AutoMlTransport
@@ -62,7 +66,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(request, google.protobuf.message.Message):
                 request_payload = MessageToJson(request)
             else:
-                request_payload = f"{type(request).__name__}: {pickle.dumps(request)}"
+                request_payload = f"{type(request).__name__}: {pickle.dumps(request)!r}"
 
             request_metadata = {
                 key: value.decode("utf-8") if isinstance(value, bytes) else value
@@ -97,7 +101,7 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
             elif isinstance(result, google.protobuf.message.Message):
                 response_payload = MessageToJson(result)
             else:
-                response_payload = f"{type(result).__name__}: {pickle.dumps(result)}"
+                response_payload = f"{type(result).__name__}: {pickle.dumps(result)!r}"
             grpc_response = {
                 "payload": response_payload,
                 "metadata": metadata,
@@ -206,6 +210,10 @@ class AutoMlGrpcTransport(AutoMlTransport):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
 
         Raises:
           google.auth.exceptions.MutualTLSChannelError: If mutual TLS transport

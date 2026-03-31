@@ -5,20 +5,15 @@ Backend magic inherited from tensornetwork: numpy backend
 # pylint: disable=invalid-name
 
 import logging
-import warnings
 from typing import Any, Callable, Optional, Sequence, Tuple, Union
 
 import numpy as np
-
-try:
-    from numpy import ComplexWarning  # type: ignore
-except ImportError:  # np2.0 compatibility
-    from numpy.exceptions import ComplexWarning  # type: ignore
 
 import tensornetwork
 from scipy.linalg import expm, solve, schur
 from scipy.special import softmax, expit, jv
 from scipy.sparse import coo_matrix, issparse
+from scipy.sparse.linalg import lobpcg, LinearOperator
 from tensornetwork.backends.numpy import numpy_backend
 from .abstract_backend import ExtendedBackend
 
@@ -149,6 +144,21 @@ class NumpyBackend(numpy_backend.NumPyBackend, ExtendedBackend):  # type: ignore
     def eigvalsh(self, a: Tensor) -> Tensor:
         return np.linalg.eigvalsh(a)
 
+    def lobpcg_standard(
+        self,
+        a: Union[Tensor, Callable[[Tensor], Tensor]],
+        x0: Tensor,
+        m: int = 100,
+        tol: Optional[Union[Tensor, float]] = None,
+    ) -> Tuple[Tensor, Tensor, int]:
+        if callable(a):
+            a = LinearOperator(
+                shape=(x0.shape[0], x0.shape[0]), matvec=a, matmat=a, dtype=x0.dtype
+            )
+
+        theta, x = lobpcg(a, x0, maxiter=m, tol=tol, largest=True)
+        return theta, x, m
+
     def kron(self, a: Tensor, b: Tensor) -> Tensor:
         return np.kron(a, b)
 
@@ -275,14 +285,17 @@ class NumpyBackend(numpy_backend.NumPyBackend, ExtendedBackend):  # type: ignore
     def imag(self, a: Tensor) -> Tensor:
         return np.imag(a)
 
-    def cast(self, a: Tensor, dtype: str) -> Tensor:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", ComplexWarning)
-            if isinstance(dtype, str):
-                if dtype == "bool":
-                    return a.astype(bool)
-                return a.astype(getattr(np, dtype))
-            return a.astype(dtype)
+    def cast(self, a: Tensor, dtype: Union[str, Any]) -> Tensor:
+        if isinstance(dtype, str):
+            if dtype == "bool":
+                np_dtype = bool
+            else:
+                np_dtype = getattr(np, dtype)
+        else:
+            np_dtype = dtype
+        if np.iscomplexobj(a) and not np.issubdtype(np_dtype, np.complexfloating):
+            a = np.real(a)
+        return a.astype(np_dtype)
 
     def arange(self, start: int, stop: Optional[int] = None, step: int = 1) -> Tensor:
         if stop is None:

@@ -10,7 +10,6 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from codeflash.languages.base import LanguageSupport
-from codeflash.languages.language_enum import Language
 from codeflash.languages.java.build_tools import find_test_root
 from codeflash.languages.java.comparator import compare_test_results as _compare_test_results
 from codeflash.languages.java.concurrency_analyzer import analyze_function_concurrency
@@ -32,6 +31,7 @@ from codeflash.languages.java.test_runner import (
     run_benchmarking_tests,
     run_tests,
 )
+from codeflash.languages.language_enum import Language
 from codeflash.languages.registry import register_language
 
 if TYPE_CHECKING:
@@ -66,6 +66,7 @@ class JavaSupport(LanguageSupport):
         self.line_profiler_agent_arg: str | None = None
         self.line_profiler_warmup_iterations: int = 0
         self._language_version: str | None = None
+        self._test_framework: str = "junit5"
 
     @property
     def language(self) -> Language:
@@ -79,8 +80,8 @@ class JavaSupport(LanguageSupport):
 
     @property
     def test_framework(self) -> str:
-        """Primary test framework name."""
-        return "junit5"
+        """Primary test framework name, detected from project build config."""
+        return self._test_framework
 
     @property
     def comment_prefix(self) -> str:
@@ -274,7 +275,7 @@ class JavaSupport(LanguageSupport):
 
     # === Validation ===
 
-    def validate_syntax(self, source: str) -> bool:
+    def validate_syntax(self, source: str, file_path: Path | None = None) -> bool:
         """Check if Java source code is syntactically valid."""
         return self._analyzer.validate_syntax(source)
 
@@ -368,19 +369,24 @@ class JavaSupport(LanguageSupport):
     # === Test Result Comparison ===
 
     def compare_test_results(
-        self, original_results_path: Path, candidate_results_path: Path, project_root: Path | None = None
+        self,
+        original_results_path: Path,
+        candidate_results_path: Path,
+        project_root: Path | None = None,
+        project_classpath: str | None = None,
     ) -> tuple[bool, list[Any]]:
         """Compare test results between original and candidate code."""
-        return _compare_test_results(original_results_path, candidate_results_path, project_root=project_root)
+        return _compare_test_results(
+            original_results_path,
+            candidate_results_path,
+            project_root=project_root,
+            project_classpath=project_classpath,
+        )
 
     # === Reference Finding ===
 
     def find_references(
-        self,
-        function: FunctionToOptimize,
-        project_root: Path,
-        tests_root: Path | None = None,
-        max_files: int = 500,
+        self, function: FunctionToOptimize, project_root: Path, tests_root: Path | None = None, max_files: int = 500
     ) -> list[Any]:
         return []
 
@@ -397,10 +403,11 @@ class JavaSupport(LanguageSupport):
     ) -> None:
         return None
 
-    def setup_test_config(self, test_cfg: Any, file_path: Path) -> None:
-        return None
-
-    # === Configuration ===
+    def setup_test_config(self, test_cfg: Any, file_path: Path, current_worktree: Path | None = None) -> None:
+        """Detect test framework from project build config (pom.xml / build.gradle)."""
+        config = detect_java_project(test_cfg.project_root_path)
+        if config is not None:
+            self._test_framework = config.test_framework
 
     def adjust_test_config_for_discovery(self, test_cfg: Any) -> None:
         """Adjust test config before test discovery for Java.
@@ -538,8 +545,8 @@ class JavaSupport(LanguageSupport):
         if self._language_version is None:
             self._detect_java_version()
 
-        # For now, assume the runtime is available
-        # A full implementation would check/install the JAR
+        self._test_framework = config.test_framework
+
         return True
 
     def _detect_java_version(self) -> None:

@@ -19,7 +19,7 @@
 # earlier versions of xdis (and without attribution).
 
 from types import CodeType
-from typing import List
+from typing import List, Optional, Tuple
 
 from xdis.util import (
     COMPILER_FLAG_NAMES,
@@ -27,7 +27,7 @@ from xdis.util import (
     better_repr,
     code2num,
 )
-from xdis.version_info import IS_GRAAL
+from xdis.version_info import IS_GRAAL, PYTHON_IMPLEMENTATION, PythonImplementation
 
 
 def _try_compile(source: str, name: str) -> CodeType:
@@ -44,9 +44,13 @@ def _try_compile(source: str, name: str) -> CodeType:
     return c
 
 
-def code_info(x, version_tuple, is_pypy=False) -> str:
+def code_info(
+    x, version_tuple: Tuple[int, ...], python_implementation: PythonImplementation
+) -> str:
     """Formatted details of methods, functions, or code."""
-    return format_code_info(get_code_object(x), version_tuple, is_pypy=is_pypy)
+    return format_code_info(
+        get_code_object(x), version_tuple, python_implementation=python_implementation
+    )
 
 
 def get_code_object(x):
@@ -96,8 +100,10 @@ def get_cache_size_313(opname: str) -> int:
     }
     return _inline_cache_entries.get(opname, 0)
 
+
 # For compatibility
 _get_cache_size_313 = get_cache_size_313
+
 
 def findlabels(code: bytes, opc):
     if opc.version_tuple < (3, 10) or IS_GRAAL:
@@ -114,7 +120,10 @@ def findlabels_310(code: bytes, opc):
     for offset, op, arg in unpack_opargs_bytecode_310(code, opc):
         if arg is not None:
             if op in opc.JREL_OPS:
-                if opc.version_tuple >= (3, 11) and opc.opname[op] in ("JUMP_BACKWARD", "JUMP_BACKWARD_NO_INTERRUPT"):
+                if opc.version_tuple >= (3, 11) and opc.opname[op] in (
+                    "JUMP_BACKWARD",
+                    "JUMP_BACKWARD_NO_INTERRUPT",
+                ):
                     arg = -arg
                 label = offset + 2 + arg * 2
                 # in 3.13 we have to add total cache offsets to label
@@ -155,13 +164,13 @@ def findlabels_pre_310(code, opc):
 NO_LINE_NUMBER = -128
 
 
-def findlinestarts(code, dup_lines: bool=False):
+def findlinestarts(code, dup_lines: bool = False):
     """Find the offsets in a byte code which are start of lines in the source.
 
     Generate pairs (offset, lineno) as described in Python/compile.c.
     """
 
-    if hasattr(code, "co_lines"):
+    if hasattr(code, "co_lines") and hasattr(code, "co_linetable"):
         # Taken from 3.10 findlinestarts
         lastline = None
         for start, _, line in code.co_lines():
@@ -234,34 +243,48 @@ def instruction_size(op, opc) -> int:
 op_size = instruction_size
 
 
-def show_code(co, version_tuple, file=None, is_pypy: bool=False) -> None:
+def show_code(
+    co,
+    version_tuple: Tuple[int, ...],
+    file=None,
+    python_implementation=PYTHON_IMPLEMENTATION,
+) -> None:
     """Print details of methods, functions, or code to *file*.
 
     If *file* is not provided, the output is printed on stdout.
     """
     if file is None:
-        print(code_info(co, version_tuple, is_pypy=is_pypy))
+        print(code_info(co, version_tuple, python_implementation))
     else:
-        file.write(code_info(co, version_tuple) + "\n")
+        file.write(code_info(co, version_tuple, python_implementation) + "\n")
 
 
 def op_has_argument(opcode: int, opc) -> bool:
     """
     Return True if `opcode` instruction has an operand.
     """
-    return opcode >= opc.HAVE_ARGUMENT
+    return (
+        opcode in opc.hasarg
+        if hasattr(opc, "hasarg")
+        and opc.python_implementation is PythonImplementation.RustPython
+        else opcode >= opc.HAVE_ARGUMENT
+    )
 
 
-def pretty_flags(flags, is_pypy=False) -> str:
+def pretty_flags(flags, python_implementation=PYTHON_IMPLEMENTATION) -> str:
     """Return pretty representation of code flags."""
     names = []
     result = "0x%08x" % flags
     for i in range(32):
         flag = 1 << i
         if flags & flag:
-            names.append(COMPILER_FLAG_NAMES.get(flag, hex(flag)))
-            if is_pypy:
+            if (
+                python_implementation == PythonImplementation.PyPy
+                and flag in PYPY_COMPILER_FLAG_NAMES
+            ):
                 names.append(PYPY_COMPILER_FLAG_NAMES.get(flag, hex(flag)))
+            else:
+                names.append(COMPILER_FLAG_NAMES.get(flag, hex(flag)))
             flags ^= flag
             if not flags:
                 break
@@ -272,7 +295,11 @@ def pretty_flags(flags, is_pypy=False) -> str:
 
 
 def format_code_info(
-    co, version_tuple: tuple, name=None, is_pypy=False, is_graal=False
+    co,
+    version_tuple: tuple,
+    name=None,
+    python_implementation=PYTHON_IMPLEMENTATION,
+    file_offset: Optional[tuple] = None,
 ) -> str:
     if not name:
         name = co.co_name
@@ -285,29 +312,28 @@ def format_code_info(
     # Later versions use "<module>"
     lines.append("# Filename:          %s" % co.co_filename)
 
-    if not is_graal:
-        if version_tuple >= (1, 3):
-            lines.append("# Argument count:    %s" % co.co_argcount)
+    if file_offset:
+        lines.append("# Offset in file:    0x%x" % file_offset[0])
 
-        if version_tuple >= (3, 8) and hasattr(co, "co_posonlyargcount"):
-            lines.append("# Position-only argument count: %s" % co.co_posonlyargcount)
+    if version_tuple >= (1, 3):
+        lines.append("# Argument count:    %s" % co.co_argcount)
 
-        if version_tuple >= (3, 0) and hasattr(co, "co_kwonlyargcount"):
-            lines.append("# Keyword-only arguments: %s" % co.co_kwonlyargcount)
+    if version_tuple >= (3, 8) and hasattr(co, "co_posonlyargcount"):
+        lines.append("# Position-only argument count: %s" % co.co_posonlyargcount)
 
-        pos_argc = co.co_argcount
-        if version_tuple >= (1, 3):
-            lines.append("# Number of locals:  %s" % co.co_nlocals)
-        if version_tuple >= (1, 5):
-            lines.append("# Stack size:        %s" % co.co_stacksize)
-            pass
+    if version_tuple >= (3, 0) and hasattr(co, "co_kwonlyargcount"):
+        lines.append("# Keyword-only arguments: %s" % co.co_kwonlyargcount)
+
+    pos_argc = co.co_argcount
+    if hasattr(co, "co_nlocals"):
+        lines.append("# Number of locals:  %s" % co.co_nlocals)
+    if version_tuple >= (1, 5):
+        lines.append("# Stack size:        %s" % co.co_stacksize)
         pass
-    else:
-        pos_argc = 0
 
     if version_tuple >= (1, 3):
         lines.append(
-            "# Flags:             %s" % pretty_flags(co.co_flags, is_pypy=is_pypy)
+            "# Flags:             %s" % pretty_flags(co.co_flags, python_implementation)
         )
 
     if version_tuple >= (1, 5):
@@ -347,6 +373,10 @@ def format_code_info(
                 lines.append("# %4d: %s" % i_n)
                 pass
             pass
+
+    if file_offset:
+        lines.append("# co_code offset in file: 0x%x" % file_offset[1])
+
     return "\n".join(lines)
 
 
@@ -458,13 +488,20 @@ def xstack_effect(opcode, opc, oparg: int = 0, jump=None):
     version_tuple = opc.version_tuple
     pop, push = opc.oppop[opcode], opc.oppush[opcode]
     opname = opc.opname[opcode]
-    if opname in "BUILD_CONST_KEY_MAP" and version_tuple >= (3, 12):
-        return -oparg
-    if opname == "BUILD_MAP" and version_tuple >= (3, 5):
-        return 1 - (2 * oparg)
-    elif opname in ("UNPACK_SEQUENCE", "UNPACK_EX") and version_tuple >= (3, 0):
-        return push + oparg
-    elif opname in (
+    if version_tuple >= (3, 0):
+        if opname in "BUILD_CONST_KEY_MAP" and version_tuple >= (3, 12):
+            return -oparg
+        if opname == "BUILD_MAP" and version_tuple >= (3, 5):
+            return 1 - (2 * oparg)
+        if opname in ("UNPACK_SEQUENCE",):
+            return oparg - 1
+        elif opname in ("UNPACK_EX"):
+            return (oparg & 0xFF) + (oparg >> 8)
+        elif opname == "BUILD_INTERPOLATION":
+            # 3.14+ only
+            return -2 if oparg & 1 else -1
+
+    if opname in (
         "BUILD_LIST",
         "BUILD_SET",
         "BUILD_STRING",
@@ -488,11 +525,13 @@ def xstack_effect(opcode, opc, oparg: int = 0, jump=None):
                     return None
             else:
                 return None
-    elif opname == "CALL" and version_tuple >= (3, 12):
+    elif opname in ("CALL", "INSTRUMENTED_CALL") and version_tuple >= (3, 12):
         return -oparg - 1
-    elif opname == "CALL_KW":
+    elif opname in ("CALL_KW", "INSTRUMENTED_CALL_KW"):
         return -2 - oparg
     elif opname == "CALL_FUNCTION_EX":
+        if version_tuple >= (3, 14):
+            return -3
         if (3, 5) <= version_tuple < (3, 11):
             return -2 if oparg & 1 else -1
         elif 0 <= oparg <= 3:
@@ -503,6 +542,8 @@ def xstack_effect(opcode, opc, oparg: int = 0, jump=None):
         "INSTRUMENTED_LOAD_SUPER_ATTR",
         "LOAD_SUPER_ATTR",
     ) and version_tuple >= (3, 12):
+        if opname == "INSTRUMENTED_LOAD_SUPER_ATTR" and version_tuple >= (3, 14):
+            return -2
         return -1 if oparg & 1 else -2
     elif opname == "LOAD_GLOBAL" and version_tuple >= (3, 11):
         return 2 if oparg & 1 else 1

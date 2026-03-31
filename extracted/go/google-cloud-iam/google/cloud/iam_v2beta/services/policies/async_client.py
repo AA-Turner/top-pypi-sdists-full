@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.iam_v2beta import gapic_version as package_version
 
@@ -44,10 +44,10 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.api_core import operation  # type: ignore
-from google.api_core import operation_async  # type: ignore
+import google.api_core.operation as operation  # type: ignore
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.iam_v2beta.services.policies import pagers
 from google.cloud.iam_v2beta.types import policy
@@ -111,7 +111,10 @@ class PoliciesAsyncClient:
         Returns:
             PoliciesAsyncClient: The constructed client.
         """
-        return PoliciesClient.from_service_account_info.__func__(PoliciesAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            PoliciesClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(PoliciesAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -127,7 +130,10 @@ class PoliciesAsyncClient:
         Returns:
             PoliciesAsyncClient: The constructed client.
         """
-        return PoliciesClient.from_service_account_file.__func__(PoliciesAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            PoliciesClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(PoliciesAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -177,7 +183,7 @@ class PoliciesAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -950,7 +956,7 @@ class PoliciesAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -976,8 +982,12 @@ class PoliciesAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -986,7 +996,7 @@ class PoliciesAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -994,7 +1004,7 @@ class PoliciesAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

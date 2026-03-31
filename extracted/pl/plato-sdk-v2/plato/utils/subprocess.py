@@ -71,7 +71,10 @@ async def run_local(command: str, timeout: int = 60) -> tuple[int, str, str]:
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     except asyncio.TimeoutError:
-        proc.kill()
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass  # Process already exited between timeout and kill
         await proc.wait()
         _close_subprocess(proc)
         raise RuntimeError(f"Command timed out after {timeout}s: {command[:100]}")
@@ -102,7 +105,10 @@ async def run_ssh(
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     except asyncio.TimeoutError:
-        proc.kill()
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass  # Process already exited between timeout and kill
         await proc.wait()
         _close_subprocess(proc)
         raise RuntimeError(f"SSH command timed out after {timeout}s: {command[:100]}")

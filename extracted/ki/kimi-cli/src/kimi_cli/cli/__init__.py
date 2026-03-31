@@ -24,6 +24,14 @@ class SwitchToWeb(Exception):
         self.session_id = session_id
 
 
+class SwitchToVis(Exception):
+    """Switch to vis (tracing visualizer) interface."""
+
+    def __init__(self, session_id: str | None = None):
+        super().__init__("switch_to_vis")
+        self.session_id = session_id
+
+
 cli = typer.Typer(
     cls=LazySubcommandGroup,
     epilog="""\b\
@@ -287,7 +295,7 @@ def kimi(
             file_okay=False,
             dir_okay=True,
             readable=True,
-            help="Additional skills directories (repeatable). Appended to default discovery.",
+            help="Custom skills directories (repeatable). Overrides default discovery.",
         ),
     ] = None,
     # Loop control
@@ -321,6 +329,7 @@ def kimi(
 ):
     """Kimi, your next CLI agent."""
     import asyncio
+    import contextlib
     import json
 
     from kimi_cli.utils.proctitle import init_process_name
@@ -338,6 +347,7 @@ def kimi(
     from kimi_cli.app import KimiCLI, enable_logging
     from kimi_cli.config import Config, load_config_from_string
     from kimi_cli.exception import ConfigError
+    from kimi_cli.hooks import events as hook_events
     from kimi_cli.metadata import load_metadata, save_metadata
     from kimi_cli.session import Session
     from kimi_cli.ui.shell.startup import ShellStartupProgress
@@ -475,9 +485,9 @@ def kimi(
     except json.JSONDecodeError as e:
         raise typer.BadParameter(f"Invalid JSON: {e}", param_hint="--mcp-config") from e
 
-    extra_skills_dirs: list[KaosPath] | None = None
+    skills_dirs: list[KaosPath] | None = None
     if local_skills_dir:
-        extra_skills_dirs = [KaosPath.unsafe_from_local_path(p) for p in local_skills_dir]
+        skills_dirs = [KaosPath.unsafe_from_local_path(p) for p in local_skills_dir]
 
     work_dir = KaosPath.unsafe_from_local_path(local_work_dir) if local_work_dir else KaosPath.cwd()
 
@@ -552,7 +562,7 @@ def kimi(
                 yolo=yolo or (ui == "print"),  # print mode implies yolo
                 agent_file=agent_file,
                 mcp_configs=mcp_configs,
-                extra_skills_dirs=extra_skills_dirs,
+                skills_dirs=skills_dirs,
                 max_steps_per_turn=max_steps_per_turn,
                 max_retries_per_step=max_retries_per_step,
                 max_ralph_iterations=max_ralph_iterations,
@@ -560,6 +570,22 @@ def kimi(
                 defer_mcp_loading=ui == "shell" and prompt is None,
             )
             startup_progress.stop()
+
+            # --- SessionStart hook ---
+            _session_source = "resume" if continue_ else "startup"
+            await instance.soul.hook_engine.trigger(
+                "SessionStart",
+                matcher_value=_session_source,
+                input_data=hook_events.session_start(
+                    session_id=session.id,
+                    cwd=str(work_dir),
+                    source=_session_source,
+                ),
+            )
+
+            # Install stderr redirection only after initialization succeeded, so runtime
+            # stderr noise is captured into logs without hiding startup failures.
+            redirect_stderr_to_logger()
             preserve_background_tasks = False
             try:
                 match ui:
@@ -591,7 +617,25 @@ def kimi(
             except SwitchToWeb:
                 preserve_background_tasks = True
                 raise
+            except SwitchToVis:
+                preserve_background_tasks = True
+                raise
             finally:
+                # --- SessionEnd hook ---
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(
+                        instance.soul.hook_engine.trigger(
+                            "SessionEnd",
+                            matcher_value="exit",
+                            input_data=hook_events.session_end(
+                                session_id=session.id,
+                                cwd=str(work_dir),
+                                reason="exit",
+                            ),
+                        ),
+                        timeout=5,
+                    )
+
                 if not preserve_background_tasks:
                     instance.shutdown_background_tasks()
 
@@ -628,10 +672,12 @@ def kimi(
 
         save_metadata(metadata)
 
-    async def _reload_loop(session_id: str | None) -> tuple[bool, int]:
-        """
+    async def _reload_loop(session_id: str | None) -> tuple[str | None, int]:
+        """Run the main loop, handling Reload/SwitchToWeb/SwitchToVis.
+
         Returns:
-            (switch_to_web, exit_code)
+            (switch_target, exit_code) where switch_target is "web", "vis",
+            or None if the session ended normally.
         """
         while True:
             try:
@@ -645,12 +691,18 @@ def kimi(
                     session = await Session.find(work_dir, e.session_id)
                     if session is not None:
                         await _post_run(session, ExitCode.SUCCESS)
-                return True, ExitCode.SUCCESS
+                return "web", ExitCode.SUCCESS
+            except SwitchToVis as e:
+                if e.session_id is not None:
+                    session = await Session.find(work_dir, e.session_id)
+                    if session is not None:
+                        await _post_run(session, ExitCode.SUCCESS)
+                return "vis", ExitCode.SUCCESS
         await _post_run(last_session, exit_code)
-        return False, exit_code
+        return None, exit_code
 
     try:
-        switch_to_web, exit_code = asyncio.run(_reload_loop(session_id))
+        switch_target, exit_code = asyncio.run(_reload_loop(session_id))
     except (typer.BadParameter, typer.Exit):
         # Let Typer/Click format these errors (rich panel + correct exit code).
         raise
@@ -674,7 +726,7 @@ def kimi(
             # In non-debug mode, print a concise error and point users to logs.
             _emit_fatal_error(f"{exc}\nSee logs: {log_path}")
         raise typer.Exit(code=1) from exc
-    if switch_to_web:
+    if switch_target in ("web", "vis"):
         from kimi_cli.utils.logging import restore_stderr
 
         restore_stderr()
@@ -689,9 +741,14 @@ def kimi(
 
         ensure_tty_sane()
 
-        from kimi_cli.web.app import run_web_server
+        if switch_target == "web":
+            from kimi_cli.web.app import run_web_server
 
-        run_web_server(open_browser=True)
+            run_web_server(open_browser=True)
+        else:
+            from kimi_cli.vis.app import run_vis_server
+
+            run_vis_server(open_browser=True)
     elif exit_code != ExitCode.SUCCESS:
         raise typer.Exit(code=exit_code)
 

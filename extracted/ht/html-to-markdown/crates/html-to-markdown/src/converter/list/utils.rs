@@ -3,6 +3,7 @@
 //! Contains helper functions for loose list detection, indentation calculation,
 //! list spacing, and list child processing.
 
+use crate::converter::main_helpers::{tag_name_eq, trim_trailing_whitespace};
 use crate::options::{ConversionOptions, ListIndentType};
 use tl;
 
@@ -10,18 +11,6 @@ use tl;
 // These are imported from converter.rs and should be made accessible
 type Context = crate::converter::Context;
 type DomContext = crate::converter::DomContext;
-
-/// Remove trailing spaces and tabs from output string.
-fn trim_trailing_whitespace(output: &mut String) {
-    while output.ends_with(' ') || output.ends_with('\t') {
-        output.pop();
-    }
-}
-
-/// Check if tag names are equal (case-insensitive).
-fn tag_name_eq<'a>(a: impl AsRef<str>, b: &str) -> bool {
-    a.as_ref().eq_ignore_ascii_case(b)
-}
 
 /// Calculate indentation level for list item continuations.
 ///

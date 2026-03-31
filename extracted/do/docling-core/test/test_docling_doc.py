@@ -1549,6 +1549,14 @@ def test_misplaced_list_items():
         exp_doc = DoclingDocument.load_from_yaml(exp_file)
         assert doc == exp_doc
 
+def test_moving_within_same_parent():
+    doc = DoclingDocument(name="")
+    doc.add_text(label=DocItemLabel.TEXT, text="bar")
+    foo = doc.add_text(label=DocItemLabel.TEXT, text="foo")
+    assert foo.parent is not None
+    doc._move_subtree(old_subroot=foo, new_subroot=foo.parent.resolve(doc), pos=0)
+    assert [it.text for it, _ in doc.iterate_items() if isinstance(it, TextItem)] == ["foo", "bar"]
+
 
 def test_export_with_precision():
     doc = DoclingDocument.load_from_yaml(filename="test/data/doc/dummy_doc_2.yaml")
@@ -2115,6 +2123,17 @@ def test_webvtt_export(example_num):
             gt_vtt = fr.read().rstrip()
         assert vtt_output == gt_vtt, f"WebVTT output does not match ground truth for example {example_num:02d}"
 
+
+def test_validate_dupl_refs():
+    doc = DoclingDocument(name="")
+    t1 = doc.add_text(label=DocItemLabel.TEXT, text="foo")
+    t2 = doc.add_text(label=DocItemLabel.TEXT, text="bar")
+    t2.self_ref = t1.self_ref  # duplicating the self_ref
+    t1.parent.resolve(doc).children = [t1.get_ref()]  # removing the dangling pointer
+    with pytest.raises(ValidationError) as valid_err_info:
+        DoclingDocument.model_validate(doc)
+        error_str = str(valid_err_info.value)
+        assert "Duplicate ref" in error_str
 
 def test_docitem_comments_field():
     """Test that DocItem has a comments field that can hold RefItem references."""

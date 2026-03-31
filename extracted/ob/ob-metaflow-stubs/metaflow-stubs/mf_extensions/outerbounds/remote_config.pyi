@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-03-16T23:47:55.982478                                                            #
+# Generated on 2026-03-31T03:38:01.648775                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import pathlib
     import metaflow.exception
+    import pathlib
 
 from ...exception import MetaflowException as MetaflowException
 from ...plugins.perimeters import get_perimeter_config_url_if_set_in_ob_config as get_perimeter_config_url_if_set_in_ob_config

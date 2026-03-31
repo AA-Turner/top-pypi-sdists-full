@@ -1,6 +1,6 @@
 # From Python-3.5.2/Lib/multiprocessing/connection.py
 
-def PipeClient(address):
+def PipeClient(address) -> None:
     while 1:
         z = 2
     else:
@@ -11,7 +11,7 @@ def PipeClient(address):
 # Bug was parsing inner while1. Our massaging adds a COME_FROM
 # possibly in the wrong place. When control flow is
 # redone possibly all of this mess will disappear.
-def _parse(source, state, this, group, char):
+def _parse(source, state, this, group, char) -> None:
     while 1:
         if this:
             while 1:

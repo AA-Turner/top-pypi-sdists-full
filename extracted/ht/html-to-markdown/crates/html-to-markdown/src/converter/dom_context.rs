@@ -11,8 +11,6 @@ use crate::converter::main_helpers::is_inline_element;
 use crate::converter::utility::content::{is_block_level_name, normalized_tag_name};
 use crate::text;
 
-const TEXT_CACHE_CAPACITY: usize = 4096;
-
 /// Cached information about an HTML tag element.
 ///
 /// This struct stores pre-computed information about tag elements to avoid
@@ -236,11 +234,8 @@ impl DomContext {
                         .or_else(|| siblings.iter().position(|handle| handle.get_inner() == id))?;
 
                     for sibling in siblings.iter().skip(position + 1) {
-                        if let Some(info) = self.tag_info(sibling.get_inner(), parser) {
+                        if self.tag_info(sibling.get_inner(), parser).is_some() {
                             let sibling_id = sibling.get_inner();
-                            if info.name == "script" || info.name == "style" {
-                                return Some(sibling_id);
-                            }
                             return Some(sibling_id);
                         }
                         if let Some(tl::Node::Raw(raw)) = sibling.get(parser) {

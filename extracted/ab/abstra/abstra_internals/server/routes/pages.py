@@ -1,11 +1,15 @@
-import flask
+import mimetypes
 
-from abstra_internals.constants import get_public_dir
+import flask
+import jwt as pyjwt
+
 from abstra_internals.controllers.main import MainController
 from abstra_internals.entities.execution_context import (
     extract_flask_request,
 )
+from abstra_internals.environment import CLOUD_API_PROD_SHARED_TOKEN
 from abstra_internals.repositories.project.project import PageStage
+from abstra_internals.settings import Settings
 from abstra_internals.usage import editor_usage
 from abstra_internals.utils import is_it_true
 
@@ -65,9 +69,29 @@ def get_editor_bp(controller: MainController):
         controller.delete_stage(id, remove_file)
         return {"success": True}
 
-    @bp.get("/<path:id>/run/_static/<path:filename>")
+    @bp.get("/<path:id>/run/<path:filename>")
     def _page_static(id: str, filename: str):
-        return flask.send_from_directory(get_public_dir(), filename)
+        token = flask.request.args.get("token")
+        if not token:
+            flask.abort(403)
+
+        try:
+            payload = pyjwt.decode(
+                token, key=CLOUD_API_PROD_SHARED_TOKEN, algorithms=["HS256"]
+            )
+        except (pyjwt.ExpiredSignatureError, pyjwt.InvalidTokenError):
+            flask.abort(403)
+
+        if payload.get("asset") != filename:
+            flask.abort(403)
+
+        file_path = (Settings.root_path / filename).resolve()
+        if not file_path.is_relative_to(Settings.root_path) or not file_path.is_file():
+            flask.abort(404)
+
+        mimetypes.add_type("application/javascript", ".js")
+        mimetypes.add_type("text/css", ".css")
+        return flask.send_file(file_path)
 
     @bp.route("/<path:id>/run", methods=["POST", "GET", "PUT", "DELETE", "PATCH"])
     @editor_usage

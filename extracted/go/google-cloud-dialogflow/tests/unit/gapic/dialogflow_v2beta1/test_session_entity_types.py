@@ -22,17 +22,17 @@ try:
 except ImportError:  # pragma: NO COVER
     import mock
 
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,17 +43,22 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 
 from google.cloud.dialogflow_v2beta1.services.session_entity_types import (
     SessionEntityTypesAsyncClient,
@@ -61,11 +66,10 @@ from google.cloud.dialogflow_v2beta1.services.session_entity_types import (
     pagers,
     transports,
 )
+from google.cloud.dialogflow_v2beta1.types import entity_type, session_entity_type
 from google.cloud.dialogflow_v2beta1.types import (
     session_entity_type as gcd_session_entity_type,
 )
-from google.cloud.dialogflow_v2beta1.types import entity_type
-from google.cloud.dialogflow_v2beta1.types import session_entity_type
 
 CRED_INFO_JSON = {
     "credential_source": "/path/to/file",
@@ -121,6 +125,7 @@ def test__get_default_mtls_endpoint():
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert SessionEntityTypesClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -142,6 +147,10 @@ def test__get_default_mtls_endpoint():
     assert (
         SessionEntityTypesClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        SessionEntityTypesClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -989,10 +998,9 @@ def test_session_entity_types_client_get_mtls_endpoint_and_cert_source(client_cl
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1037,10 +1045,9 @@ def test_session_entity_types_client_get_mtls_endpoint_and_cert_source(client_cl
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1076,10 +1083,9 @@ def test_session_entity_types_client_get_mtls_endpoint_and_cert_source(client_cl
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -1327,13 +1333,13 @@ def test_session_entity_types_client_create_channel_credentials_file(
         )
 
     # test that the credentials from file are saved and used as the credentials.
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(grpc_helpers, "create_channel") as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -4752,8 +4758,9 @@ def test_list_session_entity_types_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -4818,18 +4825,22 @@ def test_list_session_entity_types_rest_interceptors(null_interceptor):
     )
     client = SessionEntityTypesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor, "post_list_session_entity_types"
-    ) as post, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor,
-        "post_list_session_entity_types_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor, "pre_list_session_entity_types"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor,
+            "post_list_session_entity_types",
+        ) as post,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor,
+            "post_list_session_entity_types_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor,
+            "pre_list_session_entity_types",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -4889,8 +4900,9 @@ def test_get_session_entity_type_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -4960,18 +4972,20 @@ def test_get_session_entity_type_rest_interceptors(null_interceptor):
     )
     client = SessionEntityTypesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor, "post_get_session_entity_type"
-    ) as post, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor,
-        "post_get_session_entity_type_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor, "pre_get_session_entity_type"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor, "post_get_session_entity_type"
+        ) as post,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor,
+            "post_get_session_entity_type_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor, "pre_get_session_entity_type"
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5029,8 +5043,9 @@ def test_create_session_entity_type_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5174,18 +5189,22 @@ def test_create_session_entity_type_rest_interceptors(null_interceptor):
     )
     client = SessionEntityTypesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor, "post_create_session_entity_type"
-    ) as post, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor,
-        "post_create_session_entity_type_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor, "pre_create_session_entity_type"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor,
+            "post_create_session_entity_type",
+        ) as post,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor,
+            "post_create_session_entity_type_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor,
+            "pre_create_session_entity_type",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5247,8 +5266,9 @@ def test_update_session_entity_type_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5396,18 +5416,22 @@ def test_update_session_entity_type_rest_interceptors(null_interceptor):
     )
     client = SessionEntityTypesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor, "post_update_session_entity_type"
-    ) as post, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor,
-        "post_update_session_entity_type_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor, "pre_update_session_entity_type"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor,
+            "post_update_session_entity_type",
+        ) as post,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor,
+            "post_update_session_entity_type_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor,
+            "pre_update_session_entity_type",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -5467,8 +5491,9 @@ def test_delete_session_entity_type_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -5527,13 +5552,14 @@ def test_delete_session_entity_type_rest_interceptors(null_interceptor):
     )
     client = SessionEntityTypesClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.SessionEntityTypesRestInterceptor, "pre_delete_session_entity_type"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.SessionEntityTypesRestInterceptor,
+            "pre_delete_session_entity_type",
+        ) as pre,
+    ):
         pre.assert_not_called()
         pb_message = session_entity_type.DeleteSessionEntityTypeRequest.pb(
             session_entity_type.DeleteSessionEntityTypeRequest()
@@ -5578,8 +5604,9 @@ def test_get_location_rest_bad_request(request_type=locations_pb2.GetLocationReq
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5638,8 +5665,9 @@ def test_list_locations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5700,8 +5728,9 @@ def test_cancel_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5762,8 +5791,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -5822,8 +5852,9 @@ def test_list_operations_rest_bad_request(
     request = json_format.ParseDict({"name": "projects/sample1"}, request)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -6050,11 +6081,14 @@ def test_session_entity_types_base_transport():
 
 def test_session_entity_types_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.cloud.dialogflow_v2beta1.services.session_entity_types.transports.SessionEntityTypesTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.cloud.dialogflow_v2beta1.services.session_entity_types.transports.SessionEntityTypesTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.SessionEntityTypesTransport(
@@ -6074,9 +6108,12 @@ def test_session_entity_types_base_transport_with_credentials_file():
 
 def test_session_entity_types_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.cloud.dialogflow_v2beta1.services.session_entity_types.transports.SessionEntityTypesTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.cloud.dialogflow_v2beta1.services.session_entity_types.transports.SessionEntityTypesTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.SessionEntityTypesTransport()
@@ -6154,11 +6191,12 @@ def test_session_entity_types_transport_auth_gdch_credentials(transport_class):
 def test_session_entity_types_transport_create_channel(transport_class, grpc_helpers):
     # If credentials and host are not provided, the transport class should use
     # ADC credentials.
-    with mock.patch.object(
-        google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel", autospec=True
-    ) as create_channel:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch.object(
+            grpc_helpers, "create_channel", autospec=True
+        ) as create_channel,
+    ):
         creds = ga_credentials.AnonymousCredentials()
         adc.return_value = (creds, None)
         transport_class(quota_project_id="octopus", scopes=["1", "2"])
@@ -6742,6 +6780,38 @@ async def test_cancel_operation_from_dict_async():
         call.assert_called()
 
 
+def test_cancel_operation_flattened():
+    client = SessionEntityTypesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = None
+
+        client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_cancel_operation_flattened_async():
+    client = SessionEntityTypesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.cancel_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(None)
+        await client.cancel_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.CancelOperationRequest()
+
+
 def test_get_operation(transport: str = "grpc"):
     client = SessionEntityTypesClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -6885,6 +6955,40 @@ async def test_get_operation_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_operation_flattened():
+    client = SessionEntityTypesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.Operation()
+
+        client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_operation_flattened_async():
+    client = SessionEntityTypesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_operation), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.Operation()
+        )
+        await client.get_operation()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.GetOperationRequest()
 
 
 def test_list_operations(transport: str = "grpc"):
@@ -7032,6 +7136,40 @@ async def test_list_operations_from_dict_async():
         call.assert_called()
 
 
+def test_list_operations_flattened():
+    client = SessionEntityTypesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = operations_pb2.ListOperationsResponse()
+
+        client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_operations_flattened_async():
+    client = SessionEntityTypesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_operations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            operations_pb2.ListOperationsResponse()
+        )
+        await client.list_operations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == operations_pb2.ListOperationsRequest()
+
+
 def test_list_locations(transport: str = "grpc"):
     client = SessionEntityTypesClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -7177,6 +7315,40 @@ async def test_list_locations_from_dict_async():
         call.assert_called()
 
 
+def test_list_locations_flattened():
+    client = SessionEntityTypesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.ListLocationsResponse()
+
+        client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
+@pytest.mark.asyncio
+async def test_list_locations_flattened_async():
+    client = SessionEntityTypesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.list_locations), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.ListLocationsResponse()
+        )
+        await client.list_locations()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.ListLocationsRequest()
+
+
 def test_get_location(transport: str = "grpc"):
     client = SessionEntityTypesClient(
         credentials=ga_credentials.AnonymousCredentials(),
@@ -7316,6 +7488,40 @@ async def test_get_location_from_dict_async():
             }
         )
         call.assert_called()
+
+
+def test_get_location_flattened():
+    client = SessionEntityTypesClient(
+        credentials=ga_credentials.AnonymousCredentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = locations_pb2.Location()
+
+        client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
+
+
+@pytest.mark.asyncio
+async def test_get_location_flattened_async():
+    client = SessionEntityTypesAsyncClient(
+        credentials=async_anonymous_credentials(),
+    )
+    # Mock the actual call within the gRPC stub, and fake the request.
+    with mock.patch.object(type(client.transport.get_location), "__call__") as call:
+        # Designate an appropriate return value for the call.
+        call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
+            locations_pb2.Location()
+        )
+        await client.get_location()
+        # Establish that the underlying gRPC stub method was called.
+        assert len(call.mock_calls) == 1
+        _, args, _ = call.mock_calls[0]
+        assert args[0] == locations_pb2.GetLocationRequest()
 
 
 def test_transport_close_grpc():

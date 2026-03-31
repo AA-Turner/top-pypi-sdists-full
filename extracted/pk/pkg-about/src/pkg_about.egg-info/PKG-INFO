@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: pkg_about
-Version: 2.2.0
+Version: 2.3.0
 Summary: Unified access to Python package metadata at runtime.
 Author-email: Adam Karpierz <adam@karpierz.net>
 Maintainer-email: Adam Karpierz <adam@karpierz.net>
 License-Expression: Zlib
 Project-URL: Homepage, https://pypi.org/project/pkg-about/
 Project-URL: Documentation, https://karpierz.github.io/pkg_about/
-Project-URL: Download, https://pypi.org/project/pkg-about/
 Project-URL: History, https://karpierz.github.io/pkg_about/CHANGES.html
+Project-URL: Download, https://pypi.org/project/pkg-about/
 Project-URL: Repository, https://github.com/karpierz/pkg_about
 Project-URL: Tracker, https://github.com/karpierz/pkg_about/issues
 Project-URL: Sponsoring, https://www.paypal.com/donate/?hosted_button_id=FX8L7CJUGLW7S
@@ -16,17 +16,16 @@ Keywords: pkg_about,__about__,packaging
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: Polish
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -37,7 +36,7 @@ License-File: LICENSE
 Requires-Dist: importlib-metadata>=4.6; python_full_version < "3.10.2"
 Requires-Dist: typing-extensions>=4.15.0
 Requires-Dist: packaging>=26.0.0
-Requires-Dist: build>=1.4.0
+Requires-Dist: build>=1.4.2
 Dynamic: license-file
 
 pkg_about

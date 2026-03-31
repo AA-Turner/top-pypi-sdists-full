@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.ads.admanager_v1.types import applied_label, custom_field_value, order_enums
@@ -318,19 +318,19 @@ class Order(proto.Message):
         number=25,
         message=applied_label.AppliedLabel,
     )
-    effective_applied_labels: MutableSequence[
-        applied_label.AppliedLabel
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=26,
-        message=applied_label.AppliedLabel,
+    effective_applied_labels: MutableSequence[applied_label.AppliedLabel] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=26,
+            message=applied_label.AppliedLabel,
+        )
     )
-    custom_field_values: MutableSequence[
-        custom_field_value.CustomFieldValue
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=38,
-        message=custom_field_value.CustomFieldValue,
+    custom_field_values: MutableSequence[custom_field_value.CustomFieldValue] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=38,
+            message=custom_field_value.CustomFieldValue,
+        )
     )
 
 

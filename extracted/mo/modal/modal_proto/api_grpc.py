@@ -504,6 +504,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def SandboxGetCommandRouterAccess(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetCommandRouterAccessRequest, modal_proto.api_pb2.SandboxGetCommandRouterAccessResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def SandboxGetFromName(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetFromNameRequest, modal_proto.api_pb2.SandboxGetFromNameResponse]') -> None:
         pass
 
@@ -1502,6 +1506,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.SandboxCreateV2Request,
                 modal_proto.api_pb2.SandboxCreateV2Response,
+            ),
+            '/modal.client.ModalClient/SandboxGetCommandRouterAccess': grpclib.const.Handler(
+                self.SandboxGetCommandRouterAccess,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxGetCommandRouterAccessRequest,
+                modal_proto.api_pb2.SandboxGetCommandRouterAccessResponse,
             ),
             '/modal.client.ModalClient/SandboxGetFromName': grpclib.const.Handler(
                 self.SandboxGetFromName,
@@ -2642,6 +2652,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/SandboxCreateV2',
             modal_proto.api_pb2.SandboxCreateV2Request,
             modal_proto.api_pb2.SandboxCreateV2Response,
+        )
+        self.SandboxGetCommandRouterAccess = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxGetCommandRouterAccess',
+            modal_proto.api_pb2.SandboxGetCommandRouterAccessRequest,
+            modal_proto.api_pb2.SandboxGetCommandRouterAccessResponse,
         )
         self.SandboxGetFromName = grpclib.client.UnaryUnaryMethod(
             channel,

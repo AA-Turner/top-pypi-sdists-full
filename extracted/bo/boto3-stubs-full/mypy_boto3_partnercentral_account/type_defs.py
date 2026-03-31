@@ -503,6 +503,8 @@ class PutAllianceLeadContactResponseTypeDef(TypedDict):
 
 class BusinessVerificationResponseTypeDef(TypedDict):
     BusinessVerificationDetails: BusinessVerificationDetailsTypeDef
+    CompletionUrl: NotRequired[str]
+    CompletionUrlExpiresAt: NotRequired[datetime]
 
 
 class VerificationDetailsTypeDef(TypedDict):

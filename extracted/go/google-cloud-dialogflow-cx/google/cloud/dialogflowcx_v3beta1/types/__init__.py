@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .advanced_settings import AdvancedSettings
+from .advanced_settings import (
+    AdvancedSettings,
+)
 from .agent import (
     Agent,
     AgentValidationResult,
@@ -45,14 +47,18 @@ from .audio_config import (
     TextToSpeechSettings,
     VoiceSelectionParams,
 )
-from .bigquery_export import BigQueryExportSettings
+from .bigquery_export import (
+    BigQueryExportSettings,
+)
 from .changelog import (
     Changelog,
     GetChangelogRequest,
     ListChangelogsRequest,
     ListChangelogsResponse,
 )
-from .code_block import CodeBlock
+from .code_block import (
+    CodeBlock,
+)
 from .conversation_history import (
     Conversation,
     DeleteConversationRequest,
@@ -150,9 +156,16 @@ from .flow import (
     UpdateFlowRequest,
     ValidateFlowRequest,
 )
-from .fulfillment import Fulfillment
-from .gcs import GcsDestination
-from .generative_settings import GenerativeSettings, LlmModelSettings
+from .fulfillment import (
+    Fulfillment,
+)
+from .gcs import (
+    GcsDestination,
+)
+from .generative_settings import (
+    GenerativeSettings,
+    LlmModelSettings,
+)
 from .generator import (
     CreateGeneratorRequest,
     DeleteGeneratorRequest,
@@ -163,8 +176,13 @@ from .generator import (
     Phrase,
     UpdateGeneratorRequest,
 )
-from .import_strategy import ImportStrategy
-from .inline import InlineDestination, InlineSource
+from .import_strategy import (
+    ImportStrategy,
+)
+from .inline import (
+    InlineDestination,
+    InlineSource,
+)
 from .intent import (
     CreateIntentRequest,
     DeleteIntentRequest,
@@ -223,8 +241,12 @@ from .playbook import (
     RestorePlaybookVersionResponse,
     UpdatePlaybookRequest,
 )
-from .response_message import ResponseMessage
-from .safety_settings import SafetySettings
+from .response_message import (
+    ResponseMessage,
+)
+from .safety_settings import (
+    SafetySettings,
+)
 from .security_settings import (
     CreateSecuritySettingsRequest,
     DeleteSecuritySettingsRequest,
@@ -329,13 +351,17 @@ from .tool import (
     ToolVersion,
     UpdateToolRequest,
 )
-from .tool_call import ToolCall, ToolCallResult
+from .tool_call import (
+    ToolCall,
+    ToolCallResult,
+)
 from .trace import (
     Action,
     AgentUtterance,
     Event,
     ExceptionDetail,
     FlowInvocation,
+    FlowTraceMetadata,
     FlowTransition,
     LlmCall,
     NamedMetric,
@@ -343,11 +369,14 @@ from .trace import (
     PlaybookInput,
     PlaybookInvocation,
     PlaybookOutput,
+    PlaybookTraceMetadata,
     PlaybookTransition,
     RetrievalStrategy,
     Span,
+    SpeechProcessingMetadata,
     Status,
     ToolUse,
+    TraceBlock,
     UserUtterance,
 )
 from .transition_route_group import (
@@ -359,7 +388,10 @@ from .transition_route_group import (
     TransitionRouteGroup,
     UpdateTransitionRouteGroupRequest,
 )
-from .validation_message import ResourceName, ValidationMessage
+from .validation_message import (
+    ResourceName,
+    ValidationMessage,
+)
 from .version import (
     CompareVersionsRequest,
     CompareVersionsResponse,
@@ -672,16 +704,20 @@ __all__ = (
     "Event",
     "ExceptionDetail",
     "FlowInvocation",
+    "FlowTraceMetadata",
     "FlowTransition",
     "LlmCall",
     "NamedMetric",
     "PlaybookInput",
     "PlaybookInvocation",
     "PlaybookOutput",
+    "PlaybookTraceMetadata",
     "PlaybookTransition",
     "Span",
+    "SpeechProcessingMetadata",
     "Status",
     "ToolUse",
+    "TraceBlock",
     "UserUtterance",
     "OutputState",
     "RetrievalStrategy",

@@ -17,18 +17,16 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.cloud.orgpolicy.v1 import orgpolicy_pb2  # type: ignore
-from google.cloud.osconfig_v1.types import inventory
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.identity.accesscontextmanager.v1 import access_level_pb2  # type: ignore
-from google.identity.accesscontextmanager.v1 import access_policy_pb2  # type: ignore
-from google.identity.accesscontextmanager.v1 import (
-    service_perimeter_pb2,
-)  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import code_pb2  # type: ignore
+import google.cloud.orgpolicy.v1.orgpolicy_pb2 as orgpolicy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.identity.accesscontextmanager.v1.access_level_pb2 as access_level_pb2  # type: ignore
+import google.identity.accesscontextmanager.v1.access_policy_pb2 as access_policy_pb2  # type: ignore
+import google.identity.accesscontextmanager.v1.service_perimeter_pb2 as service_perimeter_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.code_pb2 as code_pb2  # type: ignore
 import proto  # type: ignore
+from google.cloud.osconfig_v1.types import inventory
 
 from google.cloud.asset_v1.types import asset_enrichment_resourceowners
 
@@ -94,6 +92,7 @@ class TemporalAsset(proto.Message):
             DELETED (4):
                 prior_asset is a deletion.
         """
+
         PRIOR_ASSET_STATE_UNSPECIFIED = 0
         PRESENT = 1
         INVALID = 2
@@ -1462,6 +1461,7 @@ class ConditionEvaluation(proto.Message):
                 expression contains variables that are either missing input
                 values or have not been supported by Policy Analyzer yet.
         """
+
         EVALUATION_VALUE_UNSPECIFIED = 0
         TRUE = 1
         FALSE = 2
@@ -1664,26 +1664,26 @@ class IamPolicyAnalysisResult(proto.Message):
                 defined in the above IAM policy binding.
         """
 
-        resources: MutableSequence[
-            "IamPolicyAnalysisResult.Resource"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="IamPolicyAnalysisResult.Resource",
+        resources: MutableSequence["IamPolicyAnalysisResult.Resource"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="IamPolicyAnalysisResult.Resource",
+            )
         )
-        accesses: MutableSequence[
-            "IamPolicyAnalysisResult.Access"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="IamPolicyAnalysisResult.Access",
+        accesses: MutableSequence["IamPolicyAnalysisResult.Access"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="IamPolicyAnalysisResult.Access",
+            )
         )
-        resource_edges: MutableSequence[
-            "IamPolicyAnalysisResult.Edge"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=3,
-            message="IamPolicyAnalysisResult.Edge",
+        resource_edges: MutableSequence["IamPolicyAnalysisResult.Edge"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=3,
+                message="IamPolicyAnalysisResult.Edge",
+            )
         )
         condition_evaluation: "ConditionEvaluation" = proto.Field(
             proto.MESSAGE,
@@ -1716,19 +1716,19 @@ class IamPolicyAnalysisResult(proto.Message):
                 enabled in request.
         """
 
-        identities: MutableSequence[
-            "IamPolicyAnalysisResult.Identity"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="IamPolicyAnalysisResult.Identity",
+        identities: MutableSequence["IamPolicyAnalysisResult.Identity"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="IamPolicyAnalysisResult.Identity",
+            )
         )
-        group_edges: MutableSequence[
-            "IamPolicyAnalysisResult.Edge"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=2,
-            message="IamPolicyAnalysisResult.Edge",
+        group_edges: MutableSequence["IamPolicyAnalysisResult.Edge"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=2,
+                message="IamPolicyAnalysisResult.Edge",
+            )
         )
 
     attached_resource_full_name: str = proto.Field(

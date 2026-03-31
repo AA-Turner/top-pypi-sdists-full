@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 class PreprocessingOptions:
     enabled: bool
@@ -19,15 +19,15 @@ class ConversionOptions:
     list_indent_type: Literal["spaces", "tabs"]
     list_indent_width: int
     bullets: str
-    strong_em_symbol: Literal["*", "_"]
+    strong_em_symbol: str
     escape_asterisks: bool
     escape_underscores: bool
     escape_misc: bool
+    escape_ascii: bool
     code_language: str
     autolinks: bool
     default_title: bool
     br_in_tables: bool
-    hocr_spatial_tables: bool  # Deprecated since 2.30.0: hOCR support will be removed in v3.
     highlight_style: Literal["double-equal", "html", "bold", "none"]
     extract_metadata: bool
     whitespace_mode: Literal["normalized", "strict"]
@@ -38,10 +38,20 @@ class ConversionOptions:
     sub_symbol: str
     sup_symbol: str
     newline_style: Literal["spaces", "backslash"]
+    code_block_style: Literal["indented", "backticks", "tildes"]
     keep_inline_images_in: list[str]
     preprocessing: PreprocessingOptions
     encoding: str
+    debug: bool
+    strip_tags: list[str]
+    preserve_tags: list[str]
     skip_images: bool
+    output_format: Literal["markdown", "djot"]
+    include_document_structure: bool
+    extract_images: bool
+    max_image_size: int
+    capture_svg: bool
+    infer_dimensions: bool
 
     def __init__(
         self,
@@ -49,15 +59,15 @@ class ConversionOptions:
         list_indent_type: Literal["spaces", "tabs"] = "spaces",
         list_indent_width: int = 4,
         bullets: str = "*+-",
-        strong_em_symbol: Literal["*", "_"] = "*",
-        escape_asterisks: bool = True,
-        escape_underscores: bool = True,
-        escape_misc: bool = True,
+        strong_em_symbol: str = "*",
+        escape_asterisks: bool = False,
+        escape_underscores: bool = False,
+        escape_misc: bool = False,
+        escape_ascii: bool = False,
         code_language: str = "",
         autolinks: bool = True,
         default_title: bool = False,
         br_in_tables: bool = False,
-        hocr_spatial_tables: bool = True,
         highlight_style: Literal["double-equal", "html", "bold", "none"] = "double-equal",
         extract_metadata: bool = True,
         whitespace_mode: Literal["normalized", "strict"] = "normalized",
@@ -68,48 +78,49 @@ class ConversionOptions:
         sub_symbol: str = "",
         sup_symbol: str = "",
         newline_style: Literal["spaces", "backslash"] = "spaces",
+        code_block_style: Literal["indented", "backticks", "tildes"] = "indented",
         keep_inline_images_in: list[str] = [],
         preprocessing: PreprocessingOptions | None = None,
         encoding: str = "utf-8",
+        debug: bool = False,
+        strip_tags: list[str] = [],
+        preserve_tags: list[str] = [],
         skip_images: bool = False,
+        output_format: Literal["markdown", "djot"] = "markdown",
+        include_document_structure: bool = False,
+        extract_images: bool = False,
+        max_image_size: int = 5_242_880,
+        capture_svg: bool = False,
+        infer_dimensions: bool = True,
     ) -> None: ...
 
-class InlineImageConfig:
-    max_decoded_size_bytes: int
-    filename_prefix: str | None
-    capture_svg: bool
-    infer_dimensions: bool
+class GridCell(TypedDict):
+    content: str
+    row: int
+    col: int
+    row_span: int
+    col_span: int
+    is_header: bool
 
-    def __init__(
-        self,
-        max_decoded_size_bytes: int = ...,
-        filename_prefix: str | None = None,
-        capture_svg: bool = True,
-        infer_dimensions: bool = False,
-    ) -> None: ...
+class TableGrid(TypedDict):
+    rows: int
+    cols: int
+    cells: list[GridCell]
 
-class InlineImage(TypedDict):
-    data: bytes
-    format: str
-    filename: str | None
-    description: str | None
-    dimensions: tuple[int, int] | None
-    source: Literal["img_data_uri", "svg_element"]
-    attributes: dict[str, str]
+class ExtractedTable(TypedDict):
+    grid: TableGrid
+    markdown: str
 
-class InlineImageWarning(TypedDict):
-    index: int
+class ProcessingWarning(TypedDict):
     message: str
+    kind: str
 
-def convert(html: str, options: ConversionOptions | None = None) -> str: ...
-def convert_json(html: str, options_json: str | None = None) -> str: ...
-def convert_with_inline_images(
-    html: str,
-    options: ConversionOptions | None = None,
-    image_config: InlineImageConfig | None = None,
-) -> tuple[str, list[InlineImage], list[InlineImageWarning]]: ...
-def convert_with_inline_images_json(
-    html: str,
-    options_json: str | None = None,
-    image_config_json: str | None = None,
-) -> tuple[str, list[InlineImage], list[InlineImageWarning]]: ...
+class ConversionResult(TypedDict):
+    content: str | None
+    document: None
+    metadata: dict[str, Any] | None
+    tables: list[ExtractedTable]
+    images: list[Any]
+    warnings: list[ProcessingWarning]
+
+def convert(html: str, options: ConversionOptions | None = None) -> ConversionResult: ...

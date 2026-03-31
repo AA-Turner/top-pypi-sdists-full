@@ -1,28 +1,18 @@
 Metadata-Version: 2.4
 Name: xyzservices
-Version: 2025.11.0
+Version: 2026.3.0
 Summary: Source of XYZ tiles providers
-Home-page: https://github.com/geopandas/xyzservices
-Author: Dani Arribas-Bel, Martin Fleischmann
-Author-email: daniel.arribas.bel@gmail.com, martin@martinfleischmann.net
-License: 3-Clause BSD
-Classifier: License :: OSI Approved :: BSD License
+Author-email: Dani Arribas-Bel <daniel.arribas.bel@gmail.com>, Martin Fleischmann <martin@martinfleischmann.net>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/geopandas/xyzservices
+Project-URL: Repository, https://github.com/geopandas/xyzservices
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-python
-Dynamic: summary
 
 # xyzservices - Source of XYZ tiles providers
 

@@ -1,4 +1,4 @@
-# (C) Copyright 2017, 2019-2024 by Rocky Bernstein
+# (C) Copyright 2017, 2019-2025 by Rocky Bernstein
 #
 #  This program is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU General Public License
@@ -24,7 +24,14 @@ from typing import Dict, List, Set
 
 from xdis import wordcode
 from xdis.cross_dis import findlabels, findlinestarts, get_jump_target_maps
-from xdis.version_info import IS_PYPY, PYTHON_VERSION_TRIPLE
+from xdis.version_info import IS_PYPY, PYTHON_VERSION_TRIPLE, PythonImplementation
+
+# The VARYING_STACK_INT value is used to indicate that the push or pop stack value
+# for an operation can change. In such cases other means such as looking and an
+# operation's operand value may be needed.
+VARYING_STACK_INT = -3000
+
+cpython_implementation = PythonImplementation("CPython")
 
 cmp_op = (
     "<",  # 0
@@ -135,7 +142,8 @@ def init_opdata(loc, from_mod, version_tuple=None, is_pypy: bool=False) -> None:
             if version_tuple >= (3,14):
                 fields2copy.extend(fields2copy_314)
         for field in fields2copy:
-            loc[field] = getattr(from_mod, field).copy()
+            if hasattr(from_mod, field):
+                loc[field] = getattr(from_mod, field).copy()
         pass
     else:
         # FIXME: DRY with above
@@ -181,11 +189,15 @@ def call_op(
     Put opcode in the class of instructions that perform calls.
     """
     loc["callop"].add(opcode)
+    if "hasarg" in loc:
+        loc["hasarg"].append(opcode)
     nargs_op(loc, name, opcode, pop, push, fallthrough)
 
 
 def compare_op(loc: dict, name: str, opcode: int, pop: int = 2, push: int = 1) -> None:
     def_op(loc, name, opcode, pop, push)
+    if "hasarg" in loc:
+        loc["hasarg"].append(opcode)
     loc["hascompare"].append(opcode)
     loc["binaryop"].add(opcode)
 
@@ -196,6 +208,8 @@ def conditional_op(loc: dict, name: str, opcode: int) -> None:
 
 def const_op(loc: dict, name: str, opcode: int, pop: int = 0, push: int = 1) -> None:
     def_op(loc, name, opcode, pop, push)
+    if "hasarg" in loc:
+        loc["hasarg"].append(opcode)
     loc["hasconst"].append(opcode)
     loc["nullaryop"].add(opcode)
 
@@ -218,6 +232,8 @@ def def_op(
 
 def free_op(loc: dict, name: str, opcode: int, pop: int = 0, push: int = 1) -> None:
     def_op(loc, name, opcode, pop, push)
+    if "hasarg" in loc:
+        loc["hasarg"].append(opcode)
     loc["hasfree"].append(opcode)
 
 
@@ -235,6 +251,8 @@ def jabs_op(
     """
     def_op(loc, name, opcode, pop, push, fallthrough=fallthrough)
     loc["hasjabs"].append(opcode)
+    if "hasarg" in loc:
+        loc["hasarg"].append(opcode)
     if conditional:
         loc["hascondition"].append(opcode)
 
@@ -245,12 +263,16 @@ def jrel_op(loc, name: str, opcode: int, pop: int=0, push: int=0, conditional=Fa
     """
     def_op(loc, name, opcode, pop, push, fallthrough)
     loc["hasjrel"].append(opcode)
+    if "hasarg" in loc:
+        loc["hasarg"].append(opcode)
     if conditional:
         loc["hascondition"].append(opcode)
 
 
 def local_op(loc, name, opcode: int, pop=0, push=1) -> None:
     def_op(loc, name, opcode, pop, push)
+    if "hasarg" in loc:
+        loc["hasarg"].append(opcode)
     loc["haslocal"].append(opcode)
     loc["nullaryop"].add(opcode)
 
@@ -261,6 +283,8 @@ def name_op(loc: dict, op_name, opcode: int, pop=-2, push=-2) -> None:
     """
     def_op(loc, op_name, opcode, pop, push)
     loc["hasname"].append(opcode)
+    if "hasarg" in loc:
+        loc["hasarg"].append(opcode)
     loc["nullaryop"].add(opcode)
 
 
@@ -271,6 +295,8 @@ def nargs_op(
     Put opcode in the class of instructions that have a variable number of (or *n*) arguments
     """
     def_op(loc, name, opcode, pop, push, fallthrough=fallthrough)
+    if "hasarg" in loc:
+        loc["hasarg"].append(opcode)
     loc["hasnargs"].append(opcode)
 
 
@@ -425,11 +451,11 @@ def fix_opcode_names(opmap: dict[str, int]):
     return dict([(k.replace("+", "_"), v) for (k, v) in opmap.items()])
 
 
-def update_pj3(g, loc, is_pypy: bool=False) -> None:
+def update_pj3(g, loc, is_pypy: bool=False, is_rust: bool=False) -> None:
     if loc["version_tuple"] < (3, 11):
         g.update({"PJIF": loc["opmap"]["POP_JUMP_IF_FALSE"]})
         g.update({"PJIT": loc["opmap"]["POP_JUMP_IF_TRUE"]})
-    update_sets(loc, is_pypy)
+    update_sets(loc, is_pypy, is_rust)
 
 
 def update_pj2(g, loc, is_pypy: bool=False) -> None:
@@ -438,7 +464,7 @@ def update_pj2(g, loc, is_pypy: bool=False) -> None:
     update_sets(loc, is_pypy)
 
 
-def update_sets(loc, is_pypy) -> None:
+def update_sets(loc, is_pypy: bool, is_rust=False) -> None:
     """
     Updates various category sets all opcode have been defined.
     """
@@ -452,30 +478,32 @@ def update_sets(loc, is_pypy) -> None:
     loc["JABS_OPS"] = frozenset(loc["hasjabs"])
 
     python_version = loc.get("python_version")
-    if python_version and python_version < (3, 11) or (is_pypy and python_version == (3, 11)):
+    if python_version:
         loc["JUMP_UNCONDITIONAL"] = frozenset(
-            [loc["opmap"]["JUMP_ABSOLUTE"], loc["opmap"]["JUMP_FORWARD"]]
+            [
+                loc["opmap"][op]
+                for op in {
+                    "JUMP_ABSOLUTE",
+                    "JUMP_FORWARD",
+                    "JUMP_BACKWARD",
+                    "JUMP_BACKWARD_NO_INTERRUPT",
+                }
+                if op in loc["opmap"]
+            ]
         )
-    elif python_version:
-        if not is_pypy:
-            loc["JUMP_UNCONDITIONAL"] = frozenset(
-                [
-                    loc["opmap"]["JUMP_FORWARD"],
-                    loc["opmap"]["JUMP_BACKWARD"],
-                    loc["opmap"]["JUMP_BACKWARD_NO_INTERRUPT"],
-                ]
-            )
-    else:
-        loc["JUMP_UNCONDITIONAL"] = frozenset([loc["opmap"]["JUMP_FORWARD"]])
     if PYTHON_VERSION_TRIPLE < (3, 8, 0) and python_version and python_version < (3, 8):
         loc["LOOP_OPS"] = frozenset([loc["opmap"]["SETUP_LOOP"]])
     else:
         loc["LOOP_OPS"] = frozenset()
 
     loc["LOCAL_OPS"] = frozenset(loc["haslocal"])
-    loc["JUMP_OPS"] = (
-        loc["JABS_OPS"] | loc["JREL_OPS"] | loc["LOOP_OPS"] | loc["JUMP_UNCONDITIONAL"]
-    )
+    if not is_rust and python_version:
+        loc["JUMP_OPS"] = (
+            loc["JABS_OPS"]
+            | loc["JREL_OPS"]
+            | loc["LOOP_OPS"]
+            | loc["JUMP_UNCONDITIONAL"]
+        )
     loc["NAME_OPS"] = frozenset(loc["hasname"])
     loc["NARGS_OPS"] = frozenset(loc["hasnargs"])
     loc["VARGS_OPS"] = frozenset(loc["hasvargs"])

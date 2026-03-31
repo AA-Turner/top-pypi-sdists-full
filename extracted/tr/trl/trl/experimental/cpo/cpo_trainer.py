@@ -48,7 +48,7 @@ from transformers.trainer_utils import EvalLoopOutput
 from transformers.utils import is_peft_available, is_torch_fx_proxy
 
 from ...data_utils import maybe_apply_chat_template, maybe_extract_prompt
-from ...trainer.base_trainer import BaseTrainer
+from ...trainer.base_trainer import _BaseTrainer
 from ...trainer.utils import disable_dropout_in_model, log_table_to_comet_experiment, selective_log_softmax
 from ..utils import (
     DPODataCollatorWithPadding,
@@ -71,7 +71,7 @@ if is_wandb_available():
 logger = logging.get_logger(__name__)
 
 
-class CPOTrainer(BaseTrainer):
+class CPOTrainer(_BaseTrainer):
     r"""
     Initialize CPOTrainer.
 
@@ -145,6 +145,9 @@ class CPOTrainer(BaseTrainer):
         peft_config: dict | None = None,
         compute_metrics: Callable[[EvalLoopOutput], dict] | None = None,
     ):
+        if train_dataset is None:
+            raise ValueError("`train_dataset` is required")
+
         if args.model_init_kwargs is None:
             model_init_kwargs = {}
         elif not isinstance(model, str):
@@ -288,7 +291,6 @@ class CPOTrainer(BaseTrainer):
 
         self.max_length = max_length
         self.generate_during_eval = args.generate_during_eval
-        self.truncation_mode = args.truncation_mode
         self.max_completion_length = max_completion_length
         self.processing_class = processing_class
 

@@ -20,6 +20,7 @@ import httpx
 from plato.chronos.api.workspace_repos import bulk_ingest_ref_audit_events
 from plato.chronos.models import AuditEventInput, BulkRefAuditEventsRequest
 from plato.utils.audit import read_audit_records
+from plato.utils.subprocess import run_local
 
 if TYPE_CHECKING:
     from plato.agents.runtime.transport import Transport
@@ -94,11 +95,31 @@ class Workspace:
             tracked=self.tracked,
         )
 
+    def clone(self) -> Workspace:
+        """Return a shallow copy of this workspace without copying the transport."""
+        return Workspace(
+            name=self.name,
+            path=self._repo_root,
+            tracked=self.tracked,
+            mount_path=self._mount_path,
+            backup=self.backup,
+            dvcignore=list(self._custom_dvcignore),
+            s3_bucket=self.s3_bucket,
+            s3_prefix=self.s3_prefix,
+            repo_id=self.repo_id,
+            repo_name=self.repo_name,
+            chronos_url=self.chronos_url,
+            api_key=self.api_key,
+            session_id=self.session_id,
+        )
+
     @staticmethod
     def _cleanup_stale_mount(path: Path) -> None:
         """Unmount a stale FUSE mount if present."""
         try:
             path.stat()
+        except FileNotFoundError:
+            pass
         except OSError as e:
             if e.errno == 107:  # ENOTCONN — dead FUSE mount
                 import subprocess
@@ -111,8 +132,6 @@ class Workspace:
                     path.rmdir()
                 except OSError:
                     pass
-        except FileNotFoundError:
-            pass
 
     # ------------------------------------------------------------------
     # Init
@@ -202,6 +221,37 @@ class Workspace:
         mount = await mount_lazy(self.path, empty_manifest, s3_config, cache_dir)
         self._lazy_mounts[dir_name] = mount
         logger.info("Mounted FUSE at %s", self.path)
+
+    async def materialize_current_tree_into_overlay(self) -> None:
+        """Mirror the current mounted tree into the overlay so smart_commit sees git-applied changes."""
+        self._require_tracked()
+        if not self._lazy_mounts:
+            raise RuntimeError(
+                f"Workspace '{self.name}' has no FUSE mounts. ensure_fuse_mount() must be called before materializing."
+            )
+
+        for mount in self._lazy_mounts.values():
+            overlay_dir = mount.overlay_dir
+            mountpoint = mount.mountpoint
+            overlay_dir.mkdir(parents=True, exist_ok=True)
+            exit_code, _, stderr = await run_local(
+                " ".join(
+                    [
+                        "rsync",
+                        "-a",
+                        "--delete",
+                        "--exclude=.git",
+                        "--exclude=.git-bare",
+                        f"{mountpoint}/",
+                        f"{overlay_dir}/",
+                    ]
+                ),
+                timeout=120,
+            )
+            if exit_code != 0:
+                raise RuntimeError(
+                    f"Failed to materialize tracked workspace '{self.name}' into overlay: {stderr.strip()}"
+                )
 
     # ------------------------------------------------------------------
     # Commit

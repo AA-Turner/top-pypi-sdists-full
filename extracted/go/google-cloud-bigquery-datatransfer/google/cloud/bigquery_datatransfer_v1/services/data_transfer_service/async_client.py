@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+import warnings
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -28,15 +29,14 @@ from typing import (
     Type,
     Union,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.bigquery_datatransfer_v1 import gapic_version as package_version
 
@@ -45,12 +45,12 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
 
 from google.cloud.bigquery_datatransfer_v1.services.data_transfer_service import pagers
 from google.cloud.bigquery_datatransfer_v1.types import datatransfer, transfer
@@ -131,7 +131,10 @@ class DataTransferServiceAsyncClient:
         Returns:
             DataTransferServiceAsyncClient: The constructed client.
         """
-        return DataTransferServiceClient.from_service_account_info.__func__(DataTransferServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            DataTransferServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(DataTransferServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -147,7 +150,10 @@ class DataTransferServiceAsyncClient:
         Returns:
             DataTransferServiceAsyncClient: The constructed client.
         """
-        return DataTransferServiceClient.from_service_account_file.__func__(DataTransferServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            DataTransferServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(DataTransferServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -185,7 +191,9 @@ class DataTransferServiceAsyncClient:
         Raises:
             google.auth.exceptions.MutualTLSChannelError: If any errors happen.
         """
-        return DataTransferServiceClient.get_mtls_endpoint_and_cert_source(client_options)  # type: ignore
+        return DataTransferServiceClient.get_mtls_endpoint_and_cert_source(
+            client_options
+        )  # type: ignore
 
     @property
     def transport(self) -> DataTransferServiceTransport:
@@ -197,7 +205,7 @@ class DataTransferServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -2183,7 +2191,7 @@ class DataTransferServiceAsyncClient:
 
     async def get_location(
         self,
-        request: Optional[locations_pb2.GetLocationRequest] = None,
+        request: Optional[Union[locations_pb2.GetLocationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2209,8 +2217,12 @@ class DataTransferServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.GetLocationRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.GetLocationRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.GetLocationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2219,7 +2231,7 @@ class DataTransferServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2227,7 +2239,7 @@ class DataTransferServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,
@@ -2238,7 +2250,7 @@ class DataTransferServiceAsyncClient:
 
     async def list_locations(
         self,
-        request: Optional[locations_pb2.ListLocationsRequest] = None,
+        request: Optional[Union[locations_pb2.ListLocationsRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -2264,8 +2276,12 @@ class DataTransferServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = locations_pb2.ListLocationsRequest(**request)
+        if request is None:
+            request_pb = locations_pb2.ListLocationsRequest()
+        elif isinstance(request, dict):
+            request_pb = locations_pb2.ListLocationsRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -2274,7 +2290,7 @@ class DataTransferServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -2282,7 +2298,7 @@ class DataTransferServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

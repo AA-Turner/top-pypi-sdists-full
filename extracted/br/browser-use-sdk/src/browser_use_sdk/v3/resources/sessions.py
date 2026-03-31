@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
+import asyncio
+import time
+from typing import TYPE_CHECKING, Any
 
+from ..._core import _UNSET
 from ..._core.http import AsyncHttpClient, SyncHttpClient
 from ...generated.v3.models import (
     FileListResponse,
@@ -11,6 +14,9 @@ from ...generated.v3.models import (
     SessionListResponse,
     SessionResponse,
 )
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 
 class Sessions:
@@ -22,14 +28,16 @@ class Sessions:
         task: str | None = None,
         *,
         model: str | None = None,
-        session_id: str | None = None,
+        session_id: str | UUID | None = None,
         keep_alive: bool | None = None,
         max_cost_usd: float | None = None,
         profile_id: str | None = None,
-        proxy_country_code: str | None = None,
+        proxy_country_code: str | None = _UNSET,  # type: ignore[assignment]
         output_schema: dict[str, Any] | None = None,
         workspace_id: str | None = None,
         enable_scheduled_tasks: bool | None = None,
+        enable_recording: bool | None = None,
+        custom_proxy: dict[str, Any] | None = None,
         **extra: Any,
     ) -> SessionResponse:
         """Create a session and optionally dispatch a task."""
@@ -39,21 +47,25 @@ class Sessions:
         if model is not None:
             body["model"] = model
         if session_id is not None:
-            body["sessionId"] = session_id
+            body["sessionId"] = str(session_id)
         if keep_alive is not None:
             body["keepAlive"] = keep_alive
         if max_cost_usd is not None:
             body["maxCostUsd"] = max_cost_usd
         if profile_id is not None:
             body["profileId"] = profile_id
-        if proxy_country_code is not None:
-            body["proxyCountryCode"] = proxy_country_code
+        if proxy_country_code is not _UNSET:
+            body["proxyCountryCode"] = proxy_country_code.lower() if isinstance(proxy_country_code, str) else proxy_country_code
         if output_schema is not None:
             body["outputSchema"] = output_schema
         if workspace_id is not None:
             body["workspaceId"] = workspace_id
         if enable_scheduled_tasks is not None:
             body["enableScheduledTasks"] = enable_scheduled_tasks
+        if enable_recording is not None:
+            body["enableRecording"] = enable_recording
+        if custom_proxy is not None:
+            body["customProxy"] = custom_proxy
         body.update(extra)
         return SessionResponse.model_validate(
             self._http.request("POST", "/sessions", json=body)
@@ -77,13 +89,13 @@ class Sessions:
             )
         )
 
-    def get(self, session_id: str) -> SessionResponse:
+    def get(self, session_id: str | UUID) -> SessionResponse:
         """Get session details."""
         return SessionResponse.model_validate(
             self._http.request("GET", f"/sessions/{session_id}")
         )
 
-    def stop(self, session_id: str, *, strategy: str | None = None, **extra: Any) -> SessionResponse:
+    def stop(self, session_id: str | UUID, *, strategy: str | None = None, **extra: Any) -> SessionResponse:
         """Stop a session or the running task."""
         body: dict[str, Any] | None = None
         if strategy is not None or extra:
@@ -95,13 +107,13 @@ class Sessions:
             self._http.request("POST", f"/sessions/{session_id}/stop", json=body)
         )
 
-    def delete(self, session_id: str) -> None:
+    def delete(self, session_id: str | UUID) -> None:
         """Soft-delete a session."""
         self._http.request("DELETE", f"/sessions/{session_id}")
 
     def upload_files(
         self,
-        session_id: str,
+        session_id: str | UUID,
         files: list[FileUploadItem],
         **extra: Any,
     ) -> FileUploadResponse:
@@ -116,7 +128,7 @@ class Sessions:
 
     def files(
         self,
-        session_id: str,
+        session_id: str | UUID,
         *,
         prefix: str | None = None,
         limit: int | None = None,
@@ -141,7 +153,7 @@ class Sessions:
 
     def messages(
         self,
-        session_id: str,
+        session_id: str | UUID,
         *,
         after: str | None = None,
         before: str | None = None,
@@ -160,6 +172,29 @@ class Sessions:
             )
         )
 
+    def wait_for_recording(
+        self,
+        session_id: str | UUID,
+        *,
+        timeout: float = 15,
+        interval: float = 2,
+    ) -> list[str]:
+        """Poll until recording URLs are available. Returns a list of presigned MP4 URLs.
+
+        Returns an empty list if no recording was produced (e.g. the agent
+        answered without opening a browser, or recording was not enabled).
+        """
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            session = self.get(session_id)
+            if session.recording_urls:
+                return list(session.recording_urls)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(interval, remaining))
+        return []
+
 
 class AsyncSessions:
     def __init__(self, http: AsyncHttpClient) -> None:
@@ -170,14 +205,16 @@ class AsyncSessions:
         task: str | None = None,
         *,
         model: str | None = None,
-        session_id: str | None = None,
+        session_id: str | UUID | None = None,
         keep_alive: bool | None = None,
         max_cost_usd: float | None = None,
         profile_id: str | None = None,
-        proxy_country_code: str | None = None,
+        proxy_country_code: str | None = _UNSET,  # type: ignore[assignment]
         output_schema: dict[str, Any] | None = None,
         workspace_id: str | None = None,
         enable_scheduled_tasks: bool | None = None,
+        enable_recording: bool | None = None,
+        custom_proxy: dict[str, Any] | None = None,
         **extra: Any,
     ) -> SessionResponse:
         """Create a session and optionally dispatch a task."""
@@ -187,21 +224,25 @@ class AsyncSessions:
         if model is not None:
             body["model"] = model
         if session_id is not None:
-            body["sessionId"] = session_id
+            body["sessionId"] = str(session_id)
         if keep_alive is not None:
             body["keepAlive"] = keep_alive
         if max_cost_usd is not None:
             body["maxCostUsd"] = max_cost_usd
         if profile_id is not None:
             body["profileId"] = profile_id
-        if proxy_country_code is not None:
-            body["proxyCountryCode"] = proxy_country_code
+        if proxy_country_code is not _UNSET:
+            body["proxyCountryCode"] = proxy_country_code.lower() if isinstance(proxy_country_code, str) else proxy_country_code
         if output_schema is not None:
             body["outputSchema"] = output_schema
         if workspace_id is not None:
             body["workspaceId"] = workspace_id
         if enable_scheduled_tasks is not None:
             body["enableScheduledTasks"] = enable_scheduled_tasks
+        if enable_recording is not None:
+            body["enableRecording"] = enable_recording
+        if custom_proxy is not None:
+            body["customProxy"] = custom_proxy
         body.update(extra)
         return SessionResponse.model_validate(
             await self._http.request("POST", "/sessions", json=body)
@@ -225,13 +266,13 @@ class AsyncSessions:
             )
         )
 
-    async def get(self, session_id: str) -> SessionResponse:
+    async def get(self, session_id: str | UUID) -> SessionResponse:
         """Get session details."""
         return SessionResponse.model_validate(
             await self._http.request("GET", f"/sessions/{session_id}")
         )
 
-    async def stop(self, session_id: str, *, strategy: str | None = None, **extra: Any) -> SessionResponse:
+    async def stop(self, session_id: str | UUID, *, strategy: str | None = None, **extra: Any) -> SessionResponse:
         """Stop a session or the running task."""
         body: dict[str, Any] | None = None
         if strategy is not None or extra:
@@ -243,13 +284,13 @@ class AsyncSessions:
             await self._http.request("POST", f"/sessions/{session_id}/stop", json=body)
         )
 
-    async def delete(self, session_id: str) -> None:
+    async def delete(self, session_id: str | UUID) -> None:
         """Soft-delete a session."""
         await self._http.request("DELETE", f"/sessions/{session_id}")
 
     async def upload_files(
         self,
-        session_id: str,
+        session_id: str | UUID,
         files: list[FileUploadItem],
         **extra: Any,
     ) -> FileUploadResponse:
@@ -264,7 +305,7 @@ class AsyncSessions:
 
     async def files(
         self,
-        session_id: str,
+        session_id: str | UUID,
         *,
         prefix: str | None = None,
         limit: int | None = None,
@@ -289,7 +330,7 @@ class AsyncSessions:
 
     async def messages(
         self,
-        session_id: str,
+        session_id: str | UUID,
         *,
         after: str | None = None,
         before: str | None = None,
@@ -307,3 +348,26 @@ class AsyncSessions:
                 },
             )
         )
+
+    async def wait_for_recording(
+        self,
+        session_id: str | UUID,
+        *,
+        timeout: float = 15,
+        interval: float = 2,
+    ) -> list[str]:
+        """Poll until recording URLs are available. Returns a list of presigned MP4 URLs.
+
+        Returns an empty list if no recording was produced (e.g. the agent
+        answered without opening a browser, or recording was not enabled).
+        """
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            session = await self.get(session_id)
+            if session.recording_urls:
+                return list(session.recording_urls)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            await asyncio.sleep(min(interval, remaining))
+        return []

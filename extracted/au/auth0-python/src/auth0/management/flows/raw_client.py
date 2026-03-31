@@ -97,7 +97,7 @@ class RawFlowsClient:
                 _items = _parsed_response.flows
                 _has_next = True
                 _get_next = lambda: self.list(
-                    page=page + len(_items or []),
+                    page=page + 1,
                     per_page=per_page,
                     include_totals=include_totals,
                     hydrate=hydrate,
@@ -468,7 +468,7 @@ class RawFlowsClient:
             json={
                 "name": name,
                 "actions": convert_and_respect_annotation_metadata(
-                    object_=actions, annotation=typing.Sequence[FlowAction], direction="write"
+                    object_=actions, annotation=typing.Optional[typing.Sequence[FlowAction]], direction="write"
                 ),
             },
             headers={
@@ -607,7 +607,7 @@ class AsyncRawFlowsClient:
 
                 async def _get_next():
                     return await self.list(
-                        page=page + len(_items or []),
+                        page=page + 1,
                         per_page=per_page,
                         include_totals=include_totals,
                         hydrate=hydrate,
@@ -981,7 +981,7 @@ class AsyncRawFlowsClient:
             json={
                 "name": name,
                 "actions": convert_and_respect_annotation_metadata(
-                    object_=actions, annotation=typing.Sequence[FlowAction], direction="write"
+                    object_=actions, annotation=typing.Optional[typing.Sequence[FlowAction]], direction="write"
                 ),
             },
             headers={

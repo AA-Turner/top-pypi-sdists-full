@@ -21,10 +21,10 @@ jobs:
 
     steps:
       - name: checkout repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: setup micromamba
-        uses: mamba-org/setup-micromamba@v2
+        uses: mamba-org/setup-micromamba@v3
         with:
           environment-file: ${{ matrix.environment-file }}
           micromamba-version: 'latest'

@@ -13,7 +13,7 @@ authors = [
 name = "xdis"
 description = "Python cross-version byte-code library and disassembler"
 dependencies = [
-    "click",
+    "click >= 7.0.0",
     "six >= 1.10.0",
 ]
 readme = "README.rst"
@@ -42,6 +42,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dynamic = ["version"]
 
@@ -58,6 +59,7 @@ dev = [
 
 [project.scripts]
 pydisasm = "xdis.bin.pydisasm:main"
+roundtrip-pyc = "xdis.roundtrip_pyc:main"
 
 [tool.setuptools.dynamic]
 version = {attr = "xdis.version.__version__"}

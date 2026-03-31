@@ -13,6 +13,15 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class ExprPolicyKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    EXPR_POLICY_KIND_UNSPECIFIED: _ClassVar[ExprPolicyKind]
+    EXPR_POLICY_KIND_CONCURRENCY: _ClassVar[ExprPolicyKind]
+    EXPR_POLICY_KIND_RATE_LIMIT: _ClassVar[ExprPolicyKind]
+    EXPR_POLICY_KIND_RETRY: _ClassVar[ExprPolicyKind]
+    EXPR_POLICY_KIND_LOGGING: _ClassVar[ExprPolicyKind]
+    EXPR_POLICY_KIND_CACHE: _ClassVar[ExprPolicyKind]
+
 class ScalarFunction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     SCALAR_FUNCTION_UNSPECIFIED: _ClassVar[ScalarFunction]
@@ -216,6 +225,12 @@ class WindowFrameBoundType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     WINDOW_FRAME_BOUND_TYPE_PRECEDING: _ClassVar[WindowFrameBoundType]
     WINDOW_FRAME_BOUND_TYPE_FOLLOWING: _ClassVar[WindowFrameBoundType]
 
+EXPR_POLICY_KIND_UNSPECIFIED: ExprPolicyKind
+EXPR_POLICY_KIND_CONCURRENCY: ExprPolicyKind
+EXPR_POLICY_KIND_RATE_LIMIT: ExprPolicyKind
+EXPR_POLICY_KIND_RETRY: ExprPolicyKind
+EXPR_POLICY_KIND_LOGGING: ExprPolicyKind
+EXPR_POLICY_KIND_CACHE: ExprPolicyKind
 SCALAR_FUNCTION_UNSPECIFIED: ScalarFunction
 SCALAR_FUNCTION_ABS: ScalarFunction
 SCALAR_FUNCTION_ACOS: ScalarFunction
@@ -446,7 +461,7 @@ class ExprGetSubscript(_message.Message):
     ) -> None: ...
 
 class ExprCall(_message.Message):
-    __slots__ = ("func", "args", "kwargs", "repr_override")
+    __slots__ = ("func", "args", "kwargs", "repr_override", "policies")
     class KwargsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -461,16 +476,37 @@ class ExprCall(_message.Message):
     ARGS_FIELD_NUMBER: _ClassVar[int]
     KWARGS_FIELD_NUMBER: _ClassVar[int]
     REPR_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
+    POLICIES_FIELD_NUMBER: _ClassVar[int]
     func: LogicalExprNode
     args: _containers.RepeatedCompositeFieldContainer[LogicalExprNode]
     kwargs: _containers.MessageMap[str, LogicalExprNode]
     repr_override: str
+    policies: _containers.RepeatedCompositeFieldContainer[ExprPolicy]
     def __init__(
         self,
         func: _Optional[_Union[LogicalExprNode, _Mapping]] = ...,
         args: _Optional[_Iterable[_Union[LogicalExprNode, _Mapping]]] = ...,
         kwargs: _Optional[_Mapping[str, LogicalExprNode]] = ...,
         repr_override: _Optional[str] = ...,
+        policies: _Optional[_Iterable[_Union[ExprPolicy, _Mapping]]] = ...,
+    ) -> None: ...
+
+class ExprPolicy(_message.Message):
+    __slots__ = ("kind", "params")
+    class ParamsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    PARAMS_FIELD_NUMBER: _ClassVar[int]
+    kind: ExprPolicyKind
+    params: _containers.ScalarMap[str, str]
+    def __init__(
+        self, kind: _Optional[_Union[ExprPolicyKind, str]] = ..., params: _Optional[_Mapping[str, str]] = ...
     ) -> None: ...
 
 class ExprLiteral(_message.Message):

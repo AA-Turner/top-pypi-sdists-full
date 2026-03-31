@@ -9,7 +9,9 @@
 //! - Metadata collection for links (links, URLs, titles, rel attributes)
 //! - Block-level content within links (via inline context)
 
-use crate::converter::utility::content::{is_block_level_element, normalized_tag_name};
+#[cfg(feature = "visitor")]
+use crate::converter::utility::content::collect_tag_attributes;
+use crate::converter::utility::content::{collect_link_label_text, escape_link_label, normalize_link_label};
 use crate::converter::utility::preprocessing::sanitize_markdown_url;
 use crate::options::ConversionOptions;
 use std::collections::BTreeMap;
@@ -230,11 +232,7 @@ pub(crate) fn handle(
         let link_output = if let Some(ref visitor_handle) = ctx.visitor {
             use crate::visitor::{NodeContext, NodeType, VisitResult};
 
-            let attributes: BTreeMap<String, String> = tag
-                .attributes()
-                .iter()
-                .filter_map(|(k, v)| v.as_ref().map(|val| (k.to_string(), val.to_string())))
-                .collect();
+            let attributes: BTreeMap<String, String> = collect_tag_attributes(tag);
 
             let node_id = node_handle.get_inner();
             let parent_tag = dom_ctx.parent_tag_name(node_id, parser);
@@ -341,58 +339,6 @@ pub(crate) fn handle(
     }
 }
 
-/// Escape special Markdown characters in link labels.
-///
-/// Escapes unmatched closing brackets `]` to prevent accidental link termination.
-/// Tracks bracket nesting to avoid escaping matched closing brackets.
-///
-/// # Examples
-/// ```text
-/// Input:  "Click [here] for more"
-/// Output: "Click [here\\] for more"  (closing bracket is escaped because it's unmatched)
-///
-/// Input:  "Normal text"
-/// Output: "Normal text"  (no escaping needed)
-/// ```
-fn escape_link_label(text: &str) -> String {
-    if text.is_empty() {
-        return String::new();
-    }
-
-    let mut result = String::with_capacity(text.len());
-    let mut backslash_count = 0usize;
-    let mut bracket_depth = 0usize;
-
-    for ch in text.chars() {
-        if ch == '\\' {
-            result.push('\\');
-            backslash_count += 1;
-            continue;
-        }
-
-        let is_escaped = backslash_count % 2 == 1;
-        backslash_count = 0;
-
-        match ch {
-            '[' if !is_escaped => {
-                bracket_depth = bracket_depth.saturating_add(1);
-                result.push('[');
-            }
-            ']' if !is_escaped => {
-                if bracket_depth == 0 {
-                    result.push('\\');
-                } else {
-                    bracket_depth -= 1;
-                }
-                result.push(']');
-            }
-            _ => result.push(ch),
-        }
-    }
-
-    result
-}
-
 /// Format and append a Markdown link to the output string.
 ///
 /// Generates the link syntax: `[label](href "title")`
@@ -461,116 +407,4 @@ pub(crate) fn append_markdown_link(
     }
 
     output.push(')');
-}
-
-/// Collect text content from direct inline children of a link element.
-///
-/// Performs a shallow scan to find text content, distinguishing between:
-/// - Inline text (normal flow, accumulated)
-/// - Block-level elements (stop at them, mark `saw_block`)
-/// - Comments (stop processing)
-///
-/// Returns:
-/// - `(text, block_nodes, saw_block)` where:
-///   - `text` is concatenated inline text
-///   - `block_nodes` is list of block-level children found
-///   - `saw_block` indicates if any block elements were encountered
-///
-/// # Algorithm
-/// Uses a stack-based approach to traverse the DOM tree, accumulating text
-/// from inline elements while identifying block-level boundaries.
-fn collect_link_label_text(
-    children: &[NodeHandle],
-    parser: &Parser,
-    dom_ctx: &DomContext,
-) -> (String, Vec<NodeHandle>, bool) {
-    let mut text = String::new();
-    let mut saw_block = false;
-    let mut block_nodes = Vec::new();
-    let mut stack: Vec<_> = children.iter().rev().copied().collect();
-
-    while let Some(handle) = stack.pop() {
-        if let Some(node) = handle.get(parser) {
-            match node {
-                tl::Node::Raw(bytes) => {
-                    let raw = bytes.as_utf8_str();
-                    let decoded = crate::text::decode_html_entities_cow(raw.as_ref());
-                    text.push_str(decoded.as_ref());
-                }
-                tl::Node::Tag(tag) => {
-                    let is_block = dom_ctx.tag_info(handle.get_inner(), parser).map_or_else(
-                        || {
-                            let tag_name = normalized_tag_name(tag.name().as_utf8_str());
-                            is_block_level_element(tag_name.as_ref())
-                        },
-                        |info| info.is_block,
-                    );
-                    if is_block {
-                        saw_block = true;
-                        block_nodes.push(handle);
-                        continue;
-                    }
-
-                    if let Some(children) = dom_ctx.children_of(handle.get_inner()) {
-                        for child in children.iter().rev() {
-                            stack.push(*child);
-                        }
-                    } else {
-                        let tag_children = tag.children();
-                        let mut child_nodes: Vec<_> = tag_children.top().iter().copied().collect();
-                        child_nodes.reverse();
-                        stack.extend(child_nodes);
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-
-    (text, block_nodes, saw_block)
-}
-
-/// Normalize link label text.
-///
-/// Collapses line breaks and normalizes whitespace:
-/// - Replaces `\n` and `\r` with spaces
-/// - Collapses multiple consecutive spaces to single space
-/// - Trims leading/trailing whitespace
-///
-/// This is required by the Markdown spec for link labels to function properly.
-///
-/// # Examples
-/// ```text
-/// Input:  "Line 1\nLine 2"
-/// Output: "Line 1 Line 2"
-///
-/// Input:  "Text  with   spaces"
-/// Output: "Text with spaces"
-/// ```
-#[allow(clippy::trivially_copy_pass_by_ref)]
-fn normalize_link_label(label: &str) -> String {
-    let mut needs_collapse = false;
-    for ch in label.chars() {
-        if ch == '\n' || ch == '\r' {
-            needs_collapse = true;
-            break;
-        }
-    }
-
-    let collapsed = if needs_collapse {
-        let mut collapsed = String::with_capacity(label.len());
-        for ch in label.chars() {
-            if ch == '\n' || ch == '\r' {
-                collapsed.push(' ');
-            } else {
-                collapsed.push(ch);
-            }
-        }
-        std::borrow::Cow::Owned(collapsed)
-    } else {
-        std::borrow::Cow::Borrowed(label)
-    };
-
-    let normalized = crate::text::normalize_whitespace_cow(collapsed.as_ref());
-    normalized.as_ref().trim().to_string()
 }

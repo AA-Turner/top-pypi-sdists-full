@@ -87,10 +87,8 @@ def make_tracked_mock_connection(
     mock_channel.basic_ack.side_effect = lambda delivery_tag: ack_tracker.basic_ack(
         delivery_tag
     )
-    mock_channel.basic_nack.side_effect = (
-        lambda delivery_tag, requeue=False: ack_tracker.basic_nack(
-            delivery_tag, requeue
-        )
+    mock_channel.basic_nack.side_effect = lambda delivery_tag, requeue=False: (
+        ack_tracker.basic_nack(delivery_tag, requeue)
     )
 
     def consume_generator(*args, **kwargs):
@@ -1149,7 +1147,7 @@ class TestSubclasses(unittest.TestCase):
         mock_channel.is_open = True
 
         control_body = json.dumps(
-            {"type": "stop", "payload": {"reason": "user_request"}}
+            {"type": "stop", "payload": {"execution_id": "test-exec-123"}}
         ).encode()
 
         messages = [

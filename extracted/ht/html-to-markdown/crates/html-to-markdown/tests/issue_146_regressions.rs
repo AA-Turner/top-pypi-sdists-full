@@ -1,12 +1,6 @@
 #![allow(missing_docs)]
 
-//! Issue #146 Regression Tests
-//!
-//! Tests for ensuring that `strip_tags` and `preserve_tags` properly prevent
-//! `<meta>` and `<title>` tags from appearing in YAML frontmatter when metadata
-//! extraction is enabled.
-
-use html_to_markdown_rs::{ConversionOptions, convert};
+use html_to_markdown_rs::ConversionOptions;
 
 #[test]
 fn test_strip_tags_prevents_metadata_extraction() {
@@ -140,4 +134,11 @@ fn test_preserve_tags_prevents_metadata_extraction() {
         !result.contains("meta-author"),
         "meta-author should NOT be in YAML frontmatter when preserve_tags=['meta']: {result}"
     );
+}
+
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
 }

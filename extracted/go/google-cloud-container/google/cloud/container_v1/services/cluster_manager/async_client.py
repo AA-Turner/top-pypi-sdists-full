@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+import warnings
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -28,15 +29,14 @@ from typing import (
     Type,
     Union,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.container_v1 import gapic_version as package_version
 
@@ -45,7 +45,7 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.rpc import status_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 
 from google.cloud.container_v1.services.cluster_manager import pagers
 from google.cloud.container_v1.types import cluster_service
@@ -124,7 +124,10 @@ class ClusterManagerAsyncClient:
         Returns:
             ClusterManagerAsyncClient: The constructed client.
         """
-        return ClusterManagerClient.from_service_account_info.__func__(ClusterManagerAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ClusterManagerClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ClusterManagerAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -140,7 +143,10 @@ class ClusterManagerAsyncClient:
         Returns:
             ClusterManagerAsyncClient: The constructed client.
         """
-        return ClusterManagerClient.from_service_account_file.__func__(ClusterManagerAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ClusterManagerClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ClusterManagerAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -190,7 +196,7 @@ class ClusterManagerAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:

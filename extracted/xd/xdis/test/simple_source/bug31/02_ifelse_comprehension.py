@@ -3,7 +3,7 @@
 # In 2.6, 2.7 JUMP_ABSOLUTEs rather than JUMP_BACKs are generated
 
 # RUNNABLE!
-def extend(stmt, a, c, c1, c2, c3):
+def extend(stmt: list[int], a: bool | int, c, c1: bool, c2: str, c3: str):
     return c(
         ([ (5 if c1 else c2)
           if a else c3

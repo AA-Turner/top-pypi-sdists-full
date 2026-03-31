@@ -771,10 +771,16 @@ async def _launch_datagen_world(
 
 @start_app.command(name="env")
 def start_env(
-    simulators: list[str] = typer.Argument(..., help="Simulator name(s)"),
+    simulators: list[str] = typer.Argument(None, help="Simulator name(s)"),
     resume: bool = typer.Option(False, "--resume", "-r", help="Resume create pipeline from last simcreator session"),
     resume_from: str = typer.Option("", "--resume-from", help="Resume from a specific session ID"),
     fix: bool = typer.Option(False, "--fix", "-f", help="Fix rejected sim using latest env review feedback"),
+    next_n: int = typer.Option(
+        0,
+        "--next",
+        "-n",
+        help="Auto-pick the N most recent not-started docker_app simulators (default 1 if flag given without value).",
+    ),
 ):
     """Start simcreator (env pipeline) for one or more simulators.
 
@@ -791,6 +797,8 @@ def start_env(
         plato pm start env aureus -r    # resume from last session
         plato pm start env aureus --resume-from abc123  # resume from specific session
         plato pm start env aureus -f    # fix from artifact with review feedback
+        plato pm start env -n 1          # start 1 most recent not-started sim
+        plato pm start env -n 10         # start 10 most recent not-started sims
     """
     if resume_from:
         resume = True
@@ -798,16 +806,52 @@ def start_env(
         console.print("[red]❌ Cannot use --resume and --fix together. Pick one.[/red]")
         raise typer.Exit(1)
 
+    if next_n < 0:
+        console.print("[red]❌ -n value must be positive[/red]")
+        raise typer.Exit(1)
+
     mode = "fix" if fix else ("resume" if resume else "fresh")
     api_key = require_api_key()
+
+    if not simulators and next_n <= 0:
+        console.print("[red]❌ No simulators specified. Provide names or use -n.[/red]")
+        raise typer.Exit(1)
 
     async def _start():
         base_url = _get_base_url()
         datagen_api_key = DEFAULT_DATAGEN_API_KEY
 
-        # Fetch all sim configs
+        # When -n is used, fetch the full not-started pool and pick valid ones
+        if next_n > 0:
+            async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+                all_sims = await get_simulators.asyncio(client=client, x_api_key=api_key)
+            candidates = []
+            for s in all_sims:
+                config = s.get("config", {}) if isinstance(s, dict) else getattr(s, "config", {})
+                if not isinstance(config, dict):
+                    continue
+                if config.get("status") != "not_started":
+                    continue
+                if config.get("type") != "docker_app":
+                    continue
+                name = (s.get("name") or "") if isinstance(s, dict) else (getattr(s, "name", None) or "")
+                if name:
+                    candidates.append((name, s))
+            if not candidates:
+                console.print("[red]❌ No not-started docker_app simulators found[/red]")
+                raise typer.Exit(1)
+            candidates.sort(key=lambda x: x[0])
+            sim_names = [name for name, _ in candidates]
+        else:
+            sim_names = list(simulators)
+
+        # Fetch all sim configs, skipping ineligible ones and backfilling when using -n
         to_launch = []
-        for sim_name in simulators:
+        idx = 0
+        target = next_n if next_n > 0 else len(sim_names)
+        while idx < len(sim_names) and len(to_launch) < target:
+            sim_name = sim_names[idx]
+            idx += 1
             try:
                 async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
                     sim = await get_simulator_by_name.asyncio(

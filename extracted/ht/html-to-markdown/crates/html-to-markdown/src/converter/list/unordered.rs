@@ -10,7 +10,11 @@ use super::utils::{
     add_list_leading_separator, add_nested_list_trailing_separator, calculate_list_nesting_depth, is_loose_list,
     process_list_children,
 };
+#[cfg(feature = "visitor")]
+use crate::converter::utility::content::collect_tag_attributes;
 use crate::options::ConversionOptions;
+#[cfg(feature = "visitor")]
+use std::collections::BTreeMap;
 use tl;
 
 // Type aliases for Context and DomContext to avoid circular imports
@@ -51,13 +55,8 @@ pub(crate) fn handle_ul(
     #[cfg(feature = "visitor")]
     if let Some(ref visitor_handle) = ctx.visitor {
         use crate::visitor::{NodeContext, NodeType, VisitResult};
-        use std::collections::BTreeMap;
 
-        let attributes: BTreeMap<String, String> = tag
-            .attributes()
-            .iter()
-            .filter_map(|(k, v)| v.as_ref().map(|val| (k.to_string(), val.to_string())))
-            .collect();
+        let attributes: BTreeMap<String, String> = collect_tag_attributes(tag);
 
         let parent_tag = dom_ctx
             .parent_of(node_handle.get_inner())
@@ -121,13 +120,8 @@ pub(crate) fn handle_ul(
     #[cfg(feature = "visitor")]
     if let Some(ref visitor_handle) = ctx.visitor {
         use crate::visitor::{NodeContext, NodeType, VisitResult};
-        use std::collections::BTreeMap;
 
-        let attributes: BTreeMap<String, String> = tag
-            .attributes()
-            .iter()
-            .filter_map(|(k, v)| v.as_ref().map(|val| (k.to_string(), val.to_string())))
-            .collect();
+        let attributes: BTreeMap<String, String> = collect_tag_attributes(tag);
 
         let parent_tag = dom_ctx
             .parent_of(node_handle.get_inner())

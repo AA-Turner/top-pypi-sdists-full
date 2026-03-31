@@ -57,7 +57,7 @@ async def test_enter():
 # From 3.7.6 test_coroutines.py
 # Bug was different form of code for "async with" below
 class CoroutineTest:
-    def test_with_8(self):
+    def test_with_8(self) -> None:
         CNT = 0
 
         async def foo():

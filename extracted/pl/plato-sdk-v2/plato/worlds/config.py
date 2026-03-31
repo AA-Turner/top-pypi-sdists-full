@@ -78,7 +78,7 @@ class DevConfig(BaseModel):
         default_factory=dict,
         description="Extra paths to sync to VM at /extra/{name}",
     )
-    sync_sdk: bool = True
+    sync_sdk: bool | Path = True
     ssh_key_path: Path | None = None
 
 
@@ -98,7 +98,6 @@ class SessionConfig(BaseModel):
     session_id: str = ""
     otel_url: str = ""
     chronos_url: str = ""  # Base URL for Chronos API (presigned URL requests)
-    transport_mode: Literal["nfs_kernel", "sshfs"] = "nfs_kernel"
     plato_session: SerializedSession | None = None
     parent_trace_id: str | None = None  # Parent trace ID (hex) for cross-world linking
     parent_span_id: str | None = None  # Parent span ID (hex) for cross-world linking
@@ -149,6 +148,58 @@ class AgentConfig(BaseModel):
 # =============================================================================
 # World Configuration
 # =============================================================================
+
+
+class MergeAgentConfig(BaseModel):
+    """Configuration for the agent that resolves git merge conflicts.
+
+    When ``strategy`` is ``"agent"``, the merge agent package/image is invoked
+    on the agent VM to resolve conflicts.  ``"theirs"`` and ``"ours"`` use
+    deterministic git strategies without an LLM.
+    """
+
+    package: str = ""
+    image: str = ""
+    strategy: Literal["theirs", "ours", "agent"] = "agent"
+    max_retries: int = Field(
+        default=3,
+        description="Max merge+push retry attempts before giving up.",
+    )
+    instruction_template: str = Field(
+        default=(
+            "Resolve the git merge conflicts in the workspace. "
+            "Review both sides and produce a correct merged result. "
+            "Stage and commit the resolution."
+        ),
+        description="Instruction sent to the merge agent when strategy is 'agent'.",
+    )
+
+
+class GitTransportConfig(BaseModel):
+    """Configuration for git-based workspace transport.
+
+    Used when a workspace declares ``transport="git"`` in its WorkspaceMarker.
+    """
+
+    merge_agent: MergeAgentConfig = Field(default_factory=MergeAgentConfig)
+    auto_commit_message: str = Field(
+        default="Agent workspace changes",
+        description="Default commit message when auto-committing agent changes.",
+    )
+    commit_on_sync: bool = Field(
+        default=True,
+        description="Automatically commit all changes before pushing in sync_back.",
+    )
+    serialize_sync: bool = Field(
+        default=True,
+        description="Queue sync_back calls so only one agent pushes at a time. "
+        "Prevents thundering-herd retries when many agents finish concurrently.",
+    )
+    seed_timeout: int = Field(
+        default=60,
+        description="Timeout in seconds for seeding the bare repo with initial workspace contents. "
+        "Increase for large workspaces (e.g., 1000+ files over FUSE).",
+    )
 
 
 class WorkspaceSourceSpec(BaseModel):
@@ -251,10 +302,10 @@ class RunConfig(BaseModel):
     """
 
     # Transport mode for sharing workspaces with agent VMs
-    transport_mode: Literal["nfs_kernel", "sshfs"] | None = Field(
-        default=None,
-        description="File-sharing transport between world and agent VMs. "
-        "Overrides the session-level transport_mode when set. "
+    transport_mode: Literal["nfs_kernel", "sshfs"] = Field(
+        default="nfs_kernel",
+        description="Default file-sharing transport between world and agent VMs. "
+        "Individual workspaces can override via WorkspaceMarker(transport=...). "
         "Options: 'nfs_kernel' (default), 'sshfs'.",
     )
 

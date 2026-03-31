@@ -1034,6 +1034,9 @@ class OTSClient(BaseOTSClient):
     def list_knowledge_base(self, request):
         return self._vectors_request_helper('ListKnowledgeBase', request)
 
+    def update_knowledge_base(self, request):
+        return self._vectors_request_helper('UpdateKnowledgeBase', request)
+
     def add_documents(self, request):
         return self._vectors_request_helper('AddDocuments', request)
 
@@ -1046,8 +1049,17 @@ class OTSClient(BaseOTSClient):
     def delete_documents(self, request):
         return self._vectors_request_helper('DeleteDocuments', request)
 
+    def update_document(self, request):
+        return self._vectors_request_helper('UpdateDocument', request)
+
     def retrieve(self, request):
         return self._vectors_request_helper('Retrieve', request)
+
+    def list_chunks(self, request):
+        return self._vectors_request_helper('ListChunks', request)
+
+    def update_chunks(self, request):
+        return self._vectors_request_helper('UpdateChunks', request)
 
 class AsyncOTSClient(BaseOTSClient):
 
@@ -1896,4 +1908,81 @@ class AsyncOTSClient(BaseOTSClient):
 
     async def get_timeseries_data(self, request: GetTimeseriesDataRequest) -> GetTimeseriesDataResponse:
         return await self._request_helper('GetTimeseriesData', request)
+
+    async def _vectors_request_helper(self, api_name, request):
+        connection = self._get_or_create_connection()
+        request_context: RequestContext = RequestContext(self.credentials_provider.get_credentials())
+        try:
+            query, req_headers, req_body = self.protocol.make_json_request(api_name, self._signer, request, request_context)
+        except Exception as e:
+            raise OTSClientError(str(e))
+        retry_times = 0
+        while True:
+            try:
+                status, reason, res_headers, res_body = await connection.send_receive(query, req_headers, req_body)
+                break
+            except OTSServiceError as e:
+                if self.retry_policy.should_retry(retry_times, e, api_name):
+                    retry_delay = self.retry_policy.get_retry_delay(retry_times, e, api_name)
+                    await asyncio.sleep(retry_delay)
+                    retry_times += 1
+                else:
+                    raise e
+
+        request_id = self.protocol._get_request_id_string(res_headers)
+        try:
+            if isinstance(res_body, bytes):
+                res_body_str = res_body.decode('utf-8')
+            else:
+                res_body_str = str(res_body)
+            res_body_json = json.loads(res_body_str)
+
+            if status > 299:
+                code = res_body_json.get('code', 'Unknown')
+                message = res_body_json.get('message', '')
+                raise OTSServiceError(status, code, message, request_id)
+        except (json.JSONDecodeError, TypeError) as je:
+            raise OTSServiceError(status, 'JsonDecodeError', str(je), request_id)
+
+        res_body_json['requestId'] = request_id
+        return res_body_json
+
+    async def create_knowledge_base(self, request):
+        return await self._vectors_request_helper('CreateKnowledgeBase', request)
+
+    async def delete_knowledge_base(self, request):
+        return await self._vectors_request_helper('DeleteKnowledgeBase', request)
+
+    async def describe_knowledge_base(self, request):
+        return await self._vectors_request_helper('DescribeKnowledgeBase', request)
+
+    async def list_knowledge_base(self, request):
+        return await self._vectors_request_helper('ListKnowledgeBase', request)
+
+    async def update_knowledge_base(self, request):
+        return await self._vectors_request_helper('UpdateKnowledgeBase', request)
+
+    async def add_documents(self, request):
+        return await self._vectors_request_helper('AddDocuments', request)
+
+    async def get_document(self, request):
+        return await self._vectors_request_helper('GetDocument', request)
+
+    async def list_documents(self, request):
+        return await self._vectors_request_helper('ListDocuments', request)
+
+    async def delete_documents(self, request):
+        return await self._vectors_request_helper('DeleteDocuments', request)
+
+    async def update_document(self, request):
+        return await self._vectors_request_helper('UpdateDocument', request)
+
+    async def retrieve(self, request):
+        return await self._vectors_request_helper('Retrieve', request)
+
+    async def list_chunks(self, request):
+        return await self._vectors_request_helper('ListChunks', request)
+
+    async def update_chunks(self, request):
+        return await self._vectors_request_helper('UpdateChunks', request)
 

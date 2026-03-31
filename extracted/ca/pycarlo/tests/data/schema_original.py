@@ -3231,48 +3231,42 @@ class FieldValueFilterOperator(sgqlc.types.Enum):
 
 
 class FigRiskLevel(sgqlc.types.Enum):
-    """Risk assessment level.
+    """Enumeration Choices:
 
-    Enumeration Choices:
-
-    * `CRITICAL`None
-    * `HIGH`None
-    * `LOW`None
-    * `MEDIUM`None
+    * `critical`None
+    * `high`None
+    * `low`None
+    * `medium`None
     """
 
     __schema__ = schema
-    __choices__ = ("CRITICAL", "HIGH", "LOW", "MEDIUM")
+    __choices__ = ("critical", "high", "low", "medium")
 
 
 class FigStatus(sgqlc.types.Enum):
-    """Execution status of a fig.
+    """Enumeration Choices:
 
-    Enumeration Choices:
-
-    * `CANCELLED`None
-    * `FAILED`None
-    * `RUNNING`None
-    * `SUCCESS`None
-    * `TIMEOUT`None
+    * `cancelled`None
+    * `failed`None
+    * `running`None
+    * `success`None
+    * `timeout`None
     """
 
     __schema__ = schema
-    __choices__ = ("CANCELLED", "FAILED", "RUNNING", "SUCCESS", "TIMEOUT")
+    __choices__ = ("cancelled", "failed", "running", "success", "timeout")
 
 
 class FigTriggerType(sgqlc.types.Enum):
-    """How the fig was triggered.
+    """Enumeration Choices:
 
-    Enumeration Choices:
-
-    * `CHAT`None
-    * `TASK`None
-    * `WORKFLOW`None
+    * `chat`None
+    * `task`None
+    * `workflow`None
     """
 
     __schema__ = schema
-    __choices__ = ("CHAT", "TASK", "WORKFLOW")
+    __choices__ = ("chat", "task", "workflow")
 
 
 class FilterSpanComparisonOperator(sgqlc.types.Enum):
@@ -8881,6 +8875,21 @@ class FreshnessExplicitAlertConditionInput(sgqlc.types.Input):
     """Explicit freshness threshold in minutes"""
 
 
+class GetConversationMessageContentV2Input(sgqlc.types.Input):
+    """Input for getConversationMessageContentV2 query."""
+
+    __schema__ = schema
+    __field_names__ = ("snapshot_id", "message_id", "chunk_index")
+    snapshot_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="snapshotId")
+    """Snapshot ID from getConversationThreadV2"""
+
+    message_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="messageId")
+    """Opaque message ID from the thread summary"""
+
+    chunk_index = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="chunkIndex")
+    """Zero-based chunk index to fetch"""
+
+
 class GetConversationThreadInput(sgqlc.types.Input):
     """Input for getConversationThread query."""
 
@@ -8924,6 +8933,51 @@ class GetConversationThreadInput(sgqlc.types.Input):
 
     before = sgqlc.types.Field(String, graphql_name="before")
     """Cursor for backward pagination"""
+
+
+class GetConversationThreadV2Input(sgqlc.types.Input):
+    """Input for getConversationThreadV2 query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "conversation_id",
+        "start_time",
+        "end_time",
+        "preview_char_limit",
+        "chunk_char_size",
+        "include_internal_steps",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table or platform agent (aiagent object type)"""
+
+    conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
+    """Conversation ID to fetch the thread for"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (inclusive)"""
+
+    preview_char_limit = sgqlc.types.Field(Int, graphql_name="previewCharLimit")
+    """Maximum characters returned inline for each message preview.
+    Defaults to 4000.
+    """
+
+    chunk_char_size = sgqlc.types.Field(Int, graphql_name="chunkCharSize")
+    """Chunk size used for full message retrieval. Defaults to 16000."""
+
+    include_internal_steps = sgqlc.types.Field(Boolean, graphql_name="includeInternalSteps")
+    """Whether to include internal step summaries in the response.
+    Defaults to false.
+    """
 
 
 class GetConversationsFiltersDataInput(sgqlc.types.Input):
@@ -19198,6 +19252,71 @@ class ConversationFilterValue(sgqlc.types.Type):
     """Number of conversations with this value"""
 
 
+class ConversationMessageContentChunkV2(sgqlc.types.Type):
+    """A chunk of full message content from a cached conversation
+    snapshot.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("message_id", "chunk_index", "chunk_count", "content", "has_more")
+    message_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="messageId")
+    """Opaque message ID"""
+
+    chunk_index = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="chunkIndex")
+    """Zero-based chunk index"""
+
+    chunk_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="chunkCount")
+    """Total number of chunks"""
+
+    content = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="content")
+    """Chunk content"""
+
+    has_more = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasMore")
+    """Whether another chunk is available"""
+
+
+class ConversationMessageV2(sgqlc.types.Type):
+    """A single message summary in a conversation turn."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "message_id",
+        "role",
+        "content",
+        "content_length",
+        "content_complete",
+        "content_chunk_count",
+        "tool_calls",
+    )
+    message_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="messageId")
+    """Opaque ID for chunk retrieval"""
+
+    role = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="role")
+    """Message role (user, assistant, tool, …)"""
+
+    content = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="content")
+    """Preview content for thread rendering; large messages are truncated"""
+
+    content_length = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="contentLength")
+    """Character length of the full content"""
+
+    content_complete = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="contentComplete"
+    )
+    """Whether content contains the full message body or only a preview"""
+
+    content_chunk_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="contentChunkCount"
+    )
+    """How many chunks are available via getConversationMessageContentV2"""
+
+    tool_calls = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("ToolCallBlock"))),
+        graphql_name="toolCalls",
+    )
+    """Tool calls made in this message (assistant messages only)"""
+
+
 class ConversationSpan(sgqlc.types.Type):
     """A single LLM span in a conversation thread (has_prompts or
     has_completions).
@@ -19305,6 +19424,48 @@ class ConversationThreadResult(sgqlc.types.Type):
     """
 
 
+class ConversationThreadV2Result(sgqlc.types.Type):
+    """Result of getConversationThreadV2: async bounded thread summaries
+    plus status.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "snapshot_id",
+        "status",
+        "error_message",
+        "preview_char_limit",
+        "chunk_char_size",
+        "turns",
+        "warehouse_query",
+    )
+    snapshot_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="snapshotId")
+    """Snapshot identifier used to fetch full message content chunks"""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="status")
+    """Snapshot build status: QUEUED, PROCESSING, READY, or FAILED"""
+
+    error_message = sgqlc.types.Field(String, graphql_name="errorMessage")
+    """Error from the most recent snapshot build attempt, if any"""
+
+    preview_char_limit = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="previewCharLimit"
+    )
+    """Preview size used in this response"""
+
+    chunk_char_size = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="chunkCharSize")
+    """Chunk size used for message retrieval"""
+
+    turns = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("ConversationTurnV2"))),
+        graphql_name="turns",
+    )
+    """Ordered list of conversation turns"""
+
+    warehouse_query = sgqlc.types.Field(String, graphql_name="warehouseQuery")
+    """SQL query sent to the warehouse (for debugging)"""
+
+
 class ConversationTurnError(sgqlc.types.Type):
     """Aggregated error data for a single conversation turn (trace)."""
 
@@ -19321,6 +19482,42 @@ class ConversationTurnError(sgqlc.types.Type):
         graphql_name="errorMessages",
     )
     """Deduplicated human-readable error messages for the trace"""
+
+
+class ConversationTurnV2(sgqlc.types.Type):
+    """One turn in a structured conversation — corresponds to one trace
+    execution.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("trace_id", "turn_index", "system_messages", "messages", "internal_steps")
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+    """Trace ID (hex-encoded)"""
+
+    turn_index = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="turnIndex")
+    """Zero-based position of this turn in the conversation"""
+
+    system_messages = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationMessageV2))),
+        graphql_name="systemMessages",
+    )
+    """System prompts from the main chain, separated from the visible
+    chat flow
+    """
+
+    messages = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationMessageV2))),
+        graphql_name="messages",
+    )
+    """Deduplicated non-system messages from the main conversation chain
+    (repeated history from prior turns removed)
+    """
+
+    internal_steps = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("InternalStepGroupV2"))),
+        graphql_name="internalSteps",
+    )
+    """Non-main-chain spans (internal agent steps) for this turn"""
 
 
 class ConversationsResult(sgqlc.types.Type):
@@ -28057,6 +28254,28 @@ class InternalNotifications(sgqlc.types.Type):
 
     created_at = sgqlc.types.Field(DateTime, graphql_name="createdAt")
     """When the notification was created."""
+
+
+class InternalStepGroupV2(sgqlc.types.Type):
+    """Messages from a span that is not part of the main conversation
+    chain.  Examples: internal classification calls, title generation,
+    suggestion generation — these run alongside the main chat flow but
+    do not carry the full conversation history.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("span_id", "span_name", "messages")
+    span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
+    """Span ID (hex-encoded)"""
+
+    span_name = sgqlc.types.Field(String, graphql_name="spanName")
+    """Span name"""
+
+    messages = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationMessageV2))),
+        graphql_name="messages",
+    )
+    """Messages from this internal span (deduplicated within the span)"""
 
 
 class InvestigationQuery(sgqlc.types.Type):
@@ -41438,11 +41657,17 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "allowed_workspace_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String),
+                        graphql_name="allowedWorkspaceIds",
+                        default=None,
+                    ),
+                ),
+                (
                     "allowed_workspaces",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(sgqlc.types.list_of(String)),
-                        graphql_name="allowedWorkspaces",
-                        default=None,
+                        sgqlc.types.list_of(String), graphql_name="allowedWorkspaces", default=None
                     ),
                 ),
                 (
@@ -41459,8 +41684,14 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
-    * `allowed_workspaces` (`[String]!`): The entries to be added to
-      the filter list.
+    * `allowed_workspace_ids` (`[String]`): Workspace UUIDs to filter
+      by before scanning (pre-scan filter). More efficient than
+      allowed_workspaces as it skips the full workspace fetch. At
+      least one of allowed_workspaces or allowed_workspace_ids must be
+      provided.
+    * `allowed_workspaces` (`[String]`): Workspace names to filter by
+      after scanning (post-scan filter). At least one of
+      allowed_workspaces or allowed_workspace_ids must be provided.
     * `connection_uuid` (`UUID!`): The UUID of the connection that
       handles the Power BI Reports collection.
     """
@@ -54183,6 +54414,8 @@ class Query(sgqlc.types.Type):
         "get_conversations",
         "get_agent_segments",
         "get_conversation_thread",
+        "get_conversation_thread_v2",
+        "get_conversation_message_content_v2",
         "get_node_detail",
         "get_table_monitor_metric",
         "get_tables_for_coverage_dashboard",
@@ -54358,6 +54591,7 @@ class Query(sgqlc.types.Type):
         "get_collection_block_list",
         "get_allow_list",
         "get_workspaces_allow_list_for_power_bi_reports_collection",
+        "get_workspace_ids_allow_list_for_power_bi_reports_collection",
         "get_asset_collection_preferences",
         "get_fivetran_connectors",
         "get_pii_filtering_preferences",
@@ -54605,6 +54839,7 @@ class Query(sgqlc.types.Type):
         "get_use_cases",
         "get_use_case_table_summary",
         "get_use_case_tables",
+        "get_table_use_cases",
         "get_shared_query",
         "favorite_assets",
         "is_favorite",
@@ -55547,6 +55782,56 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetConversationThreadInput!`)None
+    """
+
+    get_conversation_thread_v2 = sgqlc.types.Field(
+        ConversationThreadV2Result,
+        graphql_name="getConversationThreadV2",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetConversationThreadV2Input),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get a structured conversation thread for the
+    Conversations Details Page 2.0. Returns bounded message previews
+    plus a snapshot ID that can be used to fetch full message content
+    in chunks.
+
+    Arguments:
+
+    * `input` (`GetConversationThreadV2Input!`)None
+    """
+
+    get_conversation_message_content_v2 = sgqlc.types.Field(
+        ConversationMessageContentChunkV2,
+        graphql_name="getConversationMessageContentV2",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetConversationMessageContentV2Input),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetch a single chunk of full message content for a
+    cached conversation-thread V2 snapshot.
+
+    Arguments:
+
+    * `input` (`GetConversationMessageContentV2Input!`)None
     """
 
     get_node_detail = sgqlc.types.Field(
@@ -60183,6 +60468,31 @@ class Query(sgqlc.types.Type):
     )
     """(general availability) Get the list of workspaces for which
     metadata collection is allowed on this account.
+
+    Arguments:
+
+    * `connection_uuid` (`UUID!`): The UUID of the connection that
+      handles the Power BI Reports collection.
+    """
+
+    get_workspace_ids_allow_list_for_power_bi_reports_collection = sgqlc.types.Field(
+        sgqlc.types.list_of(String),
+        graphql_name="getWorkspaceIdsAllowListForPowerBiReportsCollection",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get the list of workspace UUIDs for which metadata
+    collection is allowed on this account. These IDs are used as a
+    pre-scan filter, which is more efficient than the workspace name-
+    based filter.
 
     Arguments:
 
@@ -71062,6 +71372,37 @@ class Query(sgqlc.types.Type):
     * `last` (`Int`)None
     """
 
+    get_table_use_cases = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TableUseCasesResult")),
+        graphql_name="getTableUseCases",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+                (
+                    "warehouse_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get use case memberships for a list of tables by
+    MCON
+
+    Arguments:
+
+    * `mcons` (`[String!]!`): List of table MCONs to look up
+    * `warehouse_id` (`UUID!`): The warehouse UUID
+    """
+
     get_shared_query = sgqlc.types.Field(
         "SharedQueryOutput",
         graphql_name="getSharedQuery",
@@ -76774,8 +77115,10 @@ class SetWildcardTemplates(sgqlc.types.Type):
 
 
 class SetWorkspacesAllowListForPowerBiReportsCollection(sgqlc.types.Type):
-    """Set the list of workspaces for which metadata collection is
-    allowed on this account.
+    """Set the workspace allowlists for Power BI reports collection.
+    Accepts workspace names (post-scan filter) and/or workspace UUIDs
+    (pre-scan filter). At least one of allowed_workspaces or
+    allowed_workspace_ids must be provided.
     """
 
     __schema__ = schema
@@ -78883,6 +79226,52 @@ class TableUpstreamData(sgqlc.types.Type):
     mcon = sgqlc.types.Field(String, graphql_name="mcon")
 
 
+class TableUseCaseMembership(sgqlc.types.Type):
+    """Use case membership details for a single table."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "use_case_name",
+        "uc_criticality",
+        "table_criticality",
+        "is_golden_table",
+        "reasoning",
+    )
+    use_case_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="useCaseName")
+    """Name of the use case"""
+
+    uc_criticality = sgqlc.types.Field(
+        sgqlc.types.non_null(Criticality), graphql_name="ucCriticality"
+    )
+    """Use case criticality"""
+
+    table_criticality = sgqlc.types.Field(
+        sgqlc.types.non_null(Criticality), graphql_name="tableCriticality"
+    )
+    """Table criticality within the use case"""
+
+    is_golden_table = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isGoldenTable")
+    """Whether this table is a golden table"""
+
+    reasoning = sgqlc.types.Field(String, graphql_name="reasoning")
+    """Explanation for the criticality assessment"""
+
+
+class TableUseCasesResult(sgqlc.types.Type):
+    """Use case memberships for a single table MCON."""
+
+    __schema__ = schema
+    __field_names__ = ("mcon", "memberships")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """Unique table identifier (MCON)"""
+
+    memberships = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TableUseCaseMembership))),
+        graphql_name="memberships",
+    )
+    """Use case memberships for this table"""
+
+
 class TableValidation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("name", "description", "enabled_by_default")
@@ -80274,6 +80663,21 @@ class TokenMetadata(sgqlc.types.Type):
 
     groups = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="groups")
     """Names of the groups for the API token (for service API tokens)."""
+
+
+class ToolCallBlock(sgqlc.types.Type):
+    """A tool call extracted from a message content block."""
+
+    __schema__ = schema
+    __field_names__ = ("name", "input_json", "tool_use_id")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Tool name"""
+
+    input_json = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="inputJson")
+    """JSON-encoded tool input arguments"""
+
+    tool_use_id = sgqlc.types.Field(String, graphql_name="toolUseId")
+    """Unique ID for this tool call (if available)"""
 
 
 class TopQueryGroupsResponseType(sgqlc.types.Type):

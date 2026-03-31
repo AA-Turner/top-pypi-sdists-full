@@ -6,8 +6,10 @@ import threading
 import time
 import traceback
 from multiprocessing import Queue
-from typing import Optional
+from typing import Dict, List, Optional
+from uuid import uuid4
 
+from abstra_internals.consts.filepaths import SMARTCHAT_SNIPPETS_DIR_PATH
 from abstra_internals.controllers.execution.connection_protocol import (
     ConnectionProtocol,
 )
@@ -27,6 +29,7 @@ from abstra_internals.controllers.execution.execution_conn import (
 from abstra_internals.controllers.execution.executor_types import (
     ExecuteRequest,
     ExecutorResponse,
+    RunSnippetRequest,
     ShutdownRequest,
     WarmupRequest,
 )
@@ -356,6 +359,82 @@ def handle_execute(
                 pass
 
 
+def _collect_execution_logs(
+    state: ExecutorState, execution_id: str
+) -> List[Dict[str, str]]:
+    """Fetch logs from the execution logs repository after snippet execution."""
+    if state.controller is None:
+        return []
+    try:
+        log_entries = state.controller.execution_logs_repository.get(execution_id)
+        return [
+            {"type": entry.event, "text": entry.payload.get("text", "")}
+            for entry in log_entries
+        ]
+    except Exception:
+        return []
+
+
+def handle_run_snippet(
+    state: ExecutorState,
+    request: RunSnippetRequest,
+    response_queue: Queue,
+    root_path: str,
+    server_port: int,
+) -> None:
+    execution_start = time.time()
+
+    if not state.is_warmed_up():
+        error_msg = "Executor not warmed up"
+        AbstraLogger.error(f"[Executor] {error_msg}")
+        response_queue.put(ExecutorResponse(success=False, error=error_msg))
+        return
+
+    Settings.set_root_path(root_path)
+    Settings.set_server_port(server_port, force=True)
+
+    snippet_dir = Settings.root_path / SMARTCHAT_SNIPPETS_DIR_PATH
+    snippet_dir.mkdir(parents=True, exist_ok=True)
+    snippet_file = snippet_dir / f"{uuid4()}.py"
+
+    try:
+        snippet_file.write_text(request.code, encoding="utf-8")
+
+        if state.controller is None:
+            raise Exception("Controller not initialized")
+
+        StdioPatcher.apply(state.controller)
+
+        result = ExecutionController.run_snippet(
+            file_path=snippet_file,
+            worker_id=request.worker_id,
+            repositories=state.controller.repositories,
+        )
+
+        execution_id = result.get("execution_id")
+        logs = _collect_execution_logs(state, execution_id) if execution_id else []
+
+        total_time = time.time() - execution_start
+        state.executions_completed += 1
+
+        response_queue.put(
+            ExecutorResponse(
+                success=result["ok"],
+                error=result.get("error"),
+                execution_time=total_time,
+                logs=logs,
+            )
+        )
+
+    except Exception as e:
+        AbstraLogger.error(f"[Executor] Snippet execution failed: {e}")
+        AbstraLogger.capture_exception(e)
+        response_queue.put(ExecutorResponse(success=False, error=str(e)))
+    finally:
+        if snippet_file.exists():
+            snippet_file.unlink()
+
+
 def executor_main(
     work_queue: Queue,
     response_queue: Queue,
@@ -381,6 +460,15 @@ def executor_main(
 
             elif isinstance(command_data, ExecuteRequest):
                 handle_execute(
+                    state,
+                    command_data,
+                    response_queue,
+                    root_path,
+                    server_port,
+                )
+
+            elif isinstance(command_data, RunSnippetRequest):
+                handle_run_snippet(
                     state,
                     command_data,
                     response_queue,

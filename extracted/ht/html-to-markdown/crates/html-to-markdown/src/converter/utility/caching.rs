@@ -42,8 +42,9 @@ pub(crate) fn build_dom_context(dom: &tl::VDom, parser: &tl::Parser, input_len: 
 /// scaled proportionally to input size (1KB = 1 slot).
 pub(crate) fn text_cache_capacity_for_input(input_len: usize) -> NonZeroUsize {
     const TEXT_CACHE_CAPACITY: usize = 256;
+    // `clamp(32, TEXT_CACHE_CAPACITY)` guarantees `target >= 32 > 0`, so `new` always returns Some.
     let target = (input_len / 1024).clamp(32, TEXT_CACHE_CAPACITY);
-    NonZeroUsize::new(target).unwrap_or_else(|| NonZeroUsize::new(32).unwrap())
+    NonZeroUsize::new(target).unwrap_or(NonZeroUsize::MIN)
 }
 
 /// Recursively record node hierarchy into DOM context.

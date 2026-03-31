@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.analytics.admin_v1beta.types import access_report, resources
@@ -296,19 +296,19 @@ class RunAccessReportResponse(proto.Message):
             with account-level requests.
     """
 
-    dimension_headers: MutableSequence[
-        access_report.AccessDimensionHeader
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=access_report.AccessDimensionHeader,
+    dimension_headers: MutableSequence[access_report.AccessDimensionHeader] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=access_report.AccessDimensionHeader,
+        )
     )
-    metric_headers: MutableSequence[
-        access_report.AccessMetricHeader
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=2,
-        message=access_report.AccessMetricHeader,
+    metric_headers: MutableSequence[access_report.AccessMetricHeader] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message=access_report.AccessMetricHeader,
+        )
     )
     rows: MutableSequence[access_report.AccessRow] = proto.RepeatedField(
         proto.MESSAGE,
@@ -1046,12 +1046,12 @@ class SearchChangeHistoryEventsRequest(proto.Message):
         proto.STRING,
         number=2,
     )
-    resource_type: MutableSequence[
-        resources.ChangeHistoryResourceType
-    ] = proto.RepeatedField(
-        proto.ENUM,
-        number=3,
-        enum=resources.ChangeHistoryResourceType,
+    resource_type: MutableSequence[resources.ChangeHistoryResourceType] = (
+        proto.RepeatedField(
+            proto.ENUM,
+            number=3,
+            enum=resources.ChangeHistoryResourceType,
+        )
     )
     action: MutableSequence[resources.ActionType] = proto.RepeatedField(
         proto.ENUM,
@@ -1098,12 +1098,12 @@ class SearchChangeHistoryEventsResponse(proto.Message):
     def raw_page(self):
         return self
 
-    change_history_events: MutableSequence[
-        resources.ChangeHistoryEvent
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=1,
-        message=resources.ChangeHistoryEvent,
+    change_history_events: MutableSequence[resources.ChangeHistoryEvent] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message=resources.ChangeHistoryEvent,
+        )
     )
     next_page_token: str = proto.Field(
         proto.STRING,

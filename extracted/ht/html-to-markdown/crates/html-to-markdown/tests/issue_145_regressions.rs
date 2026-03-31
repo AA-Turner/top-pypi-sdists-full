@@ -1,12 +1,6 @@
 #![allow(missing_docs)]
 
-//! Issue #145 Regression Tests
-//!
-//! Tests for ensuring that `strip_newlines=True` doesn't cause excessive whitespace
-//! around block elements. The root cause was that newlines were converted to spaces
-//! BEFORE whitespace-only node detection, causing the detection to fail.
-
-use html_to_markdown_rs::{ConversionOptions, convert};
+use html_to_markdown_rs::ConversionOptions;
 
 #[test]
 fn test_strip_newlines_preserves_block_spacing() {
@@ -129,4 +123,11 @@ fn test_strip_newlines_handles_nested_blocks() {
         max_consecutive_blank <= 1,
         "excessive blank lines in nested blocks: {max_consecutive_blank} consecutive blanks in:\n{result}"
     );
+}
+
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
 }

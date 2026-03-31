@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xdis
-Version: 6.1.8
+Version: 6.3.0
 Summary: Python cross-version byte-code library and disassembler
 Author-email: Rocky Bernstein <rb@dustyfeet.com>
 License: GPL
@@ -29,9 +29,10 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/x-rst
 License-File: COPYING
-Requires-Dist: click
+Requires-Dist: click>=7.0.0
 Requires-Dist: six>=1.10.0
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"

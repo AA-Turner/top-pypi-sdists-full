@@ -16,9 +16,11 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
@@ -26,15 +28,13 @@ from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
-import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from requests import __version__ as requests_version
 
+from google.cloud.dialogflowcx_v3beta1.types import transition_route_group
 from google.cloud.dialogflowcx_v3beta1.types import (
     transition_route_group as gcdc_transition_route_group,
 )
-from google.cloud.dialogflowcx_v3beta1.types import transition_route_group
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
 from .rest_base import _BaseTransitionRouteGroupsRestTransport
@@ -534,6 +534,12 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[TransitionRouteGroupsRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -617,9 +623,7 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
 
             """
 
-            http_options = (
-                _BaseTransitionRouteGroupsRestTransport._BaseCreateTransitionRouteGroup._get_http_options()
-            )
+            http_options = _BaseTransitionRouteGroupsRestTransport._BaseCreateTransitionRouteGroup._get_http_options()
 
             request, metadata = self._interceptor.pre_create_transition_route_group(
                 request, metadata
@@ -688,11 +692,10 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
 
             resp = self._interceptor.post_create_transition_route_group(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_create_transition_route_group_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_create_transition_route_group_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -774,9 +777,7 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
                         be of type `bytes`.
             """
 
-            http_options = (
-                _BaseTransitionRouteGroupsRestTransport._BaseDeleteTransitionRouteGroup._get_http_options()
-            )
+            http_options = _BaseTransitionRouteGroupsRestTransport._BaseDeleteTransitionRouteGroup._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_transition_route_group(
                 request, metadata
@@ -893,9 +894,7 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
 
             """
 
-            http_options = (
-                _BaseTransitionRouteGroupsRestTransport._BaseGetTransitionRouteGroup._get_http_options()
-            )
+            http_options = _BaseTransitionRouteGroupsRestTransport._BaseGetTransitionRouteGroup._get_http_options()
 
             request, metadata = self._interceptor.pre_get_transition_route_group(
                 request, metadata
@@ -1046,9 +1045,7 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
 
             """
 
-            http_options = (
-                _BaseTransitionRouteGroupsRestTransport._BaseListTransitionRouteGroups._get_http_options()
-            )
+            http_options = _BaseTransitionRouteGroupsRestTransport._BaseListTransitionRouteGroups._get_http_options()
 
             request, metadata = self._interceptor.pre_list_transition_route_groups(
                 request, metadata
@@ -1202,9 +1199,7 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
 
             """
 
-            http_options = (
-                _BaseTransitionRouteGroupsRestTransport._BaseUpdateTransitionRouteGroup._get_http_options()
-            )
+            http_options = _BaseTransitionRouteGroupsRestTransport._BaseUpdateTransitionRouteGroup._get_http_options()
 
             request, metadata = self._interceptor.pre_update_transition_route_group(
                 request, metadata
@@ -1273,11 +1268,10 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
 
             resp = self._interceptor.post_update_transition_route_group(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_update_transition_route_group_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_update_transition_route_group_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1315,7 +1309,9 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateTransitionRouteGroup(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateTransitionRouteGroup(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_transition_route_group(
@@ -1325,7 +1321,9 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteTransitionRouteGroup(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteTransitionRouteGroup(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_transition_route_group(
@@ -1336,7 +1334,9 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetTransitionRouteGroup(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetTransitionRouteGroup(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_transition_route_groups(
@@ -1347,7 +1347,9 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListTransitionRouteGroups(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListTransitionRouteGroups(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_transition_route_group(
@@ -1358,7 +1360,9 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateTransitionRouteGroup(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateTransitionRouteGroup(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_location(self):
@@ -1418,9 +1422,7 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
                 locations_pb2.Location: Response from GetLocation method.
             """
 
-            http_options = (
-                _BaseTransitionRouteGroupsRestTransport._BaseGetLocation._get_http_options()
-            )
+            http_options = _BaseTransitionRouteGroupsRestTransport._BaseGetLocation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_location(request, metadata)
             transcoded_request = _BaseTransitionRouteGroupsRestTransport._BaseGetLocation._get_transcoded_request(
@@ -1559,9 +1561,7 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseTransitionRouteGroupsRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseTransitionRouteGroupsRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseTransitionRouteGroupsRestTransport._BaseListLocations._get_transcoded_request(
@@ -1697,9 +1697,7 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseTransitionRouteGroupsRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseTransitionRouteGroupsRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -1817,9 +1815,7 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
                 operations_pb2.Operation: Response from GetOperation method.
             """
 
-            http_options = (
-                _BaseTransitionRouteGroupsRestTransport._BaseGetOperation._get_http_options()
-            )
+            http_options = _BaseTransitionRouteGroupsRestTransport._BaseGetOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operation(request, metadata)
             transcoded_request = _BaseTransitionRouteGroupsRestTransport._BaseGetOperation._get_transcoded_request(
@@ -1958,9 +1954,7 @@ class TransitionRouteGroupsRestTransport(_BaseTransitionRouteGroupsRestTransport
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseTransitionRouteGroupsRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseTransitionRouteGroupsRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseTransitionRouteGroupsRestTransport._BaseListOperations._get_transcoded_request(

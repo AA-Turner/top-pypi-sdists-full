@@ -518,6 +518,10 @@ class ModalClientStub:
         modal_proto.api_pb2.SandboxCreateV2Request,
         modal_proto.api_pb2.SandboxCreateV2Response,
     ]
+    SandboxGetCommandRouterAccess: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxGetCommandRouterAccessRequest,
+        modal_proto.api_pb2.SandboxGetCommandRouterAccessResponse,
+    ]
     SandboxGetFromName: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxGetFromNameRequest,
         modal_proto.api_pb2.SandboxGetFromNameResponse,
@@ -1550,6 +1554,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.SandboxCreateV2Request,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SandboxCreateV2Response: ...
+    @abc.abstractmethod
+    def SandboxGetCommandRouterAccess(
+        self,
+        request: modal_proto.api_pb2.SandboxGetCommandRouterAccessRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxGetCommandRouterAccessResponse: ...
     @abc.abstractmethod
     def SandboxGetFromName(
         self,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-forum
-Version: 0.4.0
+Version: 0.4.1
 Summary: Open edX forum application
 Home-page: https://github.com/openedx/forum
 Author: Open edX Project
@@ -29,6 +29,7 @@ Requires-Dist: mysqlclient
 Requires-Dist: openedx-atlas
 Requires-Dist: pymongo
 Requires-Dist: requests
+Requires-Dist: typesense
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -295,7 +296,9 @@ Change Log
 Unreleased
 **********
 
-*
+* Add support for Typesense as the search backend.
+* Fix: Set default value for ``pinned`` field on ``CommentThread`` to ``False``
+  to prevent NULL sort bug.
 
 0.3.4 – 2025-08-13
 ******************

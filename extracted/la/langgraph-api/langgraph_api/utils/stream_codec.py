@@ -5,10 +5,11 @@ from dataclasses import dataclass
 
 import orjson
 import structlog
+import zstandard
 
 PROTOCOL_VERSION = 1
+PROTOCOL_VERSION_COMPRESSED = 2
 """
----
 Version 1:
 Byte Offsets
 0        1                  3                5                    5+N                5+N+M
@@ -16,6 +17,8 @@ Byte Offsets
 | version| stream_id_len    | event_len      | stream_id        | event            | message            |
 +--------+------------------+----------------+------------------+------------------+--------------------+
    1 B         2 B                2 B              N B                 M B               variable
+
+Version 2: Same header layout as v1, but message is zstd-compressed.
 
 ---- Old (to be dropped soon / multiple formats)
 Version 0 (old):
@@ -26,6 +29,8 @@ Version 0 (old):
 BYTE_MASK = 0xFF
 HEADER_LEN = 5
 logger = structlog.stdlib.get_logger(__name__)
+
+_zstd_decompressor = zstandard.ZstdDecompressor()
 
 
 class StreamFormatError(ValueError):
@@ -67,12 +72,9 @@ class StreamPacket:
 
 
 class StreamCodec:
-    """Codec for encoding and decoding stream packets."""
+    """Encodes v1 stream frames and decodes any supported version (v1, v2)."""
 
-    __slots__ = ("_version",)
-
-    def __init__(self, *, protocol_version: int = PROTOCOL_VERSION) -> None:
-        self._version = protocol_version & BYTE_MASK
+    __slots__ = ()
 
     def encode(
         self,
@@ -86,11 +88,8 @@ class StreamCodec:
         event_bytes = event.encode("utf-8")
         if len(event_bytes) > 0xFFFF:
             raise StreamFormatError("event exceeds 65535 bytes; cannot encode")
-        if not event_bytes:
-            raise StreamFormatError("event cannot be empty")
 
         if stream_id:
-            # It's a resumable stream
             stream_id_bytes = stream_id.encode("utf-8")
             if len(stream_id_bytes) > 0xFFFF:
                 raise StreamFormatError("stream_id exceeds 65535 bytes; cannot encode")
@@ -99,7 +98,7 @@ class StreamCodec:
         stream_id_len = len(stream_id_bytes) if stream_id_bytes else 0
         event_len = len(event_bytes)
         frame = bytearray(HEADER_LEN + stream_id_len + event_len + len(message))
-        frame[0] = self._version
+        frame[0] = PROTOCOL_VERSION
         frame[1:3] = stream_id_len.to_bytes(2, "big")
         frame[3:5] = event_len.to_bytes(2, "big")
 
@@ -119,7 +118,7 @@ class StreamCodec:
             raise StreamFormatError("frame too short")
 
         version = view[0]
-        if version != self._version:
+        if version not in (PROTOCOL_VERSION, PROTOCOL_VERSION_COMPRESSED):
             raise StreamFormatError(f"unsupported protocol version: {version}")
 
         stream_id_len = int.from_bytes(view[1:3], "big")
@@ -131,13 +130,22 @@ class StreamCodec:
             stream_id_view = view[offset : offset + stream_id_len]
             offset += stream_id_len
         else:
-            # Not resumable
             stream_id_view = None
         if len(view) < offset + event_len:
             raise StreamFormatError("truncated event payload")
         event_view = view[offset : offset + event_len]
         offset += event_len
         message_view = view[offset:]
+
+        if version == PROTOCOL_VERSION_COMPRESSED:
+            try:
+                decompressed = _zstd_decompressor.decompress(message_view)
+            except zstandard.ZstdError as exc:
+                raise StreamFormatError(
+                    f"failed to decompress zstd message: {exc}"
+                ) from exc
+            message_view = memoryview(decompressed)
+
         return StreamPacket(
             version=version,
             event=event_view,
@@ -149,7 +157,7 @@ class StreamCodec:
         try:
             return self.decode(data)
         except StreamFormatError as e:
-            logger.warning(f"Failed to decode as version {self._version}", error=e)
+            logger.warning("Failed to decode stream frame", error=e)
             return None
 
 
@@ -169,7 +177,7 @@ def decode_stream_message(
         logger.warning("Unknown type for stream message", type=type(data))
         view = memoryview(bytes(data))
 
-    # Current protocol version
+    # Current protocol version (v1 + v2)
     if packet := STREAM_CODEC.decode_safe(view):
         return packet
     logger.debug("Attempting to decode a v0 formatted stream message")

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: atomate2
-Version: 0.0.23
+Version: 0.1.0
 Summary: atomate2 is a library of materials science workflows
 Author-email: Alex Ganose <alexganose@gmail.com>
-License: modified BSD
+License-Expression: BSD-3-Clause-LBNL
 Project-URL: homepage, https://materialsproject.github.io/atomate2/
 Project-URL: repository, https://github.com/materialsproject/atomate2
 Project-URL: documentation, https://materialsproject.github.io/atomate2/
@@ -15,12 +15,12 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Other/Nonlisted Topic
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: PyYAML
@@ -33,9 +33,10 @@ Requires-Dist: numpy
 Requires-Dist: pydantic-settings>=2.0.3
 Requires-Dist: pydantic>=2.0.1
 Requires-Dist: pymatgen>=2024.11.13
-Requires-Dist: pymongo<=4.10.1
+Requires-Dist: pymongo<=4.16.0
 Provides-Extra: abinit
 Requires-Dist: abipy>=0.9.3; extra == "abinit"
+Requires-Dist: netCDF4<1.7.5; extra == "abinit"
 Provides-Extra: aims
 Requires-Dist: pymatgen-io-aims>=0.0.5; extra == "aims"
 Requires-Dist: pymatgen>=2025.10.7; extra == "aims"
@@ -51,7 +52,7 @@ Requires-Dist: phonopy>=2.43.6; extra == "phonons"
 Requires-Dist: seekpath>=2.0.0; extra == "phonons"
 Provides-Extra: lobster
 Requires-Dist: ijson>=3.2.2; extra == "lobster"
-Requires-Dist: lobsterpy>=0.4.0; extra == "lobster"
+Requires-Dist: lobsterpy>=0.6.0; extra == "lobster"
 Provides-Extra: defects
 Requires-Dist: dscribe>=1.2.0; extra == "defects"
 Requires-Dist: pymatgen-analysis-defects>=2024.5.11; extra == "defects"
@@ -59,13 +60,18 @@ Requires-Dist: python-ulid>=2.7; extra == "defects"
 Provides-Extra: forcefields
 Requires-Dist: ase>=3.26.0; extra == "forcefields"
 Requires-Dist: calorine>=3.0; extra == "forcefields"
-Requires-Dist: chgnet>=0.2.2; extra == "forcefields"
 Requires-Dist: mace-torch>=0.3.3; extra == "forcefields"
 Requires-Dist: matgl>=1.2.1; extra == "forcefields"
 Requires-Dist: torchdata<=0.7.1; extra == "forcefields"
-Requires-Dist: quippy-ase>=0.9.14; python_version < "3.12" and extra == "forcefields"
+Requires-Dist: quippy-ase>=0.9.14; extra == "forcefields"
+Requires-Dist: mattersim>=1.0.1; extra == "forcefields"
 Requires-Dist: sevenn>=0.9.3; extra == "forcefields"
 Requires-Dist: deepmd-kit>=2.1.4; extra == "forcefields"
+Requires-Dist: upet>=0.2.1; extra == "forcefields"
+Provides-Extra: torchsim
+Requires-Dist: torch-sim-atomistic==0.5.0; python_version >= "3.12" and extra == "torchsim"
+Provides-Extra: jdftx
+Requires-Dist: pymatgen==2026.3.23; extra == "jdftx"
 Provides-Extra: approxneb
 Requires-Dist: pymatgen-analysis-diffusion>=2024.7.15; extra == "approxneb"
 Provides-Extra: ase
@@ -77,50 +83,43 @@ Requires-Dist: mdanalysis>=2.8.0; extra == "openmm"
 Requires-Dist: openmm-mdanalysis-reporter>=0.1.0; extra == "openmm"
 Requires-Dist: openmm>=8.1.0; extra == "openmm"
 Provides-Extra: fireworks
-Requires-Dist: fireworks==2.0.6; extra == "fireworks"
-Provides-Extra: docs
-Requires-Dist: fireworks==2.0.6; extra == "docs"
-Requires-Dist: autodoc_pydantic==2.2.0; extra == "docs"
-Requires-Dist: furo==2025.9.25; extra == "docs"
-Requires-Dist: ipython==8.37.0; extra == "docs"
-Requires-Dist: jsonschema[format]; extra == "docs"
-Requires-Dist: myst_parser==4.0.1; extra == "docs"
-Requires-Dist: numpydoc==1.9.0; extra == "docs"
-Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
-Requires-Dist: sphinx==8.1.3; extra == "docs"
-Requires-Dist: sphinx_design==0.6.1; extra == "docs"
-Requires-Dist: jupyterlab==4.5.0; extra == "docs"
-Provides-Extra: dev
-Requires-Dist: pre-commit>=2.12.1; extra == "dev"
-Provides-Extra: tests
-Requires-Dist: fireworks==2.0.6; extra == "tests"
-Requires-Dist: nbmake==1.5.5; extra == "tests"
-Requires-Dist: pytest-cov==7.0.0; extra == "tests"
-Requires-Dist: pytest-mock==3.15.1; extra == "tests"
-Requires-Dist: pytest-split==0.10.0; extra == "tests"
-Requires-Dist: pytest-xdist==3.8.0; extra == "tests"
-Requires-Dist: pytest==8.4.2; extra == "tests"
+Requires-Dist: fireworks==2.1.2; extra == "fireworks"
 Provides-Extra: strict-openff
-Requires-Dist: mdanalysis==2.9.0; extra == "strict-openff"
-Requires-Dist: monty==2025.3.3; extra == "strict-openff"
+Requires-Dist: mdanalysis==2.10.0; extra == "strict-openff"
+Requires-Dist: monty==2026.2.18; extra == "strict-openff"
 Requires-Dist: openmm-mdanalysis-reporter==0.1.0; extra == "strict-openff"
-Requires-Dist: openmm==8.4.0.post2; extra == "strict-openff"
-Requires-Dist: pymatgen==2025.10.7; extra == "strict-openff"
-Provides-Extra: strict-forcefields
-Requires-Dist: calorine==3.2; python_version >= "3.12" and extra == "strict-forcefields"
-Requires-Dist: calorine==3.1; python_version < "3.12" and extra == "strict-forcefields"
-Requires-Dist: chgnet==0.3.8; extra == "strict-forcefields"
-Requires-Dist: mace-torch==0.3.14; extra == "strict-forcefields"
-Requires-Dist: matgl==2.0.4; extra == "strict-forcefields"
-Requires-Dist: quippy-ase==0.9.14; python_version < "3.12" and extra == "strict-forcefields"
-Requires-Dist: sevenn==0.10.4; extra == "strict-forcefields"
-Requires-Dist: torch==2.2.0; extra == "strict-forcefields"
-Requires-Dist: torchdata==0.7.1; extra == "strict-forcefields"
-Requires-Dist: deepmd-kit==2.2.11; extra == "strict-forcefields"
-Requires-Dist: tensorflow-cpu==2.16.2; extra == "strict-forcefields"
+Requires-Dist: openmm==8.5.0; extra == "strict-openff"
+Requires-Dist: pymatgen==2026.3.23; extra == "strict-openff"
+Provides-Extra: strict-forcefields-generic
+Requires-Dist: calorine==3.3; python_version >= "3.12" and extra == "strict-forcefields-generic"
+Requires-Dist: calorine==3.1; python_version < "3.12" and extra == "strict-forcefields-generic"
+Requires-Dist: quippy-ase==0.10.2; extra == "strict-forcefields-generic"
+Requires-Dist: sevenn==0.12.1; extra == "strict-forcefields-generic"
+Requires-Dist: deepmd-kit==3.1.3; extra == "strict-forcefields-generic"
+Requires-Dist: tensorflow-cpu==2.21.0; extra == "strict-forcefields-generic"
+Requires-Dist: mattersim==1.2.1; extra == "strict-forcefields-generic"
+Requires-Dist: ase<3.28.0; extra == "strict-forcefields-generic"
+Requires-Dist: wandb>=0.24.0; extra == "strict-forcefields-generic"
+Requires-Dist: upet>=0.2.1; extra == "strict-forcefields-generic"
+Provides-Extra: strict-forcefields-torch-limited
+Requires-Dist: matgl==2.0.6; extra == "strict-forcefields-torch-limited"
+Requires-Dist: dgl==2.2.1; (sys_platform == "darwin" or sys_platform == "win32") and extra == "strict-forcefields-torch-limited"
+Requires-Dist: dgl<=2.4.0; sys_platform == "linux" and extra == "strict-forcefields-torch-limited"
+Requires-Dist: torch==2.2.2; (sys_platform == "darwin" or sys_platform == "win32") and extra == "strict-forcefields-torch-limited"
+Requires-Dist: torch==2.2.0; sys_platform == "linux" and extra == "strict-forcefields-torch-limited"
+Requires-Dist: torchdata==0.7.1; extra == "strict-forcefields-torch-limited"
+Requires-Dist: nequip==0.17.1; extra == "strict-forcefields-torch-limited"
+Requires-Dist: numpy==1.26.4; extra == "strict-forcefields-torch-limited"
+Provides-Extra: strict-forcefields-e3nn-limited
+Requires-Dist: mace-torch==0.3.15; extra == "strict-forcefields-e3nn-limited"
+Requires-Dist: torch-dftd==0.5.3; extra == "strict-forcefields-e3nn-limited"
+Provides-Extra: strict-forcefields-numpy-limited
+Requires-Dist: nequip-allegro==0.8.2; extra == "strict-forcefields-numpy-limited"
+Requires-Dist: numpy==1.26.4; extra == "strict-forcefields-numpy-limited"
 Provides-Extra: strict
-Requires-Dist: atomate2[ase,ase-ext,cclib,defects,docs,lobster,mp,openmm,phonons,strict-forcefields]; extra == "strict"
-Requires-Dist: numpy<2.0; extra == "strict"
+Requires-Dist: atomate2[ase,ase-ext,cclib,defects,lobster,mp,openmm,phonons]; extra == "strict"
+Requires-Dist: numpy<3.0; extra == "strict"
+Requires-Dist: numba>=0.60.0; extra == "strict"
 Dynamic: license-file
 
 # atomate2

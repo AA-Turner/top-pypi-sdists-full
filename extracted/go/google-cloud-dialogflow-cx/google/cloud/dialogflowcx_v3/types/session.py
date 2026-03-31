@@ -25,19 +25,18 @@ import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflowcx_v3.types import (
+    advanced_settings as gcdc_advanced_settings,
+)
+from google.cloud.dialogflowcx_v3.types import (
     audio_config,
     data_store_connection,
     flow,
     generative_settings,
-)
-from google.cloud.dialogflowcx_v3.types import (
     page,
     response_message,
     session_entity_type,
     tool_call,
-)
-from google.cloud.dialogflowcx_v3.types import (
-    advanced_settings as gcdc_advanced_settings,
+    trace,
 )
 from google.cloud.dialogflowcx_v3.types import intent as gcdc_intent
 
@@ -96,6 +95,7 @@ class DetectIntentResponseView(proto.Enum):
 
             [QueryResult.trace_blocks][google.cloud.dialogflow.cx.v3.QueryResult.trace_blocks]
     """
+
     DETECT_INTENT_RESPONSE_VIEW_UNSPECIFIED = 0
     DETECT_INTENT_RESPONSE_VIEW_FULL = 1
     DETECT_INTENT_RESPONSE_VIEW_BASIC = 2
@@ -133,6 +133,7 @@ class AnswerFeedback(proto.Message):
             THUMBS_DOWN (2):
                 Thumbs down feedback from user.
         """
+
         RATING_UNSPECIFIED = 0
         THUMBS_UP = 1
         THUMBS_DOWN = 2
@@ -327,6 +328,7 @@ class DetectIntentResponse(proto.Message):
             FINAL (2):
                 Final response.
         """
+
         RESPONSE_TYPE_UNSPECIFIED = 0
         PARTIAL = 1
         FINAL = 2
@@ -551,19 +553,19 @@ class CloudConversationDebuggingInfo(proto.Message):
         proto.BOOL,
         number=5,
     )
-    speech_partial_results_end_times: MutableSequence[
-        duration_pb2.Duration
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=6,
-        message=duration_pb2.Duration,
+    speech_partial_results_end_times: MutableSequence[duration_pb2.Duration] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=6,
+            message=duration_pb2.Duration,
+        )
     )
-    speech_final_results_end_times: MutableSequence[
-        duration_pb2.Duration
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=7,
-        message=duration_pb2.Duration,
+    speech_final_results_end_times: MutableSequence[duration_pb2.Duration] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=7,
+            message=duration_pb2.Duration,
+        )
     )
     partial_responses: int = proto.Field(
         proto.INT32,
@@ -581,19 +583,19 @@ class CloudConversationDebuggingInfo(proto.Message):
         proto.BOOL,
         number=11,
     )
-    dtmf_partial_results_times: MutableSequence[
-        duration_pb2.Duration
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=12,
-        message=duration_pb2.Duration,
+    dtmf_partial_results_times: MutableSequence[duration_pb2.Duration] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=12,
+            message=duration_pb2.Duration,
+        )
     )
-    dtmf_final_results_times: MutableSequence[
-        duration_pb2.Duration
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=13,
-        message=duration_pb2.Duration,
+    dtmf_final_results_times: MutableSequence[duration_pb2.Duration] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=13,
+            message=duration_pb2.Duration,
+        )
     )
     single_utterance_end_time_offset: duration_pb2.Duration = proto.Field(
         proto.MESSAGE,
@@ -802,6 +804,7 @@ class StreamingRecognitionResult(proto.Message):
                 [``single_utterance``][google.cloud.dialogflow.cx.v3.InputAudioConfig.single_utterance]
                 was set to ``true``, and is not used otherwise.
         """
+
         MESSAGE_TYPE_UNSPECIFIED = 0
         TRANSCRIPT = 1
         END_OF_SINGLE_UTTERANCE = 2
@@ -827,12 +830,12 @@ class StreamingRecognitionResult(proto.Message):
         proto.FLOAT,
         number=6,
     )
-    speech_word_info: MutableSequence[
-        audio_config.SpeechWordInfo
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=7,
-        message=audio_config.SpeechWordInfo,
+    speech_word_info: MutableSequence[audio_config.SpeechWordInfo] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=7,
+            message=audio_config.SpeechWordInfo,
+        )
     )
     speech_end_offset: duration_pb2.Duration = proto.Field(
         proto.MESSAGE,
@@ -1025,12 +1028,12 @@ class QueryParameters(proto.Message):
         number=2,
         message=latlng_pb2.LatLng,
     )
-    session_entity_types: MutableSequence[
-        session_entity_type.SessionEntityType
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=3,
-        message=session_entity_type.SessionEntityType,
+    session_entity_types: MutableSequence[session_entity_type.SessionEntityType] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=3,
+            message=session_entity_type.SessionEntityType,
+        )
     )
     payload: struct_pb2.Struct = proto.Field(
         proto.MESSAGE,
@@ -1239,6 +1242,7 @@ class BoostSpec(proto.Message):
                         ``[nD][T[nH][nM][nS]]``. E.g. ``5D``, ``3DT12H30M``,
                         ``T24H``.
                 """
+
                 ATTRIBUTE_TYPE_UNSPECIFIED = 0
                 NUMERICAL = 1
                 FRESHNESS = 2
@@ -1255,6 +1259,7 @@ class BoostSpec(proto.Message):
                         Piecewise linear interpolation will be
                         applied.
                 """
+
                 INTERPOLATION_TYPE_UNSPECIFIED = 0
                 LINEAR = 1
 
@@ -1635,6 +1640,13 @@ class QueryResult(proto.Message):
             Optional. Data store connection feature
             output signals. Filled only when data stores are
             involved in serving the query.
+        trace_blocks (MutableSequence[google.cloud.dialogflowcx_v3.types.TraceBlock]):
+            Optional. Contains the sequence of trace
+            blocks from the current conversation turn. Trace
+            blocks are ordered chronologically and contain
+            detailed traces of runtime behavior such as tool
+            calls, LLM calls, flow and playbook invocations,
+            agent utterances and user utterances.
     """
 
     text: str = proto.Field(
@@ -1672,12 +1684,12 @@ class QueryResult(proto.Message):
         number=3,
         message=struct_pb2.Struct,
     )
-    response_messages: MutableSequence[
-        response_message.ResponseMessage
-    ] = proto.RepeatedField(
-        proto.MESSAGE,
-        number=4,
-        message=response_message.ResponseMessage,
+    response_messages: MutableSequence[response_message.ResponseMessage] = (
+        proto.RepeatedField(
+            proto.MESSAGE,
+            number=4,
+            message=response_message.ResponseMessage,
+        )
     )
     webhook_statuses: MutableSequence[status_pb2.Status] = proto.RepeatedField(
         proto.MESSAGE,
@@ -1738,6 +1750,11 @@ class QueryResult(proto.Message):
             number=35,
             message=data_store_connection.DataStoreConnectionSignals,
         )
+    )
+    trace_blocks: MutableSequence[trace.TraceBlock] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=37,
+        message=trace.TraceBlock,
     )
 
 
@@ -1916,6 +1933,7 @@ class Match(proto.Message):
                 The query was handled by a
                 [``Playbook``][google.cloud.dialogflow.cx.v3.Playbook].
         """
+
         MATCH_TYPE_UNSPECIFIED = 0
         INTENT = 1
         DIRECT_INTENT = 2

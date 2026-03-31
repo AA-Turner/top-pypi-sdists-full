@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cyclonedx-bom
-Version: 7.2.2
+Version: 7.3.0
 Summary: CycloneDX Software Bill of Materials (SBOM) generator for Python projects and environments
 License: Apache-2.0
 License-File: LICENSE

@@ -736,7 +736,7 @@ class FabricConnectionManager(SQLConnectionManager):
 
     @classmethod
     def data_type_code_to_name(cls, type_code: Union[str, str]) -> str:
-        data_type = str(type_code)[str(type_code).index("'") + 1 : str(type_code).rindex("'")]
+        data_type = str(type_code)[str(type_code).index("'") + 1 : str(type_code).rindex("'")]  # type: ignore
         return datatypes[data_type]
 
     def execute(
@@ -744,7 +744,6 @@ class FabricConnectionManager(SQLConnectionManager):
     ) -> Tuple[AdapterResponse, agate.Table]:
         sql = self._add_query_comment(sql)
         _, cursor = self.add_query(sql, auto_begin)
-        response = self.get_response(cursor)
         if fetch:
             # Get the result of the first non-empty result set (if any)
             while cursor.description is None:
@@ -756,4 +755,9 @@ class FabricConnectionManager(SQLConnectionManager):
         # Step through all result sets so we process all errors
         while cursor.nextset():
             pass
+        # Get response after stepping through all result sets
+        # so that cursor.rowcount reflects the last statement executed.
+        # This fixes rows_affected being -1 for table materializations
+        # where CREATE VIEW runs before the actual INSERT/CTAS.
+        response = self.get_response(cursor)
         return response, table

@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from plato.cli.agent import agent_app
 from plato.cli.chronos import chronos_app
 from plato.cli.compose import app as compose_app
+from plato.cli.hillclimb import hillclimb_app
 from plato.cli.pm import pm_app
 from plato.cli.sandbox import sandbox_app
 from plato.cli.segmentation import segmentation_app
@@ -99,6 +100,7 @@ app.add_typer(pm_app, name="pm")
 app.add_typer(agent_app, name="agent")
 app.add_typer(world_app, name="world")
 app.add_typer(chronos_app, name="chronos")
+app.add_typer(hillclimb_app, name="hillclimb")
 app.add_typer(segmentation_app, name="segmentation")
 
 

@@ -36,14 +36,20 @@ class ZeroTrustGatewayPolicyArgs:
                  traffic: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a ZeroTrustGatewayPolicy resource.
+
         :param pulumi.Input[_builtins.str] action: Specify the action to perform when the associated traffic, identity, and device posture expressions either absent or evaluate to `true`.
                Available values: "on", "off", "allow", "block", "scan", "noscan", "safesearch", "ytrestricted", "isolate", "noisolate", "override", "l4_override", "egress", "resolve", "quarantine", "redirect".
         :param pulumi.Input[_builtins.str] name: Specify the rule name.
         :param pulumi.Input[_builtins.str] description: Specify the rule description.
+        :param pulumi.Input[_builtins.str] device_posture: Specify the wirefilter expression used for device posture check. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.bool] enabled: Specify whether the rule is enabled.
         :param pulumi.Input['ZeroTrustGatewayPolicyExpirationArgs'] expiration: Defines the expiration time stamp and default duration of a DNS policy. Takes precedence over the policy's `schedule` configuration, if any. This  does not apply to HTTP or network policies. Settable only for `dns` rules.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: Specify the protocol or layer to evaluate the traffic, identity, and device posture expressions. Can only contain a single value.
+        :param pulumi.Input[_builtins.str] identity: Specify the wirefilter expression used for identity matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
+        :param pulumi.Input[_builtins.int] precedence: Set the order of your rules. Lower values indicate higher precedence. At each processing phase, evaluate applicable rules in ascending order of this value. Refer to Order of enforcement to manage precedence via Terraform.
+        :param pulumi.Input['ZeroTrustGatewayPolicyRuleSettingsArgs'] rule_settings: Defines settings for this rule. Settings apply only to specific rule types and must use compatible selectors. If Terraform detects drift, confirm the setting supports your rule type and check whether the API modifies the value. Use API-returned values in your configuration to prevent drift.
         :param pulumi.Input['ZeroTrustGatewayPolicyScheduleArgs'] schedule: Defines the schedule for activating DNS policies. Settable only for `dns` and `dns_resolver` rules.
+        :param pulumi.Input[_builtins.str] traffic: Specify the wirefilter expression used for traffic matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         """
         pulumi.set(__self__, "account_id", account_id)
         pulumi.set(__self__, "action", action)
@@ -118,6 +124,9 @@ class ZeroTrustGatewayPolicyArgs:
     @_builtins.property
     @pulumi.getter(name="devicePosture")
     def device_posture(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Specify the wirefilter expression used for device posture check. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
+        """
         return pulumi.get(self, "device_posture")
 
     @device_posture.setter
@@ -163,6 +172,9 @@ class ZeroTrustGatewayPolicyArgs:
     @_builtins.property
     @pulumi.getter
     def identity(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Specify the wirefilter expression used for identity matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
+        """
         return pulumi.get(self, "identity")
 
     @identity.setter
@@ -172,6 +184,9 @@ class ZeroTrustGatewayPolicyArgs:
     @_builtins.property
     @pulumi.getter
     def precedence(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Set the order of your rules. Lower values indicate higher precedence. At each processing phase, evaluate applicable rules in ascending order of this value. Refer to Order of enforcement to manage precedence via Terraform.
+        """
         return pulumi.get(self, "precedence")
 
     @precedence.setter
@@ -181,6 +196,9 @@ class ZeroTrustGatewayPolicyArgs:
     @_builtins.property
     @pulumi.getter(name="ruleSettings")
     def rule_settings(self) -> Optional[pulumi.Input['ZeroTrustGatewayPolicyRuleSettingsArgs']]:
+        """
+        Defines settings for this rule. Settings apply only to specific rule types and must use compatible selectors. If Terraform detects drift, confirm the setting supports your rule type and check whether the API modifies the value. Use API-returned values in your configuration to prevent drift.
+        """
         return pulumi.get(self, "rule_settings")
 
     @rule_settings.setter
@@ -202,6 +220,9 @@ class ZeroTrustGatewayPolicyArgs:
     @_builtins.property
     @pulumi.getter
     def traffic(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Specify the wirefilter expression used for traffic matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
+        """
         return pulumi.get(self, "traffic")
 
     @traffic.setter
@@ -235,18 +256,24 @@ class _ZeroTrustGatewayPolicyState:
                  warning_status: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ZeroTrustGatewayPolicy resources.
+
         :param pulumi.Input[_builtins.str] action: Specify the action to perform when the associated traffic, identity, and device posture expressions either absent or evaluate to `true`.
                Available values: "on", "off", "allow", "block", "scan", "noscan", "safesearch", "ytrestricted", "isolate", "noisolate", "override", "l4_override", "egress", "resolve", "quarantine", "redirect".
         :param pulumi.Input[_builtins.str] deleted_at: Indicate the date of deletion, if any.
         :param pulumi.Input[_builtins.str] description: Specify the rule description.
+        :param pulumi.Input[_builtins.str] device_posture: Specify the wirefilter expression used for device posture check. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.bool] enabled: Specify whether the rule is enabled.
         :param pulumi.Input['ZeroTrustGatewayPolicyExpirationArgs'] expiration: Defines the expiration time stamp and default duration of a DNS policy. Takes precedence over the policy's `schedule` configuration, if any. This  does not apply to HTTP or network policies. Settable only for `dns` rules.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: Specify the protocol or layer to evaluate the traffic, identity, and device posture expressions. Can only contain a single value.
+        :param pulumi.Input[_builtins.str] identity: Specify the wirefilter expression used for identity matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.str] name: Specify the rule name.
+        :param pulumi.Input[_builtins.int] precedence: Set the order of your rules. Lower values indicate higher precedence. At each processing phase, evaluate applicable rules in ascending order of this value. Refer to Order of enforcement to manage precedence via Terraform.
         :param pulumi.Input[_builtins.bool] read_only: Indicate that this rule is shared via the Orgs API and read only.
+        :param pulumi.Input['ZeroTrustGatewayPolicyRuleSettingsArgs'] rule_settings: Defines settings for this rule. Settings apply only to specific rule types and must use compatible selectors. If Terraform detects drift, confirm the setting supports your rule type and check whether the API modifies the value. Use API-returned values in your configuration to prevent drift.
         :param pulumi.Input['ZeroTrustGatewayPolicyScheduleArgs'] schedule: Defines the schedule for activating DNS policies. Settable only for `dns` and `dns_resolver` rules.
         :param pulumi.Input[_builtins.bool] sharable: Indicate that this rule is sharable via the Orgs API.
         :param pulumi.Input[_builtins.str] source_account: Provide the account tag of the account that created the rule.
+        :param pulumi.Input[_builtins.str] traffic: Specify the wirefilter expression used for traffic matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.int] version: Indicate the version number of the rule(read-only).
         :param pulumi.Input[_builtins.str] warning_status: Indicate a warning for a misconfigured rule, if any.
         """
@@ -351,6 +378,9 @@ class _ZeroTrustGatewayPolicyState:
     @_builtins.property
     @pulumi.getter(name="devicePosture")
     def device_posture(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Specify the wirefilter expression used for device posture check. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
+        """
         return pulumi.get(self, "device_posture")
 
     @device_posture.setter
@@ -396,6 +426,9 @@ class _ZeroTrustGatewayPolicyState:
     @_builtins.property
     @pulumi.getter
     def identity(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Specify the wirefilter expression used for identity matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
+        """
         return pulumi.get(self, "identity")
 
     @identity.setter
@@ -417,6 +450,9 @@ class _ZeroTrustGatewayPolicyState:
     @_builtins.property
     @pulumi.getter
     def precedence(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Set the order of your rules. Lower values indicate higher precedence. At each processing phase, evaluate applicable rules in ascending order of this value. Refer to Order of enforcement to manage precedence via Terraform.
+        """
         return pulumi.get(self, "precedence")
 
     @precedence.setter
@@ -438,6 +474,9 @@ class _ZeroTrustGatewayPolicyState:
     @_builtins.property
     @pulumi.getter(name="ruleSettings")
     def rule_settings(self) -> Optional[pulumi.Input['ZeroTrustGatewayPolicyRuleSettingsArgs']]:
+        """
+        Defines settings for this rule. Settings apply only to specific rule types and must use compatible selectors. If Terraform detects drift, confirm the setting supports your rule type and check whether the API modifies the value. Use API-returned values in your configuration to prevent drift.
+        """
         return pulumi.get(self, "rule_settings")
 
     @rule_settings.setter
@@ -483,6 +522,9 @@ class _ZeroTrustGatewayPolicyState:
     @_builtins.property
     @pulumi.getter
     def traffic(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Specify the wirefilter expression used for traffic matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
+        """
         return pulumi.get(self, "traffic")
 
     @traffic.setter
@@ -681,16 +723,22 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
         $ pulumi import cloudflare:index/zeroTrustGatewayPolicy:ZeroTrustGatewayPolicy example '<account_id>/<rule_id>'
         ```
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] action: Specify the action to perform when the associated traffic, identity, and device posture expressions either absent or evaluate to `true`.
                Available values: "on", "off", "allow", "block", "scan", "noscan", "safesearch", "ytrestricted", "isolate", "noisolate", "override", "l4_override", "egress", "resolve", "quarantine", "redirect".
         :param pulumi.Input[_builtins.str] description: Specify the rule description.
+        :param pulumi.Input[_builtins.str] device_posture: Specify the wirefilter expression used for device posture check. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.bool] enabled: Specify whether the rule is enabled.
         :param pulumi.Input[Union['ZeroTrustGatewayPolicyExpirationArgs', 'ZeroTrustGatewayPolicyExpirationArgsDict']] expiration: Defines the expiration time stamp and default duration of a DNS policy. Takes precedence over the policy's `schedule` configuration, if any. This  does not apply to HTTP or network policies. Settable only for `dns` rules.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: Specify the protocol or layer to evaluate the traffic, identity, and device posture expressions. Can only contain a single value.
+        :param pulumi.Input[_builtins.str] identity: Specify the wirefilter expression used for identity matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.str] name: Specify the rule name.
+        :param pulumi.Input[_builtins.int] precedence: Set the order of your rules. Lower values indicate higher precedence. At each processing phase, evaluate applicable rules in ascending order of this value. Refer to Order of enforcement to manage precedence via Terraform.
+        :param pulumi.Input[Union['ZeroTrustGatewayPolicyRuleSettingsArgs', 'ZeroTrustGatewayPolicyRuleSettingsArgsDict']] rule_settings: Defines settings for this rule. Settings apply only to specific rule types and must use compatible selectors. If Terraform detects drift, confirm the setting supports your rule type and check whether the API modifies the value. Use API-returned values in your configuration to prevent drift.
         :param pulumi.Input[Union['ZeroTrustGatewayPolicyScheduleArgs', 'ZeroTrustGatewayPolicyScheduleArgsDict']] schedule: Defines the schedule for activating DNS policies. Settable only for `dns` and `dns_resolver` rules.
+        :param pulumi.Input[_builtins.str] traffic: Specify the wirefilter expression used for traffic matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         """
         ...
     @overload
@@ -836,6 +884,7 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
         $ pulumi import cloudflare:index/zeroTrustGatewayPolicy:ZeroTrustGatewayPolicy example '<account_id>/<rule_id>'
         ```
 
+
         :param str resource_name: The name of the resource.
         :param ZeroTrustGatewayPolicyArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -944,14 +993,19 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
                Available values: "on", "off", "allow", "block", "scan", "noscan", "safesearch", "ytrestricted", "isolate", "noisolate", "override", "l4_override", "egress", "resolve", "quarantine", "redirect".
         :param pulumi.Input[_builtins.str] deleted_at: Indicate the date of deletion, if any.
         :param pulumi.Input[_builtins.str] description: Specify the rule description.
+        :param pulumi.Input[_builtins.str] device_posture: Specify the wirefilter expression used for device posture check. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.bool] enabled: Specify whether the rule is enabled.
         :param pulumi.Input[Union['ZeroTrustGatewayPolicyExpirationArgs', 'ZeroTrustGatewayPolicyExpirationArgsDict']] expiration: Defines the expiration time stamp and default duration of a DNS policy. Takes precedence over the policy's `schedule` configuration, if any. This  does not apply to HTTP or network policies. Settable only for `dns` rules.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] filters: Specify the protocol or layer to evaluate the traffic, identity, and device posture expressions. Can only contain a single value.
+        :param pulumi.Input[_builtins.str] identity: Specify the wirefilter expression used for identity matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.str] name: Specify the rule name.
+        :param pulumi.Input[_builtins.int] precedence: Set the order of your rules. Lower values indicate higher precedence. At each processing phase, evaluate applicable rules in ascending order of this value. Refer to Order of enforcement to manage precedence via Terraform.
         :param pulumi.Input[_builtins.bool] read_only: Indicate that this rule is shared via the Orgs API and read only.
+        :param pulumi.Input[Union['ZeroTrustGatewayPolicyRuleSettingsArgs', 'ZeroTrustGatewayPolicyRuleSettingsArgsDict']] rule_settings: Defines settings for this rule. Settings apply only to specific rule types and must use compatible selectors. If Terraform detects drift, confirm the setting supports your rule type and check whether the API modifies the value. Use API-returned values in your configuration to prevent drift.
         :param pulumi.Input[Union['ZeroTrustGatewayPolicyScheduleArgs', 'ZeroTrustGatewayPolicyScheduleArgsDict']] schedule: Defines the schedule for activating DNS policies. Settable only for `dns` and `dns_resolver` rules.
         :param pulumi.Input[_builtins.bool] sharable: Indicate that this rule is sharable via the Orgs API.
         :param pulumi.Input[_builtins.str] source_account: Provide the account tag of the account that created the rule.
+        :param pulumi.Input[_builtins.str] traffic: Specify the wirefilter expression used for traffic matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
         :param pulumi.Input[_builtins.int] version: Indicate the version number of the rule(read-only).
         :param pulumi.Input[_builtins.str] warning_status: Indicate a warning for a misconfigured rule, if any.
         """
@@ -1020,6 +1074,9 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="devicePosture")
     def device_posture(self) -> pulumi.Output[_builtins.str]:
+        """
+        Specify the wirefilter expression used for device posture check. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
+        """
         return pulumi.get(self, "device_posture")
 
     @_builtins.property
@@ -1049,6 +1106,9 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter
     def identity(self) -> pulumi.Output[_builtins.str]:
+        """
+        Specify the wirefilter expression used for identity matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
+        """
         return pulumi.get(self, "identity")
 
     @_builtins.property
@@ -1062,6 +1122,9 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter
     def precedence(self) -> pulumi.Output[_builtins.int]:
+        """
+        Set the order of your rules. Lower values indicate higher precedence. At each processing phase, evaluate applicable rules in ascending order of this value. Refer to Order of enforcement to manage precedence via Terraform.
+        """
         return pulumi.get(self, "precedence")
 
     @_builtins.property
@@ -1075,6 +1138,9 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="ruleSettings")
     def rule_settings(self) -> pulumi.Output['outputs.ZeroTrustGatewayPolicyRuleSettings']:
+        """
+        Defines settings for this rule. Settings apply only to specific rule types and must use compatible selectors. If Terraform detects drift, confirm the setting supports your rule type and check whether the API modifies the value. Use API-returned values in your configuration to prevent drift.
+        """
         return pulumi.get(self, "rule_settings")
 
     @_builtins.property
@@ -1104,6 +1170,9 @@ class ZeroTrustGatewayPolicy(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter
     def traffic(self) -> pulumi.Output[_builtins.str]:
+        """
+        Specify the wirefilter expression used for traffic matching. The API automatically formats and sanitizes expressions before storing them. To prevent Terraform state drift, use the formatted expression returned in the API response.
+        """
         return pulumi.get(self, "traffic")
 
     @_builtins.property

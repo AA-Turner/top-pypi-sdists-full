@@ -15,15 +15,14 @@
 import functools
 import operator
 import unittest
+
 import mock
-
-from google.cloud import error_reporting
-import google.cloud.errorreporting_v1beta1
 from google.protobuf.duration_pb2 import Duration
-
 from test_utils.retry import RetryResult
 from test_utils.system import unique_resource_id
 
+import google.cloud.errorreporting_v1beta1
+from google.cloud import error_reporting
 
 ERROR_MSG = "Error Reporting System Test"
 

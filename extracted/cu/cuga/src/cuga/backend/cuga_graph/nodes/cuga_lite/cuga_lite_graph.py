@@ -334,6 +334,7 @@ async def create_find_tools_tool(
     all_tools: Sequence[StructuredTool],
     all_apps: List[Any],
     app_to_tools_map: Optional[Dict[str, List[StructuredTool]]] = None,
+    llm: Optional[Any] = None,
 ) -> StructuredTool:
     """Create a find_tools StructuredTool for tool discovery.
 
@@ -371,7 +372,32 @@ async def create_find_tools_tool(
                 f"App '{app_name}' not found in available apps. Available apps: {[app.name if hasattr(app, 'name') else str(app) for app in all_apps]}"
             )
 
-        return await PromptUtils.find_tools(query=query, all_tools=filtered_tools, all_apps=filtered_apps)
+        from langchain_core.exceptions import OutputParserException
+
+        try:
+            return await PromptUtils.find_tools(
+                query=query, all_tools=filtered_tools, all_apps=filtered_apps, llm=llm
+            )
+        except OutputParserException as e:
+            logger.bind(
+                query_len=len(query),
+                error_type=type(e).__name__,
+            ).opt(exception=True).warning(
+                "Tool shortlisting failed due to parser error; returning error to agent"
+            )
+            return (
+                f"Tool shortlisting failed due to malformed response: {e}. "
+                "Please retry with a different query."
+            )
+        except Exception as e:
+            logger.bind(
+                query_len=len(query),
+                error_type=type(e).__name__,
+            ).opt(exception=True).warning("Tool shortlisting failed unexpectedly; returning error to agent")
+            return (
+                f"Tool shortlisting failed due to an internal error: {e}. "
+                "Please retry with a different query."
+            )
 
     return StructuredTool.from_function(
         func=find_tools_func,
@@ -458,6 +484,7 @@ def create_cuga_lite_graph(
     thread_id: Optional[str] = None,
     callbacks: Optional[List[BaseCallbackHandler]] = None,
     special_instructions: Optional[str] = None,
+    model_settings: Optional[Dict[str, Any]] = None,
 ) -> StateGraph:
     """
     Create a unified CugaLite subgraph combining CodeAct and CugaAgent functionality.
@@ -625,8 +652,12 @@ def create_cuga_lite_graph(
             # Prepare tools for prompt - if find_tools enabled, only expose find_tools
             tools_for_prompt = tools_for_execution
             if enable_find_tools:
+                active_model = configurable.get("llm")
                 find_tool = await create_find_tools_tool(
-                    all_tools=tools_for_execution, all_apps=apps_for_prompt, app_to_tools_map=app_to_tools_map
+                    all_tools=tools_for_execution,
+                    all_apps=apps_for_prompt,
+                    app_to_tools_map=app_to_tools_map,
+                    llm=active_model,
                 )
                 tools_for_prompt = [find_tool]
                 # Add find_tools to tools context for sandbox execution
@@ -731,8 +762,10 @@ def create_cuga_lite_graph(
         return prepare_tools_and_apps
 
     # Factory function to create call_model node with access to model
-    def create_call_model_node(base_model, base_callbacks):
-        """Factory to create call_model node with closure over model."""
+    def create_call_model_node(base_model, base_callbacks, model_settings=None):
+        """Factory to create call_model node. Model is taken from config['configurable']['llm']
+        when set (injected at invocation), otherwise uses base_model from graph build.
+        """
 
         async def call_model(state: CugaLiteState, config: Optional[RunnableConfig] = None) -> Command:
             """Call the LLM to generate code or text response."""
@@ -888,9 +921,10 @@ def create_cuga_lite_graph(
             # Get configurable values from config
             configurable = config.get("configurable", {}) if config else {}
             current_callbacks = configurable.get("callbacks", base_callbacks or [])
+            active_model = configurable.get("llm") or base_model
 
             try:
-                response = await base_model.ainvoke(
+                response = await active_model.ainvoke(
                     messages_for_model, config={"callbacks": current_callbacks}
                 )
             except Exception as e:
@@ -1030,7 +1064,15 @@ def create_cuga_lite_graph(
                 )
 
                 tracker.collect_step(step=Step(name="User_output", data=output))
-                tracker.collect_step(step=Step(name="User_output_variables", data=json.dumps(new_vars)))
+                tracker.collect_step(
+                    step=Step(
+                        name="User_output_variables",
+                        data=json.dumps(
+                            new_vars,
+                            default=lambda o: o.model_dump() if hasattr(o, "model_dump") else str(o),
+                        ),
+                    )
+                )
 
                 # Output is already formatted and trimmed by code_executor
                 logger.debug(f"\n\n------\n\n📝 Execution output:\n\n{output}\n\n------\n\n")
@@ -1045,9 +1087,10 @@ def create_cuga_lite_graph(
                 reflection_output = ""
                 if reflection_enabled:
                     try:
-                        reflection_agent = reflection_task(
-                            llm=llm_manager.get_model(settings.agent.planner.model)
+                        active_model = configurable.get("llm") or llm_manager.get_model(
+                            settings.agent.planner.model
                         )
+                        reflection_agent = reflection_task(llm=active_model)
                         # Format chat messages as history string
                         agent_history_parts = []
                         for msg in state.chat_messages:
@@ -1161,7 +1204,7 @@ def create_cuga_lite_graph(
         tools_context,
         special_instructions,
     )
-    call_model_node = create_call_model_node(model, callbacks)
+    call_model_node = create_call_model_node(model, callbacks, model_settings=model_settings)
     sandbox_node = create_sandbox_node(tools_context, thread_id, apps_list)
 
     # Build the graph

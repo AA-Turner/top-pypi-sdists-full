@@ -150,7 +150,7 @@ class DiscussionXBlock(XBlock, StudioEditableXBlockMixin, LegacyXmlMixin):
         fragment.add_css_url(self.runtime.local_resource_url(self, f"{base_path}{css_file_path}"))
         fragment.add_javascript_url(self.runtime.local_resource_url(self, f"{base_path}/js/discussion_bundle.js"))
 
-    def has_permission(self, permission):  # pylint: disable=unused-argument
+    def has_permission(self, permission):
         """
         Encapsulates lms specific functionality, as `has_permission` is not
         importable outside of lms context, namely in tests.

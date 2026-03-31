@@ -433,7 +433,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
 
         self._mesh_ip = mesh_ip
         self._transport = None
-        self._transport_mode = self.config.transport_mode or self.session.transport_mode
+        self._transport_mode = self.config.transport_mode
         self.logger.info(f"Transport: {self._transport_mode} (mesh_ip={mesh_ip})")
 
     async def _start_transport(self) -> None:
@@ -442,33 +442,69 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             return
         assert self._ssh_key_path is not None
 
-        # Ensure all workspaces have FUSE mounts (overlayfs can't be NFS-exported)
-        for ws in self._workspaces.values():
+        ws_list = list(self._workspaces.values())
+
+        # Separate workspaces by transport type before FUSE setup
+        annotations = self.config.get_field_annotations()
+        default_ws = []
+        git_ws = []
+        for ws in ws_list:
+            marker = annotations.get(ws.name)
+            if isinstance(marker, WorkspaceMarker) and marker.transport == "git":
+                git_ws.append(ws)
+            else:
+                default_ws.append(ws)
+
+        # All workspaces need FUSE: tracked ones for DVC checkpointing,
+        # untracked ones so they live on a real filesystem (NFS can't export overlayfs).
+        for ws in ws_list:
             await ws.ensure_fuse_mount()
 
-        ws_list = list(self._workspaces.values())
-        first = ws_list[0]
-        first_path = str(first.path)
+        # Initialize default transport (NFS/SSHFS) for non-git workspaces
+        if default_ws:
+            first = default_ws[0]
+            first_path = str(first.path)
 
-        if self._transport_mode == "sshfs":
-            from plato.agents.runtime.transport import SSHFSTransport
+            if self._transport_mode == "sshfs":
+                from plato.agents.runtime.transport import SSHFSTransport
 
-            self._transport = SSHFSTransport(first_path, self._mesh_ip, self._ssh_key_path)
-        else:
-            self._transport = NFSTransport(first_path, self._mesh_ip, self._ssh_key_path)
+                self._transport = SSHFSTransport(first_path, self._mesh_ip, self._ssh_key_path)
+            else:
+                self._transport = NFSTransport(first_path, self._mesh_ip, self._ssh_key_path)
 
-        await self._transport.initialize()
+            await self._transport.initialize()
 
-        for i, ws in enumerate(ws_list[1:], start=1):
-            await self._transport.add_export(str(ws.path), fsid=i)
+            for i, ws in enumerate(default_ws[1:], start=1):
+                await self._transport.add_export(str(ws.path), fsid=i)
 
-        await self._transport.refresh_exports()
+            await self._transport.refresh_exports()
 
-        # Assign per-workspace transports
-        for ws in ws_list:
-            t = self._transport.with_path(str(ws.path))
+            # Assign per-workspace transports for default workspaces
+            for ws in default_ws:
+                t = self._transport.with_path(str(ws.path))
+                t.mount_path = ws.mount_path
+                ws.transport = t
+
+        # Initialize git transport for git-transported workspaces
+        for ws in git_ws:
+            from plato.agents.runtime.transport import GitTransport
+
+            ws_marker = annotations[ws.name]
+            assert isinstance(ws_marker, WorkspaceMarker)
+            t = GitTransport(
+                str(ws.path),
+                self._mesh_ip,
+                self._ssh_key_path,
+                git_config=ws_marker.git_config,
+            )
+            await t.initialize()
             t.mount_path = ws.mount_path
             ws.transport = t
+
+        # Ensure self._transport is set even when all workspaces use git,
+        # so agent() has a fallback primary transport.
+        if self._transport is None and git_ws:
+            self._transport = git_ws[0].transport
 
     async def _disconnect_plato_session(self) -> None:
         """Stop heartbeat for the Plato session (does not close the session)."""

@@ -22,11 +22,6 @@ pub mod content;
 pub mod state;
 pub mod traversal;
 
-#[cfg(feature = "async-visitor")]
-pub use callbacks::AsyncVisitorHandle;
 pub use content::VisitorDispatch;
 pub use state::build_node_context;
 pub use traversal::dispatch_visitor;
-
-#[cfg(feature = "async-visitor")]
-pub use callbacks::{AsyncToSyncVisitorBridge, dispatch_async_visitor};

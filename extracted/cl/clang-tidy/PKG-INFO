@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: clang-tidy
-Version: 22.1.0
+Version: 22.1.0.1
 Summary: Clang-tidy is an LLVM-based code analyser tool
 Author-Email: Dominic Kempf <ssc@iwr.uni-heidelberg.de>
 License: Apache 2.0

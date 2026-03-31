@@ -4246,14 +4246,19 @@ def update_challenge_enrollment(ctx, enrollment_id, user_id, answer, **kwargs):
 @click.option("--last-name", default=None)
 @click.option("--search-param", multiple=True, default=None)
 @click.option("--allow-partial-match", is_flag=True, default=False)
+@click.option("--type", multiple=True, default=None)
+@click.option("--includes-any-label", type=str, multiple=True, default=None)
+@click.option("--has-label", type=bool, default=None)
 @click.pass_context
-def list_combined_user_details(ctx, organisation, org_id, **kwargs):
+def list_combined_user_details(ctx, organisation, org_id, type, **kwargs):
     # get all orgs
     kwargs["search_params"] = kwargs.pop("search_param", None)
     org_by_id, org_by_name = orgs.get_org_by_dictionary(ctx, org_id)
     org_id = get_org_id(ctx, org_name=organisation, org_id=org_id)
 
-    results = users.list_combined_user_details(ctx, org_id=org_id, **kwargs)
+    results = users.list_combined_user_details(
+        ctx, org_id=org_id, type=list(type), **kwargs
+    )
     print(users.format_combined_user_details_as_text(ctx, results))
 
 

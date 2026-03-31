@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn test_parse_conversion_options_valid_json() {
-        let json = r#"{"heading_style": "atx"}"#;
+        let json = r#"{"headingStyle": "atx"}"#;
         let result = parse_conversion_options(Some(json));
         assert!(result.is_ok());
         assert!(result.unwrap().is_some());

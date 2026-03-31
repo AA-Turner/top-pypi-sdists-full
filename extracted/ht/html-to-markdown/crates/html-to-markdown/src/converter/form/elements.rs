@@ -27,7 +27,7 @@ use std::borrow::Cow;
 /// - **Inline mode**: Children are processed inline without block spacing
 /// - **Block mode**: Content is collected, trimmed, and wrapped with blank lines
 /// - **Empty content**: Skipped entirely
-pub fn handle_form(
+pub(crate) fn handle_form(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -82,7 +82,7 @@ pub fn handle_form(
 /// - **Inline mode**: Children are processed inline without block spacing
 /// - **Block mode**: Content is collected, trimmed, and wrapped with blank lines
 /// - **Empty content**: Skipped entirely
-pub fn handle_fieldset(
+pub(crate) fn handle_fieldset(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -137,7 +137,7 @@ pub fn handle_fieldset(
 /// - **Block mode**: Content is wrapped in strong markers (e.g., `**text**`)
 /// - **Inline mode**: Content is rendered without emphasis
 /// - Uses the configured strong/emphasis symbol from ConversionOptions
-pub fn handle_legend(
+pub(crate) fn handle_legend(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -198,7 +198,7 @@ pub fn handle_legend(
 /// - Content is collected from children
 /// - Non-empty content is output followed by blank lines (in block mode)
 /// - Blank lines are suppressed in inline mode
-pub fn handle_label(
+pub(crate) fn handle_label(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -231,7 +231,7 @@ pub fn handle_label(
 ///
 /// An input element represents a form control for user input. Since input
 /// elements typically have no text content, this handler produces no output.
-pub fn handle_input(
+pub(crate) fn handle_input(
     _tag_name: &str,
     _node_handle: &tl::NodeHandle,
     _parser: &tl::Parser,
@@ -253,7 +253,7 @@ pub fn handle_input(
 ///
 /// - Content is collected from children
 /// - Blank lines are added after content in block mode only
-pub fn handle_textarea(
+pub(crate) fn handle_textarea(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -287,7 +287,7 @@ pub fn handle_textarea(
 ///
 /// - Content (options) is collected from children
 /// - A single newline is added after the select in block mode
-pub fn handle_select(
+pub(crate) fn handle_select(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -322,7 +322,7 @@ pub fn handle_select(
 /// - Content is collected from children
 /// - If the option has the `selected` attribute, it's prefixed with `* ` in block mode
 /// - A newline is added after each option in block mode
-pub fn handle_option(
+pub(crate) fn handle_option(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -365,7 +365,7 @@ pub fn handle_option(
 ///
 /// - The `label` attribute is output as strong text (if present)
 /// - Options within the group are rendered normally
-pub fn handle_optgroup(
+pub(crate) fn handle_optgroup(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -410,7 +410,7 @@ pub fn handle_optgroup(
 ///
 /// - Content is collected from children
 /// - Blank lines are added after content in block mode only
-pub fn handle_button(
+pub(crate) fn handle_button(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -444,7 +444,7 @@ pub fn handle_button(
 ///
 /// - Content is collected from children (usually empty)
 /// - Blank lines are added after content in block mode only
-pub fn handle_progress(
+pub(crate) fn handle_progress(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -478,7 +478,7 @@ pub fn handle_progress(
 ///
 /// - Content is collected from children (usually empty)
 /// - Blank lines are added after content in block mode only
-pub fn handle_meter(
+pub(crate) fn handle_meter(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -512,7 +512,7 @@ pub fn handle_meter(
 ///
 /// - Content is collected from children
 /// - Blank lines are added after content in block mode only
-pub fn handle_output(
+pub(crate) fn handle_output(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,
@@ -546,7 +546,7 @@ pub fn handle_output(
 ///
 /// - Content (options) is collected from children
 /// - A single newline is added after the datalist in block mode
-pub fn handle_datalist(
+pub(crate) fn handle_datalist(
     _tag_name: &str,
     node_handle: &tl::NodeHandle,
     parser: &tl::Parser,

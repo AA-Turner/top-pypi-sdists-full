@@ -27,7 +27,6 @@ pub use enums::{
     CodeBlockStyleWrapper, HeadingStyleWrapper, HighlightStyleWrapper, ListIndentTypeWrapper, NewlineStyleWrapper,
     OutputFormatWrapper, PreprocessingPresetWrapper, WhitespaceModeWrapper,
 };
-pub use error::BindingError;
 pub use json::parse_conversion_options;
 #[cfg(feature = "inline-images")]
 pub use json::parse_inline_image_config;
@@ -36,9 +35,6 @@ pub use json::parse_metadata_config;
 
 #[cfg(feature = "metadata")]
 pub use metadata::{
-    DocumentMetadataIntermediate, ExtendedMetadataIntermediate, HeaderMetadataIntermediate, ImageMetadataIntermediate,
+    DocumentMetadataIntermediate, HeaderMetadataIntermediate, HtmlMetadataIntermediate, ImageMetadataIntermediate,
     LinkMetadataIntermediate, StructuredDataIntermediate,
 };
-
-#[cfg(feature = "inline-images")]
-pub use inline_images::InlineImageIntermediate;

@@ -5,6 +5,11 @@ import xdis
 from xdis import get_opcode
 from xdis.cross_dis import op_has_argument, xstack_effect
 from xdis.op_imports import get_opcode_module
+from xdis.version_info import (
+    PYTHON_IMPLEMENTATION,
+    PYTHON_VERSION_TRIPLE,
+    version_tuple_to_str,
+)
 
 
 def get_srcdir() -> str:
@@ -77,7 +82,7 @@ def test_stack_effect_fixed() -> None:
             check_effect = opcode_stack_effect[opcode]
             assert check_effect == effect, (
                 "in version %s %d (%s) not okay; effect xstack_effect is %d; C source has %d"
-                % (opc.version, opcode, opname, effect, check_effect)
+                % (version_tuple_to_str(opc.version_tuple), opcode, opname, effect, check_effect)
             )
             # print("version %s: %d (%s) is good: effect %d" % (version, opcode, opname, effect))
             pass
@@ -89,14 +94,13 @@ def test_stack_effect_fixed() -> None:
     xdis.PYTHON_VERSION_TRIPLE < (3, 4) or xdis.IS_PYPY or xdis.IS_GRAAL,
     reason="Python version is before 3.4. Can't test",
 )
-@pytest.mark.skipif(
-    xdis.PYTHON_VERSION_TRIPLE >= (3, 14),
-    reason="Python >= 3.14 is not complete.",
-)
 def test_stack_effect_vs_dis() -> None:
     import dis
 
     def test_one(xdis_args, dis_args, has_arg: bool) -> None:
+
+        if opname.startswith("INSTRUMENTED"):
+            return
         effect = xstack_effect(*xdis_args)
         try:
             check_effect = dis.stack_effect(*dis_args[:2])
@@ -123,11 +127,7 @@ def test_stack_effect_vs_dis() -> None:
         )
         print("%d (%s) is good: effect %d" % (opcode, opname, effect))
 
-    if xdis.IS_PYPY:
-        variant = "pypy"
-    else:
-        variant = ""
-    opc = get_opcode_module(None, variant)
+    opc = get_opcode_module(PYTHON_VERSION_TRIPLE, PYTHON_IMPLEMENTATION)
     for (
         opname,
         opcode,
@@ -151,6 +151,8 @@ def test_stack_effect_vs_dis() -> None:
             and opcode in opc.CONDITION_OPS
             and opname
             not in (
+                "INSTRUMENTED_POP_JUMP_IF_FALSE",
+                "INSTRUMENTED_POP_JUMP_IF_TRUE",
                 "JUMP_IF_FALSE_OR_POP",
                 "JUMP_IF_TRUE_OR_POP",
                 "POP_JUMP_IF_FALSE",

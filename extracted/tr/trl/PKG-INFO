@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trl
-Version: 0.29.1
+Version: 1.0.0
 Summary: Train transformer language models with reinforcement learning.
 Author-email: Leandro von Werra <leandro.vonwerra@gmail.com>
 License-Expression: Apache-2.0
@@ -21,7 +21,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: accelerate>=1.4.0
-Requires-Dist: datasets>=3.0.0
+Requires-Dist: datasets>=4.7.0
 Requires-Dist: packaging>20.0
 Requires-Dist: transformers>=4.56.2
 Provides-Extra: bco
@@ -54,9 +54,10 @@ Requires-Dist: pytest-rerunfailures==15.1; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Provides-Extra: vllm
-Requires-Dist: vllm<0.13.0,>=0.10.2; extra == "vllm"
+Requires-Dist: vllm<=0.17.1,>=0.10.2; extra == "vllm"
 Requires-Dist: fastapi; extra == "vllm"
 Requires-Dist: pydantic; extra == "vllm"
+Requires-Dist: aiohttp>=3.13.3; extra == "vllm"
 Requires-Dist: requests; extra == "vllm"
 Requires-Dist: uvicorn; extra == "vllm"
 Provides-Extra: vlm
@@ -72,6 +73,7 @@ Requires-Dist: deepspeed>=0.14.4; extra == "dev"
 Requires-Dist: openai>=1.23.2; extra == "dev"
 Requires-Dist: llm-blender>=0.0.2; extra == "dev"
 Requires-Dist: kernels; extra == "dev"
+Requires-Dist: liger-kernel>=0.7.0; extra == "dev"
 Requires-Dist: peft>=0.8.0; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
@@ -87,10 +89,13 @@ Requires-Dist: num2words==0.5.14; extra == "dev"
 Requires-Dist: jmespath; extra == "dev"
 Dynamic: license-file
 
-# TRL - Transformer Reinforcement Learning
+# TRL - Transformers Reinforcement Learning
 
 <div style="text-align: center">
-    <img src="https://huggingface.co/datasets/trl-lib/documentation-images/resolve/main/trl_banner_dark.png" alt="TRL Banner">
+    <picture>
+        <source media="(prefers-color-scheme: light)" srcset="https://huggingface.co/datasets/trl-lib/documentation-images/resolve/main/TRL%20banner%20light.png">
+        <img src="https://huggingface.co/datasets/trl-lib/documentation-images/resolve/main/trl_banner_dark.png" alt="TRL Banner">
+    </picture>
 </div>
 
 <hr> <br>

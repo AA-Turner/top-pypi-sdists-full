@@ -33,6 +33,10 @@ if TYPE_CHECKING:
     from codeflash.models.models import FunctionSource, GeneratedTestsList, InvocationId, ValidCode
     from codeflash.verification.verification_utils import TestConfig
 
+_CACHE: dict[str, bool] = {}
+
+_CACHE_MAX: int = 4096
+
 logger = logging.getLogger(__name__)
 
 
@@ -347,7 +351,7 @@ class PythonSupport:
         from codeflash.languages.python.context.code_context_extractor import get_function_sources_from_jedi
 
         try:
-            _dict, sources = get_function_sources_from_jedi(
+            _dict, sources, _ = get_function_sources_from_jedi(
                 {function.file_path: {function.qualified_name}}, project_root
             )
         except Exception as e:
@@ -673,7 +677,7 @@ class PythonSupport:
 
     # === Validation ===
 
-    def validate_syntax(self, source: str) -> bool:
+    def validate_syntax(self, source: str, file_path: Path | None = None) -> bool:
         """Check if Python source code is syntactically valid.
 
         Uses Python's compile() to validate syntax.
@@ -685,11 +689,7 @@ class PythonSupport:
             True if valid, False otherwise.
 
         """
-        try:
-            compile(source, "<string>", "exec")
-            return True
-        except SyntaxError:
-            return False
+        return _compile_ok(source)
 
     def normalize_code(self, source: str) -> str:
         from codeflash.languages.python.normalizer import normalize_python_code
@@ -848,7 +848,11 @@ class PythonSupport:
     # === Test Result Comparison ===
 
     def compare_test_results(
-        self, original_results_path: Path, candidate_results_path: Path, project_root: Path | None = None
+        self,
+        original_results_path: Path,
+        candidate_results_path: Path,
+        project_root: Path | None = None,
+        project_classpath: str | None = None,
     ) -> tuple[bool, list]:
         """Compare test results between original and candidate code.
 
@@ -856,6 +860,7 @@ class PythonSupport:
             original_results_path: Path to original test results.
             candidate_results_path: Path to candidate test results.
             project_root: Project root directory.
+            project_classpath: Unused (Java only).
 
         Returns:
             Tuple of (are_equivalent, list of TestDiff objects).
@@ -957,7 +962,7 @@ class PythonSupport:
         try:
             return ReferenceGraph(project_root, language=self.language.value)
         except Exception:
-            logger.debug("Failed to initialize ReferenceGraph, falling back to per-function Jedi analysis")
+            logger.info("Failed to initialize ReferenceGraph, falling back to per-function Jedi analysis")
             return None
 
     def instrument_existing_test(
@@ -1039,7 +1044,7 @@ class PythonSupport:
 
     pytest_cmd: str = "pytest"
 
-    def setup_test_config(self, test_cfg: TestConfig, file_path: Path) -> None:
+    def setup_test_config(self, test_cfg: TestConfig, file_path: Path, current_worktree: Path | None = None) -> None:
         self.pytest_cmd = test_cfg.pytest_cmd or "pytest"
 
     def pytest_cmd_tokens(self, is_posix: bool) -> list[str]:
@@ -1356,3 +1361,19 @@ class PythonSupport:
         end_time = time.perf_counter()
         logger.debug("Generated concolic tests in %.2f seconds", end_time - start_time)
         return function_to_concolic_tests, concolic_test_suite_code
+
+
+def _compile_ok(source: str) -> bool:
+    try:
+        cached = _CACHE.get(source)
+        if cached is not None:
+            return cached
+
+        compile(source, "<string>", "exec")
+        if len(_CACHE) < _CACHE_MAX:
+            _CACHE[source] = True
+        return True
+    except SyntaxError:
+        if len(_CACHE) < _CACHE_MAX:
+            _CACHE[source] = False
+        return False

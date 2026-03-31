@@ -33,6 +33,7 @@ class RandomPasswordArgs:
                  upper: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a RandomPassword resource.
+
         :param pulumi.Input[_builtins.int] length: The length of the string desired. The minimum value for length is 1 and, length must also be >= (`min_upper` + `min_lower` + `min_numeric` + `min_special`).
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] keepers: Arbitrary map of values that, when changed, will trigger recreation of resource. See the main provider documentation for more information.
         :param pulumi.Input[_builtins.bool] lower: Include lowercase alphabet characters in the result. Default value is `true`.
@@ -238,6 +239,7 @@ class _RandomPasswordState:
                  upper: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering RandomPassword resources.
+
         :param pulumi.Input[_builtins.str] bcrypt_hash: A bcrypt hash of the generated random string. **NOTE**: If the generated random string is greater than 72 bytes in length, `bcrypt_hash` will contain a hash of the first 72 bytes.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] keepers: Arbitrary map of values that, when changed, will trigger recreation of resource. See the main provider documentation for more information.
         :param pulumi.Input[_builtins.int] length: The length of the string desired. The minimum value for length is 1 and, length must also be >= (`min_upper` + `min_lower` + `min_numeric` + `min_special`).
@@ -475,6 +477,12 @@ class RandomPassword(pulumi.CustomResource):
                  upper: Optional[pulumi.Input[_builtins.bool]] = None,
                  __props__=None):
         """
+        > If the managed resource supports a write-only attribute for the password (first introduced in Terraform 1.11), then the ephemeral variant of `RandomPassword` should be used, when possible, to avoid storing the password in the plan or state file.
+
+        Identical to `RandomString` with the exception that the result is treated as sensitive and, thus, _not_ displayed in console output. Read more about sensitive data handling in the Terraform documentation.
+
+        This resource *does* use a cryptographic random number generator.
+
         ## Example Usage
 
         ```python
@@ -497,6 +505,7 @@ class RandomPassword(pulumi.CustomResource):
         ## Import
 
         You can import external passwords into your Pulumi programs as follows:
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -520,6 +529,12 @@ class RandomPassword(pulumi.CustomResource):
                  args: RandomPasswordArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        > If the managed resource supports a write-only attribute for the password (first introduced in Terraform 1.11), then the ephemeral variant of `RandomPassword` should be used, when possible, to avoid storing the password in the plan or state file.
+
+        Identical to `RandomString` with the exception that the result is treated as sensitive and, thus, _not_ displayed in console output. Read more about sensitive data handling in the Terraform documentation.
+
+        This resource *does* use a cryptographic random number generator.
+
         ## Example Usage
 
         ```python
@@ -542,6 +557,7 @@ class RandomPassword(pulumi.CustomResource):
         ## Import
 
         You can import external passwords into your Pulumi programs as follows:
+
 
         :param str resource_name: The name of the resource.
         :param RandomPasswordArgs args: The arguments to use to populate this resource's properties.

@@ -67,7 +67,10 @@ pub enum NodeData {
     /// [dtd wiki]: https://en.wikipedia.org/wiki/Document_type_declaration
     Doctype {
         name: StrTendril,
+        // Fields required by html5ever's DOM model; not accessed during conversion.
+        #[allow(dead_code)]
         public_id: StrTendril,
+        #[allow(dead_code)]
         system_id: StrTendril,
     },
 
@@ -386,7 +389,10 @@ impl TreeSink for RcDom {
             let previous_parent = child.parent.replace(Some(Rc::downgrade(new_parent)));
             assert!(Rc::ptr_eq(
                 node,
-                &previous_parent.unwrap().upgrade().expect("dangling weak")
+                &previous_parent
+                    .expect("invariant: child must have a parent during reparenting")
+                    .upgrade()
+                    .expect("dangling weak")
             ))
         }
         new_children.extend(mem::take(&mut *children));

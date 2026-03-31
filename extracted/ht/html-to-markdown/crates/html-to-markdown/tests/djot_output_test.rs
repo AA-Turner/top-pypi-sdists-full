@@ -1,6 +1,12 @@
-//! Tests for Djot output format support.
+#![allow(missing_docs)]
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
+}
 
-use html_to_markdown_rs::{ConversionOptions, OutputFormat, convert};
+use html_to_markdown_rs::{ConversionOptions, OutputFormat};
 
 fn djot_options() -> ConversionOptions {
     ConversionOptions {

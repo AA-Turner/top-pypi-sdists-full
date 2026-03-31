@@ -12,6 +12,7 @@ use tl::{HTMLTag, NodeHandle, Parser};
 
 use crate::converter::Context;
 use crate::converter::dom_context::DomContext;
+use crate::converter::main_helpers::tag_name_eq;
 use crate::options::ConversionOptions;
 
 /// Extract src attribute from media element (audio, video, iframe).
@@ -44,11 +45,6 @@ where
 /// Check if tag is a source element.
 pub(crate) fn is_source_element(tag: &HTMLTag) -> bool {
     tag_name_eq(tag.name().as_utf8_str(), "source")
-}
-
-/// Compare tag name with needle (case-insensitive).
-fn tag_name_eq<'a>(name: impl AsRef<str>, needle: &str) -> bool {
-    name.as_ref().eq_ignore_ascii_case(needle)
 }
 
 /// Determine if media should output source link in markdown.

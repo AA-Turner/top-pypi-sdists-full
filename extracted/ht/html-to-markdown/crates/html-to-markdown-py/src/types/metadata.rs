@@ -1,9 +1,8 @@
 #[cfg(feature = "metadata")]
 use html_to_markdown_rs::metadata::{
-    DEFAULT_MAX_STRUCTURED_DATA_SIZE, DocumentMetadata as RustDocumentMetadata,
-    ExtendedMetadata as RustExtendedMetadata, HeaderMetadata as RustHeaderMetadata, ImageMetadata as RustImageMetadata,
-    LinkMetadata as RustLinkMetadata, MetadataConfig as RustMetadataConfig, StructuredData as RustStructuredData,
-    TextDirection as RustTextDirection,
+    DEFAULT_MAX_STRUCTURED_DATA_SIZE, DocumentMetadata as RustDocumentMetadata, HeaderMetadata as RustHeaderMetadata,
+    HtmlMetadata as RustHtmlMetadata, ImageMetadata as RustImageMetadata, LinkMetadata as RustLinkMetadata,
+    MetadataConfig as RustMetadataConfig, StructuredData as RustStructuredData, TextDirection as RustTextDirection,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
@@ -201,7 +200,7 @@ pub fn structured_data_to_py<'py>(py: Python<'py>, data: Vec<RustStructuredData>
 
 /// Helper: Convert extended metadata to Python dict
 #[cfg(feature = "metadata")]
-pub fn extended_metadata_to_py<'py>(py: Python<'py>, metadata: RustExtendedMetadata) -> PyResult<Py<PyAny>> {
+pub fn extended_metadata_to_py<'py>(py: Python<'py>, metadata: RustHtmlMetadata) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("document", document_metadata_to_py(py, metadata.document)?)?;
     dict.set_item("headers", headers_to_py(py, metadata.headers)?)?;

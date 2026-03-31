@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -66,6 +66,7 @@ class TableView(proto.Enum):
         FULL (2):
             Include everything.
     """
+
     TABLE_VIEW_UNSPECIFIED = 0
     BASIC = 1
     FULL = 2
@@ -160,6 +161,7 @@ class Database(proto.Message):
                 Represents a database storing tables
                 compatible with Hive Metastore tables.
         """
+
         TYPE_UNSPECIFIED = 0
         HIVE = 1
 
@@ -246,6 +248,7 @@ class Table(proto.Message):
                 Represents a table compatible with Hive
                 Metastore tables.
         """
+
         TYPE_UNSPECIFIED = 0
         HIVE = 1
 

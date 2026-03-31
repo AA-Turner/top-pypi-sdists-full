@@ -14,7 +14,10 @@ Usage (worlds):
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from plato.worlds.config import GitTransportConfig
 
 
 class FieldMarker:
@@ -108,6 +111,10 @@ class WorkspaceMarker:
         mount_path: Mount path on agent VMs. Defaults to the workspace content path.
             Use this when agents expect files at a specific location (e.g. "/workspace/code").
         dvcignore: Extra patterns to add to .dvcignore (merged with DEFAULT_DVCIGNORE).
+        transport: Per-workspace transport override. When ``None`` (default), the
+            workspace inherits the world config ``transport_mode``. Set to ``"git"`` to
+            use git clone/push instead of NFS/SSHFS for this workspace.
+        git_config: Git transport configuration. Only used when ``transport="git"``.
     """
 
     DEFAULT_DVCIGNORE: tuple[str, ...] = (
@@ -128,9 +135,13 @@ class WorkspaceMarker:
         tracked: bool = True,
         mount_path: str | None = None,
         dvcignore: list[str] | None = None,
+        transport: Literal["nfs_kernel", "sshfs", "git"] | None = None,
+        git_config: GitTransportConfig | None = None,
     ):
         self.kind = "workspace"
         self.description = description
         self.tracked = tracked
         self.mount_path = mount_path
         self.dvcignore = dvcignore
+        self.transport = transport
+        self.git_config = git_config

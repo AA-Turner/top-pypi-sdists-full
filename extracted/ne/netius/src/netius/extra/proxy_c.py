@@ -193,6 +193,10 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
             # current service from the consul health endpoint
             instances = self._consul_health(service)
             if not instances:
+                self.debug(
+                    "Consul service '%s' (%s): no healthy instances, skipping"
+                    % (service, domain)
+                )
                 continue
 
             # resolves the optional address override from the
@@ -207,11 +211,22 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
             # healthy instances, filtering out any invalid ones
             urls = self._build_urls(instances, address=address, ports=ports)
             if not urls:
+                self.debug(
+                    "Consul service '%s' (%s): %d instance(s) but no valid URLs, skipping"
+                    % (service, domain, len(instances))
+                )
                 continue
+
+            self.debug(
+                "Consul service '%s' (%s): %d healthy instance(s), %d URL(s)"
+                % (service, domain, len(instances), len(urls))
+            )
 
             # adds the resolved entry to the list of entries to
             # be applied later if necessary
             entries.append((service, domain, urls, tags))
+
+        self.debug("Consul fetch complete: %d service(s) resolved" % len(entries))
         return entries
 
     def _consul_tick(self, timeout=30.0):
@@ -233,6 +248,12 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
             def _apply():
                 if entries:
                     self._build_consul(entries)
+
+                # triggers a tick event to allow external monitoring of the
+                # consul discovery process, this is done after `_build_consul`
+                # so that tick handlers see the updated host configuration
+                self.trigger("tick", self)
+
                 if timeout > 0:
                     self.delay(
                         lambda: self._consul_tick(timeout=timeout), timeout=timeout
@@ -242,15 +263,11 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
 
         self.ensure(_fetch, thread=True)
 
-        # triggers a tick event to allow external monitoring of the consul
-        # discovery process, this can be used for logging or reacting to
-        # changes in the registered services (e.g. for metrics or alerts)
-        self.trigger("tick", self)
-
     def _consul_services(self):
         url = self.consul_url + "/v1/catalog/services"
         result = self._consul_get(url)
         if result == None:
+            self.debug("Consul catalog/services returned None")
             return dict()
         return result
 
@@ -263,6 +280,7 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
         )
         result = self._consul_get(url)
         if result == None:
+            self.debug("Consul health query for '%s' returned None" % service)
             return []
         return result
 
@@ -284,8 +302,8 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
                 return None
             data = result.get("data", b"")
             return json.loads(data)
-        except Exception:
-            self.info("Failed to retrieve Consul data from %s" % url)
+        except Exception as exception:
+            self.info("Failed to retrieve Consul data from %s: %s" % (url, exception))
             return None
 
     def _resolve_domain(self, service, tags):
@@ -405,12 +423,7 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
         if auth_regex:
             self.auth_regex = list(self.auth_regex) + auth_regex
             self._consul_auth_regex.extend(auth_regex)
-            for regex, auth in auth_regex:
-                auth_s = auth.__class__.__name__ if auth else "none"
-                self.debug(
-                    "Registered auth regex '%s' for '%s' with auth type '%s'"
-                    % (regex.pattern, domain, auth_s)
-                )
+            self._debug_auth_regex(domain, auth_regex)
 
     def _build_urls(self, instances, address=None, ports=None):
         urls = []
@@ -445,6 +458,14 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
                     len(tags),
                     "" if len(tags) == 1 else "s",
                 )
+            )
+
+    def _debug_auth_regex(self, domain, auth_regex):
+        for regex, auth in auth_regex:
+            auth_s = auth.__class__.__name__ if auth else "none"
+            self.debug(
+                "Registered auth regex '%s' for '%s' with auth type '%s'"
+                % (regex.pattern, domain, auth_s)
             )
 
 

@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import json
 import os
-import platform
 import time
 from itertools import count
 from typing import TYPE_CHECKING, Any, cast
 
 import requests
+from pydantic import ValidationError
 from pydantic.json import pydantic_encoder
 
 from codeflash.cli_cmds.console import console, logger
 from codeflash.code_utils.env_utils import get_codeflash_api_key
 from codeflash.code_utils.git_utils import get_last_commit_author_if_pr_exists, get_repo_owner_and_name
 from codeflash.code_utils.time_utils import humanize_runtime
-from codeflash.languages import Language, current_language
+from codeflash.languages import Language, current_language, current_language_support
 from codeflash.models.ExperimentMetadata import ExperimentMetadata
 from codeflash.models.models import (
     AIServiceRefinerRequest,
@@ -58,8 +58,9 @@ class AiServiceClient:
         payload: dict[str, Any], language_version: str | None = None, module_system: str | None = None
     ) -> None:
         """Add language version and module system metadata to an API payload."""
+        if language_version is None:
+            language_version = current_language_support().language_version
         payload["language_version"] = language_version
-        payload["python_version"] = language_version if current_language() == Language.PYTHON else None
 
         if current_language() != Language.PYTHON:
             if module_system:
@@ -125,16 +126,19 @@ class AiServiceClient:
             code = CodeStringsMarkdown.parse_markdown_code(opt["source_code"], expected_language=language)
             if not code.code_strings:
                 continue
-            candidates.append(
-                OptimizedCandidate(
-                    source_code=code,
-                    explanation=opt["explanation"],
-                    optimization_id=opt["optimization_id"],
-                    source=source,
-                    parent_id=opt.get("parent_id", None),
-                    model=opt.get("model"),
+            try:
+                candidates.append(
+                    OptimizedCandidate(
+                        source_code=code,
+                        explanation=opt["explanation"],
+                        optimization_id=opt["optimization_id"],
+                        source=source,
+                        parent_id=opt.get("parent_id", None),
+                        model=opt.get("model"),
+                    )
                 )
-            )
+            except (ValidationError, KeyError, TypeError) as e:
+                logger.warning(f"Skipping invalid optimization candidate: {e}")
         return candidates
 
     def optimize_code(
@@ -150,6 +154,7 @@ class AiServiceClient:
         is_async: bool = False,
         n_candidates: int = 5,
         is_numerical_code: bool | None = None,
+        rerun_trace_id: str | None = None,
     ) -> list[OptimizedCandidate]:
         """Optimize the given code for performance by making a request to the Django endpoint.
 
@@ -190,6 +195,7 @@ class AiServiceClient:
             "call_sequence": self.get_next_sequence(),
             "n_candidates": n_candidates,
             "is_numerical_code": is_numerical_code,
+            "rerun_trace_id": rerun_trace_id,
         }
 
         self.add_language_metadata(payload, language_version, module_system)
@@ -219,73 +225,6 @@ class AiServiceClient:
         console.rule()
         return []
 
-    # Backward-compatible alias
-    def optimize_python_code(
-        self,
-        source_code: str,
-        dependency_code: str,
-        trace_id: str,
-        experiment_metadata: ExperimentMetadata | None = None,
-        *,
-        is_async: bool = False,
-        n_candidates: int = 5,
-    ) -> list[OptimizedCandidate]:
-        """Backward-compatible alias for optimize_code() with language='python'."""
-        return self.optimize_code(
-            source_code=source_code,
-            dependency_code=dependency_code,
-            trace_id=trace_id,
-            experiment_metadata=experiment_metadata,
-            language="python",
-            is_async=is_async,
-            n_candidates=n_candidates,
-        )
-
-    def get_jit_rewritten_code(self, source_code: str, trace_id: str) -> list[OptimizedCandidate]:
-        """Rewrite the given python code for performance via jit compilation by making a request to the Django endpoint.
-
-        Parameters
-        ----------
-        - source_code (str): The python code to optimize.
-        - trace_id (str): Trace id of optimization run
-
-        Returns
-        -------
-        - List[OptimizationCandidate]: A list of Optimization Candidates.
-
-        """
-        start_time = time.perf_counter()
-        git_repo_owner, git_repo_name = safe_get_repo_owner_and_name()
-
-        payload = {
-            "source_code": source_code,
-            "trace_id": trace_id,
-            "dependency_code": "",  # dummy value to please the api endpoint
-            "python_version": platform.python_version(),  # backward compat
-            "current_username": get_last_commit_author_if_pr_exists(None),
-            "repo_owner": git_repo_owner,
-            "repo_name": git_repo_name,
-        }
-
-        logger.info("!lsp|Rewriting as a JIT function…")
-        console.rule()
-        try:
-            response = self.make_ai_service_request("/rewrite_jit", payload=payload, timeout=self.timeout)
-        except requests.exceptions.RequestException as e:
-            logger.exception(f"Error generating jit rewritten candidate: {e}")
-            ph("cli-jit-rewrite-error-caught", {"error": str(e)})
-            return []
-
-        if response.status_code == 200:
-            optimizations_json = response.json()["optimizations"]
-            console.rule()
-            end_time = time.perf_counter()
-            logger.debug(f"!lsp|Generating jit rewritten code took {end_time - start_time:.2f} seconds.")
-            return self._get_valid_candidates(optimizations_json, OptimizedCandidateSource.JIT_REWRITE)
-        self.log_error_response(response, "generating jit rewritten candidate", "cli-jit-rewrite-error-response")
-        console.rule()
-        return []
-
     def optimize_python_code_line_profiler(
         self,
         source_code: str,
@@ -297,6 +236,7 @@ class AiServiceClient:
         is_numerical_code: bool | None = None,
         language: str = "python",
         language_version: str | None = None,
+        rerun_trace_id: str | None = None,
     ) -> list[OptimizedCandidate]:
         """Optimize code for performance using line profiler results.
 
@@ -331,11 +271,11 @@ class AiServiceClient:
             "trace_id": trace_id,
             "language": language,
             "language_version": language_version,
-            "python_version": language_version if current_language() == Language.PYTHON else None,
             "experiment_metadata": experiment_metadata,
             "codeflash_version": codeflash_version,
             "call_sequence": self.get_next_sequence(),
             "is_numerical_code": is_numerical_code,
+            "rerun_trace_id": rerun_trace_id,
         }
 
         try:
@@ -382,7 +322,9 @@ class AiServiceClient:
         self.log_error_response(response, "generating optimized candidates", "cli-optimize-error-response")
         return None
 
-    def optimize_code_refinement(self, request: list[AIServiceRefinerRequest]) -> list[OptimizedCandidate]:
+    def optimize_code_refinement(
+        self, request: list[AIServiceRefinerRequest], rerun_trace_id: str | None = None
+    ) -> list[OptimizedCandidate]:
         """Refine optimization candidates for improved performance.
 
         Supports Python, JavaScript, and TypeScript code refinement with optional
@@ -413,6 +355,7 @@ class AiServiceClient:
                 "call_sequence": self.get_next_sequence(),
                 # Multi-language support
                 "language": opt.language,
+                "rerun_trace_id": rerun_trace_id,
             }
 
             self.add_language_metadata(item, opt.language_version)
@@ -439,20 +382,9 @@ class AiServiceClient:
         console.rule()
         return []
 
-    # Alias for backward compatibility
-    optimize_python_code_refinement = optimize_code_refinement
-
-    def code_repair(self, request: AIServiceCodeRepairRequest) -> OptimizedCandidate | None:
-        """Repair the optimization candidate that is not matching the test result of the original code.
-
-        Args:
-        request: candidate details for repair
-
-        Returns:
-        -------
-        - OptimizedCandidate: new fixed candidate.
-
-        """
+    def code_repair(
+        self, request: AIServiceCodeRepairRequest, rerun_trace_id: str | None = None
+    ) -> OptimizedCandidate | None:
         console.rule()
         try:
             payload = {
@@ -462,6 +394,7 @@ class AiServiceClient:
                 "trace_id": request.trace_id,
                 "test_diffs": request.test_diffs,
                 "language": request.language,
+                "rerun_trace_id": rerun_trace_id,
             }
             response = self.make_ai_service_request("/code_repair", payload=payload, timeout=self.timeout)
         except (requests.exceptions.RequestException, TypeError) as e:
@@ -608,7 +541,6 @@ class AiServiceClient:
             "diffs": diffs,
             "speedups": speedups,
             "optimization_ids": optimization_ids,
-            "python_version": platform.python_version(),  # backward compat
             "function_references": function_references,
         }
         logger.info("loading|Generating ranking")
@@ -685,6 +617,7 @@ class AiServiceClient:
         language_version: str | None = None,
         module_system: str | None = None,
         is_numerical_code: bool | None = None,
+        rerun_trace_id: str | None = None,
     ) -> tuple[str, str, str, str | None] | None:
         """Generate regression tests for the given function by making a request to the Django endpoint.
 
@@ -733,6 +666,7 @@ class AiServiceClient:
             "is_numerical_code": is_numerical_code,
             "class_name": function_to_optimize.class_name,
             "qualified_name": function_to_optimize.qualified_name,
+            "rerun_trace_id": rerun_trace_id,
         }
 
         self.add_language_metadata(payload, language_version, module_system)
@@ -917,8 +851,7 @@ class AiServiceClient:
             "codeflash_version": codeflash_version,
             "calling_fn_details": calling_fn_details,
             "language": language,
-            "language_version": platform.python_version() if current_language() == Language.PYTHON else None,
-            "python_version": platform.python_version() if current_language() == Language.PYTHON else None,
+            "language_version": current_language_support().language_version,
             "call_sequence": self.get_next_sequence(),
         }
         console.rule()

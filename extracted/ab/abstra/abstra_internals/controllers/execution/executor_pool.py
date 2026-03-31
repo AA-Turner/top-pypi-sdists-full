@@ -17,6 +17,7 @@ from abstra_internals.controllers.execution.executor_types import (
     ExecutorCommand,
     ExecutorResponse,
     RabbitMQParams,
+    RunSnippetRequest,
     ShutdownRequest,
     WarmupRequest,
 )
@@ -318,6 +319,79 @@ class ExecutorPool:
 
         finally:
             self._release_executor(executor, execution_id)
+
+    def run_snippet(
+        self, code: str, worker_id: str, title: str = "Debug Snippet"
+    ) -> ExecutorResponse:
+        """Run a code snippet without creating a stage.
+
+        Acquires an executor, sends RunSnippetRequest, waits for response.
+        Simpler than execute() - no stage, no RabbitMQ, no execution tracking.
+        """
+        snippet_id = str(uuid4())[:8]
+        max_wait = self.config.acquire_timeout_seconds
+        start_time = time.time()
+
+        while True:
+            executor = self._acquire_executor("job", snippet_id)
+            if executor is not None:
+                break
+
+            elapsed = time.time() - start_time
+            if elapsed >= max_wait:
+                raise RuntimeError(
+                    f"No available executor for snippet after {elapsed:.1f}s wait."
+                )
+            time.sleep(0.25)
+
+        try:
+            if not executor.is_alive():
+                executor.mark_dead()
+                self.metrics.record_executor_died(executor.executor_id)
+                raise RuntimeError(
+                    f"Executor {executor.executor_id} died before snippet execution"
+                )
+
+            request = RunSnippetRequest(
+                command=ExecutorCommand.RUN_SNIPPET,
+                code=code,
+                worker_id=worker_id,
+                title=title,
+            )
+
+            try:
+                executor.work_queue.put(request, timeout=5.0)
+            except Exception as e:
+                executor.mark_dead()
+                self.metrics.record_executor_died(executor.executor_id)
+                raise RuntimeError(f"Failed to send snippet to executor: {e}")
+
+            timeout = self.config.execution_timeout_seconds
+            response = None
+            wait_start = time.time()
+
+            while time.time() - wait_start < timeout:
+                if not executor.is_alive():
+                    executor.mark_dead()
+                    self.metrics.record_executor_died(executor.executor_id)
+                    raise RuntimeError("Executor died during snippet execution")
+
+                try:
+                    response = executor.response_queue.get(timeout=1.0)
+                    break
+                except Exception:
+                    continue
+
+            if response is None:
+                self._kill_and_replace_executor(executor, reason="snippet_timeout")
+                raise TimeoutError(f"Snippet execution timed out after {timeout}s")
+
+            return response
+
+        except Exception:
+            raise
+        finally:
+            self._release_executor(executor, snippet_id)
 
     def kill_execution(self, execution_id: str) -> bool:
         with self.lock:

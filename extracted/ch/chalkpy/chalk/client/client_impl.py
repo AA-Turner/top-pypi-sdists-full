@@ -1114,6 +1114,27 @@ class ChalkAPIClientImpl(ChalkClient):
                     f"Failed to apply branch '{branch}' using local source. Underlying error:\n {result.stderr}\n{result.stdout}"
                 )
 
+    @property
+    def api(self):  # pyright: ignore[reportMissingSuperCall]
+        """Access Chalk management APIs (e.g. data sources).
+
+        Returns an ``APINamespace`` providing ``client.api.datasources`` and other
+        management interfaces.  The underlying gRPC client is created lazily on
+        first access and reuses the same credentials as this client.
+        """
+        if not hasattr(self, "_api_namespace"):
+            from chalk.client.api import APINamespace
+            from chalk.client.client_grpc import ChalkGRPCClient
+
+            grpc_client = ChalkGRPCClient(
+                client_id=self._client_id,
+                client_secret=self._client_secret,
+                environment=self._primary_environment,
+                api_server=self._api_server,
+            )
+            self._api_namespace = APINamespace(grpc_client._stub_refresher)  # pyright: ignore[reportPrivateUsage]
+        return self._api_namespace
+
     def _exchange_credentials(self):
         _logger.debug("Performing a credentials exchange")
         if self._client_id is None or self._client_secret is None or self._api_server is None:

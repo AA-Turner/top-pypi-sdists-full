@@ -35,13 +35,7 @@ mod default_impl;
 mod traits;
 mod types;
 
-#[cfg(feature = "async-visitor")]
-mod async_traits;
-
 // Re-export all public items from submodules
 pub use default_impl::VisitorHandle;
 pub use traits::HtmlVisitor;
 pub use types::{NodeContext, NodeType, VisitResult};
-
-#[cfg(feature = "async-visitor")]
-pub use async_traits::AsyncHtmlVisitor;

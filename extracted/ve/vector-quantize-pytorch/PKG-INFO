@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vector-quantize-pytorch
-Version: 1.28.0
+Version: 1.28.1
 Summary: Vector Quantization - Pytorch
 Project-URL: Homepage, https://pypi.org/project/vector-quantize-pytorch/
 Project-URL: Repository, https://github.com/lucidrains/vector-quantizer-pytorch
@@ -857,5 +857,17 @@ assert loss.item() >= 0
     archivePrefix = {arXiv},
     primaryClass = {cs.CV},
     url     = {https://arxiv.org/abs/2509.10140},
+}
+```
+
+```bibtex
+@misc{chee2024quip2bitquantizationlarge,
+    title   = {QuIP: 2-Bit Quantization of Large Language Models With Guarantees}, 
+    author  = {Jerry Chee and Yaohui Cai and Volodymyr Kuleshov and Christopher De Sa},
+    year    = {2024},
+    eprint  = {2307.13304},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.LG},
+    url     = {https://arxiv.org/abs/2307.13304}, 
 }
 ```

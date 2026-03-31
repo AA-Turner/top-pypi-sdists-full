@@ -23,8 +23,7 @@ from rich.prompt import Confirm
 from rich.table import Table
 from rich.text import Text
 
-from codeflash.cli_cmds.cli_common import apologize_and_exit
-from codeflash.cli_cmds.console import console
+from codeflash.cli_cmds.console import apologize_and_exit, console
 from codeflash.code_utils.code_utils import validate_relative_directory_path
 from codeflash.code_utils.compat import LF
 from codeflash.code_utils.git_utils import get_git_remotes
@@ -701,9 +700,9 @@ def get_js_codeflash_install_step(pkg_manager: JsPackageManager, *, is_dependenc
         # Codeflash will be installed with other dependencies
         return ""
 
-    # Install codeflash via uv (Python + uv are set up in the workflow)
+    # Install codeflash via uv pip (Python + uv are set up in the workflow)
     return """- name: 📥 Install Codeflash
-        run: uv tool install codeflash"""
+        run: uv pip install codeflash"""
 
 
 def get_js_codeflash_run_command(pkg_manager: JsPackageManager, *, is_dependency: bool) -> str:

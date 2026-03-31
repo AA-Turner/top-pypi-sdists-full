@@ -283,6 +283,13 @@ class TreeSitterAnalyzer:
                 if func_info.is_arrow and node.parent and node.parent.type == "pair":
                     should_include = False
 
+                # Skip method definitions inside object literals (e.g., { foo() {} })
+                # These are shorthand methods in object expressions, not class methods.
+                # They cannot be extracted as standalone code since bare method syntax
+                # is only valid inside class bodies or object literals.
+                if func_info.is_method and node.parent and node.parent.type == "object":
+                    should_include = False
+
                 if should_include:
                     functions.append(func_info)
 
@@ -1907,8 +1914,6 @@ def extract_calling_function_source(source_code: str, function_name: str, ref_li
 
     """
     try:
-        from codeflash.languages.javascript.treesitter import TreeSitterAnalyzer, TreeSitterLanguage
-
         # Try TypeScript first, fall back to JavaScript
         for lang in [TreeSitterLanguage.TYPESCRIPT, TreeSitterLanguage.TSX, TreeSitterLanguage.JAVASCRIPT]:
             try:

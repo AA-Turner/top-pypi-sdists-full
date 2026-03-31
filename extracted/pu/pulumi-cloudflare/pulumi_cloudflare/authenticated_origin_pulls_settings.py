@@ -23,6 +23,7 @@ class AuthenticatedOriginPullsSettingsArgs:
                  zone_id: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a AuthenticatedOriginPullsSettings resource.
+
         :param pulumi.Input[_builtins.bool] enabled: Indicates whether zone-level authenticated origin pulls is enabled.
         :param pulumi.Input[_builtins.str] zone_id: Identifier.
         """
@@ -61,6 +62,7 @@ class _AuthenticatedOriginPullsSettingsState:
                  zone_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering AuthenticatedOriginPullsSettings resources.
+
         :param pulumi.Input[_builtins.bool] enabled: Indicates whether zone-level authenticated origin pulls is enabled.
         :param pulumi.Input[_builtins.str] zone_id: Identifier.
         """
@@ -117,7 +119,8 @@ class AuthenticatedOriginPullsSettings(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -144,7 +147,8 @@ class AuthenticatedOriginPullsSettings(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param AuthenticatedOriginPullsSettingsArgs args: The arguments to use to populate this resource's properties.

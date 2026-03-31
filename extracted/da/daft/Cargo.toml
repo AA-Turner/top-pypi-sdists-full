@@ -62,6 +62,10 @@ default-features = false
 path = "src/daft-catalog"
 default-features = false
 
+[dependencies.daft-checkpoint]
+path = "src/daft-checkpoint"
+default-features = false
+
 [dependencies.daft-cli]
 path = "src/daft-cli"
 default-features = false
@@ -242,7 +246,7 @@ name = "daft"
 edition = "2024"
 name = "daft"
 publish = false
-version = "0.7.5"
+version = "0.7.6"
 exclude = ["examples/dvector", "tests/", "benchmarking/", "tutorials/", "k8s/", "ci/", "docs/", "assets/", "tools/", "*.md", "codecov.yml", "mkdocs.yml"]
 
 [package.metadata.cargo-machete]
@@ -279,12 +283,16 @@ debug = true
 [target."cfg(not(target_env = \"msvc\"))".dependencies.libc]
 workspace = true
 
+[target."cfg(not(target_env = \"msvc\"))".dependencies.tikv-jemalloc-ctl]
+version = "0.6.0"
+features = ["stats"]
+
 [target."cfg(not(target_env = \"msvc\"))".dependencies.tikv-jemallocator]
 version = "0.6.0"
 features = ["disable_initial_exec_tls"]
 
 [workspace]
-members = ["src/common/daft-config", "src/common/display", "src/common/error", "src/common/io-config", "src/common/macros", "src/common/pattern", "src/common/partitioning", "src/common/system-info", "src/common/treenode", "src/common/metrics", "src/daft-ai", "src/daft-algebra", "src/daft-catalog", "src/daft-context", "src/daft-core", "src/daft-csv", "src/daft-dashboard", "src/daft-dsl", "src/daft-ext-abi", "src/daft-ext-internal", "src/daft-file", "src/daft-functions", "src/daft-functions-binary", "src/daft-functions-json", "src/daft-functions-list", "src/daft-functions-uri", "src/daft-functions-tokenize", "src/daft-functions-utf8", "src/daft-functions-temporal", "src/daft-hash", "src/daft-image", "src/daft-io", "src/daft-json", "src/daft-local-execution", "src/daft-local-plan", "src/daft-logical-plan", "src/daft-micropartition", "src/daft-parquet", "src/daft-runners", "src/daft-scan", "src/daft-session", "src/daft-shuffles", "src/daft-sketch", "src/daft-sql", "src/daft-recordbatch", "src/daft-warc", "src/daft-writers", "src/hyperloglog", "src/daft-cli", "src/daft-text"]
+members = ["src/common/daft-config", "src/common/display", "src/common/error", "src/common/io-config", "src/common/macros", "src/common/pattern", "src/common/partitioning", "src/common/system-info", "src/common/treenode", "src/common/metrics", "src/daft-ai", "src/daft-algebra", "src/daft-catalog", "src/daft-checkpoint", "src/daft-context", "src/daft-core", "src/daft-csv", "src/daft-dashboard", "src/daft-dsl", "src/daft-ext", "src/daft-ext-internal", "src/daft-ext-macros", "src/daft-file", "src/daft-functions", "src/daft-functions-binary", "src/daft-functions-json", "src/daft-functions-list", "src/daft-functions-uri", "src/daft-functions-tokenize", "src/daft-functions-utf8", "src/daft-functions-temporal", "src/daft-hash", "src/daft-image", "src/daft-io", "src/daft-json", "src/daft-local-execution", "src/daft-local-plan", "src/daft-logical-plan", "src/daft-micropartition", "src/daft-parquet", "src/daft-runners", "src/daft-scan", "src/daft-session", "src/daft-shuffles", "src/daft-sketch", "src/daft-sql", "src/daft-recordbatch", "src/daft-warc", "src/daft-writers", "src/hyperloglog", "src/daft-cli", "src/daft-text"]
 exclude = ["examples/hello"]
 
 [workspace.dependencies]
@@ -333,12 +341,12 @@ pretty_assertions = "1.4.1"
 proptest = "1.9.0"
 prost = "0.13.5"
 prost-types = "0.13.5"
-rand = "^0.8"
+rand = "^0.9"
 rayon = "1.11.0"
 regex = "1.12.2"
 rstest = "0.26.1"
 serde_json = "1.0.145"
-sha1 = "0.11.0-rc.3"
+sha1 = "0.10.6"
 simdutf8 = "0.1.5"
 sqlparser = "0.59.0"
 sysinfo = "0.38.4"
@@ -351,6 +359,7 @@ tonic = "0.14.2"
 tonic-build = "0.14.2"
 typetag = "0.2.21"
 url = "2.4.0"
+hex = "0.4.3"
 
 [workspace.dependencies.arrow-array]
 version = "57.1.0"
@@ -413,20 +422,16 @@ path = "src/daft-core"
 [workspace.dependencies.daft-dsl]
 path = "src/daft-dsl"
 
-[workspace.dependencies.daft-ext-abi]
-path = "src/daft-ext-abi"
-
-[workspace.dependencies.daft-ext-core]
-path = "src/daft-ext-core"
-
 [workspace.dependencies.daft-ext-internal]
 path = "src/daft-ext-internal"
 
 [workspace.dependencies.daft-ext-macros]
 path = "src/daft-ext-macros"
+version = "0.1.1"
 
 [workspace.dependencies.daft-ext]
 path = "src/daft-ext"
+version = "0.1.1"
 
 [workspace.dependencies.daft-file]
 path = "src/daft-file"
@@ -676,4 +681,4 @@ priority = 1
 
 [workspace.package]
 edition = "2024"
-version = "0.7.5"
+version = "0.7.6"

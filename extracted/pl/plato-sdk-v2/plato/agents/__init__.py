@@ -67,6 +67,8 @@ __all__ = [
     # Runner
     "run_agent",
     "AgentRunner",
+    "ParallelAgentOrchestrator",
+    "ParallelAgentResult",
     # Artifacts
     "zip_directory",
     "upload_artifacts",
@@ -94,6 +96,7 @@ from plato.agents.base import (
     register_agent,
 )
 from plato.agents.config import AgentConfig
+from plato.agents.parallel import ParallelAgentOrchestrator, ParallelAgentResult
 from plato.agents.runner import AgentRunner, run_agent
 from plato.markers import Secret
 from plato.otel import (

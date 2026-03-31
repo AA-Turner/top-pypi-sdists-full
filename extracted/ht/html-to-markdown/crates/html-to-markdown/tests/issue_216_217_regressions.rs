@@ -7,7 +7,12 @@
 //! fresh String buffer while inheriting a parent context with `block_content_start`
 //! set by a paragraph handler, the index points into the wrong buffer.
 
-use html_to_markdown_rs::convert;
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
+}
 
 /// Minimal reproducer: a <details> containing a <p> with <strong> inside.
 /// The <details> handler collects into a fresh buffer, the <p> sets

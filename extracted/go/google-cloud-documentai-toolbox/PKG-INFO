@@ -1,7 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: google-cloud-documentai-toolbox
-Version: 0.15.0a0
-Home-page: https://github.com/googleapis/python-documentai-toolbox
+Version: 0.15.1a1
+Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-documentai-toolbox
 Author: Google LLC
 Author-email: googleapis-packages@google.com
 License: Apache 2.0
@@ -9,7 +9,6 @@ Platform: Posix; MacOS X; Windows
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -18,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: google-api-core<3.0.0,>=2.15.0
@@ -28,7 +27,7 @@ Requires-Dist: tabulate<1.0.0,>=0.9.0
 Requires-Dist: proto-plus<2.0.0,>=1.22.3
 Requires-Dist: proto-plus<2.0.0,>=1.25.0; python_version >= "3.13"
 Requires-Dist: grpc-google-iam-v1<1.0.0,>=0.12.6
-Requires-Dist: google-cloud-bigquery<4.0.0,>=3.5.0
+Requires-Dist: google-cloud-bigquery<4.0.0,>=3.14.0
 Requires-Dist: google-cloud-documentai<4.0.0,>=2.29.2
 Requires-Dist: google-cloud-storage<4.0.0,>=1.31.0
 Requires-Dist: google-cloud-vision<4.0.0,>=2.7.0
@@ -38,6 +37,17 @@ Requires-Dist: pikepdf<11.0.0,>=8.0.0
 Requires-Dist: immutabledict<5.0.0,>=2.0.0
 Requires-Dist: Pillow<12.0.0,>=10.0.0
 Requires-Dist: Jinja2<4.0.0,>=3.1.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: requires-python
 
 Document AI Toolbox
 =================================
@@ -104,24 +114,14 @@ Supported Python Versions
 Our client libraries are compatible with all current `active`_ and `maintenance`_ versions of
 Python.
 
-Python >= 3.8
+Python >= 3.9
 
 .. _active: https://devguide.python.org/devcycle/#in-development-main-branch
 .. _maintenance: https://devguide.python.org/devcycle/#maintenance-branches
 
 Unsupported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Python <= 3.7
-
-**NOTE**:
-Python 3.7 was marked as `unsupported`_ by the python community in June 2023.
-We recommend that all developers upgrade to Python 3.8 and newer as soon as
-they can. Support for Python 3.7 will be removed from all client libraries after
-January 1 2024. Client libraries that support Python 3.7 will continue to be available
-for download, but releases after January 1 2024 will only target Python 3.8 and
-newer.
-
-.. _unsupported: https://devguide.python.org/versions/#unsupported-versions
+Python <= 3.8
 
 If you are using an `end-of-life`_
 version of Python, we recommend that you update as soon as possible to an actively supported version.
@@ -162,4 +162,4 @@ Next Steps
 .. _`Client Library Documentation`: https://cloud.google.com/python/docs/reference/documentai-toolbox/latest
 .. _`Document AI documentation`:  https://cloud.google.com/document-ai
 .. _`Document AI product documentation`: https://cloud.google.com/document-ai/docs/overview
-.. _`README`: https://github.com/googleapis/python-documentai-toolbox/blob/main/README.rst
+.. _`README`: https://github.com/googleapis/google-cloud-python/blob/main/README.rst

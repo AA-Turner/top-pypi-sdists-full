@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-core
-Version: 1.0.0rc5
+Version: 1.0.0rc6
 Summary: Microsoft Agent Framework for building AI Agents with Python. This is the core package that has all the core abstractions and implementations.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -20,17 +20,12 @@ Requires-Dist: typing-extensions>=4.15.0,<5
 Requires-Dist: pydantic>=2,<3
 Requires-Dist: python-dotenv>=1,<2
 Requires-Dist: opentelemetry-api>=1.39.0,<2
-Requires-Dist: opentelemetry-sdk>=1.39.0,<2
-Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.13,<0.4.14
-Requires-Dist: openai>=1.99.0,<3
-Requires-Dist: azure-identity>=1,<2
-Requires-Dist: azure-ai-projects>=2.0.0,<3.0
-Requires-Dist: mcp[ws]>=1.24.0,<2
-Requires-Dist: packaging>=24.1,<25
+Requires-Dist: mcp>=1.24.0,<2 ; extra == "all"
 Requires-Dist: agent-framework-a2a ; extra == "all"
 Requires-Dist: agent-framework-ag-ui ; extra == "all"
 Requires-Dist: agent-framework-azure-ai-search ; extra == "all"
 Requires-Dist: agent-framework-anthropic ; extra == "all"
+Requires-Dist: agent-framework-openai ; extra == "all"
 Requires-Dist: agent-framework-claude ; extra == "all"
 Requires-Dist: agent-framework-azure-ai ; extra == "all"
 Requires-Dist: agent-framework-azurefunctions ; extra == "all"
@@ -40,6 +35,7 @@ Requires-Dist: agent-framework-copilotstudio ; extra == "all"
 Requires-Dist: agent-framework-declarative ; extra == "all"
 Requires-Dist: agent-framework-devui ; extra == "all"
 Requires-Dist: agent-framework-durabletask ; extra == "all"
+Requires-Dist: agent-framework-foundry ; extra == "all"
 Requires-Dist: agent-framework-foundry-local ; extra == "all"
 Requires-Dist: agent-framework-github-copilot ; extra == "all" and ( python_version >= '3.11')
 Requires-Dist: agent-framework-lab ; extra == "all"
@@ -70,8 +66,8 @@ Highlights
 
 ```bash
 pip install agent-framework-core --pre
-# Optional: Add Azure AI integration
-pip install agent-framework-azure-ai --pre
+# Optional: Add Azure AI Foundry integration
+pip install agent-framework-foundry --pre
 ```
 
 Supported Platforms:
@@ -85,15 +81,15 @@ Set as environment variables, or create a .env file at your project root:
 
 ```bash
 OPENAI_API_KEY=sk-...
-OPENAI_CHAT_MODEL_ID=...
-OPENAI_RESPONSES_MODEL_ID=...
+OPENAI_CHAT_MODEL=...
+OPENAI_RESPONSES_MODEL=...
 ...
 AZURE_OPENAI_API_KEY=...
 AZURE_OPENAI_ENDPOINT=...
 AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=...
 ...
-AZURE_AI_PROJECT_ENDPOINT=...
-AZURE_AI_MODEL_DEPLOYMENT_NAME=...
+FOUNDRY_PROJECT_ENDPOINT=...
+FOUNDRY_MODEL=...
 ```
 
 You can also override environment variables by explicitly passing configuration parameters to the chat client constructor:

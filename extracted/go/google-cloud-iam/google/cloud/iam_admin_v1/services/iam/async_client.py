@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+import warnings
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -28,15 +29,14 @@ from typing import (
     Type,
     Union,
 )
-import warnings
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.iam_admin_v1 import gapic_version as package_version
 
@@ -45,9 +45,9 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 
 from google.cloud.iam_admin_v1.services.iam import pagers
 from google.cloud.iam_admin_v1.types import iam
@@ -140,7 +140,10 @@ class IAMAsyncClient:
         Returns:
             IAMAsyncClient: The constructed client.
         """
-        return IAMClient.from_service_account_info.__func__(IAMAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            IAMClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(IAMAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -156,7 +159,10 @@ class IAMAsyncClient:
         Returns:
             IAMAsyncClient: The constructed client.
         """
-        return IAMClient.from_service_account_file.__func__(IAMAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            IAMClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(IAMAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -206,7 +212,7 @@ class IAMAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -2570,7 +2576,7 @@ class IAMAsyncClient:
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import iam_admin_v1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             async def sample_get_iam_policy():
                 # Create a client
@@ -2730,7 +2736,7 @@ class IAMAsyncClient:
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import iam_admin_v1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             async def sample_set_iam_policy():
                 # Create a client
@@ -2870,7 +2876,7 @@ class IAMAsyncClient:
             #   client as shown in:
             #   https://googleapis.dev/python/google-api-core/latest/client_options.html
             from google.cloud import iam_admin_v1
-            from google.iam.v1 import iam_policy_pb2  # type: ignore
+            import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
 
             async def sample_test_iam_permissions():
                 # Create a client

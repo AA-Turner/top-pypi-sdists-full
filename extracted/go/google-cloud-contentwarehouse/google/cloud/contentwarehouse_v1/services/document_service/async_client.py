@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import logging as std_logging
 import re
+from collections import OrderedDict
 from typing import (
     Callable,
     Dict,
@@ -29,13 +29,13 @@ from typing import (
     Union,
 )
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
 from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
 from google.cloud.contentwarehouse_v1 import gapic_version as package_version
 
@@ -44,18 +44,19 @@ try:
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.longrunning.operations_pb2 as operations_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 from google.cloud.documentai_v1.types import document as gcd_document
-from google.iam.v1 import policy_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 
 from google.cloud.contentwarehouse_v1.services.document_service import pagers
 from google.cloud.contentwarehouse_v1.types import (
+    common,
     document_service,
     document_service_request,
     rule_engine,
 )
-from google.cloud.contentwarehouse_v1.types import common
 from google.cloud.contentwarehouse_v1.types import document as gcc_document
 
 from .client import DocumentServiceClient
@@ -130,7 +131,10 @@ class DocumentServiceAsyncClient:
         Returns:
             DocumentServiceAsyncClient: The constructed client.
         """
-        return DocumentServiceClient.from_service_account_info.__func__(DocumentServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            DocumentServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(DocumentServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -146,7 +150,10 @@ class DocumentServiceAsyncClient:
         Returns:
             DocumentServiceAsyncClient: The constructed client.
         """
-        return DocumentServiceClient.from_service_account_file.__func__(DocumentServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            DocumentServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(DocumentServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -196,7 +203,7 @@ class DocumentServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:
@@ -1292,7 +1299,7 @@ class DocumentServiceAsyncClient:
 
     async def get_operation(
         self,
-        request: Optional[operations_pb2.GetOperationRequest] = None,
+        request: Optional[Union[operations_pb2.GetOperationRequest, dict]] = None,
         *,
         retry: OptionalRetry = gapic_v1.method.DEFAULT,
         timeout: Union[float, object] = gapic_v1.method.DEFAULT,
@@ -1318,8 +1325,12 @@ class DocumentServiceAsyncClient:
         # Create or coerce a protobuf request object.
         # The request isn't a proto-plus wrapped type,
         # so it must be constructed via keyword expansion.
-        if isinstance(request, dict):
-            request = operations_pb2.GetOperationRequest(**request)
+        if request is None:
+            request_pb = operations_pb2.GetOperationRequest()
+        elif isinstance(request, dict):
+            request_pb = operations_pb2.GetOperationRequest(**request)
+        else:
+            request_pb = request
 
         # Wrap the RPC method; this adds retry and timeout information,
         # and friendly error handling.
@@ -1328,7 +1339,7 @@ class DocumentServiceAsyncClient:
         # Certain fields should be provided within the metadata header;
         # add these here.
         metadata = tuple(metadata) + (
-            gapic_v1.routing_header.to_grpc_metadata((("name", request.name),)),
+            gapic_v1.routing_header.to_grpc_metadata((("name", request_pb.name),)),
         )
 
         # Validate the universe domain.
@@ -1336,7 +1347,7 @@ class DocumentServiceAsyncClient:
 
         # Send the request.
         response = await rpc(
-            request,
+            request_pb,
             retry=retry,
             timeout=timeout,
             metadata=metadata,

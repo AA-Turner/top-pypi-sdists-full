@@ -16,23 +16,23 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
-from google.cloud.bigquery_connection_v1.types import connection as gcbc_connection
 from google.cloud.bigquery_connection_v1.types import connection
+from google.cloud.bigquery_connection_v1.types import connection as gcbc_connection
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
 from .rest_base import _BaseConnectionServiceRestTransport
@@ -561,6 +561,12 @@ class ConnectionServiceRestTransport(_BaseConnectionServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[ConnectionServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -642,9 +648,7 @@ class ConnectionServiceRestTransport(_BaseConnectionServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseConnectionServiceRestTransport._BaseCreateConnection._get_http_options()
-            )
+            http_options = _BaseConnectionServiceRestTransport._BaseCreateConnection._get_http_options()
 
             request, metadata = self._interceptor.pre_create_connection(
                 request, metadata
@@ -791,9 +795,7 @@ class ConnectionServiceRestTransport(_BaseConnectionServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseConnectionServiceRestTransport._BaseDeleteConnection._get_http_options()
-            )
+            http_options = _BaseConnectionServiceRestTransport._BaseDeleteConnection._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_connection(
                 request, metadata
@@ -815,7 +817,7 @@ class ConnectionServiceRestTransport(_BaseConnectionServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -908,9 +910,7 @@ class ConnectionServiceRestTransport(_BaseConnectionServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseConnectionServiceRestTransport._BaseGetConnection._get_http_options()
-            )
+            http_options = _BaseConnectionServiceRestTransport._BaseGetConnection._get_http_options()
 
             request, metadata = self._interceptor.pre_get_connection(request, metadata)
             transcoded_request = _BaseConnectionServiceRestTransport._BaseGetConnection._get_transcoded_request(
@@ -1128,9 +1128,7 @@ class ConnectionServiceRestTransport(_BaseConnectionServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseConnectionServiceRestTransport._BaseGetIamPolicy._get_http_options()
-            )
+            http_options = _BaseConnectionServiceRestTransport._BaseGetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_get_iam_policy(request, metadata)
             transcoded_request = _BaseConnectionServiceRestTransport._BaseGetIamPolicy._get_transcoded_request(
@@ -1281,9 +1279,7 @@ class ConnectionServiceRestTransport(_BaseConnectionServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseConnectionServiceRestTransport._BaseListConnections._get_http_options()
-            )
+            http_options = _BaseConnectionServiceRestTransport._BaseListConnections._get_http_options()
 
             request, metadata = self._interceptor.pre_list_connections(
                 request, metadata
@@ -1505,9 +1501,7 @@ class ConnectionServiceRestTransport(_BaseConnectionServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseConnectionServiceRestTransport._BaseSetIamPolicy._get_http_options()
-            )
+            http_options = _BaseConnectionServiceRestTransport._BaseSetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_set_iam_policy(request, metadata)
             transcoded_request = _BaseConnectionServiceRestTransport._BaseSetIamPolicy._get_transcoded_request(
@@ -1656,9 +1650,7 @@ class ConnectionServiceRestTransport(_BaseConnectionServiceRestTransport):
                     Response message for ``TestIamPermissions`` method.
             """
 
-            http_options = (
-                _BaseConnectionServiceRestTransport._BaseTestIamPermissions._get_http_options()
-            )
+            http_options = _BaseConnectionServiceRestTransport._BaseTestIamPermissions._get_http_options()
 
             request, metadata = self._interceptor.pre_test_iam_permissions(
                 request, metadata
@@ -1813,9 +1805,7 @@ class ConnectionServiceRestTransport(_BaseConnectionServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseConnectionServiceRestTransport._BaseUpdateConnection._get_http_options()
-            )
+            http_options = _BaseConnectionServiceRestTransport._BaseUpdateConnection._get_http_options()
 
             request, metadata = self._interceptor.pre_update_connection(
                 request, metadata

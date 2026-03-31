@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ffmpeg-progress-yield
-Version: 1.1.2
+Version: 1.1.3
 Summary: Run an ffmpeg command with progress
 Keywords: ffmpeg
 Author: Werner Robitza

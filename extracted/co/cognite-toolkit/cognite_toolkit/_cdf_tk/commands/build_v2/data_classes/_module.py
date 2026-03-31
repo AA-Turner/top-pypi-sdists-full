@@ -154,6 +154,13 @@ class BuildSource(BaseModel):
     def total_files(self) -> int:
         return sum(module.total_files for module in self.modules)
 
+    @property
+    def all_variables(self) -> list[BuildVariable]:
+        variables: dict[Path, BuildVariable] = {}
+        for module in self.modules:
+            variables.update({variable.id: variable for variable in module.variables})
+        return list(variables.values())
+
 
 class ResourceType(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -167,9 +174,13 @@ class ResourceType(BaseModel):
         folder_name = self.resource_folder
         return RESOURCE_CRUD_BY_FOLDER_NAME_BY_KIND[folder_name][kind]
 
+    def __str__(self) -> str:
+        return f"{self.kind} ({self.resource_folder})"
+
 
 class ReadYAMLFile(BaseModel):
     source_path: AbsoluteFilePath
+    unresolved_variables: list[str] = Field(default_factory=list)
 
 
 class FailedReadYAMLFile(ReadYAMLFile):

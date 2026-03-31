@@ -1,26 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: langfuse
-Version: 4.0.1
+Version: 4.0.4
 Summary: A client library for accessing langfuse
-License: MIT
 Author: langfuse
-Author-email: developers@langfuse.com
-Requires-Python: >=3.10,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: backoff (>=1.10.0)
-Requires-Dist: httpx (>=0.15.4,<1.0)
-Requires-Dist: openai (>=0.27.8)
-Requires-Dist: opentelemetry-api (>=1.33.1,<2.0.0)
-Requires-Dist: opentelemetry-exporter-otlp-proto-http (>=1.33.1,<2.0.0)
-Requires-Dist: opentelemetry-sdk (>=1.33.1,<2.0.0)
-Requires-Dist: packaging (>=23.2,<26.0)
-Requires-Dist: pydantic (>=2,<3)
-Requires-Dist: wrapt (>=1.14,<2.0)
+Author-email: langfuse <developers@langfuse.com>
+License-Expression: MIT
+License-File: LICENSE
+Requires-Dist: httpx>=0.15.4,<1.0
+Requires-Dist: pydantic>=2,<3
+Requires-Dist: backoff>=1.10.0
+Requires-Dist: wrapt>=1.14,<2
+Requires-Dist: packaging>=23.2,<27.0
+Requires-Dist: opentelemetry-api>=1.33.1,<2
+Requires-Dist: opentelemetry-sdk>=1.33.1,<2
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.33.1,<2
+Requires-Python: >=3.10, <4.0
 Description-Content-Type: text/markdown
 
 ![Langfuse GitHub Banner](https://langfuse.com/langfuse_logo_white.png)
@@ -37,7 +31,7 @@ Description-Content-Type: text/markdown
 ## Installation
 
 > [!IMPORTANT]
-> The SDK was rewritten in v3 and released in June 2025. Refer to the [v3 migration guide](https://langfuse.com/docs/sdk/python/sdk-v3#upgrade-from-v2) for instructions on updating your code.
+> The SDK was rewritten in v4 and released in March 2026. Refer to the [v4 migration guide](https://langfuse.com/docs/observability/sdk/upgrade-path/python-v3-to-v4) for instructions on updating your code.
 
 ```
 pip install langfuse
@@ -46,4 +40,3 @@ pip install langfuse
 ## Docs
 
 Please [see our docs](https://langfuse.com/docs/sdk/python/sdk-v3) for detailed information on this SDK.
-

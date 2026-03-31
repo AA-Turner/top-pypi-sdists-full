@@ -230,6 +230,7 @@ SoftwareDeploymentStatusType = Literal[
 ]
 StackAttributeType = Literal[
     "ACCESS_ENDPOINTS",
+    "CONTENT_REDIRECTION",
     "EMBED_HOST_DOMAINS",
     "FEEDBACK_URL",
     "IAM_ROLE_ARN",
@@ -375,6 +376,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",

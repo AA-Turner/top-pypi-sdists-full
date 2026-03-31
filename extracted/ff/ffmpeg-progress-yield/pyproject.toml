@@ -1,10 +1,10 @@
 [build-system]
-requires = ["uv_build>=0.8.14"]
+requires = ["uv_build>=0.8.14,<1.0.0"]
 build-backend = "uv_build"
 
 [project]
 name = "ffmpeg-progress-yield"
-version = "1.1.2"
+version = "1.1.3"
 description = "Run an ffmpeg command with progress"
 readme = "README.md"
 authors = [
@@ -42,15 +42,10 @@ dev = [
     "pytest>=8.3.2",
     "pytest-asyncio>=0.24.0",
     "ruff>=0.12.11",
-    "mypy",
     "types-tqdm",
     "pdoc>=15.0.4",
+    "ty>=0.0.24",
 ]
-
-[tool.mypy]
-python_version = "3.13"
-ignore_missing_imports = true
-exclude = ["build"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

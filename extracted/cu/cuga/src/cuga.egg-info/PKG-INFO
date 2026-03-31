@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cuga
-Version: 0.2.10
+Version: 0.2.11
 Summary: CUGA is an open-source generalist agent for the enterprise, supporting complex task execution on web and APIs, OpenAPI/MCP integrations, composable architecture, reasoning modes, and policy-aware features.
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://cuga.dev
@@ -42,12 +42,19 @@ Requires-Dist: a2a-sdk[http-server]>=0.3.22
 Requires-Dist: sqlite-vec>=0.1.6
 Requires-Dist: pgvector>=0.4.2
 Requires-Dist: asyncpg>=0.30
+Requires-Dist: PyJWT[crypto]>=2.10.0
+Requires-Dist: cryptography>=44.0.0
+Requires-Dist: hvac>=2.0.0
+Requires-Dist: boto3>=1.34.0
+Requires-Dist: openlit>=1.4.0
 Provides-Extra: evaluation
 Requires-Dist: rapidfuzz; extra == "evaluation"
 Provides-Extra: e2b
 Requires-Dist: e2b-code-interpreter>=2.4.1; extra == "e2b"
 Provides-Extra: memory
 Requires-Dist: mem0ai[extras]; extra == "memory"
+Provides-Extra: health
+Requires-Dist: cuga-oak-health; python_version >= "3.12" and extra == "health"
 Dynamic: license-file
 
 <picture>

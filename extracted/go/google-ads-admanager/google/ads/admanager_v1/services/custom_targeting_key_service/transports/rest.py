@@ -16,16 +16,16 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -660,6 +660,12 @@ class CustomTargetingKeyServiceRestTransport(
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[CustomTargetingKeyServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -743,15 +749,12 @@ class CustomTargetingKeyServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCustomTargetingKeyServiceRestTransport._BaseBatchActivateCustomTargetingKeys._get_http_options()
-            )
+            http_options = _BaseCustomTargetingKeyServiceRestTransport._BaseBatchActivateCustomTargetingKeys._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_batch_activate_custom_targeting_keys(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_batch_activate_custom_targeting_keys(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseCustomTargetingKeyServiceRestTransport._BaseBatchActivateCustomTargetingKeys._get_transcoded_request(
                 http_options, request
@@ -821,11 +824,10 @@ class CustomTargetingKeyServiceRestTransport(
 
             resp = self._interceptor.post_batch_activate_custom_targeting_keys(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_batch_activate_custom_targeting_keys_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_batch_activate_custom_targeting_keys_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -914,15 +916,12 @@ class CustomTargetingKeyServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCustomTargetingKeyServiceRestTransport._BaseBatchCreateCustomTargetingKeys._get_http_options()
-            )
+            http_options = _BaseCustomTargetingKeyServiceRestTransport._BaseBatchCreateCustomTargetingKeys._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_batch_create_custom_targeting_keys(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_batch_create_custom_targeting_keys(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseCustomTargetingKeyServiceRestTransport._BaseBatchCreateCustomTargetingKeys._get_transcoded_request(
                 http_options, request
@@ -992,11 +991,10 @@ class CustomTargetingKeyServiceRestTransport(
 
             resp = self._interceptor.post_batch_create_custom_targeting_keys(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_batch_create_custom_targeting_keys_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_batch_create_custom_targeting_keys_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1085,15 +1083,12 @@ class CustomTargetingKeyServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCustomTargetingKeyServiceRestTransport._BaseBatchDeactivateCustomTargetingKeys._get_http_options()
-            )
+            http_options = _BaseCustomTargetingKeyServiceRestTransport._BaseBatchDeactivateCustomTargetingKeys._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_batch_deactivate_custom_targeting_keys(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_batch_deactivate_custom_targeting_keys(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseCustomTargetingKeyServiceRestTransport._BaseBatchDeactivateCustomTargetingKeys._get_transcoded_request(
                 http_options, request
@@ -1152,9 +1147,7 @@ class CustomTargetingKeyServiceRestTransport(
                 raise core_exceptions.from_http_response(response)
 
             # Return the response
-            resp = (
-                custom_targeting_key_service.BatchDeactivateCustomTargetingKeysResponse()
-            )
+            resp = custom_targeting_key_service.BatchDeactivateCustomTargetingKeysResponse()
             pb_resp = custom_targeting_key_service.BatchDeactivateCustomTargetingKeysResponse.pb(
                 resp
             )
@@ -1163,11 +1156,10 @@ class CustomTargetingKeyServiceRestTransport(
 
             resp = self._interceptor.post_batch_deactivate_custom_targeting_keys(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_batch_deactivate_custom_targeting_keys_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_batch_deactivate_custom_targeting_keys_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1256,15 +1248,12 @@ class CustomTargetingKeyServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCustomTargetingKeyServiceRestTransport._BaseBatchUpdateCustomTargetingKeys._get_http_options()
-            )
+            http_options = _BaseCustomTargetingKeyServiceRestTransport._BaseBatchUpdateCustomTargetingKeys._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_batch_update_custom_targeting_keys(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_batch_update_custom_targeting_keys(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseCustomTargetingKeyServiceRestTransport._BaseBatchUpdateCustomTargetingKeys._get_transcoded_request(
                 http_options, request
@@ -1334,11 +1323,10 @@ class CustomTargetingKeyServiceRestTransport(
 
             resp = self._interceptor.post_batch_update_custom_targeting_keys(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_batch_update_custom_targeting_keys_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_batch_update_custom_targeting_keys_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -1424,9 +1412,7 @@ class CustomTargetingKeyServiceRestTransport(
                         The ``CustomTargetingKey`` resource.
             """
 
-            http_options = (
-                _BaseCustomTargetingKeyServiceRestTransport._BaseCreateCustomTargetingKey._get_http_options()
-            )
+            http_options = _BaseCustomTargetingKeyServiceRestTransport._BaseCreateCustomTargetingKey._get_http_options()
 
             request, metadata = self._interceptor.pre_create_custom_targeting_key(
                 request, metadata
@@ -1580,9 +1566,7 @@ class CustomTargetingKeyServiceRestTransport(
                     The ``CustomTargetingKey`` resource.
             """
 
-            http_options = (
-                _BaseCustomTargetingKeyServiceRestTransport._BaseGetCustomTargetingKey._get_http_options()
-            )
+            http_options = _BaseCustomTargetingKeyServiceRestTransport._BaseGetCustomTargetingKey._get_http_options()
 
             request, metadata = self._interceptor.pre_get_custom_targeting_key(
                 request, metadata
@@ -1736,9 +1720,7 @@ class CustomTargetingKeyServiceRestTransport(
 
             """
 
-            http_options = (
-                _BaseCustomTargetingKeyServiceRestTransport._BaseListCustomTargetingKeys._get_http_options()
-            )
+            http_options = _BaseCustomTargetingKeyServiceRestTransport._BaseListCustomTargetingKeys._get_http_options()
 
             request, metadata = self._interceptor.pre_list_custom_targeting_keys(
                 request, metadata
@@ -1891,9 +1873,7 @@ class CustomTargetingKeyServiceRestTransport(
                         The ``CustomTargetingKey`` resource.
             """
 
-            http_options = (
-                _BaseCustomTargetingKeyServiceRestTransport._BaseUpdateCustomTargetingKey._get_http_options()
-            )
+            http_options = _BaseCustomTargetingKeyServiceRestTransport._BaseUpdateCustomTargetingKey._get_http_options()
 
             request, metadata = self._interceptor.pre_update_custom_targeting_key(
                 request, metadata
@@ -2001,7 +1981,9 @@ class CustomTargetingKeyServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._BatchActivateCustomTargetingKeys(self._session, self._host, self._interceptor)  # type: ignore
+        return self._BatchActivateCustomTargetingKeys(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def batch_create_custom_targeting_keys(
@@ -2012,7 +1994,9 @@ class CustomTargetingKeyServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._BatchCreateCustomTargetingKeys(self._session, self._host, self._interceptor)  # type: ignore
+        return self._BatchCreateCustomTargetingKeys(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def batch_deactivate_custom_targeting_keys(
@@ -2023,7 +2007,9 @@ class CustomTargetingKeyServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._BatchDeactivateCustomTargetingKeys(self._session, self._host, self._interceptor)  # type: ignore
+        return self._BatchDeactivateCustomTargetingKeys(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def batch_update_custom_targeting_keys(
@@ -2034,7 +2020,9 @@ class CustomTargetingKeyServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._BatchUpdateCustomTargetingKeys(self._session, self._host, self._interceptor)  # type: ignore
+        return self._BatchUpdateCustomTargetingKeys(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_custom_targeting_key(
@@ -2045,7 +2033,9 @@ class CustomTargetingKeyServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateCustomTargetingKey(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateCustomTargetingKey(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_custom_targeting_key(
@@ -2067,7 +2057,9 @@ class CustomTargetingKeyServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListCustomTargetingKeys(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListCustomTargetingKeys(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_custom_targeting_key(
@@ -2078,7 +2070,9 @@ class CustomTargetingKeyServiceRestTransport(
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateCustomTargetingKey(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateCustomTargetingKey(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_operation(self):
@@ -2138,9 +2132,7 @@ class CustomTargetingKeyServiceRestTransport(
                 operations_pb2.Operation: Response from GetOperation method.
             """
 
-            http_options = (
-                _BaseCustomTargetingKeyServiceRestTransport._BaseGetOperation._get_http_options()
-            )
+            http_options = _BaseCustomTargetingKeyServiceRestTransport._BaseGetOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operation(request, metadata)
             transcoded_request = _BaseCustomTargetingKeyServiceRestTransport._BaseGetOperation._get_transcoded_request(

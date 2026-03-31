@@ -28,6 +28,11 @@ from dbt.adapters.fabric.fabric_relation import FabricRelation
 class FabricAdapter(SQLAdapter):
     ConnectionManager = FabricConnectionManager
     Column = FabricColumn
+
+    @classmethod
+    def quote(cls, identifier):
+        return "[{}]".format(identifier)
+
     AdapterSpecificConfigs = FabricConfigs
     Relation = FabricRelation
 

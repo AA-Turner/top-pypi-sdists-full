@@ -279,11 +279,20 @@ class Underscore:
                 if not isinstance(dest_dummy_scalar, pa.Scalar):
                     raise ValueError(f"The pseudoarg for cast should be a pyarrow scalar; got {dest_dummy_scalar}")
                 return UnderscoreCast(parent, cast(pa.Scalar, dest_dummy_scalar).type)
+            policies = (
+                [
+                    {"kind": UnderscoreFunction.POLICY_PROTO_TO_KIND[p.kind], **dict(p.params)}
+                    for p in node.call.policies
+                ]
+                if node.call.policies
+                else None
+            )
             return UnderscoreFunction(
                 func_name,
                 *[cls._from_proto(arg) for arg in args],
                 _chalk__repr_override=node.call.repr_override if node.call.HasField("repr_override") else None,
                 _chalk__expr_id=node.expr_id,
+                _chalk__policies=policies,
                 **{k: cls._from_proto(v) for k, v in node.call.kwargs.items()},
             )
         elif node.HasField("literal_value"):
@@ -557,6 +566,7 @@ class UnderscoreFunction(Underscore):
         *args: Any,
         _chalk__repr_override: Optional[str] = None,
         _chalk__expr_id: Optional[str] = None,
+        _chalk__policies: Optional[list[dict[str, Any]]] = None,
         **kwargs: Any,
     ):
         super().__init__(_chalk__expr_id)
@@ -567,6 +577,48 @@ class UnderscoreFunction(Underscore):
         self._chalk__args = [coerce_dtype_args_to_scalar(arg) for arg in args]
 
         self._chalk__function_name = name
+        self._chalk__policies: list[dict[str, Any]] = _chalk__policies or []
+
+    def _with_policy(self, kind: str, **params: Any) -> UnderscoreFunction:
+        new_policies = [*self._chalk__policies, {"kind": kind, **params}]
+        return UnderscoreFunction(
+            self._chalk__function_name,
+            *self._chalk__args,
+            _chalk__repr_override=self._chalk__repr_override,
+            _chalk__expr_id=self._chalk__expr_id,
+            _chalk__policies=new_policies,
+            **self._chalk__kwargs,
+        )
+
+    def with_concurrency(self, *, max_concurrent: int, key: str) -> UnderscoreFunction:
+        return self._with_policy("concurrency", max_concurrent=max_concurrent, key=key)
+
+    def with_rate_limit(self, *, rate: int, key: str, per: str = "second") -> UnderscoreFunction:
+        return self._with_policy("rate_limit", rate=rate, key=key, per=per)
+
+    def with_retry(
+        self,
+        *,
+        max_retries: int,
+        key: str,
+        initial_backoff_ms: int = 100,
+        backoff_multiplier: float = 2.0,
+        max_backoff_ms: int = 30000,
+    ) -> UnderscoreFunction:
+        return self._with_policy(
+            "retry",
+            max_retries=max_retries,
+            key=key,
+            initial_backoff_ms=initial_backoff_ms,
+            backoff_multiplier=backoff_multiplier,
+            max_backoff_ms=max_backoff_ms,
+        )
+
+    def with_logging(self, *, key: str, level: str = "info", log_args: bool = False) -> UnderscoreFunction:
+        return self._with_policy("logging", key=key, level=level, log_args=log_args)
+
+    def with_cache(self, *, key: str) -> UnderscoreFunction:
+        return self._with_policy("cache", key=key)
 
     @classmethod
     def with_f_dot_repr(
@@ -604,7 +656,24 @@ class UnderscoreFunction(Underscore):
             fn.append(")")
             return "".join(fn)
 
+    POLICY_KIND_TO_PROTO = {
+        "concurrency": expr_pb2.EXPR_POLICY_KIND_CONCURRENCY,
+        "rate_limit": expr_pb2.EXPR_POLICY_KIND_RATE_LIMIT,
+        "retry": expr_pb2.EXPR_POLICY_KIND_RETRY,
+        "logging": expr_pb2.EXPR_POLICY_KIND_LOGGING,
+        "cache": expr_pb2.EXPR_POLICY_KIND_CACHE,
+    }
+
+    POLICY_PROTO_TO_KIND = {v: k for k, v in POLICY_KIND_TO_PROTO.items()}
+
     def _to_proto(self) -> expr_pb2.LogicalExprNode:
+        policies_proto = [
+            expr_pb2.ExprPolicy(
+                kind=self.POLICY_KIND_TO_PROTO[p["kind"]],
+                params={k: str(v) for k, v in p.items() if k != "kind"},
+            )
+            for p in self._chalk__policies
+        ]
         return expr_pb2.LogicalExprNode(
             expr_id=self._chalk__expr_id,
             call=expr_pb2.ExprCall(
@@ -612,6 +681,7 @@ class UnderscoreFunction(Underscore):
                 args=[convert_value_to_proto_expr(x) for x in self._chalk__args],
                 kwargs={k: convert_value_to_proto_expr(v) for (k, v) in self._chalk__kwargs.items()},
                 repr_override=self._chalk__repr_override,
+                policies=policies_proto,
             ),
         )
 
@@ -638,6 +708,8 @@ class UnderscoreFunction(Underscore):
 
             if not _are_args_equal(x, y):
                 return False
+        if self._chalk__policies != other._chalk__policies:
+            return False
         return True
 
     def __bool__(self):

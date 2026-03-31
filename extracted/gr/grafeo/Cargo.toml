@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/grafeo-common", "crates/grafeo-core", "crates/grafeo-adapters", "crates/grafeo-engine", "crates/bindings/python", "crates/bindings/common"]
 
 [workspace.package]
-version = "0.5.29"
+version = "0.5.30"
 edition = "2024"
 rust-version = "1.91.1"
 license = "Apache-2.0"
@@ -13,12 +13,12 @@ description = "A high-performance, embeddable graph database with support for LP
 
 [workspace.dependencies]
 # Internal crates (default-features = false to allow per-crate control)
-grafeo-common = { path = "crates/grafeo-common", version = "0.5.29" }
-grafeo-core = { path = "crates/grafeo-core", version = "0.5.29", default-features = false }
-grafeo-adapters = { path = "crates/grafeo-adapters", version = "0.5.29", default-features = false }
-grafeo-engine = { path = "crates/grafeo-engine", version = "0.5.29", default-features = false }
-grafeo = { path = "crates/grafeo", version = "0.5.29" }
-grafeo-bindings-common = { path = "crates/bindings/common", version = "0.5.29", default-features = false }
+grafeo-common = { path = "crates/grafeo-common", version = "0.5.30" }
+grafeo-core = { path = "crates/grafeo-core", version = "0.5.30", default-features = false }
+grafeo-adapters = { path = "crates/grafeo-adapters", version = "0.5.30", default-features = false }
+grafeo-engine = { path = "crates/grafeo-engine", version = "0.5.30", default-features = false }
+grafeo = { path = "crates/grafeo", version = "0.5.30" }
+grafeo-bindings-common = { path = "crates/bindings/common", version = "0.5.30", default-features = false }
 
 # Error handling
 thiserror = "2.0"
@@ -47,8 +47,8 @@ fs2 = "0.4"
 crc32fast = "1"
 foldhash = "0.2"
 md5 = "0.8"
-sha1 = "0.10"
-sha2 = "0.10"
+sha1 = "0.11"
+sha2 = "0.11"
 
 # Serialization
 serde = { version = "1.0", features = ["derive", "rc"] }

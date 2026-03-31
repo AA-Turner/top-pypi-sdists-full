@@ -65,6 +65,8 @@ from .type_defs import (
     CreateLogAnomalyDetectorResponseTypeDef,
     CreateLogGroupRequestTypeDef,
     CreateLogStreamRequestTypeDef,
+    CreateLookupTableRequestTypeDef,
+    CreateLookupTableResponseTypeDef,
     CreateScheduledQueryRequestTypeDef,
     CreateScheduledQueryResponseTypeDef,
     DeleteAccountPolicyRequestTypeDef,
@@ -79,6 +81,7 @@ from .type_defs import (
     DeleteLogAnomalyDetectorRequestTypeDef,
     DeleteLogGroupRequestTypeDef,
     DeleteLogStreamRequestTypeDef,
+    DeleteLookupTableRequestTypeDef,
     DeleteMetricFilterRequestTypeDef,
     DeleteQueryDefinitionRequestTypeDef,
     DeleteQueryDefinitionResponseTypeDef,
@@ -113,6 +116,8 @@ from .type_defs import (
     DescribeLogGroupsResponseTypeDef,
     DescribeLogStreamsRequestTypeDef,
     DescribeLogStreamsResponseTypeDef,
+    DescribeLookupTablesRequestTypeDef,
+    DescribeLookupTablesResponseTypeDef,
     DescribeMetricFiltersRequestTypeDef,
     DescribeMetricFiltersResponseTypeDef,
     DescribeQueriesRequestTypeDef,
@@ -153,6 +158,8 @@ from .type_defs import (
     GetLogObjectResponseTypeDef,
     GetLogRecordRequestTypeDef,
     GetLogRecordResponseTypeDef,
+    GetLookupTableRequestTypeDef,
+    GetLookupTableResponseTypeDef,
     GetQueryResultsRequestTypeDef,
     GetQueryResultsResponseTypeDef,
     GetScheduledQueryHistoryRequestTypeDef,
@@ -227,6 +234,8 @@ from .type_defs import (
     UpdateAnomalyRequestTypeDef,
     UpdateDeliveryConfigurationRequestTypeDef,
     UpdateLogAnomalyDetectorRequestTypeDef,
+    UpdateLookupTableRequestTypeDef,
+    UpdateLookupTableResponseTypeDef,
     UpdateScheduledQueryRequestTypeDef,
     UpdateScheduledQueryResponseTypeDef,
 )
@@ -406,6 +415,16 @@ class CloudWatchLogsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#create_log_stream)
         """
 
+    def create_lookup_table(
+        self, **kwargs: Unpack[CreateLookupTableRequestTypeDef]
+    ) -> CreateLookupTableResponseTypeDef:
+        """
+        Creates a lookup table by uploading CSV data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/create_lookup_table.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#create_lookup_table)
+        """
+
     def create_scheduled_query(
         self, **kwargs: Unpack[CreateScheduledQueryRequestTypeDef]
     ) -> CreateScheduledQueryResponseTypeDef:
@@ -539,6 +558,16 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/delete_log_stream.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#delete_log_stream)
+        """
+
+    def delete_lookup_table(
+        self, **kwargs: Unpack[DeleteLookupTableRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a lookup table permanently.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/delete_lookup_table.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#delete_lookup_table)
         """
 
     def delete_metric_filter(
@@ -747,6 +776,16 @@ class CloudWatchLogsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#describe_log_streams)
         """
 
+    def describe_lookup_tables(
+        self, **kwargs: Unpack[DescribeLookupTablesRequestTypeDef]
+    ) -> DescribeLookupTablesResponseTypeDef:
+        """
+        Retrieves metadata about lookup tables in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/describe_lookup_tables.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#describe_lookup_tables)
+        """
+
     def describe_metric_filters(
         self, **kwargs: Unpack[DescribeMetricFiltersRequestTypeDef]
     ) -> DescribeMetricFiltersResponseTypeDef:
@@ -952,6 +991,16 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_log_record.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#get_log_record)
+        """
+
+    def get_lookup_table(
+        self, **kwargs: Unpack[GetLookupTableRequestTypeDef]
+    ) -> GetLookupTableResponseTypeDef:
+        """
+        Retrieves the full content of a lookup table, including the CSV data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_lookup_table.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#get_lookup_table)
         """
 
     def get_query_results(
@@ -1410,6 +1459,16 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/update_log_anomaly_detector.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#update_log_anomaly_detector)
+        """
+
+    def update_lookup_table(
+        self, **kwargs: Unpack[UpdateLookupTableRequestTypeDef]
+    ) -> UpdateLookupTableResponseTypeDef:
+        """
+        Updates an existing lookup table by replacing all of its CSV content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/update_lookup_table.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#update_lookup_table)
         """
 
     def update_scheduled_query(

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import hashlib
+import datetime
 import inspect
 import json
 import os
 import re
-import shutil
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional
+from urllib.parse import urlencode
 
-from abstra_internals.constants import get_public_dir
-from abstra_internals.environment import IS_DEVELOPMENT
+import jwt as pyjwt
+
+from abstra_internals.environment import CLOUD_API_PROD_SHARED_TOKEN, IS_DEVELOPMENT
 from abstra_internals.interface.sdk import user_exceptions
 from abstra_internals.repositories.users import UsersRepository
 from abstra_internals.services.jwt import UserClaims
@@ -46,20 +47,22 @@ class PageSDKController:
         if not source.is_file():
             raise FileNotFoundError(f"Static file not found: {file_path}")
 
-        content_hash = hashlib.md5(source.read_bytes()).hexdigest()[:12]
-        hashed_name = f"{source.stem}.{content_hash}{source.suffix}"
-
-        public_dir = get_public_dir()
-        public_dir.mkdir(parents=True, exist_ok=True)
-        dest = public_dir / hashed_name
-
-        if not dest.exists():
-            shutil.copy2(source, dest)
+        relative = str(source)
+        token = pyjwt.encode(
+            {
+                "asset": relative,
+                "exp": datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(hours=24),
+            },
+            key=CLOUD_API_PROD_SHARED_TOKEN,
+            algorithm="HS256",
+        )
 
         page_path = self.client.context.page_path
+        query = urlencode({"token": token})
         if page_path:
-            return f"/_page/{page_path}/_static/{hashed_name}"
-        return f"/_page-home/_static/{hashed_name}"
+            return f"/_page/{page_path}/{relative}?{query}"
+        return f"/_page-home/{relative}?{query}"
 
     def handle_request(self) -> None:
         request = self.client.get_request()

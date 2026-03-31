@@ -26,6 +26,7 @@ class RegistrarDomainArgs:
                  privacy: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a RegistrarDomain resource.
+
         :param pulumi.Input[_builtins.str] account_id: Identifier
         :param pulumi.Input[_builtins.str] domain_name: Domain name.
         :param pulumi.Input[_builtins.bool] auto_renew: Auto-renew controls whether subscription is automatically renewed upon domain expiration.
@@ -112,6 +113,7 @@ class _RegistrarDomainState:
                  privacy: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering RegistrarDomain resources.
+
         :param pulumi.Input[_builtins.str] account_id: Identifier
         :param pulumi.Input[_builtins.bool] auto_renew: Auto-renew controls whether subscription is automatically renewed upon domain expiration.
         :param pulumi.Input[_builtins.str] domain_name: Domain name.
@@ -219,7 +221,8 @@ class RegistrarDomain(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -252,7 +255,8 @@ class RegistrarDomain(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param RegistrarDomainArgs args: The arguments to use to populate this resource's properties.

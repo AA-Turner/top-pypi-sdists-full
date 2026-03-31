@@ -1,6 +1,12 @@
-//! Example: Testing inline formatting (bold, italic, code, etc.)
+#![allow(missing_docs)]
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
+}
 
-use html_to_markdown_rs::{ConversionOptions, convert};
+use html_to_markdown_rs::ConversionOptions;
 
 fn main() {
     let html = "<p>This is <mark>highlighted</mark> text</p>";

@@ -203,9 +203,15 @@ class CompanyReport:
         """Generate cross-cutting context for specific topic(s).
 
         Pulls statement line items, note content, and policies together.
+
+        Args:
+            focus: Topic or list of topics
+            detail: 'minimal', 'standard', or 'full'
         """
         if isinstance(focus, str):
             focus = [focus]
+
+        notes = self.notes
 
         form_label = self.form or 'Filing'
         lines = []
@@ -220,7 +226,6 @@ class CompanyReport:
             pass
         lines.append("")
 
-        notes = self.notes
         if not notes:
             lines.append("(No notes available)")
             return "\n".join(lines)

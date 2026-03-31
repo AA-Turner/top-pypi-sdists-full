@@ -2,7 +2,7 @@
 # The bug was that the other "else" constant propagated removed.
 
 # NOTE: this program needs to be compile with optimization
-def _cmp (b, c):
+def _cmp (b, c) -> int:
     if b:
         if c:
             return 0

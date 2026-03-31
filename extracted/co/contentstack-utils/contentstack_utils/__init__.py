@@ -31,6 +31,6 @@ __all__ = (
 __title__ = 'contentstack_utils'
 __author__ = 'contentstack'
 __status__ = 'debug'
-__version__ = '1.3.2'
+__version__ = '1.4.0'
 __endpoint__ = 'cdn.contentstack.io'
 __contact__ = 'support@contentstack.com'

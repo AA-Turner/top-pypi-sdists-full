@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azdev
-Version: 0.2.8
+Version: 0.2.9
 Summary: Microsoft Azure CLI Developer Tools
 Home-page: https://github.com/Azure/azure-cli-dev-tools
 Author: Microsoft Corporation
@@ -122,6 +122,49 @@ Setting up your development environment
 
     This will launch the interactive setup process. To see non-interactive options run `azdev setup -h`.
 
+Latest packaged indices
++++++++++++++++++++++++
+
+Use azdev wrappers around Azure CLI's latest index generation script:
+
+::
+
+    azdev latest-index generate
+    azdev latest-index verify
+
+You can pass an explicit Azure CLI checkout path when needed:
+
+::
+
+    azdev latest-index generate --cli /path/to/azure-cli
+    azdev latest-index verify --repo /path/to/azure-cli
+
+``azdev latest-index verify`` exits non-zero when generated output differs from checked-in
+``commandIndex.latest.json`` or ``helpIndex.latest.json``.
+
+Common azdev commands
++++++++++++++++++++++++++++++
+
+This README is not an exhaustive command reference. For the complete command surface, use:
+
+::
+
+    azdev --help
+    azdev <group> --help
+
+Frequently used commands include:
+
+::
+
+    azdev setup
+    azdev style <module-or-extension>
+    azdev linter <module-or-extension>
+    azdev test <module-or-extension>
+    azdev extension add <extension-name>
+    azdev extension build <extension-name>
+    azdev latest-index generate
+    azdev latest-index verify
+
 Reporting issues and feedback
 +++++++++++++++++++++++++++++
 
@@ -160,6 +203,10 @@ License
 
 Release History
 ===============
+0.2.9
++++++
+* `azdev latest-index`: Add `generate` and `verify` commands to manage Azure CLI packaged latest indices (`commandIndex.latest.json`, `helpIndex.latest.json`) with CI-friendly verify exit behavior.
+
 0.2.8
 ++++++
 * Pin pip to 25.2 as pip 25.3 remove support for the legacy setup.py develop editable method in setuptools editable installs; setuptools >= 64 is now required. (#11457)

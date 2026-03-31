@@ -1,0 +1,452 @@
+import json
+import os
+
+import pytest
+import requests
+
+import ipinfo
+from ipinfo import handler_utils
+from ipinfo.cache.default import DefaultCache
+from ipinfo.details import Details
+from ipinfo.error import APIError
+from ipinfo.exceptions import RequestQuotaExceededError
+from ipinfo.handler import Handler
+
+
+def test_init():
+    token = "mytesttoken"
+    handler = Handler(token)
+    assert handler.access_token == token
+    assert isinstance(handler.cache, DefaultCache)
+    assert "US" in handler.countries
+
+
+def test_headers():
+    token = "mytesttoken"
+    handler = Handler(token, headers={"custom_field": "yes"})
+    headers = handler_utils.get_headers(token, handler.headers)
+
+    assert "user-agent" in headers
+    assert "accept" in headers
+    assert "authorization" in headers
+    assert "custom_field" in headers
+
+
+def test_get_details():
+    token = os.environ.get("IPINFO_TOKEN", "")
+    handler = Handler(token)
+    details = handler.getDetails("8.8.8.8")
+    assert isinstance(details, Details)
+    assert details.ip == "8.8.8.8"
+    assert details.hostname == "dns.google"
+    assert details.city == "Mountain View"
+    assert details.region == "California"
+    assert details.country == "US"
+    assert details.country_name == "United States"
+    assert details.isEU == False
+    country_flag = details.country_flag
+    assert country_flag["emoji"] == "🇺🇸"
+    assert country_flag["unicode"] == "U+1F1FA U+1F1F8"
+    country_flag_url = details.country_flag_url
+    assert (
+        country_flag_url == "https://cdn.ipinfo.io/static/images/countries-flags/US.svg"
+    )
+    country_currency = details.country_currency
+    assert country_currency["code"] == "USD"
+    assert country_currency["symbol"] == "$"
+    continent = details.continent
+    assert continent["code"] == "NA"
+    assert continent["name"] == "North America"
+    assert details.loc is not None
+    assert details.latitude is not None
+    assert details.longitude is not None
+    assert details.postal == "94043"
+    assert details.timezone == "America/Los_Angeles"
+    if token:
+        asn = details.asn
+        assert asn["asn"] == "AS15169"
+        assert asn["name"] == "Google LLC"
+        assert asn["domain"] == "google.com"
+        assert asn["route"] == "8.8.8.0/24"
+        assert asn["type"] == "hosting"
+
+        company = details.company
+        assert company["name"] == "Google LLC"
+        assert company["domain"] == "google.com"
+        assert company["type"] == "hosting"
+
+        privacy = details.privacy
+        assert privacy["vpn"] == False
+        assert privacy["proxy"] == False
+        assert privacy["tor"] == False
+        assert privacy["relay"] == False
+        assert privacy["hosting"] == True
+        assert privacy["service"] == ""
+
+        abuse = details.abuse
+        assert (
+            abuse["address"]
+            == "US, CA, Mountain View, 1600 Amphitheatre Parkway, 94043"
+        )
+        assert abuse["country"] == "US"
+        assert abuse["email"] == "network-abuse@google.com"
+        assert abuse["name"] == "Abuse"
+        assert abuse["network"] == "8.8.8.0/24"
+        assert abuse["phone"] == "+1-650-253-0000"
+
+        domains = details.domains
+        assert domains["ip"] == "8.8.8.8"
+        # NOTE: actual number changes too much
+        assert "total" in domains
+        assert len(domains["domains"]) == 5
+
+
+@pytest.mark.parametrize(
+    (
+        "mock_resp_status_code",
+        "mock_resp_headers",
+        "mock_resp_error_msg",
+        "expected_error_json",
+    ),
+    [
+        pytest.param(
+            503,
+            {"Content-Type": "text/plain"},
+            b"Service Unavailable",
+            {"error": "Service Unavailable"},
+            id="5xx_not_json",
+        ),
+        pytest.param(
+            403,
+            {"Content-Type": "application/json"},
+            b'{"message": "missing token"}',
+            {"message": "missing token"},
+            id="4xx_json",
+        ),
+        pytest.param(
+            400,
+            {"Content-Type": "application/json"},
+            b'{"message": "missing field"}',
+            {"message": "missing field"},
+            id="400",
+        ),
+    ],
+)
+def test_get_details_error(
+    monkeypatch,
+    mock_resp_status_code,
+    mock_resp_headers,
+    mock_resp_error_msg,
+    expected_error_json,
+):
+    def mock_get(*args, **kwargs):
+        response = requests.Response()
+        response.status_code = mock_resp_status_code
+        response.headers = mock_resp_headers
+        response._content = mock_resp_error_msg
+        return response
+
+    monkeypatch.setattr(requests, "get", mock_get)
+    token = os.environ.get("IPINFO_TOKEN", "")
+    handler = Handler(token)
+
+    with pytest.raises(APIError) as exc_info:
+        handler.getDetails("8.8.8.8")
+    assert exc_info.value.error_code == mock_resp_status_code
+    assert exc_info.value.error_json == expected_error_json
+
+
+def test_get_details_quota_error(monkeypatch):
+    def mock_get(*args, **kwargs):
+        response = requests.Response()
+        response.status_code = 429
+        return response
+
+    monkeypatch.setattr(requests, "get", mock_get)
+    token = os.environ.get("IPINFO_TOKEN", "")
+    handler = Handler(token)
+
+    with pytest.raises(RequestQuotaExceededError):
+        handler.getDetails("8.8.8.8")
+
+
+#############
+# BATCH TESTS
+#############
+
+_batch_ip_addrs = ["1.1.1.1", "8.8.8.8", "9.9.9.9"]
+
+
+def _prepare_batch_test():
+    """Helper for preparing batch test cases."""
+    token = os.environ.get("IPINFO_TOKEN", "")
+    if not token:
+        pytest.skip("token required for batch tests")
+    handler = Handler(token)
+    return handler, token, _batch_ip_addrs
+
+
+def _check_batch_details(ips, details, token):
+    """Helper for batch tests."""
+    for ip in ips:
+        assert ip in details
+        d = details[ip]
+        assert d["ip"] == ip
+        assert "country" in d
+        assert "country_name" in d
+        if token:
+            assert "asn" in d
+            assert "company" in d
+            assert "privacy" in d
+            assert "abuse" in d
+            assert "domains" in d
+
+
+def _check_iterative_batch_details(details, token):
+    """Helper for iterative batch tests."""
+    assert "ip" in details, "Key 'ip' not found in details"
+    assert "country" in details, "Key 'country' not found in details"
+    assert "city" in details, "Key 'city' not found in details"
+    if token:
+        assert "asn" in details, "Key 'asn' not found in details"
+        assert "company" in details, "Key 'company' not found in details"
+        assert "privacy" in details, "Key 'privacy' not found in details"
+        assert "abuse" in details, "Key 'abuse' not found in details"
+        assert "domains" in details, "Key 'domains' not found in details"
+
+
+@pytest.mark.parametrize("batch_size", [None, 1, 2, 3])
+def test_get_batch_details(batch_size):
+    handler, token, ips = _prepare_batch_test()
+    details = handler.getBatchDetails(ips, batch_size=batch_size)
+    _check_batch_details(ips, details, token)
+
+
+@pytest.mark.parametrize("batch_size", [1, 2])
+def test_get_batch_details_total_timeout(batch_size):
+    handler, token, ips = _prepare_batch_test()
+    with pytest.raises(ipinfo.exceptions.TimeoutExceededError):
+        handler.getBatchDetails(ips, batch_size=batch_size, timeout_total=0.001)
+
+
+@pytest.mark.parametrize("batch_size", [None, 1, 2, 3])
+def test_get_iterative_batch_details(batch_size):
+    handler, token, ips = _prepare_batch_test()
+    details_iterator = handler.getBatchDetailsIter(ips, batch_size=batch_size)
+    for details in details_iterator:
+        _check_iterative_batch_details(details, token)
+
+
+#############
+# MAP TESTS
+#############
+
+# Disabled temporarily
+#
+# def test_get_map():
+#     handler = Handler()
+#     mapUrl = handler.getMap(open("tests/map-ips.txt").read().splitlines())
+#     print(f"got URL={mapUrl}")
+
+
+#############
+# BOGON TESTS
+#############
+
+
+def test_bogon_details():
+    token = os.environ.get("IPINFO_TOKEN", "")
+    handler = Handler(token)
+    details = handler.getDetails("127.0.0.1")
+    assert isinstance(details, Details)
+    assert details.all == {"bogon": True, "ip": "127.0.0.1"}
+
+
+def test_iterative_bogon_details():
+    token = os.environ.get("IPINFO_TOKEN", "")
+    handler = Handler(token)
+    details = next(handler.getBatchDetailsIter(["127.0.0.1"]))
+    assert details.all == {"bogon": True, "ip": "127.0.0.1"}
+
+
+#################
+# RESPROXY TESTS
+#################
+
+
+def test_get_resproxy(monkeypatch):
+    def mock_get(*args, **kwargs):
+        response = requests.Response()
+        response.status_code = 200
+        response.headers = {"Content-Type": "application/json"}
+        response._content = b'{"ip": "175.107.211.204", "last_seen": "2025-01-20", "percent_days_seen": 0.85, "service": "example_service"}'
+        return response
+
+    monkeypatch.setattr(requests, "get", mock_get)
+    token = "test_token"
+    handler = Handler(token)
+    details = handler.getResproxy("175.107.211.204")
+    assert isinstance(details, Details)
+    assert details.ip == "175.107.211.204"
+    assert details.last_seen == "2025-01-20"
+    assert details.percent_days_seen == 0.85
+    assert details.service == "example_service"
+
+
+def test_get_resproxy_caching(monkeypatch):
+    call_count = 0
+
+    def mock_get(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        response = requests.Response()
+        response.status_code = 200
+        response.headers = {"Content-Type": "application/json"}
+        response._content = b'{"ip": "175.107.211.204", "last_seen": "2025-01-20", "percent_days_seen": 0.85, "service": "example_service"}'
+        return response
+
+    monkeypatch.setattr(requests, "get", mock_get)
+    token = "test_token"
+    handler = Handler(token)
+    # First call should hit the API
+    details1 = handler.getResproxy("175.107.211.204")
+    # Second call should hit the cache
+    details2 = handler.getResproxy("175.107.211.204")
+    assert details1.ip == details2.ip
+    # Verify only one API call was made (second was cached)
+    assert call_count == 1
+
+
+def test_get_resproxy_empty(monkeypatch):
+    def mock_get(*args, **kwargs):
+        response = requests.Response()
+        response.status_code = 200
+        response.headers = {"Content-Type": "application/json"}
+        response._content = b"{}"
+        return response
+
+    monkeypatch.setattr(requests, "get", mock_get)
+    token = "test_token"
+    handler = Handler(token)
+    details = handler.getResproxy("8.8.8.8")
+    assert isinstance(details, Details)
+    assert details.all == {}
+
+
+def test_get_batch_details_with_resproxy(monkeypatch):
+    """Prefixed lookups like 'resproxy/IP' should not crash in getBatchDetails."""
+    mock_api_response = {
+        "resproxy/1.2.3.4": {"ip": "1.2.3.4", "service": "example"},
+        "8.8.8.8": {"ip": "8.8.8.8", "country": "US"},
+    }
+
+    def mock_post(*args, **kwargs):
+        response = requests.Response()
+        response.status_code = 200
+        response.headers = {"Content-Type": "application/json"}
+        response._content = json.dumps(mock_api_response).encode()
+        return response
+
+    monkeypatch.setattr(requests, "post", mock_post)
+    handler = Handler("test_token")
+    result = handler.getBatchDetails(["resproxy/1.2.3.4", "8.8.8.8"])
+    assert "resproxy/1.2.3.4" in result
+    assert "8.8.8.8" in result
+
+
+def test_get_batch_details_resproxy_skips_bogon(monkeypatch):
+    """'resproxy/127.0.0.1' should NOT be treated as a bogon."""
+    posted_data = []
+
+    def mock_post(*args, **kwargs):
+        posted_data.append(kwargs.get("json", []))
+        response = requests.Response()
+        response.status_code = 200
+        response.headers = {"Content-Type": "application/json"}
+        response._content = json.dumps(
+            {"resproxy/127.0.0.1": {"ip": "127.0.0.1"}}
+        ).encode()
+        return response
+
+    monkeypatch.setattr(requests, "post", mock_post)
+    handler = Handler("test_token")
+    result = handler.getBatchDetails(["resproxy/127.0.0.1"])
+
+    # The prefixed string should have been sent to the API, not treated as bogon
+    assert len(posted_data) == 1
+    assert "resproxy/127.0.0.1" in posted_data[0]
+    assert "resproxy/127.0.0.1" in result
+    # Should NOT have bogon flag
+    assert result["resproxy/127.0.0.1"].get("bogon") is None
+
+
+def test_get_batch_details_resproxy_caching(monkeypatch):
+    """Prefixed lookups should be cached after the first batch call."""
+    call_count = 0
+
+    def mock_post(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        response = requests.Response()
+        response.status_code = 200
+        response.headers = {"Content-Type": "application/json"}
+        response._content = json.dumps(
+            {"resproxy/1.2.3.4": {"ip": "1.2.3.4", "service": "example"}}
+        ).encode()
+        return response
+
+    monkeypatch.setattr(requests, "post", mock_post)
+    handler = Handler("test_token")
+
+    # First call should hit the API
+    result1 = handler.getBatchDetails(["resproxy/1.2.3.4"])
+    assert "resproxy/1.2.3.4" in result1
+
+    # Second call should use cache, no additional API call
+    result2 = handler.getBatchDetails(["resproxy/1.2.3.4"])
+    assert "resproxy/1.2.3.4" in result2
+    assert call_count == 1
+
+
+def test_get_batch_details_iter_with_resproxy(monkeypatch):
+    """getBatchDetailsIter should handle prefixed lookups without crashing."""
+
+    def mock_post(*args, **kwargs):
+        response = requests.Response()
+        response.status_code = 200
+        response.headers = {"Content-Type": "application/json"}
+        response._content = json.dumps(
+            {"resproxy/1.2.3.4": {"ip": "1.2.3.4", "service": "example"}}
+        ).encode()
+        return response
+
+    monkeypatch.setattr(requests, "post", mock_post)
+    handler = Handler("test_token")
+    results = list(handler.getBatchDetailsIter(["resproxy/1.2.3.4"]))
+    assert len(results) > 0
+
+
+def test_get_batch_details_mixed_resproxy_and_bogon(monkeypatch):
+    """Mixing prefixed lookups, plain IPs, and bogons in one batch call."""
+
+    def mock_post(*args, **kwargs):
+        response = requests.Response()
+        response.status_code = 200
+        response.headers = {"Content-Type": "application/json"}
+        response._content = json.dumps(
+            {
+                "resproxy/1.2.3.4": {"ip": "1.2.3.4", "service": "ex"},
+                "8.8.8.8": {"ip": "8.8.8.8", "country": "US"},
+            }
+        ).encode()
+        return response
+
+    monkeypatch.setattr(requests, "post", mock_post)
+    handler = Handler("test_token")
+    result = handler.getBatchDetails(["resproxy/1.2.3.4", "8.8.8.8", "127.0.0.1"])
+    assert "resproxy/1.2.3.4" in result
+    assert "8.8.8.8" in result
+    assert "127.0.0.1" in result
+    bogon_result = result["127.0.0.1"]
+    assert isinstance(bogon_result, Details)
+    assert bogon_result.bogon is True

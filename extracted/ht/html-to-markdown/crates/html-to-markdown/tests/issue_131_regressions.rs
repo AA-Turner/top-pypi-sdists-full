@@ -1,7 +1,14 @@
 #![allow(missing_docs)]
 
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
+}
+
+use html_to_markdown_rs::ConversionOptions;
 use html_to_markdown_rs::options::WhitespaceMode;
-use html_to_markdown_rs::{ConversionOptions, convert};
 
 #[test]
 fn link_flattens_block_children_issue_131() {

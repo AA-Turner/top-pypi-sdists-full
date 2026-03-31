@@ -23,6 +23,7 @@ class ZeroTrustDeviceDefaultProfileCertificatesArgs:
                  zone_id: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a ZeroTrustDeviceDefaultProfileCertificates resource.
+
         :param pulumi.Input[_builtins.bool] enabled: The current status of the device policy certificate provisioning feature for WARP clients.
         """
         pulumi.set(__self__, "enabled", enabled)
@@ -57,6 +58,7 @@ class _ZeroTrustDeviceDefaultProfileCertificatesState:
                  zone_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ZeroTrustDeviceDefaultProfileCertificates resources.
+
         :param pulumi.Input[_builtins.bool] enabled: The current status of the device policy certificate provisioning feature for WARP clients.
         """
         if enabled is not None:
@@ -109,7 +111,8 @@ class ZeroTrustDeviceDefaultProfileCertificates(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -135,7 +138,8 @@ class ZeroTrustDeviceDefaultProfileCertificates(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param ZeroTrustDeviceDefaultProfileCertificatesArgs args: The arguments to use to populate this resource's properties.

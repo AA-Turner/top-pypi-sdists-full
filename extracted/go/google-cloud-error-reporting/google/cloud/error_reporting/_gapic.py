@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """GAX wrapper for Error Reporting API requests."""
+
 import json
 
 import google.cloud.errorreporting_v1beta1

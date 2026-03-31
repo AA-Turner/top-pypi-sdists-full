@@ -368,7 +368,8 @@ class BedrockAgentCoreClient(BaseClient):
         self, **kwargs: Unpack[InvokeAgentRuntimeCommandRequestTypeDef]
     ) -> InvokeAgentRuntimeCommandResponseTypeDef:
         """
-        Executes a command in a runtime session container.
+        Executes a command in a runtime session container and streams the output back
+        to the caller.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_agent_runtime_command.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#invoke_agent_runtime_command)

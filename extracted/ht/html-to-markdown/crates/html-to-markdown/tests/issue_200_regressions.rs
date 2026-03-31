@@ -1,6 +1,11 @@
 //! Regression coverage for issues #200 and #214.
 
-use html_to_markdown_rs::convert;
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
+}
 
 #[test]
 fn test_definition_list_spacing_consistency() {

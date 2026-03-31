@@ -1,7 +1,7 @@
 # 2.5.6 decimal.py
 # Bug on 2.5 and 2.6 by incorrectly changing opcode to
-# RETURN_VALUE to psuedo op: RETURN_END_IF
-def _formatparam(param, value=None, quote=True):
+# RETURN_VALUE to pseudo op: RETURN_END_IF
+def _formatparam(param, value=None, quote: bool=True):
     if value is not None and len(value) > 0:
         if isinstance(value, tuple):
             value = 'a'
@@ -14,5 +14,5 @@ def _formatparam(param, value=None, quote=True):
 
 # python 2.7 SimpleXMLRPCServer.py
 # Bug was turning return into "pass"
-def system_methodSignature(seflf, method_name):
+def system_methodSignature(seflf, method_name) -> str:
     return 'signatures not supported'

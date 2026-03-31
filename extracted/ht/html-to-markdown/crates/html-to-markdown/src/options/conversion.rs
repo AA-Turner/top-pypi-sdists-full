@@ -1,18 +1,27 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_sign_loss, clippy::unused_self)]
 
-//! Main conversion options and their builder utilities.
-//!
-//! This module provides the primary `ConversionOptions` struct with all configuration
-//! settings for HTML to Markdown conversion, along with partial update support for
-//! selective option modifications.
+//! Main conversion options with builder pattern.
 
 use crate::options::preprocessing::PreprocessingOptions;
-use crate::options::preprocessing::PreprocessingOptionsUpdate;
 use crate::options::validation::{
     CodeBlockStyle, HeadingStyle, HighlightStyle, ListIndentType, NewlineStyle, OutputFormat, WhitespaceMode,
 };
 
 /// Main conversion options for HTML to Markdown conversion.
+///
+/// Use [`ConversionOptions::builder()`] to construct, or [`Default::default()`] for defaults.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use html_to_markdown_rs::ConversionOptions;
+///
+/// let options = ConversionOptions::builder()
+///     .heading_style(HeadingStyle::Atx)
+///     .wrap(true)
+///     .wrap_width(100)
+///     .build();
+/// ```
 #[derive(Debug, Clone)]
 #[cfg_attr(
     any(feature = "serde", feature = "metadata"),
@@ -20,225 +29,83 @@ use crate::options::validation::{
 )]
 #[cfg_attr(
     any(feature = "serde", feature = "metadata"),
-    serde(rename_all = "camelCase", default)
+    serde(rename_all = "camelCase", default, deny_unknown_fields)
 )]
 pub struct ConversionOptions {
-    /// Heading style (Underlined, Atx, `AtxClosed`)
+    /// Heading style to use in Markdown output (ATX `#` or Setext underline).
     pub heading_style: HeadingStyle,
-
-    /// List indentation type (Spaces or Tabs)
+    /// How to indent nested list items (spaces or tab).
     pub list_indent_type: ListIndentType,
-
-    /// List indentation width in spaces (applied if using spaces indentation)
+    /// Number of spaces (or tabs) to use for each level of list indentation.
     pub list_indent_width: usize,
-
-    /// Bullet characters for unordered lists (e.g., "-", "*", "+")
+    /// Bullet character(s) to use for unordered list items (e.g. `"-"`, `"*"`).
     pub bullets: String,
-
-    /// Symbol for strong/emphasis emphasis rendering (* or _)
+    /// Character used for bold/italic emphasis markers (`*` or `_`).
     pub strong_em_symbol: char,
-
-    /// Escape asterisks (*) in text to prevent accidental formatting
+    /// Escape `*` characters in plain text to avoid unintended bold/italic.
     pub escape_asterisks: bool,
-
-    /// Escape underscores (_) in text to prevent accidental formatting
+    /// Escape `_` characters in plain text to avoid unintended bold/italic.
     pub escape_underscores: bool,
-
-    /// Escape miscellaneous markdown characters (\ & < ` [ > ~ # = + | -)
+    /// Escape miscellaneous Markdown metacharacters (`[]()#` etc.) in plain text.
     pub escape_misc: bool,
-
-    /// Escape all ASCII punctuation characters (for `CommonMark` spec compliance tests)
+    /// Escape ASCII characters that have special meaning in certain Markdown dialects.
     pub escape_ascii: bool,
-
-    /// Default code language for fenced code blocks when not specified
+    /// Default language annotation for fenced code blocks that have no language hint.
     pub code_language: String,
-
-    /// Use autolinks syntax for bare URLs (<http://example.com>)
+    /// Automatically convert bare URLs into Markdown autolinks.
     pub autolinks: bool,
-
-    /// Add default title element to HTML if none exists before conversion
+    /// Emit a default title when no `<title>` tag is present.
     pub default_title: bool,
-
-    /// Use HTML <br> elements in tables instead of spaces for line breaks
+    /// Render `<br>` elements inside table cells as literal line breaks.
     pub br_in_tables: bool,
-
-    /// Enable spatial table reconstruction in hOCR documents (via spatial positioning analysis).
-    ///
-    /// **Deprecated since 2.30.0**: hOCR support will be removed in v3.
-    pub hocr_spatial_tables: bool,
-
-    /// Highlight style for <mark> elements (`DoubleEqual`, Html, Bold, None)
+    /// Style used for `<mark>` / highlighted text (e.g. `==text==`).
     pub highlight_style: HighlightStyle,
-
-    /// Extract metadata from HTML (title, description, images, links, etc.)
+    /// Extract `<meta>` and `<head>` information into the result metadata.
     pub extract_metadata: bool,
-
-    /// Whitespace handling mode (Normalized collapses multiple spaces, Strict preserves)
+    /// Controls how whitespace is normalised during conversion.
     pub whitespace_mode: WhitespaceMode,
-
-    /// Strip newline characters from HTML before processing
+    /// Strip all newlines from the output, producing a single-line result.
     pub strip_newlines: bool,
-
-    /// Enable automatic text wrapping at `wrap_width`
+    /// Wrap long lines at [`wrap_width`](Self::wrap_width) characters.
     pub wrap: bool,
-
-    /// Text wrapping width in characters (default 80)
+    /// Maximum line width when [`wrap`](Self::wrap) is enabled (default `80`).
     pub wrap_width: usize,
-
-    /// Treat block-level elements as inline during conversion
+    /// Treat the entire document as inline content (no block-level wrappers).
     pub convert_as_inline: bool,
-
-    /// Custom symbol for subscript content (e.g., "~")
+    /// Markdown notation for subscript text (e.g. `"~"`).
     pub sub_symbol: String,
-
-    /// Custom symbol for superscript content (e.g., "^")
+    /// Markdown notation for superscript text (e.g. `"^"`).
     pub sup_symbol: String,
-
-    /// Newline style in markdown output (Spaces adds two spaces, Backslash adds \)
+    /// How to encode hard line breaks (`<br>`) in Markdown.
     pub newline_style: NewlineStyle,
-
-    /// Code block fence style (Indented, Backticks, Tildes)
+    /// Style used for fenced code blocks (backticks or tilde).
     pub code_block_style: CodeBlockStyle,
-
-    /// HTML elements where images should remain as markdown links (not converted to alt text)
+    /// HTML tag names whose `<img>` children are kept inline instead of block.
     pub keep_inline_images_in: Vec<String>,
-
-    /// HTML preprocessing options (remove nav, forms, etc.)
+    /// Pre-processing options applied to the HTML before conversion.
     pub preprocessing: PreprocessingOptions,
-
-    /// Source document encoding (informational, typically "utf-8")
+    /// Expected character encoding of the input HTML (default `"utf-8"`).
     pub encoding: String,
-
-    /// Enable debug mode with diagnostic warnings on conversion issues
+    /// Emit debug information during conversion.
     pub debug: bool,
-
-    /// HTML tags to strip (extract text content, no markdown conversion)
+    /// HTML tag names whose content is stripped from the output entirely.
     pub strip_tags: Vec<String>,
-
-    /// HTML tags to preserve as-is in output (keep original HTML, useful for complex tables)
+    /// HTML tag names that are preserved verbatim in the output.
     pub preserve_tags: Vec<String>,
-
-    /// Skip all images during conversion.
-    /// When enabled, all `<img>` elements are completely omitted from output.
-    /// Useful for text-only extraction or filtering out visual content.
+    /// Skip conversion of `<img>` elements (omit images from output).
     pub skip_images: bool,
-
-    /// Output format for conversion (Markdown, Djot, or Plain)
+    /// Target output format (Markdown, plain text, etc.).
     pub output_format: OutputFormat,
-}
-
-/// Partial update for `ConversionOptions`.
-///
-/// This struct uses `Option<T>` to represent optional fields that can be selectively updated.
-/// Only specified fields (Some values) will override existing options; None values leave the
-/// corresponding fields unchanged when applied via [`ConversionOptions::apply_update`].
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(
-    any(feature = "serde", feature = "metadata"),
-    derive(serde::Serialize, serde::Deserialize)
-)]
-#[cfg_attr(any(feature = "serde", feature = "metadata"), serde(rename_all = "camelCase"))]
-pub struct ConversionOptionsUpdate {
-    /// Optional heading style override (Underlined, Atx, `AtxClosed`)
-    pub heading_style: Option<HeadingStyle>,
-
-    /// Optional list indentation type override (Spaces or Tabs)
-    pub list_indent_type: Option<ListIndentType>,
-
-    /// Optional list indentation width override in spaces
-    pub list_indent_width: Option<usize>,
-
-    /// Optional bullet characters override for unordered lists
-    pub bullets: Option<String>,
-
-    /// Optional strong/emphasis symbol override (* or _)
-    pub strong_em_symbol: Option<char>,
-
-    /// Optional asterisk escaping override in text content
-    pub escape_asterisks: Option<bool>,
-
-    /// Optional underscore escaping override in text content
-    pub escape_underscores: Option<bool>,
-
-    /// Optional miscellaneous character escaping override (\ & < ` [ > ~ # = + | -)
-    pub escape_misc: Option<bool>,
-
-    /// Optional ASCII punctuation escaping override (for spec compliance testing)
-    pub escape_ascii: Option<bool>,
-
-    /// Optional default code language override for fenced code blocks
-    pub code_language: Option<String>,
-
-    /// Optional autolinks syntax override for bare URLs
-    pub autolinks: Option<bool>,
-
-    /// Optional default title element injection override
-    pub default_title: Option<bool>,
-
-    /// Optional HTML <br> usage in tables override
-    pub br_in_tables: Option<bool>,
-
-    /// Optional spatial table reconstruction for hOCR documents override.
-    ///
-    /// **Deprecated since 2.30.0**: hOCR support will be removed in v3.
-    pub hocr_spatial_tables: Option<bool>,
-
-    /// Optional highlight style override for <mark> elements
-    pub highlight_style: Option<HighlightStyle>,
-
-    /// Optional metadata extraction override (title, description, images, links)
-    pub extract_metadata: Option<bool>,
-
-    /// Optional whitespace handling mode override (Normalized or Strict)
-    pub whitespace_mode: Option<WhitespaceMode>,
-
-    /// Optional newline stripping override before processing
-    pub strip_newlines: Option<bool>,
-
-    /// Optional automatic text wrapping override
-    pub wrap: Option<bool>,
-
-    /// Optional text wrapping width override in characters
-    pub wrap_width: Option<usize>,
-
-    /// Optional block-level to inline conversion override
-    pub convert_as_inline: Option<bool>,
-
-    /// Optional subscript symbol override
-    pub sub_symbol: Option<String>,
-
-    /// Optional superscript symbol override
-    pub sup_symbol: Option<String>,
-
-    /// Optional newline style override for markdown output
-    pub newline_style: Option<NewlineStyle>,
-
-    /// Optional code block fence style override (Indented, Backticks, Tildes)
-    pub code_block_style: Option<CodeBlockStyle>,
-
-    /// Optional context elements where images remain as markdown links override
-    pub keep_inline_images_in: Option<Vec<String>>,
-
-    /// Optional preprocessing options partial update
-    pub preprocessing: Option<PreprocessingOptionsUpdate>,
-
-    /// Optional source document encoding override
-    pub encoding: Option<String>,
-
-    /// Optional debug mode override for diagnostic warnings
-    pub debug: Option<bool>,
-
-    /// Optional HTML tags to strip override (extract text, no conversion)
-    pub strip_tags: Option<Vec<String>>,
-
-    /// Optional HTML tags to preserve as-is override in output
-    pub preserve_tags: Option<Vec<String>>,
-
-    /// Optional skip images override
-    pub skip_images: Option<bool>,
-
-    /// Optional output format override (Markdown, Djot, or Plain)
-    pub output_format: Option<OutputFormat>,
+    /// Include structured document tree in result.
+    pub include_document_structure: bool,
+    /// Extract inline images from data URIs and SVGs.
+    pub extract_images: bool,
+    /// Maximum decoded image size in bytes (default 5MB).
+    pub max_image_size: u64,
+    /// Capture SVG elements as images.
+    pub capture_svg: bool,
+    /// Infer image dimensions from data.
+    pub infer_dimensions: bool,
 }
 
 impl Default for ConversionOptions {
@@ -257,7 +124,6 @@ impl Default for ConversionOptions {
             autolinks: true,
             default_title: false,
             br_in_tables: false,
-            hocr_spatial_tables: true,
             highlight_style: HighlightStyle::default(),
             extract_metadata: true,
             whitespace_mode: WhitespaceMode::default(),
@@ -277,133 +143,285 @@ impl Default for ConversionOptions {
             preserve_tags: Vec::new(),
             skip_images: false,
             output_format: OutputFormat::default(),
+            include_document_structure: false,
+            extract_images: false,
+            max_image_size: 5_242_880,
+            capture_svg: false,
+            infer_dimensions: true,
         }
     }
 }
 
 impl ConversionOptions {
+    /// Create a new builder with default values.
+    #[must_use]
+    pub fn builder() -> ConversionOptionsBuilder {
+        ConversionOptionsBuilder(Self::default())
+    }
+}
+
+// ── Builder ─────────────────────────────────────────────────────────────────
+
+/// Builder for [`ConversionOptions`].
+///
+/// All fields start with default values. Call `.build()` to produce the final options.
+#[derive(Debug, Clone)]
+pub struct ConversionOptionsBuilder(ConversionOptions);
+
+macro_rules! builder_setter {
+    ($name:ident, $ty:ty) => {
+        /// Set the value.
+        #[must_use]
+        pub fn $name(mut self, value: $ty) -> Self {
+            self.0.$name = value;
+            self
+        }
+    };
+}
+
+macro_rules! builder_setter_into {
+    ($name:ident, $ty:ty) => {
+        /// Set the value.
+        #[must_use]
+        pub fn $name(mut self, value: impl Into<$ty>) -> Self {
+            self.0.$name = value.into();
+            self
+        }
+    };
+}
+
+impl ConversionOptionsBuilder {
+    // Output control
+    builder_setter!(output_format, OutputFormat);
+    builder_setter!(include_document_structure, bool);
+    builder_setter!(extract_metadata, bool);
+    builder_setter!(extract_images, bool);
+
+    // Markdown formatting
+    builder_setter!(heading_style, HeadingStyle);
+    builder_setter!(list_indent_type, ListIndentType);
+    builder_setter!(list_indent_width, usize);
+    builder_setter_into!(bullets, String);
+    builder_setter!(strong_em_symbol, char);
+    builder_setter!(code_block_style, CodeBlockStyle);
+    builder_setter!(newline_style, NewlineStyle);
+    builder_setter!(highlight_style, HighlightStyle);
+    builder_setter_into!(code_language, String);
+    builder_setter!(autolinks, bool);
+    builder_setter!(default_title, bool);
+    builder_setter!(br_in_tables, bool);
+    builder_setter_into!(sub_symbol, String);
+    builder_setter_into!(sup_symbol, String);
+
+    // Escaping
+    builder_setter!(escape_asterisks, bool);
+    builder_setter!(escape_underscores, bool);
+    builder_setter!(escape_misc, bool);
+    builder_setter!(escape_ascii, bool);
+
+    // Whitespace / wrapping
+    builder_setter!(whitespace_mode, WhitespaceMode);
+    builder_setter!(strip_newlines, bool);
+    builder_setter!(wrap, bool);
+    builder_setter!(wrap_width, usize);
+
+    // Element handling
+    builder_setter!(convert_as_inline, bool);
+    builder_setter!(skip_images, bool);
+
+    /// Set the list of HTML tag names whose content is stripped from output.
+    #[must_use]
+    pub fn strip_tags(mut self, tags: Vec<String>) -> Self {
+        self.0.strip_tags = tags;
+        self
+    }
+
+    /// Set the list of HTML tag names that are preserved verbatim in output.
+    #[must_use]
+    pub fn preserve_tags(mut self, tags: Vec<String>) -> Self {
+        self.0.preserve_tags = tags;
+        self
+    }
+
+    /// Set the list of HTML tag names whose `<img>` children are kept inline.
+    #[must_use]
+    pub fn keep_inline_images_in(mut self, tags: Vec<String>) -> Self {
+        self.0.keep_inline_images_in = tags;
+        self
+    }
+
+    // Image extraction config
+    builder_setter!(max_image_size, u64);
+    builder_setter!(capture_svg, bool);
+    builder_setter!(infer_dimensions, bool);
+
+    // Preprocessing
+    /// Set the pre-processing options applied to the HTML before conversion.
+    #[must_use]
+    pub fn preprocessing(mut self, preprocessing: PreprocessingOptions) -> Self {
+        self.0.preprocessing = preprocessing;
+        self
+    }
+
+    // Encoding
+    builder_setter_into!(encoding, String);
+
+    // Debug
+    builder_setter!(debug, bool);
+
+    /// Build the final [`ConversionOptions`].
+    #[must_use]
+    pub fn build(self) -> ConversionOptions {
+        self.0
+    }
+}
+
+// ── ConversionOptionsUpdate (for binding crate compatibility) ────────────
+
+use crate::options::preprocessing::PreprocessingOptionsUpdate;
+
+/// Partial update for `ConversionOptions`.
+///
+/// Uses `Option<T>` fields for selective updates. Bindings use this to construct
+/// options from language-native types. Prefer [`ConversionOptionsBuilder`] for Rust code.
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(
+    any(feature = "serde", feature = "metadata"),
+    derive(serde::Serialize, serde::Deserialize)
+)]
+#[cfg_attr(
+    any(feature = "serde", feature = "metadata"),
+    serde(rename_all = "camelCase", deny_unknown_fields)
+)]
+pub struct ConversionOptionsUpdate {
+    /// Optional override for [`ConversionOptions::heading_style`].
+    pub heading_style: Option<HeadingStyle>,
+    /// Optional override for [`ConversionOptions::list_indent_type`].
+    pub list_indent_type: Option<ListIndentType>,
+    /// Optional override for [`ConversionOptions::list_indent_width`].
+    pub list_indent_width: Option<usize>,
+    /// Optional override for [`ConversionOptions::bullets`].
+    pub bullets: Option<String>,
+    /// Optional override for [`ConversionOptions::strong_em_symbol`].
+    pub strong_em_symbol: Option<char>,
+    /// Optional override for [`ConversionOptions::escape_asterisks`].
+    pub escape_asterisks: Option<bool>,
+    /// Optional override for [`ConversionOptions::escape_underscores`].
+    pub escape_underscores: Option<bool>,
+    /// Optional override for [`ConversionOptions::escape_misc`].
+    pub escape_misc: Option<bool>,
+    /// Optional override for [`ConversionOptions::escape_ascii`].
+    pub escape_ascii: Option<bool>,
+    /// Optional override for [`ConversionOptions::code_language`].
+    pub code_language: Option<String>,
+    /// Optional override for [`ConversionOptions::autolinks`].
+    pub autolinks: Option<bool>,
+    /// Optional override for [`ConversionOptions::default_title`].
+    pub default_title: Option<bool>,
+    /// Optional override for [`ConversionOptions::br_in_tables`].
+    pub br_in_tables: Option<bool>,
+    /// Optional override for [`ConversionOptions::highlight_style`].
+    pub highlight_style: Option<HighlightStyle>,
+    /// Optional override for [`ConversionOptions::extract_metadata`].
+    pub extract_metadata: Option<bool>,
+    /// Optional override for [`ConversionOptions::whitespace_mode`].
+    pub whitespace_mode: Option<WhitespaceMode>,
+    /// Optional override for [`ConversionOptions::strip_newlines`].
+    pub strip_newlines: Option<bool>,
+    /// Optional override for [`ConversionOptions::wrap`].
+    pub wrap: Option<bool>,
+    /// Optional override for [`ConversionOptions::wrap_width`].
+    pub wrap_width: Option<usize>,
+    /// Optional override for [`ConversionOptions::convert_as_inline`].
+    pub convert_as_inline: Option<bool>,
+    /// Optional override for [`ConversionOptions::sub_symbol`].
+    pub sub_symbol: Option<String>,
+    /// Optional override for [`ConversionOptions::sup_symbol`].
+    pub sup_symbol: Option<String>,
+    /// Optional override for [`ConversionOptions::newline_style`].
+    pub newline_style: Option<NewlineStyle>,
+    /// Optional override for [`ConversionOptions::code_block_style`].
+    pub code_block_style: Option<CodeBlockStyle>,
+    /// Optional override for [`ConversionOptions::keep_inline_images_in`].
+    pub keep_inline_images_in: Option<Vec<String>>,
+    /// Optional override for [`ConversionOptions::preprocessing`].
+    pub preprocessing: Option<PreprocessingOptionsUpdate>,
+    /// Optional override for [`ConversionOptions::encoding`].
+    pub encoding: Option<String>,
+    /// Optional override for [`ConversionOptions::debug`].
+    pub debug: Option<bool>,
+    /// Optional override for [`ConversionOptions::strip_tags`].
+    pub strip_tags: Option<Vec<String>>,
+    /// Optional override for [`ConversionOptions::preserve_tags`].
+    pub preserve_tags: Option<Vec<String>>,
+    /// Optional override for [`ConversionOptions::skip_images`].
+    pub skip_images: Option<bool>,
+    /// Optional override for [`ConversionOptions::output_format`].
+    pub output_format: Option<OutputFormat>,
+    /// Optional override for [`ConversionOptions::include_document_structure`].
+    pub include_document_structure: Option<bool>,
+    /// Optional override for [`ConversionOptions::extract_images`].
+    pub extract_images: Option<bool>,
+    /// Optional override for [`ConversionOptions::max_image_size`].
+    pub max_image_size: Option<u64>,
+    /// Optional override for [`ConversionOptions::capture_svg`].
+    pub capture_svg: Option<bool>,
+    /// Optional override for [`ConversionOptions::infer_dimensions`].
+    pub infer_dimensions: Option<bool>,
+}
+
+impl ConversionOptions {
     /// Apply a partial update to these conversion options.
-    ///
-    /// Any specified fields in the update will override the current values.
-    /// Unspecified fields (None) are left unchanged.
-    ///
-    /// # Arguments
-    ///
-    /// * `update` - Partial options update with fields to override
     pub fn apply_update(&mut self, update: ConversionOptionsUpdate) {
-        if let Some(heading_style) = update.heading_style {
-            self.heading_style = heading_style;
+        macro_rules! apply {
+            ($field:ident) => {
+                if let Some(v) = update.$field {
+                    self.$field = v;
+                }
+            };
         }
-        if let Some(list_indent_type) = update.list_indent_type {
-            self.list_indent_type = list_indent_type;
-        }
-        if let Some(list_indent_width) = update.list_indent_width {
-            self.list_indent_width = list_indent_width;
-        }
-        if let Some(bullets) = update.bullets {
-            self.bullets = bullets;
-        }
-        if let Some(strong_em_symbol) = update.strong_em_symbol {
-            self.strong_em_symbol = strong_em_symbol;
-        }
-        if let Some(escape_asterisks) = update.escape_asterisks {
-            self.escape_asterisks = escape_asterisks;
-        }
-        if let Some(escape_underscores) = update.escape_underscores {
-            self.escape_underscores = escape_underscores;
-        }
-        if let Some(escape_misc) = update.escape_misc {
-            self.escape_misc = escape_misc;
-        }
-        if let Some(escape_ascii) = update.escape_ascii {
-            self.escape_ascii = escape_ascii;
-        }
-        if let Some(code_language) = update.code_language {
-            self.code_language = code_language;
-        }
-        if let Some(autolinks) = update.autolinks {
-            self.autolinks = autolinks;
-        }
-        if let Some(default_title) = update.default_title {
-            self.default_title = default_title;
-        }
-        if let Some(br_in_tables) = update.br_in_tables {
-            self.br_in_tables = br_in_tables;
-        }
-        if let Some(hocr_spatial_tables) = update.hocr_spatial_tables {
-            self.hocr_spatial_tables = hocr_spatial_tables;
-        }
-        if let Some(highlight_style) = update.highlight_style {
-            self.highlight_style = highlight_style;
-        }
-        if let Some(extract_metadata) = update.extract_metadata {
-            self.extract_metadata = extract_metadata;
-        }
-        if let Some(whitespace_mode) = update.whitespace_mode {
-            self.whitespace_mode = whitespace_mode;
-        }
-        if let Some(strip_newlines) = update.strip_newlines {
-            self.strip_newlines = strip_newlines;
-        }
-        if let Some(wrap) = update.wrap {
-            self.wrap = wrap;
-        }
-        if let Some(wrap_width) = update.wrap_width {
-            self.wrap_width = wrap_width;
-        }
-        if let Some(convert_as_inline) = update.convert_as_inline {
-            self.convert_as_inline = convert_as_inline;
-        }
-        if let Some(sub_symbol) = update.sub_symbol {
-            self.sub_symbol = sub_symbol;
-        }
-        if let Some(sup_symbol) = update.sup_symbol {
-            self.sup_symbol = sup_symbol;
-        }
-        if let Some(newline_style) = update.newline_style {
-            self.newline_style = newline_style;
-        }
-        if let Some(code_block_style) = update.code_block_style {
-            self.code_block_style = code_block_style;
-        }
-        if let Some(keep_inline_images_in) = update.keep_inline_images_in {
-            self.keep_inline_images_in = keep_inline_images_in;
-        }
+        apply!(heading_style);
+        apply!(list_indent_type);
+        apply!(list_indent_width);
+        apply!(bullets);
+        apply!(strong_em_symbol);
+        apply!(escape_asterisks);
+        apply!(escape_underscores);
+        apply!(escape_misc);
+        apply!(escape_ascii);
+        apply!(code_language);
+        apply!(autolinks);
+        apply!(default_title);
+        apply!(br_in_tables);
+        apply!(highlight_style);
+        apply!(extract_metadata);
+        apply!(whitespace_mode);
+        apply!(strip_newlines);
+        apply!(wrap);
+        apply!(wrap_width);
+        apply!(convert_as_inline);
+        apply!(sub_symbol);
+        apply!(sup_symbol);
+        apply!(newline_style);
+        apply!(code_block_style);
+        apply!(keep_inline_images_in);
+        apply!(encoding);
+        apply!(debug);
+        apply!(strip_tags);
+        apply!(preserve_tags);
+        apply!(skip_images);
+        apply!(output_format);
+        apply!(include_document_structure);
+        apply!(extract_images);
+        apply!(max_image_size);
+        apply!(capture_svg);
+        apply!(infer_dimensions);
         if let Some(preprocessing) = update.preprocessing {
             self.preprocessing.apply_update(preprocessing);
         }
-        if let Some(encoding) = update.encoding {
-            self.encoding = encoding;
-        }
-        if let Some(debug) = update.debug {
-            self.debug = debug;
-        }
-        if let Some(strip_tags) = update.strip_tags {
-            self.strip_tags = strip_tags;
-        }
-        if let Some(preserve_tags) = update.preserve_tags {
-            self.preserve_tags = preserve_tags;
-        }
-        if let Some(skip_images) = update.skip_images {
-            self.skip_images = skip_images;
-        }
-        if let Some(output_format) = update.output_format {
-            self.output_format = output_format;
-        }
     }
 
-    /// Create new conversion options from a partial update.
-    ///
-    /// Creates a new `ConversionOptions` struct with defaults, then applies the update.
-    /// Fields not specified in the update keep their default values.
-    ///
-    /// # Arguments
-    ///
-    /// * `update` - Partial options update with fields to set
-    ///
-    /// # Returns
-    ///
-    /// New `ConversionOptions` with specified updates applied to defaults
+    /// Create from a partial update, applying to defaults.
     #[must_use]
     pub fn from_update(update: ConversionOptionsUpdate) -> Self {
         let mut options = Self::default();
@@ -418,28 +436,25 @@ impl From<ConversionOptionsUpdate> for ConversionOptions {
     }
 }
 
+// ── Tests ───────────────────────────────────────────────────────────────────
+
 #[cfg(all(test, any(feature = "serde", feature = "metadata")))]
 mod tests {
     use super::*;
 
     #[test]
     fn test_conversion_options_serde() {
-        let options = ConversionOptions {
-            heading_style: HeadingStyle::AtxClosed,
-            list_indent_width: 4,
-            bullets: "*".to_string(),
-            escape_asterisks: true,
-            whitespace_mode: WhitespaceMode::Strict,
-            ..Default::default()
-        };
+        let options = ConversionOptions::builder()
+            .heading_style(HeadingStyle::AtxClosed)
+            .list_indent_width(4)
+            .bullets("*")
+            .escape_asterisks(true)
+            .whitespace_mode(WhitespaceMode::Strict)
+            .build();
 
-        // Serialize to JSON
         let json = serde_json::to_string(&options).expect("Failed to serialize");
-
-        // Deserialize back
         let deserialized: ConversionOptions = serde_json::from_str(&json).expect("Failed to deserialize");
 
-        // Verify values
         assert_eq!(deserialized.list_indent_width, 4);
         assert_eq!(deserialized.bullets, "*");
         assert!(deserialized.escape_asterisks);
@@ -449,7 +464,6 @@ mod tests {
 
     #[test]
     fn test_conversion_options_partial_deserialization() {
-        // Test that partial JSON can be deserialized using defaults for missing fields
         let partial_json = r#"{
             "headingStyle": "atxClosed",
             "listIndentWidth": 4,
@@ -459,14 +473,28 @@ mod tests {
         let deserialized: ConversionOptions =
             serde_json::from_str(partial_json).expect("Failed to deserialize partial JSON");
 
-        // Verify specified values
         assert_eq!(deserialized.heading_style, HeadingStyle::AtxClosed);
         assert_eq!(deserialized.list_indent_width, 4);
         assert_eq!(deserialized.bullets, "*");
+        assert!(!deserialized.escape_asterisks);
+        assert!(!deserialized.escape_underscores);
+        assert_eq!(deserialized.list_indent_type, ListIndentType::Spaces);
+    }
 
-        // Verify missing fields use defaults
-        assert!(!deserialized.escape_asterisks); // default
-        assert!(!deserialized.escape_underscores); // default
-        assert_eq!(deserialized.list_indent_type, ListIndentType::Spaces); // default
+    #[test]
+    fn test_builder_pattern() {
+        let options = ConversionOptions::builder()
+            .heading_style(HeadingStyle::Underlined)
+            .wrap(true)
+            .wrap_width(100)
+            .include_document_structure(true)
+            .extract_images(true)
+            .build();
+
+        assert_eq!(options.heading_style, HeadingStyle::Underlined);
+        assert!(options.wrap);
+        assert_eq!(options.wrap_width, 100);
+        assert!(options.include_document_structure);
+        assert!(options.extract_images);
     }
 }

@@ -6,6 +6,8 @@
 
 use std::collections::BTreeMap;
 
+#[cfg(feature = "visitor")]
+use crate::converter::utility::content::collect_tag_attributes;
 use crate::converter::utility::content::is_block_level_element;
 use crate::visitor::{NodeContext, NodeType, VisitResult};
 
@@ -48,11 +50,7 @@ pub fn handle_visitor_element_start(
     depth: usize,
     dom_ctx: &crate::converter::DomContext,
 ) -> VisitAction {
-    let attributes: BTreeMap<String, String> = tag
-        .attributes()
-        .iter()
-        .filter_map(|(k, v)| v.as_ref().map(|val| (k.to_string(), val.to_string())))
-        .collect();
+    let attributes: BTreeMap<String, String> = collect_tag_attributes(tag);
 
     let node_id = node_handle.get_inner();
     let parent_tag = dom_ctx.parent_tag_name(node_id, parser);
@@ -131,11 +129,7 @@ pub fn handle_visitor_element_end(
         return;
     }
 
-    let attributes: BTreeMap<String, String> = tag
-        .attributes()
-        .iter()
-        .filter_map(|(k, v)| v.as_ref().map(|val| (k.to_string(), val.to_string())))
-        .collect();
+    let attributes: BTreeMap<String, String> = collect_tag_attributes(tag);
 
     let node_id = node_handle.get_inner();
     let parent_tag = dom_ctx.parent_tag_name(node_id, parser);

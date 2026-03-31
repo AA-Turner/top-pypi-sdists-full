@@ -12,6 +12,9 @@ use crate::converter::main::walk_node;
 use crate::options::ConversionOptions;
 
 #[cfg(feature = "visitor")]
+#[cfg(feature = "visitor")]
+use crate::converter::utility::content::collect_tag_attributes;
+#[cfg(feature = "visitor")]
 use std::collections::BTreeMap;
 
 #[cfg(feature = "visitor")]
@@ -86,11 +89,7 @@ pub fn handle_blockquote(
     if let Some(ref visitor) = ctx.visitor {
         use crate::visitor::{NodeContext, NodeType, VisitResult};
 
-        let attributes: BTreeMap<String, String> = tag
-            .attributes()
-            .iter()
-            .filter_map(|(k, v)| v.as_ref().map(|val| (k.to_string(), val.to_string())))
-            .collect();
+        let attributes: BTreeMap<String, String> = collect_tag_attributes(tag);
 
         let node_id = node_handle.get_inner();
         let parent_tag = dom_ctx.parent_tag_name(node_id, parser);

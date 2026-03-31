@@ -11,7 +11,7 @@ import re
 import sys
 import typing
 import warnings
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from io import BytesIO
@@ -96,6 +96,7 @@ DEFAULT_EXPORT_LABELS = {
     DocItemLabel.FIELD_HEADING,
     DocItemLabel.FIELD_HINT,
     DocItemLabel.MARKER,
+    DocItemLabel.HANDWRITTEN_TEXT,
 }
 
 DOCUMENT_TOKENS_EXPORT_LABELS = DEFAULT_EXPORT_LABELS.copy()
@@ -1417,12 +1418,20 @@ class FloatingMeta(BaseMeta):
     description: Optional[DescriptionMetaField] = None
 
 
+class CodeMetaField(BasePrediction):
+    """Code representation for the respective item."""
+
+    text: str  # the actual code
+    language: Optional[CodeLanguageLabel] = None
+
+
 class PictureMeta(FloatingMeta):
     """Metadata model for pictures."""
 
     classification: Optional[PictureClassificationMetaField] = None
     molecule: Optional[MoleculeMetaField] = None
     tabular_chart: Optional[TabularChartMetaField] = None
+    code: Optional[CodeMetaField] = None
 
 
 class NodeItem(BaseModel):
@@ -1692,6 +1701,7 @@ class TextItem(DocItem):
         DocItemLabel.FIELD_KEY,
         DocItemLabel.FIELD_HINT,
         DocItemLabel.MARKER,
+        DocItemLabel.HANDWRITTEN_TEXT,
     ]
 
     orig: str  # untreated representation
@@ -3486,15 +3496,15 @@ class DoclingDocument(BaseModel):
         if old_subroot.parent is None:
             raise ValueError("Can not move the root")
 
+        # unlink old subroot from its previous parent
+        previous_parent: NodeItem = old_subroot.parent.resolve(doc=self)
+        previous_parent.children.remove(old_subroot.get_ref())
+
         # link new subroot => old subroot
         if pos is not None:
             new_subroot.children.insert(pos, old_subroot.get_ref())
         else:
             new_subroot.children.append(old_subroot.get_ref())
-
-        # unlink old subroot from its previous parent
-        previous_parent: NodeItem = old_subroot.parent.resolve(doc=self)
-        previous_parent.children.remove(old_subroot.get_ref())
 
         # link old subroot => new subroot
         old_subroot.parent = new_subroot.get_ref()
@@ -7061,8 +7071,46 @@ class DoclingDocument(BaseModel):
             return CURRENT_VERSION
 
     @model_validator(mode="after")
+    def _validate_unique_refs(self) -> Self:
+        seen: set[str] = set()
+        item_lists: list[Iterable[NodeItem]] = [
+            self.groups,
+            self.texts,
+            self.pictures,
+            self.tables,
+            self.key_value_items,
+            self.form_items,
+            self.field_regions,
+            self.field_items,
+        ]
+        for item_list in item_lists:
+            for item in item_list:
+                if isinstance(item, NodeItem):
+                    if item.self_ref in seen:
+                        raise ValueError(f"Duplicate ref: {item.self_ref}")
+                    seen.add(item.self_ref)
+                else:
+                    raise ValueError(f"Unknown element encountered: {item}")
+        return self
+
+    def _normalize_table_children_from_rich_cells(self):
+        """Repair missing table child links for already-parented rich table cells."""
+        for table in self.tables:
+            child_crefs = {child.cref for child in table.children}
+
+            for cell in table.data.table_cells:
+                if not isinstance(cell, RichTableCell):
+                    continue
+
+                item = cell.ref.resolve(self)
+                if item.parent is not None and item.parent.cref == table.self_ref and cell.ref.cref not in child_crefs:
+                    table.children.append(cell.ref)
+                    child_crefs.add(cell.ref.cref)
+
+    @model_validator(mode="after")
     def validate_document(self) -> Self:
         """validate_document."""
+
         with warnings.catch_warnings():
             # ignore warning from deprecated furniture
             warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -7153,7 +7201,16 @@ class DoclingDocument(BaseModel):
             self._names.append(doc.name)
 
             # record starting indices so post-processing only touches new items
-            post_processing_keys = ["texts", "pictures", "tables", "key_value_items", "form_items"]
+            post_processing_keys = [
+                "groups",
+                "texts",
+                "pictures",
+                "tables",
+                "key_value_items",
+                "form_items",
+                "field_regions",
+                "field_items",
+            ]
             start_indices = {k: len(self.get_item_list(k)) for k in post_processing_keys}
 
             # collect items in traversal order

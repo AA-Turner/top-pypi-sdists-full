@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from google.cloud.errorreporting_v1beta1 import gapic_version as package_version
+import sys
 
 import google.api_core as api_core
-import sys
+
+from google.cloud.errorreporting_v1beta1 import gapic_version as package_version
 
 __version__ = package_version.__version__
 
@@ -28,38 +29,48 @@ else:  # pragma: NO COVER
     import importlib_metadata as metadata
 
 
-from .services.error_group_service import ErrorGroupServiceClient
-from .services.error_group_service import ErrorGroupServiceAsyncClient
-from .services.error_stats_service import ErrorStatsServiceClient
-from .services.error_stats_service import ErrorStatsServiceAsyncClient
-from .services.report_errors_service import ReportErrorsServiceClient
-from .services.report_errors_service import ReportErrorsServiceAsyncClient
-
-from .types.common import ErrorContext
-from .types.common import ErrorEvent
-from .types.common import ErrorGroup
-from .types.common import HttpRequestContext
-from .types.common import ServiceContext
-from .types.common import SourceLocation
-from .types.common import TrackingIssue
-from .types.common import ResolutionStatus
-from .types.error_group_service import GetGroupRequest
-from .types.error_group_service import UpdateGroupRequest
-from .types.error_stats_service import DeleteEventsRequest
-from .types.error_stats_service import DeleteEventsResponse
-from .types.error_stats_service import ErrorGroupStats
-from .types.error_stats_service import ListEventsRequest
-from .types.error_stats_service import ListEventsResponse
-from .types.error_stats_service import ListGroupStatsRequest
-from .types.error_stats_service import ListGroupStatsResponse
-from .types.error_stats_service import QueryTimeRange
-from .types.error_stats_service import ServiceContextFilter
-from .types.error_stats_service import TimedCount
-from .types.error_stats_service import ErrorGroupOrder
-from .types.error_stats_service import TimedCountAlignment
-from .types.report_errors_service import ReportedErrorEvent
-from .types.report_errors_service import ReportErrorEventRequest
-from .types.report_errors_service import ReportErrorEventResponse
+from .services.error_group_service import (
+    ErrorGroupServiceAsyncClient,
+    ErrorGroupServiceClient,
+)
+from .services.error_stats_service import (
+    ErrorStatsServiceAsyncClient,
+    ErrorStatsServiceClient,
+)
+from .services.report_errors_service import (
+    ReportErrorsServiceAsyncClient,
+    ReportErrorsServiceClient,
+)
+from .types.common import (
+    ErrorContext,
+    ErrorEvent,
+    ErrorGroup,
+    HttpRequestContext,
+    ResolutionStatus,
+    ServiceContext,
+    SourceLocation,
+    TrackingIssue,
+)
+from .types.error_group_service import GetGroupRequest, UpdateGroupRequest
+from .types.error_stats_service import (
+    DeleteEventsRequest,
+    DeleteEventsResponse,
+    ErrorGroupOrder,
+    ErrorGroupStats,
+    ListEventsRequest,
+    ListEventsResponse,
+    ListGroupStatsRequest,
+    ListGroupStatsResponse,
+    QueryTimeRange,
+    ServiceContextFilter,
+    TimedCount,
+    TimedCountAlignment,
+)
+from .types.report_errors_service import (
+    ReportedErrorEvent,
+    ReportErrorEventRequest,
+    ReportErrorEventResponse,
+)
 
 if hasattr(api_core, "check_python_version") and hasattr(
     api_core, "check_dependency_versions"
@@ -70,8 +81,8 @@ else:  # pragma: NO COVER
     # An older version of api_core is installed which does not define the
     # functions above. We do equivalent checks manually.
     try:
-        import warnings
         import sys
+        import warnings
 
         _py_version_str = sys.version.split()[0]
         _package_label = "google.cloud.errorreporting_v1beta1"

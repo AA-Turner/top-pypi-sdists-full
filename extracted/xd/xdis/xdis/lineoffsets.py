@@ -14,6 +14,7 @@ from xdis.bytecode import get_instructions_bytes
 from xdis.codetype.base import iscode
 from xdis.load import check_object_path, load_module
 from xdis.op_imports import get_opcode_module
+from xdis.version_info import PythonImplementation
 
 # Information about a single line in a particular piece of code
 #  Note that a code can have several lines with the same value but
@@ -51,14 +52,16 @@ class LineOffsetInfo(object):
         code = self.code
         code_map = {code.co_name: code}
         last_line_info = None
-        for instr in get_instructions_bytes(
-            bytecode=code.co_code,
+        if self.opc.python_implementation == PythonImplementation.Graal:
+            from xdis.bytecode_graal import get_instructions_bytes_graal
+
+            get_instructions_fn = get_instructions_bytes_graal
+        else:
+            get_instructions_fn = get_instructions_bytes
+
+        for instr in get_instructions_fn(
+            code_object=code,
             opc=self.opc,
-            varnames=code.co_varnames,
-            names=code.co_names,
-            constants=code.co_consts,
-            cells=code.co_cellvars + code.co_freevars,
-            linestarts=self.linestarts,
         ):
             offset = instr.offset
             self.offsets.append(offset)
@@ -112,14 +115,10 @@ class LineOffsetInfo(object):
 
 def lineoffsets_in_file(filename: str, toplevel_only=False) -> LineOffsetInfo | None:
     obj_path = check_object_path(filename)
-    version, timestamp, magic_int, code, pypy, source_size, sip_hash = load_module(
+    version, timestamp, magic_int, code, python_implementation, source_size, sip_hash, _save_offsets = load_module(
         obj_path
     )
-    if pypy:
-        variant = "pypy"
-    else:
-        variant = None
-    opc = get_opcode_module(version, variant)
+    opc = get_opcode_module(version, python_implementation)
     return LineOffsetInfo(opc, code, not toplevel_only)
     pass
 
@@ -129,6 +128,8 @@ def lineoffsets_in_module(module, toplevel_only: bool=False) -> LineOffsetInfo |
 
 
 if __name__ == "__main__":
+    from xdis.version_info import PYTHON_IMPLEMENTATION, PYTHON_VERSION_TRIPLE
+
 
     def multi_line() -> tuple[int, int]:
         # We have two statements on the same line
@@ -176,6 +177,6 @@ if __name__ == "__main__":
             pass
         return
 
-    opc = get_opcode_module()
+    opc = get_opcode_module(PYTHON_VERSION_TRIPLE, PYTHON_IMPLEMENTATION)
     print_code_info(lineoffsets_in_file(__file__))
     # print_code_info(LineOffsetInfo(opc, multi_line.__code__, include_children=True))

@@ -58,6 +58,7 @@ class IntentView(proto.Enum):
         INTENT_VIEW_FULL (2):
             All fields are populated.
     """
+
     INTENT_VIEW_UNSPECIFIED = 0
     INTENT_VIEW_PARTIAL = 1
     INTENT_VIEW_FULL = 2
@@ -126,6 +127,9 @@ class Intent(proto.Message):
             understanding an intent like its scope, content,
             result etc. Maximum character limit: 140
             characters.
+        dtmf_pattern (str):
+            Optional. Matching DTMF pattern for the
+            intent.
     """
 
     class TrainingPhrase(proto.Message):
@@ -284,6 +288,10 @@ class Intent(proto.Message):
     description: str = proto.Field(
         proto.STRING,
         number=8,
+    )
+    dtmf_pattern: str = proto.Field(
+        proto.STRING,
+        number=16,
     )
 
 
@@ -560,6 +568,7 @@ class ImportIntentsRequest(proto.Message):
                 conflicting new intent when display name
                 conflicts exist.
         """
+
         MERGE_OPTION_UNSPECIFIED = 0
         REJECT = 1
         REPLACE = 2
@@ -699,6 +708,7 @@ class ExportIntentsRequest(proto.Message):
             CSV (3):
                 Intents will be exported in CSV format.
         """
+
         DATA_FORMAT_UNSPECIFIED = 0
         BLOB = 1
         JSON = 2

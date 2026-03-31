@@ -44,6 +44,12 @@ from .literals import (
     InboundConnectionStatusCodeType,
     IndexStatusType,
     InitiatedByType,
+    InsightEntityTypeType,
+    InsightFieldTypeType,
+    InsightPriorityLevelType,
+    InsightSortOrderType,
+    InsightStatusType,
+    InsightTypeType,
     IPAddressTypeType,
     LogTypeType,
     MaintenanceStatusType,
@@ -198,6 +204,8 @@ __all__ = (
     "DescribeDryRunProgressResponseTypeDef",
     "DescribeInboundConnectionsRequestTypeDef",
     "DescribeInboundConnectionsResponseTypeDef",
+    "DescribeInsightDetailsRequestTypeDef",
+    "DescribeInsightDetailsResponseTypeDef",
     "DescribeInstanceTypeLimitsRequestTypeDef",
     "DescribeInstanceTypeLimitsResponseTypeDef",
     "DescribeOutboundConnectionsRequestTypeDef",
@@ -266,6 +274,10 @@ __all__ = (
     "IdentityCenterOptionsTypeDef",
     "InboundConnectionStatusTypeDef",
     "InboundConnectionTypeDef",
+    "InsightEntityTypeDef",
+    "InsightFieldTypeDef",
+    "InsightTimeRangeTypeDef",
+    "InsightTypeDef",
     "InstanceCountLimitsTypeDef",
     "InstanceLimitsTypeDef",
     "InstanceTypeDetailsTypeDef",
@@ -286,6 +298,8 @@ __all__ = (
     "ListDomainNamesResponseTypeDef",
     "ListDomainsForPackageRequestTypeDef",
     "ListDomainsForPackageResponseTypeDef",
+    "ListInsightsRequestTypeDef",
+    "ListInsightsResponseTypeDef",
     "ListInstanceTypeDetailsRequestTypeDef",
     "ListInstanceTypeDetailsResponseTypeDef",
     "ListPackagesForDomainRequestTypeDef",
@@ -838,6 +852,23 @@ class FilterTypeDef(TypedDict):
     Values: NotRequired[Sequence[str]]
 
 
+InsightEntityTypeDef = TypedDict(
+    "InsightEntityTypeDef",
+    {
+        "Type": InsightEntityTypeType,
+        "Value": NotRequired[str],
+    },
+)
+InsightFieldTypeDef = TypedDict(
+    "InsightFieldTypeDef",
+    {
+        "Name": str,
+        "Type": InsightFieldTypeType,
+        "Value": str,
+    },
+)
+
+
 class DescribeInstanceTypeLimitsRequestTypeDef(TypedDict):
     InstanceType: OpenSearchPartitionInstanceTypeType
     EngineVersion: str
@@ -989,6 +1020,26 @@ class GetUpgradeStatusRequestTypeDef(TypedDict):
 class InboundConnectionStatusTypeDef(TypedDict):
     StatusCode: NotRequired[InboundConnectionStatusCodeType]
     Message: NotRequired[str]
+
+
+class InsightTimeRangeTypeDef(TypedDict):
+    From: int
+    To: int
+
+
+InsightTypeDef = TypedDict(
+    "InsightTypeDef",
+    {
+        "InsightId": NotRequired[str],
+        "DisplayName": NotRequired[str],
+        "Type": NotRequired[InsightTypeType],
+        "Priority": NotRequired[InsightPriorityLevelType],
+        "Status": NotRequired[InsightStatusType],
+        "CreationTime": NotRequired[datetime],
+        "UpdateTime": NotRequired[datetime],
+        "IsExperimental": NotRequired[bool],
+    },
+)
 
 
 class InstanceCountLimitsTypeDef(TypedDict):
@@ -1639,6 +1690,17 @@ class DescribeOutboundConnectionsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class DescribeInsightDetailsRequestTypeDef(TypedDict):
+    Entity: InsightEntityTypeDef
+    InsightId: str
+    ShowHtmlContent: NotRequired[bool]
+
+
+class DescribeInsightDetailsResponseTypeDef(TypedDict):
+    Fields: list[InsightFieldTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribePackagesRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[DescribePackagesFilterTypeDef]]
     MaxResults: NotRequired[int]
@@ -1687,6 +1749,20 @@ class DryRunProgressStatusTypeDef(TypedDict):
     CreationDate: str
     UpdateDate: str
     ValidationFailures: NotRequired[list[ValidationFailureTypeDef]]
+
+
+class ListInsightsRequestTypeDef(TypedDict):
+    Entity: InsightEntityTypeDef
+    TimeRange: NotRequired[InsightTimeRangeTypeDef]
+    SortOrder: NotRequired[InsightSortOrderType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListInsightsResponseTypeDef(TypedDict):
+    Insights: list[InsightTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class InstanceLimitsTypeDef(TypedDict):

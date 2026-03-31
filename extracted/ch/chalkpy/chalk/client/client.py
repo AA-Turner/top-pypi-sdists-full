@@ -59,6 +59,8 @@ if TYPE_CHECKING:
     import polars as pl
     from pydantic import BaseModel
 
+    from chalk.client.api import APINamespace
+
     QueryInput = Mapping[FeatureReference, Any] | pd.DataFrame | pl.DataFrame | DataFrame
 
 from chalk.features._encoding.json import FeatureEncodingOptions
@@ -165,6 +167,15 @@ class ChalkClient:
             `CHALK_CLIENT_SECRET` are not set.
         """
         super().__init__()
+        ...
+
+    @property
+    def api(self) -> "APINamespace":
+        """Access Chalk management APIs.
+
+        Returns an :class:`APINamespace` with sub-clients such as
+        ``client.api.datasources`` for programmatic data-source management.
+        """
         ...
 
     def query(

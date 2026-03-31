@@ -22,17 +22,17 @@ try:
 except ImportError:  # pragma: NO COVER
     import mock
 
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,11 +43,16 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.longrunning import operations_pb2  # type: ignore
@@ -117,6 +122,7 @@ def test__get_default_mtls_endpoint():
     sandbox_endpoint = "example.sandbox.googleapis.com"
     sandbox_mtls_endpoint = "example.mtls.sandbox.googleapis.com"
     non_googleapi = "api.example.com"
+    custom_endpoint = ".custom"
 
     assert DeviceCapabilityServiceClient._get_default_mtls_endpoint(None) is None
     assert (
@@ -138,6 +144,10 @@ def test__get_default_mtls_endpoint():
     assert (
         DeviceCapabilityServiceClient._get_default_mtls_endpoint(non_googleapi)
         == non_googleapi
+    )
+    assert (
+        DeviceCapabilityServiceClient._get_default_mtls_endpoint(custom_endpoint)
+        == custom_endpoint
     )
 
 
@@ -938,10 +948,9 @@ def test_device_capability_service_client_get_mtls_endpoint_and_cert_source(
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -986,10 +995,9 @@ def test_device_capability_service_client_get_mtls_endpoint_and_cert_source(
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1025,10 +1033,9 @@ def test_device_capability_service_client_get_mtls_endpoint_and_cert_source(
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -1217,9 +1224,9 @@ def test_get_device_capability_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_device_capability
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_device_capability] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_device_capability(request)
@@ -1741,8 +1748,9 @@ def test_get_device_capability_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -1807,18 +1815,22 @@ def test_get_device_capability_rest_interceptors(null_interceptor):
     )
     client = DeviceCapabilityServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DeviceCapabilityServiceRestInterceptor, "post_get_device_capability"
-    ) as post, mock.patch.object(
-        transports.DeviceCapabilityServiceRestInterceptor,
-        "post_get_device_capability_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.DeviceCapabilityServiceRestInterceptor, "pre_get_device_capability"
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DeviceCapabilityServiceRestInterceptor,
+            "post_get_device_capability",
+        ) as post,
+        mock.patch.object(
+            transports.DeviceCapabilityServiceRestInterceptor,
+            "post_get_device_capability_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DeviceCapabilityServiceRestInterceptor,
+            "pre_get_device_capability",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -1876,8 +1888,9 @@ def test_list_device_capabilities_rest_bad_request(
     request = request_type(**request_init)
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = mock.Mock()
@@ -1944,20 +1957,22 @@ def test_list_device_capabilities_rest_interceptors(null_interceptor):
     )
     client = DeviceCapabilityServiceClient(transport=transport)
 
-    with mock.patch.object(
-        type(client.transport._session), "request"
-    ) as req, mock.patch.object(
-        path_template, "transcode"
-    ) as transcode, mock.patch.object(
-        transports.DeviceCapabilityServiceRestInterceptor,
-        "post_list_device_capabilities",
-    ) as post, mock.patch.object(
-        transports.DeviceCapabilityServiceRestInterceptor,
-        "post_list_device_capabilities_with_metadata",
-    ) as post_with_metadata, mock.patch.object(
-        transports.DeviceCapabilityServiceRestInterceptor,
-        "pre_list_device_capabilities",
-    ) as pre:
+    with (
+        mock.patch.object(type(client.transport._session), "request") as req,
+        mock.patch.object(path_template, "transcode") as transcode,
+        mock.patch.object(
+            transports.DeviceCapabilityServiceRestInterceptor,
+            "post_list_device_capabilities",
+        ) as post,
+        mock.patch.object(
+            transports.DeviceCapabilityServiceRestInterceptor,
+            "post_list_device_capabilities_with_metadata",
+        ) as post_with_metadata,
+        mock.patch.object(
+            transports.DeviceCapabilityServiceRestInterceptor,
+            "pre_list_device_capabilities",
+        ) as pre,
+    ):
         pre.assert_not_called()
         post.assert_not_called()
         post_with_metadata.assert_not_called()
@@ -2017,8 +2032,9 @@ def test_get_operation_rest_bad_request(
     )
 
     # Mock the http request call within the method and fake a BadRequest error.
-    with mock.patch.object(Session, "request") as req, pytest.raises(
-        core_exceptions.BadRequest
+    with (
+        mock.patch.object(Session, "request") as req,
+        pytest.raises(core_exceptions.BadRequest),
     ):
         # Wrap the value into a proper Response obj
         response_value = Response()
@@ -2161,11 +2177,14 @@ def test_device_capability_service_base_transport():
 
 def test_device_capability_service_base_transport_with_credentials_file():
     # Instantiate the base transport with a credentials file
-    with mock.patch.object(
-        google.auth, "load_credentials_from_file", autospec=True
-    ) as load_creds, mock.patch(
-        "google.ads.admanager_v1.services.device_capability_service.transports.DeviceCapabilityServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(
+            google.auth, "load_credentials_from_file", autospec=True
+        ) as load_creds,
+        mock.patch(
+            "google.ads.admanager_v1.services.device_capability_service.transports.DeviceCapabilityServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.DeviceCapabilityServiceTransport(
@@ -2182,9 +2201,12 @@ def test_device_capability_service_base_transport_with_credentials_file():
 
 def test_device_capability_service_base_transport_with_adc():
     # Test the default credentials are used if credentials and credentials_file are None.
-    with mock.patch.object(google.auth, "default", autospec=True) as adc, mock.patch(
-        "google.ads.admanager_v1.services.device_capability_service.transports.DeviceCapabilityServiceTransport._prep_wrapped_messages"
-    ) as Transport:
+    with (
+        mock.patch.object(google.auth, "default", autospec=True) as adc,
+        mock.patch(
+            "google.ads.admanager_v1.services.device_capability_service.transports.DeviceCapabilityServiceTransport._prep_wrapped_messages"
+        ) as Transport,
+    ):
         Transport.return_value = None
         adc.return_value = (ga_credentials.AnonymousCredentials(), None)
         transport = transports.DeviceCapabilityServiceTransport()

@@ -7,9 +7,6 @@ use html_to_markdown_rs::visitor::{HtmlVisitor, NodeContext, VisitResult};
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
 
-#[cfg(feature = "async-visitor")]
-use crate::PYTHON_TASK_LOCALS;
-
 /// PyO3 wrapper around a Python visitor object.
 ///
 /// This struct bridges Python callbacks to the Rust HtmlVisitor trait.
@@ -46,18 +43,6 @@ impl PyVisitorBridge {
 
         if result.is_none() {
             return Ok(VisitResult::Continue);
-        }
-
-        #[cfg(feature = "async-visitor")]
-        if result.hasattr("__await__")? {
-            let locals = PYTHON_TASK_LOCALS
-                .get()
-                .ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("Async visitor event loop not initialized"))?;
-
-            let fut = pyo3_async_runtimes::into_future_with_locals(locals, result)?;
-            let py_result: Py<PyAny> = py.detach(|| pyo3_async_runtimes::tokio::get_runtime().block_on(fut))?;
-            let result_dict: Bound<'_, pyo3::types::PyDict> = py_result.bind(py).extract()?;
-            return result_from_dict(&result_dict);
         }
 
         let result_dict: Bound<'_, pyo3::types::PyDict> = result.extract()?;

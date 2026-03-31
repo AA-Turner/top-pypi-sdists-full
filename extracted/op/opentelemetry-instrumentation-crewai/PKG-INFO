@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-crewai
-Version: 0.55.0
+Version: 0.57.0
 Summary: OpenTelemetry crewAI instrumentation
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-crewai
 Author-email: Gal Kleinman <gal@traceloop.com>, Nir Gazit <nir@traceloop.com>
@@ -11,7 +11,7 @@ Requires-Dist: opentelemetry-instrumentation>=0.59b0
 Requires-Dist: opentelemetry-semantic-conventions-ai<0.6.0,>=0.5.1
 Requires-Dist: opentelemetry-semantic-conventions>=0.59b0
 Provides-Extra: instruments
-Requires-Dist: crewai; extra == 'instruments'
+Requires-Dist: crewai<2,>=1.0.0; extra == 'instruments'
 Description-Content-Type: text/markdown
 
 # OpenTelemetry CrewAI Instrumentation

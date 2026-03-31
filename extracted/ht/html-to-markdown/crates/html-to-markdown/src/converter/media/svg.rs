@@ -1,5 +1,7 @@
 //! SVG and MathML element handling with serialization and base64 encoding.
 
+use crate::converter::main_helpers::tag_name_eq;
+use crate::converter::utility::content::normalized_tag_name;
 #[allow(unused_imports)]
 use std::collections::BTreeMap;
 use tl::{NodeHandle, Parser};
@@ -93,7 +95,7 @@ pub(crate) fn handle_inline_svg(
 #[allow(clippy::trivially_copy_pass_by_ref)]
 pub(crate) fn serialize_element(node_handle: &NodeHandle, parser: &Parser) -> String {
     if let Some(tl::Node::Tag(tag)) = node_handle.get(parser) {
-        let tag_name = normalized_tag_name(tag.name().as_utf8_str().as_ref());
+        let tag_name = normalized_tag_name(tag.name().as_utf8_str());
         let mut html = String::with_capacity(256);
         html.push('<');
         html.push_str(&tag_name);
@@ -142,11 +144,6 @@ pub(crate) fn serialize_node(node_handle: &NodeHandle, parser: &Parser) -> Strin
     }
 }
 
-/// Normalize tag name to lowercase.
-fn normalized_tag_name(name: &str) -> String {
-    name.to_ascii_lowercase()
-}
-
 /// Extract non-empty trimmed string or return None.
 #[cfg(feature = "inline-images")]
 fn non_empty_trimmed(value: &str) -> Option<String> {
@@ -156,12 +153,6 @@ fn non_empty_trimmed(value: &str) -> Option<String> {
     } else {
         Some(trimmed.to_string())
     }
-}
-
-/// Encode SVG to base64 data URI.
-pub(crate) fn encode_svg_to_data_uri(svg_html: &str) -> String {
-    use base64::{Engine as _, engine::general_purpose::STANDARD};
-    STANDARD.encode(svg_html.as_bytes())
 }
 
 /// Handle SVG element conversion to Markdown.
@@ -179,7 +170,6 @@ pub(crate) fn handle_svg(
     _depth: usize,
     dom_ctx: &super::DomContext,
 ) {
-    use crate::converter::main_helpers::tag_name_eq;
     use crate::converter::utility::content::get_text_content;
 
     let mut title = String::from("SVG Image");

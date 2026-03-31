@@ -26,7 +26,7 @@ from django.conf import settings
 from django.utils.translation import gettext_noop as _
 from edx_django_utils.cache import RequestCache
 from lxml import etree
-from opaque_keys.edx.keys import CourseKey, UsageKey
+from opaque_keys.edx.keys import CourseKey
 from opaque_keys.edx.locator import AssetLocator
 from web_fragments.fragment import Fragment
 from xblock.completable import XBlockCompletionMode
@@ -45,12 +45,16 @@ from xblocks_contrib.video.ajax_handler_mixin import AjaxHandlerMixin
 from xblocks_contrib.video.bumper_utils import bumperize
 from xblocks_contrib.video.cache_utils import request_cached
 from xblocks_contrib.video.constants import ATTR_KEY_REQUEST_COUNTRY_CODE, ATTR_KEY_USER_ID, PUBLIC_VIEW, STUDENT_VIEW
-from xblocks_contrib.video.content import VideoBlockStaticContent
 from xblocks_contrib.video.exceptions import TranscriptNotFoundError
 from xblocks_contrib.video.mixin import LicenseMixin
 from xblocks_contrib.video.studio_metadata_mixin import StudioMetadataMixin
 from xblocks_contrib.video.validation import StudioValidation, StudioValidationMessage
 from xblocks_contrib.video.video_handlers import VideoStudentViewHandlers, VideoStudioViewHandlers
+from xblocks_contrib.video.video_static_content_utils import (
+    compute_location,
+    get_location_from_path,
+    serialize_asset_key_with_slash,
+)
 from xblocks_contrib.video.video_transcripts_utils import (
     TranscriptExtensions,
     VideoTranscriptsMixin,
@@ -147,30 +151,6 @@ class VideoBlock(
     uses_xmodule_styles_setup = True
 
     @property
-    def course_id(self):
-        return self.location.course_key
-
-    @property
-    def category(self):
-        return self.scope_ids.block_type
-
-    @property
-    def location(self):
-        return self.scope_ids.usage_id
-
-    @location.setter
-    def location(self, value):
-        assert isinstance(value, UsageKey)
-        self.scope_ids = self.scope_ids._replace(
-            def_id=value,  # Note: assigning a UsageKey as def_id is OK in old mongo / import system but wrong in split
-            usage_id=value,
-        )
-
-    @property
-    def url_name(self):
-        return self.location.block_id
-
-    @property
     def display_name_with_default(self):
         """
         Return a display name for the module: use display_name if defined in
@@ -178,7 +158,7 @@ class VideoBlock(
         """
         return (
             self.display_name if self.display_name is not None
-            else self.location.block_id.replace('_', ' ')
+            else self.usage_key.block_id.replace('_', ' ')
         )
 
     @property
@@ -245,25 +225,25 @@ class VideoBlock(
         """
         video_config_service = self.runtime.service(self, 'video_config')
         # Return False if `hls` playback feature is disabled.
-        if not self.is_hls_playback_enabled(self.location.course_key):
+        if not self.is_hls_playback_enabled(self.context_key):
             return False
 
         # check if youtube has been deprecated and hls as primary playback
         # is enabled for this course
-        return video_config_service.is_youtube_deprecated(self.location.course_key) if video_config_service else False
+        return video_config_service.is_youtube_deprecated(self.context_key) if video_config_service else False
 
     def youtube_disabled_for_course(self):  # lint-amnesty, pylint: disable=missing-function-docstring
-        if not self.location.context_key.is_course:
+        if not self.context_key.is_course:
             return False  # Only courses have this flag
         request_cache = RequestCache('youtube_disabled_for_course')
-        cache_response = request_cache.get_cached_response(self.location.context_key)
+        cache_response = request_cache.get_cached_response(self.context_key)
         if cache_response.is_found:
             return cache_response.value
 
         video_config_service = self.runtime.service(self, 'video_config')
         youtube_is_disabled = video_config_service.is_youtube_blocked_for_course(
-            self.location.course_key) if video_config_service else False
-        request_cache.set(self.location.context_key, youtube_is_disabled)
+            self.context_key) if video_config_service else False
+        request_cache.set(self.context_key, youtube_is_disabled)
         return youtube_is_disabled
 
     def prioritize_hls(self, youtube_streams, html5_sources):
@@ -358,7 +338,7 @@ class VideoBlock(
             try:
                 val_profiles = ["youtube", "desktop_webm", "desktop_mp4"]
 
-                if self.is_hls_playback_enabled(self.course_id):
+                if self.is_hls_playback_enabled(self.context_key):
                     val_profiles.append('hls')
 
                 # strip edx_video_id to prevent ValVideoNotFoundError error if unwanted spaces are there. TNL-5769
@@ -529,8 +509,8 @@ class VideoBlock(
             'is_video_from_same_origin': is_video_from_same_origin,
             'handout': self.handout,
             'hide_downloads': is_public_view or is_embed,
-            'id': self.location.html_id(),
-            'block_id': str(self.location),
+            'id': self.usage_key.html_id(),
+            'block_id': str(self.usage_key),
             'course_id': str(self.context_key),
             'video_id': str(self.edx_video_id),
             'user_id': self.get_user_id(),
@@ -546,7 +526,7 @@ class VideoBlock(
         }
         video_config_service = self.runtime.service(self, 'video_config')
         if video_config_service:
-            template_context.update(video_config_service.get_public_sharing_context(self, self.course_id))
+            template_context.update(video_config_service.get_public_sharing_context(self, self.context_key))
 
         return loader.render_django_template("templates/video.html", template_context)
 
@@ -701,7 +681,7 @@ class VideoBlock(
         youtube_string = create_youtube_string(self)
         if youtube_string:
             xml.set('youtube', str(youtube_string))
-        xml.set('url_name', self.url_name)
+        xml.set('url_name', self.usage_key.block_id)
         attrs = [
             ('display_name', self.display_name),
             ('show_captions', json.dumps(self.show_captions)),
@@ -720,13 +700,13 @@ class VideoBlock(
                     try:
                         xml.set(key, str(value))
                     except UnicodeDecodeError:
-                        exception_message = format_xml_exception_message(self.location, key, value)
+                        exception_message = format_xml_exception_message(self.usage_key, key, value)
                         log.exception(exception_message)
                         # If exception is UnicodeDecodeError set value using unicode 'utf-8' scheme.
                         log.info("Setting xml value using 'utf-8' scheme.")
                         xml.set(key, str(value, 'utf-8'))
                     except ValueError:
-                        exception_message = format_xml_exception_message(self.location, key, value)
+                        exception_message = format_xml_exception_message(self.usage_key, key, value)
                         log.exception(exception_message)
                         raise
 
@@ -766,7 +746,7 @@ class VideoBlock(
                     video_id=edx_video_id,
                     resource_fs=resource_fs,
                     static_dir=EXPORT_IMPORT_STATIC_DIR,
-                    course_id=self.scope_ids.usage_id.context_key.for_branch(None),
+                    course_id=self.context_key.for_branch(None),
                 )
                 # Update xml with edxval metadata
                 xml.append(exported_metadata['xml'])
@@ -824,7 +804,7 @@ class VideoBlock(
         }
         _context.update({
             'tabs': self.tabs,
-            'html_id': self.location.html_id(),  # element_id
+            'html_id': self.usage_key.html_id(),  # element_id
             'data': self.data,
         })
 
@@ -864,7 +844,7 @@ class VideoBlock(
         if self.edx_video_id and edxval_api:
 
             val_profiles = ['youtube', 'desktop_webm', 'desktop_mp4']
-            if self.is_hls_playback_enabled(self.scope_ids.usage_id.context_key.for_branch(None)):
+            if self.is_hls_playback_enabled(self.context_key.for_branch(None)):
                 val_profiles.append('hls')
 
             # Get video encodings for val profiles.
@@ -989,10 +969,10 @@ class VideoBlock(
         course_id = getattr(id_generator, 'target_course_id', None)
         # Update the handout location with current course_id
         if 'handout' in field_data and course_id:
-            handout_location = VideoBlockStaticContent.get_location_from_path(field_data['handout'])
+            handout_location = get_location_from_path(field_data['handout'])
             if isinstance(handout_location, AssetLocator):
-                handout_new_location = VideoBlockStaticContent.compute_location(course_id, handout_location.path)
-                field_data['handout'] = VideoBlockStaticContent.serialize_asset_key_with_slash(handout_new_location)
+                handout_new_location = compute_location(course_id, handout_location.path)
+                field_data['handout'] = serialize_asset_key_with_slash(handout_new_location)
 
         # For backwards compatibility: Add `source` if XML doesn't have `download_video`
         # attribute.
@@ -1129,14 +1109,14 @@ class VideoBlock(
         # Check in VAL data first if edx_video_id exists
         if self.edx_video_id:
             video_profile_names = context.get("profiles", ["mobile_low", 'desktop_mp4', 'desktop_webm', 'mobile_high'])
-            if self.is_hls_playback_enabled(self.location.course_key) and 'hls' not in video_profile_names:
+            if self.is_hls_playback_enabled(self.context_key) and 'hls' not in video_profile_names:
                 video_profile_names.append('hls')
 
             # get and cache bulk VAL data for course
             val_course_data = self.get_cached_val_data_for_course(
                 self.request_cache,
                 video_profile_names,
-                self.location.course_key,
+                self.context_key,
             )
             val_video_data = val_course_data.get(self.edx_video_id, {})
 
@@ -1204,7 +1184,7 @@ class VideoBlock(
         edxval_api = get_edxval_api()
         if edxval_api and self.edx_video_id:
             return edxval_api.get_course_video_image_url(
-                course_id=self.scope_ids.usage_id.context_key.for_branch(None),
+                course_id=self.context_key.for_branch(None),
                 edx_video_id=self.edx_video_id.strip()
             )
         return None
@@ -1279,7 +1259,7 @@ class VideoBlock(
                 try:
                     result[field.name] = field.read_json(self)
                 except TypeError as exception:
-                    exception_message = f"{exception}, Block-location:{self.location}, Field-name:{field.name}"
+                    exception_message = f"{exception}, Block-location:{self.usage_key}, Field-name:{field.name}"
                     raise TypeError(exception_message) from exception
         return result
 

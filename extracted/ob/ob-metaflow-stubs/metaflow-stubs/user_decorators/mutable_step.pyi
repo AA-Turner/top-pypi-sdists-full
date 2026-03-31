@@ -1,19 +1,19 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-03-16T23:47:55.953984                                                            #
+# Generated on 2026-03-31T03:38:01.620945                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import typing
-    import functools
     import metaflow.flowspec
-    import metaflow.decorators
     import metaflow.user_decorator.mutable_flow
     import metaflow.user_decorators.user_step_decorator
+    import functools
+    import metaflow.decorators
+    import typing
 
 from ..exception import MetaflowException as MetaflowException
 from .user_step_decorator import StepMutator as StepMutator

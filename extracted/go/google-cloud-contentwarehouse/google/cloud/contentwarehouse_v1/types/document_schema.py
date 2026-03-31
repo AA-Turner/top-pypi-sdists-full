@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -201,6 +201,7 @@ class PropertyDefinition(proto.Message):
             LOWEST (6):
                 Lowest importance (negative).
         """
+
         RETRIEVAL_IMPORTANCE_UNSPECIFIED = 0
         HIGHEST = 1
         HIGHER = 2

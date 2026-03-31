@@ -36,10 +36,12 @@ class ZeroTrustOrganizationArgs:
                  zone_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a ZeroTrustOrganization resource.
+
         :param pulumi.Input[_builtins.str] account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
         :param pulumi.Input[_builtins.bool] allow_authenticate_via_warp: When set to true, users can authenticate via WARP for any application in your organization. Application settings will take precedence over this value.
         :param pulumi.Input[_builtins.str] auth_domain: The unique subdomain assigned to your Zero Trust organization.
         :param pulumi.Input[_builtins.bool] auto_redirect_to_identity: When set to `true`, users skip the identity provider selection step during login.
+        :param pulumi.Input[_builtins.bool] is_ui_read_only: Lock all settings as Read-Only in the Dashboard, regardless of user permission. Updates may only be made via the API or Terraform for this account when enabled.
         :param pulumi.Input[_builtins.str] name: The name of your Zero Trust organization.
         :param pulumi.Input[_builtins.str] session_duration: The amount of time that tokens issued for applications will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h.
         :param pulumi.Input[_builtins.str] ui_read_only_toggle_reason: A description of the reason why the UI read only field is being toggled.
@@ -134,6 +136,9 @@ class ZeroTrustOrganizationArgs:
     @_builtins.property
     @pulumi.getter(name="isUiReadOnly")
     def is_ui_read_only(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Lock all settings as Read-Only in the Dashboard, regardless of user permission. Updates may only be made via the API or Terraform for this account when enabled.
+        """
         return pulumi.get(self, "is_ui_read_only")
 
     @is_ui_read_only.setter
@@ -240,10 +245,12 @@ class _ZeroTrustOrganizationState:
                  zone_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ZeroTrustOrganization resources.
+
         :param pulumi.Input[_builtins.str] account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
         :param pulumi.Input[_builtins.bool] allow_authenticate_via_warp: When set to true, users can authenticate via WARP for any application in your organization. Application settings will take precedence over this value.
         :param pulumi.Input[_builtins.str] auth_domain: The unique subdomain assigned to your Zero Trust organization.
         :param pulumi.Input[_builtins.bool] auto_redirect_to_identity: When set to `true`, users skip the identity provider selection step during login.
+        :param pulumi.Input[_builtins.bool] is_ui_read_only: Lock all settings as Read-Only in the Dashboard, regardless of user permission. Updates may only be made via the API or Terraform for this account when enabled.
         :param pulumi.Input[_builtins.str] name: The name of your Zero Trust organization.
         :param pulumi.Input[_builtins.str] session_duration: The amount of time that tokens issued for applications will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h.
         :param pulumi.Input[_builtins.str] ui_read_only_toggle_reason: A description of the reason why the UI read only field is being toggled.
@@ -338,6 +345,9 @@ class _ZeroTrustOrganizationState:
     @_builtins.property
     @pulumi.getter(name="isUiReadOnly")
     def is_ui_read_only(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Lock all settings as Read-Only in the Dashboard, regardless of user permission. Updates may only be made via the API or Terraform for this account when enabled.
+        """
         return pulumi.get(self, "is_ui_read_only")
 
     @is_ui_read_only.setter
@@ -479,7 +489,8 @@ class ZeroTrustOrganization(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -487,6 +498,7 @@ class ZeroTrustOrganization(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] allow_authenticate_via_warp: When set to true, users can authenticate via WARP for any application in your organization. Application settings will take precedence over this value.
         :param pulumi.Input[_builtins.str] auth_domain: The unique subdomain assigned to your Zero Trust organization.
         :param pulumi.Input[_builtins.bool] auto_redirect_to_identity: When set to `true`, users skip the identity provider selection step during login.
+        :param pulumi.Input[_builtins.bool] is_ui_read_only: Lock all settings as Read-Only in the Dashboard, regardless of user permission. Updates may only be made via the API or Terraform for this account when enabled.
         :param pulumi.Input[_builtins.str] name: The name of your Zero Trust organization.
         :param pulumi.Input[_builtins.str] session_duration: The amount of time that tokens issued for applications will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h.
         :param pulumi.Input[_builtins.str] ui_read_only_toggle_reason: A description of the reason why the UI read only field is being toggled.
@@ -533,7 +545,8 @@ class ZeroTrustOrganization(pulumi.CustomResource):
 
         ## Import
 
-        ~> This resource does not currently support `pulumi import`.
+        > This resource does not currently support `pulumi import`.
+
 
         :param str resource_name: The name of the resource.
         :param ZeroTrustOrganizationArgs args: The arguments to use to populate this resource's properties.
@@ -621,6 +634,7 @@ class ZeroTrustOrganization(pulumi.CustomResource):
         :param pulumi.Input[_builtins.bool] allow_authenticate_via_warp: When set to true, users can authenticate via WARP for any application in your organization. Application settings will take precedence over this value.
         :param pulumi.Input[_builtins.str] auth_domain: The unique subdomain assigned to your Zero Trust organization.
         :param pulumi.Input[_builtins.bool] auto_redirect_to_identity: When set to `true`, users skip the identity provider selection step during login.
+        :param pulumi.Input[_builtins.bool] is_ui_read_only: Lock all settings as Read-Only in the Dashboard, regardless of user permission. Updates may only be made via the API or Terraform for this account when enabled.
         :param pulumi.Input[_builtins.str] name: The name of your Zero Trust organization.
         :param pulumi.Input[_builtins.str] session_duration: The amount of time that tokens issued for applications will be valid. Must be in the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m, h.
         :param pulumi.Input[_builtins.str] ui_read_only_toggle_reason: A description of the reason why the UI read only field is being toggled.
@@ -687,6 +701,9 @@ class ZeroTrustOrganization(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="isUiReadOnly")
     def is_ui_read_only(self) -> pulumi.Output[_builtins.bool]:
+        """
+        Lock all settings as Read-Only in the Dashboard, regardless of user permission. Updates may only be made via the API or Terraform for this account when enabled.
+        """
         return pulumi.get(self, "is_ui_read_only")
 
     @_builtins.property

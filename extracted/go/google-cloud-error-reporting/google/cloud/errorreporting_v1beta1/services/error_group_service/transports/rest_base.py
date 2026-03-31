@@ -14,18 +14,15 @@
 # limitations under the License.
 #
 import json  # type: ignore
-from google.api_core import path_template
-from google.api_core import gapic_v1
-
-from google.protobuf import json_format
-from .base import ErrorGroupServiceTransport, DEFAULT_CLIENT_INFO
-
 import re
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+from google.api_core import gapic_v1, path_template
+from google.protobuf import json_format
 
-from google.cloud.errorreporting_v1beta1.types import common
-from google.cloud.errorreporting_v1beta1.types import error_group_service
+from google.cloud.errorreporting_v1beta1.types import common, error_group_service
+
+from .base import DEFAULT_CLIENT_INFO, ErrorGroupServiceTransport
 
 
 class _BaseErrorGroupServiceRestTransport(ErrorGroupServiceTransport):

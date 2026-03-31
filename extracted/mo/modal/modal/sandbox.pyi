@@ -71,6 +71,68 @@ class SandboxConnectCredentials:
         """Return hash(self)."""
         ...
 
+class Probe:
+    """Probe configuration for the Sandbox Readiness Probe.
+
+    Usage:
+        ```py notest
+        # Wait until a file exists.
+        readiness_probe = modal.Probe.with_exec(
+            "sh", "-c", "test -f /tmp/ready",
+        )
+
+        # Wait until a TCP port is accepting connections.
+        readiness_probe = modal.Probe.with_tcp(8080)
+
+        app = modal.App.lookup('sandbox-readiness-probe', create_if_missing=True)
+        sandbox = modal.Sandbox.create(
+            "python3", "-m", "http.server", "8080",
+            readiness_probe=readiness_probe,
+            app=app,
+        )
+        sandbox.wait_until_ready()
+        ```
+    """
+
+    tcp_port: typing.Optional[int]
+    exec_argv: typing.Optional[tuple[str, ...]]
+    interval_ms: int
+
+    def __post_init__(self): ...
+    @classmethod
+    def with_tcp(cls, port: int, *, interval_ms: int = 100) -> Probe: ...
+    @classmethod
+    def with_exec(cls, *argv: str, interval_ms: int = 100) -> Probe: ...
+    def _to_proto(self) -> modal_proto.api_pb2.Probe: ...
+    def __init__(
+        self,
+        tcp_port: typing.Optional[int] = None,
+        exec_argv: typing.Optional[tuple[str, ...]] = None,
+        interval_ms: int = 100,
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+    def __setattr__(self, name, value):
+        """Implement setattr(self, name, value)."""
+        ...
+
+    def __delattr__(self, name):
+        """Implement delattr(self, name)."""
+        ...
+
+    def __hash__(self):
+        """Return hash(self)."""
+        ...
+
 class _Sandbox(modal._object._Object):
     """A `Sandbox` object lets you interact with a running sandbox. This API is similar to Python's
     [asyncio.subprocess.Process](https://docs.python.org/3/library/asyncio-subprocess.html#asyncio.subprocess.Process).
@@ -120,6 +182,7 @@ class _Sandbox(modal._object._Object):
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy._Proxy] = None,
+        readiness_probe: typing.Optional[Probe] = None,
         experimental_options: typing.Optional[dict[str, bool]] = None,
         enable_snapshot: bool = False,
         verbose: bool = False,
@@ -159,6 +222,7 @@ class _Sandbox(modal._object._Object):
         custom_domain: typing.Optional[str] = None,
         proxy: typing.Optional[modal.proxy._Proxy] = None,
         include_oidc_identity_token: bool = False,
+        readiness_probe: typing.Optional[Probe] = None,
         verbose: bool = False,
         experimental_options: typing.Optional[dict[str, bool]] = None,
         _experimental_enable_snapshot: bool = False,
@@ -211,6 +275,7 @@ class _Sandbox(modal._object._Object):
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy._Proxy] = None,
         include_oidc_identity_token: bool = False,
+        readiness_probe: typing.Optional[Probe] = None,
         experimental_options: typing.Optional[dict[str, bool]] = None,
         _experimental_enable_snapshot: bool = False,
         client: typing.Optional[modal.client._Client] = None,
@@ -358,6 +423,24 @@ class _Sandbox(modal._object._Object):
 
     async def wait(self, raise_on_termination: bool = True):
         """Wait for the Sandbox to finish running."""
+        ...
+
+    async def wait_until_ready(self, *, timeout: int = 300) -> None:
+        """Wait for the Sandbox readiness probe to report that the Sandbox is ready.
+
+        The Sandbox must be configured with a `readiness_probe` in order to use this method.
+
+        Usage:
+        ```py notest
+        app = modal.App.lookup('sandbox-wait-until-ready', create_if_missing=True)
+        sandbox = modal.Sandbox.create(
+            "python3", "-m", "http.server", "8080",
+            readiness_probe=modal.Probe.with_tcp(8080),
+            app=app,
+        )
+        sandbox.wait_until_ready()
+        ```
+        """
         ...
 
     async def tunnels(self, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]:
@@ -843,6 +926,7 @@ class Sandbox(modal.object.Object):
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy.Proxy] = None,
+        readiness_probe: typing.Optional[Probe] = None,
         experimental_options: typing.Optional[dict[str, bool]] = None,
         enable_snapshot: bool = False,
         verbose: bool = False,
@@ -886,6 +970,7 @@ class Sandbox(modal.object.Object):
             custom_domain: typing.Optional[str] = None,
             proxy: typing.Optional[modal.proxy.Proxy] = None,
             include_oidc_identity_token: bool = False,
+            readiness_probe: typing.Optional[Probe] = None,
             verbose: bool = False,
             experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
@@ -941,6 +1026,7 @@ class Sandbox(modal.object.Object):
             custom_domain: typing.Optional[str] = None,
             proxy: typing.Optional[modal.proxy.Proxy] = None,
             include_oidc_identity_token: bool = False,
+            readiness_probe: typing.Optional[Probe] = None,
             verbose: bool = False,
             experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
@@ -999,6 +1085,7 @@ class Sandbox(modal.object.Object):
             unencrypted_ports: collections.abc.Sequence[int] = [],
             proxy: typing.Optional[modal.proxy.Proxy] = None,
             include_oidc_identity_token: bool = False,
+            readiness_probe: typing.Optional[Probe] = None,
             experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
             client: typing.Optional[modal.client.Client] = None,
@@ -1047,6 +1134,7 @@ class Sandbox(modal.object.Object):
             unencrypted_ports: collections.abc.Sequence[int] = [],
             proxy: typing.Optional[modal.proxy.Proxy] = None,
             include_oidc_identity_token: bool = False,
+            readiness_probe: typing.Optional[Probe] = None,
             experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
             client: typing.Optional[modal.client.Client] = None,
@@ -1356,6 +1444,45 @@ class Sandbox(modal.object.Object):
             ...
 
     wait: __wait_spec
+
+    class __wait_until_ready_spec(typing_extensions.Protocol):
+        def __call__(self, /, *, timeout: int = 300) -> None:
+            """Wait for the Sandbox readiness probe to report that the Sandbox is ready.
+
+            The Sandbox must be configured with a `readiness_probe` in order to use this method.
+
+            Usage:
+            ```py notest
+            app = modal.App.lookup('sandbox-wait-until-ready', create_if_missing=True)
+            sandbox = modal.Sandbox.create(
+                "python3", "-m", "http.server", "8080",
+                readiness_probe=modal.Probe.with_tcp(8080),
+                app=app,
+            )
+            sandbox.wait_until_ready()
+            ```
+            """
+            ...
+
+        async def aio(self, /, *, timeout: int = 300) -> None:
+            """Wait for the Sandbox readiness probe to report that the Sandbox is ready.
+
+            The Sandbox must be configured with a `readiness_probe` in order to use this method.
+
+            Usage:
+            ```py notest
+            app = modal.App.lookup('sandbox-wait-until-ready', create_if_missing=True)
+            sandbox = modal.Sandbox.create(
+                "python3", "-m", "http.server", "8080",
+                readiness_probe=modal.Probe.with_tcp(8080),
+                app=app,
+            )
+            sandbox.wait_until_ready()
+            ```
+            """
+            ...
+
+    wait_until_ready: __wait_until_ready_spec
 
     class __tunnels_spec(typing_extensions.Protocol):
         def __call__(self, /, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]:

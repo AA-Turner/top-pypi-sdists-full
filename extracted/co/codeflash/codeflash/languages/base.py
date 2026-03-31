@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from codeflash.discovery.functions_to_optimize import FunctionToOptimize
+    from codeflash.models.call_graph import CallGraph
     from codeflash.models.models import FunctionSource, GeneratedTestsList, InvocationId, ValidCode
     from codeflash.verification.verification_utils import TestConfig
 
@@ -114,6 +115,7 @@ class TestInfo:
     test_name: str
     test_file: Path
     test_class: str | None = None
+    is_replay: bool = False
 
     @property
     def full_test_path(self) -> str:
@@ -248,6 +250,12 @@ class DependencyResolver(Protocol):
         self, file_path_to_qualified_names: dict[Path, set[str]]
     ) -> dict[tuple[Path, str], int]:
         """Return the number of callees for each (file_path, qualified_name) pair."""
+        ...
+
+    def get_call_graph(
+        self, file_path_to_qualified_names: dict[Path, set[str]], *, include_metadata: bool = False
+    ) -> CallGraph:
+        """Return a CallGraph with full caller→callee edges for the given functions."""
         ...
 
     def close(self) -> None:
@@ -536,11 +544,12 @@ class LanguageSupport(Protocol):
 
     # === Validation ===
 
-    def validate_syntax(self, source: str) -> bool:
+    def validate_syntax(self, source: str, file_path: Path | None = None) -> bool:
         """Check if source code is syntactically valid.
 
         Args:
             source: Source code to validate.
+            file_path: Optional file path for parser selection (e.g., .tsx vs .ts).
 
         Returns:
             True if valid, False otherwise.
@@ -681,14 +690,21 @@ class LanguageSupport(Protocol):
     # === Test Result Comparison ===
 
     def compare_test_results(
-        self, original_results_path: Path, candidate_results_path: Path, project_root: Path | None = None
-    ) -> tuple[bool, list[Any]]:
+        self,
+        original_results_path: Path,
+        candidate_results_path: Path,
+        project_root: Path | None = None,
+        project_classpath: str | None = None,
+    ) -> tuple[bool, list]:
         """Compare test results between original and candidate code.
 
         Args:
             original_results_path: Path to original test results (e.g., SQLite DB).
             candidate_results_path: Path to candidate test results.
             project_root: Project root directory (for finding node_modules, etc.).
+            project_classpath: Full project classpath string (Java only). Needed so
+                the Comparator JVM can resolve project-specific classes during Kryo
+                deserialization.
 
         Returns:
             Tuple of (are_equivalent, list of TestDiff objects).
@@ -709,7 +725,7 @@ class LanguageSupport(Protocol):
         """Parse/validate a module before optimization."""
         ...
 
-    def setup_test_config(self, test_cfg: TestConfig, file_path: Path) -> None:
+    def setup_test_config(self, test_cfg: TestConfig, file_path: Path, current_worktree: Path | None = None) -> None:
         """One-time project setup after language detection. Default: no-op."""
 
     def adjust_test_config_for_discovery(self, test_cfg: TestConfig) -> None:

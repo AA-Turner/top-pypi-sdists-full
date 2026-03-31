@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -262,6 +262,7 @@ class TagTemplate(proto.Message):
                 deprecated in favor of organization or project
                 wide TagTemplate migration opt-in.
         """
+
         DATAPLEX_TRANSFER_STATUS_UNSPECIFIED = 0
         MIGRATED = 1
 
@@ -383,6 +384,7 @@ class FieldType(proto.Message):
             TIMESTAMP (4):
                 A timestamp.
         """
+
         PRIMITIVE_TYPE_UNSPECIFIED = 0
         DOUBLE = 1
         STRING = 2
@@ -411,12 +413,12 @@ class FieldType(proto.Message):
                 number=1,
             )
 
-        allowed_values: MutableSequence[
-            "FieldType.EnumType.EnumValue"
-        ] = proto.RepeatedField(
-            proto.MESSAGE,
-            number=1,
-            message="FieldType.EnumType.EnumValue",
+        allowed_values: MutableSequence["FieldType.EnumType.EnumValue"] = (
+            proto.RepeatedField(
+                proto.MESSAGE,
+                number=1,
+                message="FieldType.EnumType.EnumValue",
+            )
         )
 
     primitive_type: PrimitiveType = proto.Field(

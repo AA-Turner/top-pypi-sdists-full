@@ -1,5 +1,6 @@
 """Unit tests for Doclang create_closing_token helper."""
 
+from itertools import chain
 from pathlib import Path
 from typing import Optional
 
@@ -11,6 +12,7 @@ from docling_core.experimental.doclang import (
     DoclangDocSerializer,
     DoclangParams,
     DoclangVocabulary,
+    LayerMode,
     WrapMode,
 )
 from docling_core.types.doc import (
@@ -33,7 +35,7 @@ from docling_core.types.doc import (
     TabularChartMetaField,
 )
 from docling_core.types.doc.base import ImageRefMode
-from docling_core.types.doc.document import GraphCell, GraphData, GraphLink, ImageRef, RichTableCell, TableCell
+from docling_core.types.doc.document import ContentLayer, GraphCell, GraphData, GraphLink, ImageRef, RichTableCell, TableCell
 from docling_core.types.doc.labels import GraphCellLabel, GraphLinkLabel
 from test.test_serialization import verify
 from test.test_data_gen_flag import GEN_TEST_DATA
@@ -471,6 +473,12 @@ def _create_content_filtering_doc(inp_doc: DoclingDocument):
     doc.add_code(text="with location", prov=prov)
 
     return doc
+
+
+def test_handwritten_text_label(doc_with_handwritten: DoclingDocument):
+    result = doc_with_handwritten.export_to_doclang()
+    exp_file = Path("./test/data/doc/handwritten_text.gt.dclg.xml")
+    verify(exp_file=exp_file, actual=result)
 
 
 def test_content_allow_all_types(sample_doc: DoclingDocument):
@@ -1176,8 +1184,11 @@ def test_kv_migration_self_contained_scenario():
     verify(exp_file=exp_file, actual=ser_txt)
 
 def test_kv_migration_annot_scenario():
-    kv_dir = Path("./test/data/doc/kv")
-    for subdir in sorted(kv_dir.iterdir()):
+    roots = [
+        "./test/data/doc/kv",
+        "./test/data/doc/doclang_ref",
+    ]
+    for subdir in chain.from_iterable([Path(root).iterdir() for root in roots]):
         if not subdir.is_dir():
             continue
         input_json = subdir / "input.json"
@@ -1455,3 +1466,36 @@ def test_suppress_empty_picture_with_nonempty_caption():
     result = serialize_doclang(doc, params=params)
     assert "<floating_group" in result
     assert "My Figure" in result
+
+
+def test_layer_minimal_mode(doc_with_layers):
+    """Test MINIMAL mode omits default layer, includes non-default."""
+    params = DoclangParams(layer_mode=LayerMode.MINIMAL)
+    ser = DoclangDocSerializer(doc=doc_with_layers, params=params)
+    ser_txt = ser.serialize().text
+
+    exp_file = Path("./test/data/doc/layer_minimal_mode.dclg.xml")
+    verify(exp_file=exp_file, actual=ser_txt)
+
+
+def test_layer_always_mode(doc_with_layers):
+    """Test ALWAYS mode includes layer element for all items."""
+    params = DoclangParams(layer_mode=LayerMode.ALWAYS)
+    ser = DoclangDocSerializer(doc=doc_with_layers, params=params)
+    ser_txt = ser.serialize().text
+
+    exp_file = Path("./test/data/doc/layer_always_mode.dclg.xml")
+    verify(exp_file=exp_file, actual=ser_txt)
+
+
+def test_layer_filter_body_only(doc_with_layers):
+    """Test that layers parameter filters content to only show specified layers."""
+    # Serialize with only body layer
+    params = DoclangParams(
+        layers={ContentLayer.BODY},
+    )
+    ser = DoclangDocSerializer(doc=doc_with_layers, params=params)
+    ser_txt = ser.serialize().text
+
+    exp_file = Path("./test/data/doc/layer_only_body.dclg.xml")
+    verify(exp_file=exp_file, actual=ser_txt)

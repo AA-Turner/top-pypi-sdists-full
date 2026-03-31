@@ -16,27 +16,29 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
+from google.api_core import gapic_v1, operations_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
-from google.cloud.certificate_manager_v1.types import certificate_issuance_config
+from google.cloud.certificate_manager_v1.types import (
+    certificate_issuance_config,
+    certificate_manager,
+    trust_config,
+)
 from google.cloud.certificate_manager_v1.types import (
     certificate_issuance_config as gcc_certificate_issuance_config,
 )
 from google.cloud.certificate_manager_v1.types import trust_config as gcc_trust_config
-from google.cloud.certificate_manager_v1.types import certificate_manager
-from google.cloud.certificate_manager_v1.types import trust_config
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
 from .rest_base import _BaseCertificateManagerRestTransport
@@ -2005,6 +2007,12 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[CertificateManagerRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -2139,9 +2147,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseCreateCertificate._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseCreateCertificate._get_http_options()
 
             request, metadata = self._interceptor.pre_create_certificate(
                 request, metadata
@@ -2167,7 +2173,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2297,15 +2303,12 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseCreateCertificateIssuanceConfig._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseCreateCertificateIssuanceConfig._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_create_certificate_issuance_config(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_create_certificate_issuance_config(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseCertificateManagerRestTransport._BaseCreateCertificateIssuanceConfig._get_transcoded_request(
                 http_options, request
@@ -2328,7 +2331,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2369,11 +2372,10 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             resp = self._interceptor.post_create_certificate_issuance_config(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_create_certificate_issuance_config_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_create_certificate_issuance_config_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -2457,9 +2459,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseCreateCertificateMap._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseCreateCertificateMap._get_http_options()
 
             request, metadata = self._interceptor.pre_create_certificate_map(
                 request, metadata
@@ -2485,7 +2485,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2614,9 +2614,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseCreateCertificateMapEntry._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseCreateCertificateMapEntry._get_http_options()
 
             request, metadata = self._interceptor.pre_create_certificate_map_entry(
                 request, metadata
@@ -2642,7 +2640,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2768,9 +2766,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseCreateDnsAuthorization._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseCreateDnsAuthorization._get_http_options()
 
             request, metadata = self._interceptor.pre_create_dns_authorization(
                 request, metadata
@@ -2796,7 +2792,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2924,9 +2920,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseCreateTrustConfig._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseCreateTrustConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_create_trust_config(
                 request, metadata
@@ -2952,7 +2946,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3077,9 +3071,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseDeleteCertificate._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseDeleteCertificate._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_certificate(
                 request, metadata
@@ -3101,7 +3093,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3229,15 +3221,12 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseDeleteCertificateIssuanceConfig._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseDeleteCertificateIssuanceConfig._get_http_options()
 
-            (
-                request,
-                metadata,
-            ) = self._interceptor.pre_delete_certificate_issuance_config(
-                request, metadata
+            request, metadata = (
+                self._interceptor.pre_delete_certificate_issuance_config(
+                    request, metadata
+                )
             )
             transcoded_request = _BaseCertificateManagerRestTransport._BaseDeleteCertificateIssuanceConfig._get_transcoded_request(
                 http_options, request
@@ -3256,7 +3245,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3296,11 +3285,10 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             resp = self._interceptor.post_delete_certificate_issuance_config(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_delete_certificate_issuance_config_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_delete_certificate_issuance_config_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -3383,9 +3371,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseDeleteCertificateMap._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseDeleteCertificateMap._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_certificate_map(
                 request, metadata
@@ -3407,7 +3393,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3534,9 +3520,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseDeleteCertificateMapEntry._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseDeleteCertificateMapEntry._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_certificate_map_entry(
                 request, metadata
@@ -3558,7 +3542,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3682,9 +3666,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseDeleteDnsAuthorization._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseDeleteDnsAuthorization._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_dns_authorization(
                 request, metadata
@@ -3706,7 +3688,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3832,9 +3814,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseDeleteTrustConfig._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseDeleteTrustConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_trust_config(
                 request, metadata
@@ -3856,7 +3836,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -3977,9 +3957,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                     Defines TLS certificate.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseGetCertificate._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseGetCertificate._get_http_options()
 
             request, metadata = self._interceptor.pre_get_certificate(request, metadata)
             transcoded_request = _BaseCertificateManagerRestTransport._BaseGetCertificate._get_transcoded_request(
@@ -4125,9 +4103,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseGetCertificateIssuanceConfig._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseGetCertificateIssuanceConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_get_certificate_issuance_config(
                 request, metadata
@@ -4191,11 +4167,10 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             resp = self._interceptor.post_get_certificate_issuance_config(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_get_certificate_issuance_config_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_get_certificate_issuance_config_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -4281,9 +4256,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseGetCertificateMap._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseGetCertificateMap._get_http_options()
 
             request, metadata = self._interceptor.pre_get_certificate_map(
                 request, metadata
@@ -4430,9 +4403,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                     Defines a certificate map entry.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseGetCertificateMapEntry._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseGetCertificateMapEntry._get_http_options()
 
             request, metadata = self._interceptor.pre_get_certificate_map_entry(
                 request, metadata
@@ -4584,9 +4555,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseGetDnsAuthorization._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseGetDnsAuthorization._get_http_options()
 
             request, metadata = self._interceptor.pre_get_dns_authorization(
                 request, metadata
@@ -4735,9 +4704,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                     Defines a trust config.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseGetTrustConfig._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseGetTrustConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_get_trust_config(
                 request, metadata
@@ -4888,9 +4855,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseListCertificateIssuanceConfigs._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseListCertificateIssuanceConfigs._get_http_options()
 
             request, metadata = self._interceptor.pre_list_certificate_issuance_configs(
                 request, metadata
@@ -4958,11 +4923,10 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             resp = self._interceptor.post_list_certificate_issuance_configs(resp)
             response_metadata = [(k, str(v)) for k, v in response.headers.items()]
-            (
-                resp,
-                _,
-            ) = self._interceptor.post_list_certificate_issuance_configs_with_metadata(
-                resp, response_metadata
+            resp, _ = (
+                self._interceptor.post_list_certificate_issuance_configs_with_metadata(
+                    resp, response_metadata
+                )
             )
             if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
                 logging.DEBUG
@@ -5045,9 +5009,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                         Response for the ``ListCertificateMapEntries`` method.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseListCertificateMapEntries._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseListCertificateMapEntries._get_http_options()
 
             request, metadata = self._interceptor.pre_list_certificate_map_entries(
                 request, metadata
@@ -5196,9 +5158,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                     Response for the ``ListCertificateMaps`` method.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseListCertificateMaps._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseListCertificateMaps._get_http_options()
 
             request, metadata = self._interceptor.pre_list_certificate_maps(
                 request, metadata
@@ -5349,9 +5309,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                     Response for the ``ListCertificates`` method.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseListCertificates._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseListCertificates._get_http_options()
 
             request, metadata = self._interceptor.pre_list_certificates(
                 request, metadata
@@ -5498,9 +5456,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                     Response for the ``ListDnsAuthorizations`` method.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseListDnsAuthorizations._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseListDnsAuthorizations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_dns_authorizations(
                 request, metadata
@@ -5651,9 +5607,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                     Response for the ``ListTrustConfigs`` method.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseListTrustConfigs._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseListTrustConfigs._get_http_options()
 
             request, metadata = self._interceptor.pre_list_trust_configs(
                 request, metadata
@@ -5804,9 +5758,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseUpdateCertificate._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseUpdateCertificate._get_http_options()
 
             request, metadata = self._interceptor.pre_update_certificate(
                 request, metadata
@@ -5832,7 +5784,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -5958,9 +5910,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseUpdateCertificateMap._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseUpdateCertificateMap._get_http_options()
 
             request, metadata = self._interceptor.pre_update_certificate_map(
                 request, metadata
@@ -5986,7 +5936,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -6115,9 +6065,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseUpdateCertificateMapEntry._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseUpdateCertificateMapEntry._get_http_options()
 
             request, metadata = self._interceptor.pre_update_certificate_map_entry(
                 request, metadata
@@ -6143,7 +6091,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -6269,9 +6217,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseUpdateDnsAuthorization._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseUpdateDnsAuthorization._get_http_options()
 
             request, metadata = self._interceptor.pre_update_dns_authorization(
                 request, metadata
@@ -6297,7 +6243,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -6425,9 +6371,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
 
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseUpdateTrustConfig._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseUpdateTrustConfig._get_http_options()
 
             request, metadata = self._interceptor.pre_update_trust_config(
                 request, metadata
@@ -6453,7 +6397,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -6539,7 +6483,9 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateCertificateIssuanceConfig(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateCertificateIssuanceConfig(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_certificate_map(
@@ -6559,7 +6505,9 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateCertificateMapEntry(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateCertificateMapEntry(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_dns_authorization(
@@ -6569,7 +6517,9 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateDnsAuthorization(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateDnsAuthorization(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_trust_config(
@@ -6600,7 +6550,9 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteCertificateIssuanceConfig(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteCertificateIssuanceConfig(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_certificate_map(
@@ -6620,7 +6572,9 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteCertificateMapEntry(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteCertificateMapEntry(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_dns_authorization(
@@ -6630,7 +6584,9 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteDnsAuthorization(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteDnsAuthorization(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_trust_config(
@@ -6659,7 +6615,9 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetCertificateIssuanceConfig(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetCertificateIssuanceConfig(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_certificate_map(
@@ -6681,7 +6639,9 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._GetCertificateMapEntry(self._session, self._host, self._interceptor)  # type: ignore
+        return self._GetCertificateMapEntry(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def get_dns_authorization(
@@ -6711,7 +6671,9 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListCertificateIssuanceConfigs(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListCertificateIssuanceConfigs(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_certificate_map_entries(
@@ -6722,7 +6684,9 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListCertificateMapEntries(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListCertificateMapEntries(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_certificate_maps(
@@ -6795,7 +6759,9 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateCertificateMapEntry(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateCertificateMapEntry(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_dns_authorization(
@@ -6805,7 +6771,9 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateDnsAuthorization(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateDnsAuthorization(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_trust_config(
@@ -6875,9 +6843,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 locations_pb2.Location: Response from GetLocation method.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseGetLocation._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseGetLocation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_location(request, metadata)
             transcoded_request = _BaseCertificateManagerRestTransport._BaseGetLocation._get_transcoded_request(
@@ -7016,9 +6982,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 locations_pb2.ListLocationsResponse: Response from ListLocations method.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseListLocations._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseListLocations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_locations(request, metadata)
             transcoded_request = _BaseCertificateManagerRestTransport._BaseListLocations._get_transcoded_request(
@@ -7155,9 +7119,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseCancelOperation._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseCancelOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_cancel_operation(
                 request, metadata
@@ -7275,9 +7237,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseDeleteOperation._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseDeleteOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_operation(
                 request, metadata
@@ -7393,9 +7353,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 operations_pb2.Operation: Response from GetOperation method.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseGetOperation._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseGetOperation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_operation(request, metadata)
             transcoded_request = _BaseCertificateManagerRestTransport._BaseGetOperation._get_transcoded_request(
@@ -7534,9 +7492,7 @@ class CertificateManagerRestTransport(_BaseCertificateManagerRestTransport):
                 operations_pb2.ListOperationsResponse: Response from ListOperations method.
             """
 
-            http_options = (
-                _BaseCertificateManagerRestTransport._BaseListOperations._get_http_options()
-            )
+            http_options = _BaseCertificateManagerRestTransport._BaseListOperations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_operations(request, metadata)
             transcoded_request = _BaseCertificateManagerRestTransport._BaseListOperations._get_transcoded_request(

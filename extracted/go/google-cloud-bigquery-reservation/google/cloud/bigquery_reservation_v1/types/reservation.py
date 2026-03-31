@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -88,6 +88,7 @@ class Edition(proto.Enum):
         ENTERPRISE_PLUS (3):
             Enterprise Plus edition.
     """
+
     EDITION_UNSPECIFIED = 0
     STANDARD = 1
     ENTERPRISE = 2
@@ -114,6 +115,7 @@ class FailoverMode(proto.Enum):
             writes are replicated to the secondary. There
             can be data loss for hard failover.
     """
+
     FAILOVER_MODE_UNSPECIFIED = 0
     SOFT = 1
     HARD = 2
@@ -373,6 +375,7 @@ class Reservation(proto.Message):
                 be set to false. Otherwise the request will be rejected with
                 error code ``google.rpc.Code.INVALID_ARGUMENT``.
         """
+
         SCALING_MODE_UNSPECIFIED = 0
         AUTOSCALE_ONLY = 1
         IDLE_SLOTS_ONLY = 2
@@ -718,6 +721,7 @@ class CapacityCommitment(proto.Message):
                 renewal_plan is NONE, capacity commitment will be removed at
                 the end of its commitment period.
         """
+
         COMMITMENT_PLAN_UNSPECIFIED = 0
         FLEX = 3
         FLEX_FLAT_RATE = 7
@@ -747,6 +751,7 @@ class CapacityCommitment(proto.Message):
                 Capacity commitment is failed to be activated
                 by the backend.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         ACTIVE = 2
@@ -1443,6 +1448,7 @@ class Assignment(proto.Message):
                 priority over a default BACKGROUND reservation
                 assignment (if it exists).
         """
+
         JOB_TYPE_UNSPECIFIED = 0
         PIPELINE = 1
         QUERY = 2
@@ -1467,6 +1473,7 @@ class Assignment(proto.Message):
             ACTIVE (2):
                 Assignment is ready.
         """
+
         STATE_UNSPECIFIED = 0
         PENDING = 1
         ACTIVE = 2

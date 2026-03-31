@@ -63,24 +63,6 @@ class NoneElement:
         self.key = key
         self.attributes = attributes
 
-    def __eq__(self, other):
-        """Define equality with other None objects."""
-        if other is None:
-            return True
-        elif other.__eq__(None):
-            return True
-        else:
-            return False
-
-    def __ne__(self, other):
-        """Define non-equality."""
-        if other is None:
-            return False
-        elif other.__eq__(None):
-            return False
-        else:
-            return True
-
     def __repr__(self):
         """Return a string representation of the object."""
         try:
@@ -88,6 +70,11 @@ class NoneElement:
         except AttributeError:
             return "NoneElement"
         return "NoneElement(attributes=%r)" % attributes
+
+    def __eq__(self, other):
+        if isinstance(other, NoneElement):
+            return True
+        return False
 
 
 class IntegerElement(int):
@@ -367,6 +354,7 @@ class DataHandler(metaclass=DataHandlerMeta):
         self.dtd_urls = []
         self.element = None
         self.level = 0
+        self.bypass_url_security = False
         self.data = []
         self.attributes = None
         self.allowed_tags = None
@@ -578,6 +566,7 @@ class DataHandler(metaclass=DataHandlerMeta):
         """Process the XML schema (before processing the element)."""
         key = "%s noNamespaceSchemaLocation" % self.schema_namespace
         schema = attrs[key]
+        self.verify_security(schema)
         handle = self.open_xsd_file(os.path.basename(schema))
         # if there is no local xsd file grab the url and parse the file
         if not handle:
@@ -1092,6 +1081,21 @@ class DataHandler(metaclass=DataHandlerMeta):
             handle.write(text)
             handle.close()
 
+    def verify_security(self, url, verify_hostname=True):
+        """Check if the given URL is from a trustable source.
+
+        When ``self.bypass_url_security`` evaluates to ``True``,
+        all URL security checks will be skipped.
+        """
+        if not self.bypass_url_security:
+            parts = urlparse(url)
+            scheme = parts.scheme
+            hostname = parts.hostname
+            if scheme != "https" or (
+                verify_hostname and not hostname.endswith(".nlm.nih.gov")
+            ):
+                raise ValueError(f"Expected secure URL to NCBI, found {url!r}")
+
     def externalEntityRefHandler(self, context, base, systemId, publicId):
         """Handle external entity reference in order to cache DTD locally.
 
@@ -1113,33 +1117,49 @@ class DataHandler(metaclass=DataHandlerMeta):
             except IndexError:
                 # Assume the default URL for DTDs if the top parent
                 # does not contain an absolute path
-                source = "http://www.ncbi.nlm.nih.gov/dtd/"
+                source = "https://www.ncbi.nlm.nih.gov/dtd/"
             else:
                 source = os.path.dirname(source)
             # urls always have a forward slash, don't use os.path.join
             url = source.rstrip("/") + "/" + systemId
         else:
             raise ValueError("Unexpected URL scheme %r" % urlinfo.scheme)
-        self.dtd_urls.append(url)
-        # First, try to load the local version of the DTD file
-        location, filename = os.path.split(systemId)
-        handle = self.open_dtd_file(filename)
-        if not handle:
-            # DTD is not available as a local file. Try accessing it through
-            # the internet instead.
-            try:
-                handle = urlopen(url)
-            except OSError:
-                raise RuntimeError(f"Failed to access {filename} at {url}") from None
-            text = handle.read()
-            handle.close()
-            self.save_dtd_file(filename, text)
-            handle = BytesIO(text)
 
-        parser = self.parser.ExternalEntityParserCreate(context)
-        parser.ElementDeclHandler = self.elementDecl
-        parser.ParseFile(handle)
-        handle.close()
-        self.dtd_urls.pop()
+        # NOTE: This trusts any external references from a trusted parent,
+        #       even if these external references go to unknown hosts,
+        #       e.g. when NCBI starts referencing things on a new host
+        #       from existing DTD files.
+        #       Needs to be checked *prior* to appending to ``self.dtd_urls``.
+        self.verify_security(url, verify_hostname=not self.dtd_urls)
+
+        # NOTE: Since ``self.dtd_urls`` being non-empty has security
+        #       consequences with the check above, we use a ``finally`` wrap
+        #       here, in order to guarantee that push and pop are matched.
+        self.dtd_urls.append(url)
+        try:
+            # First, try to load the local version of the DTD file
+            location, filename = os.path.split(systemId)
+            handle = self.open_dtd_file(filename)
+            if not handle:
+                # DTD is not available as a local file. Try accessing it through
+                # the internet instead.
+                try:
+                    handle = urlopen(url)
+                except OSError:
+                    raise RuntimeError(
+                        f"Failed to access {filename} at {url}"
+                    ) from None
+                text = handle.read()
+                handle.close()
+                self.save_dtd_file(filename, text)
+                handle = BytesIO(text)
+
+            parser = self.parser.ExternalEntityParserCreate(context)
+            parser.ElementDeclHandler = self.elementDecl
+            parser.ParseFile(handle)
+            handle.close()
+        finally:
+            self.dtd_urls.pop()
+
         self.parser.StartElementHandler = self.startElementHandler
         return 1

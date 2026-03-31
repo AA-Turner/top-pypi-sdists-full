@@ -1,7 +1,7 @@
 # From 3.6 _markupbase.py
 
-# Bug is that the routine is long enough that POP_JUMP_IF_FALSE instruciton has an
-# EXTENDED_ARG intruction before it and we weren't picking out the jump offset properly
+# Bug is that the routine is long enough that POP_JUMP_IF_FALSE instruction has an
+# EXTENDED_ARG instruction before it and we weren't picking out the jump offset properly
 
 def parse_declaration(self, i):
     if rawdata[j:j] in ("-", ""):

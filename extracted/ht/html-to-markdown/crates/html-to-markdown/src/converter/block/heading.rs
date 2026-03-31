@@ -6,6 +6,8 @@
 //! - Metadata collection (headers, IDs)
 //! - Visitor callbacks for custom heading processing
 
+#[cfg(feature = "visitor")]
+use crate::converter::utility::content::collect_tag_attributes;
 use crate::options::{ConversionOptions, HeadingStyle};
 use std::borrow::Cow;
 #[allow(unused_imports)]
@@ -121,6 +123,21 @@ pub(crate) fn handle(
                             .borrow_mut()
                             .add_header(level as u8, normalized.to_string(), id, depth, 0);
                     }
+                }
+            }
+        }
+
+        // Notify the structure collector if present.
+        if let Some(ref sc) = ctx.structure_collector {
+            if let Some(node) = node_handle.get(parser) {
+                if let tl::Node::Tag(tag) = node {
+                    let id = tag
+                        .attributes()
+                        .get("id")
+                        .flatten()
+                        .map(|v| v.as_utf8_str().to_string());
+                    sc.borrow_mut()
+                        .push_heading(level as u8, normalized.as_ref(), id.as_deref());
                 }
             }
         }
@@ -292,11 +309,7 @@ fn visitor_heading_output(
                     .flatten()
                     .map(|v| v.as_utf8_str().to_string());
 
-                let attributes: BTreeMap<String, String> = tag
-                    .attributes()
-                    .iter()
-                    .filter_map(|(k, v)| v.as_ref().map(|val| (k.to_string(), val.to_string())))
-                    .collect();
+                let attributes: BTreeMap<String, String> = collect_tag_attributes(tag);
 
                 let node_id = node_handle.get_inner();
                 let parent_tag = dom_ctx.parent_tag_name(node_id, parser);

@@ -359,6 +359,21 @@ global___TaskExecPollResponse = TaskExecPollResponse
 class TaskExecStartRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    class EnvEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
+
     TASK_ID_FIELD_NUMBER: builtins.int
     EXEC_ID_FIELD_NUMBER: builtins.int
     COMMAND_ARGS_FIELD_NUMBER: builtins.int
@@ -370,6 +385,7 @@ class TaskExecStartRequest(google.protobuf.message.Message):
     PTY_INFO_FIELD_NUMBER: builtins.int
     RUNTIME_DEBUG_FIELD_NUMBER: builtins.int
     CONTAINER_ID_FIELD_NUMBER: builtins.int
+    ENV_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     """The ID of the task to execute the command in."""
     exec_id: builtins.str
@@ -402,6 +418,9 @@ class TaskExecStartRequest(google.protobuf.message.Message):
     """
     container_id: builtins.str
     """Fully qualified target container ID. Empty targets the main container."""
+    @property
+    def env(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
+        """Environment variables to set directly for the exec'd command."""
     def __init__(
         self,
         *,
@@ -416,9 +435,10 @@ class TaskExecStartRequest(google.protobuf.message.Message):
         pty_info: modal_proto.api_pb2.PTYInfo | None = ...,
         runtime_debug: builtins.bool = ...,
         container_id: builtins.str = ...,
+        env: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_pty_info", b"_pty_info", "_timeout_secs", b"_timeout_secs", "_workdir", b"_workdir", "pty_info", b"pty_info", "timeout_secs", b"timeout_secs", "workdir", b"workdir"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_pty_info", b"_pty_info", "_timeout_secs", b"_timeout_secs", "_workdir", b"_workdir", "command_args", b"command_args", "container_id", b"container_id", "exec_id", b"exec_id", "pty_info", b"pty_info", "runtime_debug", b"runtime_debug", "secret_ids", b"secret_ids", "stderr_config", b"stderr_config", "stdout_config", b"stdout_config", "task_id", b"task_id", "timeout_secs", b"timeout_secs", "workdir", b"workdir"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_pty_info", b"_pty_info", "_timeout_secs", b"_timeout_secs", "_workdir", b"_workdir", "command_args", b"command_args", "container_id", b"container_id", "env", b"env", "exec_id", b"exec_id", "pty_info", b"pty_info", "runtime_debug", b"runtime_debug", "secret_ids", b"secret_ids", "stderr_config", b"stderr_config", "stdout_config", b"stdout_config", "task_id", b"task_id", "timeout_secs", b"timeout_secs", "workdir", b"workdir"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_pty_info", b"_pty_info"]) -> typing_extensions.Literal["pty_info"] | None: ...
     @typing.overload

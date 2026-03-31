@@ -2133,6 +2133,10 @@ class StandardCoders(google.protobuf.message.Message):
         The payload for RowCoder is an instance of Schema.
         Components: None
         """
+        SCHEMA: StandardCoders._Enum.ValueType  # 18
+        """Similar to ROW above, but for arbitrary types that can be converted
+        to and from row objects, which can then be encoded with a schema.
+        """
         SHARDED_KEY: StandardCoders._Enum.ValueType  # 15
         """Encodes a user key and a shard id which is an opaque byte string.
 
@@ -2396,6 +2400,10 @@ class StandardCoders(google.protobuf.message.Message):
 
     The payload for RowCoder is an instance of Schema.
     Components: None
+    """
+    SCHEMA: StandardCoders.Enum.ValueType  # 18
+    """Similar to ROW above, but for arbitrary types that can be converted
+    to and from row objects, which can then be encoded with a schema.
     """
     SHARDED_KEY: StandardCoders.Enum.ValueType  # 15
     """Encodes a user key and a shard id which is an opaque byte string.

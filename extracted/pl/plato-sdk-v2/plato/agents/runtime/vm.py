@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from plato.agents.runtime.base import AgentContext, OTelContext, PreparedAgent, Runtime
 from plato.agents.runtime.dev import _find_agent_code, install_production_agent, sync_dev_code
 from plato.agents.runtime.transport import Transport
-from plato.utils.subprocess import run_local, run_ssh, run_ssh_streaming
+from plato.utils.subprocess import build_ssh_command, run_local, run_ssh, run_ssh_streaming
 from plato.v2 import Env
 from plato.v2.types import SimConfigCompute
 
@@ -393,19 +393,64 @@ class PlatoVMRuntime(Runtime):
             span.set_attribute("agent.user", "root")
             span.set_attribute("agent.hostname", hostname)
 
-            # Capture OTel context inside the span so the agent VM
+        # Create a short-lived marker span that the agent VM's spans will
+        # reference as their parent.  This span ends immediately so it is
+        # exported right away by the batch span processor.  Without this,
+        # long-running agents whose SSH call is still in progress when traces
+        # are collected appear "orphaned" because the wrapping span hasn't
+        # been exported yet.
+        agent_attrs = {
+            "plato.agent.alias": agent_env.alias or "",
+            "agent.user": "root",
+            "agent.hostname": hostname,
+        }
+        if ctx.display_name:
+            agent_attrs["atif.agent.name"] = ctx.display_name
+            agent_attrs["plato.agent.display_name"] = ctx.display_name
+
+        with tracer.start_as_current_span("agent.execution.output") as marker:
+            for k, v in agent_attrs.items():
+                marker.set_attribute(k, v)
+            # Capture OTel context inside the marker span so the agent VM
             # nests its spans under agent.execution.output
             otel = OTelContext.from_env()
             env_vars.extend(otel.to_env_vars())
-            logger.info(f"OTEL URL: {otel.otel_url}")
+        # marker span is now ended and will be exported promptly
 
-            env_exports = " ".join(f'export {k}="{v}";' for var in env_vars for k, v in [var.split("=", 1)])
-            workdir = self.workspace.agent_mount_path if self.workspace else "/workspace"
-            agent_cmd = (
-                f'{env_exports} export PATH="/root/.local/bin:$PATH"; '
-                f'cd {workdir} && plato-agent-runner run --instruction-b64 "{ctx.instruction_b64}"'
-            )
+        logger.info(f"OTEL URL: {otel.otel_url}")
 
+        env_exports = " ".join(f'export {k}="{v}";' for var in env_vars for k, v in [var.split("=", 1)])
+        workdir = self.workspace.agent_mount_path if self.workspace else "/workspace"
+
+        # Pipe instruction via stdin to avoid "Argument list too long"
+        # (E2BIG) when the instruction is large.
+        instruction_file = "/tmp/.plato_instruction_b64"
+        ssh_write_cmd = build_ssh_command(self.ssh_key_path, hostname, extra_opts=_VM_SSH_EXTRA_OPTS)
+        ssh_write_cmd.append(f"cat > {instruction_file}")
+        proc = await asyncio.create_subprocess_exec(
+            *ssh_write_cmd,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, write_err = await asyncio.wait_for(
+            proc.communicate(input=ctx.instruction_b64.encode()),
+            timeout=30,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(f"Failed to write instruction file to VM: {write_err.decode()}")
+
+        agent_cmd = (
+            f'{env_exports} export PATH="/root/.local/bin:$PATH"; '
+            f'cd {workdir} && plato-agent-runner run --instruction-b64 "$(cat {instruction_file})"'
+        )
+
+        # Long-lived span for tracking SSH execution duration — not the
+        # parent of agent VM spans, so it can stay open without causing
+        # orphaned spans in mid-session trace exports.
+        with tracer.start_as_current_span("agent.execution.ssh") as ssh_span:
+            for k, v in agent_attrs.items():
+                ssh_span.set_attribute(k, v)
             exit_code = await run_ssh_streaming(
                 self.ssh_key_path,
                 hostname,
@@ -422,6 +467,18 @@ class PlatoVMRuntime(Runtime):
         logger.info(f"Agent command completed with exit code: {exit_code}")
 
         if exit_code != 0:
+            # Exit code 126 = "cannot execute" — typically bash E2BIG
+            # ("Argument list too long").  Log the full instruction so we
+            # can diagnose what was too large.
+            if exit_code == 126:
+                logger.error(
+                    "Agent failed with exit code 126 (Argument list too long). "
+                    "instruction length=%d chars, instruction_b64 length=%d chars.\n"
+                    "--- BEGIN INSTRUCTION ---\n%s\n--- END INSTRUCTION ---",
+                    len(ctx.instruction),
+                    len(ctx.instruction_b64),
+                    ctx.instruction,
+                )
             raise RuntimeError(f"Agent failed with exit code {exit_code}")
 
     async def _diagnose_agent_vm(self, hostname: str) -> None:

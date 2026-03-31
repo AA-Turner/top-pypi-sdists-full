@@ -93,13 +93,6 @@ class ConversionOptions:
     br_in_tables: bool = False
     """Use <br> tags for line breaks in table cells instead of spaces."""
 
-    hocr_spatial_tables: bool = True
-    """Reconstruct tables in hOCR documents using spatial heuristics.
-
-    .. deprecated:: 2.30.0
-        hOCR support will be removed in v3.
-    """
-
     highlight_style: Literal["double-equal", "html", "bold"] = "double-equal"
     """Style for highlighting <mark> elements."""
 
@@ -151,6 +144,21 @@ class ConversionOptions:
 
     debug: bool = False
     """Enable debug mode with diagnostic warnings about unhandled elements and hOCR processing."""
+
+    include_document_structure: bool = False
+    """Include document structure in conversion output."""
+
+    extract_images: bool = False
+    """Extract images during conversion."""
+
+    max_image_size: int = 5_242_880
+    """Maximum image size in bytes (default 5 MiB)."""
+
+    capture_svg: bool = False
+    """Capture SVG elements as images."""
+
+    infer_dimensions: bool = True
+    """Infer image dimensions from data URIs."""
 
 
 @dataclass

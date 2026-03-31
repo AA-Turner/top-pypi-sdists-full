@@ -498,6 +498,7 @@ class SceneApi:
         decay: float = 2.0,
         intensity: float = 1.0,
         cast_shadow: bool = False,
+        direction: tuple[float, float, float] = (0.0, 0.0, -1.0),
         wxyz: tuple[float, float, float, float] | np.ndarray = (1.0, 0.0, 0.0, 0.0),
         position: tuple[float, float, float] = (0.0, 0.0, 0.0),
         visible: bool = True,
@@ -517,6 +518,7 @@ class SceneApi:
             decay: The amount the light dims along the distance of the light.
             intensity: Light's strength/intensity.
             cast_shadow: If set to true light will cast dynamic shadows
+            direction: Direction that the spotlight points in its local frame.
             wxyz: Quaternion rotation to parent frame from local frame (R_pl).
             position: Translation to parent frame from local frame (t_pl).
             visible: Whether or not this scene node is initially visible.
@@ -528,7 +530,14 @@ class SceneApi:
         message = _messages.SpotLightMessage(
             name,
             _messages.SpotLightProps(
-                color, intensity, distance, angle, penumbra, decay, cast_shadow
+                color,
+                intensity,
+                distance,
+                angle,
+                penumbra,
+                decay,
+                cast_shadow,
+                direction,
             ),
         )
         return SpotLightHandle._make(self, message, name, wxyz, position, visible)
@@ -1423,11 +1432,12 @@ class SceneApi:
         message = _messages.PointCloudMessage(
             name=name,
             props=_messages.PointCloudProps(
-                points=points.astype(
-                    {
+                points=np.asarray(
+                    points,
+                    dtype={
                         "float16": np.float16,
                         "float32": np.float32,
-                    }[precision]
+                    }[precision],
                 ),
                 colors=colors_cast,
                 point_size=point_size,
@@ -2794,6 +2804,34 @@ class SceneApi:
         handle = self._handle_from_node_name.get(name)
         if handle is not None:
             handle.remove()
+
+    def as_html(self, dark_mode: bool = False) -> str:
+        """Get a standalone HTML string for the current scene.
+
+        Returns a self-contained HTML document that can be saved to a file
+        or embedded in other contexts.
+
+        This method is only available when called on ``server.scene``, not on
+        individual client scene APIs.
+
+        See also :meth:`viser.infra.StateSerializer.as_html()`.
+
+        Args:
+            dark_mode: Use dark color scheme.
+
+        Returns:
+            A complete HTML document as a string.
+        """
+        from ._viser import ViserServer
+
+        assert isinstance(self._owner, ViserServer), (
+            "as_html() is only available on server.scene, not on client scene APIs."
+        )
+
+        # Clear any previous recording state to allow multiple calls.
+        self._owner._websock_server._record_handles.clear()
+
+        return self._owner.get_scene_serializer().as_html(dark_mode)
 
     def show(self, height: int = 400, dark_mode: bool = False) -> None:
         """Display the scene in a Jupyter notebook or web browser.

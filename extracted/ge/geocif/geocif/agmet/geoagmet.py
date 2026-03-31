@@ -554,6 +554,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 country=obj.country,
                 region=obj.region,
                 boundary_gdf=boundary_gdf,
+                admin_level=obj.scale,
             ).plot()
 
         ###############################################################
@@ -653,6 +654,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
                     region=cal_region,
                     boundary_gdf=boundary_gdf,
                     highlight_gdf=highlight_gdf,
+                    admin_level=obj.scale,
                 ).plot()
 
 

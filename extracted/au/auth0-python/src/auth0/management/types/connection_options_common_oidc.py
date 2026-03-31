@@ -35,8 +35,8 @@ class ConnectionOptionsCommonOidc(UniversalBaseModel):
     client_id: ConnectionClientIdOidc
     client_secret: typing.Optional[ConnectionClientSecretOidc] = None
     connection_settings: typing.Optional[ConnectionConnectionSettings] = None
-    federated_connections_access_tokens: typing.Optional[ConnectionFederatedConnectionsAccessTokens] = None
     domain_aliases: typing.Optional[ConnectionDomainAliases] = None
+    federated_connections_access_tokens: typing.Optional[ConnectionFederatedConnectionsAccessTokens] = None
     icon_url: typing.Optional[ConnectionIconUrl] = None
     id_token_signed_response_algs: typing.Optional[ConnectionIdTokenSignedResponseAlgs] = None
     issuer: typing.Optional[ConnectionIssuer] = None

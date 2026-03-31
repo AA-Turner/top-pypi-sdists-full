@@ -50,7 +50,7 @@ pub fn process_text_node(
     let had_newlines = text_ref.contains('\n');
     let has_double_newline = text_ref.contains("\n\n") || text_ref.contains("\r\n\r\n");
 
-    if options.strip_newlines {
+    if options.strip_newlines && (text.contains('\r') || text.contains('\n')) {
         text = Cow::Owned(text.replace(['\r', '\n'], " "));
     }
 

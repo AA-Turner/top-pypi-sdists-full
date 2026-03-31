@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 import logging as std_logging
-from collections import OrderedDict
 import re
+from collections import OrderedDict
 from typing import (
-    Dict,
     Callable,
+    Dict,
     Mapping,
     MutableMapping,
     MutableSequence,
@@ -29,27 +29,26 @@ from typing import (
     Union,
 )
 
-from google.cloud.errorreporting_v1beta1 import gapic_version as package_version
-
-from google.api_core.client_options import ClientOptions
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
+from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
+from google.cloud.errorreporting_v1beta1 import gapic_version as package_version
 
 try:
     OptionalRetry = Union[retries.AsyncRetry, gapic_v1.method._MethodDefault, None]
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.cloud.errorreporting_v1beta1.types import common
-from google.cloud.errorreporting_v1beta1.types import error_group_service
-from .transports.base import ErrorGroupServiceTransport, DEFAULT_CLIENT_INFO
-from .transports.grpc_asyncio import ErrorGroupServiceGrpcAsyncIOTransport
+from google.cloud.errorreporting_v1beta1.types import common, error_group_service
+
 from .client import ErrorGroupServiceClient
+from .transports.base import DEFAULT_CLIENT_INFO, ErrorGroupServiceTransport
+from .transports.grpc_asyncio import ErrorGroupServiceGrpcAsyncIOTransport
 
 try:
     from google.api_core import client_logging  # type: ignore
@@ -115,7 +114,10 @@ class ErrorGroupServiceAsyncClient:
         Returns:
             ErrorGroupServiceAsyncClient: The constructed client.
         """
-        return ErrorGroupServiceClient.from_service_account_info.__func__(ErrorGroupServiceAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            ErrorGroupServiceClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(ErrorGroupServiceAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -131,7 +133,10 @@ class ErrorGroupServiceAsyncClient:
         Returns:
             ErrorGroupServiceAsyncClient: The constructed client.
         """
-        return ErrorGroupServiceClient.from_service_account_file.__func__(ErrorGroupServiceAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            ErrorGroupServiceClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(ErrorGroupServiceAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 
@@ -181,7 +186,7 @@ class ErrorGroupServiceAsyncClient:
         return self._client.transport
 
     @property
-    def api_endpoint(self):
+    def api_endpoint(self) -> str:
         """Return the API endpoint used by the client instance.
 
         Returns:

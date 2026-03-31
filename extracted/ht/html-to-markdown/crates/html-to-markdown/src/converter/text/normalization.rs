@@ -5,59 +5,6 @@
 
 use std::borrow::Cow;
 
-/// Chomp whitespace from inline element content, preserving line breaks.
-///
-/// Returns (prefix, suffix, trimmed_text) where:
-/// - prefix: leading whitespace (space or tab)
-/// - suffix: trailing whitespace (including soft breaks like "  \n" or "\\\n")
-/// - trimmed_text: the trimmed content
-///
-/// # Examples
-///
-/// ```text
-/// " text  \n" → (" ", "  \n", "text")
-/// "  text  " → (" ", " ", "text")
-/// "text" → ("", "", "text")
-/// ```
-pub fn chomp_inline(text: &str) -> (&str, &str, &str) {
-    if text.is_empty() {
-        return ("", "", "");
-    }
-
-    let prefix = if text.starts_with(&[' ', '\t'][..]) { " " } else { "" };
-
-    let has_trailing_linebreak = text.ends_with("  \n") || text.ends_with("\\\n");
-
-    let suffix = if has_trailing_linebreak {
-        if text.ends_with("  \n") { "  \n" } else { "\\\n" }
-    } else if text.ends_with(&[' ', '\t'][..]) {
-        " "
-    } else {
-        ""
-    };
-
-    let trimmed = if has_trailing_linebreak {
-        text.strip_suffix("  \n").map_or_else(
-            || text.strip_suffix("\\\n").map_or_else(|| text.trim(), |s| s.trim()),
-            |s| s.trim(),
-        )
-    } else {
-        text.trim()
-    };
-
-    (prefix, suffix, trimmed)
-}
-
-/// Remove trailing spaces and tabs from output string.
-///
-/// This is used before adding block separators or newlines to ensure
-/// clean Markdown output without spurious whitespace.
-pub fn trim_trailing_whitespace(output: &mut String) {
-    while output.ends_with(' ') || output.ends_with('\t') {
-        output.pop();
-    }
-}
-
 /// Remove trailing spaces/tabs from every line while preserving newlines.
 pub fn trim_line_end_whitespace(output: &mut String) {
     if output.is_empty() {

@@ -6,6 +6,7 @@ and raise appropriate exceptions. They contain no I/O operations.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Optional
 
 import httpx
@@ -24,6 +25,45 @@ from langsmith.sandbox._exceptions import (
     SandboxOperationError,
     ValidationError,
 )
+
+# =============================================================================
+# Header Utilities
+# =============================================================================
+
+
+def merge_headers(
+    base_headers: Optional[Mapping[str, str]] = None,
+    override_headers: Optional[Mapping[str, str]] = None,
+) -> dict[str, str]:
+    """Merge request headers, giving precedence to overrides."""
+    merged: dict[str, str] = dict(base_headers or {})
+    if override_headers:
+        merged.update(override_headers)
+    return merged
+
+
+# =============================================================================
+# Input Validation
+# =============================================================================
+
+
+def validate_ttl(value: Optional[int], name: str) -> None:
+    """Validate a TTL value for sandbox create/update.
+
+    Args:
+        value: TTL in seconds (None means unset, 0 disables).
+        name: Parameter name for error messages.
+
+    Raises:
+        ValueError: If value is negative or not a multiple of 60.
+    """
+    if value is None:
+        return
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0, got {value}")
+    if value != 0 and value % 60 != 0:
+        raise ValueError(f"{name} must be a multiple of 60 seconds, got {value}")
+
 
 # =============================================================================
 # Error Response Parsing

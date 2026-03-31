@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from multiprocessing.connection import Connection
 from typing import Optional
 
+from pydantic import ConfigDict, Field
+
 from abstra_internals.entities.execution_context import ClientContext
 from abstra_internals.utils.serializable import Serializable
 
@@ -16,6 +18,45 @@ class PreExecution(Serializable):
     queue_expire_ms: Optional[int] = None
 
 
+class ControlMessage(Serializable):
+    type: str
+    correlation_id: Optional[str] = None
+
+
+class StopExecutionPayload(Serializable):
+    execution_id: str
+
+
+class RunSnippetPayload(Serializable):
+    code: str
+    title: str = "Debug Snippet"
+
+
+class StopExecutionMessage(ControlMessage):
+    type: str = "stop"
+    payload: StopExecutionPayload
+
+    @staticmethod
+    def create(execution_id: str) -> "StopExecutionMessage":
+        return StopExecutionMessage(
+            payload=StopExecutionPayload(execution_id=execution_id),
+        )
+
+
+class RunSnippetMessage(ControlMessage):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    type: str = "run_snippet"
+    payload: RunSnippetPayload
+    connection: Optional[Connection] = Field(default=None, exclude=True)
+
+    @staticmethod
+    def create(code: str, title: str = "Debug Snippet") -> "RunSnippetMessage":
+        return RunSnippetMessage(
+            payload=RunSnippetPayload(code=code, title=title),
+        )
+
+
 @dataclass
 class QueueMessage:
     preexecution: PreExecution
@@ -23,12 +64,8 @@ class QueueMessage:
     connection: Optional[Connection] = None  # For local execution only
 
 
-class ControlMessage(Serializable):
-    type: str
-    payload: dict
-
-
 @dataclass
 class ControlQueueMessage:
     message: ControlMessage
     delivery_tag: int
+    connection: Optional[Connection] = None

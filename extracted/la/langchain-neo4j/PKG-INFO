@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-neo4j
-Version: 0.8.0
+Version: 0.9.0
 Summary: An integration package connecting Neo4j and LangChain
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain-neo4j/releases
 Project-URL: Repository, https://github.com/langchain-ai/langchain-neo4j
@@ -10,7 +10,7 @@ License-File: LICENSE
 Requires-Python: <3.15,>=3.10
 Requires-Dist: langchain-classic<2.0.0,>=1.0.0
 Requires-Dist: langchain-core<2.0.0,>=1.0.0
-Requires-Dist: langgraph<1.1.0,>=1.0.2
+Requires-Dist: langgraph<2.0.0,>=1.0.2
 Requires-Dist: neo4j-graphrag<2.0.0,>=1.12.0
 Requires-Dist: neo4j<7.0.0,>=5.25.0
 Provides-Extra: mmr

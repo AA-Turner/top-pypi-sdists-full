@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -359,6 +359,7 @@ class CloudSqlProperties(proto.Message):
             MYSQL (2):
                 Cloud SQL for MySQL.
         """
+
         DATABASE_TYPE_UNSPECIFIED = 0
         POSTGRES = 1
         MYSQL = 2

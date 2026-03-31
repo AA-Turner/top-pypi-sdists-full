@@ -5,12 +5,12 @@
 # but it is not part of the install-requires.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-conf ~= 10.8.2.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.8.2.0',
+    'passagemath-conf ~= 10.8.3.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.8.3.0',
     'jinja2',
     'pkgconfig',
-    'passagemath-environment ~= 10.8.2.0',
-    'passagemath-categories ~= 10.8.2.0',
+    'passagemath-environment ~= 10.8.3.0',
+    'passagemath-categories ~= 10.8.3.0',
     'mpmath >=1.1.0, <1.4',
     'cython >=3.1.0,<3.3.0',
     'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
@@ -27,8 +27,8 @@ dependencies = [
     'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
     'memory_allocator <0.2',
-    'passagemath-categories ~= 10.8.2.0',
-    'passagemath-environment ~= 10.8.2.0',
+    'passagemath-categories ~= 10.8.3.0',
+    'passagemath-environment ~= 10.8.3.0',
     'mpmath >=1.1.0, <1.4',
 ]
 dynamic = ["version"]
@@ -78,7 +78,7 @@ flint   = ["passagemath-flint"]
 fpylll  = ['fpylll >=0.5.9; sys_platform != "win32"',]
 gsl     = []  # No extra needed
 linbox  = ["passagemath-linbox"]
-m4ri    = ['passagemath-m4ri-m4rie ~= 10.8.2.0',]
+m4ri    = ['passagemath-m4ri-m4rie ~= 10.8.3.0',]
 m4rie   = ["passagemath-modules[m4ri,pari]"]
 meataxe = ["passagemath-meataxe"]
 mpfi    = ["passagemath-modules[flint]"]

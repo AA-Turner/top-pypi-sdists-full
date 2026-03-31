@@ -289,6 +289,26 @@ class ExaConnection:
         self._login()
         self.get_attr()
 
+    def create_prepared_statement(self, sql: str) -> ExaStatement:
+        """
+        Create prepared statement
+
+        Args:
+            sql:
+                SQL statement text, possibly with positional placeholders
+        Returns:
+            ExaStatement object
+
+        Examples:
+
+            >>> con = ExaConnection(...)
+            >>> exa_stmt = con.create_prepared_statement(
+            ...        sql="SELECT * FROM ? WHERE col1=?",
+            ...)
+            >>> exa_stmt.execute_prepared( [('users', 'bar')] )
+        """
+        return self.cls_statement(self, sql, prepare=True)
+
     def execute(self, query: str, query_params: dict | None = None) -> ExaStatement:
         """
         Execute SQL query with optional query formatting parameters
@@ -1463,8 +1483,7 @@ class ExaConnection:
                     # When not provided by the user, the default behavior is to require
                     # strict certificate verification.
                     warn(
-                        cleandoc(
-                            """
+                        cleandoc("""
                             From PyExasol version ``1.0.0``, the default behavior of
                             ExaConnection for encrypted connections without a fingerprint
                             is to require strict certificate validation with
@@ -1473,8 +1492,7 @@ class ExaConnection:
                             was to map such cases to ``{"cert_reqs": ssl.CERT_NONE}``. For
                             more information about encryption & best practices, please refer to
                             `Security <https://exasol.github.io/pyexasol/master/user_guide/configuration/security.html>`__ page.
-                            """
-                        ),
+                            """),
                         PyexasolWarning,
                     )
                     options["sslopt"] = {"cert_reqs": ssl.CERT_REQUIRED}

@@ -1,4 +1,4 @@
-#  Copyright (c) 2018-2024 by Rocky Bernstein
+#  Copyright (c) 2018-2025 by Rocky Bernstein
 #
 #  This program is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU General Public License
@@ -21,6 +21,8 @@ allow running on Python 2.
 
 import re
 from typing import Any, Dict, NamedTuple, Optional, Union
+
+from xdis.version_info import PythonImplementation
 
 # _Instruction.tos_str.__doc__ = (
 #     "If not None, a string representation of the top of the stack (TOS)"
@@ -290,18 +292,32 @@ class Instruction(NamedTuple):
         # Column: Instruction bytes
         if asm_format in ("extended-bytes", "bytes"):
             hex_bytecode = "|%02x" % opcode
-            if self.inst_size == 1:
-                # Not 3.6 or later
-                hex_bytecode += " " * (2 * 3)
-            if self.inst_size == 2:
-                # Must be Python 3.6 or later
-                if self.has_arg and self.arg is not None:
-                    hex_bytecode += " %02x" % (self.arg % 256)
-                else:
-                    hex_bytecode += " 00"
-            elif self.inst_size == 3 and self.arg is not None:
-                # Not 3.6 or later
-                hex_bytecode += " %02x %02x" % divmod(self.arg, 256)
+            if opc.python_implementation == PythonImplementation.Graal:
+                if self.inst_size == 1:
+                    hex_bytecode += " " * (3 * 3)
+                elif self.inst_size == 2:
+                    if self.has_arg and self.arg is not None:
+                        hex_bytecode += " %02x   " % (self.arg % 0x100)
+                    else:
+                        hex_bytecode += " 00      "
+                elif self.inst_size == 3:
+                    hex_bytecode += " %02x %02x   " % divmod(self.arg, 0x100)
+                elif self.inst_size == 4:
+                    upper, lower = divmod(self.arg, 0x10000)
+                    hex_bytecode += " %02x %02x %02x" % (upper, *divmod(lower, 0x100))
+            else:
+                if self.inst_size == 1:
+                    # Not 3.6 or later
+                    hex_bytecode += " " * (2 * 3)
+                if self.inst_size == 2:
+                    # Must be Python 3.6 or later
+                    if self.has_arg and self.arg is not None:
+                        hex_bytecode += " %02x" % (self.arg % 256)
+                    else:
+                        hex_bytecode += " 00"
+                elif self.inst_size == 3 and self.arg is not None:
+                    # Not 3.6 or later
+                    hex_bytecode += " %02x %02x" % divmod(self.arg, 256)
 
             fields.append(hex_bytecode + "|")
 
@@ -418,7 +434,7 @@ class Instruction(NamedTuple):
                     new_instruction[-2] = new_repr
                     new_instruction[-1] = start_offset
                     del instructions[-1]
-                    # See comment above abut the use of self.__class__
+                    # See comment above about the use of self.__class__
                     instructions.append(self.__class__(*new_instruction))
                     argval = self.argval
                     prefix = "" if argval is None else f"({argval}) | "

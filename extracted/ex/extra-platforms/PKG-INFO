@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: extra-platforms
-Version: 11.0.3
+Version: 11.0.4
 Summary: 🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family
-Keywords: Agent detection,Alacritty,Almquist Shell,Alpine Linux,ALT Linux,Amazon Linux,Android,Apple Terminal,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Bash,Buildkite,Buildroot,C shell,CachyOS,CentOS,CI detection,Circle CI,Cirrus CI,Claude Code,Cline,CloudLinux OS,CodeBuild,Command Prompt,Contour,CPU architecture,Cursor,Cygwin,Dash,Debian,Distro detection,DragonFly BSD,Exherbo Linux,Fedora,Fish,foot,FreeBSD,Generic Linux,Gentoo Linux,Ghostty,GitHub Actions runner,GitLab CI,GNOME Terminal,GNU Screen,GNU/Hurd,Guix System,Haiku,Hardware detection,Heroku CI,Hyper,IBM AIX,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),iTerm2,Kali Linux,Kitty,Konsole,Korn shell,KVM for IBM z Systems,Linux distribution,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,Manjaro Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,Nobara,Nushell,OpenBSD,openSUSE,OpenWrt,Oracle Linux,OS detection,OS info,Parallels,Pidora,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),PowerShell,Pytest,Pytest fixtures,Pytest plugin,Raspbian,RedHat Enterprise Linux,Rio,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Shell detection,Slackware,Solaris,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,System information,Tabby,tcsh,TeamCity,Terminal detection,Tilix,tmux,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,VS Code Terminal,WebAssembly (32-bit),WebAssembly (64-bit),WezTerm,Windows,Windows Subsystem for Linux,Windows Terminal,x86-64 (AMD64),XenServer,Xonsh,xterm,Zellij,Zsh
+Keywords: Agent detection,Alacritty,Almquist Shell,Alpine Linux,ALT Linux,Amazon Linux,Android,Apple Terminal,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Bash,Buildkite,Buildroot,C shell,CachyOS,CentOS,CI detection,Circle CI,Cirrus CI,Claude Code,Cline,CloudLinux OS,CodeBuild,Command Prompt,Contour,CPU architecture,Cursor,Cygwin,Dash,Debian,Distro detection,DragonFly BSD,Exherbo Linux,Fedora,Fish,foot,FreeBSD,Generic Linux,Gentoo Linux,Ghostty,GitHub Actions runner,GitLab CI,GNOME Terminal,GNU Screen,GNU/Hurd,Guix System,Haiku,Hardware detection,Heroku CI,Hyper,IBM AIX,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),iTerm2,Kali Linux,Kitty,Konsole,Korn shell,KVM for IBM z Systems,Linux distribution,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,Manjaro Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,Nobara,Nushell,OpenBSD,openSUSE,OpenWrt,Oracle Linux,OS detection,OS info,Parallels,Pidora,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),PowerShell,Pytest,Pytest fixtures,Pytest plugin,Raspbian,RedHat Enterprise Linux,Rio,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Shell detection,Slackware,Solaris,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,System information,Tabby,tcsh,TeamCity,Terminal detection,Tilix,tmux,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,Void Linux,VS Code Terminal,WebAssembly (32-bit),WebAssembly (64-bit),WezTerm,Windows,Windows Subsystem for Linux,Windows Terminal,x86-64 (AMD64),XenServer,Xonsh,xterm,Zellij,Zsh
 Author: Kevin Deldycke
 Author-email: Kevin Deldycke <kevin@deldycke.com>
 License-Expression: Apache-2.0
@@ -79,7 +79,7 @@ Requires-Dist: pytest>=8.2.1 ; extra == 'pytest'
 Requires-Python: >=3.10
 Project-URL: Changelog, https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md
 Project-URL: Documentation, https://kdeldycke.github.io/extra-platforms
-Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v11.0.3
+Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v11.0.4
 Project-URL: Funding, https://github.com/sponsors/kdeldycke
 Project-URL: Homepage, https://github.com/kdeldycke/extra-platforms
 Project-URL: Issues, https://github.com/kdeldycke/extra-platforms/issues
@@ -256,11 +256,12 @@ mappingproxy({
     'tuxedo': Platform(id='tuxedo', name='Tuxedo OS'),
     'ubuntu': Platform(id='ubuntu', name='Ubuntu'),
     'ultramarine': Platform(id='ultramarine', name='Ultramarine'),
+    'void': Platform(id='void', name='Void Linux'),
     'generic_linux': Platform(id='generic_linux', name='Generic Linux'),
     'xenserver': Platform(id='xenserver', name='XenServer'),
 })
 >>> LINUX.member_ids
-frozenset({'centos', 'mageia', 'generic_linux', 'ultramarine', 'tuxedo', 'arch', 'buildroot', 'android', 'exherbo', 'mandriva', 'fedora', 'slackware', 'parallels', 'xenserver', 'kvmibm', 'nobara', 'amzn', 'guix', 'debian', 'oracle', 'cachyos', 'altlinux', 'rhel', 'ibm_powerkvm', 'rocky', 'scientific', 'sles', 'linuxmint', 'tumbleweed', 'ubuntu', 'pidora', 'cloudlinux', 'gentoo', 'raspbian', 'opensuse'})
+frozenset({'centos', 'mageia', 'generic_linux', 'ultramarine', 'tuxedo', 'arch', 'buildroot', 'android', 'exherbo', 'void', 'mandriva', 'fedora', 'slackware', 'parallels', 'xenserver', 'kvmibm', 'nobara', 'amzn', 'guix', 'debian', 'oracle', 'cachyos', 'altlinux', 'rhel', 'ibm_powerkvm', 'rocky', 'scientific', 'sles', 'linuxmint', 'tumbleweed', 'ubuntu', 'pidora', 'cloudlinux', 'gentoo', 'raspbian', 'opensuse'})
 >>> print("\n".join([p.name for p in LINUX]))
 ALT Linux
 Amazon Linux
@@ -295,6 +296,7 @@ openSUSE Tumbleweed
 Tuxedo OS
 Ubuntu
 Ultramarine
+Void Linux
 Generic Linux
 XenServer
 ```
@@ -428,6 +430,7 @@ mindmap
             (🤵 TUXEDO)
             (🎯 UBUNTU)
             (🌊 ULTRAMARINE)
+            (∅ VOID)
             (Ⓧ XENSERVER)
         )Ⓑ BSD(
             (🪰 DRAGONFLY_BSD)
@@ -573,7 +576,3 @@ Check these projects to get real-life examples of `extra-platforms` usage:
 - ![GitHub stars](https://img.shields.io/github/stars/kdeldycke/click-extra?label=%E2%AD%90&style=flat-square) [Click Extra](https://github.com/kdeldycke/click-extra) - Drop-in replacement for Click to make user-friendly and colorful CLI.
 
 Feel free to send a PR to add your project in this list if you are relying on Extra Platforms in any way.
-
-## Development
-
-[Development guidelines](https://github.com/kdeldycke/click-extra#development) are the same as [parent project Click Extra](https://github.com/kdeldycke/click-extra), from which `extra-platforms` originated.

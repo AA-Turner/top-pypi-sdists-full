@@ -7,6 +7,8 @@
 //! - Inline code formatting with backtick management
 //! - Visitor callbacks for custom code processing
 
+#[cfg(feature = "visitor")]
+use crate::converter::utility::content::collect_tag_attributes;
 use crate::options::{CodeBlockStyle, ConversionOptions, WhitespaceMode};
 #[allow(unused_imports)]
 use std::collections::BTreeMap;
@@ -93,11 +95,7 @@ pub(crate) fn handle_pre(
 
                 if let Some(node) = node_handle.get(parser) {
                     if let tl::Node::Tag(tag) = node {
-                        let attributes: BTreeMap<String, String> = tag
-                            .attributes()
-                            .iter()
-                            .filter_map(|(k, v)| v.as_ref().map(|val| (k.to_string(), val.to_string())))
-                            .collect();
+                        let attributes: BTreeMap<String, String> = collect_tag_attributes(tag);
 
                         let node_id = node_handle.get_inner();
                         let parent_tag = dom_ctx.parent_tag_name(node_id, parser);

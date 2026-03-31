@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 
-from plato.agents.runtime.transport import NFSTransport, RsyncTransport
+from plato.agents.runtime.transport import GitTransport, NFSTransport, RsyncTransport
+from plato.v2.async_.environment import Environment
 from plato.worlds.base import BaseWorld
-from plato.worlds.config import RunConfig, SessionConfig
+from plato.worlds.config import GitTransportConfig, MergeAgentConfig, RunConfig, SessionConfig
 from plato.worlds.models import Observation, StepResult
 
 
@@ -52,6 +54,7 @@ async def test_create_transport_stores_mesh_ip(monkeypatch):
 async def test_start_transport_creates_and_initializes(monkeypatch, tmp_path):
     """_start_transport should create NFSTransport from workspace paths and initialize."""
     world = _TestWorld()
+    world.config = RunConfig()
     world._mesh_ip = "10.100.0.9"
     world._transport_mode = "nfs_kernel"
     world._ssh_key_path = Path("/tmp/test-key")
@@ -125,42 +128,9 @@ async def test_untracked_workspace_uses_empty_manifest_fuse_mount(monkeypatch, t
     assert ws._lazy_mounts[ws.path.name].mountpoint == ws.path
 
 
-def test_session_config_transport_mode_defaults_to_nfs_kernel():
-    cfg = SessionConfig(session_id="s1")
-    assert cfg.transport_mode == "nfs_kernel"
-
-
-def test_run_config_transport_mode_defaults_to_none():
+def test_run_config_transport_mode_defaults_to_nfs_kernel():
     cfg = RunConfig()
-    assert cfg.transport_mode is None
-
-
-@pytest.mark.asyncio
-async def test_create_transport_prefers_world_config_transport_mode():
-    """World config transport_mode should override session config."""
-    world = _TestWorld()
-    world.config = RunConfig(transport_mode="sshfs")
-    world.session = SessionConfig(session_id="s1", transport_mode="nfs_kernel")
-    world._ssh_key_path = Path("/tmp/test-key")
-    world.plato_session = SimpleNamespace(envs=[_RuntimeEnv()])
-
-    await world._create_transport()
-
-    assert world._transport_mode == "sshfs"
-
-
-@pytest.mark.asyncio
-async def test_create_transport_falls_back_to_session_config():
-    """When world config transport_mode is None, use session config."""
-    world = _TestWorld()
-    world.config = RunConfig()
-    world.session = SessionConfig(session_id="s1", transport_mode="nfs_kernel")
-    world._ssh_key_path = Path("/tmp/test-key")
-    world.plato_session = SimpleNamespace(envs=[_RuntimeEnv()])
-
-    await world._create_transport()
-
-    assert world._transport_mode == "nfs_kernel"
+    assert cfg.transport_mode == "nfs_kernel"
 
 
 # ---------------------------------------------------------------------------
@@ -182,12 +152,12 @@ async def test_nfs_transport_initialize_exports_with_crossmnt(monkeypatch):
     t = NFSTransport("/workspace", "10.100.0.9", Path("/tmp/test-key"))
     await t.initialize()
 
-    # Should export /workspace directly with crossmnt (no /srv/nfs)
+    # Should export /workspace independently (no crossmnt, no /srv/nfs)
     export_cmds = [c for c in commands if "/etc/exports" in c]
     assert len(export_cmds) == 1
     export_cmd = export_cmds[0]
     assert "/workspace" in export_cmd
-    assert "crossmnt" in export_cmd
+    assert "crossmnt" not in export_cmd
     assert "fsid=0" in export_cmd
     assert "/srv/nfs" not in export_cmd
 
@@ -519,3 +489,33 @@ def test_rsync_transport_agent_mount_path():
 
     t2 = RsyncTransport("/workspace", Path("/tmp/key"), mount_path="/mnt/data")
     assert t2.agent_mount_path == "/mnt/data"
+
+
+@pytest.mark.asyncio
+async def test_git_transport_resolve_and_retry_ours_force_pushes_local_head(monkeypatch):
+    commands: list[str] = []
+
+    async def fake_run_ssh(key_path, hostname, command, timeout=60):
+        del key_path, hostname, timeout
+        commands.append(command)
+        return 0, "", ""
+
+    monkeypatch.setattr("plato.agents.runtime.transport.run_ssh", fake_run_ssh)
+
+    transport = GitTransport(
+        "/workspace/data",
+        "10.100.0.9",
+        Path("/tmp/key"),
+        mount_path="/workspace",
+        git_config=GitTransportConfig(),
+    )
+
+    resolved = await transport._resolve_and_retry(  # pyright: ignore[reportPrivateUsage]
+        cast(Environment, object()),
+        "10.100.1.5",
+        "/workspace",
+        MergeAgentConfig(strategy="ours"),
+    )
+
+    assert resolved is True
+    assert commands == ["cd /workspace && git fetch origin && git push --force origin HEAD:main"]

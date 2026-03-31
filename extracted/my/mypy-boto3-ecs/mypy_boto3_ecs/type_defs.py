@@ -314,6 +314,7 @@ __all__ = (
     "ManagedAutoScalingTypeDef",
     "ManagedCertificateTypeDef",
     "ManagedIngressPathTypeDef",
+    "ManagedInstancesLocalStorageConfigurationTypeDef",
     "ManagedInstancesNetworkConfigurationOutputTypeDef",
     "ManagedInstancesNetworkConfigurationTypeDef",
     "ManagedInstancesNetworkConfigurationUnionTypeDef",
@@ -1120,6 +1121,10 @@ class InferenceAcceleratorOverrideTypeDef(TypedDict):
 class InferenceAcceleratorTypeDef(TypedDict):
     deviceName: str
     deviceType: str
+
+
+class ManagedInstancesLocalStorageConfigurationTypeDef(TypedDict):
+    useLocalStorage: NotRequired[bool]
 
 
 class ManagedInstancesNetworkConfigurationOutputTypeDef(TypedDict):
@@ -2354,6 +2359,7 @@ class InstanceLaunchTemplateOutputTypeDef(TypedDict):
     ec2InstanceProfileArn: str
     networkConfiguration: ManagedInstancesNetworkConfigurationOutputTypeDef
     storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
+    localStorageConfiguration: NotRequired[ManagedInstancesLocalStorageConfigurationTypeDef]
     monitoring: NotRequired[ManagedInstancesMonitoringOptionsType]
     capacityOptionType: NotRequired[CapacityOptionTypeType]
     instanceMetadataTagsPropagation: NotRequired[bool]
@@ -2698,6 +2704,7 @@ class InstanceLaunchTemplateTypeDef(TypedDict):
     ec2InstanceProfileArn: str
     networkConfiguration: ManagedInstancesNetworkConfigurationUnionTypeDef
     storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
+    localStorageConfiguration: NotRequired[ManagedInstancesLocalStorageConfigurationTypeDef]
     monitoring: NotRequired[ManagedInstancesMonitoringOptionsType]
     capacityOptionType: NotRequired[CapacityOptionTypeType]
     instanceMetadataTagsPropagation: NotRequired[bool]
@@ -2711,6 +2718,7 @@ class InstanceLaunchTemplateUpdateTypeDef(TypedDict):
     networkConfiguration: NotRequired[ManagedInstancesNetworkConfigurationUnionTypeDef]
     storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
     instanceMetadataTagsPropagation: NotRequired[bool]
+    localStorageConfiguration: NotRequired[ManagedInstancesLocalStorageConfigurationTypeDef]
     monitoring: NotRequired[ManagedInstancesMonitoringOptionsType]
     instanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
     capacityReservations: NotRequired[CapacityReservationRequestTypeDef]

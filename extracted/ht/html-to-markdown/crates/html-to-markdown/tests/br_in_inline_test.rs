@@ -1,6 +1,13 @@
 #![allow(missing_docs)]
 
-use html_to_markdown_rs::{ConversionOptions, convert};
+fn convert(
+    html: &str,
+    opts: Option<html_to_markdown_rs::ConversionOptions>,
+) -> html_to_markdown_rs::error::Result<String> {
+    html_to_markdown_rs::convert(html, opts).map(|r| r.content.unwrap_or_default())
+}
+
+use html_to_markdown_rs::ConversionOptions;
 
 #[test]
 fn test_br_inside_bold_tags() {

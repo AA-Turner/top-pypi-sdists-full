@@ -11,6 +11,8 @@ use std::collections::BTreeMap;
 
 use crate::converter::Context;
 use crate::converter::dom_context::DomContext;
+#[cfg(feature = "visitor")]
+use crate::converter::utility::content::collect_tag_attributes;
 use crate::converter::utility::preprocessing::sanitize_markdown_url;
 use crate::options::ConversionOptions;
 
@@ -123,11 +125,7 @@ pub fn handle_img(
     let image_output = if let Some(ref visitor_handle) = ctx.visitor {
         use crate::visitor::{NodeContext, NodeType, VisitResult};
 
-        let attributes: BTreeMap<String, String> = tag
-            .attributes()
-            .iter()
-            .filter_map(|(k, v)| v.as_ref().map(|val| (k.to_string(), val.to_string())))
-            .collect();
+        let attributes: BTreeMap<String, String> = collect_tag_attributes(tag);
 
         let node_id = node_handle.get_inner();
         let parent_tag = dom_ctx.parent_tag_name(node_id, parser);

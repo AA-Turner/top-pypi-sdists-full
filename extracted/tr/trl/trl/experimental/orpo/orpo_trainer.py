@@ -49,7 +49,7 @@ from transformers.trainer_utils import EvalLoopOutput
 from transformers.utils import is_peft_available, is_torch_fx_proxy
 
 from ...data_utils import maybe_apply_chat_template, maybe_extract_prompt
-from ...trainer.base_trainer import BaseTrainer
+from ...trainer.base_trainer import _BaseTrainer
 from ...trainer.utils import disable_dropout_in_model, log_table_to_comet_experiment, selective_log_softmax
 from ..utils import (
     DPODataCollatorWithPadding,
@@ -82,7 +82,7 @@ def log1mexp(x: torch.FloatTensor) -> torch.FloatTensor:
     return torch.where(x < t, torch.log1p(-torch.exp(x)), torch.log(-torch.expm1(x)))
 
 
-class ORPOTrainer(BaseTrainer):
+class ORPOTrainer(_BaseTrainer):
     r"""
     Initialize ORPOTrainer.
 
@@ -154,6 +154,9 @@ class ORPOTrainer(BaseTrainer):
         peft_config: dict | None = None,
         compute_metrics: Callable[[EvalLoopOutput], dict] | None = None,
     ):
+        if train_dataset is None:
+            raise ValueError("`train_dataset` is required")
+
         if args.model_init_kwargs is None:
             model_init_kwargs = {}
         elif not isinstance(model, str):
@@ -298,7 +301,6 @@ class ORPOTrainer(BaseTrainer):
         self.max_length = max_length
         self.generate_during_eval = args.generate_during_eval
         self.padding_value = args.padding_value if args.padding_value is not None else processing_class.pad_token_id
-        self.truncation_mode = args.truncation_mode
         self.processing_class = processing_class
 
         self.beta = args.beta

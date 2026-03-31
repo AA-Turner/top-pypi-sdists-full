@@ -17,11 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.errorreporting_v1beta1.types import common
-from google.protobuf import timestamp_pb2  # type: ignore
-
 
 __protobuf__ = proto.module(
     package="google.devtools.clouderrorreporting.v1beta1",

@@ -210,25 +210,31 @@ class TestRegisterStatic(unittest.TestCase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
         Settings.set_root_path("/tmp")
 
-    def test_register_static_copies_file_and_returns_url(self):
+    def test_register_static_returns_url_with_token(self):
         sdk, _ = _make_sdk(page_path="my-page")
         src = pathlib.Path(self.tmpdir) / "code.js"
         src.write_text("console.log('hello');")
 
         url = sdk.register_static(src)
 
-        self.assertTrue(url.startswith("/_page/my-page/_static/code."))
-        self.assertTrue(url.endswith(".js"))
-        # File should exist in public dir
-        public_file = (
-            pathlib.Path(self.tmpdir)
-            / ".abstra"
-            / "persistent"
-            / "_public"
-            / url.split("/")[-1]
+        self.assertIn(f"/_page/my-page/{src}?token=", url)
+
+    def test_register_static_token_contains_asset_path(self):
+        import jwt as pyjwt
+
+        from abstra_internals.environment import CLOUD_API_PROD_SHARED_TOKEN
+
+        sdk, _ = _make_sdk(page_path="my-page")
+        src = pathlib.Path(self.tmpdir) / "code.js"
+        src.write_text("console.log('hello');")
+
+        url = sdk.register_static(src)
+
+        token = url.split("token=")[1]
+        payload = pyjwt.decode(
+            token, key=CLOUD_API_PROD_SHARED_TOKEN, algorithms=["HS256"]
         )
-        self.assertTrue(public_file.exists())
-        self.assertEqual(public_file.read_text(), "console.log('hello');")
+        self.assertEqual(payload["asset"], str(src))
 
     def test_register_static_accepts_str_path(self):
         sdk, _ = _make_sdk(page_path="my-page")
@@ -237,8 +243,7 @@ class TestRegisterStatic(unittest.TestCase):
 
         url = sdk.register_static(str(src))
 
-        self.assertTrue(url.startswith("/_page/my-page/_static/style."))
-        self.assertTrue(url.endswith(".css"))
+        self.assertIn(f"/_page/my-page/{src}?token=", url)
 
     def test_register_static_accepts_pathlike(self):
         sdk, _ = _make_sdk(page_path="my-page")
@@ -247,7 +252,7 @@ class TestRegisterStatic(unittest.TestCase):
 
         url = sdk.register_static(os.fspath(src))
 
-        self.assertTrue(url.startswith("/_page/my-page/_static/app."))
+        self.assertIn(f"/_page/my-page/{src}?token=", url)
 
     def test_register_static_home_page(self):
         sdk, _ = _make_sdk(page_path="")
@@ -256,29 +261,7 @@ class TestRegisterStatic(unittest.TestCase):
 
         url = sdk.register_static(src)
 
-        self.assertTrue(url.startswith("/_page-home/_static/app."))
-
-    def test_register_static_same_content_same_url(self):
-        sdk, _ = _make_sdk()
-        src = pathlib.Path(self.tmpdir) / "a.js"
-        src.write_text("same content")
-
-        url1 = sdk.register_static(src)
-        url2 = sdk.register_static(src)
-
-        self.assertEqual(url1, url2)
-
-    def test_register_static_different_content_different_url(self):
-        sdk, _ = _make_sdk()
-        src = pathlib.Path(self.tmpdir) / "a.js"
-
-        src.write_text("version 1")
-        url1 = sdk.register_static(src)
-
-        src.write_text("version 2")
-        url2 = sdk.register_static(src)
-
-        self.assertNotEqual(url1, url2)
+        self.assertIn(f"/_page-home/{src}?token=", url)
 
     def test_register_static_file_not_found(self):
         sdk, _ = _make_sdk()

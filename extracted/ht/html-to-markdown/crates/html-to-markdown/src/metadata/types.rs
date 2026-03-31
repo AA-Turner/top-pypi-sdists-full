@@ -446,8 +446,8 @@ pub struct StructuredData {
 /// # Examples
 ///
 /// ```
-/// # use html_to_markdown_rs::metadata::ExtendedMetadata;
-/// let metadata = ExtendedMetadata {
+/// # use html_to_markdown_rs::metadata::HtmlMetadata;
+/// let metadata = HtmlMetadata {
 ///     document: Default::default(),
 ///     headers: Vec::new(),
 ///     links: Vec::new(),
@@ -459,7 +459,7 @@ pub struct StructuredData {
 /// ```
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "metadata", derive(serde::Serialize, serde::Deserialize))]
-pub struct ExtendedMetadata {
+pub struct HtmlMetadata {
     /// Document-level metadata (title, description, canonical, etc.)
     pub document: DocumentMetadata,
 

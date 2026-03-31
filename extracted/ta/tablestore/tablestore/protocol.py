@@ -8,6 +8,7 @@ import sys
 import platform
 import datetime
 import json
+import uuid
 
 import google.protobuf.text_format as text_format
 
@@ -27,8 +28,9 @@ class OTSProtocol(object):
         python_version = '%s.%s.%s' % (sys.version_info[0], sys.version_info[1], sys.version_info[2])
     else:
         python_version = '%s.%s.%s' % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro)
-    user_agent = 'aliyun-tablestore-sdk-python/%s(%s/%s/%s;%s)' % (
-        tablestore.__version__, platform.system(), platform.release(), platform.machine(), python_version)
+    user_uuid = uuid.uuid4().hex[:8]
+    user_agent = 'aliyun-tablestore-sdk-python/%s(%s/%s/%s;%s;%s)' % (
+        tablestore.__version__, platform.system(), platform.release(), platform.machine(), python_version, user_uuid)
 
     api_list = [
         'CreateTable',
@@ -71,11 +73,15 @@ class OTSProtocol(object):
         'ListKnowledgeBase',
         'DescribeKnowledgeBase',
         'DeleteKnowledgeBase',
+        'UpdateKnowledgeBase',
         'AddDocuments',
         'GetDocument',
         'ListDocuments',
         'DeleteDocuments',
+        'UpdateDocument',
         'Retrieve',
+        'ListChunks',
+        'UpdateChunks',
     ]
 
     def __init__(self, instance_name, encoding, logger, extra_headers=None,

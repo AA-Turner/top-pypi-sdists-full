@@ -172,7 +172,7 @@ pub struct InlineImageWarning {
     pub message: String,
 }
 
-/// Output of `convert_with_inline_images`.
+/// Output containing extracted inline images from `convert()` when `extract_images` is enabled.
 #[derive(Debug, Clone)]
 pub struct HtmlExtraction {
     /// Converted markdown output.

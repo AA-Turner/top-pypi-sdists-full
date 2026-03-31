@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import time
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
-from ..generated.v3.models import SessionResponse
+from ..generated.v3.models import MessageResponse, SessionResponse
 from .resources.sessions import AsyncSessions, Sessions
 
 _TERMINAL_STATUSES = {"idle", "stopped", "timed_out", "error"}
@@ -48,7 +48,7 @@ def _poll_output(
     session_id: str,
     output_schema: type[Any] | None = None,
     *,
-    timeout: float = 300,
+    timeout: float = 14400,
     interval: float = 2,
 ) -> SessionResult[Any]:
     """Poll session status until terminal, return SessionResult."""
@@ -66,7 +66,7 @@ async def _async_poll_output(
     session_id: str,
     output_schema: type[Any] | None = None,
     *,
-    timeout: float = 300,
+    timeout: float = 14400,
     interval: float = 2,
 ) -> SessionResult[Any]:
     """Async poll session status until terminal, return SessionResult."""
@@ -88,14 +88,18 @@ class AsyncSessionRun(Generic[T]):
         sessions: AsyncSessions,
         output_schema: type[T] | None = None,
         *,
-        timeout: float = 300,
+        timeout: float = 14400,
         interval: float = 2,
+        _start_cursor: str | None = None,
+        _start_cursor_ref: Callable[[], str | None] | None = None,
     ) -> None:
         self._create_fn = create_fn
         self._sessions = sessions
         self._output_schema = output_schema
         self._timeout = timeout
         self._interval = interval
+        self._start_cursor = _start_cursor
+        self._start_cursor_ref = _start_cursor_ref
         self.session_id: str | None = None
         self.result: SessionResult[T] | None = None
 
@@ -119,3 +123,103 @@ class AsyncSessionRun(Generic[T]):
 
     def __await__(self):
         return self._wait_for_output().__await__()
+
+    async def __aiter__(self) -> AsyncIterator[MessageResponse]:
+        """Yield new messages as they appear, then set .result when done.
+
+        Usage::
+
+            run = client.run("Find the top story on HN")
+            async for msg in run:
+                print(f"[{msg.role}] {msg.summary}")
+            print(run.result.output)
+        """
+        data = await self._create_fn()
+        self.session_id = str(data.id)
+        # Resolve cursor: prefer the ref callback (set during create_fn) over static value
+        cursor: str | None = self._start_cursor_ref() if self._start_cursor_ref else self._start_cursor
+        deadline = time.monotonic() + self._timeout
+
+        while time.monotonic() < deadline:
+            resp = await self._sessions.messages(self.session_id, after=cursor, limit=100)
+            for msg in resp.messages:
+                yield msg
+                cursor = str(msg.id)
+
+            session = await self._sessions.get(self.session_id)
+            if session.status.value in _TERMINAL_STATUSES:
+                # Drain all remaining messages (may be multiple pages)
+                while True:
+                    resp = await self._sessions.messages(self.session_id, after=cursor, limit=100)
+                    if not resp.messages:
+                        break
+                    for msg in resp.messages:
+                        yield msg
+                        cursor = str(msg.id)
+                self.result = SessionResult(session, _parse_output(session.output, self._output_schema))
+                return
+
+            await asyncio.sleep(self._interval)
+
+        raise TimeoutError(f"Session {self.session_id} did not complete within {self._timeout}s")
+
+
+class SessionStream(Generic[T]):
+    """Sync iterator that yields new messages as they appear.
+
+    Usage::
+
+        stream = client.stream("Find the top story on HN")
+        for msg in stream:
+            print(f"[{msg.role}] {msg.summary}")
+        print(stream.result.output)
+    """
+
+    def __init__(
+        self,
+        session: SessionResponse,
+        sessions: Sessions,
+        output_schema: type[T] | None = None,
+        *,
+        timeout: float = 14400,
+        interval: float = 2,
+        _start_cursor: str | None = None,
+    ) -> None:
+        self.session_id = str(session.id)
+        self._sessions = sessions
+        self._output_schema = output_schema
+        self._timeout = timeout
+        self._interval = interval
+        self._start_cursor = _start_cursor
+        self.result: SessionResult[T] | None = None
+
+    @property
+    def output(self) -> T | None:
+        """Final typed output (available after iteration completes)."""
+        return self.result.output if self.result else None
+
+    def __iter__(self) -> Iterator[MessageResponse]:
+        cursor: str | None = self._start_cursor
+        deadline = time.monotonic() + self._timeout
+
+        while time.monotonic() < deadline:
+            resp = self._sessions.messages(self.session_id, after=cursor, limit=100)
+            for msg in resp.messages:
+                yield msg
+                cursor = str(msg.id)
+
+            session = self._sessions.get(self.session_id)
+            if session.status.value in _TERMINAL_STATUSES:
+                while True:
+                    resp = self._sessions.messages(self.session_id, after=cursor, limit=100)
+                    if not resp.messages:
+                        break
+                    for msg in resp.messages:
+                        yield msg
+                        cursor = str(msg.id)
+                self.result = SessionResult(session, _parse_output(session.output, self._output_schema))
+                return
+
+            time.sleep(self._interval)
+
+        raise TimeoutError(f"Session {self.session_id} did not complete within {self._timeout}s")

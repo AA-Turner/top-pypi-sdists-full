@@ -1,7 +1,7 @@
 # Bug in 3.5 _pydecimal.py was erroriously thinking the
 # return after the "else" was an "end if"
 
-def parseline(self, line):
+def parseline(self, line) -> int:
     if not line:
         return 5
     elif line:

@@ -28,6 +28,7 @@ else:  # pragma: NO COVER
     # this code path once we drop support for Python 3.7
     import importlib_metadata as metadata
 
+
 from .services.agents import AgentsAsyncClient, AgentsClient
 from .services.changelogs import ChangelogsAsyncClient, ChangelogsClient
 from .services.conversation_history import (
@@ -384,6 +385,7 @@ from .types.trace import (
     Event,
     ExceptionDetail,
     FlowInvocation,
+    FlowTraceMetadata,
     FlowTransition,
     LlmCall,
     NamedMetric,
@@ -391,11 +393,14 @@ from .types.trace import (
     PlaybookInput,
     PlaybookInvocation,
     PlaybookOutput,
+    PlaybookTraceMetadata,
     PlaybookTransition,
     RetrievalStrategy,
     Span,
+    SpeechProcessingMetadata,
     Status,
     ToolUse,
+    TraceBlock,
     UserUtterance,
 )
 from .types.transition_route_group import (
@@ -668,6 +673,7 @@ __all__ = (
     "Flow",
     "FlowImportStrategy",
     "FlowInvocation",
+    "FlowTraceMetadata",
     "FlowTransition",
     "FlowValidationResult",
     "FlowsClient",
@@ -803,6 +809,7 @@ __all__ = (
     "PlaybookInput",
     "PlaybookInvocation",
     "PlaybookOutput",
+    "PlaybookTraceMetadata",
     "PlaybookTransition",
     "PlaybookVersion",
     "PlaybooksClient",
@@ -836,6 +843,7 @@ __all__ = (
     "SessionsClient",
     "Span",
     "SpeechModelVariant",
+    "SpeechProcessingMetadata",
     "SpeechToTextSettings",
     "SpeechWordInfo",
     "SsmlVoiceGender",
@@ -863,6 +871,7 @@ __all__ = (
     "ToolUse",
     "ToolVersion",
     "ToolsClient",
+    "TraceBlock",
     "TrainFlowRequest",
     "TransitionCoverage",
     "TransitionRoute",

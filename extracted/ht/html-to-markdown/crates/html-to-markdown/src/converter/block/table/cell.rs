@@ -179,3 +179,23 @@ pub fn convert_table_cell(
         output.push_str(" |");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn rich_formatting_preserved_in_cells() {
+        let html = "<table><tr><th>H</th></tr><tr><td><strong>Bold</strong> and <em>italic</em></td></tr></table>";
+        let result = crate::convert(html, None).unwrap();
+        let content = result.content.unwrap_or_default();
+        assert!(
+            content.contains("**Bold**") || content.contains("__Bold__"),
+            "bold should be preserved: {}",
+            content
+        );
+        assert!(
+            content.contains("*italic*") || content.contains("_italic_"),
+            "italic should be preserved: {}",
+            content
+        );
+    }
+}

@@ -6,8 +6,9 @@ from unittest.mock import MagicMock
 from abstra_internals.controllers.execution.consumer import ConsumerController
 from abstra_internals.repositories.consumer import (
     Consumer,
-    ControlMessage,
     ControlQueueMessage,
+    StopExecutionMessage,
+    StopExecutionPayload,
 )
 from abstra_internals.settings import SettingsController
 
@@ -100,7 +101,9 @@ class TestWebEditorKillRobustness(unittest.TestCase):
 
         # 3. Send a VALID message immediately after
         valid_id = "exec-valid-1"
-        control_msg = ControlMessage(type="stop", payload={"execution_id": valid_id})
+        control_msg = StopExecutionMessage(
+            payload=StopExecutionPayload(execution_id=valid_id)
+        )
         queue_msg = ControlQueueMessage(message=control_msg, delivery_tag=1)
         self.control_queue.put(queue_msg)
 
@@ -123,15 +126,15 @@ class TestWebEditorKillRobustness(unittest.TestCase):
         self.controller.start_loop()
 
         # 1. Send message that triggers exception in our MockPool
-        control_msg_bad = ControlMessage(
-            type="stop", payload={"execution_id": "explode"}
+        control_msg_bad = StopExecutionMessage(
+            payload=StopExecutionPayload(execution_id="explode")
         )
         queue_msg_bad = ControlQueueMessage(message=control_msg_bad, delivery_tag=666)
         self.control_queue.put(queue_msg_bad)
 
         # 2. Send valid message after
-        control_msg_good = ControlMessage(
-            type="stop", payload={"execution_id": "exec-good"}
+        control_msg_good = StopExecutionMessage(
+            payload=StopExecutionPayload(execution_id="exec-good")
         )
         queue_msg_good = ControlQueueMessage(message=control_msg_good, delivery_tag=777)
         self.control_queue.put(queue_msg_good)
@@ -152,7 +155,9 @@ class TestWebEditorKillRobustness(unittest.TestCase):
         self.controller.start_loop()
 
         # 1. Kill ID that doesn't exist
-        control_msg = ControlMessage(type="stop", payload={"execution_id": "ghost-id"})
+        control_msg = StopExecutionMessage(
+            payload=StopExecutionPayload(execution_id="ghost-id")
+        )
         queue_msg = ControlQueueMessage(message=control_msg, delivery_tag=999)
         self.control_queue.put(queue_msg)
 

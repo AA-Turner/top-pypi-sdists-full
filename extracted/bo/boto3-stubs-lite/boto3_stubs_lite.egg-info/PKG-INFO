@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs-lite
-Version: 1.42.78
-Summary: Lite type annotations for boto3 1.42.78 generated with mypy-boto3-builder 8.12.0
+Version: 1.42.79
+Summary: Lite type annotations for boto3 1.42.79 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: boto3-stubs-full<1.43.0,>=1.42.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.42.78; extra == "boto3"
+Requires-Dist: boto3==1.42.79; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: mypy-boto3-accessanalyzer<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-account<1.43.0,>=1.42.0; extra == "all"
@@ -153,6 +153,7 @@ Requires-Dist: mypy-boto3-dax<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-deadline<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-detective<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-devicefarm<1.43.0,>=1.42.0; extra == "all"
+Requires-Dist: mypy-boto3-devops-agent<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-devops-guru<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-directconnect<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-discovery<1.43.0,>=1.42.0; extra == "all"
@@ -695,6 +696,8 @@ Provides-Extra: detective
 Requires-Dist: mypy-boto3-detective<1.43.0,>=1.42.0; extra == "detective"
 Provides-Extra: devicefarm
 Requires-Dist: mypy-boto3-devicefarm<1.43.0,>=1.42.0; extra == "devicefarm"
+Provides-Extra: devops-agent
+Requires-Dist: mypy-boto3-devops-agent<1.43.0,>=1.42.0; extra == "devops-agent"
 Provides-Extra: devops-guru
 Requires-Dist: mypy-boto3-devops-guru<1.43.0,>=1.42.0; extra == "devops-guru"
 Provides-Extra: directconnect
@@ -1308,7 +1311,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.42.78](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.42.79](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1368,7 +1371,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.78' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.79' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1701,9 +1704,9 @@ repository.
 
 ## Submodules
 
-- `boto3-stubs-lite[full]` - Type annotations for all 417 services in one
+- `boto3-stubs-lite[full]` - Type annotations for all 418 services in one
   package (recommended).
-- `boto3-stubs-lite[all]` - Type annotations for all 417 services in separate
+- `boto3-stubs-lite[all]` - Type annotations for all 418 services in separate
   packages.
 - `boto3-stubs-lite[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/),
@@ -2061,6 +2064,9 @@ repository.
   service.
 - `boto3-stubs-lite[devicefarm]` - Type annotations for
   [DeviceFarm](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devicefarm/)
+  service.
+- `boto3-stubs-lite[devops-agent]` - Type annotations for
+  [DevOpsAgentService](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/)
   service.
 - `boto3-stubs-lite[devops-guru]` - Type annotations for
   [DevOpsGuru](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_guru/)

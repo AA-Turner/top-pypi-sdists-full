@@ -17,23 +17,25 @@ import abc
 from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
+import google.auth  # type: ignore
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry as retries
-import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.cloud.location import locations_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
-import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 
 from google.cloud.discoveryengine_v1beta import gapic_version as package_version
+from google.cloud.discoveryengine_v1beta.types import (
+    answer,
+    conversation,
+    conversational_search_service,
+    session,
+)
 from google.cloud.discoveryengine_v1beta.types import conversation as gcd_conversation
-from google.cloud.discoveryengine_v1beta.types import conversational_search_service
-from google.cloud.discoveryengine_v1beta.types import answer
-from google.cloud.discoveryengine_v1beta.types import conversation
-from google.cloud.discoveryengine_v1beta.types import session
 from google.cloud.discoveryengine_v1beta.types import session as gcd_session
 
 DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
@@ -88,6 +90,10 @@ class ConversationalSearchServiceTransport(abc.ABC):
                 your own client library.
             always_use_jwt_access (Optional[bool]): Whether self signed JWT should
                 be used for service account credentials.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
 
         # Save the scopes.
@@ -136,6 +142,8 @@ class ConversationalSearchServiceTransport(abc.ABC):
         if ":" not in host:
             host += ":443"
         self._host = host
+
+        self._wrapped_methods: Dict[Callable, Callable] = {}
 
     @property
     def host(self):
@@ -388,7 +396,10 @@ class ConversationalSearchServiceTransport(abc.ABC):
     @property
     def cancel_operation(
         self,
-    ) -> Callable[[operations_pb2.CancelOperationRequest], None,]:
+    ) -> Callable[
+        [operations_pb2.CancelOperationRequest],
+        None,
+    ]:
         raise NotImplementedError()
 
     @property

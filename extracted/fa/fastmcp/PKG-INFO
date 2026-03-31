@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp
-Version: 3.1.1
+Version: 3.2.0
 Summary: The fast, Pythonic way to build MCP servers and clients.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
@@ -40,13 +40,14 @@ Requires-Dist: uvicorn>=0.35
 Requires-Dist: watchfiles>=1.0.0
 Requires-Dist: websockets>=15.0.1
 Provides-Extra: anthropic
-Requires-Dist: anthropic>=0.40.0; extra == 'anthropic'
+Requires-Dist: anthropic>=0.48.0; extra == 'anthropic'
 Provides-Extra: apps
-Requires-Dist: prefab-ui>=0.6.0; extra == 'apps'
+Requires-Dist: prefab-ui>=0.18.0; extra == 'apps'
 Provides-Extra: azure
 Requires-Dist: azure-identity>=1.16.0; extra == 'azure'
+Requires-Dist: pyjwt>=2.12.0; extra == 'azure'
 Provides-Extra: code-mode
-Requires-Dist: pydantic-monty<0.0.8,>=0.0.7; extra == 'code-mode'
+Requires-Dist: pydantic-monty==0.0.9; extra == 'code-mode'
 Provides-Extra: gemini
 Requires-Dist: google-genai>=1.18.0; extra == 'gemini'
 Provides-Extra: openai

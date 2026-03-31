@@ -18,11 +18,6 @@ DELAY ?= 0
 EXPAND ?= 1
 STEPS ?= 100
 
-benchmark-burst:
-	make benchmark-reset
-	npm install
-	npm run build
-	k6 run burst.js
 
 benchmark-ramp:
 	make benchmark-reset

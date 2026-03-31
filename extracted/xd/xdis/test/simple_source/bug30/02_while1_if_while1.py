@@ -9,6 +9,6 @@ while 1:
         raise RuntimeError
 
 # Adapted from 3.0.1 cgi.py
-def _parseparam(s, end):
+def _parseparam(s, end) -> None:
     while end > 0 and s.count(''):
         end = s.find(';')

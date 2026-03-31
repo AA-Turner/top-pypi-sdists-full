@@ -11,6 +11,7 @@ from PIL import Image
 from google import genai
 from google.genai.types import (
     GenerateContentConfig,
+    HttpOptions,
     Part,
     ModelContent,
     UserContent,
@@ -35,6 +36,8 @@ from ...models import (
     CompletionUsage,
     ObjectDetectionResult,
 )
+from ...models.responses import InvokeResult
+from ...exceptions import InvokeError
 from ...models.google import (
     GoogleModel,
     ALL_VOICE_PROFILES,
@@ -63,17 +66,22 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
     client_type: str = 'google'
     client_name: str = 'google'
     _default_model: str = 'gemini-2.5-flash'
-    _fallback_model: str = 'gemini-3.1-flash-preview-lite'
+    _fallback_model: str = 'gemini-3.1-flash-lite-preview'
     _model_garden: bool = False
+    _lightweight_model: str = "gemini-3.1-flash-lite-preview"
 
     def __init__(self, vertexai: bool = False, model_garden: bool = False, **kwargs):
         self.model_garden = model_garden
         self.vertexai: bool = True if model_garden else vertexai
         self.vertex_location = kwargs.get('location', config.get('VERTEX_REGION'))
         self.vertex_project = kwargs.get('project', config.get('VERTEX_PROJECT_ID'))
-        self._credentials_file = kwargs.get('credentials_file', config.get('VERTEX_CREDENTIALS_FILE'))
+        self._credentials_file = kwargs.get(
+            'credentials_file',
+            config.get('VERTEX_CREDENTIALS_FILE') or config.get('GOOGLE_APPLICATION_CREDENTIALS')
+        )
         if isinstance(self._credentials_file, str):
             self._credentials_file = Path(self._credentials_file).expanduser()
+
         self.api_key = kwargs.pop('api_key', config.get('GOOGLE_API_KEY'))
 
         # Suppress httpcore logs as requested
@@ -84,33 +92,109 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
         super().__init__(**kwargs)
         self.max_tokens = kwargs.get('max_tokens', None)
         self.client = None
+        self._client_model_class: str = None  # tracks which model class the cached client was built for
         #  Create a single instance of the Voice registry
         self.voice_db = VoiceRegistry(profiles=ALL_VOICE_PROFILES)
 
-    async def get_client(self, **kwargs) -> genai.Client:
-        """Get the underlying Google GenAI client."""
-        if self.vertexai:
+    @staticmethod
+    def _is_gemini3_model(model: str) -> bool:
+        """Check if a model belongs to the Gemini 3.x family.
+
+        Gemini 3.x models on Vertex AI require location='global'
+        and preview variants need api_version='v1beta1'.
+        """
+        if not model:
+            return False
+        return model.startswith('gemini-3')
+
+    @staticmethod
+    def _is_preview_model(model: str) -> bool:
+        """Check if a model is a preview variant."""
+        if not model:
+            return False
+        return 'preview' in model
+
+    @staticmethod
+    def _requires_thinking(model: str) -> bool:
+        """Check if a model only works in thinking mode (budget > 0).
+
+        Gemini 3.1 Pro models are thinking-only and reject budget=0.
+        """
+        if not model:
+            return False
+        return model.startswith('gemini-3.1-pro')
+
+    def _model_class_key(self, model: str) -> str:
+        """Return a key representing the client configuration a model needs.
+
+        Different model families may require different Vertex AI endpoints
+        (location, API version). This key is used to invalidate the cached
+        client when switching between incompatible model families.
+        """
+        if self._is_gemini3_model(model):
+            suffix = 'preview' if self._is_preview_model(model) else 'stable'
+            return f'gemini3_{suffix}'
+        return 'default'
+
+    async def get_client(self, model: str = None, **kwargs) -> genai.Client:
+        """Get the underlying Google GenAI client.
+
+        Args:
+            model: Model name to configure the client for. Gemini 3.x models
+                   require location='global' on Vertex AI, and preview models
+                   additionally need api_version='v1beta1'.
+        """
+        resolved_model = model or self.model or self._default_model
+        model_class = self._model_class_key(resolved_model)
+
+        # Invalidate cached client if the model class changed
+        if self.client and self._client_model_class != model_class:
             self.logger.info(
-                f"Initializing Vertex AI for project {self.vertex_project} in {self.vertex_location}"
+                f"Model class changed from '{self._client_model_class}' to "
+                f"'{model_class}', recreating client."
+            )
+            await self.close()
+
+        if self.vertexai:
+            location = self.vertex_location
+
+            # Gemini 3.x family requires location='global' on Vertex AI
+            if self._is_gemini3_model(resolved_model):
+                location = 'global'
+
+            self.logger.info(
+                f"Initializing Vertex AI for project {self.vertex_project} in {location}"
             )
             try:
                 if self._credentials_file and self._credentials_file.exists():
                     credentials = service_account.Credentials.from_service_account_file(
-                        str(self._credentials_file)
+                        str(self._credentials_file),
+                        scopes=["https://www.googleapis.com/auth/cloud-platform"],
                     )
                 else:
                     credentials = None  # Use default credentials
 
-                return genai.Client(
-                    vertexai=True,
-                    project=self.vertex_project,
-                    location=self.vertex_location,
-                    credentials=credentials,
-                    **kwargs
-                )
+                client_kwargs = {
+                    'vertexai': True,
+                    'project': self.vertex_project,
+                    'location': location,
+                    'credentials': credentials,
+                }
+
+                # Preview models require v1beta1 API version
+                if self._is_preview_model(resolved_model):
+                    client_kwargs['http_options'] = HttpOptions(
+                        api_version='v1beta1'
+                    )
+
+                client_kwargs.update(kwargs)
+                client = genai.Client(**client_kwargs)
+                self._client_model_class = model_class
+                return client
             except Exception as exc:
                 self.logger.error(f"Failed to initialize Vertex AI client: {exc}")
                 raise
+        self._client_model_class = model_class
         return genai.Client(
             api_key=self.api_key,
             **kwargs
@@ -326,10 +410,8 @@ class GoogleGenAIClient(AbstractClient, GoogleGeneration, GoogleAnalysis):
         if 'properties' in cleaned and cleaned.get('type') != 'object':
             cleaned['type'] = 'object'
 
-        # Google rejects OBJECT schemas with empty properties; coerce to string.
-        if cleaned.get('type') == 'object' and cleaned.get('properties') == {}:
-            cleaned.pop('properties', None)
-            cleaned['type'] = 'string'
+        # Vertex AI requires function parameters to be of type OBJECT.
+        # Keep empty-property objects as OBJECT (don't coerce to string).
 
         # Remove problematic fields
         problematic_fields = {
@@ -1589,14 +1671,16 @@ Synthesize the data and provide insights, analysis, and conclusions as appropria
         if kw_tool_type == "builtin_tools":
             tool_type = kw_tool_type
             _use_tools = True
-            generation_config["temperature"] = 0
+            # Thinking models on Vertex AI require temperature >= 0.7
+            generation_config["temperature"] = 0.7 if self._requires_thinking(model) else 0
         elif _use_tools:
             if requested_tools and isinstance(requested_tools, list):
                 for tool in requested_tools:
                     self.register_tool(tool)
             tool_type = kw_tool_type or "custom_functions"
-            # if Tools, reduce temperature to avoid hallucinations.
-            generation_config["temperature"] = 0
+            # Reduce temperature to avoid hallucinations;
+            # thinking models on Vertex AI require temperature >= 0.7
+            generation_config["temperature"] = 0.7 if self._requires_thinking(model) else 0
         elif _use_tools is None:
             # If not explicitly set, analyze the prompt to decide
             tool_type = kw_tool_type or self._analyze_prompt_for_tools(prompt)
@@ -1684,14 +1768,23 @@ Synthesize the data and provide insights, analysis, and conclusions as appropria
 
         chat = None
         if not self.client:
-            self.client = await self.get_client()
+            self.client = await self.get_client(model=model)
+        elif self._client_model_class != self._model_class_key(model):
+            self.client = await self.get_client(model=model)
         # configure thinking config for gemini:
         thinking_config = None
+        _requires_thinking = self._requires_thinking(model)
         if use_thinking:
             thinking_config = ThinkingConfig(
                 max_thinking_steps=1,
                 max_thinking_tokens=100,
                 max_thinking_time=10,
+            )
+        elif _requires_thinking:
+            # Gemini 3.1 Pro models are thinking-only — budget=0 is invalid.
+            thinking_config = ThinkingConfig(
+                thinking_budget=8192,
+                include_thoughts=False
             )
         elif 'flash' in model.lower():
             # Flash puede deshabilitarse con budget=0
@@ -1708,8 +1801,8 @@ Synthesize the data and provide insights, analysis, and conclusions as appropria
             )
         else:
             thinking_config = ThinkingConfig(
-                thinking_budget=1024,  # Reasonable minimum for complex tasks
-                include_thoughts=False  # Critical: no thoughts in response
+                thinking_budget=8192,
+                include_thoughts=False
             )
         final_config = GenerateContentConfig(
             system_instruction=system_prompt,
@@ -1870,7 +1963,7 @@ Synthesize the data and provide insights, analysis, and conclusions as appropria
                         # Reset the client
                         self.client = None
                         if not self.client:
-                            self.client = await self.get_client()
+                            self.client = await self.get_client(model=current_model)
                         # Recreate the chat session
                         chat = self.client.aio.chats.create(
                             model=current_model,
@@ -2016,8 +2109,12 @@ Synthesize the data and provide insights, analysis, and conclusions as appropria
                     reformat_model = GoogleModel.GEMINI_3_FLASH_LITE_PREVIEW.value
                     # Create a new client call without tools for structured output
                     format_prompt = (
-                        f"Please format the following information according to the requested JSON structure. "
-                        f"Return only the JSON object with the requested fields:\n\n{assistant_response_text}"
+                        f"Convert the following response into the requested JSON structure. "
+                        f"CRITICAL: The 'explanation' field MUST contain the COMPLETE original text — "
+                        f"do NOT summarize, truncate, or omit any part of it. Copy it verbatim. "
+                        f"If the response contains tabular data (markdown tables), also extract it into "
+                        f"the 'data' field as structured columns/rows. "
+                        f"Return only the JSON object:\n\n{assistant_response_text}"
                     )
                     self.logger.debug(
                         "Reformatting response as structured output using %s...",
@@ -2425,7 +2522,7 @@ Synthesize the data and provide insights, analysis, and conclusions as appropria
                         )
                         self.client = None
                         if not self.client:
-                            self.client = await self.get_client()
+                            self.client = await self.get_client(model=model)
 
                         # Recreate chat session
                         # Note: We rely on history variable being the initial history.
@@ -2599,10 +2696,12 @@ Synthesize the data and provide insights, analysis, and conclusions as appropria
 
         # Create the stateful chat session
         chat = self.client.aio.chats.create(model=model, history=history)
-        # Disable thinking for image tasks as recommended by Google (reduces latency)
+        # Disable thinking for image tasks (reduces latency).
+        # Gemini 3.1 Pro models are thinking-only and reject budget=0.
+        _thinking_budget = 8192 if self._requires_thinking(model) else 0
         final_config = GenerateContentConfig(
             **generation_config,
-            thinking_config=ThinkingConfig(thinking_budget=0)
+            thinking_config=ThinkingConfig(thinking_budget=_thinking_budget)
         )
 
         # Make the primary multi-modal call with retry for transient 503 errors
@@ -3154,3 +3253,161 @@ Synthesize the data and provide insights, analysis, and conclusions as appropria
         ai_message.provider = "google_genai"
 
         return ai_message
+
+    async def invoke(
+        self,
+        prompt: str,
+        *,
+        output_type: Optional[type] = None,
+        structured_output: Optional[StructuredOutputConfig] = None,
+        model: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.0,
+        use_tools: bool = False,
+        tools: Optional[list] = None,
+    ) -> InvokeResult:
+        """Lightweight stateless invocation for GoogleGenAIClient.
+
+        Uses ``generation_config`` with ``response_mime_type="application/json"``
+        and ``response_schema`` for structured output.  When ``use_tools=True``
+        and ``output_type`` are both set, a two-call strategy is used:
+
+        1. First call: tools enabled, no structured output — gets tool results.
+        2. Second call: raw result as input, structured output — parses into schema.
+
+        Args:
+            prompt: User prompt.
+            output_type: Pydantic model or dataclass to parse the response into.
+            structured_output: Full :class:`StructuredOutputConfig`; takes
+                precedence over ``output_type``.
+            model: Model override. Defaults to ``_lightweight_model``.
+            system_prompt: System prompt override.
+            max_tokens: Maximum output tokens.
+            temperature: Sampling temperature.
+            use_tools: Whether to inject registered tools.
+            tools: Additional tool definitions.
+
+        Returns:
+            :class:`InvokeResult` with parsed output.
+
+        Raises:
+            :class:`InvokeError`: On provider errors.
+        """
+        try:
+            resolved_prompt = self._resolve_invoke_system_prompt(system_prompt)
+            config = self._build_invoke_structured_config(output_type, structured_output)
+            resolved_model = self._resolve_invoke_model(model)
+
+            if not self.client:
+                raise RuntimeError(
+                    "GoogleGenAIClient not initialised. Use async context manager."
+                )
+
+            needs_two_call = use_tools and config is not None
+
+            if needs_two_call:
+                # --- First call: tools, no structured output ---
+                tool_defs = self._prepare_tools()
+                first_config = GenerateContentConfig(
+                    system_instruction=resolved_prompt,
+                    max_output_tokens=max_tokens,
+                    temperature=temperature,
+                    tools=tool_defs or None,
+                )
+                first_response = await self.client.aio.models.generate_content(
+                    model=resolved_model,
+                    contents=[{"role": "user", "parts": [{"text": prompt}]}],
+                    config=first_config,
+                )
+                # Extract raw text from first response
+                first_text = ""
+                if hasattr(first_response, 'text') and first_response.text:
+                    first_text = first_response.text
+                elif hasattr(first_response, 'candidates') and first_response.candidates:
+                    for part in first_response.candidates[0].content.parts:
+                        if hasattr(part, 'text'):
+                            first_text += part.text
+
+                # --- Second call: structured output, no tools ---
+                second_prompt = (
+                    f"Based on this information:\n{first_text}\n\n"
+                    f"Original request: {prompt}\n\nProvide structured output."
+                )
+                second_config = GenerateContentConfig(
+                    system_instruction=resolved_prompt,
+                    max_output_tokens=max_tokens,
+                    temperature=temperature,
+                    response_mime_type="application/json",
+                    response_schema=config.get_schema(),
+                )
+                second_response = await self.client.aio.models.generate_content(
+                    model=resolved_model,
+                    contents=[{"role": "user", "parts": [{"text": second_prompt}]}],
+                    config=second_config,
+                )
+                raw_text = ""
+                if hasattr(second_response, 'text') and second_response.text:
+                    raw_text = second_response.text
+                elif hasattr(second_response, 'candidates') and second_response.candidates:
+                    for part in second_response.candidates[0].content.parts:
+                        if hasattr(part, 'text'):
+                            raw_text += part.text
+
+                final_response = second_response
+
+            else:
+                # --- Single call ---
+                gen_config_kwargs: Dict[str, Any] = {
+                    "system_instruction": resolved_prompt,
+                    "max_output_tokens": max_tokens,
+                    "temperature": temperature,
+                }
+                if config:
+                    gen_config_kwargs["response_mime_type"] = "application/json"
+                    gen_config_kwargs["response_schema"] = config.get_schema()
+                if use_tools:
+                    sdk_tools = self._prepare_tools()
+                    if sdk_tools:
+                        gen_config_kwargs["tools"] = sdk_tools
+
+                gen_config = GenerateContentConfig(**gen_config_kwargs)
+                final_response = await self.client.aio.models.generate_content(
+                    model=resolved_model,
+                    contents=[{"role": "user", "parts": [{"text": prompt}]}],
+                    config=gen_config,
+                )
+                raw_text = ""
+                if hasattr(final_response, 'text') and final_response.text:
+                    raw_text = final_response.text
+                elif hasattr(final_response, 'candidates') and final_response.candidates:
+                    for part in final_response.candidates[0].content.parts:
+                        if hasattr(part, 'text'):
+                            raw_text += part.text
+
+            # Parse output
+            output: Any = raw_text
+            if config:
+                if config.custom_parser:
+                    output = config.custom_parser(raw_text)
+                else:
+                    output = await self._parse_structured_output(raw_text, config)
+
+            # Extract usage
+            usage_dict: Dict[str, Any] = {}
+            if hasattr(final_response, 'usage_metadata') and final_response.usage_metadata:
+                um = final_response.usage_metadata
+                usage_dict = {
+                    "prompt_token_count": getattr(um, 'prompt_token_count', 0),
+                    "candidates_token_count": getattr(um, 'candidates_token_count', 0),
+                    "total_token_count": getattr(um, 'total_token_count', 0),
+                }
+            usage = CompletionUsage.from_gemini(usage_dict)
+
+            return self._build_invoke_result(
+                output, output_type, resolved_model, usage, final_response
+            )
+        except InvokeError:
+            raise
+        except Exception as exc:
+            raise self._handle_invoke_error(exc)

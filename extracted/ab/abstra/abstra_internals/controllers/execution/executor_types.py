@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 if TYPE_CHECKING:
     from multiprocessing.connection import Connection
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 class ExecutorCommand(str, Enum):
     WARMUP = "warmup"
     EXECUTE = "execute"
+    RUN_SNIPPET = "run_snippet"
     SHUTDOWN = "shutdown"
 
 
@@ -32,6 +33,14 @@ class ExecuteRequest:
     connection: Optional[Connection]
     rabbitmq_params: Optional[RabbitMQParams]
     user_jwt: Optional[str] = None
+
+
+@dataclass
+class RunSnippetRequest:
+    command: ExecutorCommand
+    code: str
+    worker_id: str
+    title: str = "Debug Snippet"
 
 
 @dataclass
@@ -54,3 +63,4 @@ class ExecutorResponse:
     execution_id: Optional[str] = None
     error: Optional[str] = None
     execution_time: Optional[float] = None
+    logs: Optional[List[Dict[str, str]]] = None

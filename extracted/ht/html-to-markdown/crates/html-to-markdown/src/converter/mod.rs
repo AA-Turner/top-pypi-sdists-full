@@ -68,7 +68,6 @@
 //! - Inline image extraction (`inline-images` feature)
 //! - Metadata collection (`metadata` feature)
 //! - Custom visitor callbacks (`visitor` feature)
-//! - Async visitor support (`async-visitor` feature)
 //!
 //! # Example Integration
 //!
@@ -120,16 +119,9 @@ pub use self::main::convert_html;
 #[cfg(feature = "visitor")]
 pub use self::main::convert_html_with_visitor;
 
-#[cfg(feature = "async-visitor")]
-pub use self::main::convert_html_with_visitor_async;
-
 // Import the tree walker and utility functions from main and main_helpers
 pub(crate) use self::main::{convert_html_impl, walk_node};
 pub(crate) use self::main_helpers::trim_trailing_whitespace;
-
-#[cfg(feature = "async-visitor")]
-#[allow(unused_imports)]
-pub(crate) use self::main::convert_html_impl_async;
 
 // Re-export helper functions from utility modules (migrated from converter_legacy)
 pub(crate) use crate::converter::utility::content::{chomp_inline, get_text_content, normalized_tag_name};

@@ -1,4 +1,4 @@
-# Python 3.6 changes, yet again, the way deafult pairs are handled
+# Python 3.6 changes, yet again, the way default pairs are handled
 def foo1(bar, baz=1):
     return 1
 def foo2(bar, baz, qux=1):

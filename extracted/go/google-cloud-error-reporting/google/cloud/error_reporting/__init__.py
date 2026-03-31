@@ -14,13 +14,11 @@
 
 """Client library for Error Reporting"""
 
-
 from google.cloud.error_reporting import gapic_version as package_version
 
 __version__ = package_version.__version__
 
-from google.cloud.error_reporting.client import Client
-from google.cloud.error_reporting.client import HTTPContext
+from google.cloud.error_reporting.client import Client, HTTPContext
 from google.cloud.error_reporting.util import build_flask_context
 
 __all__ = ["__version__", "Client", "HTTPContext", "build_flask_context"]

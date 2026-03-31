@@ -540,7 +540,10 @@ class DevRunner:
                 )
 
         if self.config.dev.sync_sdk:
-            sdk_root = get_sdk_root()
+            if isinstance(self.config.dev.sync_sdk, Path):
+                sdk_root = self.config.dev.sync_sdk.resolve()
+            else:
+                sdk_root = get_sdk_root()
             if sdk_root and (sdk_root / "pyproject.toml").exists():
                 self.sync_manager.add_target(
                     local_path=sdk_root,

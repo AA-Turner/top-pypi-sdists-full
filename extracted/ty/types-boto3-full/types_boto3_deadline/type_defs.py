@@ -150,6 +150,7 @@ __all__ = (
     "CreateStorageProfileResponseTypeDef",
     "CreateWorkerRequestTypeDef",
     "CreateWorkerResponseTypeDef",
+    "CustomerManagedAutoScalingConfigurationTypeDef",
     "CustomerManagedFleetConfigurationOutputTypeDef",
     "CustomerManagedFleetConfigurationTypeDef",
     "CustomerManagedWorkerCapabilitiesOutputTypeDef",
@@ -387,6 +388,7 @@ __all__ = (
     "SearchTermFilterExpressionTypeDef",
     "SearchWorkersRequestTypeDef",
     "SearchWorkersResponseTypeDef",
+    "ServiceManagedEc2AutoScalingConfigurationTypeDef",
     "ServiceManagedEc2FleetConfigurationOutputTypeDef",
     "ServiceManagedEc2FleetConfigurationTypeDef",
     "ServiceManagedEc2InstanceCapabilitiesOutputTypeDef",
@@ -523,38 +525,38 @@ TaskParameterValueTypeDef = TypedDict(
 
 class AssociateMemberToFarmRequestTypeDef(TypedDict):
     farmId: str
-    principalId: str
     principalType: PrincipalTypeType
     identityStoreId: str
     membershipLevel: MembershipLevelType
+    principalId: str
 
 
 class AssociateMemberToFleetRequestTypeDef(TypedDict):
     farmId: str
     fleetId: str
-    principalId: str
     principalType: PrincipalTypeType
     identityStoreId: str
     membershipLevel: MembershipLevelType
+    principalId: str
 
 
 class AssociateMemberToJobRequestTypeDef(TypedDict):
     farmId: str
     queueId: str
     jobId: str
-    principalId: str
     principalType: PrincipalTypeType
     identityStoreId: str
     membershipLevel: MembershipLevelType
+    principalId: str
 
 
 class AssociateMemberToQueueRequestTypeDef(TypedDict):
     farmId: str
     queueId: str
-    principalId: str
     principalType: PrincipalTypeType
     identityStoreId: str
     membershipLevel: MembershipLevelType
+    principalId: str
 
 
 class AssumeFleetRoleForReadRequestTypeDef(TypedDict):
@@ -687,10 +689,10 @@ class CreateLicenseEndpointRequestTypeDef(TypedDict):
 
 
 class CreateLimitRequestTypeDef(TypedDict):
+    farmId: str
     displayName: str
     amountRequirementName: str
     maxCount: int
-    farmId: str
     clientToken: NotRequired[str]
     description: NotRequired[str]
 
@@ -738,6 +740,14 @@ FileSystemLocationTypeDef = TypedDict(
         "type": FileSystemLocationTypeType,
     },
 )
+
+
+class CustomerManagedAutoScalingConfigurationTypeDef(TypedDict):
+    standbyWorkerCount: NotRequired[int]
+    workerIdleDurationSeconds: NotRequired[int]
+    scaleOutWorkersPerMinute: NotRequired[int]
+
+
 FleetAmountCapabilityTypeDef = TypedDict(
     "FleetAmountCapabilityTypeDef",
     {
@@ -1066,8 +1076,8 @@ class PaginatorConfigTypeDef(TypedDict):
 class GetSessionsStatisticsAggregationRequestTypeDef(TypedDict):
     farmId: str
     aggregationId: str
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 
 class GetStepRequestTypeDef(TypedDict):
@@ -1189,14 +1199,14 @@ class LicenseEndpointSummaryTypeDef(TypedDict):
 
 
 class LimitSummaryTypeDef(TypedDict):
-    displayName: str
-    amountRequirementName: str
-    maxCount: int
-    createdAt: datetime
-    createdBy: str
     farmId: str
     limitId: str
     currentCount: int
+    createdAt: datetime
+    createdBy: str
+    displayName: str
+    amountRequirementName: str
+    maxCount: int
     updatedAt: NotRequired[datetime]
     updatedBy: NotRequired[str]
 
@@ -1228,8 +1238,8 @@ class ListFarmMembersRequestTypeDef(TypedDict):
 
 class ListFarmsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
-    principalId: NotRequired[str]
     maxResults: NotRequired[int]
+    principalId: NotRequired[str]
 
 
 class ListFleetMembersRequestTypeDef(TypedDict):
@@ -1241,11 +1251,11 @@ class ListFleetMembersRequestTypeDef(TypedDict):
 
 class ListFleetsRequestTypeDef(TypedDict):
     farmId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
     principalId: NotRequired[str]
     displayName: NotRequired[str]
     status: NotRequired[FleetStatusType]
-    nextToken: NotRequired[str]
-    maxResults: NotRequired[int]
 
 
 class ListJobMembersRequestTypeDef(TypedDict):
@@ -1258,8 +1268,8 @@ class ListJobMembersRequestTypeDef(TypedDict):
 
 class ListJobParameterDefinitionsRequestTypeDef(TypedDict):
     farmId: str
-    jobId: str
     queueId: str
+    jobId: str
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
@@ -1267,9 +1277,9 @@ class ListJobParameterDefinitionsRequestTypeDef(TypedDict):
 class ListJobsRequestTypeDef(TypedDict):
     farmId: str
     queueId: str
-    principalId: NotRequired[str]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+    principalId: NotRequired[str]
 
 
 class ListLicenseEndpointsRequestTypeDef(TypedDict):
@@ -1323,10 +1333,10 @@ class QueueEnvironmentSummaryTypeDef(TypedDict):
 
 class ListQueueFleetAssociationsRequestTypeDef(TypedDict):
     farmId: str
-    queueId: NotRequired[str]
-    fleetId: NotRequired[str]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+    queueId: NotRequired[str]
+    fleetId: NotRequired[str]
 
 
 class QueueFleetAssociationSummaryTypeDef(TypedDict):
@@ -1341,18 +1351,18 @@ class QueueFleetAssociationSummaryTypeDef(TypedDict):
 
 class ListQueueLimitAssociationsRequestTypeDef(TypedDict):
     farmId: str
-    queueId: NotRequired[str]
-    limitId: NotRequired[str]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+    queueId: NotRequired[str]
+    limitId: NotRequired[str]
 
 
 class QueueLimitAssociationSummaryTypeDef(TypedDict):
-    createdAt: datetime
-    createdBy: str
     queueId: str
     limitId: str
     status: QueueLimitAssociationStatusType
+    createdAt: datetime
+    createdBy: str
     updatedAt: NotRequired[datetime]
     updatedBy: NotRequired[str]
 
@@ -1375,10 +1385,10 @@ class QueueMemberTypeDef(TypedDict):
 
 class ListQueuesRequestTypeDef(TypedDict):
     farmId: str
-    principalId: NotRequired[str]
-    status: NotRequired[QueueStatusType]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+    principalId: NotRequired[str]
+    status: NotRequired[QueueStatusType]
 
 
 class QueueSummaryTypeDef(TypedDict):
@@ -1398,10 +1408,10 @@ class ListSessionActionsRequestTypeDef(TypedDict):
     farmId: str
     queueId: str
     jobId: str
-    sessionId: NotRequired[str]
-    taskId: NotRequired[str]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+    sessionId: NotRequired[str]
+    taskId: NotRequired[str]
 
 
 class ListSessionsForWorkerRequestTypeDef(TypedDict):
@@ -1437,9 +1447,9 @@ class SessionSummaryTypeDef(TypedDict):
     startedAt: datetime
     lifecycleStatus: SessionLifecycleStatusType
     endedAt: NotRequired[datetime]
+    targetLifecycleStatus: NotRequired[Literal["ENDED"]]
     updatedAt: NotRequired[datetime]
     updatedBy: NotRequired[str]
-    targetLifecycleStatus: NotRequired[Literal["ENDED"]]
 
 
 class ListStepConsumersRequestTypeDef(TypedDict):
@@ -1562,6 +1572,12 @@ StringListFilterExpressionTypeDef = TypedDict(
 
 class UserJobsFirstTypeDef(TypedDict):
     userIdentityId: str
+
+
+class ServiceManagedEc2AutoScalingConfigurationTypeDef(TypedDict):
+    standbyWorkerCount: NotRequired[int]
+    workerIdleDurationSeconds: NotRequired[int]
+    scaleOutWorkersPerMinute: NotRequired[int]
 
 
 ServiceManagedEc2InstanceMarketOptionsTypeDef = TypedDict(
@@ -1702,30 +1718,30 @@ class UpdateQueueLimitAssociationRequestTypeDef(TypedDict):
 
 
 class UpdateSessionRequestTypeDef(TypedDict):
-    targetLifecycleStatus: Literal["ENDED"]
     farmId: str
     queueId: str
     jobId: str
     sessionId: str
+    targetLifecycleStatus: Literal["ENDED"]
     clientToken: NotRequired[str]
 
 
 class UpdateStepRequestTypeDef(TypedDict):
-    targetTaskRunStatus: StepTargetTaskRunStatusType
     farmId: str
     queueId: str
     jobId: str
     stepId: str
+    targetTaskRunStatus: StepTargetTaskRunStatusType
     clientToken: NotRequired[str]
 
 
 class UpdateTaskRequestTypeDef(TypedDict):
-    targetRunStatus: TaskTargetRunStatusType
     farmId: str
     queueId: str
     jobId: str
     stepId: str
     taskId: str
+    targetRunStatus: TaskTargetRunStatusType
     clientToken: NotRequired[str]
 
 
@@ -1790,12 +1806,12 @@ class TaskSummaryTypeDef(TypedDict):
     runStatus: TaskRunStatusType
     targetRunStatus: NotRequired[TaskTargetRunStatusType]
     failureRetryCount: NotRequired[int]
-    parameters: NotRequired[dict[str, TaskParameterValueTypeDef]]
     startedAt: NotRequired[datetime]
     endedAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
     updatedBy: NotRequired[str]
     latestSessionActionId: NotRequired[str]
+    parameters: NotRequired[dict[str, TaskParameterValueTypeDef]]
 
 
 class AssumeFleetRoleForReadResponseTypeDef(TypedDict):
@@ -1887,13 +1903,13 @@ class CreateWorkerResponseTypeDef(TypedDict):
 class GetFarmResponseTypeDef(TypedDict):
     farmId: str
     displayName: str
-    description: str
     kmsKeyArn: str
-    costScaleFactor: float
     createdAt: datetime
     createdBy: str
     updatedAt: datetime
     updatedBy: str
+    description: str
+    costScaleFactor: float
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1909,16 +1925,16 @@ class GetLicenseEndpointResponseTypeDef(TypedDict):
 
 
 class GetLimitResponseTypeDef(TypedDict):
-    displayName: str
-    amountRequirementName: str
-    maxCount: int
+    farmId: str
+    limitId: str
+    currentCount: int
     createdAt: datetime
     createdBy: str
     updatedAt: datetime
     updatedBy: str
-    farmId: str
-    limitId: str
-    currentCount: int
+    displayName: str
+    amountRequirementName: str
+    maxCount: int
     description: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1963,13 +1979,13 @@ class GetQueueFleetAssociationResponseTypeDef(TypedDict):
 
 
 class GetQueueLimitAssociationResponseTypeDef(TypedDict):
+    queueId: str
+    limitId: str
+    status: QueueLimitAssociationStatusType
     createdAt: datetime
     createdBy: str
     updatedAt: datetime
     updatedBy: str
-    queueId: str
-    limitId: str
-    status: QueueLimitAssociationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1980,12 +1996,12 @@ class GetTaskResponseTypeDef(TypedDict):
     runStatus: TaskRunStatusType
     targetRunStatus: TaskTargetRunStatusType
     failureRetryCount: int
-    parameters: dict[str, TaskParameterValueTypeDef]
     startedAt: datetime
     endedAt: datetime
     updatedAt: datetime
     updatedBy: str
     latestSessionActionId: str
+    parameters: dict[str, TaskParameterValueTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2028,15 +2044,15 @@ class BudgetSummaryTypeDef(TypedDict):
     usages: ConsumedUsagesTypeDef
     createdBy: str
     createdAt: datetime
-    description: NotRequired[str]
     updatedBy: NotRequired[str]
     updatedAt: NotRequired[datetime]
+    description: NotRequired[str]
 
 
 class CopyJobTemplateRequestTypeDef(TypedDict):
     farmId: str
-    jobId: str
     queueId: str
+    jobId: str
     targetS3Location: S3LocationTypeDef
 
 
@@ -2307,8 +2323,8 @@ class ListJobMembersRequestPaginateTypeDef(TypedDict):
 
 class ListJobParameterDefinitionsRequestPaginateTypeDef(TypedDict):
     farmId: str
-    jobId: str
     queueId: str
+    jobId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -2740,15 +2756,15 @@ class GetBudgetResponseTypeDef(TypedDict):
     usageTrackingResource: UsageTrackingResourceTypeDef
     status: BudgetStatusType
     displayName: str
-    description: str
     approximateDollarLimit: float
     usages: ConsumedUsagesTypeDef
-    actions: list[ResponseBudgetActionTypeDef]
-    schedule: BudgetScheduleOutputTypeDef
     createdBy: str
     createdAt: datetime
     updatedBy: str
     updatedAt: datetime
+    description: str
+    actions: list[ResponseBudgetActionTypeDef]
+    schedule: BudgetScheduleOutputTypeDef
     queueStoppedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2769,6 +2785,7 @@ class SearchJobsResponseTypeDef(TypedDict):
 class CustomerManagedFleetConfigurationOutputTypeDef(TypedDict):
     mode: AutoScalingModeType
     workerCapabilities: CustomerManagedWorkerCapabilitiesOutputTypeDef
+    autoScalingConfiguration: NotRequired[CustomerManagedAutoScalingConfigurationTypeDef]
     storageProfileId: NotRequired[str]
     tagPropagationMode: NotRequired[TagPropagationModeType]
 
@@ -2776,6 +2793,7 @@ class CustomerManagedFleetConfigurationOutputTypeDef(TypedDict):
 class CustomerManagedFleetConfigurationTypeDef(TypedDict):
     mode: AutoScalingModeType
     workerCapabilities: CustomerManagedWorkerCapabilitiesTypeDef
+    autoScalingConfiguration: NotRequired[CustomerManagedAutoScalingConfigurationTypeDef]
     storageProfileId: NotRequired[str]
     tagPropagationMode: NotRequired[TagPropagationModeType]
 
@@ -2804,12 +2822,12 @@ class GetSessionResponseTypeDef(TypedDict):
     fleetId: str
     workerId: str
     startedAt: datetime
-    log: LogConfigurationTypeDef
     lifecycleStatus: SessionLifecycleStatusType
     endedAt: datetime
+    targetLifecycleStatus: Literal["ENDED"]
     updatedAt: datetime
     updatedBy: str
-    targetLifecycleStatus: Literal["ENDED"]
+    log: LogConfigurationTypeDef
     hostProperties: HostPropertiesResponseTypeDef
     workerLog: LogConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2841,9 +2859,9 @@ class WorkerSearchSummaryTypeDef(TypedDict):
 
 
 class WorkerSummaryTypeDef(TypedDict):
-    workerId: str
     farmId: str
     fleetId: str
+    workerId: str
     status: WorkerStatusType
     createdAt: datetime
     createdBy: str
@@ -2880,22 +2898,22 @@ class CreateQueueRequestTypeDef(TypedDict):
 
 
 class GetQueueResponseTypeDef(TypedDict):
+    farmId: str
     queueId: str
     displayName: str
-    description: str
-    farmId: str
     status: QueueStatusType
     defaultBudgetAction: DefaultQueueBudgetActionType
     blockedReason: QueueBlockedReasonType
+    createdAt: datetime
+    createdBy: str
+    updatedAt: datetime
+    updatedBy: str
+    description: str
     jobAttachmentSettings: JobAttachmentSettingsTypeDef
     roleArn: str
     requiredFileSystemLocationNames: list[str]
     allowedStorageProfileIds: list[str]
     jobRunAsUser: JobRunAsUserTypeDef
-    createdAt: datetime
-    createdBy: str
-    updatedAt: datetime
-    updatedBy: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2951,6 +2969,7 @@ class ServiceManagedEc2FleetConfigurationOutputTypeDef(TypedDict):
     instanceMarketOptions: ServiceManagedEc2InstanceMarketOptionsTypeDef
     vpcConfiguration: NotRequired[VpcConfigurationOutputTypeDef]
     storageProfileId: NotRequired[str]
+    autoScalingConfiguration: NotRequired[ServiceManagedEc2AutoScalingConfigurationTypeDef]
 
 
 class ServiceManagedEc2FleetConfigurationTypeDef(TypedDict):
@@ -2958,6 +2977,7 @@ class ServiceManagedEc2FleetConfigurationTypeDef(TypedDict):
     instanceMarketOptions: ServiceManagedEc2InstanceMarketOptionsTypeDef
     vpcConfiguration: NotRequired[VpcConfigurationTypeDef]
     storageProfileId: NotRequired[str]
+    autoScalingConfiguration: NotRequired[ServiceManagedEc2AutoScalingConfigurationTypeDef]
 
 
 class AssignedSessionActionTypeDef(TypedDict):
@@ -2983,12 +3003,12 @@ class GetSessionActionResponseTypeDef(TypedDict):
     endedAt: datetime
     workerUpdatedAt: datetime
     progressPercent: float
+    manifests: list[TaskRunManifestPropertiesResponseTypeDef]
     sessionId: str
     processExitCode: int
     progressMessage: str
-    definition: SessionActionDefinitionTypeDef
     acquiredLimits: list[AcquiredLimitTypeDef]
-    manifests: list[TaskRunManifestPropertiesResponseTypeDef]
+    definition: SessionActionDefinitionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3126,8 +3146,8 @@ class ListSessionActionsResponseTypeDef(TypedDict):
 
 class SearchJobsRequestTypeDef(TypedDict):
     farmId: str
-    queueIds: Sequence[str]
     itemOffset: int
+    queueIds: Sequence[str]
     filterExpressions: NotRequired[SearchGroupedFilterExpressionsTypeDef]
     sortExpressions: NotRequired[Sequence[SearchSortExpressionTypeDef]]
     pageSize: NotRequired[int]
@@ -3135,28 +3155,28 @@ class SearchJobsRequestTypeDef(TypedDict):
 
 class SearchStepsRequestTypeDef(TypedDict):
     farmId: str
-    queueIds: Sequence[str]
     itemOffset: int
-    jobId: NotRequired[str]
+    queueIds: Sequence[str]
     filterExpressions: NotRequired[SearchGroupedFilterExpressionsTypeDef]
     sortExpressions: NotRequired[Sequence[SearchSortExpressionTypeDef]]
     pageSize: NotRequired[int]
+    jobId: NotRequired[str]
 
 
 class SearchTasksRequestTypeDef(TypedDict):
     farmId: str
-    queueIds: Sequence[str]
     itemOffset: int
-    jobId: NotRequired[str]
+    queueIds: Sequence[str]
     filterExpressions: NotRequired[SearchGroupedFilterExpressionsTypeDef]
     sortExpressions: NotRequired[Sequence[SearchSortExpressionTypeDef]]
     pageSize: NotRequired[int]
+    jobId: NotRequired[str]
 
 
 class SearchWorkersRequestTypeDef(TypedDict):
     farmId: str
-    fleetIds: Sequence[str]
     itemOffset: int
+    fleetIds: Sequence[str]
     filterExpressions: NotRequired[SearchGroupedFilterExpressionsTypeDef]
     sortExpressions: NotRequired[Sequence[SearchSortExpressionTypeDef]]
     pageSize: NotRequired[int]
@@ -3164,13 +3184,13 @@ class SearchWorkersRequestTypeDef(TypedDict):
 
 class CreateBudgetRequestTypeDef(TypedDict):
     farmId: str
-    usageTrackingResource: UsageTrackingResourceTypeDef
     displayName: str
+    usageTrackingResource: UsageTrackingResourceTypeDef
     approximateDollarLimit: float
     actions: Sequence[BudgetActionToAddTypeDef]
     schedule: BudgetScheduleUnionTypeDef
-    clientToken: NotRequired[str]
     description: NotRequired[str]
+    clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
 
@@ -3222,7 +3242,6 @@ class GetFleetResponseTypeDef(TypedDict):
     fleetId: str
     farmId: str
     displayName: str
-    description: str
     status: FleetStatusType
     statusMessage: str
     autoScalingStatus: AutoScalingStatusType
@@ -3231,13 +3250,14 @@ class GetFleetResponseTypeDef(TypedDict):
     minWorkerCount: int
     maxWorkerCount: int
     configuration: FleetConfigurationOutputTypeDef
-    hostConfiguration: HostConfigurationTypeDef
-    capabilities: FleetCapabilitiesTypeDef
-    roleArn: str
     createdAt: datetime
     createdBy: str
     updatedAt: datetime
     updatedBy: str
+    description: str
+    hostConfiguration: HostConfigurationTypeDef
+    capabilities: FleetCapabilitiesTypeDef
+    roleArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

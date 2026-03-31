@@ -811,7 +811,10 @@ def prepare_app_config(config_path, app_dir):
     with open(config_path) as f:
         config_data = yaml.safe_load(f)
     if config_data and "commands" in config_data:
-        config_data["commands"].insert(0, "export PYTHONPATH=$EXTRA_PYTHONPATH:$PYTHONPATH")
+        config_data["commands"].insert(
+            0,
+            'export PYTHONPATH="${EXTRA_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"',
+        )
     updated_configs_dir = os.path.join(os.path.dirname(config_path), ".updated_app_configs")
     os.makedirs(updated_configs_dir, exist_ok=True)
     safe_app_dir = app_dir.replace(os.sep, "_").replace("/", "_")

@@ -16,16 +16,16 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -755,6 +755,12 @@ class AdUnitServiceRestTransport(_BaseAdUnitServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[AdUnitServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -831,9 +837,7 @@ class AdUnitServiceRestTransport(_BaseAdUnitServiceRestTransport):
                     Response object for ``BatchActivateAdUnits`` method.
             """
 
-            http_options = (
-                _BaseAdUnitServiceRestTransport._BaseBatchActivateAdUnits._get_http_options()
-            )
+            http_options = _BaseAdUnitServiceRestTransport._BaseBatchActivateAdUnits._get_http_options()
 
             request, metadata = self._interceptor.pre_batch_activate_ad_units(
                 request, metadata
@@ -985,9 +989,7 @@ class AdUnitServiceRestTransport(_BaseAdUnitServiceRestTransport):
                     Response object for ``BatchArchiveAdUnits`` method.
             """
 
-            http_options = (
-                _BaseAdUnitServiceRestTransport._BaseBatchArchiveAdUnits._get_http_options()
-            )
+            http_options = _BaseAdUnitServiceRestTransport._BaseBatchArchiveAdUnits._get_http_options()
 
             request, metadata = self._interceptor.pre_batch_archive_ad_units(
                 request, metadata
@@ -1139,9 +1141,7 @@ class AdUnitServiceRestTransport(_BaseAdUnitServiceRestTransport):
                     Response object for ``BatchCreateAdUnits`` method.
             """
 
-            http_options = (
-                _BaseAdUnitServiceRestTransport._BaseBatchCreateAdUnits._get_http_options()
-            )
+            http_options = _BaseAdUnitServiceRestTransport._BaseBatchCreateAdUnits._get_http_options()
 
             request, metadata = self._interceptor.pre_batch_create_ad_units(
                 request, metadata
@@ -1294,9 +1294,7 @@ class AdUnitServiceRestTransport(_BaseAdUnitServiceRestTransport):
                     Response object for ``BatchDeactivateAdUnits`` method.
             """
 
-            http_options = (
-                _BaseAdUnitServiceRestTransport._BaseBatchDeactivateAdUnits._get_http_options()
-            )
+            http_options = _BaseAdUnitServiceRestTransport._BaseBatchDeactivateAdUnits._get_http_options()
 
             request, metadata = self._interceptor.pre_batch_deactivate_ad_units(
                 request, metadata
@@ -1448,9 +1446,7 @@ class AdUnitServiceRestTransport(_BaseAdUnitServiceRestTransport):
                     Response object for ``BatchUpdateAdUnits`` method.
             """
 
-            http_options = (
-                _BaseAdUnitServiceRestTransport._BaseBatchUpdateAdUnits._get_http_options()
-            )
+            http_options = _BaseAdUnitServiceRestTransport._BaseBatchUpdateAdUnits._get_http_options()
 
             request, metadata = self._interceptor.pre_batch_update_ad_units(
                 request, metadata
@@ -2341,7 +2337,9 @@ class AdUnitServiceRestTransport(_BaseAdUnitServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._BatchDeactivateAdUnits(self._session, self._host, self._interceptor)  # type: ignore
+        return self._BatchDeactivateAdUnits(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def batch_update_ad_units(

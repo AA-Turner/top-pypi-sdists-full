@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: brickflows
-Version: 1.6.0
+Version: 1.7.0
 Summary: Deploy scalable workflows to databricks using python
 License: Apache-2.0
 License-File: LICENSE

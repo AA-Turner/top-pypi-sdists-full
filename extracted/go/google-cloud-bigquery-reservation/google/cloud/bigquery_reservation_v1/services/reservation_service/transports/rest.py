@@ -16,23 +16,23 @@
 import dataclasses
 import json  # type: ignore
 import logging
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.iam.v1.iam_policy_pb2 as iam_policy_pb2  # type: ignore
+import google.iam.v1.policy_pb2 as policy_pb2  # type: ignore
+import google.protobuf
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-import google.protobuf
-from google.protobuf import empty_pb2  # type: ignore
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
-from google.cloud.bigquery_reservation_v1.types import reservation as gcbr_reservation
 from google.cloud.bigquery_reservation_v1.types import reservation
+from google.cloud.bigquery_reservation_v1.types import reservation as gcbr_reservation
 
 from .base import DEFAULT_CLIENT_INFO as BASE_DEFAULT_CLIENT_INFO
 from .rest_base import _BaseReservationServiceRestTransport
@@ -1666,6 +1666,12 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
             url_scheme: the protocol scheme for the API endpoint.  Normally
                 "https", but for testing or local servers,
                 "http" can be specified.
+            interceptor (Optional[ReservationServiceRestInterceptor]): Interceptor used
+                to manipulate requests, request metadata, and responses.
+            api_audience (Optional[str]): The intended audience for the API calls
+                to the service that will be set when using certain 3rd party
+                authentication flows. Audience is typically a resource identifier.
+                If not set, the host value will be used as a default.
         """
         # Run the base constructor
         # TODO(yon-mg): resolve other ctor params i.e. scopes, quota, etc.
@@ -1749,9 +1755,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseCreateAssignment._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseCreateAssignment._get_http_options()
 
             request, metadata = self._interceptor.pre_create_assignment(
                 request, metadata
@@ -1918,9 +1922,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseCreateCapacityCommitment._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseCreateCapacityCommitment._get_http_options()
 
             request, metadata = self._interceptor.pre_create_capacity_commitment(
                 request, metadata
@@ -2076,9 +2078,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseCreateReservation._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseCreateReservation._get_http_options()
 
             request, metadata = self._interceptor.pre_create_reservation(
                 request, metadata
@@ -2232,9 +2232,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseCreateReservationGroup._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseCreateReservationGroup._get_http_options()
 
             request, metadata = self._interceptor.pre_create_reservation_group(
                 request, metadata
@@ -2385,9 +2383,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseDeleteAssignment._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseDeleteAssignment._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_assignment(
                 request, metadata
@@ -2409,7 +2405,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2496,9 +2492,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
                         be of type `bytes`.
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseDeleteCapacityCommitment._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseDeleteCapacityCommitment._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_capacity_commitment(
                 request, metadata
@@ -2520,7 +2514,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2608,9 +2602,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseDeleteReservation._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseDeleteReservation._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_reservation(
                 request, metadata
@@ -2632,7 +2624,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2718,9 +2710,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
                     be of type `bytes`.
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseDeleteReservationGroup._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseDeleteReservationGroup._get_http_options()
 
             request, metadata = self._interceptor.pre_delete_reservation_group(
                 request, metadata
@@ -2742,7 +2732,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
                 )
                 method = transcoded_request["method"]
                 try:
-                    request_payload = json_format.MessageToJson(request)
+                    request_payload = type(request).to_json(request)
                 except:
                     request_payload = None
                 http_request = {
@@ -2837,9 +2827,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseFailoverReservation._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseFailoverReservation._get_http_options()
 
             request, metadata = self._interceptor.pre_failover_reservation(
                 request, metadata
@@ -2992,9 +2980,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
                     Represents a BI Reservation.
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseGetBiReservation._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseGetBiReservation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_bi_reservation(
                 request, metadata
@@ -3154,9 +3140,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseGetCapacityCommitment._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseGetCapacityCommitment._get_http_options()
 
             request, metadata = self._interceptor.pre_get_capacity_commitment(
                 request, metadata
@@ -3378,9 +3362,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseGetIamPolicy._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseGetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_get_iam_policy(request, metadata)
             transcoded_request = _BaseReservationServiceRestTransport._BaseGetIamPolicy._get_transcoded_request(
@@ -3526,9 +3508,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseGetReservation._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseGetReservation._get_http_options()
 
             request, metadata = self._interceptor.pre_get_reservation(request, metadata)
             transcoded_request = _BaseReservationServiceRestTransport._BaseGetReservation._get_transcoded_request(
@@ -3674,9 +3654,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseGetReservationGroup._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseGetReservationGroup._get_http_options()
 
             request, metadata = self._interceptor.pre_get_reservation_group(
                 request, metadata
@@ -3826,9 +3804,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseListAssignments._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseListAssignments._get_http_options()
 
             request, metadata = self._interceptor.pre_list_assignments(
                 request, metadata
@@ -3978,9 +3954,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseListCapacityCommitments._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseListCapacityCommitments._get_http_options()
 
             request, metadata = self._interceptor.pre_list_capacity_commitments(
                 request, metadata
@@ -4132,9 +4106,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseListReservationGroups._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseListReservationGroups._get_http_options()
 
             request, metadata = self._interceptor.pre_list_reservation_groups(
                 request, metadata
@@ -4286,9 +4258,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseListReservations._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseListReservations._get_http_options()
 
             request, metadata = self._interceptor.pre_list_reservations(
                 request, metadata
@@ -4452,9 +4422,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseMergeCapacityCommitments._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseMergeCapacityCommitments._get_http_options()
 
             request, metadata = self._interceptor.pre_merge_capacity_commitments(
                 request, metadata
@@ -4618,9 +4586,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseMoveAssignment._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseMoveAssignment._get_http_options()
 
             request, metadata = self._interceptor.pre_move_assignment(request, metadata)
             transcoded_request = _BaseReservationServiceRestTransport._BaseMoveAssignment._get_transcoded_request(
@@ -4773,9 +4739,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseSearchAllAssignments._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseSearchAllAssignments._get_http_options()
 
             request, metadata = self._interceptor.pre_search_all_assignments(
                 request, metadata
@@ -4929,9 +4893,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseSearchAssignments._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseSearchAssignments._get_http_options()
 
             request, metadata = self._interceptor.pre_search_assignments(
                 request, metadata
@@ -5154,9 +5116,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseSetIamPolicy._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseSetIamPolicy._get_http_options()
 
             request, metadata = self._interceptor.pre_set_iam_policy(request, metadata)
             transcoded_request = _BaseReservationServiceRestTransport._BaseSetIamPolicy._get_transcoded_request(
@@ -5308,9 +5268,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseSplitCapacityCommitment._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseSplitCapacityCommitment._get_http_options()
 
             request, metadata = self._interceptor.pre_split_capacity_commitment(
                 request, metadata
@@ -5465,9 +5423,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
                     Response message for ``TestIamPermissions`` method.
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseTestIamPermissions._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseTestIamPermissions._get_http_options()
 
             request, metadata = self._interceptor.pre_test_iam_permissions(
                 request, metadata
@@ -5624,9 +5580,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseUpdateAssignment._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseUpdateAssignment._get_http_options()
 
             request, metadata = self._interceptor.pre_update_assignment(
                 request, metadata
@@ -5777,9 +5731,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
                     Represents a BI Reservation.
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseUpdateBiReservation._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseUpdateBiReservation._get_http_options()
 
             request, metadata = self._interceptor.pre_update_bi_reservation(
                 request, metadata
@@ -5948,9 +5900,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseUpdateCapacityCommitment._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseUpdateCapacityCommitment._get_http_options()
 
             request, metadata = self._interceptor.pre_update_capacity_commitment(
                 request, metadata
@@ -6106,9 +6056,7 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
 
             """
 
-            http_options = (
-                _BaseReservationServiceRestTransport._BaseUpdateReservation._get_http_options()
-            )
+            http_options = _BaseReservationServiceRestTransport._BaseUpdateReservation._get_http_options()
 
             request, metadata = self._interceptor.pre_update_reservation(
                 request, metadata
@@ -6219,7 +6167,9 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateCapacityCommitment(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateCapacityCommitment(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def create_reservation(
@@ -6239,7 +6189,9 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._CreateReservationGroup(self._session, self._host, self._interceptor)  # type: ignore
+        return self._CreateReservationGroup(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_assignment(
@@ -6255,7 +6207,9 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
     ) -> Callable[[reservation.DeleteCapacityCommitmentRequest], empty_pb2.Empty]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteCapacityCommitment(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteCapacityCommitment(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def delete_reservation(
@@ -6271,7 +6225,9 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
     ) -> Callable[[reservation.DeleteReservationGroupRequest], empty_pb2.Empty]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._DeleteReservationGroup(self._session, self._host, self._interceptor)  # type: ignore
+        return self._DeleteReservationGroup(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def failover_reservation(
@@ -6344,7 +6300,9 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._ListCapacityCommitments(self._session, self._host, self._interceptor)  # type: ignore
+        return self._ListCapacityCommitments(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def list_reservation_groups(
@@ -6375,7 +6333,9 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._MergeCapacityCommitments(self._session, self._host, self._interceptor)  # type: ignore
+        return self._MergeCapacityCommitments(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def move_assignment(
@@ -6423,7 +6383,9 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._SplitCapacityCommitment(self._session, self._host, self._interceptor)  # type: ignore
+        return self._SplitCapacityCommitment(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def test_iam_permissions(
@@ -6460,7 +6422,9 @@ class ReservationServiceRestTransport(_BaseReservationServiceRestTransport):
     ]:
         # The return type is fine, but mypy isn't sophisticated enough to determine what's going on here.
         # In C++ this would require a dynamic_cast
-        return self._UpdateCapacityCommitment(self._session, self._host, self._interceptor)  # type: ignore
+        return self._UpdateCapacityCommitment(
+            self._session, self._host, self._interceptor
+        )  # type: ignore
 
     @property
     def update_reservation(

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 __protobuf__ = proto.module(
@@ -72,6 +72,7 @@ class ManagementStatus(proto.Enum):
             domain. The last successfully provisioned
             certificate may still be serving.
     """
+
     MANAGEMENT_STATUS_UNSPECIFIED = 0
     OK = 1
     PENDING = 2

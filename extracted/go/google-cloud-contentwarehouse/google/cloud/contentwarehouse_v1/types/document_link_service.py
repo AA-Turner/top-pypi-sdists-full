@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.contentwarehouse_v1.types import common, document
@@ -205,6 +205,7 @@ class DocumentLink(proto.Message):
                 Target document is deleted, and mark the
                 documentlink as soft-deleted.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         SOFT_DELETED = 2

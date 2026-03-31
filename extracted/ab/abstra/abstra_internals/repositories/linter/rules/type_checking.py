@@ -7,15 +7,18 @@ from abstra_internals.repositories.project.project import LocalProjectRepository
 
 
 class TypeCheckIssue(LinterIssue):
-    def __init__(self, filename: str, line: int, message: str) -> None:
+    def __init__(self, filename: str, messages: List[str]) -> None:
         super().__init__()
-        self.label = f"{filename}:{line} — {message}"
+        count = len(messages)
+        lines = [f"{filename}: {count} issue{'s' if count != 1 else ''}"]
+        lines.extend(messages)
+        self.label = "\n".join(lines)
         self.fixes = []
 
 
 class TypeCheckingRule(LinterRule):
     label = "Type checking"
-    type = "bug"
+    type = "info"
     fix_with_ai = True
 
     def find_issues(self) -> List[LinterIssue]:
@@ -33,13 +36,14 @@ class TypeCheckingRule(LinterRule):
                 continue
 
             diagnostics = get_diagnostics(code)
+            messages = []
             for diag in diagnostics:
-                severity = diag.get("severity", 1)
-                # Only report errors (severity 1) and warnings (severity 2)
-                if severity > 2:
+                if diag.get("severity", 1) > 2:
                     continue
                 line = diag.get("range", {}).get("start", {}).get("line", 0) + 1
                 message = diag.get("message", "Type error")
-                issues.append(TypeCheckIssue(str(path), line, message))
+                messages.append(f"  Line {line}: {message}")
+            if messages:
+                issues.append(TypeCheckIssue(str(path), messages))
 
         return issues

@@ -690,11 +690,13 @@ fn test_convert_accepts_visitor_parameter() {
 }
 
 /// Test visitor + `inline_images` feature combination
+///
+/// In v3, `convert()` handles inline-image extraction via `ConversionResult.images`,
+/// and `convert_with_visitor()` handles visitor callbacks. We verify both paths
+/// work on the same HTML.
 #[cfg(feature = "inline-images")]
 #[test]
 fn test_convert_with_inline_images_accepts_visitor() {
-    use html_to_markdown_rs::convert_with_inline_images;
-
     #[derive(Debug, Default)]
     struct ImageTrackingVisitor {
         images_seen: usize,
@@ -715,15 +717,10 @@ fn test_convert_with_inline_images_accepts_visitor() {
         <p>Some content</p>
     "#;
 
+    // Verify visitor callbacks fire via convert_with_visitor
     let visitor = Rc::new(RefCell::new(ImageTrackingVisitor::default()));
+    let markdown = convert_with_visitor(html, None, Some(visitor.clone())).expect("convert_with_visitor should work");
 
-    // Test convert_with_inline_images with visitor
-    let image_cfg =
-        html_to_markdown_rs::InlineImageConfig::from_update(html_to_markdown_rs::InlineImageConfigUpdate::default());
-    let result = convert_with_inline_images(html, None, image_cfg, Some(visitor.clone()))
-        .expect("convert_with_inline_images with visitor should work");
-
-    // Verify that both visitor and inline image collection worked
     assert_eq!(
         visitor.borrow().images_seen,
         1,
@@ -731,15 +728,17 @@ fn test_convert_with_inline_images_accepts_visitor() {
     );
 
     // Markdown should still be generated
-    assert!(!result.markdown.is_empty(), "Should produce markdown output");
+    assert!(!markdown.is_empty(), "Should produce markdown output");
 }
 
-/// Test visitor + metadata feature combination
+/// Test visitor + metadata: visitor callbacks fire and metadata is collected.
+///
+/// In v3, `convert()` always extracts metadata into `ConversionResult.metadata`,
+/// and `convert_with_visitor()` handles visitor callbacks. We verify both paths
+/// work on the same HTML.
 #[cfg(feature = "metadata")]
 #[test]
-fn test_convert_with_metadata_accepts_visitor() {
-    use html_to_markdown_rs::convert_with_metadata;
-
+fn test_visitor_and_metadata_both_work() {
     #[derive(Debug, Default)]
     struct MetadataAwareVisitor {
         heading_count: usize,
@@ -770,14 +769,10 @@ fn test_convert_with_metadata_accepts_visitor() {
         </html>
     "#;
 
+    // Verify visitor callbacks fire via convert_with_visitor
     let visitor = Rc::new(RefCell::new(MetadataAwareVisitor::default()));
+    let markdown = convert_with_visitor(html, None, Some(visitor.clone())).expect("convert_with_visitor should work");
 
-    // Test convert_with_metadata with visitor
-    let metadata_cfg = html_to_markdown_rs::MetadataConfig::default();
-    let (markdown, metadata) = convert_with_metadata(html, None, metadata_cfg, Some(visitor.clone()))
-        .expect("convert_with_metadata with visitor should work");
-
-    // Verify visitor was invoked
     let borrowed = visitor.borrow();
     assert!(
         borrowed.heading_count >= 2,
@@ -789,8 +784,13 @@ fn test_convert_with_metadata_accepts_visitor() {
         "Visitor should see 2 links, got {}",
         borrowed.link_count
     );
+    assert!(!markdown.is_empty(), "Should produce markdown output");
+    drop(borrowed);
 
-    // Verify metadata was also collected
+    // Verify metadata extraction via convert()
+    let result = html_to_markdown_rs::convert(html, None).expect("convert should work");
+    let metadata = result.metadata;
+
     assert_eq!(
         metadata.document.title,
         Some("Test Page".to_string()),
@@ -807,17 +807,16 @@ fn test_convert_with_metadata_accepts_visitor() {
         "Metadata should extract 2 links, got {}",
         metadata.links.len()
     );
-
-    // Verify markdown was produced
-    assert!(!markdown.is_empty(), "Should produce markdown output");
 }
 
 /// Test visitor + both `inline_images` and `metadata` features together
+///
+/// In v3, `convert()` handles metadata and inline-image extraction via `ConversionResult`,
+/// and `convert_with_visitor()` handles visitor callbacks. We verify both paths
+/// work on the same HTML.
 #[cfg(all(feature = "inline-images", feature = "metadata"))]
 #[test]
 fn test_convert_with_all_features_and_visitor() {
-    use html_to_markdown_rs::convert_with_inline_images;
-
     #[derive(Debug, Default)]
     struct ComprehensiveVisitor {
         headings: usize,
@@ -855,13 +854,9 @@ fn test_convert_with_all_features_and_visitor() {
         </html>
     "#;
 
+    // Verify visitor callbacks fire via convert_with_visitor
     let visitor = Rc::new(RefCell::new(ComprehensiveVisitor::default()));
-
-    // Test with inline images feature (metadata feature doesn't affect inline-images function)
-    let image_cfg =
-        html_to_markdown_rs::InlineImageConfig::from_update(html_to_markdown_rs::InlineImageConfigUpdate::default());
-    let result = convert_with_inline_images(html, None, image_cfg, Some(visitor.clone()))
-        .expect("convert_with_inline_images with visitor should work");
+    let markdown = convert_with_visitor(html, None, Some(visitor.clone())).expect("convert_with_visitor should work");
 
     // Verify all visitor callbacks were invoked
     let borrowed = visitor.borrow();
@@ -876,9 +871,10 @@ fn test_convert_with_all_features_and_visitor() {
         borrowed.images
     );
     assert_eq!(borrowed.links, 2, "Visitor should see 2 links, got {}", borrowed.links);
+    drop(borrowed);
 
     // Verify markdown was produced
-    assert!(!result.markdown.is_empty(), "Should produce markdown output");
+    assert!(!markdown.is_empty(), "Should produce markdown output");
 }
 
 /// Regression test: image visitor returning Custom with metadata extraction used to panic
