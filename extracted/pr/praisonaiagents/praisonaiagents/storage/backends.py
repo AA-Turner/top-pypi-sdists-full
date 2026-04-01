@@ -17,16 +17,16 @@ import time
 import threading
 import tempfile
 import logging
+from praisonaiagents._logging import get_logger
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..paths import get_storage_dir, get_storage_path
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Default storage directory (uses centralized paths - DRY)
 DEFAULT_STORAGE_DIR = str(get_storage_dir())
-
 
 class FileBackend:
     """
@@ -158,7 +158,6 @@ class FileBackend:
                         pass
         return count
 
-
 class SQLiteBackend:
     """
     SQLite-based storage backend.
@@ -209,6 +208,10 @@ class SQLiteBackend:
                 check_same_thread=False
             )
             self._local.conn.row_factory = sqlite3.Row
+            # Enable WAL mode for better concurrent write safety
+            self._local.conn.execute("PRAGMA journal_mode=WAL")
+            self._local.conn.execute("PRAGMA synchronous=NORMAL")
+            self._local.conn.commit()
         return self._local.conn
     
     def _create_table(self) -> None:
@@ -328,7 +331,6 @@ class SQLiteBackend:
         if hasattr(self._local, "conn") and self._local.conn:
             self._local.conn.close()
             self._local.conn = None
-
 
 class RedisBackend:
     """
@@ -456,7 +458,6 @@ class RedisBackend:
             self._client.close()
             self._client = None
 
-
 class MongoDBBackend:
     """
     MongoDB-based storage backend.
@@ -564,7 +565,6 @@ class MongoDBBackend:
             self._client = None
             self._collection = None
 
-
 def get_backend(
     backend_type: str = "file",
     **kwargs
@@ -601,7 +601,6 @@ def get_backend(
         return MongoDBBackend(**kwargs)
     else:
         raise ValueError(f"Unknown backend type: {backend_type}")
-
 
 __all__ = [
     'FileBackend',

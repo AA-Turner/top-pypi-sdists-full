@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cocoindex
-Version: 0.3.36
+Version: 0.3.37
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -32,6 +32,7 @@ Requires-Dist: chromadb>=0.4.0 ; extra == 'all'
 Requires-Dist: aiohttp>=3.8.0 ; extra == 'all'
 Requires-Dist: aiomysql>=0.2.0 ; extra == 'all'
 Requires-Dist: pymysql>=1.0.0 ; extra == 'all'
+Requires-Dist: turbopuffer>=1.0.0 ; extra == 'all'
 Requires-Dist: chromadb>=0.4.0 ; extra == 'chromadb'
 Requires-Dist: colpali-engine ; extra == 'colpali'
 Requires-Dist: aiohttp>=3.8.0 ; extra == 'doris'
@@ -40,12 +41,14 @@ Requires-Dist: pymysql>=1.0.0 ; extra == 'doris'
 Requires-Dist: sentence-transformers>=3.3.1 ; extra == 'embeddings'
 Requires-Dist: lancedb>=0.25.0 ; extra == 'lancedb'
 Requires-Dist: pyarrow>=19.0.0 ; extra == 'lancedb'
+Requires-Dist: turbopuffer>=1.0.0 ; extra == 'turbopuffer'
 Provides-Extra: all
 Provides-Extra: chromadb
 Provides-Extra: colpali
 Provides-Extra: doris
 Provides-Extra: embeddings
 Provides-Extra: lancedb
+Provides-Extra: turbopuffer
 License-File: THIRD_PARTY_NOTICES.html
 Summary: With CocoIndex, users declare the transformation, CocoIndex creates & maintains an index, and keeps the derived index up to date based on source update, with minimal computation and changes.
 Keywords: indexing,real-time,incremental,pipeline,search,ai,etl,rag,dataflow,context-engineering

@@ -1,0 +1,37 @@
+version: 2
+
+secret:
+  ignored_matches:
+    - match: a288e2a549678ef0b9aa0f9446be30388918f2a4647d7327bea8802ba9c3ac89
+      name: fake secret partially censored
+    - match: 56e55937e918b984e285a94ac96de439813a6316c8e184ce7773ee47d700b019
+      name:
+    - match: 139ed5c2b5ae84b0fbb1bfbce6015ac96e5af5050a16d0ffdba612440fb0ee4d
+      name:
+    - match: 530e5a4a7ea00814db8845dd0cae5efaa4b974a3ce1c76d0384ba715248a5dc1
+      name:
+    - match: c928bac4121c8d652d58adaf878d32d6ab961da9660665a9c9307be66a48941d
+      name:
+    - match: 0edc6552a13187748a221a008eb119fad8b94b1978aa63ccd2da67e3223df461
+      name:
+    - match: ba0855f684d0a568d17dff7e26c5e9d47d60a7e903e997e59c0ff2ff3cd5daa0
+      name:
+    - match: m42ploz2wd
+      name:
+    - match: 060bf63de122848f5efa122fe6cea504aae3b24cea393d887fdefa1529c6a02e
+      name:
+    - match: b790563435d0cc34512cc29fcc32f5fc8bf403fe0cef7b550a0a89e65ceb6991
+      name: Test secret mentioned in commit 6282ceb9035c1bfcceec5f6372f69063cdd588f7
+    - match: e90eaa00d17c03309b660e1879c70b815509422c2d4cf0980b2e1221dffa0381
+      name: Test secret mentioned in commit 6282ceb9035c1bfcceec5f6372f69063cdd588f7
+
+  ignored_paths:
+    - '**/README.md'
+    - doc/*
+    - LICENSE
+    - .dockerignore
+    - .gitignore
+    - .env
+    - 'tests/unit/cassettes/*'
+    - 'tests/unit/**/snapshots/*'
+    - 'tests/unit/verticals/secret/output/__snapshots__/*'

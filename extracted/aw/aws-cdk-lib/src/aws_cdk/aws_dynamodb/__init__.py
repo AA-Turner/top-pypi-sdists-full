@@ -8751,7 +8751,7 @@ class CsvOptions:
         '''The options for imported source files in CSV format.
 
         :param delimiter: The delimiter used for separating items in the CSV file being imported. Valid delimiters are as follows: - comma (``,``) - tab (``\\t``) - colon (``:``) - semicolon (``;``) - pipe (``|``) - space (`` ``) Default: - use comma as a delimiter.
-        :param header_list: List of the headers used to specify a common header for all source CSV files being imported. **NOTE**: If this field is specified then the first line of each CSV file is treated as data instead of the header. If this field is not specified the the first line of each CSV file is treated as the header. Default: - the first line of the CSV file is treated as the header
+        :param header_list: List of the headers used to specify a common header for all source CSV files being imported. **NOTE**: If this field is specified then the first line of each CSV file is treated as data instead of the header. If this field is not specified the first line of each CSV file is treated as the header. Default: - the first line of the CSV file is treated as the header
 
         :exampleMetadata: infused
 
@@ -8815,7 +8815,7 @@ class CsvOptions:
         '''List of the headers used to specify a common header for all source CSV files being imported.
 
         **NOTE**: If this field is specified then the first line of each CSV file is treated as data instead of the header.
-        If this field is not specified the the first line of each CSV file is treated as the header.
+        If this field is not specified the first line of each CSV file is treated as the header.
 
         :default: - the first line of the CSV file is treated as the header
         '''
@@ -10411,7 +10411,7 @@ class InputFormat(
         '''CSV format.
 
         :param delimiter: The delimiter used for separating items in the CSV file being imported. Valid delimiters are as follows: - comma (``,``) - tab (``\\t``) - colon (``:``) - semicolon (``;``) - pipe (``|``) - space (`` ``) Default: - use comma as a delimiter.
-        :param header_list: List of the headers used to specify a common header for all source CSV files being imported. **NOTE**: If this field is specified then the first line of each CSV file is treated as data instead of the header. If this field is not specified the the first line of each CSV file is treated as the header. Default: - the first line of the CSV file is treated as the header
+        :param header_list: List of the headers used to specify a common header for all source CSV files being imported. **NOTE**: If this field is specified then the first line of each CSV file is treated as data instead of the header. If this field is not specified the first line of each CSV file is treated as the header. Default: - the first line of the CSV file is treated as the header
         '''
         options = CsvOptions(delimiter=delimiter, header_list=header_list)
 
@@ -14988,7 +14988,7 @@ class TableOptions(SchemaOptions):
 
         :default: - warm throughput is not configured
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-warmthroughput
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-warmthroughput
         '''
         result = self._values.get("warm_throughput")
         return typing.cast(typing.Optional["WarmThroughput"], result)
@@ -15752,7 +15752,7 @@ class TableProps(TableOptions):
 
         :default: - warm throughput is not configured
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-warmthroughput
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-warmthroughput
         '''
         result = self._values.get("warm_throughput")
         return typing.cast(typing.Optional["WarmThroughput"], result)

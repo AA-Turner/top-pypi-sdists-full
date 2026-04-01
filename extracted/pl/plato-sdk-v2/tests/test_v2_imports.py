@@ -1,5 +1,9 @@
 """Tests for plato SDK v2 imports and optional dependencies."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 
 class TestV2Imports:
     """Test that v2 SDK imports work correctly."""
@@ -176,3 +180,36 @@ class TestSessionSerialization:
         assert serialized.session_id == "test-session"
         assert len(serialized.envs) == 1
         assert serialized.envs[0].alias == "env-1"
+
+
+class TestChronosSessionStop:
+    @patch("plato.v2.sync.chronos.get_session.sync")
+    @patch("plato.v2.sync.chronos.close_session.sync")
+    def test_sync_stop_default_message_closes_and_fetches(self, mock_close, mock_get):
+        from plato.v2.sync.chronos import ChronosSession
+
+        mock_get.return_value = MagicMock()
+        client = MagicMock()
+        session = ChronosSession(http_client=client, api_key="test-key", session_id="sess-1")
+
+        result = session.stop()
+
+        mock_close.assert_called_once_with(client=client, public_id="sess-1", x_api_key="test-key")
+        mock_get.assert_called_once_with(client=client, public_id="sess-1", x_api_key="test-key")
+        assert result is mock_get.return_value
+
+    @pytest.mark.anyio
+    @patch("plato.v2.async_.chronos.get_session.asyncio", new_callable=AsyncMock)
+    @patch("plato.v2.async_.chronos.close_session.asyncio", new_callable=AsyncMock)
+    async def test_async_stop_default_message_closes_and_fetches(self, mock_close, mock_get):
+        from plato.v2.async_.chronos import ChronosSession
+
+        mock_get.return_value = MagicMock()
+        client = MagicMock()
+        session = ChronosSession(http_client=client, api_key="test-key", session_id="sess-1")
+
+        result = await session.stop()
+
+        mock_close.assert_awaited_once_with(client=client, public_id="sess-1", x_api_key="test-key")
+        mock_get.assert_awaited_once_with(client=client, public_id="sess-1", x_api_key="test-key")
+        assert result is mock_get.return_value

@@ -20,7 +20,7 @@ import sys
 import urllib.parse
 import urllib.request
 from collections.abc import ItemsView
-from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Union, cast
 
 from packaging import version
 
@@ -34,8 +34,8 @@ logger = logging.getLogger(__name__)
 
 def get_inner_dict(
     cwl: dict[str, Any], path: list[dict[str, Any]]
-) -> Optional[dict[str, Any]]:
-    if len(path) == 0:
+) -> dict[str, Any] | None:
+    if not path:
         return cwl
 
     if isinstance(cwl, dict):
@@ -56,7 +56,7 @@ def pack_process(
     cwl: dict[str, Any],
     base_url: urllib.parse.ParseResult,
     cwl_version: str,
-    parent_user_defined_types: Optional[dict[str, Any]] = None,
+    parent_user_defined_types: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     cwl = listify_everything(cwl)
     cwl = normalize_sources(cwl)
@@ -79,7 +79,7 @@ def listify_everything(cwl: dict[str, Any]) -> dict[str, Any]:
 
     See https://www.commonwl.org/v1.1/Workflow.html#map
     """
-    for port in ["inputs", "outputs"]:
+    for port in ("inputs", "outputs"):
         cwl[port] = utils.normalize_to_list(
             cwl.get(port, []), key_field="id", value_field="type"
         )
@@ -137,14 +137,13 @@ def normalize_sources(cwl: dict[str, Any]) -> dict[str, Any]:
 def _normalize(s: str) -> str:
     if s.startswith("#"):
         return s[1:]
-    else:
-        return s
+    return s
 
 
 def load_schemadefs(
     cwl: dict[str, Any],
     base_url: urllib.parse.ParseResult,
-    parent_user_defined_types: Optional[dict[str, Any]] = None,
+    parent_user_defined_types: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Internalize any SchemaDefRequirement, and remove it."""
     user_defined_types = schemadef.build_user_defined_type_dict(cwl, base_url)
@@ -182,7 +181,7 @@ def resolve_imports(cwl: Any, base_url: urllib.parse.ParseResult) -> Any:
         if isinstance(v, dict):
             if len(v) == 1:
                 _k = list(v.keys())[0]
-                if _k in ["$import", "$include"]:
+                if _k in ("$import", "$include"):
                     cwl[k], this_base_url = utils.load_linked_file(
                         base_url, v[_k], is_import=_k == "$import"
                     )
@@ -196,7 +195,7 @@ def resolve_steps(
     cwl: dict[str, Any],
     base_url: urllib.parse.ParseResult,
     cwl_version: str,
-    parent_user_defined_types: Optional[dict[str, Any]] = None,
+    parent_user_defined_types: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Load and pack all "run" sections of the workflow steps."""
     if isinstance(cwl, str):

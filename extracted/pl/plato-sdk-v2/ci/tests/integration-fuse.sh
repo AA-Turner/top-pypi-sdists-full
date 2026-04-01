@@ -11,4 +11,4 @@ if ! echo "$CHANGED_FILES" | grep -qE "python-sdk/(plato/(cli/chronos/test/|tran
 fi
 
 echo "Running FUSE correctness integration tests..."
-uv run --frozen pytest tests/integration/test_plato_fuse_correctness.py -q -ra
+uv run --frozen pytest tests/integration/test_plato_fuse_correctness.py -q -ra --timeout=600

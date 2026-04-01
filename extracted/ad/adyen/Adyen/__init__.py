@@ -1,41 +1,53 @@
-from __future__ import absolute_import, division, unicode_literals
-
-from . import util
-from .exceptions import (
-    AdyenAPICommunicationError,
-    AdyenAPIAuthenticationError,
-    AdyenAPIUnprocessableEntity,
-    AdyenAPIInvalidPermission,
-    AdyenAPIValidationError,
-    AdyenInvalidRequestError,
-    AdyenError
-)
+from . import util as util
 from .client import AdyenClient
-from .services import (
-    AdyenBase,
-    AdyenPaymentsApi,
-    AdyenBinlookupApi,
-    AdyenRecurringApi,
-    AdyenPayoutsApi,
-    AdyenManagementApi,
-    AdyenCheckoutApi,
-    AdyenTerminalApi,
-    AdyenLegalEntityManagementApi,
-    AdyenDataProtectionApi,
-    AdyenTransfersApi,
-    AdyenStoredValueApi,
-    AdyenBalancePlatformApi,
-    AdyenDisputesApi,
-    AdyenSessionAuthenticationApi
+from .exceptions import (
+    AdyenAPIAuthenticationError as AdyenAPIAuthenticationError,
 )
-
-from .httpclient import HTTPClient
+from .exceptions import (
+    AdyenAPICommunicationError as AdyenAPICommunicationError,
+)
+from .exceptions import (
+    AdyenAPIInvalidPermission as AdyenAPIInvalidPermission,
+)
+from .exceptions import (
+    AdyenAPIUnprocessableEntity as AdyenAPIUnprocessableEntity,
+)
+from .exceptions import (
+    AdyenAPIValidationError as AdyenAPIValidationError,
+)
+from .exceptions import (
+    AdyenError as AdyenError,
+)
+from .exceptions import (
+    AdyenInvalidRequestError as AdyenInvalidRequestError,
+)
+from .httpclient import HTTPClient as HTTPClient
+from .services import (
+    AdyenBalancePlatformApi,
+    AdyenBase,
+    AdyenBinlookupApi,
+    AdyenCapitalApi,
+    AdyenCheckoutApi,
+    AdyenDataProtectionApi,
+    AdyenDisputesApi,
+    AdyenLegalEntityManagementApi,
+    AdyenManagementApi,
+    AdyenPaymentsApi,
+    AdyenPayoutsApi,
+    AdyenPosMobileApi,
+    AdyenRecurringApi,
+    AdyenSessionAuthenticationApi,
+    AdyenStoredValueApi,
+    AdyenTerminalApi,
+    AdyenTransfersApi,
+)
 
 
 class Adyen(AdyenBase):
     def __init__(self, **kwargs):
         self.client = AdyenClient(**kwargs)
         self.payment = AdyenPaymentsApi(client=self.client)
+        self.capital = AdyenCapitalApi(client=self.client)
         self.binlookup = AdyenBinlookupApi(client=self.client)
         self.payout = AdyenPayoutsApi(client=self.client)
         self.recurring = AdyenRecurringApi(client=self.client)
@@ -49,6 +61,7 @@ class Adyen(AdyenBase):
         self.balancePlatform = AdyenBalancePlatformApi(client=self.client)
         self.disputes = AdyenDisputesApi(client=self.client)
         self.sessionAuthentication = AdyenSessionAuthenticationApi(client=self.client)
+        self.posMobile = AdyenPosMobileApi(client=self.client)
 
 
 _base_adyen_obj = Adyen()
@@ -66,3 +79,5 @@ storedValue = _base_adyen_obj.storedValue
 balancePlatform = _base_adyen_obj.balancePlatform
 disputes = _base_adyen_obj.disputes
 sessionAuthentication = _base_adyen_obj.sessionAuthentication
+capital = _base_adyen_obj.capital
+posMobile = _base_adyen_obj.posMobile

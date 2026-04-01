@@ -330,19 +330,6 @@ class CfnCluster(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="additionalInfo")
-    def additional_info(self) -> typing.Any:
-        '''A JSON string for selecting additional features.'''
-        return typing.cast(typing.Any, jsii.get(self, "additionalInfo"))
-
-    @additional_info.setter
-    def additional_info(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__348f0a3a57b5e0506d5065002305d702fe48d937d3cf7901229ca7dd35b22175)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "additionalInfo", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="instances")
     def instances(
         self,
@@ -398,6 +385,19 @@ class CfnCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__7d66a155fe1abdff7c63e4e37d410af54a782aafe35f5b0624479ed23d224711)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceRole", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="additionalInfo")
+    def additional_info(self) -> typing.Any:
+        '''A JSON string for selecting additional features.'''
+        return typing.cast(typing.Any, jsii.get(self, "additionalInfo"))
+
+    @additional_info.setter
+    def additional_info(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__348f0a3a57b5e0506d5065002305d702fe48d937d3cf7901229ca7dd35b22175)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "additionalInfo", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="applications")
@@ -12005,12 +12005,6 @@ def _typecheckingstub__ee2b9fd8d133889786966e4e13fa9f42593ed4a152172b2a5f46f0087
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__348f0a3a57b5e0506d5065002305d702fe48d937d3cf7901229ca7dd35b22175(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__3db10eb80ac95a4595d858fdb0ef7856bf908495b5881a437e2418e12ef04e2f(
     value: typing.Union[_IResolvable_da3f097b, CfnCluster.JobFlowInstancesConfigProperty],
 ) -> None:
@@ -12031,6 +12025,12 @@ def _typecheckingstub__f422fb80835fbbe27ca5ef52cdf0b51d324e042c174b5bbf7f5b6c241
 
 def _typecheckingstub__7d66a155fe1abdff7c63e4e37d410af54a782aafe35f5b0624479ed23d224711(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__348f0a3a57b5e0506d5065002305d702fe48d937d3cf7901229ca7dd35b22175(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

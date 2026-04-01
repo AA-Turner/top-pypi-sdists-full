@@ -30,6 +30,7 @@ from exponent.core.remote_execution.background_tracker import (
 )
 from exponent.core.remote_execution.blit_terminal_server import (
     BlitTerminalServer,
+    get_blit_socket_path,
 )
 from exponent.core.remote_execution.cli_rpc_types import (
     BackgroundProcessCompletedNotification,
@@ -727,17 +728,22 @@ class RemoteExecutionClient:
         except OSError:
             logger.debug("Failed to set TCP keepalive options", exc_info=True)
 
-    async def _start_optional_blit_terminal_server(
+    async def _connect_blit_terminal_server(
         self,
-        terminal_controller_socket_path: str,
     ) -> BlitTerminalServer | None:
-        blit_terminal_server = BlitTerminalServer.from_terminal_controller_socket(terminal_controller_socket_path)
+        socket_path = get_blit_socket_path()
+        try:
+            return await BlitTerminalServer.connect_existing(socket_path)
+        except Exception:
+            logger.debug("No existing blit socket at %s, spawning server", socket_path)
+
+        blit_terminal_server = BlitTerminalServer(socket_path)
         try:
             await blit_terminal_server.start()
         except Exception:
             logger.warning(
                 "Failed to start blit terminal server, falling back to legacy terminal controller",
-                extra={"terminal_controller_socket_path": terminal_controller_socket_path},
+                extra={"socket_path": socket_path},
                 exc_info=True,
             )
             await blit_terminal_server.stop()
@@ -787,7 +793,7 @@ class RemoteExecutionClient:
                 on_start_terminal=_on_start_terminal,
             )
             await terminal_controller.start()
-            blit_terminal_server = await self._start_optional_blit_terminal_server(terminal_controller_socket_path)
+            blit_terminal_server = await self._connect_blit_terminal_server()
             self._blit_terminal_server = blit_terminal_server
         self._terminal_controller = terminal_controller
 

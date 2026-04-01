@@ -13,17 +13,22 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from typing import Any, Iterable
+from __future__ import annotations
 
-from couchbase.management.logic.users_logic import Origin  # noqa: F401
-from couchbase.management.logic.users_logic import Role  # noqa: F401
-from couchbase.management.logic.users_logic import RoleAndOrigins  # noqa: F401
-from couchbase.management.logic.users_logic import (Group,
-                                                    RoleAndDescription,
-                                                    User,
-                                                    UserAndMetadata,
-                                                    UserManagerLogic)
-from couchbase.management.logic.wrappers import BlockingMgmtWrapper, ManagementType
+from typing import (TYPE_CHECKING,
+                    Any,
+                    Iterable)
+
+from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import UserMgmtOperationType
+from couchbase.management.logic.user_mgmt_impl import UserMgmtImpl
+from couchbase.management.logic.user_mgmt_types import Origin  # noqa: F401
+from couchbase.management.logic.user_mgmt_types import Role  # noqa: F401
+from couchbase.management.logic.user_mgmt_types import RoleAndOrigins  # noqa: F401
+from couchbase.management.logic.user_mgmt_types import (Group,
+                                                        RoleAndDescription,
+                                                        User,
+                                                        UserAndMetadata)
 
 # @TODO:  lets deprecate import of options from couchbase.management.users
 from couchbase.management.options import (ChangePasswordOptions,
@@ -37,13 +42,16 @@ from couchbase.management.options import (ChangePasswordOptions,
                                           UpsertGroupOptions,
                                           UpsertUserOptions)
 
+if TYPE_CHECKING:
+    from couchbase.logic.client_adapter import ClientAdapter
+    from couchbase.logic.observability import ObservabilityInstruments
 
-class UserManager(UserManagerLogic):
 
-    def __init__(self, connection):
-        super().__init__(connection)
+class UserManager:
 
-    @BlockingMgmtWrapper.block(UserAndMetadata, ManagementType.UserMgmt, UserManagerLogic._ERROR_MAPPING)
+    def __init__(self, client_adapter: ClientAdapter, observability_instruments: ObservabilityInstruments) -> None:
+        self._impl = UserMgmtImpl(client_adapter, observability_instruments)
+
     def get_user(self,
                  username,  # type: str
                  *options,  # type: GetUserOptions
@@ -64,9 +72,11 @@ class UserManager(UserManagerLogic):
         Raises:
             :class:`~couchbase.exceptions.UserNotFoundException`: If the user does not exist.
         """
-        return super().get_user(username, *options, **kwargs)
+        op_type = UserMgmtOperationType.UserGet
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_user_request(username, obs_handler, *options, **kwargs)
+            return self._impl.get_user(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(UserAndMetadata, ManagementType.UserMgmt, UserManagerLogic._ERROR_MAPPING)
     def get_all_users(self,
                       *options,  # type: GetAllUsersOptions
                       **kwargs  # type: Any
@@ -82,9 +92,11 @@ class UserManager(UserManagerLogic):
         Returns:
             Iterable[:class:`UserAndMetadata`]: A list of existing users.
         """
-        return super().get_all_users(*options, **kwargs)
+        op_type = UserMgmtOperationType.UserGetAll
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_users_request(obs_handler, *options, **kwargs)
+            return self._impl.get_all_users(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.UserMgmt, UserManagerLogic._ERROR_MAPPING)
     def upsert_user(self,
                     user,     # type: User
                     *options,  # type: UpsertUserOptions
@@ -103,9 +115,11 @@ class UserManager(UserManagerLogic):
             :class:`~couchbase.exceptions.InvalidArgumentException`: If the provided user argument contains an
                 invalid value or type.
         """
-        return super().upsert_user(user, *options, **kwargs)
+        op_type = UserMgmtOperationType.UserUpsert
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_upsert_user_request(user, obs_handler, *options, **kwargs)
+            self._impl.upsert_user(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.UserMgmt, UserManagerLogic._ERROR_MAPPING)
     def drop_user(self,
                   username,  # type: str
                   *options,  # type: DropUserOptions
@@ -123,9 +137,11 @@ class UserManager(UserManagerLogic):
         Raises:
             :class:`~couchbase.exceptions.UserNotFoundException`: If the user does not exist.
         """
-        return super().drop_user(username, *options, **kwargs)
+        op_type = UserMgmtOperationType.UserDrop
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_drop_user_request(username, obs_handler, *options, **kwargs)
+            self._impl.drop_user(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.UserMgmt, UserManagerLogic._ERROR_MAPPING)
     def change_password(self,
                         new_password,  # type: str
                         *options,     # type: ChangePasswordOptions
@@ -146,9 +162,12 @@ class UserManager(UserManagerLogic):
                 invalid value or type.
 
         """
-        return super().change_password(new_password, *options, **kwargs)
+        op_type = UserMgmtOperationType.ChangePassword
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_change_password_request(
+                new_password, obs_handler, *options, **kwargs)
+            self._impl.change_password(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(RoleAndDescription, ManagementType.UserMgmt, UserManagerLogic._ERROR_MAPPING)
     def get_roles(self,
                   *options,  # type: GetRolesOptions
                   **kwargs   # type: Any
@@ -164,9 +183,11 @@ class UserManager(UserManagerLogic):
         Returns:
             Iterable[:class:`RoleAndDescription`]: A list of roles available on the server.
         """
-        return super().get_roles(*options, **kwargs)
+        op_type = UserMgmtOperationType.RoleGetAll
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_roles_request(obs_handler, *options, **kwargs)
+            return self._impl.get_roles(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(Group, ManagementType.UserMgmt, UserManagerLogic._ERROR_MAPPING)
     def get_group(self,
                   group_name,   # type: str
                   *options,     # type: GetGroupOptions
@@ -187,9 +208,11 @@ class UserManager(UserManagerLogic):
         Raises:
             :class:`~couchbase.exceptions.GroupNotFoundException`: If the group does not exist.
         """
-        return super().get_group(group_name, *options, **kwargs)
+        op_type = UserMgmtOperationType.GroupGet
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_group_request(group_name, obs_handler, *options, **kwargs)
+            return self._impl.get_group(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(Group, ManagementType.UserMgmt, UserManagerLogic._ERROR_MAPPING)
     def get_all_groups(self,
                        *options,    # type: GetAllGroupsOptions
                        **kwargs     # type: Any
@@ -205,9 +228,11 @@ class UserManager(UserManagerLogic):
         Returns:
             Iterable[:class:`Group`]: A list of existing groups.
         """
-        return super().get_all_groups(*options, **kwargs)
+        op_type = UserMgmtOperationType.GroupGetAll
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_groups_request(obs_handler, *options, **kwargs)
+            return self._impl.get_all_groups(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.UserMgmt, UserManagerLogic._ERROR_MAPPING)
     def upsert_group(self,
                      group,     # type: Group
                      *options,  # type: UpsertGroupOptions
@@ -226,9 +251,11 @@ class UserManager(UserManagerLogic):
             :class:`~couchbase.exceptions.InvalidArgumentException`: If the provided group argument contains an
                 invalid value or type.
         """
-        return super().upsert_group(group, *options, **kwargs)
+        op_type = UserMgmtOperationType.GroupUpsert
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_upsert_group_request(group, obs_handler, *options, **kwargs)
+            self._impl.upsert_group(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.UserMgmt, UserManagerLogic._ERROR_MAPPING)
     def drop_group(self,
                    group_name,  # type: str
                    *options,    # type: DropGroupOptions
@@ -246,4 +273,7 @@ class UserManager(UserManagerLogic):
         Raises:
             :class:`~couchbase.exceptions.GroupNotFoundException`: If the group does not exist.
         """
-        return super().drop_group(group_name, *options, **kwargs)
+        op_type = UserMgmtOperationType.GroupDrop
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_drop_group_request(group_name, obs_handler, *options, **kwargs)
+            self._impl.drop_group(req, obs_handler)

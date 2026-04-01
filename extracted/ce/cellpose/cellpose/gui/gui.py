@@ -1374,6 +1374,10 @@ class MainW(QMainWindow):
                     self.img.setLevels(self.saturation[0][self.currentZ])
             elif self.color == 4:
                 if self.nchan > 1:
+                    # exclude channels with no data:
+                    ranges = np.ptp(image, tuple(range(image.ndim-1)))
+                    range_mask = ranges > 1e-5
+                    image = image[..., range_mask]
                     image = image.mean(axis=-1)
                 self.img.setImage(image, autoLevels=False, lut=None)
                 self.img.setLevels(self.saturation[0][self.currentZ])

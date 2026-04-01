@@ -102,11 +102,15 @@ NO_CHARACTER_LIMIT = -1
 NO_LINE_LIMIT = -1
 
 
+DEFAULT_MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
+
+
 class ReadToolInput(ToolInput, tag=READ_TOOL_NAME):
     file_path: FilePath
     offset: int | None = None
     limit: int | None = None
     character_limit: int | None = None
+    max_file_size_bytes: int | None = None
 
     def skip_result_truncation(self) -> bool:
         return self.character_limit == NO_CHARACTER_LIMIT
@@ -208,6 +212,7 @@ WRITE_TOOL_NAME = "write"
 class WriteToolInput(ToolInput, tag=WRITE_TOOL_NAME):
     file_path: FilePath
     content: str
+    last_known_modified_timestamp: float | None = None
 
 
 class WriteToolResult(ToolResult, tag=WRITE_TOOL_NAME):

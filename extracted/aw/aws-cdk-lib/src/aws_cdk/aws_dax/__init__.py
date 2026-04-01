@@ -385,19 +385,6 @@ class CfnCluster(
         jsii.set(self, "replicationFactor", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''A set of tags to associate with the DAX cluster.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b1f9bc9715305b6189911164a6ad38b80782a264bb5366231290a4017855a00)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="availabilityZones")
     def availability_zones(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The Availability Zones (AZs) in which the cluster nodes will reside after the cluster has been created or updated.'''
@@ -562,6 +549,19 @@ class CfnCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__2bdc3f0c22e0d922c88db96440ab16a9fa4473af97333a2f58f6894daecdf8db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "subnetGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''A set of tags to associate with the DAX cluster.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5b1f9bc9715305b6189911164a6ad38b80782a264bb5366231290a4017855a00)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dax.CfnCluster.SSESpecificationProperty",
@@ -1064,19 +1064,6 @@ class CfnParameterGroup(
         return typing.cast("_ParameterGroupReference_4800ac94", jsii.get(self, "parameterGroupRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="parameterNameValues")
-    def parameter_name_values(self) -> typing.Any:
-        '''An array of name-value pairs for the parameters in the group.'''
-        return typing.cast(typing.Any, jsii.get(self, "parameterNameValues"))
-
-    @parameter_name_values.setter
-    def parameter_name_values(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__debcae534ba3b42bfd314c77f9ee5a02478b2fdc28d91af155cd6ef12d42e1d0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameterNameValues", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the parameter group.'''
@@ -1101,6 +1088,19 @@ class CfnParameterGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__56c6d935312fa98d33575df3870fd47d07214c86df208dc2fd5f7b89a19593a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameterGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterNameValues")
+    def parameter_name_values(self) -> typing.Any:
+        '''An array of name-value pairs for the parameters in the group.'''
+        return typing.cast(typing.Any, jsii.get(self, "parameterNameValues"))
+
+    @parameter_name_values.setter
+    def parameter_name_values(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__debcae534ba3b42bfd314c77f9ee5a02478b2fdc28d91af155cd6ef12d42e1d0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameterNameValues", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1542,12 +1542,6 @@ def _typecheckingstub__677b2e5437e61284517ed7aee0a4937cf305bade89a1d41e76f9e477c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__5b1f9bc9715305b6189911164a6ad38b80782a264bb5366231290a4017855a00(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9cdb08dd2cbc052aef8ec0c40131efcc7c715f5b0055abf6929c66a3a34ed715(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -1614,6 +1608,12 @@ def _typecheckingstub__2bdc3f0c22e0d922c88db96440ab16a9fa4473af97333a2f58f6894da
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5b1f9bc9715305b6189911164a6ad38b80782a264bb5366231290a4017855a00(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e519d3094d95ddc323860984c5b5c2702e16db8b3e7a7fd08b117de038a1b01e(
     *,
     sse_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -1671,12 +1671,6 @@ def _typecheckingstub__d5cce943d70ba76fabad51fccc17e3282e4fe54469397dd4319c96c25
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__debcae534ba3b42bfd314c77f9ee5a02478b2fdc28d91af155cd6ef12d42e1d0(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c69816d4620c5775a1c8536ee3cdebce5fc002925ee3bbe750f855c8b55f53f4(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -1685,6 +1679,12 @@ def _typecheckingstub__c69816d4620c5775a1c8536ee3cdebce5fc002925ee3bbe750f855c8b
 
 def _typecheckingstub__56c6d935312fa98d33575df3870fd47d07214c86df208dc2fd5f7b89a19593a9(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__debcae534ba3b42bfd314c77f9ee5a02478b2fdc28d91af155cd6ef12d42e1d0(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

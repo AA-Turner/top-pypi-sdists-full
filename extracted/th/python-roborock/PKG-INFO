@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: python-roborock
-Version: 5.0.0
+Version: 5.1.0
 Summary: A package to control Roborock vacuums.
-Project-URL: Repository, https://github.com/humbertogontijo/python-roborock
+Project-URL: Repository, https://github.com/python-roborock/python-roborock
 Project-URL: Documentation, https://python-roborock.readthedocs.io/
 Author: Lash-L, allenporter
 Author-email: humbertogontijo <humbertogontijo@users.noreply.github.com>
@@ -21,6 +21,7 @@ Requires-Dist: click-shell~=2.1
 Requires-Dist: click>=8
 Requires-Dist: construct<3,>=2.10.57
 Requires-Dist: paho-mqtt<3.0.0,>=1.6.1
+Requires-Dist: protobuf<7,>=5
 Requires-Dist: pycryptodomex~=3.18; sys_platform == 'darwin'
 Requires-Dist: pycryptodome~=3.18
 Requires-Dist: pyrate-limiter<5,>=4.0.0

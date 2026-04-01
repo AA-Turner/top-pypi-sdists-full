@@ -10,6 +10,14 @@ from importlib.metadata import version
 from types import TracebackType
 from typing import Callable, cast, overload
 
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.semconv.attributes import service_attributes
+
 from daytona_api_client_async import (
     ApiClient,
     ConfigApi,
@@ -24,13 +32,6 @@ from daytona_api_client_async import (
 )
 from daytona_api_client_async import VolumesApi as VolumesApi
 from daytona_toolbox_api_client_async import ApiClient as ToolboxApiClient
-from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.semconv.attributes import service_attributes
 
 from .._utils.enum import to_enum
 from .._utils.env import DaytonaEnvReader
@@ -186,7 +187,7 @@ class AsyncDaytona:
         configuration = Configuration(host=self._api_url)
         self._api_client: ApiClient = ApiClient(configuration)
         self._api_client.default_headers["Authorization"] = f"Bearer {self._api_key or self._jwt_token}"
-        self._api_client.default_headers["X-Daytona-Source"] = "python-sdk"
+        self._api_client.default_headers["X-Daytona-Source"] = "sdk-python-async"
 
         # Get SDK version dynamically
         try:
@@ -205,6 +206,7 @@ class AsyncDaytona:
             # Fallback version if neither package metadata is available
             sdk_version = "unknown"
         self._api_client.default_headers["X-Daytona-SDK-Version"] = sdk_version
+        self._api_client.user_agent = f"sdk-python-async/{sdk_version}"
 
         if not self._api_key:
             if not self._organization_id:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supervertaler
-Version: 1.9.366
+Version: 1.9.370
 Summary: Professional AI-enhanced translation workbench with multi-LLM support, glossary system, TM, spellcheck, voice commands, and PyQt6 interface. Batteries included (core).
 Home-page: https://supervertaler.com
 Author: Michael Beijer
@@ -80,7 +80,7 @@ Dynamic: requires-python
 
 **Professional AI-enhanced translation workbench** with multi-LLM support (GPT-4, Claude, Gemini, Mistral, Ollama), translation memory, glossary management, and seamless CAT tool integration (memoQ, Trados, CafeTran, Phrase, Déjà Vu).
 
-**Latest release:** v1.9.366 – add Mistral AI as a first-class provider (Mistral Large, Small, and Nemo).
+**Latest release:** v1.9.370 – fix QuickLauncher flags and read-only state for default prompts.
 
 ---
 

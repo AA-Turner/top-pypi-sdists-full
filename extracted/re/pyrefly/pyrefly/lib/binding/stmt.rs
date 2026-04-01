@@ -29,7 +29,6 @@ use ruff_python_ast::StmtReturn;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
-use starlark_map::Hashed;
 use starlark_map::small_set::SmallSet;
 
 use crate::binding::binding::AnnAssignHasValue;
@@ -53,7 +52,6 @@ use crate::binding::binding::TypeAliasBinding;
 use crate::binding::binding::TypeAliasParams;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamCollector;
-use crate::binding::bindings::NameLookupResult;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::FlowStyle;
@@ -156,7 +154,7 @@ impl<'a> BindingsBuilder<'a> {
         let style = if as_error {
             AnyStyle::Error
         } else {
-            AnyStyle::Explicit
+            AnyStyle::Implicit
         };
         for x in &x.names {
             if &x.name != "*" {
@@ -607,12 +605,15 @@ impl<'a> BindingsBuilder<'a> {
                                     call.arguments.args.split_first_mut()
                                 {
                                     self.check_functional_definition_name(&name.id, arg_name);
+                                    let adjacent_defaults =
+                                        self.adjacent_namedtuple_defaults.take();
                                     self.synthesize_typing_named_tuple_def(
                                         Ast::expr_name_identifier(name.clone()),
                                         parent,
                                         &mut call.func,
                                         members,
                                         true,
+                                        adjacent_defaults,
                                     );
                                     return;
                                 }
@@ -622,6 +623,8 @@ impl<'a> BindingsBuilder<'a> {
                                     call.arguments.args.split_first_mut()
                                 {
                                     self.check_functional_definition_name(&name.id, arg_name);
+                                    let adjacent_defaults =
+                                        self.adjacent_namedtuple_defaults.take();
                                     self.synthesize_collections_named_tuple_def(
                                         Ast::expr_name_identifier(name.clone()),
                                         parent,
@@ -629,6 +632,7 @@ impl<'a> BindingsBuilder<'a> {
                                         members,
                                         &mut call.arguments.keywords,
                                         true,
+                                        adjacent_defaults,
                                     );
                                     return;
                                 }
@@ -659,6 +663,38 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::AnnAssign(mut x) => match *x.target {
                 Expr::Name(name) => {
+                    // Handle annotated legacy TypeVar creation T: TypeVar = TypeVar("T")
+                    if let Some(ref mut value) = x.value
+                        && let Expr::Call(call) = value.as_mut()
+                        && let Some(special) = self.as_special_export(&call.func)
+                    {
+                        match special {
+                            SpecialExport::TypeVar
+                            | SpecialExport::ParamSpec
+                            | SpecialExport::TypeVarTuple => {
+                                let ident = Ast::expr_name_identifier(name.clone());
+                                self.bind_annotation(
+                                    &ident,
+                                    &mut x.annotation,
+                                    AnnAssignHasValue::Yes,
+                                );
+                                match special {
+                                    SpecialExport::TypeVar => {
+                                        self.assign_type_var(&name, call);
+                                    }
+                                    SpecialExport::ParamSpec => {
+                                        self.assign_param_spec(&name, call);
+                                    }
+                                    SpecialExport::TypeVarTuple => {
+                                        self.assign_type_var_tuple(&name, call);
+                                    }
+                                    _ => unreachable!("filtered by outer match"),
+                                }
+                                return;
+                            }
+                            _ => {}
+                        }
+                    }
                     let name = Ast::expr_name_identifier(name);
                     // We have to handle the value carefully because the annotation, class field, and
                     // binding do not all treat `...` exactly the same:
@@ -1023,26 +1059,7 @@ impl<'a> BindingsBuilder<'a> {
                 // This is done BEFORE finish_*_fork() so the binding exists in the right scope.
                 // Only do this when there's no else clause (not syntactically exhaustive).
                 let exhaustive_key = if !exhaustive {
-                    let mut narrow_entries = Vec::new();
-                    for (name, (op, range)) in negated_prev_ops.0.iter() {
-                        // Use the fork's base flow (the incoming flow at the start of this
-                        // if/elif, before any branches ran) to find the subject idx. This
-                        // preserves any narrowing applied by enclosing if statements — a regular
-                        // lookup here would fall back to the un-narrowed static binding because
-                        // we are no longer in a branch flow after finish_branch(). For variables
-                        // not present in the fork base (e.g. non-locals), fall back to a regular
-                        // lookup.
-                        let idx = if let Some(idx) = self.scopes.current_fork_base_idx(name) {
-                            idx
-                        } else if let NameLookupResult::Found { idx, .. } =
-                            self.lookup_name(Hashed::new(name), &mut Usage::Narrowing(None))
-                        {
-                            idx
-                        } else {
-                            continue;
-                        };
-                        narrow_entries.push((idx, Box::new(op.clone()), *range));
-                    }
+                    let narrow_entries = self.build_narrow_entries(&negated_prev_ops);
                     Some(self.insert_binding(
                         Key::Exhaustive(ExhaustivenessKind::IfElif, if_range),
                         Binding::Exhaustive(Box::new(ExhaustiveBinding {
@@ -1454,7 +1471,7 @@ impl<'a> BindingsBuilder<'a> {
                         }
                         Binding::Any(AnyStyle::Error)
                     } else {
-                        Binding::Any(AnyStyle::Explicit)
+                        Binding::Any(AnyStyle::Implicit)
                     }
                 };
                 // __future__ imports have side effects even if not explicitly used,

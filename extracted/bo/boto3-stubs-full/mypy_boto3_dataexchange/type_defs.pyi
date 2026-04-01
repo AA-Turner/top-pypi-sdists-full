@@ -50,6 +50,9 @@ __all__ = (
     "AcceptDataGrantResponseTypeDef",
     "ActionTypeDef",
     "ApiGatewayApiAssetTypeDef",
+    "AssetConfigurationOutputTypeDef",
+    "AssetConfigurationTypeDef",
+    "AssetConfigurationUnionTypeDef",
     "AssetDestinationEntryTypeDef",
     "AssetDetailsTypeDef",
     "AssetEntryTypeDef",
@@ -185,6 +188,7 @@ __all__ = (
     "TableLFTagPolicyAndPermissionsUnionTypeDef",
     "TableLFTagPolicyTypeDef",
     "TagResourceRequestTypeDef",
+    "TagTypeDef",
     "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAssetRequestTypeDef",
@@ -217,6 +221,10 @@ class ApiGatewayApiAssetTypeDef(TypedDict):
     ApiSpecificationDownloadUrlExpiresAt: NotRequired[datetime]
     ProtocolType: NotRequired[Literal["REST"]]
     Stage: NotRequired[str]
+
+class TagTypeDef(TypedDict):
+    Key: str
+    Value: str
 
 class AssetDestinationEntryTypeDef(TypedDict):
     AssetId: str
@@ -672,6 +680,12 @@ class UpdateRevisionResponseTypeDef(TypedDict):
     RevokedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class AssetConfigurationOutputTypeDef(TypedDict):
+    Tags: NotRequired[list[TagTypeDef]]
+
+class AssetConfigurationTypeDef(TypedDict):
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
 class ImportAssetsFromS3RequestDetailsTypeDef(TypedDict):
     AssetSources: Sequence[AssetSourceEntryTypeDef]
     DataSetId: str
@@ -889,6 +903,8 @@ class SchemaChangeRequestDetailsTypeDef(TypedDict):
     SchemaChangeAt: TimestampTypeDef
     Changes: NotRequired[Sequence[SchemaChangeDetailsTypeDef]]
 
+AssetConfigurationUnionTypeDef = Union[AssetConfigurationTypeDef, AssetConfigurationOutputTypeDef]
+
 class ActionTypeDef(TypedDict):
     ExportRevisionToS3: NotRequired[AutoExportRevisionToS3RequestDetailsTypeDef]
 
@@ -1049,6 +1065,7 @@ CreateJobResponseTypeDef = TypedDict(
     "CreateJobResponseTypeDef",
     {
         "Arn": str,
+        "AssetConfiguration": AssetConfigurationOutputTypeDef,
         "CreatedAt": datetime,
         "Details": ResponseDetailsTypeDef,
         "Errors": list[JobErrorTypeDef],
@@ -1063,6 +1080,7 @@ GetJobResponseTypeDef = TypedDict(
     "GetJobResponseTypeDef",
     {
         "Arn": str,
+        "AssetConfiguration": AssetConfigurationOutputTypeDef,
         "CreatedAt": datetime,
         "Details": ResponseDetailsTypeDef,
         "Errors": list[JobErrorTypeDef],
@@ -1083,6 +1101,7 @@ JobEntryTypeDef = TypedDict(
         "State": StateType,
         "Type": TypeType,
         "UpdatedAt": datetime,
+        "AssetConfiguration": NotRequired[AssetConfigurationOutputTypeDef],
         "Errors": NotRequired[list[JobErrorTypeDef]],
     },
 )
@@ -1125,6 +1144,7 @@ CreateJobRequestTypeDef = TypedDict(
     {
         "Details": RequestDetailsTypeDef,
         "Type": TypeType,
+        "AssetConfiguration": NotRequired[AssetConfigurationUnionTypeDef],
     },
 )
 
@@ -1150,6 +1170,7 @@ class GetAssetResponseTypeDef(TypedDict):
     Name: str
     RevisionId: str
     SourceId: str
+    Tags: dict[str, str]
     UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 

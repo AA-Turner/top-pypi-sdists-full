@@ -7641,22 +7641,6 @@ class CfnUser(
         return typing.cast("_UserReference_7ff80ad9", jsii.get(self, "userRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="authenticationMode")
-    def authentication_mode(self) -> typing.Any:
-        '''Specifies the authentication mode to use.
-
-        Below is an example of the possible JSON values:.
-        '''
-        return typing.cast(typing.Any, jsii.get(self, "authenticationMode"))
-
-    @authentication_mode.setter
-    def authentication_mode(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__08a67425ea4c8dcb1628c0ebb391eb9d3ca8fd07b5c6306f039cb531a05565d4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "authenticationMode", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="engine")
     def engine(self) -> builtins.str:
         '''The current supported values are valkey and redis.'''
@@ -7707,6 +7691,22 @@ class CfnUser(
             type_hints = typing.get_type_hints(_typecheckingstub__eb7549e3e6dbe94afa410bffc87623817e4cb26f90efb581b9a8d6dfcea71b64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessString", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="authenticationMode")
+    def authentication_mode(self) -> typing.Any:
+        '''Specifies the authentication mode to use.
+
+        Below is an example of the possible JSON values:.
+        '''
+        return typing.cast(typing.Any, jsii.get(self, "authenticationMode"))
+
+    @authentication_mode.setter
+    def authentication_mode(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08a67425ea4c8dcb1628c0ebb391eb9d3ca8fd07b5c6306f039cb531a05565d4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "authenticationMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="noPasswordRequired")
@@ -9752,12 +9752,6 @@ def _typecheckingstub__0d2c24ac7e99a31a4e0d4135ea5447976f3d5233d9d0e77c498d74df4
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__08a67425ea4c8dcb1628c0ebb391eb9d3ca8fd07b5c6306f039cb531a05565d4(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__74df73fc62abe9fa1155cea79085975215d2cc3a30983f4b784d74b2d8dafec0(
     value: builtins.str,
 ) -> None:
@@ -9778,6 +9772,12 @@ def _typecheckingstub__82b6eed2d66e57932003ce447ee4a3219513ca0c8161fae47c096809d
 
 def _typecheckingstub__eb7549e3e6dbe94afa410bffc87623817e4cb26f90efb581b9a8d6dfcea71b64(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08a67425ea4c8dcb1628c0ebb391eb9d3ca8fd07b5c6306f039cb531a05565d4(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

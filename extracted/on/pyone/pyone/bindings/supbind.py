@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 #
-# Generated Tue Dec  9 01:05:58 2025 by generateDS.py version 2.44.3.
-# Python 3.10.12 (main, Nov  4 2025, 08:48:33) [GCC 11.4.0]
+# Generated Thu Mar  5 11:40:19 2026 by generateDS.py version 2.44.3.
+# Python 3.13.11 (main, Jan  6 2026, 00:00:00) [GCC 15.2.1 20251211 (Red Hat 15.2.1-5)]
 #
 # Command line options:
 #   ('-q', '')
@@ -18,7 +18,7 @@
 #   ../../../share/doc/xsd/index.xsd
 #
 # Command line:
-#   /home/one/init-build-jenkins.wANc4p/one/src/oca/python/bin/generateDS -q -f -o "pyone/bindings/supbind.py" -s "pyone/bindings/__init__.py" --super="supbind" --external-encoding="utf-8" --silence ../../../share/doc/xsd/index.xsd
+#   /home/jan.orel/.local/bin/generateDS -q -f -o "pyone/bindings/supbind.py" -s "pyone/bindings/__init__.py" --super="supbind" --external-encoding="utf-8" --silence ../../../share/doc/xsd/index.xsd
 #
 # Current working directory (os.getcwd()):
 #   python
@@ -7578,7 +7578,7 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, ACTION_TIMEOUT=None, API_LIST_ORDER=None, AUTH_MAD=None, AUTH_MAD_CONF=None, CLUSTER_ENCRYPTED_ATTR=None, COLD_MIGRATE_MODE=None, CONTEXT_ALLOW_ETH_UPDATES=None, CONTEXT_RESTRICTED_DIRS=None, CONTEXT_SAFE_DIRS=None, DATASTORE_CAPACITY_CHECK=None, DATASTORE_ENCRYPTED_ATTR=None, DATASTORE_LOCATION=None, DATASTORE_MAD=None, DB=None, DEFAULT_AUTH=None, DEFAULT_CDROM_DEVICE_PREFIX=None, DEFAULT_COST=None, DEFAULT_DEVICE_PREFIX=None, DEFAULT_IMAGE_PERSISTENT=None, DEFAULT_IMAGE_PERSISTENT_NEW=None, DEFAULT_IMAGE_TYPE=None, DEFAULT_UMASK=None, DEFAULT_VDC_CLUSTER_DATASTORE_ACL=None, DEFAULT_VDC_CLUSTER_HOST_ACL=None, DEFAULT_VDC_CLUSTER_NET_ACL=None, DEFAULT_VDC_DATASTORE_ACL=None, DEFAULT_VDC_HOST_ACL=None, DEFAULT_VDC_VNET_ACL=None, DOCUMENT_ENCRYPTED_ATTR=None, DRS_INTERVAL=None, DS_MAD_CONF=None, DS_MONITOR_VM_DISK=None, ENABLE_OTHER_PERMISSIONS=None, FEDERATION=None, GROUP_RESTRICTED_ATTR=None, HM_MAD=None, HOOK_LOG_CONF=None, HOST_ENCRYPTED_ATTR=None, IMAGE_ENCRYPTED_ATTR=None, IMAGE_RESTRICTED_ATTR=None, IM_MAD=None, INHERIT_DATASTORE_ATTR=None, INHERIT_IMAGE_ATTR=None, INHERIT_VNET_ATTR=None, IPAM_MAD=None, KEEPALIVE_MAX_CONN=None, KEEPALIVE_TIMEOUT=None, LISTEN_ADDRESS=None, LIVE_RESCHEDS=None, LOG=None, LOG_CALL_FORMAT=None, MAC_PREFIX=None, MANAGER_TIMER=None, MARKET_MAD=None, MARKET_MAD_CONF=None, MAX_ACTIONS_PER_CLUSTER=None, MAX_ACTIONS_PER_HOST=None, MAX_BACKUPS=None, MAX_BACKUPS_HOST=None, MAX_CONN=None, MAX_CONN_BACKLOG=None, MESSAGE_SIZE=None, MONITORING_INTERVAL_DATASTORE=None, MONITORING_INTERVAL_HOST=None, MONITORING_INTERVAL_MARKET=None, MONITORING_INTERVAL_VM=None, NETWORK_SIZE=None, ONE_KEY=None, PCI_PASSTHROUGH_BUS=None, PORT=None, RAFT=None, RPC_LOG=None, SCHED_MAD=None, SCHED_MAX_WND_LENGTH=None, SCHED_MAX_WND_TIME=None, SCHED_RETRY_TIME=None, SCRIPTS_REMOTE_DIR=None, SESSION_EXPIRATION_TIME=None, SHOWBACK_ONLY_RUNNING=None, TIMEOUT=None, TM_MAD=None, TM_MAD_CONF=None, USER_ENCRYPTED_ATTR=None, USER_RESTRICTED_ATTR=None, VLAN_IDS=None, VM_ADMIN_OPERATIONS=None, VM_ENCRYPTED_ATTR=None, VM_MAD=None, VM_MANAGE_OPERATIONS=None, VM_MONITORING_EXPIRATION_TIME=None, VM_RESTRICTED_ATTR=None, VM_SNAPSHOT_FACTOR=None, VM_SUBMIT_ON_HOLD=None, VM_USE_OPERATIONS=None, VNC_PORTS=None, VNET_ENCRYPTED_ATTR=None, VNET_RESTRICTED_ATTR=None, VN_MAD_CONF=None, VXLAN_IDS=None, gds_collector_=None, **kwargs_):
+    def __init__(self, ACTION_TIMEOUT=None, API_LIST_ORDER=None, AUTH_MAD=None, AUTH_MAD_CONF=None, CLUSTER_ENCRYPTED_ATTR=None, COLD_MIGRATE_MODE=None, CONTEXT_ALLOW_ETH_UPDATES=None, CONTEXT_RESTRICTED_DIRS=None, CONTEXT_SAFE_DIRS=None, DATASTORE_CAPACITY_CHECK=None, DATASTORE_ENCRYPTED_ATTR=None, DATASTORE_LOCATION=None, DATASTORE_MAD=None, DB=None, DEFAULT_AUTH=None, DEFAULT_COST=None, DEFAULT_DEVICE_PREFIX=None, DEFAULT_IMAGE_PERSISTENT=None, DEFAULT_IMAGE_PERSISTENT_NEW=None, DEFAULT_IMAGE_TYPE=None, DEFAULT_UMASK=None, DEFAULT_VDC_CLUSTER_DATASTORE_ACL=None, DEFAULT_VDC_CLUSTER_HOST_ACL=None, DEFAULT_VDC_CLUSTER_NET_ACL=None, DEFAULT_VDC_DATASTORE_ACL=None, DEFAULT_VDC_HOST_ACL=None, DEFAULT_VDC_VNET_ACL=None, DOCUMENT_ENCRYPTED_ATTR=None, DRS_INTERVAL=None, DS_MAD_CONF=None, DS_MONITOR_VM_DISK=None, ENABLE_OTHER_PERMISSIONS=None, FEDERATION=None, GROUP_RESTRICTED_ATTR=None, GRPC_LISTEN_ADDRESS=None, GRPC_PORT=None, HM_MAD=None, HOOK_LOG_CONF=None, HOST_ENCRYPTED_ATTR=None, IMAGE_ENCRYPTED_ATTR=None, IMAGE_RESTRICTED_ATTR=None, IM_MAD=None, INHERIT_DATASTORE_ATTR=None, INHERIT_IMAGE_ATTR=None, INHERIT_VNET_ATTR=None, IPAM_MAD=None, KEEPALIVE_MAX_CONN=None, KEEPALIVE_TIMEOUT=None, LISTEN_ADDRESS=None, LIVE_RESCHEDS=None, LOG=None, LOG_CALL_FORMAT=None, MAC_PREFIX=None, MANAGER_TIMER=None, MARKET_MAD=None, MARKET_MAD_CONF=None, MAX_ACTIONS_PER_CLUSTER=None, MAX_ACTIONS_PER_HOST=None, MAX_BACKUPS=None, MAX_BACKUPS_HOST=None, MAX_CONN=None, MAX_CONN_BACKLOG=None, MESSAGE_SIZE=None, MONITORING_INTERVAL_DATASTORE=None, MONITORING_INTERVAL_HOST=None, MONITORING_INTERVAL_MARKET=None, MONITORING_INTERVAL_VM=None, NETWORK_SIZE=None, ONE_KEY=None, PCI_PASSTHROUGH_BUS=None, PORT=None, RAFT=None, RPC_LOG=None, SCHED_MAD=None, SCHED_MAX_WND_LENGTH=None, SCHED_MAX_WND_TIME=None, SCHED_RETRY_TIME=None, SCRIPTS_REMOTE_DIR=None, SESSION_EXPIRATION_TIME=None, SHOWBACK_ONLY_RUNNING=None, TIMEOUT=None, TM_MAD=None, TM_MAD_CONF=None, USER_ENCRYPTED_ATTR=None, USER_RESTRICTED_ATTR=None, VLAN_IDS=None, VM_ADMIN_OPERATIONS=None, VM_ENCRYPTED_ATTR=None, VM_MAD=None, VM_MANAGE_OPERATIONS=None, VM_RESTRICTED_ATTR=None, VM_SNAPSHOT_FACTOR=None, VM_SUBMIT_ON_HOLD=None, VM_USE_OPERATIONS=None, VNC_PORTS=None, VNET_ENCRYPTED_ATTR=None, VNET_RESTRICTED_ATTR=None, VN_MAD_CONF=None, VXLAN_IDS=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -7641,11 +7641,6 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
         else:
             self.DEFAULT_AUTH = DEFAULT_AUTH
         self.DEFAULT_AUTH_nsprefix_ = None
-        if DEFAULT_CDROM_DEVICE_PREFIX is None:
-            self.DEFAULT_CDROM_DEVICE_PREFIX = []
-        else:
-            self.DEFAULT_CDROM_DEVICE_PREFIX = DEFAULT_CDROM_DEVICE_PREFIX
-        self.DEFAULT_CDROM_DEVICE_PREFIX_nsprefix_ = None
         if DEFAULT_COST is None:
             self.DEFAULT_COST = []
         else:
@@ -7730,6 +7725,10 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
         else:
             self.GROUP_RESTRICTED_ATTR = GROUP_RESTRICTED_ATTR
         self.GROUP_RESTRICTED_ATTR_nsprefix_ = None
+        self.GRPC_LISTEN_ADDRESS = GRPC_LISTEN_ADDRESS
+        self.GRPC_LISTEN_ADDRESS_nsprefix_ = None
+        self.GRPC_PORT = GRPC_PORT
+        self.GRPC_PORT_nsprefix_ = None
         self.HM_MAD = HM_MAD
         self.HM_MAD_nsprefix_ = None
         self.HOOK_LOG_CONF = HOOK_LOG_CONF
@@ -7910,11 +7909,6 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
         self.VM_MAD_nsprefix_ = None
         self.VM_MANAGE_OPERATIONS = VM_MANAGE_OPERATIONS
         self.VM_MANAGE_OPERATIONS_nsprefix_ = None
-        if VM_MONITORING_EXPIRATION_TIME is None:
-            self.VM_MONITORING_EXPIRATION_TIME = []
-        else:
-            self.VM_MONITORING_EXPIRATION_TIME = VM_MONITORING_EXPIRATION_TIME
-        self.VM_MONITORING_EXPIRATION_TIME_nsprefix_ = None
         if VM_RESTRICTED_ATTR is None:
             self.VM_RESTRICTED_ATTR = []
         else:
@@ -8078,16 +8072,6 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
         self.DEFAULT_AUTH.insert(index, value)
     def replace_DEFAULT_AUTH_at(self, index, value):
         self.DEFAULT_AUTH[index] = value
-    def get_DEFAULT_CDROM_DEVICE_PREFIX(self):
-        return self.DEFAULT_CDROM_DEVICE_PREFIX
-    def set_DEFAULT_CDROM_DEVICE_PREFIX(self, DEFAULT_CDROM_DEVICE_PREFIX):
-        self.DEFAULT_CDROM_DEVICE_PREFIX = DEFAULT_CDROM_DEVICE_PREFIX
-    def add_DEFAULT_CDROM_DEVICE_PREFIX(self, value):
-        self.DEFAULT_CDROM_DEVICE_PREFIX.append(value)
-    def insert_DEFAULT_CDROM_DEVICE_PREFIX_at(self, index, value):
-        self.DEFAULT_CDROM_DEVICE_PREFIX.insert(index, value)
-    def replace_DEFAULT_CDROM_DEVICE_PREFIX_at(self, index, value):
-        self.DEFAULT_CDROM_DEVICE_PREFIX[index] = value
     def get_DEFAULT_COST(self):
         return self.DEFAULT_COST
     def set_DEFAULT_COST(self, DEFAULT_COST):
@@ -8254,6 +8238,14 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
         self.GROUP_RESTRICTED_ATTR.insert(index, value)
     def replace_GROUP_RESTRICTED_ATTR_at(self, index, value):
         self.GROUP_RESTRICTED_ATTR[index] = value
+    def get_GRPC_LISTEN_ADDRESS(self):
+        return self.GRPC_LISTEN_ADDRESS
+    def set_GRPC_LISTEN_ADDRESS(self, GRPC_LISTEN_ADDRESS):
+        self.GRPC_LISTEN_ADDRESS = GRPC_LISTEN_ADDRESS
+    def get_GRPC_PORT(self):
+        return self.GRPC_PORT
+    def set_GRPC_PORT(self, GRPC_PORT):
+        self.GRPC_PORT = GRPC_PORT
     def get_HM_MAD(self):
         return self.HM_MAD
     def set_HM_MAD(self, HM_MAD):
@@ -8614,16 +8606,6 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
         return self.VM_MANAGE_OPERATIONS
     def set_VM_MANAGE_OPERATIONS(self, VM_MANAGE_OPERATIONS):
         self.VM_MANAGE_OPERATIONS = VM_MANAGE_OPERATIONS
-    def get_VM_MONITORING_EXPIRATION_TIME(self):
-        return self.VM_MONITORING_EXPIRATION_TIME
-    def set_VM_MONITORING_EXPIRATION_TIME(self, VM_MONITORING_EXPIRATION_TIME):
-        self.VM_MONITORING_EXPIRATION_TIME = VM_MONITORING_EXPIRATION_TIME
-    def add_VM_MONITORING_EXPIRATION_TIME(self, value):
-        self.VM_MONITORING_EXPIRATION_TIME.append(value)
-    def insert_VM_MONITORING_EXPIRATION_TIME_at(self, index, value):
-        self.VM_MONITORING_EXPIRATION_TIME.insert(index, value)
-    def replace_VM_MONITORING_EXPIRATION_TIME_at(self, index, value):
-        self.VM_MONITORING_EXPIRATION_TIME[index] = value
     def get_VM_RESTRICTED_ATTR(self):
         return self.VM_RESTRICTED_ATTR
     def set_VM_RESTRICTED_ATTR(self, VM_RESTRICTED_ATTR):
@@ -8735,7 +8717,6 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
             self.DATASTORE_MAD or
             self.DB is not None or
             self.DEFAULT_AUTH or
-            self.DEFAULT_CDROM_DEVICE_PREFIX or
             self.DEFAULT_COST or
             self.DEFAULT_DEVICE_PREFIX or
             self.DEFAULT_IMAGE_PERSISTENT or
@@ -8755,6 +8736,8 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
             self.ENABLE_OTHER_PERMISSIONS is not None or
             self.FEDERATION is not None or
             self.GROUP_RESTRICTED_ATTR or
+            self.GRPC_LISTEN_ADDRESS is not None or
+            self.GRPC_PORT is not None or
             self.HM_MAD is not None or
             self.HOOK_LOG_CONF is not None or
             self.HOST_ENCRYPTED_ATTR or
@@ -8809,7 +8792,6 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
             self.VM_ENCRYPTED_ATTR or
             self.VM_MAD or
             self.VM_MANAGE_OPERATIONS is not None or
-            self.VM_MONITORING_EXPIRATION_TIME or
             self.VM_RESTRICTED_ATTR or
             self.VM_SNAPSHOT_FACTOR is not None or
             self.VM_SUBMIT_ON_HOLD is not None or
@@ -8909,10 +8891,6 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
             namespaceprefix_ = self.DEFAULT_AUTH_nsprefix_ + ':' if (UseCapturedNS_ and self.DEFAULT_AUTH_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sDEFAULT_AUTH>%s</%sDEFAULT_AUTH>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(DEFAULT_AUTH_), input_name='DEFAULT_AUTH')), namespaceprefix_ , eol_))
-        for DEFAULT_CDROM_DEVICE_PREFIX_ in self.DEFAULT_CDROM_DEVICE_PREFIX:
-            namespaceprefix_ = self.DEFAULT_CDROM_DEVICE_PREFIX_nsprefix_ + ':' if (UseCapturedNS_ and self.DEFAULT_CDROM_DEVICE_PREFIX_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sDEFAULT_CDROM_DEVICE_PREFIX>%s</%sDEFAULT_CDROM_DEVICE_PREFIX>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(DEFAULT_CDROM_DEVICE_PREFIX_), input_name='DEFAULT_CDROM_DEVICE_PREFIX')), namespaceprefix_ , eol_))
         for DEFAULT_COST_ in self.DEFAULT_COST:
             namespaceprefix_ = self.DEFAULT_COST_nsprefix_ + ':' if (UseCapturedNS_ and self.DEFAULT_COST_nsprefix_) else ''
             DEFAULT_COST_.export(outfile, level, namespaceprefix_, namespacedef_='', name_='DEFAULT_COST', pretty_print=pretty_print)
@@ -8986,6 +8964,14 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
             namespaceprefix_ = self.GROUP_RESTRICTED_ATTR_nsprefix_ + ':' if (UseCapturedNS_ and self.GROUP_RESTRICTED_ATTR_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sGROUP_RESTRICTED_ATTR>%s</%sGROUP_RESTRICTED_ATTR>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(GROUP_RESTRICTED_ATTR_), input_name='GROUP_RESTRICTED_ATTR')), namespaceprefix_ , eol_))
+        if self.GRPC_LISTEN_ADDRESS is not None:
+            namespaceprefix_ = self.GRPC_LISTEN_ADDRESS_nsprefix_ + ':' if (UseCapturedNS_ and self.GRPC_LISTEN_ADDRESS_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sGRPC_LISTEN_ADDRESS>%s</%sGRPC_LISTEN_ADDRESS>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.GRPC_LISTEN_ADDRESS), input_name='GRPC_LISTEN_ADDRESS')), namespaceprefix_ , eol_))
+        if self.GRPC_PORT is not None:
+            namespaceprefix_ = self.GRPC_PORT_nsprefix_ + ':' if (UseCapturedNS_ and self.GRPC_PORT_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sGRPC_PORT>%s</%sGRPC_PORT>%s' % (namespaceprefix_ , self.gds_format_integer(self.GRPC_PORT, input_name='GRPC_PORT'), namespaceprefix_ , eol_))
         if self.HM_MAD is not None:
             namespaceprefix_ = self.HM_MAD_nsprefix_ + ':' if (UseCapturedNS_ and self.HM_MAD_nsprefix_) else ''
             self.HM_MAD.export(outfile, level, namespaceprefix_, namespacedef_='', name_='HM_MAD', pretty_print=pretty_print)
@@ -9189,10 +9175,6 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
             namespaceprefix_ = self.VM_MANAGE_OPERATIONS_nsprefix_ + ':' if (UseCapturedNS_ and self.VM_MANAGE_OPERATIONS_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sVM_MANAGE_OPERATIONS>%s</%sVM_MANAGE_OPERATIONS>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.VM_MANAGE_OPERATIONS), input_name='VM_MANAGE_OPERATIONS')), namespaceprefix_ , eol_))
-        for VM_MONITORING_EXPIRATION_TIME_ in self.VM_MONITORING_EXPIRATION_TIME:
-            namespaceprefix_ = self.VM_MONITORING_EXPIRATION_TIME_nsprefix_ + ':' if (UseCapturedNS_ and self.VM_MONITORING_EXPIRATION_TIME_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sVM_MONITORING_EXPIRATION_TIME>%s</%sVM_MONITORING_EXPIRATION_TIME>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(VM_MONITORING_EXPIRATION_TIME_), input_name='VM_MONITORING_EXPIRATION_TIME')), namespaceprefix_ , eol_))
         for VM_RESTRICTED_ATTR_ in self.VM_RESTRICTED_ATTR:
             namespaceprefix_ = self.VM_RESTRICTED_ATTR_nsprefix_ + ':' if (UseCapturedNS_ and self.VM_RESTRICTED_ATTR_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -9326,12 +9308,6 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'DEFAULT_AUTH')
             self.DEFAULT_AUTH.append(value_)
             self.DEFAULT_AUTH_nsprefix_ = child_.prefix
-        elif nodeName_ == 'DEFAULT_CDROM_DEVICE_PREFIX':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'DEFAULT_CDROM_DEVICE_PREFIX')
-            value_ = self.gds_validate_string(value_, node, 'DEFAULT_CDROM_DEVICE_PREFIX')
-            self.DEFAULT_CDROM_DEVICE_PREFIX.append(value_)
-            self.DEFAULT_CDROM_DEVICE_PREFIX_nsprefix_ = child_.prefix
         elif nodeName_ == 'DEFAULT_COST':
             obj_ = DEFAULT_COSTType.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
@@ -9445,6 +9421,18 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'GROUP_RESTRICTED_ATTR')
             self.GROUP_RESTRICTED_ATTR.append(value_)
             self.GROUP_RESTRICTED_ATTR_nsprefix_ = child_.prefix
+        elif nodeName_ == 'GRPC_LISTEN_ADDRESS':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'GRPC_LISTEN_ADDRESS')
+            value_ = self.gds_validate_string(value_, node, 'GRPC_LISTEN_ADDRESS')
+            self.GRPC_LISTEN_ADDRESS = value_
+            self.GRPC_LISTEN_ADDRESS_nsprefix_ = child_.prefix
+        elif nodeName_ == 'GRPC_PORT' and child_.text:
+            sval_ = child_.text
+            ival_ = self.gds_parse_integer(sval_, node, 'GRPC_PORT')
+            ival_ = self.gds_validate_integer(ival_, node, 'GRPC_PORT')
+            self.GRPC_PORT = ival_
+            self.GRPC_PORT_nsprefix_ = child_.prefix
         elif nodeName_ == 'HM_MAD':
             obj_ = HM_MADType.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
@@ -9756,12 +9744,6 @@ class OPENNEBULA_CONFIGURATION(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'VM_MANAGE_OPERATIONS')
             self.VM_MANAGE_OPERATIONS = value_
             self.VM_MANAGE_OPERATIONS_nsprefix_ = child_.prefix
-        elif nodeName_ == 'VM_MONITORING_EXPIRATION_TIME':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'VM_MONITORING_EXPIRATION_TIME')
-            value_ = self.gds_validate_string(value_, node, 'VM_MONITORING_EXPIRATION_TIME')
-            self.VM_MONITORING_EXPIRATION_TIME.append(value_)
-            self.VM_MONITORING_EXPIRATION_TIME_nsprefix_ = child_.prefix
         elif nodeName_ == 'VM_RESTRICTED_ATTR':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'VM_RESTRICTED_ATTR')
@@ -16836,7 +16818,7 @@ class VMType1(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, CLUSTER_IDS=None, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, gds_collector_=None, **kwargs_):
+    def __init__(self, CLUSTER_IDS=None, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, PCI_DEV=None, PCI_DEV_USED=None, PCI_NIC=None, PCI_NIC_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_PCI_DEV=None, RUNNING_PCI_DEV_USED=None, RUNNING_PCI_NIC=None, RUNNING_PCI_NIC_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -16852,6 +16834,14 @@ class VMType1(GeneratedsSuper):
         self.MEMORY_nsprefix_ = None
         self.MEMORY_USED = MEMORY_USED
         self.MEMORY_USED_nsprefix_ = None
+        self.PCI_DEV = PCI_DEV
+        self.PCI_DEV_nsprefix_ = None
+        self.PCI_DEV_USED = PCI_DEV_USED
+        self.PCI_DEV_USED_nsprefix_ = None
+        self.PCI_NIC = PCI_NIC
+        self.PCI_NIC_nsprefix_ = None
+        self.PCI_NIC_USED = PCI_NIC_USED
+        self.PCI_NIC_USED_nsprefix_ = None
         self.RUNNING_CPU = RUNNING_CPU
         self.RUNNING_CPU_nsprefix_ = None
         self.RUNNING_CPU_USED = RUNNING_CPU_USED
@@ -16860,6 +16850,14 @@ class VMType1(GeneratedsSuper):
         self.RUNNING_MEMORY_nsprefix_ = None
         self.RUNNING_MEMORY_USED = RUNNING_MEMORY_USED
         self.RUNNING_MEMORY_USED_nsprefix_ = None
+        self.RUNNING_PCI_DEV = RUNNING_PCI_DEV
+        self.RUNNING_PCI_DEV_nsprefix_ = None
+        self.RUNNING_PCI_DEV_USED = RUNNING_PCI_DEV_USED
+        self.RUNNING_PCI_DEV_USED_nsprefix_ = None
+        self.RUNNING_PCI_NIC = RUNNING_PCI_NIC
+        self.RUNNING_PCI_NIC_nsprefix_ = None
+        self.RUNNING_PCI_NIC_USED = RUNNING_PCI_NIC_USED
+        self.RUNNING_PCI_NIC_USED_nsprefix_ = None
         self.RUNNING_VMS = RUNNING_VMS
         self.RUNNING_VMS_nsprefix_ = None
         self.RUNNING_VMS_USED = RUNNING_VMS_USED
@@ -16907,6 +16905,22 @@ class VMType1(GeneratedsSuper):
         return self.MEMORY_USED
     def set_MEMORY_USED(self, MEMORY_USED):
         self.MEMORY_USED = MEMORY_USED
+    def get_PCI_DEV(self):
+        return self.PCI_DEV
+    def set_PCI_DEV(self, PCI_DEV):
+        self.PCI_DEV = PCI_DEV
+    def get_PCI_DEV_USED(self):
+        return self.PCI_DEV_USED
+    def set_PCI_DEV_USED(self, PCI_DEV_USED):
+        self.PCI_DEV_USED = PCI_DEV_USED
+    def get_PCI_NIC(self):
+        return self.PCI_NIC
+    def set_PCI_NIC(self, PCI_NIC):
+        self.PCI_NIC = PCI_NIC
+    def get_PCI_NIC_USED(self):
+        return self.PCI_NIC_USED
+    def set_PCI_NIC_USED(self, PCI_NIC_USED):
+        self.PCI_NIC_USED = PCI_NIC_USED
     def get_RUNNING_CPU(self):
         return self.RUNNING_CPU
     def set_RUNNING_CPU(self, RUNNING_CPU):
@@ -16923,6 +16937,22 @@ class VMType1(GeneratedsSuper):
         return self.RUNNING_MEMORY_USED
     def set_RUNNING_MEMORY_USED(self, RUNNING_MEMORY_USED):
         self.RUNNING_MEMORY_USED = RUNNING_MEMORY_USED
+    def get_RUNNING_PCI_DEV(self):
+        return self.RUNNING_PCI_DEV
+    def set_RUNNING_PCI_DEV(self, RUNNING_PCI_DEV):
+        self.RUNNING_PCI_DEV = RUNNING_PCI_DEV
+    def get_RUNNING_PCI_DEV_USED(self):
+        return self.RUNNING_PCI_DEV_USED
+    def set_RUNNING_PCI_DEV_USED(self, RUNNING_PCI_DEV_USED):
+        self.RUNNING_PCI_DEV_USED = RUNNING_PCI_DEV_USED
+    def get_RUNNING_PCI_NIC(self):
+        return self.RUNNING_PCI_NIC
+    def set_RUNNING_PCI_NIC(self, RUNNING_PCI_NIC):
+        self.RUNNING_PCI_NIC = RUNNING_PCI_NIC
+    def get_RUNNING_PCI_NIC_USED(self):
+        return self.RUNNING_PCI_NIC_USED
+    def set_RUNNING_PCI_NIC_USED(self, RUNNING_PCI_NIC_USED):
+        self.RUNNING_PCI_NIC_USED = RUNNING_PCI_NIC_USED
     def get_RUNNING_VMS(self):
         return self.RUNNING_VMS
     def set_RUNNING_VMS(self, RUNNING_VMS):
@@ -16954,10 +16984,18 @@ class VMType1(GeneratedsSuper):
             self.CPU_USED is not None or
             self.MEMORY is not None or
             self.MEMORY_USED is not None or
+            self.PCI_DEV is not None or
+            self.PCI_DEV_USED is not None or
+            self.PCI_NIC is not None or
+            self.PCI_NIC_USED is not None or
             self.RUNNING_CPU is not None or
             self.RUNNING_CPU_USED is not None or
             self.RUNNING_MEMORY is not None or
             self.RUNNING_MEMORY_USED is not None or
+            self.RUNNING_PCI_DEV is not None or
+            self.RUNNING_PCI_DEV_USED is not None or
+            self.RUNNING_PCI_NIC is not None or
+            self.RUNNING_PCI_NIC_USED is not None or
             self.RUNNING_VMS is not None or
             self.RUNNING_VMS_USED is not None or
             self.SYSTEM_DISK_SIZE is not None or
@@ -17018,6 +17056,22 @@ class VMType1(GeneratedsSuper):
             namespaceprefix_ = self.MEMORY_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.MEMORY_USED_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sMEMORY_USED>%s</%sMEMORY_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.MEMORY_USED), input_name='MEMORY_USED')), namespaceprefix_ , eol_))
+        if self.PCI_DEV is not None:
+            namespaceprefix_ = self.PCI_DEV_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_DEV_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_DEV>%s</%sPCI_DEV>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_DEV), input_name='PCI_DEV')), namespaceprefix_ , eol_))
+        if self.PCI_DEV_USED is not None:
+            namespaceprefix_ = self.PCI_DEV_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_DEV_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_DEV_USED>%s</%sPCI_DEV_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_DEV_USED), input_name='PCI_DEV_USED')), namespaceprefix_ , eol_))
+        if self.PCI_NIC is not None:
+            namespaceprefix_ = self.PCI_NIC_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_NIC_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_NIC>%s</%sPCI_NIC>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_NIC), input_name='PCI_NIC')), namespaceprefix_ , eol_))
+        if self.PCI_NIC_USED is not None:
+            namespaceprefix_ = self.PCI_NIC_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_NIC_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_NIC_USED>%s</%sPCI_NIC_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_NIC_USED), input_name='PCI_NIC_USED')), namespaceprefix_ , eol_))
         if self.RUNNING_CPU is not None:
             namespaceprefix_ = self.RUNNING_CPU_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_CPU_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -17034,6 +17088,22 @@ class VMType1(GeneratedsSuper):
             namespaceprefix_ = self.RUNNING_MEMORY_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_MEMORY_USED_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sRUNNING_MEMORY_USED>%s</%sRUNNING_MEMORY_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_MEMORY_USED), input_name='RUNNING_MEMORY_USED')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_DEV is not None:
+            namespaceprefix_ = self.RUNNING_PCI_DEV_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_DEV_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_DEV>%s</%sRUNNING_PCI_DEV>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_DEV), input_name='RUNNING_PCI_DEV')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_DEV_USED is not None:
+            namespaceprefix_ = self.RUNNING_PCI_DEV_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_DEV_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_DEV_USED>%s</%sRUNNING_PCI_DEV_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_DEV_USED), input_name='RUNNING_PCI_DEV_USED')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_NIC is not None:
+            namespaceprefix_ = self.RUNNING_PCI_NIC_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_NIC_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_NIC>%s</%sRUNNING_PCI_NIC>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_NIC), input_name='RUNNING_PCI_NIC')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_NIC_USED is not None:
+            namespaceprefix_ = self.RUNNING_PCI_NIC_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_NIC_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_NIC_USED>%s</%sRUNNING_PCI_NIC_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_NIC_USED), input_name='RUNNING_PCI_NIC_USED')), namespaceprefix_ , eol_))
         if self.RUNNING_VMS is not None:
             namespaceprefix_ = self.RUNNING_VMS_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_VMS_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -17102,6 +17172,30 @@ class VMType1(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'MEMORY_USED')
             self.MEMORY_USED = value_
             self.MEMORY_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_DEV':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_DEV')
+            value_ = self.gds_validate_string(value_, node, 'PCI_DEV')
+            self.PCI_DEV = value_
+            self.PCI_DEV_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_DEV_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_DEV_USED')
+            value_ = self.gds_validate_string(value_, node, 'PCI_DEV_USED')
+            self.PCI_DEV_USED = value_
+            self.PCI_DEV_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_NIC':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_NIC')
+            value_ = self.gds_validate_string(value_, node, 'PCI_NIC')
+            self.PCI_NIC = value_
+            self.PCI_NIC_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_NIC_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_NIC_USED')
+            value_ = self.gds_validate_string(value_, node, 'PCI_NIC_USED')
+            self.PCI_NIC_USED = value_
+            self.PCI_NIC_USED_nsprefix_ = child_.prefix
         elif nodeName_ == 'RUNNING_CPU':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'RUNNING_CPU')
@@ -17126,6 +17220,30 @@ class VMType1(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'RUNNING_MEMORY_USED')
             self.RUNNING_MEMORY_USED = value_
             self.RUNNING_MEMORY_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_DEV':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_DEV')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_DEV')
+            self.RUNNING_PCI_DEV = value_
+            self.RUNNING_PCI_DEV_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_DEV_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_DEV_USED')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_DEV_USED')
+            self.RUNNING_PCI_DEV_USED = value_
+            self.RUNNING_PCI_DEV_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_NIC':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_NIC')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_NIC')
+            self.RUNNING_PCI_NIC = value_
+            self.RUNNING_PCI_NIC_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_NIC_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_NIC_USED')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_NIC_USED')
+            self.RUNNING_PCI_NIC_USED = value_
+            self.RUNNING_PCI_NIC_USED_nsprefix_ = child_.prefix
         elif nodeName_ == 'RUNNING_VMS':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'RUNNING_VMS')
@@ -19503,7 +19621,7 @@ class VMType4(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, gds_collector_=None, **kwargs_):
+    def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, PCI_DEV=None, PCI_DEV_USED=None, PCI_NIC=None, PCI_NIC_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_PCI_DEV=None, RUNNING_PCI_DEV_USED=None, RUNNING_PCI_NIC=None, RUNNING_PCI_NIC_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -19517,6 +19635,14 @@ class VMType4(GeneratedsSuper):
         self.MEMORY_nsprefix_ = None
         self.MEMORY_USED = MEMORY_USED
         self.MEMORY_USED_nsprefix_ = None
+        self.PCI_DEV = PCI_DEV
+        self.PCI_DEV_nsprefix_ = None
+        self.PCI_DEV_USED = PCI_DEV_USED
+        self.PCI_DEV_USED_nsprefix_ = None
+        self.PCI_NIC = PCI_NIC
+        self.PCI_NIC_nsprefix_ = None
+        self.PCI_NIC_USED = PCI_NIC_USED
+        self.PCI_NIC_USED_nsprefix_ = None
         self.RUNNING_CPU = RUNNING_CPU
         self.RUNNING_CPU_nsprefix_ = None
         self.RUNNING_CPU_USED = RUNNING_CPU_USED
@@ -19525,6 +19651,14 @@ class VMType4(GeneratedsSuper):
         self.RUNNING_MEMORY_nsprefix_ = None
         self.RUNNING_MEMORY_USED = RUNNING_MEMORY_USED
         self.RUNNING_MEMORY_USED_nsprefix_ = None
+        self.RUNNING_PCI_DEV = RUNNING_PCI_DEV
+        self.RUNNING_PCI_DEV_nsprefix_ = None
+        self.RUNNING_PCI_DEV_USED = RUNNING_PCI_DEV_USED
+        self.RUNNING_PCI_DEV_USED_nsprefix_ = None
+        self.RUNNING_PCI_NIC = RUNNING_PCI_NIC
+        self.RUNNING_PCI_NIC_nsprefix_ = None
+        self.RUNNING_PCI_NIC_USED = RUNNING_PCI_NIC_USED
+        self.RUNNING_PCI_NIC_USED_nsprefix_ = None
         self.RUNNING_VMS = RUNNING_VMS
         self.RUNNING_VMS_nsprefix_ = None
         self.RUNNING_VMS_USED = RUNNING_VMS_USED
@@ -19568,6 +19702,22 @@ class VMType4(GeneratedsSuper):
         return self.MEMORY_USED
     def set_MEMORY_USED(self, MEMORY_USED):
         self.MEMORY_USED = MEMORY_USED
+    def get_PCI_DEV(self):
+        return self.PCI_DEV
+    def set_PCI_DEV(self, PCI_DEV):
+        self.PCI_DEV = PCI_DEV
+    def get_PCI_DEV_USED(self):
+        return self.PCI_DEV_USED
+    def set_PCI_DEV_USED(self, PCI_DEV_USED):
+        self.PCI_DEV_USED = PCI_DEV_USED
+    def get_PCI_NIC(self):
+        return self.PCI_NIC
+    def set_PCI_NIC(self, PCI_NIC):
+        self.PCI_NIC = PCI_NIC
+    def get_PCI_NIC_USED(self):
+        return self.PCI_NIC_USED
+    def set_PCI_NIC_USED(self, PCI_NIC_USED):
+        self.PCI_NIC_USED = PCI_NIC_USED
     def get_RUNNING_CPU(self):
         return self.RUNNING_CPU
     def set_RUNNING_CPU(self, RUNNING_CPU):
@@ -19584,6 +19734,22 @@ class VMType4(GeneratedsSuper):
         return self.RUNNING_MEMORY_USED
     def set_RUNNING_MEMORY_USED(self, RUNNING_MEMORY_USED):
         self.RUNNING_MEMORY_USED = RUNNING_MEMORY_USED
+    def get_RUNNING_PCI_DEV(self):
+        return self.RUNNING_PCI_DEV
+    def set_RUNNING_PCI_DEV(self, RUNNING_PCI_DEV):
+        self.RUNNING_PCI_DEV = RUNNING_PCI_DEV
+    def get_RUNNING_PCI_DEV_USED(self):
+        return self.RUNNING_PCI_DEV_USED
+    def set_RUNNING_PCI_DEV_USED(self, RUNNING_PCI_DEV_USED):
+        self.RUNNING_PCI_DEV_USED = RUNNING_PCI_DEV_USED
+    def get_RUNNING_PCI_NIC(self):
+        return self.RUNNING_PCI_NIC
+    def set_RUNNING_PCI_NIC(self, RUNNING_PCI_NIC):
+        self.RUNNING_PCI_NIC = RUNNING_PCI_NIC
+    def get_RUNNING_PCI_NIC_USED(self):
+        return self.RUNNING_PCI_NIC_USED
+    def set_RUNNING_PCI_NIC_USED(self, RUNNING_PCI_NIC_USED):
+        self.RUNNING_PCI_NIC_USED = RUNNING_PCI_NIC_USED
     def get_RUNNING_VMS(self):
         return self.RUNNING_VMS
     def set_RUNNING_VMS(self, RUNNING_VMS):
@@ -19614,10 +19780,18 @@ class VMType4(GeneratedsSuper):
             self.CPU_USED is not None or
             self.MEMORY is not None or
             self.MEMORY_USED is not None or
+            self.PCI_DEV is not None or
+            self.PCI_DEV_USED is not None or
+            self.PCI_NIC is not None or
+            self.PCI_NIC_USED is not None or
             self.RUNNING_CPU is not None or
             self.RUNNING_CPU_USED is not None or
             self.RUNNING_MEMORY is not None or
             self.RUNNING_MEMORY_USED is not None or
+            self.RUNNING_PCI_DEV is not None or
+            self.RUNNING_PCI_DEV_USED is not None or
+            self.RUNNING_PCI_NIC is not None or
+            self.RUNNING_PCI_NIC_USED is not None or
             self.RUNNING_VMS is not None or
             self.RUNNING_VMS_USED is not None or
             self.SYSTEM_DISK_SIZE is not None or
@@ -19674,6 +19848,22 @@ class VMType4(GeneratedsSuper):
             namespaceprefix_ = self.MEMORY_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.MEMORY_USED_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sMEMORY_USED>%s</%sMEMORY_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.MEMORY_USED), input_name='MEMORY_USED')), namespaceprefix_ , eol_))
+        if self.PCI_DEV is not None:
+            namespaceprefix_ = self.PCI_DEV_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_DEV_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_DEV>%s</%sPCI_DEV>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_DEV), input_name='PCI_DEV')), namespaceprefix_ , eol_))
+        if self.PCI_DEV_USED is not None:
+            namespaceprefix_ = self.PCI_DEV_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_DEV_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_DEV_USED>%s</%sPCI_DEV_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_DEV_USED), input_name='PCI_DEV_USED')), namespaceprefix_ , eol_))
+        if self.PCI_NIC is not None:
+            namespaceprefix_ = self.PCI_NIC_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_NIC_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_NIC>%s</%sPCI_NIC>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_NIC), input_name='PCI_NIC')), namespaceprefix_ , eol_))
+        if self.PCI_NIC_USED is not None:
+            namespaceprefix_ = self.PCI_NIC_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_NIC_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_NIC_USED>%s</%sPCI_NIC_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_NIC_USED), input_name='PCI_NIC_USED')), namespaceprefix_ , eol_))
         if self.RUNNING_CPU is not None:
             namespaceprefix_ = self.RUNNING_CPU_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_CPU_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -19690,6 +19880,22 @@ class VMType4(GeneratedsSuper):
             namespaceprefix_ = self.RUNNING_MEMORY_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_MEMORY_USED_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sRUNNING_MEMORY_USED>%s</%sRUNNING_MEMORY_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_MEMORY_USED), input_name='RUNNING_MEMORY_USED')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_DEV is not None:
+            namespaceprefix_ = self.RUNNING_PCI_DEV_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_DEV_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_DEV>%s</%sRUNNING_PCI_DEV>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_DEV), input_name='RUNNING_PCI_DEV')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_DEV_USED is not None:
+            namespaceprefix_ = self.RUNNING_PCI_DEV_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_DEV_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_DEV_USED>%s</%sRUNNING_PCI_DEV_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_DEV_USED), input_name='RUNNING_PCI_DEV_USED')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_NIC is not None:
+            namespaceprefix_ = self.RUNNING_PCI_NIC_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_NIC_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_NIC>%s</%sRUNNING_PCI_NIC>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_NIC), input_name='RUNNING_PCI_NIC')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_NIC_USED is not None:
+            namespaceprefix_ = self.RUNNING_PCI_NIC_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_NIC_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_NIC_USED>%s</%sRUNNING_PCI_NIC_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_NIC_USED), input_name='RUNNING_PCI_NIC_USED')), namespaceprefix_ , eol_))
         if self.RUNNING_VMS is not None:
             namespaceprefix_ = self.RUNNING_VMS_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_VMS_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -19752,6 +19958,30 @@ class VMType4(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'MEMORY_USED')
             self.MEMORY_USED = value_
             self.MEMORY_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_DEV':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_DEV')
+            value_ = self.gds_validate_string(value_, node, 'PCI_DEV')
+            self.PCI_DEV = value_
+            self.PCI_DEV_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_DEV_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_DEV_USED')
+            value_ = self.gds_validate_string(value_, node, 'PCI_DEV_USED')
+            self.PCI_DEV_USED = value_
+            self.PCI_DEV_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_NIC':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_NIC')
+            value_ = self.gds_validate_string(value_, node, 'PCI_NIC')
+            self.PCI_NIC = value_
+            self.PCI_NIC_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_NIC_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_NIC_USED')
+            value_ = self.gds_validate_string(value_, node, 'PCI_NIC_USED')
+            self.PCI_NIC_USED = value_
+            self.PCI_NIC_USED_nsprefix_ = child_.prefix
         elif nodeName_ == 'RUNNING_CPU':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'RUNNING_CPU')
@@ -19776,6 +20006,30 @@ class VMType4(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'RUNNING_MEMORY_USED')
             self.RUNNING_MEMORY_USED = value_
             self.RUNNING_MEMORY_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_DEV':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_DEV')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_DEV')
+            self.RUNNING_PCI_DEV = value_
+            self.RUNNING_PCI_DEV_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_DEV_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_DEV_USED')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_DEV_USED')
+            self.RUNNING_PCI_DEV_USED = value_
+            self.RUNNING_PCI_DEV_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_NIC':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_NIC')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_NIC')
+            self.RUNNING_PCI_NIC = value_
+            self.RUNNING_PCI_NIC_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_NIC_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_NIC_USED')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_NIC_USED')
+            self.RUNNING_PCI_NIC_USED = value_
+            self.RUNNING_PCI_NIC_USED_nsprefix_ = child_.prefix
         elif nodeName_ == 'RUNNING_VMS':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'RUNNING_VMS')
@@ -20258,7 +20512,7 @@ class VMType9(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, CLUSTER_IDS=None, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, gds_collector_=None, **kwargs_):
+    def __init__(self, CLUSTER_IDS=None, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, PCI_DEV=None, PCI_DEV_USED=None, PCI_NIC=None, PCI_NIC_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_PCI_DEV=None, RUNNING_PCI_DEV_USED=None, RUNNING_PCI_NIC=None, RUNNING_PCI_NIC_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -20274,6 +20528,14 @@ class VMType9(GeneratedsSuper):
         self.MEMORY_nsprefix_ = None
         self.MEMORY_USED = MEMORY_USED
         self.MEMORY_USED_nsprefix_ = None
+        self.PCI_DEV = PCI_DEV
+        self.PCI_DEV_nsprefix_ = None
+        self.PCI_DEV_USED = PCI_DEV_USED
+        self.PCI_DEV_USED_nsprefix_ = None
+        self.PCI_NIC = PCI_NIC
+        self.PCI_NIC_nsprefix_ = None
+        self.PCI_NIC_USED = PCI_NIC_USED
+        self.PCI_NIC_USED_nsprefix_ = None
         self.RUNNING_CPU = RUNNING_CPU
         self.RUNNING_CPU_nsprefix_ = None
         self.RUNNING_CPU_USED = RUNNING_CPU_USED
@@ -20282,6 +20544,14 @@ class VMType9(GeneratedsSuper):
         self.RUNNING_MEMORY_nsprefix_ = None
         self.RUNNING_MEMORY_USED = RUNNING_MEMORY_USED
         self.RUNNING_MEMORY_USED_nsprefix_ = None
+        self.RUNNING_PCI_DEV = RUNNING_PCI_DEV
+        self.RUNNING_PCI_DEV_nsprefix_ = None
+        self.RUNNING_PCI_DEV_USED = RUNNING_PCI_DEV_USED
+        self.RUNNING_PCI_DEV_USED_nsprefix_ = None
+        self.RUNNING_PCI_NIC = RUNNING_PCI_NIC
+        self.RUNNING_PCI_NIC_nsprefix_ = None
+        self.RUNNING_PCI_NIC_USED = RUNNING_PCI_NIC_USED
+        self.RUNNING_PCI_NIC_USED_nsprefix_ = None
         self.RUNNING_VMS = RUNNING_VMS
         self.RUNNING_VMS_nsprefix_ = None
         self.RUNNING_VMS_USED = RUNNING_VMS_USED
@@ -20329,6 +20599,22 @@ class VMType9(GeneratedsSuper):
         return self.MEMORY_USED
     def set_MEMORY_USED(self, MEMORY_USED):
         self.MEMORY_USED = MEMORY_USED
+    def get_PCI_DEV(self):
+        return self.PCI_DEV
+    def set_PCI_DEV(self, PCI_DEV):
+        self.PCI_DEV = PCI_DEV
+    def get_PCI_DEV_USED(self):
+        return self.PCI_DEV_USED
+    def set_PCI_DEV_USED(self, PCI_DEV_USED):
+        self.PCI_DEV_USED = PCI_DEV_USED
+    def get_PCI_NIC(self):
+        return self.PCI_NIC
+    def set_PCI_NIC(self, PCI_NIC):
+        self.PCI_NIC = PCI_NIC
+    def get_PCI_NIC_USED(self):
+        return self.PCI_NIC_USED
+    def set_PCI_NIC_USED(self, PCI_NIC_USED):
+        self.PCI_NIC_USED = PCI_NIC_USED
     def get_RUNNING_CPU(self):
         return self.RUNNING_CPU
     def set_RUNNING_CPU(self, RUNNING_CPU):
@@ -20345,6 +20631,22 @@ class VMType9(GeneratedsSuper):
         return self.RUNNING_MEMORY_USED
     def set_RUNNING_MEMORY_USED(self, RUNNING_MEMORY_USED):
         self.RUNNING_MEMORY_USED = RUNNING_MEMORY_USED
+    def get_RUNNING_PCI_DEV(self):
+        return self.RUNNING_PCI_DEV
+    def set_RUNNING_PCI_DEV(self, RUNNING_PCI_DEV):
+        self.RUNNING_PCI_DEV = RUNNING_PCI_DEV
+    def get_RUNNING_PCI_DEV_USED(self):
+        return self.RUNNING_PCI_DEV_USED
+    def set_RUNNING_PCI_DEV_USED(self, RUNNING_PCI_DEV_USED):
+        self.RUNNING_PCI_DEV_USED = RUNNING_PCI_DEV_USED
+    def get_RUNNING_PCI_NIC(self):
+        return self.RUNNING_PCI_NIC
+    def set_RUNNING_PCI_NIC(self, RUNNING_PCI_NIC):
+        self.RUNNING_PCI_NIC = RUNNING_PCI_NIC
+    def get_RUNNING_PCI_NIC_USED(self):
+        return self.RUNNING_PCI_NIC_USED
+    def set_RUNNING_PCI_NIC_USED(self, RUNNING_PCI_NIC_USED):
+        self.RUNNING_PCI_NIC_USED = RUNNING_PCI_NIC_USED
     def get_RUNNING_VMS(self):
         return self.RUNNING_VMS
     def set_RUNNING_VMS(self, RUNNING_VMS):
@@ -20376,10 +20678,18 @@ class VMType9(GeneratedsSuper):
             self.CPU_USED is not None or
             self.MEMORY is not None or
             self.MEMORY_USED is not None or
+            self.PCI_DEV is not None or
+            self.PCI_DEV_USED is not None or
+            self.PCI_NIC is not None or
+            self.PCI_NIC_USED is not None or
             self.RUNNING_CPU is not None or
             self.RUNNING_CPU_USED is not None or
             self.RUNNING_MEMORY is not None or
             self.RUNNING_MEMORY_USED is not None or
+            self.RUNNING_PCI_DEV is not None or
+            self.RUNNING_PCI_DEV_USED is not None or
+            self.RUNNING_PCI_NIC is not None or
+            self.RUNNING_PCI_NIC_USED is not None or
             self.RUNNING_VMS is not None or
             self.RUNNING_VMS_USED is not None or
             self.SYSTEM_DISK_SIZE is not None or
@@ -20440,6 +20750,22 @@ class VMType9(GeneratedsSuper):
             namespaceprefix_ = self.MEMORY_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.MEMORY_USED_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sMEMORY_USED>%s</%sMEMORY_USED>%s' % (namespaceprefix_ , self.gds_format_integer(self.MEMORY_USED, input_name='MEMORY_USED'), namespaceprefix_ , eol_))
+        if self.PCI_DEV is not None:
+            namespaceprefix_ = self.PCI_DEV_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_DEV_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_DEV>%s</%sPCI_DEV>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_DEV), input_name='PCI_DEV')), namespaceprefix_ , eol_))
+        if self.PCI_DEV_USED is not None:
+            namespaceprefix_ = self.PCI_DEV_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_DEV_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_DEV_USED>%s</%sPCI_DEV_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_DEV_USED), input_name='PCI_DEV_USED')), namespaceprefix_ , eol_))
+        if self.PCI_NIC is not None:
+            namespaceprefix_ = self.PCI_NIC_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_NIC_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_NIC>%s</%sPCI_NIC>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_NIC), input_name='PCI_NIC')), namespaceprefix_ , eol_))
+        if self.PCI_NIC_USED is not None:
+            namespaceprefix_ = self.PCI_NIC_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_NIC_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_NIC_USED>%s</%sPCI_NIC_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_NIC_USED), input_name='PCI_NIC_USED')), namespaceprefix_ , eol_))
         if self.RUNNING_CPU is not None:
             namespaceprefix_ = self.RUNNING_CPU_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_CPU_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -20456,6 +20782,22 @@ class VMType9(GeneratedsSuper):
             namespaceprefix_ = self.RUNNING_MEMORY_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_MEMORY_USED_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sRUNNING_MEMORY_USED>%s</%sRUNNING_MEMORY_USED>%s' % (namespaceprefix_ , self.gds_format_integer(self.RUNNING_MEMORY_USED, input_name='RUNNING_MEMORY_USED'), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_DEV is not None:
+            namespaceprefix_ = self.RUNNING_PCI_DEV_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_DEV_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_DEV>%s</%sRUNNING_PCI_DEV>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_DEV), input_name='RUNNING_PCI_DEV')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_DEV_USED is not None:
+            namespaceprefix_ = self.RUNNING_PCI_DEV_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_DEV_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_DEV_USED>%s</%sRUNNING_PCI_DEV_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_DEV_USED), input_name='RUNNING_PCI_DEV_USED')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_NIC is not None:
+            namespaceprefix_ = self.RUNNING_PCI_NIC_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_NIC_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_NIC>%s</%sRUNNING_PCI_NIC>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_NIC), input_name='RUNNING_PCI_NIC')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_NIC_USED is not None:
+            namespaceprefix_ = self.RUNNING_PCI_NIC_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_NIC_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_NIC_USED>%s</%sRUNNING_PCI_NIC_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_NIC_USED), input_name='RUNNING_PCI_NIC_USED')), namespaceprefix_ , eol_))
         if self.RUNNING_VMS is not None:
             namespaceprefix_ = self.RUNNING_VMS_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_VMS_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -20524,6 +20866,30 @@ class VMType9(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'MEMORY_USED')
             self.MEMORY_USED = ival_
             self.MEMORY_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_DEV':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_DEV')
+            value_ = self.gds_validate_string(value_, node, 'PCI_DEV')
+            self.PCI_DEV = value_
+            self.PCI_DEV_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_DEV_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_DEV_USED')
+            value_ = self.gds_validate_string(value_, node, 'PCI_DEV_USED')
+            self.PCI_DEV_USED = value_
+            self.PCI_DEV_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_NIC':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_NIC')
+            value_ = self.gds_validate_string(value_, node, 'PCI_NIC')
+            self.PCI_NIC = value_
+            self.PCI_NIC_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_NIC_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_NIC_USED')
+            value_ = self.gds_validate_string(value_, node, 'PCI_NIC_USED')
+            self.PCI_NIC_USED = value_
+            self.PCI_NIC_USED_nsprefix_ = child_.prefix
         elif nodeName_ == 'RUNNING_CPU' and child_.text:
             sval_ = child_.text
             fval_ = self.gds_parse_float(sval_, node, 'RUNNING_CPU')
@@ -20548,6 +20914,30 @@ class VMType9(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'RUNNING_MEMORY_USED')
             self.RUNNING_MEMORY_USED = ival_
             self.RUNNING_MEMORY_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_DEV':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_DEV')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_DEV')
+            self.RUNNING_PCI_DEV = value_
+            self.RUNNING_PCI_DEV_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_DEV_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_DEV_USED')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_DEV_USED')
+            self.RUNNING_PCI_DEV_USED = value_
+            self.RUNNING_PCI_DEV_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_NIC':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_NIC')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_NIC')
+            self.RUNNING_PCI_NIC = value_
+            self.RUNNING_PCI_NIC_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_NIC_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_NIC_USED')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_NIC_USED')
+            self.RUNNING_PCI_NIC_USED = value_
+            self.RUNNING_PCI_NIC_USED_nsprefix_ = child_.prefix
         elif nodeName_ == 'RUNNING_VMS' and child_.text:
             sval_ = child_.text
             ival_ = self.gds_parse_integer(sval_, node, 'RUNNING_VMS')
@@ -28652,7 +29042,7 @@ class TM_MAD_CONFType(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, ALLOW_ORPHANS=None, CLONE_TARGET=None, CLONE_TARGET_SHARED=None, CLONE_TARGET_SSH=None, DISK_TYPE=None, DISK_TYPE_SHARED=None, DISK_TYPE_SSH=None, DRIVER=None, DS_MIGRATE=None, LN_TARGET=None, LN_TARGET_SHARED=None, LN_TARGET_SSH=None, NAME=None, PERSISTENT_SNAPSHOTS=None, SHARED=None, TM_MAD_SYSTEM=None, gds_collector_=None, **kwargs_):
+    def __init__(self, ALLOW_ORPHANS=None, CLONE_TARGET=None, CLONE_TARGET_SHARED=None, CLONE_TARGET_SSH=None, DISK_TYPE=None, DISK_TYPE_SHARED=None, DISK_TYPE_SSH=None, DRIVER=None, DS_MIGRATE=None, DS_LIVE_MIGRATE=None, DS_MIGRATE_SNAP=None, LN_TARGET=None, LN_TARGET_SHARED=None, LN_TARGET_SSH=None, NAME=None, PERSISTENT_SNAPSHOTS=None, SHARED=None, TM_MAD_SYSTEM=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -28676,6 +29066,10 @@ class TM_MAD_CONFType(GeneratedsSuper):
         self.DRIVER_nsprefix_ = None
         self.DS_MIGRATE = DS_MIGRATE
         self.DS_MIGRATE_nsprefix_ = None
+        self.DS_LIVE_MIGRATE = DS_LIVE_MIGRATE
+        self.DS_LIVE_MIGRATE_nsprefix_ = None
+        self.DS_MIGRATE_SNAP = DS_MIGRATE_SNAP
+        self.DS_MIGRATE_SNAP_nsprefix_ = None
         self.LN_TARGET = LN_TARGET
         self.LN_TARGET_nsprefix_ = None
         self.LN_TARGET_SHARED = LN_TARGET_SHARED
@@ -28741,6 +29135,14 @@ class TM_MAD_CONFType(GeneratedsSuper):
         return self.DS_MIGRATE
     def set_DS_MIGRATE(self, DS_MIGRATE):
         self.DS_MIGRATE = DS_MIGRATE
+    def get_DS_LIVE_MIGRATE(self):
+        return self.DS_LIVE_MIGRATE
+    def set_DS_LIVE_MIGRATE(self, DS_LIVE_MIGRATE):
+        self.DS_LIVE_MIGRATE = DS_LIVE_MIGRATE
+    def get_DS_MIGRATE_SNAP(self):
+        return self.DS_MIGRATE_SNAP
+    def set_DS_MIGRATE_SNAP(self, DS_MIGRATE_SNAP):
+        self.DS_MIGRATE_SNAP = DS_MIGRATE_SNAP
     def get_LN_TARGET(self):
         return self.LN_TARGET
     def set_LN_TARGET(self, LN_TARGET):
@@ -28780,6 +29182,8 @@ class TM_MAD_CONFType(GeneratedsSuper):
             self.DISK_TYPE_SSH is not None or
             self.DRIVER is not None or
             self.DS_MIGRATE is not None or
+            self.DS_LIVE_MIGRATE is not None or
+            self.DS_MIGRATE_SNAP is not None or
             self.LN_TARGET is not None or
             self.LN_TARGET_SHARED is not None or
             self.LN_TARGET_SSH is not None or
@@ -28857,6 +29261,14 @@ class TM_MAD_CONFType(GeneratedsSuper):
             namespaceprefix_ = self.DS_MIGRATE_nsprefix_ + ':' if (UseCapturedNS_ and self.DS_MIGRATE_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sDS_MIGRATE>%s</%sDS_MIGRATE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.DS_MIGRATE), input_name='DS_MIGRATE')), namespaceprefix_ , eol_))
+        if self.DS_LIVE_MIGRATE is not None:
+            namespaceprefix_ = self.DS_LIVE_MIGRATE_nsprefix_ + ':' if (UseCapturedNS_ and self.DS_LIVE_MIGRATE_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sDS_LIVE_MIGRATE>%s</%sDS_LIVE_MIGRATE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.DS_LIVE_MIGRATE), input_name='DS_LIVE_MIGRATE')), namespaceprefix_ , eol_))
+        if self.DS_MIGRATE_SNAP is not None:
+            namespaceprefix_ = self.DS_MIGRATE_SNAP_nsprefix_ + ':' if (UseCapturedNS_ and self.DS_MIGRATE_SNAP_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sDS_MIGRATE_SNAP>%s</%sDS_MIGRATE_SNAP>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.DS_MIGRATE_SNAP), input_name='DS_MIGRATE_SNAP')), namespaceprefix_ , eol_))
         if self.LN_TARGET is not None:
             namespaceprefix_ = self.LN_TARGET_nsprefix_ + ':' if (UseCapturedNS_ and self.LN_TARGET_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -28953,6 +29365,18 @@ class TM_MAD_CONFType(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'DS_MIGRATE')
             self.DS_MIGRATE = value_
             self.DS_MIGRATE_nsprefix_ = child_.prefix
+        elif nodeName_ == 'DS_LIVE_MIGRATE':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'DS_LIVE_MIGRATE')
+            value_ = self.gds_validate_string(value_, node, 'DS_LIVE_MIGRATE')
+            self.DS_LIVE_MIGRATE = value_
+            self.DS_LIVE_MIGRATE_nsprefix_ = child_.prefix
+        elif nodeName_ == 'DS_MIGRATE_SNAP':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'DS_MIGRATE_SNAP')
+            value_ = self.gds_validate_string(value_, node, 'DS_MIGRATE_SNAP')
+            self.DS_MIGRATE_SNAP = value_
+            self.DS_MIGRATE_SNAP_nsprefix_ = child_.prefix
         elif nodeName_ == 'LN_TARGET':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'LN_TARGET')
@@ -29114,7 +29538,7 @@ class VM_MADType(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, ARGUMENTS=None, DEFAULT=None, EXECUTABLE=None, NAME=None, SUNSTONE_NAME=None, TYPE=None, KEEP_SNAPSHOTS=None, COLD_NIC_ATTACH=None, DS_LIVE_MIGRATION=None, LIVE_RESIZE=None, gds_collector_=None, **kwargs_):
+    def __init__(self, ARGUMENTS=None, DEFAULT=None, EXECUTABLE=None, NAME=None, SUNSTONE_NAME=None, TYPE=None, KEEP_SNAPSHOTS=None, COLD_NIC_ATTACH=None, LIVE_RESIZE=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -29138,9 +29562,6 @@ class VM_MADType(GeneratedsSuper):
         self.COLD_NIC_ATTACH = COLD_NIC_ATTACH
         self.validate_COLD_NIC_ATTACHType(self.COLD_NIC_ATTACH)
         self.COLD_NIC_ATTACH_nsprefix_ = None
-        self.DS_LIVE_MIGRATION = DS_LIVE_MIGRATION
-        self.validate_DS_LIVE_MIGRATIONType(self.DS_LIVE_MIGRATION)
-        self.DS_LIVE_MIGRATION_nsprefix_ = None
         self.LIVE_RESIZE = LIVE_RESIZE
         self.validate_LIVE_RESIZEType(self.LIVE_RESIZE)
         self.LIVE_RESIZE_nsprefix_ = None
@@ -29191,10 +29612,6 @@ class VM_MADType(GeneratedsSuper):
         return self.COLD_NIC_ATTACH
     def set_COLD_NIC_ATTACH(self, COLD_NIC_ATTACH):
         self.COLD_NIC_ATTACH = COLD_NIC_ATTACH
-    def get_DS_LIVE_MIGRATION(self):
-        return self.DS_LIVE_MIGRATION
-    def set_DS_LIVE_MIGRATION(self, DS_LIVE_MIGRATION):
-        self.DS_LIVE_MIGRATION = DS_LIVE_MIGRATION
     def get_LIVE_RESIZE(self):
         return self.LIVE_RESIZE
     def set_LIVE_RESIZE(self, LIVE_RESIZE):
@@ -29227,20 +29644,6 @@ class VM_MADType(GeneratedsSuper):
                 result = False
         return result
     validate_COLD_NIC_ATTACHType_patterns_ = [['^([yY][eE][sS])$', '^([nN][oO])$']]
-    def validate_DS_LIVE_MIGRATIONType(self, value):
-        result = True
-        # Validate type DS_LIVE_MIGRATIONType, a restriction on xs:string.
-        if value is not None and Validate_simpletypes_ and self.gds_collector_ is not None:
-            if not isinstance(value, str):
-                lineno = self.gds_get_node_lineno_()
-                self.gds_collector_.add_message('Value "%(value)s"%(lineno)s is not of the correct base simple type (str)' % {"value": value, "lineno": lineno, })
-                return False
-            if not self.gds_validate_simple_patterns(
-                    self.validate_DS_LIVE_MIGRATIONType_patterns_, value):
-                self.gds_collector_.add_message('Value "%s" does not match xsd pattern restrictions: %s' % (encode_str_2_3(value), self.validate_DS_LIVE_MIGRATIONType_patterns_, ))
-                result = False
-        return result
-    validate_DS_LIVE_MIGRATIONType_patterns_ = [['^([yY][eE][sS])$', '^([nN][oO])$']]
     def validate_LIVE_RESIZEType(self, value):
         result = True
         # Validate type LIVE_RESIZEType, a restriction on xs:string.
@@ -29265,7 +29668,6 @@ class VM_MADType(GeneratedsSuper):
             self.TYPE is not None or
             self.KEEP_SNAPSHOTS is not None or
             self.COLD_NIC_ATTACH is not None or
-            self.DS_LIVE_MIGRATION is not None or
             self.LIVE_RESIZE is not None
         ):
             return True
@@ -29333,10 +29735,6 @@ class VM_MADType(GeneratedsSuper):
             namespaceprefix_ = self.COLD_NIC_ATTACH_nsprefix_ + ':' if (UseCapturedNS_ and self.COLD_NIC_ATTACH_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sCOLD_NIC_ATTACH>%s</%sCOLD_NIC_ATTACH>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.COLD_NIC_ATTACH), input_name='COLD_NIC_ATTACH')), namespaceprefix_ , eol_))
-        if self.DS_LIVE_MIGRATION is not None:
-            namespaceprefix_ = self.DS_LIVE_MIGRATION_nsprefix_ + ':' if (UseCapturedNS_ and self.DS_LIVE_MIGRATION_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sDS_LIVE_MIGRATION>%s</%sDS_LIVE_MIGRATION>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.DS_LIVE_MIGRATION), input_name='DS_LIVE_MIGRATION')), namespaceprefix_ , eol_))
         if self.LIVE_RESIZE is not None:
             namespaceprefix_ = self.LIVE_RESIZE_nsprefix_ + ':' if (UseCapturedNS_ and self.LIVE_RESIZE_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -29407,14 +29805,6 @@ class VM_MADType(GeneratedsSuper):
             self.COLD_NIC_ATTACH_nsprefix_ = child_.prefix
             # validate type COLD_NIC_ATTACHType
             self.validate_COLD_NIC_ATTACHType(self.COLD_NIC_ATTACH)
-        elif nodeName_ == 'DS_LIVE_MIGRATION':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'DS_LIVE_MIGRATION')
-            value_ = self.gds_validate_string(value_, node, 'DS_LIVE_MIGRATION')
-            self.DS_LIVE_MIGRATION = value_
-            self.DS_LIVE_MIGRATION_nsprefix_ = child_.prefix
-            # validate type DS_LIVE_MIGRATIONType
-            self.validate_DS_LIVE_MIGRATIONType(self.DS_LIVE_MIGRATION)
         elif nodeName_ == 'LIVE_RESIZE':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'LIVE_RESIZE')
@@ -31815,7 +32205,7 @@ class VMType26(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, gds_collector_=None, **kwargs_):
+    def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, PCI_DEV=None, PCI_DEV_USED=None, PCI_NIC=None, PCI_NIC_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_PCI_DEV=None, RUNNING_PCI_DEV_USED=None, RUNNING_PCI_NIC=None, RUNNING_PCI_NIC_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -31829,6 +32219,14 @@ class VMType26(GeneratedsSuper):
         self.MEMORY_nsprefix_ = None
         self.MEMORY_USED = MEMORY_USED
         self.MEMORY_USED_nsprefix_ = None
+        self.PCI_DEV = PCI_DEV
+        self.PCI_DEV_nsprefix_ = None
+        self.PCI_DEV_USED = PCI_DEV_USED
+        self.PCI_DEV_USED_nsprefix_ = None
+        self.PCI_NIC = PCI_NIC
+        self.PCI_NIC_nsprefix_ = None
+        self.PCI_NIC_USED = PCI_NIC_USED
+        self.PCI_NIC_USED_nsprefix_ = None
         self.RUNNING_CPU = RUNNING_CPU
         self.RUNNING_CPU_nsprefix_ = None
         self.RUNNING_CPU_USED = RUNNING_CPU_USED
@@ -31837,6 +32235,14 @@ class VMType26(GeneratedsSuper):
         self.RUNNING_MEMORY_nsprefix_ = None
         self.RUNNING_MEMORY_USED = RUNNING_MEMORY_USED
         self.RUNNING_MEMORY_USED_nsprefix_ = None
+        self.RUNNING_PCI_DEV = RUNNING_PCI_DEV
+        self.RUNNING_PCI_DEV_nsprefix_ = None
+        self.RUNNING_PCI_DEV_USED = RUNNING_PCI_DEV_USED
+        self.RUNNING_PCI_DEV_USED_nsprefix_ = None
+        self.RUNNING_PCI_NIC = RUNNING_PCI_NIC
+        self.RUNNING_PCI_NIC_nsprefix_ = None
+        self.RUNNING_PCI_NIC_USED = RUNNING_PCI_NIC_USED
+        self.RUNNING_PCI_NIC_USED_nsprefix_ = None
         self.RUNNING_VMS = RUNNING_VMS
         self.RUNNING_VMS_nsprefix_ = None
         self.RUNNING_VMS_USED = RUNNING_VMS_USED
@@ -31880,6 +32286,22 @@ class VMType26(GeneratedsSuper):
         return self.MEMORY_USED
     def set_MEMORY_USED(self, MEMORY_USED):
         self.MEMORY_USED = MEMORY_USED
+    def get_PCI_DEV(self):
+        return self.PCI_DEV
+    def set_PCI_DEV(self, PCI_DEV):
+        self.PCI_DEV = PCI_DEV
+    def get_PCI_DEV_USED(self):
+        return self.PCI_DEV_USED
+    def set_PCI_DEV_USED(self, PCI_DEV_USED):
+        self.PCI_DEV_USED = PCI_DEV_USED
+    def get_PCI_NIC(self):
+        return self.PCI_NIC
+    def set_PCI_NIC(self, PCI_NIC):
+        self.PCI_NIC = PCI_NIC
+    def get_PCI_NIC_USED(self):
+        return self.PCI_NIC_USED
+    def set_PCI_NIC_USED(self, PCI_NIC_USED):
+        self.PCI_NIC_USED = PCI_NIC_USED
     def get_RUNNING_CPU(self):
         return self.RUNNING_CPU
     def set_RUNNING_CPU(self, RUNNING_CPU):
@@ -31896,6 +32318,22 @@ class VMType26(GeneratedsSuper):
         return self.RUNNING_MEMORY_USED
     def set_RUNNING_MEMORY_USED(self, RUNNING_MEMORY_USED):
         self.RUNNING_MEMORY_USED = RUNNING_MEMORY_USED
+    def get_RUNNING_PCI_DEV(self):
+        return self.RUNNING_PCI_DEV
+    def set_RUNNING_PCI_DEV(self, RUNNING_PCI_DEV):
+        self.RUNNING_PCI_DEV = RUNNING_PCI_DEV
+    def get_RUNNING_PCI_DEV_USED(self):
+        return self.RUNNING_PCI_DEV_USED
+    def set_RUNNING_PCI_DEV_USED(self, RUNNING_PCI_DEV_USED):
+        self.RUNNING_PCI_DEV_USED = RUNNING_PCI_DEV_USED
+    def get_RUNNING_PCI_NIC(self):
+        return self.RUNNING_PCI_NIC
+    def set_RUNNING_PCI_NIC(self, RUNNING_PCI_NIC):
+        self.RUNNING_PCI_NIC = RUNNING_PCI_NIC
+    def get_RUNNING_PCI_NIC_USED(self):
+        return self.RUNNING_PCI_NIC_USED
+    def set_RUNNING_PCI_NIC_USED(self, RUNNING_PCI_NIC_USED):
+        self.RUNNING_PCI_NIC_USED = RUNNING_PCI_NIC_USED
     def get_RUNNING_VMS(self):
         return self.RUNNING_VMS
     def set_RUNNING_VMS(self, RUNNING_VMS):
@@ -31926,10 +32364,18 @@ class VMType26(GeneratedsSuper):
             self.CPU_USED is not None or
             self.MEMORY is not None or
             self.MEMORY_USED is not None or
+            self.PCI_DEV is not None or
+            self.PCI_DEV_USED is not None or
+            self.PCI_NIC is not None or
+            self.PCI_NIC_USED is not None or
             self.RUNNING_CPU is not None or
             self.RUNNING_CPU_USED is not None or
             self.RUNNING_MEMORY is not None or
             self.RUNNING_MEMORY_USED is not None or
+            self.RUNNING_PCI_DEV is not None or
+            self.RUNNING_PCI_DEV_USED is not None or
+            self.RUNNING_PCI_NIC is not None or
+            self.RUNNING_PCI_NIC_USED is not None or
             self.RUNNING_VMS is not None or
             self.RUNNING_VMS_USED is not None or
             self.SYSTEM_DISK_SIZE is not None or
@@ -31986,6 +32432,22 @@ class VMType26(GeneratedsSuper):
             namespaceprefix_ = self.MEMORY_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.MEMORY_USED_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sMEMORY_USED>%s</%sMEMORY_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.MEMORY_USED), input_name='MEMORY_USED')), namespaceprefix_ , eol_))
+        if self.PCI_DEV is not None:
+            namespaceprefix_ = self.PCI_DEV_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_DEV_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_DEV>%s</%sPCI_DEV>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_DEV), input_name='PCI_DEV')), namespaceprefix_ , eol_))
+        if self.PCI_DEV_USED is not None:
+            namespaceprefix_ = self.PCI_DEV_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_DEV_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_DEV_USED>%s</%sPCI_DEV_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_DEV_USED), input_name='PCI_DEV_USED')), namespaceprefix_ , eol_))
+        if self.PCI_NIC is not None:
+            namespaceprefix_ = self.PCI_NIC_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_NIC_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_NIC>%s</%sPCI_NIC>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_NIC), input_name='PCI_NIC')), namespaceprefix_ , eol_))
+        if self.PCI_NIC_USED is not None:
+            namespaceprefix_ = self.PCI_NIC_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_NIC_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_NIC_USED>%s</%sPCI_NIC_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_NIC_USED), input_name='PCI_NIC_USED')), namespaceprefix_ , eol_))
         if self.RUNNING_CPU is not None:
             namespaceprefix_ = self.RUNNING_CPU_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_CPU_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -32002,6 +32464,22 @@ class VMType26(GeneratedsSuper):
             namespaceprefix_ = self.RUNNING_MEMORY_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_MEMORY_USED_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sRUNNING_MEMORY_USED>%s</%sRUNNING_MEMORY_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_MEMORY_USED), input_name='RUNNING_MEMORY_USED')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_DEV is not None:
+            namespaceprefix_ = self.RUNNING_PCI_DEV_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_DEV_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_DEV>%s</%sRUNNING_PCI_DEV>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_DEV), input_name='RUNNING_PCI_DEV')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_DEV_USED is not None:
+            namespaceprefix_ = self.RUNNING_PCI_DEV_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_DEV_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_DEV_USED>%s</%sRUNNING_PCI_DEV_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_DEV_USED), input_name='RUNNING_PCI_DEV_USED')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_NIC is not None:
+            namespaceprefix_ = self.RUNNING_PCI_NIC_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_NIC_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_NIC>%s</%sRUNNING_PCI_NIC>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_NIC), input_name='RUNNING_PCI_NIC')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_NIC_USED is not None:
+            namespaceprefix_ = self.RUNNING_PCI_NIC_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_NIC_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_NIC_USED>%s</%sRUNNING_PCI_NIC_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_NIC_USED), input_name='RUNNING_PCI_NIC_USED')), namespaceprefix_ , eol_))
         if self.RUNNING_VMS is not None:
             namespaceprefix_ = self.RUNNING_VMS_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_VMS_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -32064,6 +32542,30 @@ class VMType26(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'MEMORY_USED')
             self.MEMORY_USED = value_
             self.MEMORY_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_DEV':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_DEV')
+            value_ = self.gds_validate_string(value_, node, 'PCI_DEV')
+            self.PCI_DEV = value_
+            self.PCI_DEV_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_DEV_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_DEV_USED')
+            value_ = self.gds_validate_string(value_, node, 'PCI_DEV_USED')
+            self.PCI_DEV_USED = value_
+            self.PCI_DEV_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_NIC':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_NIC')
+            value_ = self.gds_validate_string(value_, node, 'PCI_NIC')
+            self.PCI_NIC = value_
+            self.PCI_NIC_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_NIC_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_NIC_USED')
+            value_ = self.gds_validate_string(value_, node, 'PCI_NIC_USED')
+            self.PCI_NIC_USED = value_
+            self.PCI_NIC_USED_nsprefix_ = child_.prefix
         elif nodeName_ == 'RUNNING_CPU':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'RUNNING_CPU')
@@ -32088,6 +32590,30 @@ class VMType26(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'RUNNING_MEMORY_USED')
             self.RUNNING_MEMORY_USED = value_
             self.RUNNING_MEMORY_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_DEV':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_DEV')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_DEV')
+            self.RUNNING_PCI_DEV = value_
+            self.RUNNING_PCI_DEV_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_DEV_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_DEV_USED')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_DEV_USED')
+            self.RUNNING_PCI_DEV_USED = value_
+            self.RUNNING_PCI_DEV_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_NIC':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_NIC')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_NIC')
+            self.RUNNING_PCI_NIC = value_
+            self.RUNNING_PCI_NIC_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_NIC_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_NIC_USED')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_NIC_USED')
+            self.RUNNING_PCI_NIC_USED = value_
+            self.RUNNING_PCI_NIC_USED_nsprefix_ = child_.prefix
         elif nodeName_ == 'RUNNING_VMS':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'RUNNING_VMS')
@@ -32595,7 +33121,7 @@ class VMType31(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, gds_collector_=None, **kwargs_):
+    def __init__(self, CPU=None, CPU_USED=None, MEMORY=None, MEMORY_USED=None, PCI_DEV=None, PCI_DEV_USED=None, PCI_NIC=None, PCI_NIC_USED=None, RUNNING_CPU=None, RUNNING_CPU_USED=None, RUNNING_MEMORY=None, RUNNING_MEMORY_USED=None, RUNNING_PCI_DEV=None, RUNNING_PCI_DEV_USED=None, RUNNING_PCI_NIC=None, RUNNING_PCI_NIC_USED=None, RUNNING_VMS=None, RUNNING_VMS_USED=None, SYSTEM_DISK_SIZE=None, SYSTEM_DISK_SIZE_USED=None, VMS=None, VMS_USED=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -32609,6 +33135,14 @@ class VMType31(GeneratedsSuper):
         self.MEMORY_nsprefix_ = None
         self.MEMORY_USED = MEMORY_USED
         self.MEMORY_USED_nsprefix_ = None
+        self.PCI_DEV = PCI_DEV
+        self.PCI_DEV_nsprefix_ = None
+        self.PCI_DEV_USED = PCI_DEV_USED
+        self.PCI_DEV_USED_nsprefix_ = None
+        self.PCI_NIC = PCI_NIC
+        self.PCI_NIC_nsprefix_ = None
+        self.PCI_NIC_USED = PCI_NIC_USED
+        self.PCI_NIC_USED_nsprefix_ = None
         self.RUNNING_CPU = RUNNING_CPU
         self.RUNNING_CPU_nsprefix_ = None
         self.RUNNING_CPU_USED = RUNNING_CPU_USED
@@ -32617,6 +33151,14 @@ class VMType31(GeneratedsSuper):
         self.RUNNING_MEMORY_nsprefix_ = None
         self.RUNNING_MEMORY_USED = RUNNING_MEMORY_USED
         self.RUNNING_MEMORY_USED_nsprefix_ = None
+        self.RUNNING_PCI_DEV = RUNNING_PCI_DEV
+        self.RUNNING_PCI_DEV_nsprefix_ = None
+        self.RUNNING_PCI_DEV_USED = RUNNING_PCI_DEV_USED
+        self.RUNNING_PCI_DEV_USED_nsprefix_ = None
+        self.RUNNING_PCI_NIC = RUNNING_PCI_NIC
+        self.RUNNING_PCI_NIC_nsprefix_ = None
+        self.RUNNING_PCI_NIC_USED = RUNNING_PCI_NIC_USED
+        self.RUNNING_PCI_NIC_USED_nsprefix_ = None
         self.RUNNING_VMS = RUNNING_VMS
         self.RUNNING_VMS_nsprefix_ = None
         self.RUNNING_VMS_USED = RUNNING_VMS_USED
@@ -32660,6 +33202,22 @@ class VMType31(GeneratedsSuper):
         return self.MEMORY_USED
     def set_MEMORY_USED(self, MEMORY_USED):
         self.MEMORY_USED = MEMORY_USED
+    def get_PCI_DEV(self):
+        return self.PCI_DEV
+    def set_PCI_DEV(self, PCI_DEV):
+        self.PCI_DEV = PCI_DEV
+    def get_PCI_DEV_USED(self):
+        return self.PCI_DEV_USED
+    def set_PCI_DEV_USED(self, PCI_DEV_USED):
+        self.PCI_DEV_USED = PCI_DEV_USED
+    def get_PCI_NIC(self):
+        return self.PCI_NIC
+    def set_PCI_NIC(self, PCI_NIC):
+        self.PCI_NIC = PCI_NIC
+    def get_PCI_NIC_USED(self):
+        return self.PCI_NIC_USED
+    def set_PCI_NIC_USED(self, PCI_NIC_USED):
+        self.PCI_NIC_USED = PCI_NIC_USED
     def get_RUNNING_CPU(self):
         return self.RUNNING_CPU
     def set_RUNNING_CPU(self, RUNNING_CPU):
@@ -32676,6 +33234,22 @@ class VMType31(GeneratedsSuper):
         return self.RUNNING_MEMORY_USED
     def set_RUNNING_MEMORY_USED(self, RUNNING_MEMORY_USED):
         self.RUNNING_MEMORY_USED = RUNNING_MEMORY_USED
+    def get_RUNNING_PCI_DEV(self):
+        return self.RUNNING_PCI_DEV
+    def set_RUNNING_PCI_DEV(self, RUNNING_PCI_DEV):
+        self.RUNNING_PCI_DEV = RUNNING_PCI_DEV
+    def get_RUNNING_PCI_DEV_USED(self):
+        return self.RUNNING_PCI_DEV_USED
+    def set_RUNNING_PCI_DEV_USED(self, RUNNING_PCI_DEV_USED):
+        self.RUNNING_PCI_DEV_USED = RUNNING_PCI_DEV_USED
+    def get_RUNNING_PCI_NIC(self):
+        return self.RUNNING_PCI_NIC
+    def set_RUNNING_PCI_NIC(self, RUNNING_PCI_NIC):
+        self.RUNNING_PCI_NIC = RUNNING_PCI_NIC
+    def get_RUNNING_PCI_NIC_USED(self):
+        return self.RUNNING_PCI_NIC_USED
+    def set_RUNNING_PCI_NIC_USED(self, RUNNING_PCI_NIC_USED):
+        self.RUNNING_PCI_NIC_USED = RUNNING_PCI_NIC_USED
     def get_RUNNING_VMS(self):
         return self.RUNNING_VMS
     def set_RUNNING_VMS(self, RUNNING_VMS):
@@ -32706,10 +33280,18 @@ class VMType31(GeneratedsSuper):
             self.CPU_USED is not None or
             self.MEMORY is not None or
             self.MEMORY_USED is not None or
+            self.PCI_DEV is not None or
+            self.PCI_DEV_USED is not None or
+            self.PCI_NIC is not None or
+            self.PCI_NIC_USED is not None or
             self.RUNNING_CPU is not None or
             self.RUNNING_CPU_USED is not None or
             self.RUNNING_MEMORY is not None or
             self.RUNNING_MEMORY_USED is not None or
+            self.RUNNING_PCI_DEV is not None or
+            self.RUNNING_PCI_DEV_USED is not None or
+            self.RUNNING_PCI_NIC is not None or
+            self.RUNNING_PCI_NIC_USED is not None or
             self.RUNNING_VMS is not None or
             self.RUNNING_VMS_USED is not None or
             self.SYSTEM_DISK_SIZE is not None or
@@ -32766,6 +33348,22 @@ class VMType31(GeneratedsSuper):
             namespaceprefix_ = self.MEMORY_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.MEMORY_USED_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sMEMORY_USED>%s</%sMEMORY_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.MEMORY_USED), input_name='MEMORY_USED')), namespaceprefix_ , eol_))
+        if self.PCI_DEV is not None:
+            namespaceprefix_ = self.PCI_DEV_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_DEV_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_DEV>%s</%sPCI_DEV>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_DEV), input_name='PCI_DEV')), namespaceprefix_ , eol_))
+        if self.PCI_DEV_USED is not None:
+            namespaceprefix_ = self.PCI_DEV_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_DEV_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_DEV_USED>%s</%sPCI_DEV_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_DEV_USED), input_name='PCI_DEV_USED')), namespaceprefix_ , eol_))
+        if self.PCI_NIC is not None:
+            namespaceprefix_ = self.PCI_NIC_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_NIC_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_NIC>%s</%sPCI_NIC>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_NIC), input_name='PCI_NIC')), namespaceprefix_ , eol_))
+        if self.PCI_NIC_USED is not None:
+            namespaceprefix_ = self.PCI_NIC_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_NIC_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPCI_NIC_USED>%s</%sPCI_NIC_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PCI_NIC_USED), input_name='PCI_NIC_USED')), namespaceprefix_ , eol_))
         if self.RUNNING_CPU is not None:
             namespaceprefix_ = self.RUNNING_CPU_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_CPU_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -32782,6 +33380,22 @@ class VMType31(GeneratedsSuper):
             namespaceprefix_ = self.RUNNING_MEMORY_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_MEMORY_USED_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sRUNNING_MEMORY_USED>%s</%sRUNNING_MEMORY_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_MEMORY_USED), input_name='RUNNING_MEMORY_USED')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_DEV is not None:
+            namespaceprefix_ = self.RUNNING_PCI_DEV_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_DEV_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_DEV>%s</%sRUNNING_PCI_DEV>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_DEV), input_name='RUNNING_PCI_DEV')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_DEV_USED is not None:
+            namespaceprefix_ = self.RUNNING_PCI_DEV_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_DEV_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_DEV_USED>%s</%sRUNNING_PCI_DEV_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_DEV_USED), input_name='RUNNING_PCI_DEV_USED')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_NIC is not None:
+            namespaceprefix_ = self.RUNNING_PCI_NIC_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_NIC_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_NIC>%s</%sRUNNING_PCI_NIC>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_NIC), input_name='RUNNING_PCI_NIC')), namespaceprefix_ , eol_))
+        if self.RUNNING_PCI_NIC_USED is not None:
+            namespaceprefix_ = self.RUNNING_PCI_NIC_USED_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_PCI_NIC_USED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRUNNING_PCI_NIC_USED>%s</%sRUNNING_PCI_NIC_USED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RUNNING_PCI_NIC_USED), input_name='RUNNING_PCI_NIC_USED')), namespaceprefix_ , eol_))
         if self.RUNNING_VMS is not None:
             namespaceprefix_ = self.RUNNING_VMS_nsprefix_ + ':' if (UseCapturedNS_ and self.RUNNING_VMS_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -32844,6 +33458,30 @@ class VMType31(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'MEMORY_USED')
             self.MEMORY_USED = value_
             self.MEMORY_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_DEV':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_DEV')
+            value_ = self.gds_validate_string(value_, node, 'PCI_DEV')
+            self.PCI_DEV = value_
+            self.PCI_DEV_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_DEV_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_DEV_USED')
+            value_ = self.gds_validate_string(value_, node, 'PCI_DEV_USED')
+            self.PCI_DEV_USED = value_
+            self.PCI_DEV_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_NIC':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_NIC')
+            value_ = self.gds_validate_string(value_, node, 'PCI_NIC')
+            self.PCI_NIC = value_
+            self.PCI_NIC_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PCI_NIC_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PCI_NIC_USED')
+            value_ = self.gds_validate_string(value_, node, 'PCI_NIC_USED')
+            self.PCI_NIC_USED = value_
+            self.PCI_NIC_USED_nsprefix_ = child_.prefix
         elif nodeName_ == 'RUNNING_CPU':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'RUNNING_CPU')
@@ -32868,6 +33506,30 @@ class VMType31(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'RUNNING_MEMORY_USED')
             self.RUNNING_MEMORY_USED = value_
             self.RUNNING_MEMORY_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_DEV':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_DEV')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_DEV')
+            self.RUNNING_PCI_DEV = value_
+            self.RUNNING_PCI_DEV_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_DEV_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_DEV_USED')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_DEV_USED')
+            self.RUNNING_PCI_DEV_USED = value_
+            self.RUNNING_PCI_DEV_USED_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_NIC':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_NIC')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_NIC')
+            self.RUNNING_PCI_NIC = value_
+            self.RUNNING_PCI_NIC_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RUNNING_PCI_NIC_USED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RUNNING_PCI_NIC_USED')
+            value_ = self.gds_validate_string(value_, node, 'RUNNING_PCI_NIC_USED')
+            self.RUNNING_PCI_NIC_USED = value_
+            self.RUNNING_PCI_NIC_USED_nsprefix_ = child_.prefix
         elif nodeName_ == 'RUNNING_VMS':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'RUNNING_VMS')
@@ -36895,7 +37557,7 @@ class TEMPLATEType47(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, AUTOMATIC_DS_REQUIREMENTS=None, AUTOMATIC_NIC_REQUIREMENTS=None, AUTOMATIC_REQUIREMENTS=None, CLONING_TEMPLATE_ID=None, CONTEXT=None, CPU=None, CPU_COST=None, DISK=None, DISK_COST=None, EMULATOR=None, FEATURES=None, HYPERV_OPTIONS=None, GRAPHICS=None, VIDEO=None, IMPORTED=None, INPUT=None, MEMORY=None, MEMORY_COST=None, MEMORY_MAX=None, MEMORY_SLOTS=None, MEMORY_RESIZE_MODE=None, NIC=None, NIC_ALIAS=None, NIC_DEFAULT=None, NUMA_NODE=None, OS=None, PCI=None, RAW=None, SECURITY_GROUP_RULE=None, SNAPSHOT=None, SPICE_OPTIONS=None, SUBMIT_ON_HOLD=None, TEMPLATE_ID=None, TM_MAD_SYSTEM=None, TOPOLOGY=None, TPM=None, VCPU=None, VCPU_MAX=None, VMGROUP=None, VMID=None, VROUTER_ID=None, VROUTER_KEEPALIVED_ID=None, VROUTER_KEEPALIVED_PASSWORD=None, SCHED_ACTION=None, gds_collector_=None, **kwargs_):
+    def __init__(self, AUTOMATIC_DS_REQUIREMENTS=None, AUTOMATIC_NIC_REQUIREMENTS=None, AUTOMATIC_REQUIREMENTS=None, CLONING_TEMPLATE_ID=None, CONTEXT=None, CPU=None, CPU_COST=None, DISK=None, DISK_COST=None, EMULATOR=None, FEATURES=None, HYPERV_OPTIONS=None, GRAPHICS=None, VIDEO=None, IMPORTED=None, INPUT=None, MEMORY=None, MEMORY_COST=None, MEMORY_MAX=None, MEMORY_SLOTS=None, MEMORY_RESIZE_MODE=None, NIC=None, NIC_ALIAS=None, NIC_DEFAULT=None, NUMA_NODE=None, OS=None, PCI=None, QEMU_GA_EXEC=None, RAW=None, SECURITY_GROUP_RULE=None, SNAPSHOT=None, SPICE_OPTIONS=None, SUBMIT_ON_HOLD=None, TEMPLATE_ID=None, TM_MAD_SYSTEM=None, TOPOLOGY=None, TPM=None, MEMORY_ENCRYPTION=None, VCPU=None, VCPU_MAX=None, VMGROUP=None, VMID=None, VROUTER_ID=None, VROUTER_KEEPALIVED_ID=None, VROUTER_KEEPALIVED_PASSWORD=None, SCHED_ACTION=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -36967,6 +37629,8 @@ class TEMPLATEType47(GeneratedsSuper):
         else:
             self.PCI = PCI
         self.PCI_nsprefix_ = None
+        self.QEMU_GA_EXEC = QEMU_GA_EXEC
+        self.QEMU_GA_EXEC_nsprefix_ = None
         self.RAW = RAW
         self.RAW_nsprefix_ = None
         if SECURITY_GROUP_RULE is None:
@@ -36991,6 +37655,8 @@ class TEMPLATEType47(GeneratedsSuper):
         self.TOPOLOGY_nsprefix_ = None
         self.TPM = TPM
         self.TPM_nsprefix_ = None
+        self.MEMORY_ENCRYPTION = MEMORY_ENCRYPTION
+        self.MEMORY_ENCRYPTION_nsprefix_ = None
         self.VCPU = VCPU
         self.VCPU_nsprefix_ = None
         self.VCPU_MAX = VCPU_MAX
@@ -37157,6 +37823,10 @@ class TEMPLATEType47(GeneratedsSuper):
         self.PCI.insert(index, value)
     def replace_PCI_at(self, index, value):
         self.PCI[index] = value
+    def get_QEMU_GA_EXEC(self):
+        return self.QEMU_GA_EXEC
+    def set_QEMU_GA_EXEC(self, QEMU_GA_EXEC):
+        self.QEMU_GA_EXEC = QEMU_GA_EXEC
     def get_RAW(self):
         return self.RAW
     def set_RAW(self, RAW):
@@ -37205,6 +37875,10 @@ class TEMPLATEType47(GeneratedsSuper):
         return self.TPM
     def set_TPM(self, TPM):
         self.TPM = TPM
+    def get_MEMORY_ENCRYPTION(self):
+        return self.MEMORY_ENCRYPTION
+    def set_MEMORY_ENCRYPTION(self, MEMORY_ENCRYPTION):
+        self.MEMORY_ENCRYPTION = MEMORY_ENCRYPTION
     def get_VCPU(self):
         return self.VCPU
     def set_VCPU(self, VCPU):
@@ -37272,6 +37946,7 @@ class TEMPLATEType47(GeneratedsSuper):
             self.NUMA_NODE is not None or
             self.OS is not None or
             self.PCI or
+            self.QEMU_GA_EXEC is not None or
             self.RAW is not None or
             self.SECURITY_GROUP_RULE or
             self.SNAPSHOT or
@@ -37281,6 +37956,7 @@ class TEMPLATEType47(GeneratedsSuper):
             self.TM_MAD_SYSTEM is not None or
             self.TOPOLOGY is not None or
             self.TPM is not None or
+            self.MEMORY_ENCRYPTION is not None or
             self.VCPU is not None or
             self.VCPU_MAX is not None or
             self.VMGROUP is not None or
@@ -37428,6 +38104,9 @@ class TEMPLATEType47(GeneratedsSuper):
             namespaceprefix_ = self.PCI_nsprefix_ + ':' if (UseCapturedNS_ and self.PCI_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sPCI>%s</%sPCI>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(PCI_), input_name='PCI')), namespaceprefix_ , eol_))
+        if self.QEMU_GA_EXEC is not None:
+            namespaceprefix_ = self.QEMU_GA_EXEC_nsprefix_ + ':' if (UseCapturedNS_ and self.QEMU_GA_EXEC_nsprefix_) else ''
+            self.QEMU_GA_EXEC.export(outfile, level, namespaceprefix_, namespacedef_='', name_='QEMU_GA_EXEC', pretty_print=pretty_print)
         if self.RAW is not None:
             namespaceprefix_ = self.RAW_nsprefix_ + ':' if (UseCapturedNS_ and self.RAW_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -37462,6 +38141,9 @@ class TEMPLATEType47(GeneratedsSuper):
         if self.TPM is not None:
             namespaceprefix_ = self.TPM_nsprefix_ + ':' if (UseCapturedNS_ and self.TPM_nsprefix_) else ''
             self.TPM.export(outfile, level, namespaceprefix_, namespacedef_='', name_='TPM', pretty_print=pretty_print)
+        if self.MEMORY_ENCRYPTION is not None:
+            namespaceprefix_ = self.MEMORY_ENCRYPTION_nsprefix_ + ':' if (UseCapturedNS_ and self.MEMORY_ENCRYPTION_nsprefix_) else ''
+            self.MEMORY_ENCRYPTION.export(outfile, level, namespaceprefix_, namespacedef_='', name_='MEMORY_ENCRYPTION', pretty_print=pretty_print)
         if self.VCPU is not None:
             namespaceprefix_ = self.VCPU_nsprefix_ + ':' if (UseCapturedNS_ and self.VCPU_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -37666,6 +38348,11 @@ class TEMPLATEType47(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'PCI')
             self.PCI.append(value_)
             self.PCI_nsprefix_ = child_.prefix
+        elif nodeName_ == 'QEMU_GA_EXEC':
+            obj_ = QEMU_GA_EXECType.factory(parent_object_=self)
+            obj_.build(child_, gds_collector_=gds_collector_)
+            self.QEMU_GA_EXEC = obj_
+            obj_.original_tagname_ = 'QEMU_GA_EXEC'
         elif nodeName_ == 'RAW':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'RAW')
@@ -37718,6 +38405,11 @@ class TEMPLATEType47(GeneratedsSuper):
             obj_.build(child_, gds_collector_=gds_collector_)
             self.TPM = obj_
             obj_.original_tagname_ = 'TPM'
+        elif nodeName_ == 'MEMORY_ENCRYPTION':
+            obj_ = MEMORY_ENCRYPTIONType.factory(parent_object_=self)
+            obj_.build(child_, gds_collector_=gds_collector_)
+            self.MEMORY_ENCRYPTION = obj_
+            obj_.original_tagname_ = 'MEMORY_ENCRYPTION'
         elif nodeName_ == 'VCPU':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'VCPU')
@@ -39107,6 +39799,203 @@ class NIC_ALIASType(GeneratedsSuper):
 # end class NIC_ALIASType
 
 
+class QEMU_GA_EXECType(GeneratedsSuper):
+    __hash__ = GeneratedsSuper.__hash__
+    subclass = None
+    superclass = None
+    def __init__(self, COMMAND=None, PID=None, RETURN_CODE=None, STATUS=None, STDERR=None, STDIN=None, STDOUT=None, gds_collector_=None, **kwargs_):
+        self.gds_collector_ = gds_collector_
+        self.gds_elementtree_node_ = None
+        self.original_tagname_ = None
+        self.parent_object_ = kwargs_.get('parent_object_')
+        self.ns_prefix_ = None
+        self.COMMAND = COMMAND
+        self.COMMAND_nsprefix_ = None
+        self.PID = PID
+        self.PID_nsprefix_ = None
+        self.RETURN_CODE = RETURN_CODE
+        self.RETURN_CODE_nsprefix_ = None
+        self.STATUS = STATUS
+        self.STATUS_nsprefix_ = None
+        self.STDERR = STDERR
+        self.STDERR_nsprefix_ = None
+        self.STDIN = STDIN
+        self.STDIN_nsprefix_ = None
+        self.STDOUT = STDOUT
+        self.STDOUT_nsprefix_ = None
+    def factory(*args_, **kwargs_):
+        if CurrentSubclassModule_ is not None:
+            subclass = getSubclassFromModule_(
+                CurrentSubclassModule_, QEMU_GA_EXECType)
+            if subclass is not None:
+                return subclass(*args_, **kwargs_)
+        if QEMU_GA_EXECType.subclass:
+            return QEMU_GA_EXECType.subclass(*args_, **kwargs_)
+        else:
+            return QEMU_GA_EXECType(*args_, **kwargs_)
+    factory = staticmethod(factory)
+    def get_ns_prefix_(self):
+        return self.ns_prefix_
+    def set_ns_prefix_(self, ns_prefix):
+        self.ns_prefix_ = ns_prefix
+    def get_COMMAND(self):
+        return self.COMMAND
+    def set_COMMAND(self, COMMAND):
+        self.COMMAND = COMMAND
+    def get_PID(self):
+        return self.PID
+    def set_PID(self, PID):
+        self.PID = PID
+    def get_RETURN_CODE(self):
+        return self.RETURN_CODE
+    def set_RETURN_CODE(self, RETURN_CODE):
+        self.RETURN_CODE = RETURN_CODE
+    def get_STATUS(self):
+        return self.STATUS
+    def set_STATUS(self, STATUS):
+        self.STATUS = STATUS
+    def get_STDERR(self):
+        return self.STDERR
+    def set_STDERR(self, STDERR):
+        self.STDERR = STDERR
+    def get_STDIN(self):
+        return self.STDIN
+    def set_STDIN(self, STDIN):
+        self.STDIN = STDIN
+    def get_STDOUT(self):
+        return self.STDOUT
+    def set_STDOUT(self, STDOUT):
+        self.STDOUT = STDOUT
+    def has__content(self):
+        if (
+            self.COMMAND is not None or
+            self.PID is not None or
+            self.RETURN_CODE is not None or
+            self.STATUS is not None or
+            self.STDERR is not None or
+            self.STDIN is not None or
+            self.STDOUT is not None
+        ):
+            return True
+        else:
+            return False
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='QEMU_GA_EXECType', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('QEMU_GA_EXECType')
+        if imported_ns_def_ is not None:
+            namespacedef_ = imported_ns_def_
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.original_tagname_ is not None and name_ == 'QEMU_GA_EXECType':
+            name_ = self.original_tagname_
+        if UseCapturedNS_ and self.ns_prefix_:
+            namespaceprefix_ = self.ns_prefix_ + ':'
+        showIndent(outfile, level, pretty_print)
+        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
+        already_processed = set()
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='QEMU_GA_EXECType')
+        if self.has__content():
+            outfile.write('>%s' % (eol_, ))
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='QEMU_GA_EXECType', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
+        else:
+            outfile.write('/>%s' % (eol_, ))
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='QEMU_GA_EXECType'):
+        pass
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='QEMU_GA_EXECType', fromsubclass_=False, pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.COMMAND is not None:
+            namespaceprefix_ = self.COMMAND_nsprefix_ + ':' if (UseCapturedNS_ and self.COMMAND_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sCOMMAND>%s</%sCOMMAND>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.COMMAND), input_name='COMMAND')), namespaceprefix_ , eol_))
+        if self.PID is not None:
+            namespaceprefix_ = self.PID_nsprefix_ + ':' if (UseCapturedNS_ and self.PID_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sPID>%s</%sPID>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PID), input_name='PID')), namespaceprefix_ , eol_))
+        if self.RETURN_CODE is not None:
+            namespaceprefix_ = self.RETURN_CODE_nsprefix_ + ':' if (UseCapturedNS_ and self.RETURN_CODE_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sRETURN_CODE>%s</%sRETURN_CODE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RETURN_CODE), input_name='RETURN_CODE')), namespaceprefix_ , eol_))
+        if self.STATUS is not None:
+            namespaceprefix_ = self.STATUS_nsprefix_ + ':' if (UseCapturedNS_ and self.STATUS_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sSTATUS>%s</%sSTATUS>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.STATUS), input_name='STATUS')), namespaceprefix_ , eol_))
+        if self.STDERR is not None:
+            namespaceprefix_ = self.STDERR_nsprefix_ + ':' if (UseCapturedNS_ and self.STDERR_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sSTDERR>%s</%sSTDERR>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.STDERR), input_name='STDERR')), namespaceprefix_ , eol_))
+        if self.STDIN is not None:
+            namespaceprefix_ = self.STDIN_nsprefix_ + ':' if (UseCapturedNS_ and self.STDIN_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sSTDIN>%s</%sSTDIN>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.STDIN), input_name='STDIN')), namespaceprefix_ , eol_))
+        if self.STDOUT is not None:
+            namespaceprefix_ = self.STDOUT_nsprefix_ + ':' if (UseCapturedNS_ and self.STDOUT_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sSTDOUT>%s</%sSTDOUT>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.STDOUT), input_name='STDOUT')), namespaceprefix_ , eol_))
+    def build(self, node, gds_collector_=None):
+        self.gds_collector_ = gds_collector_
+        if SaveElementTreeNode:
+            self.gds_elementtree_node_ = node
+        already_processed = set()
+        self.ns_prefix_ = node.prefix
+        self._buildAttributes(node, node.attrib, already_processed)
+        for child in node:
+            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
+            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
+        return self
+    def _buildAttributes(self, node, attrs, already_processed):
+        pass
+    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
+        if nodeName_ == 'COMMAND':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'COMMAND')
+            value_ = self.gds_validate_string(value_, node, 'COMMAND')
+            self.COMMAND = value_
+            self.COMMAND_nsprefix_ = child_.prefix
+        elif nodeName_ == 'PID':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'PID')
+            value_ = self.gds_validate_string(value_, node, 'PID')
+            self.PID = value_
+            self.PID_nsprefix_ = child_.prefix
+        elif nodeName_ == 'RETURN_CODE':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'RETURN_CODE')
+            value_ = self.gds_validate_string(value_, node, 'RETURN_CODE')
+            self.RETURN_CODE = value_
+            self.RETURN_CODE_nsprefix_ = child_.prefix
+        elif nodeName_ == 'STATUS':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'STATUS')
+            value_ = self.gds_validate_string(value_, node, 'STATUS')
+            self.STATUS = value_
+            self.STATUS_nsprefix_ = child_.prefix
+        elif nodeName_ == 'STDERR':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'STDERR')
+            value_ = self.gds_validate_string(value_, node, 'STDERR')
+            self.STDERR = value_
+            self.STDERR_nsprefix_ = child_.prefix
+        elif nodeName_ == 'STDIN':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'STDIN')
+            value_ = self.gds_validate_string(value_, node, 'STDIN')
+            self.STDIN = value_
+            self.STDIN_nsprefix_ = child_.prefix
+        elif nodeName_ == 'STDOUT':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'STDOUT')
+            value_ = self.gds_validate_string(value_, node, 'STDOUT')
+            self.STDOUT = value_
+            self.STDOUT_nsprefix_ = child_.prefix
+# end class QEMU_GA_EXECType
+
+
 class SNAPSHOTType49(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
@@ -39397,6 +40286,101 @@ class TPMType(GeneratedsSuper):
             self.MODEL = value_
             self.MODEL_nsprefix_ = child_.prefix
 # end class TPMType
+
+
+class MEMORY_ENCRYPTIONType(GeneratedsSuper):
+    __hash__ = GeneratedsSuper.__hash__
+    subclass = None
+    superclass = None
+    def __init__(self, TYPE=None, gds_collector_=None, **kwargs_):
+        self.gds_collector_ = gds_collector_
+        self.gds_elementtree_node_ = None
+        self.original_tagname_ = None
+        self.parent_object_ = kwargs_.get('parent_object_')
+        self.ns_prefix_ = None
+        self.TYPE = TYPE
+        self.TYPE_nsprefix_ = None
+    def factory(*args_, **kwargs_):
+        if CurrentSubclassModule_ is not None:
+            subclass = getSubclassFromModule_(
+                CurrentSubclassModule_, MEMORY_ENCRYPTIONType)
+            if subclass is not None:
+                return subclass(*args_, **kwargs_)
+        if MEMORY_ENCRYPTIONType.subclass:
+            return MEMORY_ENCRYPTIONType.subclass(*args_, **kwargs_)
+        else:
+            return MEMORY_ENCRYPTIONType(*args_, **kwargs_)
+    factory = staticmethod(factory)
+    def get_ns_prefix_(self):
+        return self.ns_prefix_
+    def set_ns_prefix_(self, ns_prefix):
+        self.ns_prefix_ = ns_prefix
+    def get_TYPE(self):
+        return self.TYPE
+    def set_TYPE(self, TYPE):
+        self.TYPE = TYPE
+    def has__content(self):
+        if (
+            self.TYPE is not None
+        ):
+            return True
+        else:
+            return False
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MEMORY_ENCRYPTIONType', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('MEMORY_ENCRYPTIONType')
+        if imported_ns_def_ is not None:
+            namespacedef_ = imported_ns_def_
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.original_tagname_ is not None and name_ == 'MEMORY_ENCRYPTIONType':
+            name_ = self.original_tagname_
+        if UseCapturedNS_ and self.ns_prefix_:
+            namespaceprefix_ = self.ns_prefix_ + ':'
+        showIndent(outfile, level, pretty_print)
+        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
+        already_processed = set()
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='MEMORY_ENCRYPTIONType')
+        if self.has__content():
+            outfile.write('>%s' % (eol_, ))
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='MEMORY_ENCRYPTIONType', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
+        else:
+            outfile.write('/>%s' % (eol_, ))
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='MEMORY_ENCRYPTIONType'):
+        pass
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MEMORY_ENCRYPTIONType', fromsubclass_=False, pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.TYPE is not None:
+            namespaceprefix_ = self.TYPE_nsprefix_ + ':' if (UseCapturedNS_ and self.TYPE_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sTYPE>%s</%sTYPE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.TYPE), input_name='TYPE')), namespaceprefix_ , eol_))
+    def build(self, node, gds_collector_=None):
+        self.gds_collector_ = gds_collector_
+        if SaveElementTreeNode:
+            self.gds_elementtree_node_ = node
+        already_processed = set()
+        self.ns_prefix_ = node.prefix
+        self._buildAttributes(node, node.attrib, already_processed)
+        for child in node:
+            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
+            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
+        return self
+    def _buildAttributes(self, node, attrs, already_processed):
+        pass
+    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
+        if nodeName_ == 'TYPE':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'TYPE')
+            value_ = self.gds_validate_string(value_, node, 'TYPE')
+            self.TYPE = value_
+            self.TYPE_nsprefix_ = child_.prefix
+# end class MEMORY_ENCRYPTIONType
 
 
 class HISTORY_RECORDSType50(GeneratedsSuper):
@@ -42192,7 +43176,7 @@ class ARType(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, ALLOCATED=None, AR_ID=None, GLOBAL_PREFIX=None, IP=None, MAC=None, PARENT_NETWORK_AR_ID=None, SIZE=None, TYPE=None, ULA_PREFIX=None, VN_MAD=None, gds_collector_=None, **kwargs_):
+    def __init__(self, ALLOCATED=None, AR_ID=None, GLOBAL_PREFIX=None, IP=None, MAC=None, PARENT_NETWORK_AR_ID=None, SHARED=None, SIZE=None, TYPE=None, ULA_PREFIX=None, VN_MAD=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -42210,6 +43194,8 @@ class ARType(GeneratedsSuper):
         self.MAC_nsprefix_ = None
         self.PARENT_NETWORK_AR_ID = PARENT_NETWORK_AR_ID
         self.PARENT_NETWORK_AR_ID_nsprefix_ = None
+        self.SHARED = SHARED
+        self.SHARED_nsprefix_ = None
         self.SIZE = SIZE
         self.SIZE_nsprefix_ = None
         self.TYPE = TYPE
@@ -42257,6 +43243,10 @@ class ARType(GeneratedsSuper):
         return self.PARENT_NETWORK_AR_ID
     def set_PARENT_NETWORK_AR_ID(self, PARENT_NETWORK_AR_ID):
         self.PARENT_NETWORK_AR_ID = PARENT_NETWORK_AR_ID
+    def get_SHARED(self):
+        return self.SHARED
+    def set_SHARED(self, SHARED):
+        self.SHARED = SHARED
     def get_SIZE(self):
         return self.SIZE
     def set_SIZE(self, SIZE):
@@ -42281,6 +43271,7 @@ class ARType(GeneratedsSuper):
             self.IP is not None or
             self.MAC is not None or
             self.PARENT_NETWORK_AR_ID is not None or
+            self.SHARED is not None or
             self.SIZE is not None or
             self.TYPE is not None or
             self.ULA_PREFIX is not None or
@@ -42343,6 +43334,10 @@ class ARType(GeneratedsSuper):
             namespaceprefix_ = self.PARENT_NETWORK_AR_ID_nsprefix_ + ':' if (UseCapturedNS_ and self.PARENT_NETWORK_AR_ID_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sPARENT_NETWORK_AR_ID>%s</%sPARENT_NETWORK_AR_ID>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PARENT_NETWORK_AR_ID), input_name='PARENT_NETWORK_AR_ID')), namespaceprefix_ , eol_))
+        if self.SHARED is not None:
+            namespaceprefix_ = self.SHARED_nsprefix_ + ':' if (UseCapturedNS_ and self.SHARED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sSHARED>%s</%sSHARED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.SHARED), input_name='SHARED')), namespaceprefix_ , eol_))
         if self.SIZE is not None:
             namespaceprefix_ = self.SIZE_nsprefix_ + ':' if (UseCapturedNS_ and self.SIZE_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -42409,6 +43404,12 @@ class ARType(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'PARENT_NETWORK_AR_ID')
             self.PARENT_NETWORK_AR_ID = value_
             self.PARENT_NETWORK_AR_ID_nsprefix_ = child_.prefix
+        elif nodeName_ == 'SHARED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'SHARED')
+            value_ = self.gds_validate_string(value_, node, 'SHARED')
+            self.SHARED = value_
+            self.SHARED_nsprefix_ = child_.prefix
         elif nodeName_ == 'SIZE' and child_.text:
             sval_ = child_.text
             ival_ = self.gds_parse_integer(sval_, node, 'SIZE')
@@ -43543,7 +44544,7 @@ class ARType72(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, AR_ID=None, GLOBAL_PREFIX=None, IP=None, MAC=None, PARENT_NETWORK_AR_ID=None, SIZE=None, TYPE=None, ULA_PREFIX=None, VN_MAD=None, MAC_END=None, IP_END=None, IP6_ULA=None, IP6_ULA_END=None, IP6_GLOBAL=None, IP6_GLOBAL_END=None, IP6=None, IP6_END=None, PORT_START=None, PORT_SIZE=None, USED_LEASES=None, LEASES=None, gds_collector_=None, **kwargs_):
+    def __init__(self, AR_ID=None, GLOBAL_PREFIX=None, IP=None, MAC=None, PARENT_NETWORK_AR_ID=None, SHARED=None, SIZE=None, TYPE=None, ULA_PREFIX=None, VN_MAD=None, MAC_END=None, IP_END=None, IP6_ULA=None, IP6_ULA_END=None, IP6_GLOBAL=None, IP6_GLOBAL_END=None, IP6=None, IP6_END=None, PORT_START=None, PORT_SIZE=None, USED_LEASES=None, LEASES=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -43559,6 +44560,8 @@ class ARType72(GeneratedsSuper):
         self.MAC_nsprefix_ = None
         self.PARENT_NETWORK_AR_ID = PARENT_NETWORK_AR_ID
         self.PARENT_NETWORK_AR_ID_nsprefix_ = None
+        self.SHARED = SHARED
+        self.SHARED_nsprefix_ = None
         self.SIZE = SIZE
         self.SIZE_nsprefix_ = None
         self.TYPE = TYPE
@@ -43626,6 +44629,10 @@ class ARType72(GeneratedsSuper):
         return self.PARENT_NETWORK_AR_ID
     def set_PARENT_NETWORK_AR_ID(self, PARENT_NETWORK_AR_ID):
         self.PARENT_NETWORK_AR_ID = PARENT_NETWORK_AR_ID
+    def get_SHARED(self):
+        return self.SHARED
+    def set_SHARED(self, SHARED):
+        self.SHARED = SHARED
     def get_SIZE(self):
         return self.SIZE
     def set_SIZE(self, SIZE):
@@ -43697,6 +44704,7 @@ class ARType72(GeneratedsSuper):
             self.IP is not None or
             self.MAC is not None or
             self.PARENT_NETWORK_AR_ID is not None or
+            self.SHARED is not None or
             self.SIZE is not None or
             self.TYPE is not None or
             self.ULA_PREFIX is not None or
@@ -43767,6 +44775,10 @@ class ARType72(GeneratedsSuper):
             namespaceprefix_ = self.PARENT_NETWORK_AR_ID_nsprefix_ + ':' if (UseCapturedNS_ and self.PARENT_NETWORK_AR_ID_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sPARENT_NETWORK_AR_ID>%s</%sPARENT_NETWORK_AR_ID>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PARENT_NETWORK_AR_ID), input_name='PARENT_NETWORK_AR_ID')), namespaceprefix_ , eol_))
+        if self.SHARED is not None:
+            namespaceprefix_ = self.SHARED_nsprefix_ + ':' if (UseCapturedNS_ and self.SHARED_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sSHARED>%s</%sSHARED>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.SHARED), input_name='SHARED')), namespaceprefix_ , eol_))
         if self.SIZE is not None:
             namespaceprefix_ = self.SIZE_nsprefix_ + ':' if (UseCapturedNS_ and self.SIZE_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -43874,6 +44886,12 @@ class ARType72(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'PARENT_NETWORK_AR_ID')
             self.PARENT_NETWORK_AR_ID = value_
             self.PARENT_NETWORK_AR_ID_nsprefix_ = child_.prefix
+        elif nodeName_ == 'SHARED':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'SHARED')
+            value_ = self.gds_validate_string(value_, node, 'SHARED')
+            self.SHARED = value_
+            self.SHARED_nsprefix_ = child_.prefix
         elif nodeName_ == 'SIZE' and child_.text:
             sval_ = child_.text
             ival_ = self.gds_parse_integer(sval_, node, 'SIZE')
@@ -46425,6 +47443,7 @@ __all__ = [
     "MARKET_MAD_CONFType",
     "MEMORYType",
     "MEMORYType13",
+    "MEMORY_ENCRYPTIONType",
     "MONITORING",
     "MONITORINGType",
     "MONITORINGType21",
@@ -46466,6 +47485,7 @@ __all__ = [
     "PERMISSIONSType74",
     "PERMISSIONSType75",
     "PLANType",
+    "QEMU_GA_EXECType",
     "QUOTASType",
     "QUOTASType24",
     "RAFT",

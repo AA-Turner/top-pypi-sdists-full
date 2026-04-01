@@ -328,19 +328,6 @@ class CfnJobTemplate(
         jsii.set(self, "settingsJson", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e9ca8d435904ee086f90ed7c439c2d0e200a1d4d453bc42112e7fd9ef7aeff2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="accelerationSettings")
     def acceleration_settings(
         self,
@@ -453,6 +440,19 @@ class CfnJobTemplate(
             type_hints = typing.get_type_hints(_typecheckingstub__e7ec7ad96104e4f7c1074d1d53806893f862c74346b89d72958e599f9b3bf47c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "statusUpdateInterval", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e9ca8d435904ee086f90ed7c439c2d0e200a1d4d453bc42112e7fd9ef7aeff2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconvert.CfnJobTemplate.AccelerationSettingsProperty",
@@ -1099,19 +1099,6 @@ class CfnPreset(
         jsii.set(self, "settingsJson", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f864101d79755967bf3e44fcc09e5237c08ff95f64c10eba5fa4da31c26dbe0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="category")
     def category(self) -> typing.Optional[builtins.str]:
         '''The new category for the preset, if you are changing it.'''
@@ -1149,6 +1136,19 @@ class CfnPreset(
             type_hints = typing.get_type_hints(_typecheckingstub__f5cfa13481ef470c412166b972128fb907f80e1f74bfc400f30cd3339e066f4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f864101d79755967bf3e44fcc09e5237c08ff95f64c10eba5fa4da31c26dbe0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1494,19 +1494,6 @@ class CfnQueue(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f40a2466cbcd54418fd8402f9b79ae297cbdc53819c461dd9bde5aa9f01859d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="concurrentJobs")
     def concurrent_jobs(self) -> typing.Optional[jsii.Number]:
         '''Specify the maximum number of jobs your queue can process concurrently.'''
@@ -1570,6 +1557,19 @@ class CfnQueue(
             type_hints = typing.get_type_hints(_typecheckingstub__85fd14d7b664ec173f54ec0449201dc6c6f6738e85506a3f02565bad2b42761b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f40a2466cbcd54418fd8402f9b79ae297cbdc53819c461dd9bde5aa9f01859d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1799,12 +1799,6 @@ def _typecheckingstub__6e6db6646d87945ef34e2e03c7b1efcd1666e1928a1f124f94694a92e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2e9ca8d435904ee086f90ed7c439c2d0e200a1d4d453bc42112e7fd9ef7aeff2(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__296e89e4fb7eab6d9c3e9ffb503c8e7d494b915aaf6ffbeb356846e5b1550dce(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnJobTemplate.AccelerationSettingsProperty]],
 ) -> None:
@@ -1849,6 +1843,12 @@ def _typecheckingstub__38320802a437cf0443d85acae426f6340d11d937df74fc400e5b5c7ed
 
 def _typecheckingstub__e7ec7ad96104e4f7c1074d1d53806893f862c74346b89d72958e599f9b3bf47c(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e9ca8d435904ee086f90ed7c439c2d0e200a1d4d453bc42112e7fd9ef7aeff2(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1944,12 +1944,6 @@ def _typecheckingstub__896f46fb2b42116c3b9470123dec62b22cfd06c04c5bcbb998592a5d3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6f864101d79755967bf3e44fcc09e5237c08ff95f64c10eba5fa4da31c26dbe0(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__7416b46e5f0f9cea5c961f17373253f1be2553f7983af31716026cb07ec40daa(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -1964,6 +1958,12 @@ def _typecheckingstub__6edaf93908a0193523b483e749d20ba3928b5255280ab8214729a4e86
 
 def _typecheckingstub__f5cfa13481ef470c412166b972128fb907f80e1f74bfc400f30cd3339e066f4a(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f864101d79755967bf3e44fcc09e5237c08ff95f64c10eba5fa4da31c26dbe0(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2033,12 +2033,6 @@ def _typecheckingstub__35c318d1b3afa3029c00b3041ce2990e84ecd612460683bdfc3995e4f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0f40a2466cbcd54418fd8402f9b79ae297cbdc53819c461dd9bde5aa9f01859d(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__993fd95d91379114b61414ca4c663149a086fb421eb4dca35dd60e83c0abae78(
     value: typing.Optional[jsii.Number],
 ) -> None:
@@ -2065,6 +2059,12 @@ def _typecheckingstub__544728ca404947ab22b89e6afbdd2fe9562a7e292914ea684ded3f462
 
 def _typecheckingstub__85fd14d7b664ec173f54ec0449201dc6c6f6738e85506a3f02565bad2b42761b(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f40a2466cbcd54418fd8402f9b79ae297cbdc53819c461dd9bde5aa9f01859d(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

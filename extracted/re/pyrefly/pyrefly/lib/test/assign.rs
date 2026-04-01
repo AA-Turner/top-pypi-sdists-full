@@ -682,7 +682,7 @@ def expect_str(x: str) -> Any: ...
 class C:
     __iadd__: None = None
 def test(x: C):
-    x += expect_str(0) # E: Expected `__iadd__` to be a callable # E: Argument `Literal[0]` is not assignable to parameter `x` with type `str`
+    x += expect_str(0) # E: Argument `Literal[0]` is not assignable to parameter `x` with type `str`
 "#,
 );
 
@@ -948,4 +948,45 @@ x, y = f(), f()  # E: `str` is not assignable to `int`
 assert_type(x, int)
 assert_type(y, str)
     "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/2928
+testcase!(
+    bug = "Should detect too many values when unpacking a string literal",
+    test_unpack_string_too_many,
+    r#"
+a, b = "abc"
+"#,
+);
+
+// https://github.com/facebook/pyrefly/issues/2927
+testcase!(
+    bug = "Should detect too few values when unpacking a single-char string",
+    test_unpack_string_too_few,
+    r#"
+a, b = "x"
+"#,
+);
+
+testcase!(
+    bug = "Should detect zero step size in slice",
+    test_slice_zero_step,
+    r#"
+items = [1, 2, 3, 4]
+bad = items[::0]
+"#,
+);
+
+testcase!(
+    bug = "Annotated variable should preserve declared type after assignment of Any (github #2227)",
+    test_annotated_var_preserves_type_after_any_assign,
+    r#"
+from typing import Any, assert_type
+
+def f() -> Any: ...
+
+x: int
+x = f()
+assert_type(x, int)  # E: assert_type(Any, int) failed
+"#,
 );

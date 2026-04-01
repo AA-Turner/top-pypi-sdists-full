@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 9.7.3
+Version: 9.8.1
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -39,7 +39,7 @@ Requires-Dist: parameter_decorators
 Requires-Dist: packaging
 Requires-Dist: pygnuutils>=0.0.7
 Requires-Dist: cryptography>=41.0.1
-Requires-Dist: pycrashreport>=1.2.8
+Requires-Dist: pycrashreport>=2.0.0
 Requires-Dist: fastapi>=0.93.0
 Requires-Dist: uvicorn>=0.15.0
 Requires-Dist: wsproto
@@ -142,6 +142,7 @@ pymobiledevice3 apps list
     [wsl2]
     networkingMode=mirrored
     ```
+
 - Linux:
   - Install `usbmuxd`: <https://github.com/libimobiledevice/usbmuxd>
 

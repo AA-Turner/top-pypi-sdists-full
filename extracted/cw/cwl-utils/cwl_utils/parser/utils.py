@@ -2,11 +2,10 @@
 
 import copy
 import logging
-import os
 from collections.abc import MutableSequence
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional, cast
 from urllib.parse import unquote_plus, urlparse
 
 from schema_salad.exceptions import ValidationException
@@ -35,18 +34,19 @@ _logger = logging.getLogger("cwl_utils")
 
 def convert_stdstreams_to_files(process: Process) -> None:
     """Convert stdin, stdout and stderr type shortcuts to files."""
-    if isinstance(process, cwl_v1_0.CommandLineTool):
-        cwl_v1_0_utils.convert_stdstreams_to_files(process)
-    elif isinstance(process, cwl_v1_1.CommandLineTool):
-        cwl_v1_1_utils.convert_stdstreams_to_files(process)
-    elif isinstance(process, cwl_v1_2.CommandLineTool):
-        cwl_v1_2_utils.convert_stdstreams_to_files(process)
+    match process:
+        case cwl_v1_0.CommandLineTool():
+            cwl_v1_0_utils.convert_stdstreams_to_files(process)
+        case cwl_v1_1.CommandLineTool():
+            cwl_v1_1_utils.convert_stdstreams_to_files(process)
+        case cwl_v1_2.CommandLineTool():
+            cwl_v1_2_utils.convert_stdstreams_to_files(process)
 
 
 def load_inputfile_by_uri(
     version: str,
-    path: Union[str, Path],
-    loadingOptions: Optional[LoadingOptions] = None,
+    path: str | Path,
+    loadingOptions: LoadingOptions | None = None,
 ) -> Any:
     """Load a CWL input file from a URI or a path."""
     if isinstance(path, str):
@@ -61,19 +61,20 @@ def load_inputfile_by_uri(
     if version is None:
         raise ValidationException("could not get the cwlVersion")
 
-    baseuri = str(real_path)
+    baseuri: str = real_path
 
     if loadingOptions is None:
-        if version == "v1.0":
-            loadingOptions = cwl_v1_0.LoadingOptions(fileuri=baseuri)
-        elif version == "v1.1":
-            loadingOptions = cwl_v1_1.LoadingOptions(fileuri=baseuri)
-        elif version == "v1.2":
-            loadingOptions = cwl_v1_2.LoadingOptions(fileuri=baseuri)
-        else:
-            raise ValidationException(
-                f"Version error. Did not recognise {version} as a CWL version"
-            )
+        match version:
+            case "v1.0":
+                loadingOptions = cwl_v1_0.LoadingOptions(fileuri=baseuri)
+            case "v1.1":
+                loadingOptions = cwl_v1_1.LoadingOptions(fileuri=baseuri)
+            case "v1.2":
+                loadingOptions = cwl_v1_2.LoadingOptions(fileuri=baseuri)
+            case _:
+                raise ValidationException(
+                    f"Version error. Did not recognise {version} as a CWL version"
+                )
 
     doc = loadingOptions.fetcher.fetch_text(real_path)
     return load_inputfile_by_string(version, doc, baseuri, loadingOptions)
@@ -82,12 +83,12 @@ def load_inputfile_by_uri(
 def load_inputfile(
     version: str,
     doc: Any,
-    baseuri: Optional[str] = None,
-    loadingOptions: Optional[LoadingOptions] = None,
+    baseuri: str | None = None,
+    loadingOptions: LoadingOptions | None = None,
 ) -> Any:
     """Load a CWL input file from a serialized YAML string or a YAML object."""
     if baseuri is None:
-        baseuri = cwl_v1_0.file_uri(os.getcwd()) + "/"
+        baseuri = cwl_v1_0.file_uri(str(Path.cwd())) + "/"
     if isinstance(doc, str):
         return load_inputfile_by_string(version, doc, baseuri, loadingOptions)
     return load_inputfile_by_yaml(version, doc, baseuri, loadingOptions)
@@ -97,11 +98,10 @@ def load_inputfile_by_string(
     version: str,
     string: str,
     uri: str,
-    loadingOptions: Optional[LoadingOptions] = None,
+    loadingOptions: LoadingOptions | None = None,
 ) -> Any:
     """Load a CWL input file from a serialized YAML string."""
-    yaml = yaml_no_ts()
-    result = yaml.load(string)
+    result = yaml_no_ts().load(string)
     return load_inputfile_by_yaml(version, result, uri, loadingOptions)
 
 
@@ -109,29 +109,28 @@ def load_inputfile_by_yaml(
     version: str,
     yaml: Any,
     uri: str,
-    loadingOptions: Optional[LoadingOptions] = None,
+    loadingOptions: LoadingOptions | None = None,
 ) -> Any:
     """Load a CWL input file from a YAML object."""
-    if version == "v1.0":
-        result = cwl_v1_0_utils.load_inputfile_by_yaml(
-            yaml, uri, cast(Optional[cwl_v1_0.LoadingOptions], loadingOptions)
-        )
-    elif version == "v1.1":
-        result = cwl_v1_1_utils.load_inputfile_by_yaml(
-            yaml, uri, cast(Optional[cwl_v1_1.LoadingOptions], loadingOptions)
-        )
-    elif version == "v1.2":
-        result = cwl_v1_2_utils.load_inputfile_by_yaml(
-            yaml, uri, cast(Optional[cwl_v1_2.LoadingOptions], loadingOptions)
-        )
-    elif version is None:
-        raise ValidationException("could not get the cwlVersion")
-    else:
-        raise ValidationException(
-            f"Version error. Did not recognise {version} as a CWL version"
-        )
-
-    return result
+    match version:
+        case "v1.0":
+            return cwl_v1_0_utils.load_inputfile_by_yaml(
+                yaml, uri, cast(Optional[cwl_v1_0.LoadingOptions], loadingOptions)
+            )
+        case "v1.1":
+            return cwl_v1_1_utils.load_inputfile_by_yaml(
+                yaml, uri, cast(Optional[cwl_v1_1.LoadingOptions], loadingOptions)
+            )
+        case "v1.2":
+            return cwl_v1_2_utils.load_inputfile_by_yaml(
+                yaml, uri, cast(Optional[cwl_v1_2.LoadingOptions], loadingOptions)
+            )
+        case None:
+            raise ValidationException("could not get the cwlVersion")
+        case _:
+            raise ValidationException(
+                f"Version error. Did not recognise {version} as a CWL version"
+            )
 
 
 def load_step(
@@ -146,8 +145,7 @@ def load_step(
             loadingOptions=step.loadingOptions,
         )
         return cast(Process, step_run)
-    else:
-        return cast(Process, copy.deepcopy(step.run))
+    return cast(Process, copy.deepcopy(step.run))
 
 
 def static_checker(workflow: cwl_utils.parser.Workflow) -> None:
@@ -170,23 +168,24 @@ def static_checker(workflow: cwl_utils.parser.Workflow) -> None:
             )
         if step.out is not None:
             # FIXME: the correct behaviour here would be to create WorkflowStepOutput directly at load time
-            if workflow.cwlVersion == "v1.0":
-                step_outs = [
-                    cwl_v1_0.WorkflowStepOutput(s) if isinstance(s, str) else s
-                    for s in step.out
-                ]
-            elif workflow.cwlVersion == "v1.1":
-                step_outs = [
-                    cwl_v1_1.WorkflowStepOutput(s) if isinstance(s, str) else s
-                    for s in step.out
-                ]
-            elif workflow.cwlVersion == "v1.2":
-                step_outs = [
-                    cwl_v1_2.WorkflowStepOutput(s) if isinstance(s, str) else s
-                    for s in step.out
-                ]
-            else:
-                raise Exception(f"Unsupported CWL version {workflow.cwlVersion}")
+            match workflow.cwlVersion:
+                case "v1.0":
+                    step_outs = [
+                        cwl_v1_0.WorkflowStepOutput(s) if isinstance(s, str) else s
+                        for s in step.out
+                    ]
+                case "v1.1":
+                    step_outs = [
+                        cwl_v1_1.WorkflowStepOutput(s) if isinstance(s, str) else s
+                        for s in step.out
+                    ]
+                case "v1.2":
+                    step_outs = [
+                        cwl_v1_2.WorkflowStepOutput(s) if isinstance(s, str) else s
+                        for s in step.out
+                    ]
+                case _:
+                    raise Exception(f"Unsupported CWL version {workflow.cwlVersion}")
             step_outputs.extend(step_outs)
             param_to_step.update({s.id: step for s in step_outs})
             type_dict.update(
@@ -208,32 +207,33 @@ def static_checker(workflow: cwl_utils.parser.Workflow) -> None:
     parser: ModuleType
     step_inputs_val: dict[str, Any]
     workflow_outputs_val: dict[str, Any]
-    if workflow.cwlVersion == "v1.0":
-        parser = cwl_v1_0
-        step_inputs_val = cwl_v1_0_utils.check_all_types(
-            src_dict, step_inputs, type_dict
-        )
-        workflow_outputs_val = cwl_v1_0_utils.check_all_types(
-            src_dict, workflow.outputs, type_dict
-        )
-    elif workflow.cwlVersion == "v1.1":
-        parser = cwl_v1_1
-        step_inputs_val = cwl_v1_1_utils.check_all_types(
-            src_dict, step_inputs, type_dict
-        )
-        workflow_outputs_val = cwl_v1_1_utils.check_all_types(
-            src_dict, workflow.outputs, type_dict
-        )
-    elif workflow.cwlVersion == "v1.2":
-        parser = cwl_v1_2
-        step_inputs_val = cwl_v1_2_utils.check_all_types(
-            src_dict, step_inputs, param_to_step, type_dict
-        )
-        workflow_outputs_val = cwl_v1_2_utils.check_all_types(
-            src_dict, workflow.outputs, param_to_step, type_dict
-        )
-    else:
-        raise Exception(f"Unsupported CWL version {workflow.cwlVersion}")
+    match workflow.cwlVersion:
+        case "v1.0":
+            parser = cwl_v1_0
+            step_inputs_val = cwl_v1_0_utils.check_all_types(
+                src_dict, step_inputs, type_dict
+            )
+            workflow_outputs_val = cwl_v1_0_utils.check_all_types(
+                src_dict, workflow.outputs, type_dict
+            )
+        case "v1.1":
+            parser = cwl_v1_1
+            step_inputs_val = cwl_v1_1_utils.check_all_types(
+                src_dict, step_inputs, type_dict
+            )
+            workflow_outputs_val = cwl_v1_1_utils.check_all_types(
+                src_dict, workflow.outputs, type_dict
+            )
+        case "v1.2":
+            parser = cwl_v1_2
+            step_inputs_val = cwl_v1_2_utils.check_all_types(
+                src_dict, step_inputs, param_to_step, type_dict
+            )
+            workflow_outputs_val = cwl_v1_2_utils.check_all_types(
+                src_dict, workflow.outputs, param_to_step, type_dict
+            )
+        case _ as cwlVersion:
+            raise Exception(f"Unsupported CWL version {cwlVersion}")
 
     warnings = step_inputs_val["warning"] + workflow_outputs_val["warning"]
     exceptions = step_inputs_val["exception"] + workflow_outputs_val["exception"]
@@ -329,165 +329,173 @@ def static_checker(workflow: cwl_utils.parser.Workflow) -> None:
 
 def type_for_source(
     process: Process,
-    sourcenames: Union[str, list[str]],
-    parent: Optional[Workflow] = None,
-    linkMerge: Optional[str] = None,
-    pickValue: Optional[str] = None,
+    sourcenames: str | list[str],
+    parent: Workflow | None = None,
+    linkMerge: str | None = None,
+    pickValue: str | None = None,
 ) -> Any:
     """Determine the type for the given sourcenames."""
-    if process.cwlVersion == "v1.0":
-        return cwl_v1_0_utils.type_for_source(
-            cast(
-                Union[
-                    cwl_v1_0.CommandLineTool,
-                    cwl_v1_0.Workflow,
-                    cwl_v1_0.ExpressionTool,
-                ],
-                process,
-            ),
-            sourcenames,
-            cast(Optional[cwl_v1_0.Workflow], parent),
-            linkMerge,
-        )
-    elif process.cwlVersion == "v1.1":
-        return cwl_v1_1_utils.type_for_source(
-            cast(
-                Union[
-                    cwl_v1_1.CommandLineTool,
-                    cwl_v1_1.Workflow,
-                    cwl_v1_1.ExpressionTool,
-                ],
-                process,
-            ),
-            sourcenames,
-            cast(Optional[cwl_v1_1.Workflow], parent),
-            linkMerge,
-        )
-    elif process.cwlVersion == "v1.2":
-        return cwl_v1_2_utils.type_for_source(
-            cast(
-                Union[
-                    cwl_v1_2.CommandLineTool,
-                    cwl_v1_2.Workflow,
-                    cwl_v1_2.ExpressionTool,
-                ],
-                process,
-            ),
-            sourcenames,
-            cast(Optional[cwl_v1_2.Workflow], parent),
-            linkMerge,
-            pickValue,
-        )
-    elif process.cwlVersion is None:
-        raise ValidationException("could not get the cwlVersion")
-    else:
-        raise ValidationException(
-            f"Version error. Did not recognise {process.cwlVersion} as a CWL version"
-        )
+    match process.cwlVersion:
+        case "v1.0":
+            return cwl_v1_0_utils.type_for_source(
+                cast(
+                    cwl_v1_0.CommandLineTool
+                    | cwl_v1_0.Workflow
+                    | cwl_v1_0.ExpressionTool,
+                    process,
+                ),
+                sourcenames,
+                cast(cwl_v1_0.Workflow | None, parent),
+                linkMerge,
+            )
+        case "v1.1":
+            return cwl_v1_1_utils.type_for_source(
+                cast(
+                    cwl_v1_1.CommandLineTool
+                    | cwl_v1_1.Workflow
+                    | cwl_v1_1.ExpressionTool,
+                    process,
+                ),
+                sourcenames,
+                cast(cwl_v1_1.Workflow | None, parent),
+                linkMerge,
+            )
+        case "v1.2":
+            return cwl_v1_2_utils.type_for_source(
+                cast(
+                    cwl_v1_2.CommandLineTool
+                    | cwl_v1_2.Workflow
+                    | cwl_v1_2.ExpressionTool,
+                    process,
+                ),
+                sourcenames,
+                cast(cwl_v1_2.Workflow | None, parent),
+                linkMerge,
+                pickValue,
+            )
+        case None:
+            raise ValidationException("could not get the cwlVersion")
+        case _ as cwlVersion:
+            raise ValidationException(
+                f"Version error. Did not recognise {cwlVersion} as a CWL version"
+            )
 
 
 def type_for_step_input(
     step: WorkflowStep, in_: WorkflowStepInput, cwlVersion: str
 ) -> Any:
     """Determine the type for the given step output."""
-    if cwlVersion == "v1.0":
-        return cwl_v1_0_utils.type_for_step_input(
-            cast(cwl_v1_0.WorkflowStep, step), cast(cwl_v1_0.WorkflowStepInput, in_)
-        )
-    elif cwlVersion == "v1.1":
-        return cwl_v1_1_utils.type_for_step_input(
-            cast(cwl_v1_1.WorkflowStep, step), cast(cwl_v1_1.WorkflowStepInput, in_)
-        )
-    elif cwlVersion == "v1.2":
-        return cwl_v1_2_utils.type_for_step_input(
-            cast(cwl_v1_2.WorkflowStep, step), cast(cwl_v1_2.WorkflowStepInput, in_)
-        )
+    match cwlVersion:
+        case "v1.0":
+            return cwl_v1_0_utils.type_for_step_input(
+                cast(cwl_v1_0.WorkflowStep, step), cast(cwl_v1_0.WorkflowStepInput, in_)
+            )
+        case "v1.1":
+            return cwl_v1_1_utils.type_for_step_input(
+                cast(cwl_v1_1.WorkflowStep, step), cast(cwl_v1_1.WorkflowStepInput, in_)
+            )
+        case "v1.2":
+            return cwl_v1_2_utils.type_for_step_input(
+                cast(cwl_v1_2.WorkflowStep, step), cast(cwl_v1_2.WorkflowStepInput, in_)
+            )
 
 
 def type_for_step_output(step: WorkflowStep, sourcename: str, cwlVersion: str) -> Any:
     """Determine the type for the given step output."""
-    if cwlVersion == "v1.0":
-        return cwl_v1_0_utils.type_for_step_output(
-            cast(cwl_v1_0.WorkflowStep, step), sourcename
-        )
-    elif cwlVersion == "v1.1":
-        return cwl_v1_1_utils.type_for_step_output(
-            cast(cwl_v1_1.WorkflowStep, step), sourcename
-        )
-    elif cwlVersion == "v1.2":
-        return cwl_v1_2_utils.type_for_step_output(
-            cast(cwl_v1_2.WorkflowStep, step), sourcename
-        )
+    match cwlVersion:
+        case "v1.0":
+            return cwl_v1_0_utils.type_for_step_output(
+                cast(cwl_v1_0.WorkflowStep, step), sourcename
+            )
+        case "v1.1":
+            return cwl_v1_1_utils.type_for_step_output(
+                cast(cwl_v1_1.WorkflowStep, step), sourcename
+            )
+        case "v1.2":
+            return cwl_v1_2_utils.type_for_step_output(
+                cast(cwl_v1_2.WorkflowStep, step), sourcename
+            )
 
 
 def param_for_source_id(
-    process: Union[
-        cwl_utils.parser.CommandLineTool,
-        cwl_utils.parser.Workflow,
-        cwl_utils.parser.ExpressionTool,
-    ],
-    sourcenames: Union[str, list[str]],
-    parent: Optional[cwl_utils.parser.Workflow] = None,
-    scatter_context: Optional[list[Optional[tuple[int, str]]]] = None,
-) -> Union[
-    Union[
-        list[cwl_utils.parser.cwl_v1_0.InputParameter],
-        cwl_utils.parser.cwl_v1_0.InputParameter,
-    ],
-    Union[
-        list[cwl_utils.parser.cwl_v1_1.WorkflowInputParameter],
-        cwl_utils.parser.cwl_v1_1.WorkflowInputParameter,
-    ],
-    Union[
-        list[cwl_utils.parser.cwl_v1_2.WorkflowInputParameter],
-        cwl_utils.parser.cwl_v1_2.WorkflowInputParameter,
-    ],
-]:
-    if process.cwlVersion == "v1.0":
-        return cwl_utils.parser.cwl_v1_0_utils.param_for_source_id(
-            cast(
-                Union[
-                    cwl_utils.parser.cwl_v1_0.CommandLineTool,
-                    cwl_utils.parser.cwl_v1_0.Workflow,
-                    cwl_utils.parser.cwl_v1_0.ExpressionTool,
-                ],
-                process,
-            ),
-            sourcenames,
-            cast(cwl_utils.parser.cwl_v1_0.Workflow, parent),
-            scatter_context,
-        )
-    elif process.cwlVersion == "v1.1":
-        return cwl_utils.parser.cwl_v1_1_utils.param_for_source_id(
-            cast(
-                Union[
-                    cwl_utils.parser.cwl_v1_1.CommandLineTool,
-                    cwl_utils.parser.cwl_v1_1.Workflow,
-                    cwl_utils.parser.cwl_v1_1.ExpressionTool,
-                ],
-                process,
-            ),
-            sourcenames,
-            cast(cwl_utils.parser.cwl_v1_1.Workflow, parent),
-            scatter_context,
-        )
-    elif process.cwlVersion == "v1.2":
-        return cwl_utils.parser.cwl_v1_2_utils.param_for_source_id(
-            cast(
-                Union[
-                    cwl_utils.parser.cwl_v1_2.CommandLineTool,
-                    cwl_utils.parser.cwl_v1_2.Workflow,
-                    cwl_utils.parser.cwl_v1_2.ExpressionTool,
-                ],
-                process,
-            ),
-            sourcenames,
-            cast(cwl_utils.parser.cwl_v1_2.Workflow, parent),
-            scatter_context,
-        )
-    elif process.cwlVersion is None:
-        raise ValidationException("could not get the cwlVersion")
-    else:
-        raise ValidationException(
-            f"Version error. Did not recognise {process.cwlVersion} as a CWL version"
-        )
+    process: (
+        cwl_utils.parser.CommandLineTool
+        | cwl_utils.parser.Workflow
+        | cwl_utils.parser.ExpressionTool
+    ),
+    sourcenames: str | list[str],
+    parent: cwl_utils.parser.Workflow | None = None,
+    scatter_context: list[tuple[int, str] | None] | None = None,
+) -> (
+    (
+        MutableSequence[
+            cwl_utils.parser.cwl_v1_0.InputParameter
+            | cwl_utils.parser.cwl_v1_0.CommandOutputParameter
+        ]
+        | cwl_utils.parser.cwl_v1_0.InputParameter
+        | cwl_utils.parser.cwl_v1_0.CommandOutputParameter
+    )
+    | (
+        MutableSequence[
+            cwl_utils.parser.cwl_v1_1.CommandInputParameter
+            | cwl_utils.parser.cwl_v1_1.CommandOutputParameter
+            | cwl_utils.parser.cwl_v1_1.WorkflowInputParameter
+        ]
+        | cwl_utils.parser.cwl_v1_1.CommandInputParameter
+        | cwl_utils.parser.cwl_v1_1.CommandOutputParameter
+        | cwl_utils.parser.cwl_v1_1.WorkflowInputParameter
+    )
+    | (
+        MutableSequence[
+            cwl_utils.parser.cwl_v1_2.CommandInputParameter
+            | cwl_utils.parser.cwl_v1_2.CommandOutputParameter
+            | cwl_utils.parser.cwl_v1_2.WorkflowInputParameter
+        ]
+        | cwl_utils.parser.cwl_v1_2.CommandInputParameter
+        | cwl_utils.parser.cwl_v1_2.CommandOutputParameter
+        | cwl_utils.parser.cwl_v1_2.WorkflowInputParameter
+    )
+):
+    match process.cwlVersion:
+        case "v1.0":
+            return cwl_utils.parser.cwl_v1_0_utils.param_for_source_id(
+                cast(
+                    cwl_utils.parser.cwl_v1_0.CommandLineTool
+                    | cwl_utils.parser.cwl_v1_0.Workflow
+                    | cwl_utils.parser.cwl_v1_0.ExpressionTool,
+                    process,
+                ),
+                sourcenames,
+                cast(cwl_utils.parser.cwl_v1_0.Workflow, parent),
+                scatter_context,
+            )
+        case "v1.1":
+            return cwl_utils.parser.cwl_v1_1_utils.param_for_source_id(
+                cast(
+                    cwl_utils.parser.cwl_v1_1.CommandLineTool
+                    | cwl_utils.parser.cwl_v1_1.Workflow
+                    | cwl_utils.parser.cwl_v1_1.ExpressionTool,
+                    process,
+                ),
+                sourcenames,
+                cast(cwl_utils.parser.cwl_v1_1.Workflow, parent),
+                scatter_context,
+            )
+        case "v1.2":
+            return cwl_utils.parser.cwl_v1_2_utils.param_for_source_id(
+                cast(
+                    cwl_utils.parser.cwl_v1_2.CommandLineTool
+                    | cwl_utils.parser.cwl_v1_2.Workflow
+                    | cwl_utils.parser.cwl_v1_2.ExpressionTool,
+                    process,
+                ),
+                sourcenames,
+                cast(cwl_utils.parser.cwl_v1_2.Workflow, parent),
+                scatter_context,
+            )
+        case None:
+            raise ValidationException("could not get the cwlVersion")
+        case _:
+            raise ValidationException(
+                f"Version error. Did not recognise {process.cwlVersion} as a CWL version"
+            )

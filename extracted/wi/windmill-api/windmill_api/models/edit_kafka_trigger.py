@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.edit_kafka_trigger_auto_offset_reset import EditKafkaTriggerAutoOffsetReset
+from ..models.edit_kafka_trigger_filter_logic import EditKafkaTriggerFilterLogic
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -26,6 +27,8 @@ class EditKafkaTrigger:
         path (str): The unique path identifier for this trigger
         script_path (str): Path to the script or flow to execute when a message is received
         is_flow (bool): True if script_path points to a flow, false if it points to a script
+        filter_logic (Union[Unset, EditKafkaTriggerFilterLogic]): Logic to apply when evaluating filters. 'and' requires
+            all filters to match, 'or' requires any filter to match. Default: EditKafkaTriggerFilterLogic.AND.
         auto_offset_reset (Union[Unset, EditKafkaTriggerAutoOffsetReset]): Initial offset behavior when consumer group
             has no committed offset. Default: EditKafkaTriggerAutoOffsetReset.LATEST.
         auto_commit (Union[Unset, bool]): When true (default), offsets are committed automatically after receiving each
@@ -46,6 +49,7 @@ class EditKafkaTrigger:
     path: str
     script_path: str
     is_flow: bool
+    filter_logic: Union[Unset, EditKafkaTriggerFilterLogic] = EditKafkaTriggerFilterLogic.AND
     auto_offset_reset: Union[Unset, EditKafkaTriggerAutoOffsetReset] = EditKafkaTriggerAutoOffsetReset.LATEST
     auto_commit: Union[Unset, bool] = True
     error_handler_path: Union[Unset, str] = UNSET
@@ -69,6 +73,10 @@ class EditKafkaTrigger:
         path = self.path
         script_path = self.script_path
         is_flow = self.is_flow
+        filter_logic: Union[Unset, str] = UNSET
+        if not isinstance(self.filter_logic, Unset):
+            filter_logic = self.filter_logic.value
+
         auto_offset_reset: Union[Unset, str] = UNSET
         if not isinstance(self.auto_offset_reset, Unset):
             auto_offset_reset = self.auto_offset_reset.value
@@ -99,6 +107,8 @@ class EditKafkaTrigger:
                 "is_flow": is_flow,
             }
         )
+        if filter_logic is not UNSET:
+            field_dict["filter_logic"] = filter_logic
         if auto_offset_reset is not UNSET:
             field_dict["auto_offset_reset"] = auto_offset_reset
         if auto_commit is not UNSET:
@@ -142,6 +152,13 @@ class EditKafkaTrigger:
 
         is_flow = d.pop("is_flow")
 
+        _filter_logic = d.pop("filter_logic", UNSET)
+        filter_logic: Union[Unset, EditKafkaTriggerFilterLogic]
+        if isinstance(_filter_logic, Unset):
+            filter_logic = UNSET
+        else:
+            filter_logic = EditKafkaTriggerFilterLogic(_filter_logic)
+
         _auto_offset_reset = d.pop("auto_offset_reset", UNSET)
         auto_offset_reset: Union[Unset, EditKafkaTriggerAutoOffsetReset]
         if isinstance(_auto_offset_reset, Unset):
@@ -179,6 +196,7 @@ class EditKafkaTrigger:
             path=path,
             script_path=script_path,
             is_flow=is_flow,
+            filter_logic=filter_logic,
             auto_offset_reset=auto_offset_reset,
             auto_commit=auto_commit,
             error_handler_path=error_handler_path,

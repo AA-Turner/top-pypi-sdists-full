@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tftest
-Version: 1.8.5
+Version: 1.8.7
 Summary: Simple Terraform test helper
 Home-page: https://github.com/GoogleCloudPlatform/terraform-python-testing-helper
 Author: Ludovico Magnocavallo
@@ -10,6 +10,14 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: summary
 
 # Python Test Helper for Terraform
 
@@ -57,38 +65,6 @@ def test_modules(plan):
   mod = plan.modules['module.gcs-buckets']
   res = mod.resources['google_storage_bucket.buckets[0]']
   assert res['values']['location'] == plan.variables['gcs_location']
-```
-
-## Terragrunt support
-
-Support for Terragrunt actually follows the same principle of the thin `TerraformTest` wrapper.
-
-Please see the following example for how to use it:
-
-```python
-import pytest
-import tftest
-
-
-@pytest.fixture
-def run_all_apply_out(fixtures_dir):
-  # notice for run-all, you need to specify when TerragruntTest is constructed
-  tg = tftest.TerragruntTest('tg_apply_all', fixtures_dir, tg_run_all=True)
-  # the rest is very similar to how you use TerraformTest
-  tg.setup()
-  # to use --terragrunt-<option>, pass in tg_<option in snake case>
-  tg.apply(output=False, tg_non_interactive=True)
-  yield tg.output()
-  tg.destroy(auto_approve=True, tg_non_interactive=True)
-
-  
-def test_run_all_apply(run_all_apply_out):
-    triggers = [o["triggers"] for o in run_all_apply_out]
-    assert [{'name': 'foo', 'template': 'sample template foo'}] in triggers
-    assert [{'name': 'bar', 'template': 'sample template bar'}] in triggers
-    assert [{'name': 'one', 'template': 'sample template one'},
-            {'name': 'two', 'template': 'sample template two'}] in triggers
-    assert len(run_all_apply_out) == 3
 ```
 
 ## Caching

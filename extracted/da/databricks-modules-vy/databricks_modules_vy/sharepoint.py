@@ -1,34 +1,78 @@
-from office365.sharepoint.client_context import ClientContext
-from office365.runtime.auth.client_credential import ClientCredential
-from office365.runtime.auth.authentication_context import AuthenticationContext
-from office365.runtime.client_request_exception import ClientRequestException
-import pandas as pd
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.dbutils import DBUtils
-from .dataframe import snake_headers
-from io import StringIO, BytesIO
-import numpy as np
+import random
+import time
 import uuid
 import warnings
+from io import BytesIO, StringIO
+
+import numpy as np
+import pandas as pd
+from office365.runtime.client_request_exception import ClientRequestException
+from office365.sharepoint.client_context import ClientContext
+from pyspark.dbutils import DBUtils
+from pyspark.sql import DataFrame, SparkSession
+
+from .dataframe import snake_headers
+from .logging import lp
 
 spark = SparkSession.builder.appName("module").getOrCreate()
 dbutils = DBUtils(spark)
 
 
-def df_from_sharepoint_masterdata(list_name, row_limit=5000, site_name="VyMasterdata", internal_name=True):
-    # Connect and fetch data
+def _get_sharepoint_ctx(site_name="VyMasterdata") -> ClientContext:
     sharepoint_url = dbutils.secrets.get("SHAREPOINT", "url")
     site_url = f"{sharepoint_url}/sites/{site_name}"
     client_id = dbutils.secrets.get("SHAREPOINT", "app_id")
     client_secret = dbutils.secrets.get("SHAREPOINT", "app_secret")
 
-    ctx = ClientContext(site_url).with_credentials(ClientCredential(client_id, client_secret))
- 
+    return ClientContext(site_url).with_client_credentials(client_id, client_secret)
+
+
+def _execute_query_with_backoff(
+    ctx, max_attempts=6, base_delay_seconds=1.0, max_delay_seconds=30.0
+) -> None:
+    """Execute a SharePoint query with simple retry/backoff for transient errors."""
+    for attempt in range(1, max_attempts + 1):
+        try:
+            ctx.execute_query()
+            return
+        except ClientRequestException as exc:
+            status_code = getattr(exc, "status_code", None)
+            if status_code not in (429, 503):
+                raise
+
+            if attempt == max_attempts:
+                raise
+
+            retry_after = None
+            response = getattr(exc, "response", None)
+            if response is not None:
+                retry_after = response.headers.get("Retry-After")
+
+            if retry_after is not None:
+                sleep_seconds = float(retry_after)
+            else:
+                sleep_seconds = min(max_delay_seconds, base_delay_seconds * (2 ** (attempt - 1)))
+                sleep_seconds += random.uniform(0.0, 0.5)
+
+            lp(
+                f"Sharepoint query failed with status {status_code}."
+                f" Retry {attempt}/{max_attempts} in {sleep_seconds:.2f} seconds..."
+            )
+
+            time.sleep(sleep_seconds)
+
+
+def df_from_sharepoint_masterdata(
+    list_name, row_limit=5000, site_name="VyMasterdata", internal_name=True
+) -> DataFrame:
+    # Connect and fetch data
+    ctx = _get_sharepoint_ctx(site_name)
+
     # Get the list and metadata
     s_list = ctx.web.lists.get_by_title(list_name)
     s_list_fields = s_list.fields
     ctx.load(s_list_fields)
-    ctx.execute_query()
+    _execute_query_with_backoff(ctx)
 
     # Create a dictionary to map internal names to display names
     field_map = {field.internal_name: field.title for field in s_list_fields}
@@ -36,7 +80,7 @@ def df_from_sharepoint_masterdata(list_name, row_limit=5000, site_name="VyMaster
     # Set the row limit for the query
     l_items = s_list.get_items().top(row_limit)
     ctx.load(l_items)
-    ctx.execute_query()
+    _execute_query_with_backoff(ctx)
 
     # BUILD PANDAS DF AND CONVERT TO SPARK DF #
     dp = pd.DataFrame()
@@ -57,16 +101,18 @@ def df_from_sharepoint_masterdata(list_name, row_limit=5000, site_name="VyMaster
         "EditorId",
         "Attachments",
         "Id",
+        "ParentList",
     ]
 
-    dp = dp.drop(list_metadata_cols, axis="columns")
+    existing_metadata_cols = [col for col in list_metadata_cols if col in dp.columns]
+    dp = dp.drop(existing_metadata_cols, axis="columns")
 
     # Drop columns with only None values
     dp = dp.dropna(axis="columns", how="all")
 
     # Convert to spark dataframe
     df = spark.createDataFrame(dp)
-    
+
     if not internal_name:
         for internal_name, field_name in field_map.items():
             df = df.withColumnRenamed(internal_name, field_name)
@@ -82,40 +128,27 @@ def df_from_sharepoint_masterdata(list_name, row_limit=5000, site_name="VyMaster
     return df
 
 
-def authenticate_sharepoint(site_url, client_id, client_secret):
-    """Authenticate with SharePoint using username and password"""
-
-    ctx = ClientContext(site_url).with_credentials(ClientCredential(client_id, client_secret))
-    return ctx
-
-
 def _get_file_bytes_from_sharepoint(item_path, site_name="VyMasterdata"):
     """Fetches the file at the provided location in item_path. Raises exception if no file is found.
 
     Args:
-        item_path (str) : path relative to the site the csv is located. Initiate the path with \'/\'
+        item_path (str) : path relative to the site the csv is located. Initiate the path with '/'
         site_name (str) : name of site to fetch csv
 
     Returns:
         (sharepoint.File) file-object from sharepoint-lib
     """
-    sharepoint_url = dbutils.secrets.get("SHAREPOINT", "url")
-    site_url = f"{sharepoint_url}/sites/{site_name}"
     csv_url = f"/sites/{site_name}" + item_path
-
-    client_id = dbutils.secrets.get("SHAREPOINT", "app_id")
-    client_secret = dbutils.secrets.get("SHAREPOINT", "app_secret")
-
-    ctx = authenticate_sharepoint(site_url, client_id, client_secret)
+    ctx = _get_sharepoint_ctx(site_name)
 
     file_ = ctx.web.get_file_by_server_relative_url(csv_url)
     ctx.load(file_)
-    ctx.execute_query()
+    _execute_query_with_backoff(ctx)
 
     # Download the file-contents
     file_bytesio = BytesIO()
     file_.download(file_bytesio)
-    ctx.execute_query()
+    _execute_query_with_backoff(ctx)
 
     return file_bytesio
 
@@ -140,7 +173,7 @@ def df_from_sharepoint_csv(
     include_row_num=False,
     row_num_type=int,
     pd_dtype=object,
-):
+) -> DataFrame:
     """Gets the bytes from a csv-file in sharepoint and converts it to a spark dataframe
 
     Args:
@@ -195,7 +228,7 @@ def df_from_sharepoint_csv_utf8(
     row_num_type=int,
     pd_dtype=object,
     comment=None,
-):
+) -> DataFrame:
     """Gets the bytes from a csv-file in sharepoint and converts it to a spark dataframe
 
     Args:
@@ -243,7 +276,6 @@ def df_from_sharepoint_csv_utf8(
     return df
 
 
-
 # # Functions for traversing and extracting files and folders from a site # #
 def get_files_in_folder(relative_path_to_folder, site_name="VyMasterdata"):
     """
@@ -256,19 +288,13 @@ def get_files_in_folder(relative_path_to_folder, site_name="VyMasterdata"):
     Returns (Array<str>): Array of files present at the folder provided
     """
 
-    # Setting up context to site with credentials
-    sharepoint_url = dbutils.secrets.get("SHAREPOINT", "url")
-    site_url = f"{sharepoint_url}/sites/{site_name}"
-    client_id = dbutils.secrets.get("SHAREPOINT", "app_id")
-    client_secret = dbutils.secrets.get("SHAREPOINT", "app_secret")
-
-    ctx = authenticate_sharepoint(site_url, client_id, client_secret)
+    ctx = _get_sharepoint_ctx(site_name)
 
     # Set up query and execute it
     folder = ctx.web.get_folder_by_server_relative_url(relative_path_to_folder)
     files = folder.files
     ctx.load(files)
-    ctx.execute_query()
+    _execute_query_with_backoff(ctx)
 
     # Return result of query
     return [file.properties["Name"] for file in files]
@@ -286,19 +312,13 @@ def get_filepaths_in_folder(relative_path_to_folder, site_name="VyMasterdata", c
     """
 
     if ctx is None:
-        # Setting up context to site with credentials
-        sharepoint_url = dbutils.secrets.get("SHAREPOINT", "url")
-        site_url = f"{sharepoint_url}/sites/{site_name}"
-        client_id = dbutils.secrets.get("SHAREPOINT", "app_id")
-        client_secret = dbutils.secrets.get("SHAREPOINT", "app_secret")
-
-        ctx = authenticate_sharepoint(site_url, client_id, client_secret)
+        ctx = _get_sharepoint_ctx(site_name)
 
     # Set up query and execute it
     folder = ctx.web.get_folder_by_server_relative_url(relative_path_to_folder)
     files = folder.files
     ctx.load(files)
-    ctx.execute_query()
+    _execute_query_with_backoff(ctx)
 
     # Return result of query
     return [file.properties["ServerRelativeUrl"] for file in files]
@@ -316,19 +336,13 @@ def get_subfolders(relative_path_to_folder, site_name="VyMasterdata", ctx=None):
     """
 
     if ctx is None:
-        # Setting up context to site with credentials
-        sharepoint_url = dbutils.secrets.get("SHAREPOINT", "url")
-        site_url = f"{sharepoint_url}/sites/{site_name}"
-        client_id = dbutils.secrets.get("SHAREPOINT", "app_id")
-        client_secret = dbutils.secrets.get("SHAREPOINT", "app_secret")
-
-        ctx = authenticate_sharepoint(site_url, client_id, client_secret)
+        ctx = _get_sharepoint_ctx(site_name)
 
     # Set up query and execute it
     folder = ctx.web.get_folder_by_server_relative_url(relative_path_to_folder)
     subfolders = folder.folders
     ctx.load(subfolders)
-    ctx.execute_query()
+    _execute_query_with_backoff(ctx)
 
     # Return result of query
     return [x.properties["Name"] for x in subfolders]
@@ -346,13 +360,7 @@ def get_items_at_folder(relative_path_to_folder, site_name="VyMasterdata", ctx=N
     """
 
     if ctx is None:
-        # Setting up context to site with credentials
-        sharepoint_url = dbutils.secrets.get("SHAREPOINT", "url")
-        site_url = f"{sharepoint_url}/sites/{site_name}"
-        client_id = dbutils.secrets.get("SHAREPOINT", "app_id")
-        client_secret = dbutils.secrets.get("SHAREPOINT", "app_secret")
-
-        ctx = authenticate_sharepoint(site_url, client_id, client_secret)
+        ctx = _get_sharepoint_ctx(site_name)
 
     # Set up array to store result
     result = []

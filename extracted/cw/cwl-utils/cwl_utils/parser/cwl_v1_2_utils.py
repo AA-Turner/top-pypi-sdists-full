@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 import hashlib
 import logging
-import os
 from collections import namedtuple
 from collections.abc import MutableMapping, MutableSequence
 from io import StringIO
-from typing import IO, Any, Optional, Union, cast
+from pathlib import Path
+from typing import IO, Any, cast
 from urllib.parse import urldefrag
 
 from schema_salad.exceptions import ValidationException
@@ -48,12 +48,8 @@ def _compare_records(
             _logger.info(
                 "Record comparison failure for %s and %s\n"
                 "Did not match fields for %s: %s and %s",
-                cast(
-                    Union[cwl.InputRecordSchema, cwl.CommandOutputRecordSchema], src
-                ).name,
-                cast(
-                    Union[cwl.InputRecordSchema, cwl.CommandOutputRecordSchema], sink
-                ).name,
+                cast(cwl.InputRecordSchema | cwl.CommandOutputRecordSchema, src).name,
+                cast(cwl.InputRecordSchema | cwl.CommandOutputRecordSchema, sink).name,
                 key,
                 srcfields.get(key),
                 sinkfields.get(key),
@@ -63,27 +59,27 @@ def _compare_records(
 
 
 def _compare_type(type1: Any, type2: Any) -> bool:
-    if isinstance(type1, cwl.ArraySchema) and isinstance(type2, cwl.ArraySchema):
-        return _compare_type(type1.items, type2.items)
-    elif isinstance(type1, cwl.RecordSchema) and isinstance(type2, cwl.RecordSchema):
-        fields1 = {
-            cwl.shortname(field.name): field.type_ for field in (type1.fields or {})
-        }
-        fields2 = {
-            cwl.shortname(field.name): field.type_ for field in (type2.fields or {})
-        }
-        if fields1.keys() != fields2.keys():
-            return False
-        return all(_compare_type(fields1[k], fields2[k]) for k in fields1.keys())
-    elif isinstance(type1, MutableSequence) and isinstance(type2, MutableSequence):
-        if len(type1) != len(type2):
-            return False
-        for t1 in type1:
-            if not any(_compare_type(t1, t2) for t2 in type2):
+    match (type1, type1):
+        case cwl.ArraySchema() as t1, cwl.ArraySchema() as t2:
+            return _compare_type(t1.items, t2.items)
+        case cwl.RecordSchema(), cwl.RecordSchema():
+            fields1 = {
+                cwl.shortname(field.name): field.type_ for field in (type1.fields or {})
+            }
+            fields2 = {
+                cwl.shortname(field.name): field.type_ for field in (type2.fields or {})
+            }
+            if fields1.keys() != fields2.keys():
                 return False
-        return True
-    else:
-        return bool(type1 == type2)
+            return all(_compare_type(fields1[k], fields2[k]) for k in fields1.keys())
+        case MutableSequence(), MutableSequence():
+            if len(type1) != len(type2):
+                return False
+            for t3 in type1:
+                if not any(_compare_type(t3, t2) for t2 in type2):
+                    return False
+            return True
+    return bool(type1 == type2)
 
 
 def _is_all_output_method_loop_step(
@@ -106,61 +102,65 @@ def _is_conditional_step(
 
 
 def _inputfile_load(
-    doc: Union[str, MutableMapping[str, Any], MutableSequence[Any]],
+    doc: str | MutableMapping[str, Any] | MutableSequence[Any],
     baseuri: str,
     loadingOptions: cwl.LoadingOptions,
-    addl_metadata_fields: Optional[MutableSequence[str]] = None,
+    addl_metadata_fields: MutableSequence[str] | None = None,
 ) -> tuple[Any, cwl.LoadingOptions]:
     loader = cwl.CWLInputFileLoader
-    if isinstance(doc, str):
-        url = loadingOptions.fetcher.urljoin(baseuri, doc)
-        if url in loadingOptions.idx:
+    match doc:
+        case str():
+            url = loadingOptions.fetcher.urljoin(baseuri, doc)
+            if url in loadingOptions.idx:
+                return loadingOptions.idx[url]
+            doc_url, frg = urldefrag(url)
+            text = loadingOptions.fetcher.fetch_text(doc_url)
+            textIO = StringIO(text)
+            textIO.name = doc_url
+            yaml = yaml_no_ts()
+            result = yaml.load(textIO)
+            add_lc_filename(result, doc_url)
+            loadingOptions = cwl.LoadingOptions(
+                copyfrom=loadingOptions, fileuri=doc_url
+            )
+            _inputfile_load(
+                result,
+                doc_url,
+                loadingOptions,
+            )
             return loadingOptions.idx[url]
-        doc_url, frg = urldefrag(url)
-        text = loadingOptions.fetcher.fetch_text(doc_url)
-        textIO = StringIO(text)
-        textIO.name = str(doc_url)
-        yaml = yaml_no_ts()
-        result = yaml.load(textIO)
-        add_lc_filename(result, doc_url)
-        loadingOptions = cwl.LoadingOptions(copyfrom=loadingOptions, fileuri=doc_url)
-        _inputfile_load(
-            result,
-            doc_url,
-            loadingOptions,
-        )
-        return loadingOptions.idx[url]
+        case MutableMapping():
+            addl_metadata = {}
+            if addl_metadata_fields is not None:
+                for mf in addl_metadata_fields:
+                    if mf in doc:
+                        addl_metadata[mf] = doc[mf]
 
-    if isinstance(doc, MutableMapping):
-        addl_metadata = {}
-        if addl_metadata_fields is not None:
-            for mf in addl_metadata_fields:
-                if mf in doc:
-                    addl_metadata[mf] = doc[mf]
+            loadingOptions = cwl.LoadingOptions(
+                copyfrom=loadingOptions,
+                baseuri=baseuri,
+                addl_metadata=addl_metadata,
+            )
 
-        loadingOptions = cwl.LoadingOptions(
-            copyfrom=loadingOptions,
-            baseuri=baseuri,
-            addl_metadata=addl_metadata,
-        )
+            loadingOptions.idx[baseuri] = (
+                loader.load(doc, baseuri, loadingOptions, docRoot=baseuri),
+                loadingOptions,
+            )
 
-        loadingOptions.idx[baseuri] = (
-            loader.load(doc, baseuri, loadingOptions, docRoot=baseuri),
-            loadingOptions,
-        )
+            return loadingOptions.idx[baseuri]
 
-        return loadingOptions.idx[baseuri]
+        case MutableSequence():
+            loadingOptions.idx[baseuri] = (
+                loader.load(doc, baseuri, loadingOptions),
+                loadingOptions,
+            )
+            return loadingOptions.idx[baseuri]
 
-    if isinstance(doc, MutableSequence):
-        loadingOptions.idx[baseuri] = (
-            loader.load(doc, baseuri, loadingOptions),
-            loadingOptions,
-        )
-        return loadingOptions.idx[baseuri]
-
-    raise ValidationException(
-        "Expected URI string, MutableMapping or MutableSequence, got %s" % type(doc)
-    )
+        case _:
+            raise ValidationException(
+                "Expected URI string, MutableMapping or MutableSequence, got %s"
+                % type(doc)
+            )
 
 
 def can_assign_src_to_sink(src: Any, sink: Any, strict: bool = False) -> bool:
@@ -174,7 +174,7 @@ def can_assign_src_to_sink(src: Any, sink: Any, strict: bool = False) -> bool:
        except for 'null'.
     In strict comparison, all source types must match at least one sink type.
     """
-    if src == "Any" or sink == "Any":
+    if "Any" in (src, sink):
         return True
     if isinstance(src, cwl.ArraySchema) and isinstance(sink, cwl.ArraySchema):
         return can_assign_src_to_sink(src.items, sink.items, strict)
@@ -200,7 +200,7 @@ def can_assign_src_to_sink(src: Any, sink: Any, strict: bool = False) -> bool:
 
 def check_all_types(
     src_dict: dict[str, Any],
-    sinks: MutableSequence[Union[cwl.WorkflowStepInput, cwl.WorkflowOutputParameter]],
+    sinks: MutableSequence[cwl.WorkflowStepInput | cwl.WorkflowOutputParameter],
     param_to_step: dict[str, cwl.WorkflowStep],
     type_dict: dict[str, Any],
 ) -> dict[str, list[SrcSink]]:
@@ -210,43 +210,56 @@ def check_all_types(
         extra_message = (
             "pickValue is %s" % sink.pickValue if sink.pickValue is not None else None
         )
-        if isinstance(sink, cwl.WorkflowOutputParameter):
-            sourceName = "outputSource"
-            sourceField = sink.outputSource
-        elif isinstance(sink, cwl.WorkflowStepInput):
-            sourceName = "source"
-            sourceField = sink.source
-        else:
-            continue
+        sink_type = type_dict[sink.id]
+        match sink:
+            case cwl.WorkflowOutputParameter():
+                sourceName = "outputSource"
+                sourceField = sink.outputSource
+            case cwl.WorkflowStepInput():
+                sourceName = "source"
+                sourceField = sink.source
+            case _:
+                continue
         if sourceField is not None:
-            if isinstance(sourceField, MutableSequence):
-                linkMerge = sink.linkMerge or (
+            if isinstance(sourceField, MutableSequence) and len(sourceField) > 1:
+                linkMerge: str | None = sink.linkMerge or (
                     "merge_nested" if len(sourceField) > 1 else None
                 )
-                if sink.pickValue in ["first_non_null", "the_only_non_null"]:
+                if sink.pickValue in ("first_non_null", "the_only_non_null"):
                     linkMerge = None
                 srcs_of_sink = []
                 for parm_id in sourceField:
                     srcs_of_sink += [src_dict[parm_id]]
                     if (
                         _is_conditional_step(param_to_step, parm_id)
-                        and sink.pickValue is not None
+                        and sink.pickValue is None
                     ):
-                        validation["warning"].append(
-                            SrcSink(
-                                src_dict[parm_id],
-                                sink,
-                                linkMerge,
-                                message="Source is from conditional step, but pickValue is not used",
+                        src_typ = aslist(type_dict[src_dict[parm_id].id])
+                        if "null" not in src_typ:
+                            src_typ = ["null"] + cast(list[Any], src_typ)
+                        if (
+                            not isinstance(sink_type, MutableSequence)
+                            or "null" not in sink_type
+                        ):
+                            validation["warning"].append(
+                                SrcSink(
+                                    src_dict[parm_id],
+                                    sink,
+                                    linkMerge,
+                                    message="Source is from conditional step, but pickValue is not used",
+                                )
                             )
-                        )
+                        type_dict[src_dict[parm_id].id] = src_typ
                     if _is_all_output_method_loop_step(param_to_step, parm_id):
                         src_typ = type_dict[src_dict[parm_id].id]
                         type_dict[src_dict[parm_id].id] = cwl.ArraySchema(
                             items=src_typ, type_="array"
                         )
             else:
-                parm_id = cast(str, sourceField)
+                if isinstance(sourceField, MutableSequence):
+                    parm_id = cast(str, sourceField[0])
+                else:
+                    parm_id = cast(str, sourceField)
                 if parm_id not in src_dict:
                     raise SourceLine(sink, sourceName, ValidationException).makeError(
                         f"{sourceName} not found: {parm_id}"
@@ -288,16 +301,12 @@ def check_all_types(
             for src in srcs_of_sink:
                 check_result = check_types(
                     type_dict[cast(str, src.id)],
-                    type_dict[sink.id],
+                    sink_type,
                     linkMerge,
                     getattr(sink, "valueFrom", None),
                 )
-                if check_result == "warning":
-                    validation["warning"].append(
-                        SrcSink(src, sink, linkMerge, extra_message)
-                    )
-                elif check_result == "exception":
-                    validation["exception"].append(
+                if check_result in ("warning", "exception"):
+                    validation[check_result].append(
                         SrcSink(src, sink, linkMerge, extra_message)
                     )
     return validation
@@ -306,8 +315,8 @@ def check_all_types(
 def check_types(
     srctype: Any,
     sinktype: Any,
-    linkMerge: Optional[str],
-    valueFrom: Optional[str] = None,
+    linkMerge: str | None,
+    valueFrom: str | None = None,
 ) -> str:
     """
     Check if the source and sink types are correct.
@@ -316,19 +325,24 @@ def check_types(
     """
     if valueFrom is not None:
         return "pass"
-    if linkMerge is None:
-        if can_assign_src_to_sink(srctype, sinktype, strict=True):
-            return "pass"
-        if can_assign_src_to_sink(srctype, sinktype, strict=False):
-            return "warning"
-        return "exception"
-    if linkMerge == "merge_nested":
-        return check_types(
-            cwl.ArraySchema(items=srctype, type_="array"), sinktype, None, None
-        )
-    if linkMerge == "merge_flattened":
-        return check_types(merge_flatten_type(srctype), sinktype, None, None)
-    raise ValidationException(f"Invalid value {linkMerge} for linkMerge field.")
+    match linkMerge:
+        case None:
+            if can_assign_src_to_sink(srctype, sinktype, strict=True):
+                return "pass"
+            if can_assign_src_to_sink(srctype, sinktype, strict=False):
+                return "warning"
+            return "exception"
+        case "merge_nested":
+            return check_types(
+                cwl.ArraySchema(items=srctype, type_="array"),
+                sinktype,
+                None,
+                None,
+            )
+        case "merge_flattened":
+            return check_types(merge_flatten_type(srctype), sinktype, None, None)
+        case _:
+            raise ValidationException(f"Invalid value {linkMerge} for linkMerge field.")
 
 
 def content_limit_respected_read_bytes(f: IO[bytes]) -> bytes:
@@ -363,11 +377,9 @@ def convert_stdstreams_to_files(clt: cwl.CommandLineTool) -> None:
                     "Not allowed to specify outputBinding when using stdout shortcut."
                 )
             if clt.stdout is None:
-                clt.stdout = str(
-                    hashlib.sha1(  # nosec
-                        json_dumps(clt.save(), sort_keys=True).encode("utf-8")
-                    ).hexdigest()
-                )
+                clt.stdout = hashlib.sha1(  # nosec
+                    json_dumps(clt.save(), sort_keys=True).encode("utf-8")
+                ).hexdigest()
             out.type_ = "File"
             out.outputBinding = cwl.CommandOutputBinding(glob=clt.stdout)
         elif out.type_ == "stderr":
@@ -376,11 +388,9 @@ def convert_stdstreams_to_files(clt: cwl.CommandLineTool) -> None:
                     "Not allowed to specify outputBinding when using stderr shortcut."
                 )
             if clt.stderr is None:
-                clt.stderr = str(
-                    hashlib.sha1(  # nosec
-                        json_dumps(clt.save(), sort_keys=True).encode("utf-8")
-                    ).hexdigest()
-                )
+                clt.stderr = hashlib.sha1(  # nosec
+                    json_dumps(clt.save(), sort_keys=True).encode("utf-8")
+                ).hexdigest()
             out.type_ = "File"
             out.outputBinding = cwl.CommandOutputBinding(glob=clt.stderr)
     for inp in clt.inputs:
@@ -403,12 +413,12 @@ def convert_stdstreams_to_files(clt: cwl.CommandLineTool) -> None:
 
 def load_inputfile(
     doc: Any,
-    baseuri: Optional[str] = None,
-    loadingOptions: Optional[cwl.LoadingOptions] = None,
+    baseuri: str | None = None,
+    loadingOptions: cwl.LoadingOptions | None = None,
 ) -> Any:
     """Load a CWL v1.2 input file from a serialized YAML string or a YAML object."""
     if baseuri is None:
-        baseuri = cwl.file_uri(os.getcwd()) + "/"
+        baseuri = cwl.file_uri(str(Path.cwd())) + "/"
     if loadingOptions is None:
         loadingOptions = cwl.LoadingOptions()
 
@@ -423,11 +433,10 @@ def load_inputfile(
 def load_inputfile_by_string(
     string: Any,
     uri: str,
-    loadingOptions: Optional[cwl.LoadingOptions] = None,
+    loadingOptions: cwl.LoadingOptions | None = None,
 ) -> Any:
     """Load a CWL v1.2 input file from a serialized YAML string."""
-    yaml = yaml_no_ts()
-    result = yaml.load(string)
+    result = yaml_no_ts().load(string)
     add_lc_filename(result, uri)
 
     if loadingOptions is None:
@@ -444,7 +453,7 @@ def load_inputfile_by_string(
 def load_inputfile_by_yaml(
     yaml: Any,
     uri: str,
-    loadingOptions: Optional[cwl.LoadingOptions] = None,
+    loadingOptions: cwl.LoadingOptions | None = None,
 ) -> Any:
     """Load a CWL v1.2 input file from a YAML object."""
     add_lc_filename(yaml, uri)
@@ -520,16 +529,16 @@ def type_for_step_output(
 
 
 def type_for_source(
-    process: Union[cwl.CommandLineTool, cwl.Workflow, cwl.ExpressionTool],
-    sourcenames: Union[str, list[str]],
-    parent: Optional[cwl.Workflow] = None,
-    linkMerge: Optional[str] = None,
-    pickValue: Optional[str] = None,
+    process: cwl.CommandLineTool | cwl.Workflow | cwl.ExpressionTool,
+    sourcenames: str | list[str],
+    parent: cwl.Workflow | None = None,
+    linkMerge: str | None = None,
+    pickValue: str | None = None,
 ) -> Any:
     """Determine the type for the given sourcenames."""
-    scatter_context: list[Optional[tuple[int, str]]] = []
+    scatter_context: list[tuple[int, str] | None] = []
     params = param_for_source_id(process, sourcenames, parent, scatter_context)
-    if not isinstance(params, list):
+    if not isinstance(params, MutableSequence):
         new_type = params.type_
         if scatter_context[0] is not None:
             if scatter_context[0][1] == "nested_crossproduct":
@@ -543,7 +552,7 @@ def type_for_source(
             new_type = merge_flatten_type(new_type)
         if pickValue is not None:
             if isinstance(new_type, cwl.ArraySchema):
-                if pickValue in ["first_non_null", "the_only_non_null"]:
+                if pickValue in ("first_non_null", "the_only_non_null"):
                     new_type = new_type.items
         return new_type
     new_type = []
@@ -574,21 +583,34 @@ def type_for_source(
         new_type = cwl.ArraySchema(items=new_type, type_="array")
     if pickValue is not None:
         if isinstance(new_type, cwl.ArraySchema):
-            if pickValue in ["first_non_null", "the_only_non_null"]:
+            if pickValue in ("first_non_null", "the_only_non_null"):
                 new_type = new_type.items
     return new_type
 
 
 def param_for_source_id(
-    process: Union[cwl.CommandLineTool, cwl.Workflow, cwl.ExpressionTool],
-    sourcenames: Union[str, list[str]],
-    parent: Optional[cwl.Workflow] = None,
-    scatter_context: Optional[list[Optional[tuple[int, str]]]] = None,
-) -> Union[list[cwl.WorkflowInputParameter], cwl.WorkflowInputParameter]:
+    process: cwl.CommandLineTool | cwl.Workflow | cwl.ExpressionTool,
+    sourcenames: str | list[str],
+    parent: cwl.Workflow | None = None,
+    scatter_context: list[tuple[int, str] | None] | None = None,
+) -> (
+    cwl.CommandInputParameter
+    | cwl.CommandOutputParameter
+    | cwl.WorkflowInputParameter
+    | MutableSequence[
+        cwl.CommandInputParameter
+        | cwl.CommandOutputParameter
+        | cwl.WorkflowInputParameter
+    ]
+):
     """Find the process input parameter that matches one of the given sourcenames."""
     if isinstance(sourcenames, str):
         sourcenames = [sourcenames]
-    params: list[cwl.WorkflowInputParameter] = []
+    params: MutableSequence[
+        cwl.CommandInputParameter
+        | cwl.CommandOutputParameter
+        | cwl.WorkflowInputParameter
+    ] = []
     for sourcename in sourcenames:
         if not isinstance(process, cwl.Workflow):
             for param in process.inputs:

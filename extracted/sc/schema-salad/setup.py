@@ -9,7 +9,7 @@ SETUP_DIR = os.path.dirname(__file__)
 README = os.path.join(SETUP_DIR, "README.rst")
 
 needs_pytest = {"pytest", "test", "ptr"}.intersection(sys.argv)
-pytest_runner: list[str] = ["pytest < 9", "pytest-runner"] if needs_pytest else []
+pytest_runner: list[str] = ["pytest < 10", "pytest-runner"] if needs_pytest else []
 
 USE_MYPYC = False
 # To compile with mypyc, a mypyc checkout must be present on the PYTHONPATH
@@ -84,18 +84,19 @@ else:
 
 install_requires = [
     "requests >= 1.0",
-    "ruamel.yaml >= 0.17.6, < 0.19",
+    "ruamel.yaml >= 0.17.6, < 0.20",
     "rdflib >= 4.2.2, < 8.0.0",
-    "mistune>=3,<3.2",
+    "mistune>=3,<3.3",
     "CacheControl[filecache] >= 0.13.1, < 0.15",
     "mypy_extensions",
+    "rich-argparse",
 ]
 
 extras_require = {
     "docs": [
         "sphinx >= 2.2",
         "sphinx-rtd-theme >= 1",
-        "pytest < 9",
+        "pytest < 10",
         "sphinx-autoapi",
         "sphinx-autodoc-typehints",
         "sphinxcontrib-autoprogram",
@@ -114,9 +115,9 @@ setup(
     download_url="https://github.com/common-workflow-language/schema_salad/releases",
     ext_modules=ext_modules,
     license="Apache 2.0",
-    python_requires=">=3.9,<3.15",
+    python_requires=">=3.10,<3.15",
     use_scm_version=True,
-    setup_requires=pytest_runner + ["setuptools_scm>=8.0.4,<10"],
+    setup_requires=pytest_runner + ["setuptools_scm>=8.0.4,<11"],
     packages=["schema_salad", "schema_salad.tests", "schema_salad.avro"],
     package_data={
         "schema_salad": [
@@ -162,11 +163,11 @@ setup(
         "Operating System :: POSIX",
         "Operating System :: MacOS :: MacOS X",
         "Development Status :: 5 - Production/Stable",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Typing :: Typed",
     ],
 )

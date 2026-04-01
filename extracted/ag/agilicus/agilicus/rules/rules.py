@@ -20,7 +20,16 @@ from ..output.table import (
 
 from agilicus import create_or_update, find_guid
 
-ACTIONS = ["allow", "deny", "redirect", "log", "none", "revocation_check", "mfa"]
+ACTIONS = [
+    "allow",
+    "deny",
+    "redirect",
+    "log",
+    "none",
+    "revocation_check",
+    "mfa",
+    "no_permissions",
+]
 
 ConditionTypes = Enum(
     "ConditionType",

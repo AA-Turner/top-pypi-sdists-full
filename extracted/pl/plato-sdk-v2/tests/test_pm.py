@@ -568,6 +568,10 @@ class TestLaunchEnvWorld:
 
 
 class TestLaunchDatagenWorld:
+    @pytest.fixture(autouse=True)
+    def _auto_confirm_missing_anchor_key(self, monkeypatch):
+        monkeypatch.setattr("plato.cli.pm.typer.confirm", lambda *args, **kwargs: True)
+
     @patch("plato.cli.pm._attach_session_to_experiment")
     @patch("plato.cli.pm._launch_on_chronos")
     @patch("plato.cli.pm._fetch_experiment_config")

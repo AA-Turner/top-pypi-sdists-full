@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vivisect
-Version: 1.3.1
+Version: 1.3.2
 Summary: Pure python disassembler, debugger, emulator, and static analysis framework
 Author-email: The Vivisect Peeps <vivdevs@r4780y.com>
 License: Apache License 2.0

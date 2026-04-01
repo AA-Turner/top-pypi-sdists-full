@@ -380,7 +380,7 @@ There are a couple of high level differences:
 With a provisioned writer and serverless v2 readers, some of the serverless
 readers will need to be configured to scale with the writer so they can act as
 failover targets. You will need to determine the correct capacity based on the
-provisioned instance type and it's utilization.
+provisioned instance type and its utilization.
 
 As an example, if the CPU utilization for a db.r6g.4xlarge (128 GB) instance
 stays at 10% most times, then the minimum ACUs may be set at 6.5 ACUs
@@ -14614,19 +14614,6 @@ class CfnDBParameterGroup(
         jsii.set(self, "family", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(self) -> typing.Any:
-        '''A mapping of parameter names and values for the parameter update.'''
-        return typing.cast(typing.Any, jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__987f1082fdf4a5da0b26fcc782aacbe415062f22410b31c0cf4ce6fdbfcf67ab)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="dbParameterGroupName")
     def db_parameter_group_name(self) -> typing.Optional[builtins.str]:
         '''The name of the DB parameter group.'''
@@ -14638,6 +14625,19 @@ class CfnDBParameterGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__a22c7ecd784517cdedb05f2be1ead50de4ec8f05506992db84a909159e60e408)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dbParameterGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(self) -> typing.Any:
+        '''A mapping of parameter names and values for the parameter update.'''
+        return typing.cast(typing.Any, jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__987f1082fdf4a5da0b26fcc782aacbe415062f22410b31c0cf4ce6fdbfcf67ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -53739,14 +53739,14 @@ def _typecheckingstub__9e21a919c5d348b9b21e85ad530ebd9d61da372e1b23e938e25fddde0
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__987f1082fdf4a5da0b26fcc782aacbe415062f22410b31c0cf4ce6fdbfcf67ab(
-    value: typing.Any,
+def _typecheckingstub__a22c7ecd784517cdedb05f2be1ead50de4ec8f05506992db84a909159e60e408(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a22c7ecd784517cdedb05f2be1ead50de4ec8f05506992db84a909159e60e408(
-    value: typing.Optional[builtins.str],
+def _typecheckingstub__987f1082fdf4a5da0b26fcc782aacbe415062f22410b31c0cf4ce6fdbfcf67ab(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

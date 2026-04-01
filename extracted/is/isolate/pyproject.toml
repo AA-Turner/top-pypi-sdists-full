@@ -55,6 +55,8 @@ dev = [
     "grpcio-tools==1.64.0",
 ]
 
+[tool.uv]
+exclude-newer = "7 days"
 
 [project.entry-points."isolate.backends"]
 "virtualenv" = "isolate.backends.virtualenv:VirtualPythonEnvironment"

@@ -13,6 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from __future__ import annotations
+
 import platform
 import warnings
 from copy import copy
@@ -25,9 +27,11 @@ from couchbase.cluster import Cluster
 from couchbase.exceptions import (CouchbaseException,
                                   InvalidArgumentException,
                                   UnAmbiguousTimeoutException)
-from couchbase.logic.cluster import ClusterLogic
+from couchbase.logic.cluster_impl import ClusterImpl
 from couchbase.options import (CONFIG_PROFILES,
+                               ClusterMetricsOptions,
                                ClusterOptions,
+                               ClusterOrphanReportingOptions,
                                ClusterTimeoutOptions,
                                ClusterTracingOptions,
                                ConfigProfile,
@@ -60,12 +64,21 @@ class ConnectionTestSuite:
         'test_cluster_sasl_mech_default',
         'test_cluster_sasl_mech_legacy_multiple',
         'test_cluster_sasl_mech_multiple',
+        'test_cluster_metrics_options',
+        'test_cluster_metrics_options_fail',
+        'test_cluster_metrics_options_kwargs',
+        'test_cluster_metrics_options_override',
+        'test_cluster_orphan_reporting_options',
+        'test_cluster_orphan_reporting_options_fail',
+        'test_cluster_orphan_reporting_options_kwargs',
+        'test_cluster_orphan_reporting_options_override',
         'test_cluster_timeout_options',
         'test_cluster_timeout_options_fail',
         'test_cluster_timeout_options_kwargs',
         'test_cluster_tracing_options',
         'test_cluster_tracing_options_fail',
         'test_cluster_tracing_options_kwargs',
+        'test_cluster_tracing_options_override',
         'test_config_profile_fail',
         'test_custom_config_profile',
         'test_custom_config_profile_fail',
@@ -79,7 +92,7 @@ class ConnectionTestSuite:
     def test_cluster_auth_fail(self, couchbase_config):
         conn_string = couchbase_config.get_connection_string()
         with pytest.raises(InvalidArgumentException):
-            ClusterLogic(conn_string)
+            ClusterImpl(conn_string)
 
     def test_cluster_cert_auth(self, couchbase_config):
         conn_string = couchbase_config.get_connection_string()
@@ -91,14 +104,14 @@ class ConnectionTestSuite:
         }
 
         auth = CertificateAuthenticator(**expected_auth)
-        cluster = ClusterLogic(conn_string, ClusterOptions(auth))
+        cluster = ClusterImpl(conn_string, ClusterOptions(auth), skip_connect='TEST_SKIP_CONNECT')
         auth_opts, _ = cluster._get_connection_opts()
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
         assert auth_opts == expected_auth
 
         # check as kwargs
-        cluster = ClusterLogic(conn_string, authenticator=auth)
+        cluster = ClusterImpl(conn_string, authenticator=auth, skip_connect='TEST_SKIP_CONNECT')
         auth_opts, _ = cluster._get_connection_opts()
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
@@ -143,10 +156,10 @@ class ConnectionTestSuite:
 
         auth = CertificateAuthenticator(**expected_auth)
         with pytest.raises(InvalidArgumentException):
-            ClusterLogic(conn_string, ClusterOptions(auth), trust_store_path=ts_path)
+            ClusterImpl(conn_string, ClusterOptions(auth), trust_store_path=ts_path)
 
         with pytest.raises(InvalidArgumentException):
-            ClusterLogic(conn_string, authenticator=auth, trust_store_path=ts_path)
+            ClusterImpl(conn_string, authenticator=auth, trust_store_path=ts_path)
 
     def test_cluster_cert_auth_ts_connstr(self, couchbase_config):
         conn_string = couchbase_config.get_connection_string()
@@ -158,7 +171,9 @@ class ConnectionTestSuite:
 
         auth = CertificateAuthenticator(**expected_auth)
         ts_path = 'path/to/truststore'
-        cluster = ClusterLogic(f'{conn_string}?truststorepath={ts_path}', ClusterOptions(auth))
+        cluster = ClusterImpl(f'{conn_string}?truststorepath={ts_path}',
+                              ClusterOptions(auth),
+                              skip_connect='TEST_SKIP_CONNECT')
         auth_opts, cluster_opts = cluster._get_connection_opts()
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
@@ -169,9 +184,10 @@ class ConnectionTestSuite:
         assert cluster_opts['trust_store_path'] == ts_path
 
         # check as kwargs
-        cluster = ClusterLogic(f'{conn_string}?truststorepath={ts_path}',
-                               authenticator=auth,
-                               trust_store_path=ts_path)
+        cluster = ClusterImpl(f'{conn_string}?truststorepath={ts_path}',
+                              authenticator=auth,
+                              trust_store_path=ts_path,
+                              skip_connect='TEST_SKIP_CONNECT')
         auth_opts, cluster_opts = cluster._get_connection_opts()
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
@@ -191,7 +207,10 @@ class ConnectionTestSuite:
 
         auth = CertificateAuthenticator(**expected_auth)
         ts_path = 'path/to/truststore'
-        cluster = ClusterLogic(conn_string, ClusterOptions(auth), trust_store_path=ts_path)
+        cluster = ClusterImpl(conn_string,
+                              ClusterOptions(auth),
+                              trust_store_path=ts_path,
+                              skip_connect='TEST_SKIP_CONNECT')
         auth_opts, cluster_opts = cluster._get_connection_opts()
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
@@ -202,7 +221,10 @@ class ConnectionTestSuite:
         assert cluster_opts['trust_store_path'] == ts_path
 
         # check as kwargs
-        cluster = ClusterLogic(conn_string, authenticator=auth, trust_store_path=ts_path)
+        cluster = ClusterImpl(conn_string,
+                              authenticator=auth,
+                              trust_store_path=ts_path,
+                              skip_connect='TEST_SKIP_CONNECT')
         auth_opts, cluster_opts = cluster._get_connection_opts()
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
@@ -219,7 +241,7 @@ class ConnectionTestSuite:
         auth = PasswordAuthenticator.ldap_compatible(username, pw)
         assert isinstance(auth, PasswordAuthenticator)
         expected_auth = auth.as_dict()
-        cluster = ClusterLogic(conn_string, ClusterOptions(auth))
+        cluster = ClusterImpl(conn_string, ClusterOptions(auth), skip_connect='TEST_SKIP_CONNECT')
         auth_opts = cluster._get_connection_opts(auth_only=True)
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
@@ -233,7 +255,7 @@ class ConnectionTestSuite:
         auth = PasswordAuthenticator.ldap_compatible(username, pw)
         cluster = Cluster.connect(conn_string, ClusterOptions(auth))
 
-        client_opts = cluster._get_client_connection_info()
+        client_opts = cluster._impl.get_connection_info()
         assert client_opts['credentials'] is not None
         assert client_opts['credentials']['allowed_sasl_mechanisms'] == ['PLAIN']
 
@@ -244,7 +266,9 @@ class ConnectionTestSuite:
         auth = PasswordAuthenticator(username, pw)
         expected_auth = auth.as_dict()
         expected_auth['allowed_sasl_mechanisms'] = ['PLAIN']
-        cluster = ClusterLogic(f'{conn_string}?sasl_mech_force=PLAIN', ClusterOptions(auth))
+        cluster = ClusterImpl(f'{conn_string}?sasl_mech_force=PLAIN',
+                              ClusterOptions(auth),
+                              skip_connect='TEST_SKIP_CONNECT')
         auth_opts, cluster_opts = cluster._get_connection_opts()
         assert cluster_opts is not None
         assert auth_opts is not None
@@ -258,7 +282,7 @@ class ConnectionTestSuite:
         auth = PasswordAuthenticator(username, pw)
         cluster = Cluster.connect(f'{conn_string}?sasl_mech_force=PLAIN', ClusterOptions(auth))
 
-        client_opts = cluster._get_client_connection_info()
+        client_opts = cluster._impl.get_connection_info()
         assert client_opts['credentials'] is not None
         assert client_opts['credentials']['allowed_sasl_mechanisms'] == ['PLAIN']
 
@@ -267,7 +291,7 @@ class ConnectionTestSuite:
         username, pw = couchbase_config.get_username_and_pw()
 
         auth = PasswordAuthenticator(username, pw)
-        cluster = ClusterLogic(f'{conn_string}?ssl=no_verify', ClusterOptions(auth))
+        cluster = ClusterImpl(f'{conn_string}?ssl=no_verify', ClusterOptions(auth), skip_connect='TEST_SKIP_CONNECT')
         cluster_opts = cluster._get_connection_opts(conn_only=True)
         assert cluster_opts is not None
         assert cluster_opts['tls_verify'] == 'none'
@@ -285,6 +309,7 @@ class ConnectionTestSuite:
             'enable_compression': True,
             'enable_tracing': True,
             'enable_metrics': True,
+            'enable_orphan_reporting': True,
             'network': 'external',
             'tls_verify': TLSVerifyMode.NO_VERIFY,
             'disable_mozilla_ca_certificates': False,
@@ -294,15 +319,14 @@ class ConnectionTestSuite:
             'config_poll_interval': timedelta(seconds=30),
             'config_poll_floor': timedelta(seconds=30),
             'max_http_connections': 10,
-            'logging_meter_emit_interval': timedelta(seconds=30),
             'num_io_threads': 1,
             'dump_configuration': True,
             'preferred_server_group': 'group1',
             'enable_app_telemetry': True,
             'app_telemetry_endpoint': 'ws://localhost:8093',
-            "app_telemetry_backoff": timedelta(seconds=10),
-            "app_telemetry_ping_interval": timedelta(seconds=60),
-            "app_telemetry_ping_timeout": timedelta(seconds=5),
+            'app_telemetry_backoff': timedelta(seconds=10),
+            'app_telemetry_ping_interval': timedelta(seconds=60),
+            'app_telemetry_ping_timeout': timedelta(seconds=5),
         }
 
         expected_opts = copy(opts)
@@ -311,20 +335,25 @@ class ConnectionTestSuite:
         # transcoder is not passed to connection options
         expected_opts.pop('transcoder')
         # timedeltas are translated to microseconds
-        expected_opts['tcp_keep_alive_interval'] = 30000000
-        expected_opts['config_poll_interval'] = 30000000
-        expected_opts['config_poll_floor'] = 30000000
-        expected_opts['app_telemetry_backoff'] = 10000000
-        expected_opts['app_telemetry_ping_interval'] = 60000000
-        expected_opts['app_telemetry_ping_timeout'] = 5000000
+        # UPDATE: now translated to milliseconds to match C++ core
+        expected_opts['tcp_keep_alive_interval'] = 30000
+        expected_opts['config_poll_interval'] = 30000
+        expected_opts['config_poll_floor'] = 30000
+        expected_opts['app_telemetry_backoff'] = 10000
+        expected_opts['app_telemetry_ping_interval'] = 60000
+        expected_opts['app_telemetry_ping_timeout'] = 5000
         # IpProtocol is translated to string and has another name
         expected_opts.pop('ip_protocol')
         expected_opts['use_ip_protocol'] = 'any'
         # TLSVerifyMode is translated to string
         expected_opts['tls_verify'] = 'none'
-        # change name of logging meter emit int.
-        expected_opts.pop('logging_meter_emit_interval')
-        expected_opts['emit_interval'] = 30000000
+        # PYCBC-1718: updates how metrics, orphan reporting and tracing options are handled
+        expected_opts.pop('enable_metrics')
+        expected_opts['metrics_options'] = {'enable_metrics': True}
+        expected_opts.pop('enable_orphan_reporting')
+        expected_opts['orphan_reporting_options'] = {'enable_orphan_reporting': True}
+        expected_opts.pop('enable_tracing')
+        expected_opts['setup_sdk_tracing'] = True
 
         conn_string = couchbase_config.get_connection_string()
         username, pw = couchbase_config.get_username_and_pw()
@@ -333,7 +362,7 @@ class ConnectionTestSuite:
 
         # check via ClusterOptions
         cluster_opts = ClusterOptions(auth, **opts)
-        cluster = ClusterLogic(conn_string, cluster_opts)
+        cluster = ClusterImpl(conn_string, cluster_opts, skip_connect='TEST_SKIP_CONNECT')
         cluster_opts = cluster._get_connection_opts(conn_only=True)
         user_agent = cluster_opts.pop('user_agent_extra', None)
         assert cluster_opts is not None
@@ -343,7 +372,7 @@ class ConnectionTestSuite:
 
         # check via kwargs
         cluster_opts = ClusterOptions(auth)
-        cluster = ClusterLogic(conn_string, cluster_opts, **opts)
+        cluster = ClusterImpl(conn_string, cluster_opts, skip_connect='TEST_SKIP_CONNECT', **opts)
         cluster_opts = cluster._get_connection_opts(conn_only=True)
         user_agent = cluster_opts.pop('user_agent_extra', None)
         assert cluster_opts is not None
@@ -357,7 +386,7 @@ class ConnectionTestSuite:
 
         auth = PasswordAuthenticator(username, pw)
         expected_auth = auth.as_dict()
-        cluster = ClusterLogic(conn_string, ClusterOptions(auth))
+        cluster = ClusterImpl(conn_string, ClusterOptions(auth), skip_connect='TEST_SKIP_CONNECT')
         auth_opts = cluster._get_connection_opts(auth_only=True)
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
@@ -365,7 +394,7 @@ class ConnectionTestSuite:
         assert auth_opts['allowed_sasl_mechanisms'] is None
 
         # check as kwargs
-        cluster = ClusterLogic(conn_string, authenticator=auth)
+        cluster = ClusterImpl(conn_string, authenticator=auth, skip_connect='TEST_SKIP_CONNECT')
         auth_opts = cluster._get_connection_opts(auth_only=True)
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
@@ -410,14 +439,14 @@ class ConnectionTestSuite:
 
         auth = PasswordAuthenticator(username, pw, cert_path='path/to/cert')
         expected_auth = auth.as_dict()
-        cluster = ClusterLogic(conn_string, ClusterOptions(auth))
+        cluster = ClusterImpl(conn_string, ClusterOptions(auth), skip_connect='TEST_SKIP_CONNECT')
         auth_opts = cluster._get_connection_opts(auth_only=True)
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
         assert auth_opts == expected_auth
 
         # check as kwargs
-        cluster = ClusterLogic(conn_string, authenticator=auth)
+        cluster = ClusterImpl(conn_string, authenticator=auth, skip_connect='TEST_SKIP_CONNECT')
         auth_opts = cluster._get_connection_opts(auth_only=True)
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
@@ -431,7 +460,9 @@ class ConnectionTestSuite:
         cert_path = 'path/to/cert'
         expected_auth = auth.as_dict()
         expected_auth['cert_path'] = cert_path
-        cluster = ClusterLogic(f'{conn_string}?certpath={cert_path}', ClusterOptions(auth))
+        cluster = ClusterImpl(f'{conn_string}?certpath={cert_path}',
+                              ClusterOptions(auth),
+                              skip_connect='TEST_SKIP_CONNECT')
         auth_opts = cluster._get_connection_opts(auth_only=True)
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
@@ -445,14 +476,17 @@ class ConnectionTestSuite:
         cert_path = 'path/to/cert'
         expected_auth = auth.as_dict()
         expected_auth['cert_path'] = cert_path
-        cluster = ClusterLogic(conn_string, ClusterOptions(auth), cert_path=cert_path)
+        cluster = ClusterImpl(conn_string,
+                              ClusterOptions(auth),
+                              cert_path=cert_path,
+                              skip_connect='TEST_SKIP_CONNECT')
         auth_opts = cluster._get_connection_opts(auth_only=True)
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
         assert auth_opts == expected_auth
 
         # check as kwargs
-        cluster = ClusterLogic(conn_string, authenticator=auth, cert_path=cert_path)
+        cluster = ClusterImpl(conn_string, authenticator=auth, cert_path=cert_path, skip_connect='TEST_SKIP_CONNECT')
         auth_opts = cluster._get_connection_opts(auth_only=True)
         assert auth_opts is not None
         assert isinstance(auth_opts, dict)
@@ -466,7 +500,7 @@ class ConnectionTestSuite:
         auth = PasswordAuthenticator(username, pw)
         cluster = Cluster.connect(f'{conn_string}', ClusterOptions(auth))
 
-        client_opts = cluster._get_client_connection_info()
+        client_opts = cluster._impl.get_connection_info()
         assert client_opts['credentials'] is not None
         assert client_opts['credentials']['allowed_sasl_mechanisms'] == []
 
@@ -478,13 +512,15 @@ class ConnectionTestSuite:
         expected_auth = auth.as_dict()
         expected_auth['allowed_sasl_mechanisms'] = ['SCRAM-SHA512', 'SCRAM-SHA256']
         conn_str = f'{conn_string}?sasl_mech_force=SCRAM-SHA512&sasl_mech_force=SCRAM-SHA256'
-        cluster = ClusterLogic(conn_str, ClusterOptions(auth))
+        cluster = ClusterImpl(conn_str, ClusterOptions(auth), skip_connect='TEST_SKIP_CONNECT')
         auth_opts, cluster_opts = cluster._get_connection_opts()
         assert cluster_opts is not None
         assert auth_opts is not None
         assert auth_opts == expected_auth
 
-        cluster = ClusterLogic(f'{conn_string}?sasl_mech_force=SCRAM-SHA512,SCRAM-SHA256', ClusterOptions(auth))
+        cluster = ClusterImpl(f'{conn_string}?sasl_mech_force=SCRAM-SHA512,SCRAM-SHA256',
+                              ClusterOptions(auth),
+                              skip_connect='TEST_SKIP_CONNECT')
         auth_opts, cluster_opts = cluster._get_connection_opts()
         assert cluster_opts is not None
         assert auth_opts is not None
@@ -498,69 +534,256 @@ class ConnectionTestSuite:
         expected_auth = auth.as_dict()
         expected_auth['allowed_sasl_mechanisms'] = ['SCRAM-SHA512', 'SCRAM-SHA256']
         conn_str = f'{conn_string}?allowed_sasl_mechanisms=SCRAM-SHA512&allowed_sasl_mechanisms=SCRAM-SHA256'
-        cluster = ClusterLogic(conn_str, ClusterOptions(auth))
+        cluster = ClusterImpl(conn_str, ClusterOptions(auth), skip_connect='TEST_SKIP_CONNECT')
         auth_opts, cluster_opts = cluster._get_connection_opts()
         assert cluster_opts is not None
         assert auth_opts is not None
         assert auth_opts == expected_auth
 
-        cluster = ClusterLogic(f'{conn_string}?allowed_sasl_mechanisms=SCRAM-SHA512,SCRAM-SHA256', ClusterOptions(auth))
+        cluster = ClusterImpl(f'{conn_string}?allowed_sasl_mechanisms=SCRAM-SHA512,SCRAM-SHA256',
+                              ClusterOptions(auth),
+                              skip_connect='TEST_SKIP_CONNECT')
         auth_opts, cluster_opts = cluster._get_connection_opts()
         assert cluster_opts is not None
         assert auth_opts is not None
         assert auth_opts == expected_auth
 
         auth = PasswordAuthenticator(username, pw, allowed_sasl_mechanisms='SCRAM-SHA512,SCRAM-SHA256')
-        cluster = ClusterLogic(f'{conn_string}', ClusterOptions(auth))
+        cluster = ClusterImpl(f'{conn_string}', ClusterOptions(auth), skip_connect='TEST_SKIP_CONNECT')
         auth_opts, cluster_opts = cluster._get_connection_opts()
         assert cluster_opts is not None
         assert auth_opts is not None
         assert auth_opts == expected_auth
 
         auth = PasswordAuthenticator(username, pw, allowed_sasl_mechanisms=['SCRAM-SHA512', 'SCRAM-SHA256'])
-        cluster = ClusterLogic(f'{conn_string}', ClusterOptions(auth))
+        cluster = ClusterImpl(f'{conn_string}', ClusterOptions(auth), skip_connect='TEST_SKIP_CONNECT')
         auth_opts, cluster_opts = cluster._get_connection_opts()
         assert cluster_opts is not None
         assert auth_opts is not None
         assert auth_opts == expected_auth
 
     @pytest.mark.parametrize('opts, expected_opts',
+                             [({'enable_metrics': True, 'emit_interval': timedelta(seconds=30)},
+                               {'enable_metrics': True, 'metrics_emit_interval': 30000}),
+                              ])
+    def test_cluster_metrics_options(self, couchbase_config, opts, expected_opts):
+        conn_string = couchbase_config.get_connection_string()
+        username, pw = couchbase_config.get_username_and_pw()
+
+        auth = PasswordAuthenticator(username, pw)
+        cluster_opts = ClusterOptions(auth, metrics_options=ClusterMetricsOptions(**opts))
+        cluster = ClusterImpl(conn_string, cluster_opts, skip_connect='TEST_SKIP_CONNECT')
+        cluster_opts = cluster._get_connection_opts(conn_only=True)
+        metrics_opts = cluster_opts.get('metrics_options', None)
+        assert metrics_opts is not None
+        assert isinstance(metrics_opts, dict)
+        assert metrics_opts == expected_opts
+
+    # when working w/ kwargs, some options append 'metrics_' to avoid key clash with orphan reporting options
+    @pytest.mark.parametrize('opts',
+                             [
+                                 {'enable_metrics': 1},
+                                 {'metrics_emit_interval': 30},
+                             ])
+    def test_cluster_metrics_options_fail(self, couchbase_config, opts):
+        conn_string = couchbase_config.get_connection_string()
+        username, pw = couchbase_config.get_username_and_pw()
+
+        auth = PasswordAuthenticator(username, pw)
+        cluster_opts = ClusterOptions(auth)
+        with pytest.raises(InvalidArgumentException):
+            ClusterImpl(conn_string, cluster_opts, **opts)
+
+        cluster_opts = ClusterOptions(auth, metrics_options=opts)
+        with pytest.raises(InvalidArgumentException):
+            ClusterImpl(conn_string, cluster_opts)
+
+    # when working w/ kwargs, some options append 'metrics_' to avoid key clash with orphan reporting options
+    @pytest.mark.parametrize('opts, expected_opts',
+                             [({'enable_metrics': True, 'metrics_emit_interval': timedelta(seconds=30)},
+                               {'enable_metrics': True, 'metrics_emit_interval': 30000}),
+                              ])
+    def test_cluster_metrics_options_kwargs(self, couchbase_config, opts, expected_opts):
+        conn_string = couchbase_config.get_connection_string()
+        username, pw = couchbase_config.get_username_and_pw()
+
+        auth = PasswordAuthenticator(username, pw)
+        cluster_opts = ClusterOptions(auth)
+        cluster = ClusterImpl(conn_string, cluster_opts, skip_connect='TEST_SKIP_CONNECT', **opts)
+        cluster_opts = cluster._get_connection_opts(conn_only=True)
+        metrics_opts = cluster_opts.get('metrics_options', None)
+        assert metrics_opts is not None
+        assert isinstance(metrics_opts, dict)
+        assert metrics_opts == expected_opts
+
+    @pytest.mark.parametrize('opts, cluster_opts, expected_opts',
+                             [(None,
+                               {'enable_metrics': False, 'logging_meter_emit_interval': timedelta(seconds=60)},
+                               {'enable_metrics': False, 'metrics_emit_interval': 60000}),
+                              ({'enable_metrics': True, 'emit_interval': timedelta(seconds=60)},
+                               {'enable_metrics': False, 'logging_meter_emit_interval': timedelta(seconds=30)},
+                               {'enable_metrics': True, 'metrics_emit_interval': 60000}),
+                              ])
+    def test_cluster_metrics_options_override(self, couchbase_config, opts, cluster_opts, expected_opts):
+        conn_string = couchbase_config.get_connection_string()
+        username, pw = couchbase_config.get_username_and_pw()
+
+        auth = PasswordAuthenticator(username, pw)
+        metrics_options = ClusterMetricsOptions(**opts) if opts else None
+        cluster_options = ClusterOptions(auth,
+                                         metrics_options=metrics_options,
+                                         **cluster_opts)
+        cluster = ClusterImpl(conn_string, cluster_options, skip_connect='TEST_SKIP_CONNECT')
+        conn_cluster_opts = cluster._get_connection_opts(conn_only=True)
+        assert 'logging_meter_emit_interval' not in conn_cluster_opts
+        metrics_opts = conn_cluster_opts.get('metrics_options', None)
+        assert metrics_opts is not None
+        assert isinstance(metrics_opts, dict)
+        assert metrics_opts == expected_opts
+
+    @pytest.mark.parametrize('opts, expected_opts',
+                             [({'enable_orphan_reporting': True,
+                                'emit_interval': timedelta(seconds=30),
+                                'sample_size': 20},
+                               {'enable_orphan_reporting': True,
+                                'orphan_emit_interval': 30000,
+                                'orphan_sample_size': 20}),
+                              ])
+    def test_cluster_orphan_reporting_options(self, couchbase_config, opts, expected_opts):
+        conn_string = couchbase_config.get_connection_string()
+        username, pw = couchbase_config.get_username_and_pw()
+
+        auth = PasswordAuthenticator(username, pw)
+        cluster_opts = ClusterOptions(auth, orphan_reporting_options=ClusterOrphanReportingOptions(**opts))
+        cluster = ClusterImpl(conn_string, cluster_opts, skip_connect='TEST_SKIP_CONNECT')
+        cluster_opts = cluster._get_connection_opts(conn_only=True)
+        orphan_opts = cluster_opts.get('orphan_reporting_options', None)
+        assert orphan_opts is not None
+        assert isinstance(orphan_opts, dict)
+        assert orphan_opts == expected_opts
+
+    # when working w/ kwargs, some options append 'orphan_' to avoid key clash with metrics options
+    @pytest.mark.parametrize('opts',
+                             [
+                                 {'enable_orphan_reporting': 1},
+                                 {'orphan_emit_interval': 30},
+                                 {'orphan_sample_size': 35.1},
+                             ])
+    def test_cluster_orphan_reporting_options_fail(self, couchbase_config, opts):
+        conn_string = couchbase_config.get_connection_string()
+        username, pw = couchbase_config.get_username_and_pw()
+
+        auth = PasswordAuthenticator(username, pw)
+        cluster_opts = ClusterOptions(auth)
+        with pytest.raises(InvalidArgumentException):
+            ClusterImpl(conn_string, cluster_opts, **opts)
+
+        cluster_opts = ClusterOptions(auth, orphan_reporting_options=opts)
+        with pytest.raises(InvalidArgumentException):
+            ClusterImpl(conn_string, cluster_opts)
+
+    # when working w/ kwargs, some options append 'orphan_' to avoid key clash with metrics options
+    @pytest.mark.parametrize('opts, expected_opts',
+                             [({'enable_orphan_reporting': True,
+                                'orphan_emit_interval': timedelta(seconds=30),
+                                'orphan_sample_size': 20},
+                               {'enable_orphan_reporting': True,
+                                'orphan_emit_interval': 30000,
+                                'orphan_sample_size': 20}),
+                              ])
+    def test_cluster_orphan_reporting_options_kwargs(self, couchbase_config, opts, expected_opts):
+        conn_string = couchbase_config.get_connection_string()
+        username, pw = couchbase_config.get_username_and_pw()
+
+        auth = PasswordAuthenticator(username, pw)
+        cluster_opts = ClusterOptions(auth)
+        cluster = ClusterImpl(conn_string, cluster_opts, skip_connect='TEST_SKIP_CONNECT', **opts)
+        cluster_opts = cluster._get_connection_opts(conn_only=True)
+        orphan_opts = cluster_opts.get('orphan_reporting_options', None)
+        assert orphan_opts is not None
+        assert isinstance(orphan_opts, dict)
+        assert orphan_opts == expected_opts
+
+    @pytest.mark.parametrize('opts, cluster_opts, tracing_opts, expected_opts',
+                             [(None,
+                               {'enable_orphan_reporting': False},
+                               {'tracing_orphaned_queue_flush_interval': timedelta(seconds=60),
+                                'tracing_orphaned_queue_size': 50},
+                               {'enable_orphan_reporting': False,
+                                'orphan_emit_interval': 60000,
+                                'orphan_sample_size': 50}),
+                              ({'enable_orphan_reporting': True,
+                                'emit_interval': timedelta(seconds=60),
+                                'sample_size': 50},
+                               {'enable_orphan_reporting': False},
+                               {'tracing_orphaned_queue_flush_interval': timedelta(seconds=30),
+                                'tracing_orphaned_queue_size': 20},
+                               {'enable_orphan_reporting': True,
+                                'orphan_emit_interval': 60000,
+                                'orphan_sample_size': 50}),
+                              ])
+    def test_cluster_orphan_reporting_options_override(self,
+                                                       couchbase_config,
+                                                       opts,
+                                                       cluster_opts,
+                                                       tracing_opts,
+                                                       expected_opts):
+        conn_string = couchbase_config.get_connection_string()
+        username, pw = couchbase_config.get_username_and_pw()
+
+        auth = PasswordAuthenticator(username, pw)
+        orphan_reporting_opts = ClusterOrphanReportingOptions(**opts) if opts else None
+        tracing_opts = ClusterTracingOptions(**tracing_opts)
+        cluster_opts = ClusterOptions(auth,
+                                      orphan_reporting_options=orphan_reporting_opts,
+                                      tracing_options=tracing_opts,
+                                      **cluster_opts)
+        cluster = ClusterImpl(conn_string, cluster_opts, skip_connect='TEST_SKIP_CONNECT')
+        cluster_opts = cluster._get_connection_opts(conn_only=True)
+        orphan_opts = cluster_opts.get('orphan_reporting_options', None)
+        tracing_opts = cluster_opts.get('tracing_options', None)
+        assert tracing_opts is None
+        assert orphan_opts is not None
+        assert isinstance(orphan_opts, dict)
+        assert orphan_opts == expected_opts
+
+    @pytest.mark.parametrize('opts, expected_opts',
                              [({'bootstrap_timeout': timedelta(seconds=30)},
-                               {'bootstrap_timeout': 30000000}),
+                               {'bootstrap_timeout': 30000}),
                               ({'resolve_timeout': timedelta(seconds=30)},
-                               {'resolve_timeout': 30000000}),
+                               {'resolve_timeout': 30000}),
                               ({'connect_timeout': timedelta(seconds=30)},
-                               {'connect_timeout': 30000000}),
+                               {'connect_timeout': 30000}),
                               ({'kv_timeout': timedelta(seconds=30)},
-                               {'key_value_timeout': 30000000}),
+                               {'key_value_timeout': 30000}),
                               ({'kv_durable_timeout': timedelta(seconds=30)},
-                               {'key_value_durable_timeout': 30000000}),
+                               {'key_value_durable_timeout': 30000}),
                               ({'views_timeout': timedelta(seconds=30)},
-                               {'view_timeout': 30000000}),
+                               {'view_timeout': 30000}),
                               ({'query_timeout': timedelta(seconds=30)},
-                               {'query_timeout': 30000000}),
+                               {'query_timeout': 30000}),
                               ({'analytics_timeout': timedelta(seconds=30)},
-                               {'analytics_timeout': 30000000}),
+                               {'analytics_timeout': 30000}),
                               ({'search_timeout': timedelta(seconds=30)},
-                               {'search_timeout': 30000000}),
+                               {'search_timeout': 30000}),
                               ({'management_timeout': timedelta(seconds=30)},
-                               {'management_timeout': 30000000}),
+                               {'management_timeout': 30000}),
                               ({'dns_srv_timeout': timedelta(seconds=30)},
-                               {'dns_srv_timeout': 30000000}),
+                               {'dns_srv_timeout': 30000}),
                               ({'idle_http_connection_timeout': timedelta(seconds=30)},
-                               {'idle_http_connection_timeout': 30000000}),
+                               {'idle_http_connection_timeout': 30000}),
                               ({'config_idle_redial_timeout': timedelta(seconds=30)},
-                               {'config_idle_redial_timeout': 30000000}),
+                               {'config_idle_redial_timeout': 30000}),
                               ({'bootstrap_timeout': timedelta(seconds=60),
                                 'kv_timeout': timedelta(seconds=5),
                                 'query_timeout': timedelta(seconds=30),
                                 'search_timeout': timedelta(seconds=120),
                                 'management_timeout': timedelta(seconds=60)},
-                               {'bootstrap_timeout': 60000000,
-                               'key_value_timeout': 5000000,
-                                'query_timeout': 30000000,
-                                'search_timeout': 120000000,
-                                'management_timeout': 60000000}),
+                               {'bootstrap_timeout': 60000,
+                               'key_value_timeout': 5000,
+                                'query_timeout': 30000,
+                                'search_timeout': 120000,
+                                'management_timeout': 60000}),
                               ])
     def test_cluster_timeout_options(self, couchbase_config, opts, expected_opts):
         conn_string = couchbase_config.get_connection_string()
@@ -568,7 +791,7 @@ class ConnectionTestSuite:
 
         auth = PasswordAuthenticator(username, pw)
         cluster_opts = ClusterOptions(auth, timeout_options=ClusterTimeoutOptions(**opts))
-        cluster = ClusterLogic(conn_string, cluster_opts)
+        cluster = ClusterImpl(conn_string, cluster_opts, skip_connect='TEST_SKIP_CONNECT')
         cluster_opts = cluster._get_connection_opts(conn_only=True)
         timeout_opts = cluster_opts.get('timeout_options', None)
         assert timeout_opts is not None
@@ -590,11 +813,11 @@ class ConnectionTestSuite:
                                  {'dns_srv_timeout': 30},
                                  {'idle_http_connection_timeout': 30},
                                  {'config_idle_redial_timeout': 30},
-                                 {'bootstrap_timeout': 60000000,
-                                  'kv_timeout': 5000000,
-                                  'query_timeout': 30000000,
-                                  'search_timeout': 120000000,
-                                  'management_timeout': 60000000}
+                                 {'bootstrap_timeout': 60000,
+                                  'kv_timeout': 5000,
+                                  'query_timeout': 30000,
+                                  'search_timeout': 120000,
+                                  'management_timeout': 60000}
                              ])
     def test_cluster_timeout_options_fail(self, couchbase_config, opts):
         conn_string = couchbase_config.get_connection_string()
@@ -603,49 +826,49 @@ class ConnectionTestSuite:
         auth = PasswordAuthenticator(username, pw)
         cluster_opts = ClusterOptions(auth)
         with pytest.raises(InvalidArgumentException):
-            ClusterLogic(conn_string, cluster_opts, **opts)
+            ClusterImpl(conn_string, cluster_opts, **opts)
 
         cluster_opts = ClusterOptions(auth, timeout_options=opts)
         with pytest.raises(InvalidArgumentException):
-            ClusterLogic(conn_string, cluster_opts)
+            ClusterImpl(conn_string, cluster_opts)
 
     @pytest.mark.parametrize('opts, expected_opts',
                              [({'bootstrap_timeout': timedelta(seconds=30)},
-                               {'bootstrap_timeout': 30000000}),
+                               {'bootstrap_timeout': 30000}),
                               ({'resolve_timeout': timedelta(seconds=30)},
-                               {'resolve_timeout': 30000000}),
+                               {'resolve_timeout': 30000}),
                               ({'connect_timeout': timedelta(seconds=30)},
-                               {'connect_timeout': 30000000}),
+                               {'connect_timeout': 30000}),
                               ({'kv_timeout': timedelta(seconds=30)},
-                               {'key_value_timeout': 30000000}),
+                               {'key_value_timeout': 30000}),
                               ({'kv_durable_timeout': timedelta(seconds=30)},
-                               {'key_value_durable_timeout': 30000000}),
+                               {'key_value_durable_timeout': 30000}),
                               ({'views_timeout': timedelta(seconds=30)},
-                               {'view_timeout': 30000000}),
+                               {'view_timeout': 30000}),
                               ({'query_timeout': timedelta(seconds=30)},
-                               {'query_timeout': 30000000}),
+                               {'query_timeout': 30000}),
                               ({'analytics_timeout': timedelta(seconds=30)},
-                               {'analytics_timeout': 30000000}),
+                               {'analytics_timeout': 30000}),
                               ({'search_timeout': timedelta(seconds=30)},
-                               {'search_timeout': 30000000}),
+                               {'search_timeout': 30000}),
                               ({'management_timeout': timedelta(seconds=30)},
-                               {'management_timeout': 30000000}),
+                               {'management_timeout': 30000}),
                               ({'dns_srv_timeout': timedelta(seconds=30)},
-                               {'dns_srv_timeout': 30000000}),
+                               {'dns_srv_timeout': 30000}),
                               ({'idle_http_connection_timeout': timedelta(seconds=30)},
-                               {'idle_http_connection_timeout': 30000000}),
+                               {'idle_http_connection_timeout': 30000}),
                               ({'config_idle_redial_timeout': timedelta(seconds=30)},
-                               {'config_idle_redial_timeout': 30000000}),
+                               {'config_idle_redial_timeout': 30000}),
                               ({'bootstrap_timeout': timedelta(seconds=60),
                                 'kv_timeout': timedelta(seconds=5),
                                 'query_timeout': timedelta(seconds=30),
                                 'search_timeout': timedelta(seconds=120),
                                 'management_timeout': timedelta(seconds=60)},
-                               {'bootstrap_timeout': 60000000,
-                               'key_value_timeout': 5000000,
-                                'query_timeout': 30000000,
-                                'search_timeout': 120000000,
-                                'management_timeout': 60000000}),
+                               {'bootstrap_timeout': 60000,
+                               'key_value_timeout': 5000,
+                                'query_timeout': 30000,
+                                'search_timeout': 120000,
+                                'management_timeout': 60000}),
                               ])
     def test_cluster_timeout_options_kwargs(self, couchbase_config, opts, expected_opts):
         conn_string = couchbase_config.get_connection_string()
@@ -653,7 +876,7 @@ class ConnectionTestSuite:
 
         auth = PasswordAuthenticator(username, pw)
         cluster_opts = ClusterOptions(auth)
-        cluster = ClusterLogic(conn_string, cluster_opts, **opts)
+        cluster = ClusterImpl(conn_string, cluster_opts, skip_connect='TEST_SKIP_CONNECT', **opts)
         cluster_opts = cluster._get_connection_opts(conn_only=True)
         timeout_opts = cluster_opts.get('timeout_options', None)
         assert timeout_opts is not None
@@ -662,34 +885,36 @@ class ConnectionTestSuite:
 
     @pytest.mark.parametrize('opts, expected_opts',
                              [({'tracing_threshold_kv': timedelta(milliseconds=30)},
-                               {'key_value_threshold': 30000}),
+                               {'key_value_threshold': 30}),
                               ({'tracing_threshold_view': timedelta(milliseconds=30)},
-                              {'view_threshold': 30000}),
+                              {'view_threshold': 30}),
                               ({'tracing_threshold_query': timedelta(milliseconds=30)},
-                              {'query_threshold': 30000}),
+                              {'query_threshold': 30}),
                               ({'tracing_threshold_search': timedelta(milliseconds=30)},
-                              {'search_threshold': 30000}),
+                              {'search_threshold': 30}),
                               ({'tracing_threshold_analytics': timedelta(milliseconds=30)},
-                              {'analytics_threshold': 30000}),
+                              {'analytics_threshold': 30}),
                               ({'tracing_threshold_eventing': timedelta(milliseconds=30)},
-                              {'eventing_threshold': 30000}),
+                              {'eventing_threshold': 30}),
                               ({'tracing_threshold_management': timedelta(milliseconds=30)},
-                              {'management_threshold': 30000}),
+                              {'management_threshold': 30}),
                               ({'tracing_threshold_queue_size': 20},
                               {'threshold_sample_size': 20}),
                               ({'tracing_threshold_queue_flush_interval': timedelta(
-                                  seconds=30)}, {'threshold_emit_interval': 30000000}),
+                                  seconds=30)}, {'threshold_emit_interval': 30000}),
                               ({'tracing_orphaned_queue_size': 20},
-                              {'orphaned_sample_size': 20}),
+                              {'orphan_sample_size': 20}),
                               ({'tracing_orphaned_queue_flush_interval': timedelta(
-                                  seconds=30)}, {'orphaned_emit_interval': 30000000}),
-                              ({'tracing_threshold_kv': timedelta(milliseconds=60),
+                                  seconds=30)}, {'orphan_emit_interval': 30000}),
+                              ({'enable_tracing': True,
+                                'tracing_threshold_kv': timedelta(milliseconds=60),
                                 'tracing_threshold_query': timedelta(milliseconds=5),
                                 'tracing_threshold_management': timedelta(milliseconds=30),
                                 'tracing_threshold_queue_size': 20},
-                               {'key_value_threshold': 60000,
-                               'query_threshold': 5000,
-                                'management_threshold': 30000,
+                               {'enable_tracing': True,
+                                'key_value_threshold': 60,
+                                'query_threshold': 5,
+                                'management_threshold': 30,
                                 'threshold_sample_size': 20}),
                               ])
     def test_cluster_tracing_options(self, couchbase_config, opts, expected_opts):
@@ -698,15 +923,26 @@ class ConnectionTestSuite:
 
         auth = PasswordAuthenticator(username, pw)
         cluster_opts = ClusterOptions(auth, tracing_options=ClusterTracingOptions(**opts))
-        cluster = ClusterLogic(conn_string, cluster_opts)
+        cluster = ClusterImpl(conn_string, cluster_opts, skip_connect='TEST_SKIP_CONNECT')
         cluster_opts = cluster._get_connection_opts(conn_only=True)
-        tracing_options = cluster_opts.get('tracing_options', None)
-        assert tracing_options is not None
-        assert isinstance(tracing_options, dict)
-        assert tracing_options == expected_opts
+        conn_tracing_options = cluster_opts.get('tracing_options', None)
+        orphan_reporting_options = cluster_opts.get('orphan_reporting_options', None)
+        if 'orphan_sample_size' in expected_opts or 'orphan_emit_interval' in expected_opts:
+            assert orphan_reporting_options is not None
+            assert conn_tracing_options is None
+            assert isinstance(orphan_reporting_options, dict)
+            assert orphan_reporting_options == expected_opts
+        else:
+            assert orphan_reporting_options is None
+            assert conn_tracing_options is None
+            tracing_options = cluster._cluster_settings.tracing_options
+            expected_opts['enable_tracing'] = True
+            assert isinstance(tracing_options, dict)
+            assert tracing_options == expected_opts
 
     @pytest.mark.parametrize('opts',
                              [
+                                 {'enable_tracing': 1},
                                  {'tracing_threshold_kv': 30},
                                  {'tracing_threshold_view': 30},
                                  {'tracing_threshold_query': 30},
@@ -716,11 +952,11 @@ class ConnectionTestSuite:
                                  {'tracing_threshold_management': 30},
                                  {'tracing_threshold_queue_flush_interval': 30},
                                  {'tracing_orphaned_queue_flush_interval': 30},
-                                 {'tracing_threshold_kv': 60000000,
-                                  'tracing_threshold_query': 5000000,
-                                  'tracing_threshold_search': 30000000,
-                                  'tracing_threshold_management': 120000000,
-                                  'tracing_threshold_queue_flush_interval': 60000000}
+                                 {'tracing_threshold_kv': 60000,
+                                  'tracing_threshold_query': 5000,
+                                  'tracing_threshold_search': 30000,
+                                  'tracing_threshold_management': 120000,
+                                  'tracing_threshold_queue_flush_interval': 60000}
                              ])
     def test_cluster_tracing_options_fail(self, couchbase_config, opts):
         conn_string = couchbase_config.get_connection_string()
@@ -729,42 +965,44 @@ class ConnectionTestSuite:
         auth = PasswordAuthenticator(username, pw)
         cluster_opts = ClusterOptions(auth)
         with pytest.raises(InvalidArgumentException):
-            ClusterLogic(conn_string, cluster_opts, **opts)
+            ClusterImpl(conn_string, cluster_opts, **opts)
 
         cluster_opts = ClusterOptions(auth, tracing_options=opts)
         with pytest.raises(InvalidArgumentException):
-            ClusterLogic(conn_string, cluster_opts)
+            ClusterImpl(conn_string, cluster_opts)
 
     @pytest.mark.parametrize('opts, expected_opts',
                              [({'tracing_threshold_kv': timedelta(milliseconds=30)},
-                               {'key_value_threshold': 30000}),
+                               {'key_value_threshold': 30}),
                               ({'tracing_threshold_view': timedelta(milliseconds=30)},
-                               {'view_threshold': 30000}),
+                               {'view_threshold': 30}),
                               ({'tracing_threshold_query': timedelta(milliseconds=30)},
-                               {'query_threshold': 30000}),
+                               {'query_threshold': 30}),
                               ({'tracing_threshold_search': timedelta(milliseconds=30)},
-                               {'search_threshold': 30000}),
+                               {'search_threshold': 30}),
                               ({'tracing_threshold_analytics': timedelta(milliseconds=30)},
-                               {'analytics_threshold': 30000}),
+                               {'analytics_threshold': 30}),
                               ({'tracing_threshold_eventing': timedelta(milliseconds=30)},
-                               {'eventing_threshold': 30000}),
+                               {'eventing_threshold': 30}),
                               ({'tracing_threshold_management': timedelta(milliseconds=30)},
-                               {'management_threshold': 30000}),
+                               {'management_threshold': 30}),
                               ({'tracing_threshold_queue_size': 20},
                                {'threshold_sample_size': 20}),
                               ({'tracing_threshold_queue_flush_interval': timedelta(
-                                  seconds=30)}, {'threshold_emit_interval': 30000000}),
+                                  seconds=30)}, {'threshold_emit_interval': 30000}),
                               ({'tracing_orphaned_queue_size': 20},
-                               {'orphaned_sample_size': 20}),
+                               {'orphan_sample_size': 20}),
                               ({'tracing_orphaned_queue_flush_interval': timedelta(
-                                  seconds=30)}, {'orphaned_emit_interval': 30000000}),
-                              ({'tracing_threshold_kv': timedelta(milliseconds=60),
+                                  seconds=30)}, {'orphan_emit_interval': 30000}),
+                              ({'enable_tracing': True,
+                                'tracing_threshold_kv': timedelta(milliseconds=60),
                                 'tracing_threshold_query': timedelta(milliseconds=5),
                                 'tracing_threshold_management': timedelta(milliseconds=30),
                                 'tracing_threshold_queue_size': 20},
-                               {'key_value_threshold': 60000,
-                               'query_threshold': 5000,
-                                'management_threshold': 30000,
+                               {'enable_tracing': True,
+                                'key_value_threshold': 60,
+                                'query_threshold': 5,
+                                'management_threshold': 30,
                                 'threshold_sample_size': 20}),
                               ])
     def test_cluster_tracing_options_kwargs(self, couchbase_config, opts, expected_opts):
@@ -773,12 +1011,48 @@ class ConnectionTestSuite:
 
         auth = PasswordAuthenticator(username, pw)
         cluster_opts = ClusterOptions(auth)
-        cluster = ClusterLogic(conn_string, cluster_opts, **opts)
+        cluster = ClusterImpl(conn_string, cluster_opts, skip_connect='TEST_SKIP_CONNECT', **opts)
         cluster_opts = cluster._get_connection_opts(conn_only=True)
-        tracing_options = cluster_opts.get('tracing_options', None)
-        assert tracing_options is not None
-        assert isinstance(tracing_options, dict)
-        assert tracing_options == expected_opts
+        conn_tracing_options = cluster_opts.get('tracing_options', None)
+        orphan_reporting_options = cluster_opts.get('orphan_reporting_options', None)
+        if 'orphan_sample_size' in expected_opts or 'orphan_emit_interval' in expected_opts:
+            assert orphan_reporting_options is not None
+            assert conn_tracing_options is None
+            assert isinstance(orphan_reporting_options, dict)
+            assert orphan_reporting_options == expected_opts
+        else:
+            assert orphan_reporting_options is None
+            assert conn_tracing_options is None
+            tracing_options = cluster._cluster_settings.tracing_options
+            expected_opts['enable_tracing'] = True
+            assert isinstance(tracing_options, dict)
+            assert tracing_options == expected_opts
+
+    @pytest.mark.parametrize('tracing_opts, cluster_opts, expected_opts',
+                             [(None,
+                               {'enable_tracing': False},
+                               {'enable_tracing': False}),
+                              ({'enable_tracing': True},
+                               {'enable_tracing': False},
+                               {'enable_tracing': True}),
+                              ])
+    def test_cluster_tracing_options_override(self, couchbase_config, tracing_opts, cluster_opts, expected_opts):
+        conn_string = couchbase_config.get_connection_string()
+        username, pw = couchbase_config.get_username_and_pw()
+
+        auth = PasswordAuthenticator(username, pw)
+        tracing_options = ClusterTracingOptions(**tracing_opts) if tracing_opts else None
+        cluster_options = ClusterOptions(auth,
+                                         tracing_options=tracing_options,
+                                         **cluster_opts)
+        cluster = ClusterImpl(conn_string, cluster_options, skip_connect='TEST_SKIP_CONNECT')
+        conn_cluster_opts = cluster._get_connection_opts(conn_only=True)
+        conn_tracing_opts = conn_cluster_opts.get('tracing_options', None)
+        cluster_tracing_opts = cluster._cluster_settings.tracing_options
+        assert conn_tracing_opts is None
+        assert cluster_tracing_opts is not None
+        assert isinstance(cluster_tracing_opts, dict)
+        assert cluster_tracing_opts == expected_opts
 
     def test_config_profile_fail(self, couchbase_config):
         username, pw = couchbase_config.get_username_and_pw()
@@ -827,9 +1101,11 @@ class ConnectionTestSuite:
         opts = ClusterOptions(auth)
         opts.apply_profile('test_profile')
         cluster = Cluster.connect(conn_string, opts)
-        client_opts = cluster._get_client_connection_info()
+        client_opts = cluster._impl.get_connection_info()
+        assert 'timeout_options' in client_opts
+        timeout_opts = client_opts['timeout_options']
         for k in expected_opts.keys():
-            assert client_opts[k] == expected_opts[k]
+            assert timeout_opts[k] == expected_opts[k]
 
         profile = CONFIG_PROFILES.unregister_profile('test_profile')
         assert isinstance(profile, ConfigProfile)
@@ -883,27 +1159,31 @@ class ConnectionTestSuite:
                                           'couchbases://fqdn'
                                           ])
     def test_valid_connection_strings(self, conn_str):
-        expected_opts = {'timeout_options': {'bootstrap_timeout': 1000000}}
+        expected_opts = {'timeout_options': {'bootstrap_timeout': 1000}, 'setup_sdk_tracing': True}
         try:
             if conn_str == '10.0.0.1:8091':
                 with warnings.catch_warnings(record=True) as w:
                     # Cause all warnings to always be triggered.
                     warnings.simplefilter("always")
 
-                    cl = ClusterLogic(conn_str, authenticator=PasswordAuthenticator(
-                        'Administrator', 'password'), bootstrap_timeout=timedelta(seconds=1))
+                    cl = ClusterImpl(conn_str,
+                                     authenticator=PasswordAuthenticator('Administrator', 'password'),
+                                     skip_connect='TEST_SKIP_CONNECT',
+                                     bootstrap_timeout=timedelta(seconds=1))
                     assert len(w) == 1
                     assert issubclass(w[-1].category, DeprecationWarning)
                     assert "deprecated" in str(w[-1].message)
             else:
-                cl = ClusterLogic(conn_str, authenticator=PasswordAuthenticator(
-                    'Administrator', 'password'), bootstrap_timeout=timedelta(seconds=1))
+                cl = ClusterImpl(conn_str,
+                                 authenticator=PasswordAuthenticator('Administrator', 'password'),
+                                 skip_connect='TEST_SKIP_CONNECT',
+                                 bootstrap_timeout=timedelta(seconds=1))
 
-            user_agent = cl._cluster_opts.pop('user_agent_extra', None)
-            assert expected_opts == cl._cluster_opts
+            user_agent = cl.cluster_settings.cluster_options.pop('user_agent_extra', None)
+            assert expected_opts == cl.cluster_settings.cluster_options
             assert user_agent == f'python/{platform.python_version()}'
             expected_conn_str = conn_str.split('?')[0]
-            assert expected_conn_str == cl._connstr
+            assert expected_conn_str == cl.cluster_settings.connstr
         except CouchbaseException:
             pass
         except Exception as ex:
@@ -921,13 +1201,16 @@ class ConnectionTestSuite:
                               ])
     def test_connection_string_options(self, conn_str, expected_opts):
         try:
-            cl = ClusterLogic(conn_str, authenticator=PasswordAuthenticator('Administrator', 'password'))
+            cl = ClusterImpl(conn_str,
+                             authenticator=PasswordAuthenticator('Administrator', 'password'),
+                             skip_connect='TEST_SKIP_CONNECT')
 
-            user_agent = cl._cluster_opts.pop('user_agent_extra', None)
-            assert expected_opts == cl._cluster_opts
+            user_agent = cl.cluster_settings.cluster_options.pop('user_agent_extra', None)
+            expected_opts['setup_sdk_tracing'] = True
+            assert expected_opts == cl.cluster_settings.cluster_options
             assert user_agent == f'python/{platform.python_version()}'
             expected_conn_str = conn_str.split('?')[0]
-            assert expected_conn_str == cl._connstr
+            assert expected_conn_str == cl.cluster_settings.connstr
         except CouchbaseException:
             pass
         except Exception as ex:
@@ -956,9 +1239,11 @@ class ConnectionTestSuite:
         opts = ClusterOptions(auth)
         opts.apply_profile(profile)
         cluster = Cluster.connect(conn_string, opts)
-        client_opts = cluster._get_client_connection_info()
+        client_opts = cluster._impl.get_connection_info()
+        assert 'timeout_options' in client_opts
+        timeout_opts = client_opts['timeout_options']
         for k in expected_opts.keys():
-            assert client_opts[k] == expected_opts[k]
+            assert timeout_opts[k] == expected_opts[k]
 
     # creating a new connection, allow retries
     @pytest.mark.flaky(reruns=5, reruns_delay=1)
@@ -981,9 +1266,11 @@ class ConnectionTestSuite:
         username, pw = couchbase_config.get_username_and_pw()
         auth = PasswordAuthenticator(username, pw)
         cluster = Cluster.connect(conn_string, ClusterOptions.create_options_with_profile(auth, profile))
-        client_opts = cluster._get_client_connection_info()
+        client_opts = cluster._impl.get_connection_info()
+        assert 'timeout_options' in client_opts
+        timeout_opts = client_opts['timeout_options']
         for k in expected_opts.keys():
-            assert client_opts[k] == expected_opts[k]
+            assert timeout_opts[k] == expected_opts[k]
 
 
 class ClassicConnectionTests(ConnectionTestSuite):

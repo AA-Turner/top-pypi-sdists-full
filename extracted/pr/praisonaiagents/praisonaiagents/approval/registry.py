@@ -19,12 +19,13 @@ from __future__ import annotations
 import asyncio
 import contextvars
 import logging
+from praisonaiagents._logging import get_logger
 import os
 from typing import Dict, List, Optional, Set
 
 from .protocols import ApprovalDecision, ApprovalRequest
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Default dangerous tools — same as old approval.py
 DEFAULT_DANGEROUS_TOOLS: Dict[str, str] = {
@@ -57,7 +58,6 @@ PERMISSION_PRESETS = {
     # "full" — no restrictions
     "full": frozenset(),
 }
-
 
 class ApprovalRegistry:
     """Per-agent approval configuration.
@@ -210,15 +210,12 @@ class ApprovalRegistry:
         if hasattr(backend, "request_approval_sync"):
             decision = backend.request_approval_sync(request)
         else:
-            # Fallback: run async method
-            try:
-                decision = asyncio.run(backend.request_approval(request))
-            except RuntimeError:
-                # Already in an event loop — fall back to thread
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    future = pool.submit(asyncio.run, backend.request_approval(request))
-                    decision = future.result(timeout=self.timeout)
+            # Use shared utility for consistent async-to-sync bridging
+            from .utils import run_coroutine_safely
+            decision = run_coroutine_safely(
+                backend.request_approval(request),
+                timeout=self.timeout
+            )
 
         if decision.approved:
             self.mark_approved(tool_name)

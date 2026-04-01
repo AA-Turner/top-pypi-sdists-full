@@ -23,14 +23,17 @@ from typing import (TYPE_CHECKING,
 
 from twisted.internet.defer import Deferred
 
-from couchbase.exceptions import InvalidArgumentException
-from couchbase.management.logic.analytics_logic import (AnalyticsDataset,
-                                                        AnalyticsDataType,
-                                                        AnalyticsIndex,
-                                                        AnalyticsLink,
-                                                        AnalyticsManagerLogic)
+from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import AnalyticsMgmtOperationType
+from couchbase.management.logic.analytics_mgmt_types import (AnalyticsDataset,
+                                                             AnalyticsDataType,
+                                                             AnalyticsIndex,
+                                                             AnalyticsLink)
+from txcouchbase.management.logic.analytics_mgmt_impl import TxAnalyticsMgmtImpl
 
 if TYPE_CHECKING:
+    from acouchbase.logic.client_adapter import AsyncClientAdapter
+    from couchbase.logic.observability import ObservabilityInstruments
     from couchbase.management.options import (ConnectLinkOptions,
                                               CreateAnalyticsIndexOptions,
                                               CreateDatasetOptions,
@@ -48,173 +51,269 @@ if TYPE_CHECKING:
                                               ReplaceLinkAnalyticsOptions)
 
 
-class AnalyticsIndexManager(AnalyticsManagerLogic):
+class AnalyticsIndexManager:
 
-    def __init__(self, connection, loop):
-        super().__init__(connection)
-        self._loop = loop
-
-    @property
-    def loop(self):
-        """
-        **INTERNAL**
-        """
-        return self._loop
+    def __init__(self,
+                 client_adapter: AsyncClientAdapter,
+                 observability_instruments: ObservabilityInstruments) -> None:
+        self._impl = TxAnalyticsMgmtImpl(client_adapter, observability_instruments)
 
     def create_dataverse(self,
                          dataverse_name,    # type: str
                          options=None,      # type: Optional[CreateDataverseOptions]
-                         **kwargs           # type: Dict[str, Any]
+                         **kwargs           # type: Any
                          ) -> Deferred[None]:
-
-        if not isinstance(dataverse_name, str):
-            raise ValueError("dataverse_name must be provided when creating an analytics dataverse.")
-
-        return Deferred.fromFuture(super().create_dataverse(dataverse_name, options, **kwargs))
+        op_type = AnalyticsMgmtOperationType.AnalyticsDataverseCreate
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_create_dataverse_request(dataverse_name, obs_handler, options, **kwargs)  # noqa: E501
+            d = self._impl.create_dataverse_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def drop_dataverse(self,
                        dataverse_name,    # type: str
                        options=None,      # type: Optional[DropDataverseOptions]
-                       **kwargs           # type: Dict[str, Any]
+                       **kwargs           # type: Any
                        ) -> Deferred[None]:
-
-        if not isinstance(dataverse_name, str):
-            raise ValueError("dataverse_name must be provided when dropping an analytics dataverse.")
-
-        return Deferred.fromFuture(super().drop_dataverse(dataverse_name, options, **kwargs))
+        op_type = AnalyticsMgmtOperationType.AnalyticsDataverseDrop
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_drop_dataverse_request(dataverse_name, obs_handler, options, **kwargs)  # noqa: E501
+            d = self._impl.drop_dataverse_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def create_dataset(self,
                        dataset_name,    # type: str
                        bucket_name,     # type: str
                        options=None,    # type: Optional[CreateDatasetOptions]
-                       **kwargs         # type: Dict[str, Any]
+                       **kwargs         # type: Any
                        ) -> Deferred[None]:
-
-        if not isinstance(dataset_name, str):
-            raise ValueError("dataset_name must be provided when creating an analytics dataset.")
-
-        if not isinstance(bucket_name, str):
-            raise ValueError("bucket_name must be provided when creating an analytics dataset.")
-
-        return Deferred.fromFuture(super().create_dataset(dataset_name, bucket_name, options, **kwargs))
+        op_type = AnalyticsMgmtOperationType.AnalyticsDatasetCreate
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_create_dataset_request(dataset_name, bucket_name, obs_handler, options, **kwargs)  # noqa: E501
+            d = self._impl.create_dataset_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def drop_dataset(self,
                      dataset_name,  # type: str
                      options=None,  # type: Optional[DropDatasetOptions]
-                     **kwargs       # type: Dict[str, Any]
+                     **kwargs       # type: Any
                      ) -> Deferred[None]:
-
-        if not isinstance(dataset_name, str):
-            raise ValueError("dataset_name must be provided when dropping an analytics dataset.")
-
-        return Deferred.fromFuture(super().drop_dataset(dataset_name, options, **kwargs))
+        op_type = AnalyticsMgmtOperationType.AnalyticsDatasetDrop
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_drop_dataset_request(dataset_name, obs_handler, options, **kwargs)
+            d = self._impl.drop_dataset_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def get_all_datasets(self,
                          options=None,   # type: Optional[GetAllDatasetOptions]
-                         **kwargs   # type: Dict[str, Any]
+                         **kwargs   # type: Any
                          ) -> Deferred[Iterable[AnalyticsDataset]]:
-
-        return Deferred.fromFuture(super().get_all_datasets(options, **kwargs))
+        op_type = AnalyticsMgmtOperationType.AnalyticsDatasetGetAll
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_get_all_datasets_request(obs_handler, options, **kwargs)
+            d = self._impl.get_all_datasets_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def create_index(self,
                      index_name,    # type: str
                      dataset_name,  # type: str
                      fields,        # type: Dict[str, AnalyticsDataType]
                      options=None,  # type: Optional[CreateAnalyticsIndexOptions]
-                     **kwargs       # type: Dict[str, Any]
+                     **kwargs       # type: Any
                      ) -> Deferred[None]:
-
-        if not isinstance(index_name, str):
-            raise ValueError("index_name must be provided when creating an analytics index.")
-
-        if not isinstance(dataset_name, str):
-            raise ValueError("dataset_name must be provided when creating an analytics index.")
-
-        if fields is not None:
-            if not isinstance(fields, dict):
-                raise ValueError("fields must be provided when creating an analytics index.")
-
-            if not all(map(lambda v: isinstance(v, AnalyticsDataType), fields.values())):
-                raise InvalidArgumentException("fields must all be an AnalyticsDataType.")
-
-        return Deferred.fromFuture(super().create_index(index_name, dataset_name, fields, options, **kwargs))
+        op_type = AnalyticsMgmtOperationType.AnalyticsIndexCreate
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_create_index_request(index_name, dataset_name, fields, obs_handler, options, **kwargs)  # noqa: E501
+            d = self._impl.create_index_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def drop_index(self,
                    index_name,    # type: str
                    dataset_name,  # type: str
                    options=None,  # type: Optional[DropAnalyticsIndexOptions]
-                   **kwargs       # type: Dict[str, Any]
+                   **kwargs       # type: Any
                    ) -> Deferred[None]:
-
-        if not isinstance(index_name, str):
-            raise ValueError("index_name must be provided when dropping an analytics index.")
-
-        if not isinstance(dataset_name, str):
-            raise ValueError("dataset_name must be provided when dropping an analytics index.")
-
-        return Deferred.fromFuture(super().drop_index(index_name, dataset_name, options, **kwargs))
+        op_type = AnalyticsMgmtOperationType.AnalyticsIndexDrop
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_drop_index_request(index_name, dataset_name, obs_handler, options, **kwargs)  # noqa: E501
+            d = self._impl.drop_index_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def get_all_indexes(self,
                         options=None,   # type: Optional[GetAllAnalyticsIndexesOptions]
-                        **kwargs   # type: Dict[str, Any]
+                        **kwargs   # type: Any
                         ) -> Deferred[Iterable[AnalyticsIndex]]:
-
-        return Deferred.fromFuture(super().get_all_indexes(options, **kwargs))
+        op_type = AnalyticsMgmtOperationType.AnalyticsIndexGetAll
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_get_all_indexes_request(obs_handler, options, **kwargs)
+            d = self._impl.get_all_indexes_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def connect_link(self,
                      options=None,  # type: Optional[ConnectLinkOptions]
-                     **kwargs   # type: Dict[str, Any]
+                     **kwargs   # type: Any
                      ) -> Deferred[None]:
-        return Deferred.fromFuture(super().connect_link(options, **kwargs))
+        op_type = AnalyticsMgmtOperationType.AnalyticsLinkConnect
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_connect_link_request(obs_handler, options, **kwargs)
+            d = self._impl.connect_link_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def disconnect_link(self,
                         options=None,  # type: Optional[DisconnectLinkOptions]
-                        **kwargs   # type: Dict[str, Any]
+                        **kwargs   # type: Any
                         ) -> Deferred[None]:
-        return Deferred.fromFuture(super().disconnect_link(options, **kwargs))
+        op_type = AnalyticsMgmtOperationType.AnalyticsLinkDisconnect
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_disconnect_link_request(obs_handler, options, **kwargs)
+            d = self._impl.disconnect_link_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def get_pending_mutations(self,
                               options=None,     # type: Optional[GetPendingMutationsOptions]
-                              **kwargs     # type: Dict[str, Any]
-                              ) -> Dict[str, int]:
+                              **kwargs     # type: Any
+                              ) -> Deferred[Dict[str, int]]:
+        op_type = AnalyticsMgmtOperationType.AnalyticsGetPendingMutations
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_get_pending_mutations_request(obs_handler, options, **kwargs)
+            d = self._impl.get_pending_mutations_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
-        return Deferred.fromFuture(super().get_pending_mutations(options, **kwargs))
+    def create_link(self,
+                    link,  # type: AnalyticsLink
+                    options=None,     # type: Optional[CreateLinkAnalyticsOptions]
+                    **kwargs          # type: Any
+                    ) -> Deferred[None]:
+        # We choose AnalyticsLinkCreateCouchbaseRemoteLink arbitrarily b/c the ObservableRequestHandler will
+        # translate all LinkCreate options in AnalyticsMgmtOperationType to the appropriate op name and
+        # the request builder will build the appropriate request type based on the link passed in.
+        op_type = AnalyticsMgmtOperationType.AnalyticsLinkCreateCouchbaseRemoteLink
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_create_link_request(link, obs_handler, options, **kwargs)
+            d = self._impl.create_link_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
-    def create_link(
-        self,
-        link,  # type: AnalyticsLink
-        options=None,     # type: Optional[CreateLinkAnalyticsOptions]
-        **kwargs
-    ) -> Deferred[None]:
-        return Deferred.fromFuture(super().create_link(link, options, **kwargs))
+    def replace_link(self,
+                     link,  # type: AnalyticsLink
+                     options=None,     # type: Optional[ReplaceLinkAnalyticsOptions]
+                     **kwargs          # type: Any
+                     ) -> Deferred[None]:
+        # We choose AnalyticsLinkReplaceCouchbaseRemoteLink arbitrarily b/c the ObservableRequestHandler will
+        # translate all LinkReplace options in AnalyticsMgmtOperationType to the appropriate op name and
+        # the request builder will build the appropriate request type based on the link passed in.
+        op_type = AnalyticsMgmtOperationType.AnalyticsLinkReplaceCouchbaseRemoteLink
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_replace_link_request(link, obs_handler, options, **kwargs)
+            d = self._impl.replace_link_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
-    def replace_link(
-        self,
-        link,  # type: AnalyticsLink
-        options=None,     # type: Optional[ReplaceLinkAnalyticsOptions]
-        **kwargs
-    ) -> Deferred[None]:
-        return Deferred.fromFuture(super().replace_link(link, options, **kwargs))
+    def drop_link(self,
+                  link_name,  # type: str
+                  dataverse_name,  # type: str
+                  options=None,     # type: Optional[DropLinkAnalyticsOptions]
+                  **kwargs          # type: Any
+                  ) -> Deferred[None]:
+        op_type = AnalyticsMgmtOperationType.AnalyticsLinkDrop
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_drop_link_request(link_name, dataverse_name, obs_handler, options, **kwargs)  # noqa: E501
+            d = self._impl.drop_link_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
-    def drop_link(
-        self,
-        link_name,  # type: str
-        dataverse_name,  # type: str
-        options=None,     # type: Optional[DropLinkAnalyticsOptions]
-        **kwargs
-    ) -> Deferred[None]:
-
-        if not isinstance(link_name, str):
-            raise ValueError("link_name must be provided when dropping an analytics link.")
-
-        if not isinstance(dataverse_name, str):
-            raise ValueError("dataverse_name must be provided when dropping an analytics link.")
-
-        return Deferred.fromFuture(super().drop_link(link_name, dataverse_name, options, **kwargs))
-
-    def get_links(
-        self,
-        options=None,  # type: Optional[GetLinksAnalyticsOptions]
-        **kwargs
-    ) -> Deferred[Iterable[AnalyticsLink]]:
-        return Deferred.fromFuture(super().get_links(options, **kwargs))
+    def get_links(self,
+                  options=None,  # type: Optional[GetLinksAnalyticsOptions]
+                  **kwargs       # type: Any
+                  ) -> Deferred[Iterable[AnalyticsLink]]:
+        op_type = AnalyticsMgmtOperationType.AnalyticsLinkGetAll
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_get_links_request(obs_handler, options, **kwargs)
+            d = self._impl.get_links_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise

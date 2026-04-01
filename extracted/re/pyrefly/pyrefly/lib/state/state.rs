@@ -55,6 +55,7 @@ use pyrefly_util::telemetry::SubTaskTelemetry;
 use pyrefly_util::telemetry::TelemetryEvent;
 use pyrefly_util::telemetry::TelemetryEventKind;
 use pyrefly_util::telemetry::TelemetryTransactionStats;
+use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
 use pyrefly_util::uniques::UniqueFactory;
 use ruff_python_ast::name::Name;
@@ -113,7 +114,7 @@ use crate::module::typeshed::BundledTypeshedStdlib;
 use crate::solver::solver::VarRecurser;
 use crate::state::epoch::Epoch;
 use crate::state::errors::Errors;
-use crate::state::errors::sorted_multi_line_fstring_ranges;
+use crate::state::errors::sorted_multi_line_string_ranges;
 use crate::state::load::FileContents;
 use crate::state::load::Load;
 use crate::state::loader::FindingOrError;
@@ -431,9 +432,8 @@ impl ModuleDataMut {
         }
     }
 
-    /// Take the data out of the `ModuleDataMut`, leaving a `ModuleData`.
-    /// Reusing the `ModuleDataMut` is not possible.
-    fn take_and_freeze(&self) -> ModuleData {
+    /// Consume the `ModuleDataMut` and produce a frozen `ModuleData`.
+    fn take_and_freeze(self) -> ModuleData {
         let ModuleDataMut {
             handle,
             config,
@@ -442,17 +442,13 @@ impl ModuleDataMut {
             deps,
             rdeps,
         } = self;
-        let imports = mem::take(&mut *imports.write());
-        let deps = mem::take(&mut *deps.write());
-        let rdeps = mem::take(&mut *rdeps.lock());
-        let state = state.take_and_freeze();
         ModuleData {
-            handle: handle.dupe(),
-            config: config.read().dupe(),
-            state,
-            imports,
-            deps,
-            rdeps,
+            handle,
+            config: config.into_inner(),
+            state: state.take_and_freeze(),
+            imports: imports.into_inner(),
+            deps: deps.into_inner(),
+            rdeps: rdeps.into_inner(),
         }
     }
 
@@ -512,6 +508,8 @@ pub(crate) struct TransactionData<'a> {
     subscriber: Option<Box<dyn Subscriber + 'a>>,
     /// When set, pysa reporting is done during answer solving and before memory eviction.
     pysa_reporter: Option<Box<crate::report::pysa::PysaReporter>>,
+    /// When set, CinderX reporting writes per-module output during answer solving.
+    cinderx_reporter: Option<Box<crate::report::cinderx::CinderxReporter>>,
 }
 
 impl<'a> TransactionData<'a> {
@@ -578,6 +576,21 @@ impl<'a> Transaction<'a> {
     /// Take the pysa reporter out of the transaction, consuming ownership.
     pub fn take_pysa_reporter(&mut self) -> Option<Box<crate::report::pysa::PysaReporter>> {
         self.data.pysa_reporter.take()
+    }
+
+    /// Set the cinderx reporter for inline extraction during type checking.
+    pub fn set_cinderx_reporter(
+        &mut self,
+        reporter: Option<Box<crate::report::cinderx::CinderxReporter>>,
+    ) {
+        self.data.cinderx_reporter = reporter;
+    }
+
+    /// Take the cinderx reporter out of the transaction, consuming ownership.
+    pub fn take_cinderx_reporter(
+        &mut self,
+    ) -> Option<Box<crate::report::cinderx::CinderxReporter>> {
+        self.data.cinderx_reporter.take()
     }
 
     /// Mark this transaction as freshly created (not restored from saved state).
@@ -657,7 +670,7 @@ impl<'a> Transaction<'a> {
                         let load = x.get_load()?;
                         let fstring_ranges = x
                             .get_ast()
-                            .map(|ast| sorted_multi_line_fstring_ranges(&ast, &load.module_info))
+                            .map(|ast| sorted_multi_line_string_ranges(&ast, &load.module_info))
                             .unwrap_or_default();
                         Some((load, config.dupe(), fstring_ranges))
                     })
@@ -667,14 +680,14 @@ impl<'a> Transaction<'a> {
     }
 
     pub fn get_all_errors(&self) -> Errors {
-        /// Extract f-string ranges from the AST if available.
+        /// Extract multi-line string ranges from the AST if available.
         fn fstring_ranges_from(
             state: &dyn ModuleStateReader,
             load: &Load,
         ) -> Vec<(LineNumber, LineNumber)> {
             state
                 .get_ast()
-                .map(|ast| sorted_multi_line_fstring_ranges(&ast, &load.module_info))
+                .map(|ast| sorted_multi_line_string_ranges(&ast, &load.module_info))
                 .unwrap_or_default()
         }
 
@@ -1144,8 +1157,11 @@ impl<'a> Transaction<'a> {
                 tensor_shapes: config.tensor_shapes(module_data.handle.path().as_path()),
                 strict_callable_subtyping: config
                     .strict_callable_subtyping(module_data.handle.path().as_path()),
+                spec_compliant_overloads: config
+                    .spec_compliant_overloads(module_data.handle.path().as_path()),
                 recursion_limit_config: config.recursion_limit_config(),
                 pysa_context,
+                cinderx_enabled: self.data.cinderx_reporter.is_some(),
             };
 
             // Compute the step. This stores the result and advances current_step,
@@ -1195,15 +1211,27 @@ impl<'a> Transaction<'a> {
                     changed
                 );
             }
-            if todo == Step::Answers && !require.keep_ast() && self.data.pysa_reporter.is_none() {
-                // We have captured the Ast, and must have already built Exports (we do it serially),
-                // so won't need the Ast again.
-                post.evict_ast();
+            if todo == Step::Answers {
+                if !require.keep_ast()
+                    && self.data.pysa_reporter.is_none()
+                    && self.data.cinderx_reporter.is_none()
+                {
+                    // We have captured the Ast, and must have already built Exports (we do it serially),
+                    // so won't need the Ast again.
+                    post.evict_ast();
+                }
             } else if todo == Step::Solutions {
+                if let Some(cinderx_reporter) = self.data.cinderx_reporter.as_ref() {
+                    cinderx_reporter
+                        .report_module(&module_data.handle, self)
+                        .expect("Failed to write CinderX module report");
+                }
                 if let Some(pysa_reporter) = self.data.pysa_reporter.as_ref() {
                     pysa_reporter.report_module(&module_data.handle, self);
-                    // With pysa, we delayed AST eviction past Answers (needed for
-                    // report_module). Evict it now that report_module has completed.
+                }
+                if self.data.pysa_reporter.is_some() || self.data.cinderx_reporter.is_some() {
+                    // With inline report writers, we delay AST eviction past Answers because
+                    // reporting needs the AST. Evict it now that reporting has completed.
                     post.evict_ast();
                 }
                 if !require.keep_bindings() && !require.keep_answers() {
@@ -2062,8 +2090,11 @@ impl<'a> Transaction<'a> {
                 tensor_shapes: config.tensor_shapes(m.handle.path().as_path()),
                 strict_callable_subtyping: config
                     .strict_callable_subtyping(m.handle.path().as_path()),
+                spec_compliant_overloads: config
+                    .spec_compliant_overloads(m.handle.path().as_path()),
                 recursion_limit_config: config.recursion_limit_config(),
                 pysa_context: None,
+                cinderx_enabled: false,
             };
             while let Some(step) = alt.next_step() {
                 let start = Instant::now();
@@ -2165,6 +2196,29 @@ impl<'a> Transaction<'a> {
             .pysa_solutions()
             .expect("pysa_solutions must exist when pysa reporting is enabled")
             .clone()
+    }
+
+    /// Demand that a module reaches Solutions and return its CinderXSolutions.
+    pub fn resolve_cinderx_solutions(
+        &self,
+        handle: &Handle,
+    ) -> Arc<crate::report::cinderx::CinderxSolutions> {
+        let module_data = self.get_module(handle);
+        self.demand(module_data, Step::last());
+        let solutions = module_data
+            .state
+            .get_solutions()
+            .expect("solutions must exist after demand");
+        if let Some(cinderx_solutions) = solutions.cinderx_solutions() {
+            return cinderx_solutions.clone();
+        }
+        let bindings = self
+            .get_bindings(handle)
+            .expect("bindings must be available to build cinderx_solutions");
+        let answers = self
+            .get_answers(handle)
+            .expect("answers must be available to build cinderx_solutions");
+        crate::report::cinderx::CinderxSolutions::build_from_answers(&bindings, &answers)
     }
 }
 
@@ -2790,9 +2844,9 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(config_finder: ConfigFinder) -> Self {
+    pub fn new(config_finder: ConfigFinder, thread_count: ThreadCount) -> Self {
         Self {
-            threads: ThreadPool::new(),
+            threads: ThreadPool::new(thread_count),
             uniques: UniqueFactory::new(),
             config_finder,
             state: RwLock::new(StateData::new()),
@@ -2848,6 +2902,7 @@ impl State {
                 dirty: Default::default(),
                 subscriber,
                 pysa_reporter: None,
+                cinderx_reporter: None,
             },
         }
     }
@@ -2913,11 +2968,12 @@ impl State {
                             now,
                             default_require: _,
                             state: _,
-                            todo: _,
-                            changed: _,
+                            todo,
+                            changed,
                             dirty,
                             subscriber: _,
                             pysa_reporter: _,
+                            cinderx_reporter: _,
                         },
                 },
             committing_transaction_guard,
@@ -2928,10 +2984,15 @@ impl State {
         let mut stats = stats.into_inner();
         stats.committed = true;
 
-        // If you make a transaction dirty, e.g. by calling an invalidate method,
-        // you must subsequently call `run` to drain the dirty queue.
-        // We could relax this restriction by storing `dirty` in the `State`,
-        // but no one wants to do this, so don't bother.
+        // ArcId<ModuleDataMut> is shared across todo, changed, dirty, and
+        // updated_modules during a transaction. All of these except
+        // updated_modules must be drained before commit so that
+        // ArcId::into_inner succeeds (refcount == 1) below.
+        assert!(todo.is_empty(), "Transaction has pending todo items");
+        assert!(
+            changed.into_inner().is_empty(),
+            "Transaction has uncommitted changes"
+        );
         assert!(dirty.into_inner().is_empty(), "Transaction is dirty");
 
         let state_lock_start = Instant::now();
@@ -2949,9 +3010,13 @@ impl State {
         state.stdlib = stdlib;
         state.now = now;
         for (handle, new_module_data) in updated_modules {
-            state
-                .modules
-                .insert(handle, new_module_data.take_and_freeze());
+            state.modules.insert(
+                handle,
+                new_module_data
+                    .into_inner()
+                    .expect("ArcId<ModuleDataMut> refcount should be 1 at commit")
+                    .take_and_freeze(),
+            );
         }
         state.memory.apply_overlay(memory_overlay);
         for (loader_id, additional_loader) in updated_loaders {

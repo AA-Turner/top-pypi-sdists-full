@@ -163,8 +163,14 @@ def get_output_controller() -> OutputController:
 
 
 # Import and register command groups
+_commands_registered = False
+
 def register_commands():
-    """Register all command groups."""
+    """Register all command groups (idempotent)."""
+    global _commands_registered
+    if _commands_registered:
+        return
+    _commands_registered = True
     # Import command modules - Core commands
     from .commands.config import app as config_app
     from .commands.traces import app as traces_app
@@ -230,6 +236,7 @@ def register_commands():
     from .commands.plugins import app as plugins_app
     from .commands.sandbox import app as sandbox_app
     from .commands.claw import app as claw_app
+    from .commands.flow import app as flow_app
     
     # Import TUI and queue commands
     from .features.tui.debug import create_debug_app as create_tui_debug_app
@@ -262,7 +269,7 @@ def register_commands():
     app.add_typer(call_app, name="call", help="Voice/call interaction mode")
     app.add_typer(realtime_app, name="realtime", help="Realtime interaction mode")
     app.add_typer(train_app, name="train", help="Model training and fine-tuning")
-    app.add_typer(ui_app, name="ui", help="Web UI management")
+    app.add_typer(ui_app, name="ui", help="🤖 Clean Chat UI (praisonaiui)")
     app.add_typer(context_app, name="context", help="Context management")
     app.add_typer(research_app, name="research", help="Research and analysis")
     app.add_typer(memory_app, name="memory", help="Memory management")
@@ -408,6 +415,7 @@ def register_commands():
     app.add_typer(plugins_app, name="plugins", help="Plugin management and inspection")
     app.add_typer(sandbox_app, name="sandbox", help="Sandbox container management")
     app.add_typer(claw_app, name="claw", help="🦞 PraisonAI Dashboard (full UI)")
+    app.add_typer(flow_app, name="flow", help="Visual workflow builder (Langflow)")
     
     # Register standardise command
     try:

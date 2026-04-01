@@ -41,10 +41,8 @@ from pyspark.sql.types import _parse_datatype_json_string
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark import Column, Session
-from snowflake.snowpark._internal.analyzer.datatype_mapper import to_sql
 from snowflake.snowpark._internal.analyzer.expression import Literal
 from snowflake.snowpark._internal.analyzer.unary_expression import Alias
-from snowflake.snowpark._internal.type_utils import convert_sp_to_sf_type
 from snowflake.snowpark.types import (
     ArrayType,
     BinaryType,
@@ -4295,18 +4293,11 @@ def map_unresolved_function(
 
             # TODO(SNOW-3122222) TODO Remove the legacy `else` branch once 10.6 is fully rolled out
             if session._has_structured_try_cast:
-                expr = snowpark_args[0]._expression
-                # TODO(SNOW-3083544): Snowpark does not yet support the PERMISSIVE flag, so we need to manually perform SQL resolution here.
-                if isinstance(expr, Literal):
-                    # The `Literal` class does not support generation through _expression.sql, so we need to add a special case for it.
-                    arg_sql = to_sql(expr.value, expr.datatype)
-                else:
-                    arg_sql = session._analyzer.analyze(expr, defaultdict())
                 # If the original element is NULL, the result of the cast will also be NULL.
                 # Schema checking of fields (dropping extra fields, NULLing missing fields) is handled by the server.
-                sf_type = convert_sp_to_sf_type(result_type)
-                result_exp = snowpark_fn.sql_expr(
-                    f"TRY_CAST(TRY_PARSE_JSON({arg_sql}) AS {sf_type} PERMISSIVE)"
+                result_exp = snowpark_fn.try_parse_json(snowpark_args[0]).try_cast(
+                    result_type,
+                    permissive=True,
                 )
                 if isinstance(result_type, StructType):
                     # If the top-level expected return type is a struct, Spark will implicitly retain nulls for all fields.
@@ -4314,8 +4305,8 @@ def map_unresolved_function(
                     # a dummy TRY_CAST on an empty object.
                     result_exp = snowpark_fn.ifnull(
                         result_exp,
-                        snowpark_fn.sql_expr(
-                            f"TRY_CAST(OBJECT_CONSTRUCT() AS {sf_type} PERMISSIVE)"
+                        snowpark_fn.object_construct().try_cast(
+                            result_type, permissive=True
                         ),
                     )
                 if isinstance(result_type, ArrayType) and isinstance(
@@ -4324,9 +4315,9 @@ def map_unresolved_function(
                     result_exp = snowpark_fn.ifnull(
                         result_exp,
                         # If the top-level expected return type is an array, Spark will implicitly wrap a scalar value if the type matches.
-                        snowpark_fn.sql_expr(
-                            f"TRY_CAST(TO_ARRAY(TRY_PARSE_JSON({arg_sql})) AS {sf_type} PERMISSIVE)"
-                        ),
+                        snowpark_fn.to_array(
+                            snowpark_fn.try_parse_json(snowpark_args[0])
+                        ).try_cast(result_type, permissive=True),
                     )
             else:
                 # try to parse first, since spark returns null for invalid json

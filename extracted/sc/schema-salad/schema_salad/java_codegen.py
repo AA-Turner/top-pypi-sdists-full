@@ -1,5 +1,6 @@
 """Java code generator for a given schema salad definition."""
 
+import html
 import os
 import re
 import shutil
@@ -8,7 +9,7 @@ from collections.abc import MutableMapping, MutableSequence
 from importlib.resources import files
 from io import StringIO
 from pathlib import Path
-from typing import Any, Final, Optional, Union
+from typing import Any, Final
 
 from . import _logger, schema
 from .codegen_base import CodeGenBase, LazyInitDef, TypeDef
@@ -32,11 +33,11 @@ def _ensure_directory_and_write(path: Path, contents: str) -> None:
         f.write(contents)
 
 
-def _doc_to_doc_string(doc: Optional[str], indent_level: int = 0) -> str:
+def _doc_to_doc_string(doc: str | None, indent_level: int = 0) -> str:
     lead: Final = " " + "  " * indent_level + "* " * indent_level
     if doc:
         doc_str = f"{lead}<BLOCKQUOTE>\n"
-        doc_str += "\n".join([f"{lead}{line}" for line in doc.split("\n")])
+        doc_str += "\n".join([f"{lead}{line}" for line in html.escape(doc).split("\n")])
         doc_str += f"{lead}</BLOCKQUOTE>"
     else:
         doc_str = ""
@@ -122,10 +123,10 @@ class JavaCodeGen(CodeGenBase):
     def __init__(
         self,
         base: str,
-        target: Optional[str],
-        examples: Optional[str],
+        target: str | None,
+        examples: str | None,
         package: str,
-        copyright: Optional[str],
+        copyright: str | None,
     ) -> None:
         super().__init__()
         self.base_uri: Final = base
@@ -197,17 +198,11 @@ class JavaCodeGen(CodeGenBase):
                 ext = "extends " + ", ".join(self.interface_name(e) for e in extends) + ", Saveable"
             else:
                 ext = "extends Saveable"
-            f.write(
-                """// Copyright Common Workflow Language project contributors
-"""
-            )
+            f.write("""// Copyright Common Workflow Language project contributors
+""")
             if self.copyright:
-                f.write(
-                    """// {copyright}
-""".format(
-                        copyright=self.copyright
-                    )
-                )
+                f.write("""// {copyright}
+""".format(copyright=self.copyright))
             f.write(
                 """//
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -248,17 +243,11 @@ public interface {cls} {ext} {{
         target = self.main_src_dir / f"{cls}Impl.java"
         with open(target, "w") as f:
             _logger.info("Writing file: %s", target)
-            f.write(
-                """// Copyright Common Workflow Language project contributors
-"""
-            )
+            f.write("""// Copyright Common Workflow Language project contributors
+""")
             if self.copyright:
-                f.write(
-                    """// {copyright}
-""".format(
-                        copyright=self.copyright
-                    )
-                )
+                f.write("""// {copyright}
+""".format(copyright=self.copyright))
             f.write(
                 """//
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -300,8 +289,7 @@ public class {cls}Impl extends SaveableImpl implements {cls} {{
                     class_doc_str=class_doc_str,
                 )
             )
-        self.current_loader.write(
-            """
+        self.current_loader.write("""
   /**
    * Used by {{@link {package}.utils.RootLoader}} to construct instances of {cls}Impl.
    *
@@ -332,40 +320,28 @@ public class {cls}Impl extends SaveableImpl implements {cls} {{
     if (__loadingOptions != null) {{
       this.loadingOptions_ = __loadingOptions;
     }}
-""".format(
-                cls=cls, package=self.package
-            )
-        )
+""".format(cls=cls, package=self.package))
 
     def end_class(self, classname: str, field_names: list[str]) -> None:
         """Finish this class."""
         with open(self.main_src_dir / f"{self.current_class}.java", "a") as f:
-            f.write(
-                """
+            f.write("""
 }
-"""
-            )
+""")
         if self.current_class_is_abstract:
             return
 
-        self.current_loader.write(
-            """    if (!__errors.isEmpty()) {
+        self.current_loader.write("""    if (!__errors.isEmpty()) {
       throw new ValidationException("Trying 'RecordField'", __errors);
     }
-"""
-        )
+""")
         for fieldname in field_names:
             fieldtype = self.current_fieldtypes.get(fieldname)
             if fieldtype is None:
                 continue
-            self.current_loader.write(
-                """    this.{safename} = ({type}) {safename};
-""".format(
-                    safename=self.safe_name(fieldname), type=fieldtype.instance_type
-                )
-            )
-        self.current_loader.write(
-            """    for (String field:__doc.keySet()) {
+            self.current_loader.write("""    this.{safename} = ({type}) {safename};
+""".format(safename=self.safe_name(fieldname), type=fieldtype.instance_type))
+        self.current_loader.write("""    for (String field:__doc.keySet()) {
       if (!attrs.contains(field)) {
         if (field.contains(":")) {
           String expanded_field = __loadingOptions.expandUrl(field, "", false, false, null);
@@ -373,8 +349,7 @@ public class {cls}Impl extends SaveableImpl implements {cls} {{
         }
       }
     }
-"""
-        )
+""")
         self.current_loader.write("""  }""")
         target = self.main_src_dir / f"{self.current_class}Impl.java"
         with open(
@@ -383,83 +358,78 @@ public class {cls}Impl extends SaveableImpl implements {cls} {{
         ) as f:
             f.write(self.current_fields.getvalue())
             f.write(self.current_loader.getvalue())
-            f.write(
-                f"""
+            f.write(f"""
   private java.util.List<String> attrs = java.util.Arrays.asList("{'", "'.join(field_names)}");
 }}
-"""
-            )
+""")
 
     def type_loader(
         self,
-        type_declaration: Union[list[Any], dict[str, Any], str],
-        container: Optional[str] = None,
-        no_link_check: Optional[bool] = None,
+        type_declaration: list[Any] | dict[str, Any] | str,
+        container: str | None = None,
+        no_link_check: bool | None = None,
     ) -> TypeDef:
         """Parse the given type declaration and declare its components."""
-        if isinstance(type_declaration, MutableSequence):
-            sub = [self.type_loader(i) for i in type_declaration]
-            if len(sub) < 2:
-                return sub[0]
+        match type_declaration:
+            case MutableSequence() as decl:
+                sub = [self.type_loader(i) for i in decl]
+                if len(sub) < 2:
+                    return sub[0]
 
-            if len(sub) == 2:
-                type_1 = sub[0]
-                type_2 = sub[1]
-                type_1_name = type_1.name
-                type_2_name = type_2.name
-                if type_1_name == "NullInstance" or type_2_name == "NullInstance":
-                    non_null_type = type_1 if type_1.name != "NullInstance" else type_2
-                    return self.declare_type(
-                        TypeDef(
-                            instance_type="java.util.Optional<{}>".format(
-                                non_null_type.instance_type
-                            ),
-                            init=f"new OptionalLoader({non_null_type.name})",
-                            name=f"optional_{non_null_type.name}",
-                            loader_type="Loader<java.util.Optional<{}>>".format(
-                                non_null_type.instance_type
-                            ),
+                if len(sub) == 2:
+                    type_1 = sub[0]
+                    type_2 = sub[1]
+                    type_1_name = type_1.name
+                    type_2_name = type_2.name
+                    if type_1_name == "NullInstance" or type_2_name == "NullInstance":
+                        non_null_type = type_1 if type_1.name != "NullInstance" else type_2
+                        return self.declare_type(
+                            TypeDef(
+                                instance_type="java.util.Optional<{}>".format(
+                                    non_null_type.instance_type
+                                ),
+                                init=f"new OptionalLoader({non_null_type.name})",
+                                name=f"optional_{non_null_type.name}",
+                                loader_type="Loader<java.util.Optional<{}>>".format(
+                                    non_null_type.instance_type
+                                ),
+                            )
                         )
-                    )
-                if (
-                    type_1_name == f"array_of_{type_2_name}"
-                    or type_2_name == f"array_of_{type_1_name}"
-                ) and USE_ONE_OR_LIST_OF_TYPES:
-                    if type_1_name == f"array_of_{type_2_name}":
-                        single_type = type_2
-                        array_type = type_1
-                    else:
-                        single_type = type_1
-                        array_type = type_2
-                    fqclass = f"{self.package}.{single_type.instance_type}"
-                    return self.declare_type(
-                        TypeDef(
-                            instance_type=f"{self.package}.utils.OneOrListOf<{fqclass}>",
-                            init="new OneOrListOfLoader<{}>({}, {})".format(
-                                fqclass, single_type.name, array_type.name
-                            ),
-                            name=f"one_or_array_of_{single_type.name}",
-                            loader_type="Loader<{}.utils.OneOrListOf<{}>>".format(
-                                self.package, fqclass
-                            ),
+                    if (
+                        type_1_name == f"array_of_{type_2_name}"
+                        or type_2_name == f"array_of_{type_1_name}"
+                    ) and USE_ONE_OR_LIST_OF_TYPES:
+                        if type_1_name == f"array_of_{type_2_name}":
+                            single_type = type_2
+                            array_type = type_1
+                        else:
+                            single_type = type_1
+                            array_type = type_2
+                        fqclass = f"{self.package}.{single_type.instance_type}"
+                        return self.declare_type(
+                            TypeDef(
+                                instance_type=f"{self.package}.utils.OneOrListOf<{fqclass}>",
+                                init="new OneOrListOfLoader<{}>({}, {})".format(
+                                    fqclass, single_type.name, array_type.name
+                                ),
+                                name=f"one_or_array_of_{single_type.name}",
+                                loader_type="Loader<{}.utils.OneOrListOf<{}>>".format(
+                                    self.package, fqclass
+                                ),
+                            )
                         )
+                return self.declare_type(
+                    TypeDef(
+                        instance_type="Object",
+                        init="new UnionLoader(new Loader[] {{ {} }})".format(
+                            ", ".join(s.name for s in sub)
+                        ),
+                        name="union_of_{}".format("_or_".join(s.name for s in sub)),
+                        loader_type="Loader<Object>",
                     )
-            return self.declare_type(
-                TypeDef(
-                    instance_type="Object",
-                    init="new UnionLoader(new Loader[] {{ {} }})".format(
-                        ", ".join(s.name for s in sub)
-                    ),
-                    name="union_of_{}".format("_or_".join(s.name for s in sub)),
-                    loader_type="Loader<Object>",
                 )
-            )
-        if isinstance(type_declaration, MutableMapping):
-            if type_declaration["type"] in (
-                "array",
-                "https://w3id.org/cwl/salad#array",
-            ):
-                i = self.type_loader(type_declaration["items"])
+            case {"type": "array" | "https://w3id.org/cwl/salad#array", "items": items}:
+                i = self.type_loader(items)
                 instance_type = (
                     "java.util.List<String>"
                     if i.instance_type == "String"
@@ -475,11 +445,8 @@ public class {cls}Impl extends SaveableImpl implements {cls} {{
                         loader_type=f"Loader<java.util.List<{i.instance_type}>>",
                     )
                 )
-            if type_declaration["type"] in (
-                "map",
-                "https://w3id.org/cwl/salad#map",
-            ):
-                i = self.type_loader(type_declaration["values"])
+            case {"type": "map" | "https://w3id.org/cwl/salad#map", "values": values}:
+                i = self.type_loader(values)
                 return self.declare_type(
                     TypeDef(
                         # special doesn't work out with subclassing, gotta be more clever
@@ -496,18 +463,21 @@ public class {cls}Impl extends SaveableImpl implements {cls} {{
                         loader_type=f"Loader<java.util.Map<String, {i.instance_type}>>",
                     )
                 )
-            if type_declaration["type"] in ("enum", "https://w3id.org/cwl/salad#enum"):
-                return self.type_loader_enum(type_declaration)
-            if type_declaration["type"] in (
-                "record",
-                "https://w3id.org/cwl/salad#record",
-            ):
-                is_abstract = type_declaration.get("abstract", False)
-                fqclass = "{}.{}".format(self.package, self.safe_name(type_declaration["name"]))
+            case {
+                "type": "enum" | "https://w3id.org/cwl/salad#enum",
+            }:
+                return self.type_loader_enum(type_declaration)  # type: ignore[arg-type]
+            case {
+                "type": "record" | "https://w3id.org/cwl/salad#record",
+                "name": name,
+                **rest,
+            }:
+                is_abstract = rest.get("abstract", False)
+                fqclass = f"{self.package}.{self.safe_name(name)}"
                 return self.declare_type(
                     TypeDef(
-                        instance_type=self.safe_name(type_declaration["name"]),
-                        name=self.safe_name(type_declaration["name"]),
+                        instance_type=self.safe_name(name),
+                        name=self.safe_name(name),
                         init="new RecordLoader<{clazz}>({clazz}{ext}.class, "
                         "{container}, {no_link_check})".format(
                             clazz=fqclass,
@@ -522,12 +492,13 @@ public class {cls}Impl extends SaveableImpl implements {cls} {{
                         loader_type=f"Loader<{fqclass}>",
                     )
                 )
-            if type_declaration["type"] in (
-                "union",
-                "https://w3id.org/cwl/salad#union",
-            ):
+            case {
+                "type": "union" | "https://w3id.org/cwl/salad#union",
+                "name": name,
+                "names": names,
+            }:
                 # Declare the named loader to handle recursive union definitions
-                loader_name = self.safe_name(type_declaration["name"])
+                loader_name = self.safe_name(name)
                 loader_type = TypeDef(
                     instance_type="Object",
                     init="new UnionLoader(new Loader[] {})",
@@ -536,7 +507,7 @@ public class {cls}Impl extends SaveableImpl implements {cls} {{
                 )
                 self.declare_type(loader_type)
                 # Parse inner types
-                sub = [self.type_loader(i) for i in type_declaration["names"]]
+                sub = [self.type_loader(i) for i in names]
 
                 if len(sub) == 2:
                     type_1 = sub[0]
@@ -590,19 +561,20 @@ public class {cls}Impl extends SaveableImpl implements {cls} {{
                     )
                 )
                 return loader_type
-            raise SchemaException("wft {}".format(type_declaration["type"]))
-        if type_declaration in prims:
-            return prims[type_declaration]
-        if type_declaration in ("Expression", "https://w3id.org/cwl/cwl#Expression"):
-            return self.declare_type(
-                TypeDef(
-                    name=self.safe_name(type_declaration) + "Loader",
-                    init="new ExpressionLoader()",
-                    loader_type="Loader<String>",
-                    instance_type="String",
+            case {"type": type_decl}:
+                raise SchemaException(f"wft {type_decl}")
+            case str() as decl if decl in prims:
+                return prims[decl]
+            case "Expression" | "https://w3id.org/cwl/cwl#Expression" as decl:
+                return self.declare_type(
+                    TypeDef(
+                        name=self.safe_name(decl) + "Loader",
+                        init="new ExpressionLoader()",
+                        loader_type="Loader<String>",
+                        instance_type="String",
+                    )
                 )
-            )
-        return self.collected_types[self.safe_name(type_declaration)]
+        return self.collected_types[self.safe_name(type_declaration)]  # type: ignore[arg-type]
 
     def type_loader_enum(self, type_declaration: dict[str, Any]) -> TypeDef:
         """Build an enum type loader for the given declaration."""
@@ -614,19 +586,12 @@ public class {cls}Impl extends SaveableImpl implements {cls} {{
         enum_path = self.main_src_dir / f"{clazz}.java"
         with open(enum_path, "w") as f:
             _logger.info("Writing file: %s", enum_path)
-            f.write(
-                """// Copyright Common Workflow Language project contributors
-"""
-            )
+            f.write("""// Copyright Common Workflow Language project contributors
+""")
             if self.copyright:
-                f.write(
-                    """// {copyright}
-""".format(
-                        copyright=self.copyright
-                    )
-                )
-            f.write(
-                """//
+                f.write("""// {copyright}
+""".format(copyright=self.copyright))
+            f.write("""//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -644,16 +609,12 @@ package {package};
 import {package}.utils.ValidationException;
 
 public enum {clazz} {{
-""".format(
-                    package=self.package, clazz=clazz
-                )
-            )
+""".format(package=self.package, clazz=clazz))
             for i, sym in enumerate(symbols):
                 suffix = "," if i < (len(symbols) - 1) else ";"
                 const = self.safe_name(sym).replace("-", "_").replace(".", "_").upper()
                 f.write(f"""  {const}("{sym}"){suffix}\n""")  # noqa: B907
-            f.write(
-                """
+            f.write("""
   private static String[] symbols = {symbols_decl};
   private String docVal;
 
@@ -670,10 +631,7 @@ public enum {clazz} {{
     throw new ValidationException(String.format("Expected one of %s", {clazz}.symbols, docVal));
   }}
 }}
-""".format(
-                    clazz=clazz, symbols_decl=symbols_decl
-                )
-            )
+""".format(clazz=clazz, symbols_decl=symbols_decl))
         return self.declare_type(
             TypeDef(
                 instance_type=clazz,
@@ -687,9 +645,9 @@ public enum {clazz} {{
         self,
         name: str,
         fieldtype: TypeDef,
-        doc: Optional[str],
+        doc: str | None,
         optional: bool,
-        subscope: Optional[str],
+        subscope: str | None,
     ) -> None:
         fieldname = name
         property_name = self.property_name(fieldname)
@@ -703,9 +661,7 @@ public enum {clazz} {{
    * Getter for property <I>{fieldname}</I><BR>
 {field_doc_str}
    */
-""".format(
-            fieldname=fieldname, field_doc_str=_doc_to_doc_string(doc, indent_level=1)
-        )
+""".format(fieldname=fieldname, field_doc_str=_doc_to_doc_string(doc, indent_level=1))
         target = self.main_src_dir / f"{self.current_class}.java"
         with open(target, "a") as f:
             f.write(
@@ -737,20 +693,12 @@ public enum {clazz} {{
             )
         )
 
-        self.current_loader.write(
-            """    {type} {safename};
-""".format(
-                type=fieldtype.instance_type, safename=safename
-            )
-        )
+        self.current_loader.write("""    {type} {safename};
+""".format(type=fieldtype.instance_type, safename=safename))
         if optional:
-            self.current_loader.write(
-                """
+            self.current_loader.write("""
     if (__doc.containsKey("{fieldname}")) {{
-""".format(
-                    fieldname=property_name
-                )
-            )
+""".format(fieldname=property_name))
             spc = "  "
         else:
             spc = ""
@@ -775,21 +723,17 @@ public enum {clazz} {{
         )
 
         if optional:
-            self.current_loader.write(
-                """
+            self.current_loader.write("""
     }} else {{
       {safename} = null;
     }}
-""".format(
-                    safename=safename
-                )
-            )
+""".format(safename=safename))
 
     def declare_id_field(
         self,
         name: str,
         fieldtype: TypeDef,
-        doc: Optional[str],
+        doc: str | None,
         optional: bool,
     ) -> None:
         if self.current_class_is_abstract:
@@ -833,8 +777,8 @@ public enum {clazz} {{
         inner: TypeDef,
         scoped_id: bool,
         vocab_term: bool,
-        ref_scope: Optional[int],
-        no_link_check: Optional[bool] = None,
+        ref_scope: int | None,
+        no_link_check: bool | None = None,
     ) -> TypeDef:
         instance_type = inner.instance_type or "Object"
         return self.declare_type(
@@ -856,7 +800,7 @@ public enum {clazz} {{
         )
 
     def idmap_loader(
-        self, field: str, inner: TypeDef, map_subject: str, map_predicate: Optional[str]
+        self, field: str, inner: TypeDef, map_subject: str, map_predicate: str | None
     ) -> TypeDef:
         instance_type: Final = inner.instance_type or "Object"
         return self.declare_type(
@@ -870,7 +814,7 @@ public enum {clazz} {{
             )
         )
 
-    def typedsl_loader(self, inner: TypeDef, ref_scope: Union[int, None]) -> TypeDef:
+    def typedsl_loader(self, inner: TypeDef, ref_scope: int | None) -> TypeDef:
         """Construct the TypeDef for the given DSL loader."""
         instance_type = inner.instance_type or "Object"
         return self.declare_type(
@@ -883,12 +827,13 @@ public enum {clazz} {{
         )
 
     def to_java(self, val: Any) -> Any:
-        if val is True:
-            return "true"
-        elif val is None:
-            return "null"
-        elif val is False:
-            return "false"
+        match val:
+            case True:
+                return "true"
+            case None:
+                return "null"
+            case False:
+                return "false"
         return val
 
     def epilogue(self, root_loader: TypeDef) -> None:
@@ -898,17 +843,17 @@ public enum {clazz} {{
         pd = pd + " for parsing documents corresponding to the "
         pd = pd + str(self.base_uri) + " schema."
 
-        template_vars: MutableMapping[str, str] = dict(
-            base_uri=self.base_uri,
-            package=self.package,
-            group_id=self.package,
-            artifact_id=self.artifact,
-            version="0.0.1-SNAPSHOT",
-            project_name=self.package,
-            project_description=pd,
-            license_name="Apache License, Version 2.0",
-            license_url="https://www.apache.org/licenses/LICENSE-2.0.txt",
-        )
+        template_vars: MutableMapping[str, str] = {
+            "base_uri": self.base_uri,
+            "package": self.package,
+            "group_id": self.package,
+            "artifact_id": self.artifact,
+            "version": "0.0.1-SNAPSHOT",
+            "project_name": self.package,
+            "project_description": pd,
+            "license_name": "Apache License, Version 2.0",
+            "license_url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+        }
 
         def template_from_resource(resource: Traversable) -> string.Template:
             template_str: Final = resource.read_text("utf-8")
@@ -993,15 +938,15 @@ public enum {clazz} {{
                         example_name=example_name,
                     )
 
-        template_args: MutableMapping[str, str] = dict(
-            package=self.package,
-            vocab=vocab,
-            rvocab=rvocab,
-            loader_instances=loader_instances,
-            root_loader_name=root_loader.name,
-            root_loader_instance_type=root_loader.instance_type or "Object",
-            example_tests=example_tests,
-        )
+        template_args: MutableMapping[str, str] = {
+            "package": self.package,
+            "vocab": vocab,
+            "rvocab": rvocab,
+            "loader_instances": loader_instances,
+            "root_loader_name": root_loader.name,
+            "root_loader_instance_type": root_loader.instance_type or "Object",
+            "example_tests": example_tests,
+        }
 
         util_src_dirs: Final = {
             "main_utils": self.main_src_dir,

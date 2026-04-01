@@ -693,6 +693,8 @@ __all__ = [
     'OrganizationSecurityPolicyRuleMatchConfigArgsDict',
     'OrganizationSecurityPolicyRuleMatchConfigLayer4ConfigArgs',
     'OrganizationSecurityPolicyRuleMatchConfigLayer4ConfigArgsDict',
+    'OrganizationSecurityPolicyRuleMatchExprArgs',
+    'OrganizationSecurityPolicyRuleMatchExprArgsDict',
     'PacketMirroringCollectorIlbArgs',
     'PacketMirroringCollectorIlbArgsDict',
     'PacketMirroringFilterArgs',
@@ -34831,7 +34833,7 @@ class NodeTemplateServerBindingArgs:
 
 
 class OrganizationSecurityPolicyRuleMatchArgsDict(TypedDict):
-    config: pulumi.Input['OrganizationSecurityPolicyRuleMatchConfigArgsDict']
+    config: NotRequired[pulumi.Input['OrganizationSecurityPolicyRuleMatchConfigArgsDict']]
     """
     The configuration options for matching the rule.
     Structure is documented below.
@@ -34839,6 +34841,11 @@ class OrganizationSecurityPolicyRuleMatchArgsDict(TypedDict):
     description: NotRequired[pulumi.Input[_builtins.str]]
     """
     A description of the rule.
+    """
+    expr: NotRequired[pulumi.Input['OrganizationSecurityPolicyRuleMatchExprArgsDict']]
+    """
+    User defined CEVAL expression. A CEVAL expression is used to specify match criteria such as origin.ip, source.region_code and contents in the request header.
+    Structure is documented below.
     """
     versioned_expr: NotRequired[pulumi.Input[_builtins.str]]
     """
@@ -34850,26 +34857,32 @@ class OrganizationSecurityPolicyRuleMatchArgsDict(TypedDict):
 @pulumi.input_type
 class OrganizationSecurityPolicyRuleMatchArgs:
     def __init__(__self__, *,
-                 config: pulumi.Input['OrganizationSecurityPolicyRuleMatchConfigArgs'],
+                 config: Optional[pulumi.Input['OrganizationSecurityPolicyRuleMatchConfigArgs']] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
+                 expr: Optional[pulumi.Input['OrganizationSecurityPolicyRuleMatchExprArgs']] = None,
                  versioned_expr: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input['OrganizationSecurityPolicyRuleMatchConfigArgs'] config: The configuration options for matching the rule.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] description: A description of the rule.
+        :param pulumi.Input['OrganizationSecurityPolicyRuleMatchExprArgs'] expr: User defined CEVAL expression. A CEVAL expression is used to specify match criteria such as origin.ip, source.region_code and contents in the request header.
+               Structure is documented below.
         :param pulumi.Input[_builtins.str] versioned_expr: Preconfigured versioned expression. For organization security policy rules,
                the only supported type is "SRC_IPS_V1".
                **NOTE** : 'FIREWALL' type is deprecated. Please use 'google_compute_firewall_policy_rule' resource instead.
         """
-        pulumi.set(__self__, "config", config)
+        if config is not None:
+            pulumi.set(__self__, "config", config)
         if description is not None:
             pulumi.set(__self__, "description", description)
+        if expr is not None:
+            pulumi.set(__self__, "expr", expr)
         if versioned_expr is not None:
             pulumi.set(__self__, "versioned_expr", versioned_expr)
 
     @_builtins.property
     @pulumi.getter
-    def config(self) -> pulumi.Input['OrganizationSecurityPolicyRuleMatchConfigArgs']:
+    def config(self) -> Optional[pulumi.Input['OrganizationSecurityPolicyRuleMatchConfigArgs']]:
         """
         The configuration options for matching the rule.
         Structure is documented below.
@@ -34877,7 +34890,7 @@ class OrganizationSecurityPolicyRuleMatchArgs:
         return pulumi.get(self, "config")
 
     @config.setter
-    def config(self, value: pulumi.Input['OrganizationSecurityPolicyRuleMatchConfigArgs']):
+    def config(self, value: Optional[pulumi.Input['OrganizationSecurityPolicyRuleMatchConfigArgs']]):
         pulumi.set(self, "config", value)
 
     @_builtins.property
@@ -34891,6 +34904,19 @@ class OrganizationSecurityPolicyRuleMatchArgs:
     @description.setter
     def description(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "description", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def expr(self) -> Optional[pulumi.Input['OrganizationSecurityPolicyRuleMatchExprArgs']]:
+        """
+        User defined CEVAL expression. A CEVAL expression is used to specify match criteria such as origin.ip, source.region_code and contents in the request header.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "expr")
+
+    @expr.setter
+    def expr(self, value: Optional[pulumi.Input['OrganizationSecurityPolicyRuleMatchExprArgs']]):
+        pulumi.set(self, "expr", value)
 
     @_builtins.property
     @pulumi.getter(name="versionedExpr")
@@ -35079,6 +35105,34 @@ class OrganizationSecurityPolicyRuleMatchConfigLayer4ConfigArgs:
     @ports.setter
     def ports(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "ports", value)
+
+
+class OrganizationSecurityPolicyRuleMatchExprArgsDict(TypedDict):
+    expression: pulumi.Input[_builtins.str]
+    """
+    Textual representation of an expression in Common Expression Language syntax. The application context of the containing message determines which well-known feature set of CEL is supported.
+    """
+
+@pulumi.input_type
+class OrganizationSecurityPolicyRuleMatchExprArgs:
+    def __init__(__self__, *,
+                 expression: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] expression: Textual representation of an expression in Common Expression Language syntax. The application context of the containing message determines which well-known feature set of CEL is supported.
+        """
+        pulumi.set(__self__, "expression", expression)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> pulumi.Input[_builtins.str]:
+        """
+        Textual representation of an expression in Common Expression Language syntax. The application context of the containing message determines which well-known feature set of CEL is supported.
+        """
+        return pulumi.get(self, "expression")
+
+    @expression.setter
+    def expression(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "expression", value)
 
 
 class PacketMirroringCollectorIlbArgsDict(TypedDict):

@@ -5,14 +5,14 @@ from .serverless.server.worker import Worker
 from .serverless.server.worker import WorkerConfig, HandlerConfig, LogActionConfig, BenchmarkConfig
 
 __all__ = [
-            "VastAI", 
-            "Serverless",
-            "ServerlessRequest",
-            "Endpoint",
-            "Worker",
-            "WorkerConfig",
-            "HandlerConfig",
-            "LogActionConfig",
-            "BenchmarkConfig"
-        ]
+    "VastAI",
+    "Serverless",
+    "ServerlessRequest",
+    "Endpoint",
+    "Worker",
+    "WorkerConfig",
+    "HandlerConfig",
+    "LogActionConfig",
+    "BenchmarkConfig",
+]
 

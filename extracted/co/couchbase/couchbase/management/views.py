@@ -13,15 +13,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from typing import (Any,
-                    Dict,
+from __future__ import annotations
+
+from typing import (TYPE_CHECKING,
+                    Any,
                     Iterable)
 
-from couchbase.management.logic.view_index_logic import View  # noqa: F401
-from couchbase.management.logic.view_index_logic import (DesignDocument,
-                                                         DesignDocumentNamespace,
-                                                         ViewIndexManagerLogic)
-from couchbase.management.logic.wrappers import BlockingMgmtWrapper, ManagementType
+from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import MgmtOperationType, ViewIndexMgmtOperationType
+from couchbase.management.logic.view_index_mgmt_impl import ViewIndexMgmtImpl
+from couchbase.management.logic.view_index_mgmt_types import View  # noqa: F401
+from couchbase.management.logic.view_index_mgmt_types import DesignDocument, DesignDocumentNamespace
 
 # @TODO:  lets deprecate import of options from couchbase.management.views
 from couchbase.management.options import (DropDesignDocumentOptions,
@@ -30,53 +32,89 @@ from couchbase.management.options import (DropDesignDocumentOptions,
                                           PublishDesignDocumentOptions,
                                           UpsertDesignDocumentOptions)
 
+if TYPE_CHECKING:
+    from couchbase.logic.client_adapter import ClientAdapter
+    from couchbase.logic.observability import ObservabilityInstruments
 
-class ViewIndexManager(ViewIndexManagerLogic):
-    def __init__(self, connection, bucket_name):
-        super().__init__(connection, bucket_name)
 
-    @BlockingMgmtWrapper.block(DesignDocument, ManagementType.ViewIndexMgmt, ViewIndexManagerLogic._ERROR_MAPPING)
+class ViewIndexManager:
+
+    def __init__(self, client_adapter: ClientAdapter, bucket_name: str, observability_instruments: ObservabilityInstruments) -> None:  # noqa: E501
+        self._impl = ViewIndexMgmtImpl(client_adapter, observability_instruments)
+        self._bucket_name = bucket_name
+
     def get_design_document(self,
                             design_doc_name,  # type: str
                             namespace,  # type: DesignDocumentNamespace
                             *options,   # type: GetDesignDocumentOptions
-                            **kwargs    # type: Dict[str, Any]
+                            **kwargs    # type: Any
                             ) -> DesignDocument:
-        return super().get_design_document(design_doc_name, namespace, *options, **kwargs)
+        op_type = ViewIndexMgmtOperationType.ViewIndexGet
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_design_document_request(self._bucket_name,
+                                                                               design_doc_name,
+                                                                               namespace,
+                                                                               obs_handler,
+                                                                               *options,
+                                                                               **kwargs)
+            return self._impl.get_design_document(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(DesignDocument, ManagementType.ViewIndexMgmt, ViewIndexManagerLogic._ERROR_MAPPING)
     def get_all_design_documents(self,
                                  namespace,     # type: DesignDocumentNamespace
                                  *options,      # type: GetAllDesignDocumentsOptions
-                                 **kwargs       # type: Dict[str, Any]
+                                 **kwargs       # type: Any
                                  ) -> Iterable[DesignDocument]:
-        return super().get_all_design_documents(namespace, *options, **kwargs)
+        op_type = ViewIndexMgmtOperationType.ViewIndexGetAll
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_design_documents_request(self._bucket_name,
+                                                                                    namespace,
+                                                                                    obs_handler,
+                                                                                    *options,
+                                                                                    **kwargs)
+            return self._impl.get_all_design_documents(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.ViewIndexMgmt, ViewIndexManagerLogic._ERROR_MAPPING)
     def upsert_design_document(self,
                                design_doc_data,     # type: DesignDocument
                                namespace,           # type: DesignDocumentNamespace
                                *options,            # type: UpsertDesignDocumentOptions
-                               **kwargs             # type: Dict[str, Any]
+                               **kwargs             # type: Any
                                ) -> None:
-        return super().upsert_design_document(design_doc_data, namespace, *options, **kwargs)
+        op_type = ViewIndexMgmtOperationType.ViewIndexUpsert
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_upsert_design_document_request(self._bucket_name,
+                                                                                  design_doc_data,
+                                                                                  namespace,
+                                                                                  obs_handler,
+                                                                                  *options,
+                                                                                  **kwargs)
+            self._impl.upsert_design_document(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.ViewIndexMgmt, ViewIndexManagerLogic._ERROR_MAPPING)
     def drop_design_document(self,
                              design_doc_name,   # type: str
                              namespace,         # type: DesignDocumentNamespace
                              *options,          # type: DropDesignDocumentOptions
-                             **kwargs           # type: Dict[str, Any]
+                             **kwargs           # type: Any
                              ) -> None:
-        return super().drop_design_document(design_doc_name, namespace, *options, **kwargs)
+        op_type = ViewIndexMgmtOperationType.ViewIndexDrop
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_drop_design_document_request(self._bucket_name,
+                                                                                design_doc_name,
+                                                                                namespace,
+                                                                                obs_handler,
+                                                                                *options,
+                                                                                **kwargs)
+            self._impl.drop_design_document(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.ViewIndexMgmt, ViewIndexManagerLogic._ERROR_MAPPING)
     def publish_design_document(self,
                                 design_doc_name,    # type: str
                                 *options,           # type: PublishDesignDocumentOptions
-                                **kwargs            # type: Dict[str, Any]
+                                **kwargs            # type: Any
                                 ) -> None:
-        doc = self.get_design_document(
-            design_doc_name, DesignDocumentNamespace.DEVELOPMENT, *options, **kwargs)
-        return self.upsert_design_document(
-            doc, DesignDocumentNamespace.PRODUCTION, *options, **kwargs)
+        op_type = MgmtOperationType.ViewIndexPublish
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_publish_design_document_request(self._bucket_name,
+                                                                                   design_doc_name,
+                                                                                   obs_handler,
+                                                                                   *options,
+                                                                                   **kwargs)
+            self._impl.publish_design_document(req, obs_handler)

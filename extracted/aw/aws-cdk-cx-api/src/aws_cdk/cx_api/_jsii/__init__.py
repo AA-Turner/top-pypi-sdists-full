@@ -31,7 +31,7 @@ def check_type(argname: str, value: object, expected_type: typing.Any) -> typing
 import aws_cdk.cloud_assembly_schema._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "@aws-cdk/cx-api", "2.245.0", __name__[0:-6], "cx-api@2.245.0.jsii.tgz"
+    "@aws-cdk/cx-api", "2.246.0", __name__[0:-6], "cx-api@2.246.0.jsii.tgz"
 )
 
 __all__ = [

@@ -37,10 +37,10 @@ from chalk._validation.feature_validation import FeatureValidation
 from chalk._validation.validation import Validation
 from chalk.features._encoding.converter import (
     FeatureConverter,
-    GenericFeatureConverter,
     JSONCodec,
     TDecoder,
     TEncoder,
+    make_feature_converter,
 )
 from chalk.features._encoding.primitive import TPrimitive
 from chalk.features.feature_set import CURRENT_FEATURE_REGISTRY, FeatureRegistryProtocol
@@ -777,7 +777,7 @@ class Feature(Generic[_TPrim, _TRich]):
             decoder = cast(TDecoder[_TPrim, _TRich], feature_typ.converter.decoder)
             pyarrow_dtype = feature_typ.converter.pyarrow_dtype
 
-        self._converter = GenericFeatureConverter(
+        self._converter = make_feature_converter(
             name=self.fqn,
             rich_type=rich_type,
             is_nullable=self.typ.is_nullable,

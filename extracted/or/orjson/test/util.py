@@ -8,27 +8,25 @@ import sysconfig
 from pathlib import Path
 from typing import Any
 
-IS_FREETHREADING = sysconfig.get_config_var("Py_GIL_DISABLED")
+IS_FREETHREADING = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
-SUPPORTS_MEMORYVIEW = sys.implementation == "cpython" and not IS_FREETHREADING
+SUPPORTS_MEMORYVIEW = not IS_FREETHREADING
 
 SUPPORTS_BYTEARRAY = not IS_FREETHREADING
 
 SUPPORTS_GETREFCOUNT = sys.implementation == "cpython"
 
 numpy = None  # type: ignore
-if not IS_FREETHREADING:
-    try:
-        import numpy  # type: ignore # noqa: F401
-    except ImportError:
-        pass
+try:
+    import numpy  # type: ignore # noqa: F401
+except ImportError:
+    pass
 
 pandas = None  # type: ignore
-if not IS_FREETHREADING:
-    try:
-        import pandas  # type: ignore # noqa: F401
-    except ImportError:
-        pass
+try:
+    import pandas  # type: ignore # noqa: F401
+except ImportError:
+    pass
 
 import pytest
 

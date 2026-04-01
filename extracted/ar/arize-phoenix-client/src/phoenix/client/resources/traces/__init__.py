@@ -1,9 +1,12 @@
+from datetime import datetime
 from typing import (
     TYPE_CHECKING,
     Any,
     Iterable,
     Literal,
     Optional,
+    Sequence,
+    Union,
     cast,
     overload,
 )
@@ -11,6 +14,7 @@ from typing import (
 import httpx
 
 from phoenix.client.__generated__ import v1
+from phoenix.client.constants.server_requirements import LIST_PROJECT_TRACES
 from phoenix.client.utils.annotation_helpers import (
     _chunk_trace_annotations_dataframe,  # pyright: ignore[reportPrivateUsage]
     _create_trace_annotation,  # pyright: ignore[reportPrivateUsage]
@@ -20,6 +24,8 @@ from phoenix.client.utils.server_requirements import AsyncServerVersionGuard, Se
 
 if TYPE_CHECKING:
     import pandas as pd
+
+DEFAULT_TIMEOUT_IN_SECONDS = 5
 
 # Re-export generated types
 InsertedTraceAnnotation = v1.InsertedTraceAnnotation
@@ -330,6 +336,99 @@ class Traces:
 
         return all_responses if sync else None
 
+    def get_traces(
+        self,
+        *,
+        project_identifier: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        sort: Optional[Literal["start_time", "latency_ms"]] = None,
+        order: Optional[Literal["asc", "desc"]] = None,
+        include_spans: bool = False,
+        session_id: Optional[Union[str, Sequence[str]]] = None,
+        limit: int = 100,
+        timeout: Optional[int] = DEFAULT_TIMEOUT_IN_SECONDS,
+    ) -> list[v1.TraceData]:
+        """Retrieves traces for a project.
+
+        Args:
+            project_identifier (str): The project identifier (name or ID).
+            start_time (Optional[datetime]): Inclusive lower bound on trace start time.
+            end_time (Optional[datetime]): Exclusive upper bound on trace start time.
+            sort (Optional[Literal["start_time", "latency_ms"]]): Sort field.
+                Defaults to "start_time" on the server.
+            order (Optional[Literal["asc", "desc"]]): Sort direction.
+                Defaults to "desc" on the server.
+            include_spans (bool): If True, include full span details for each trace.
+                Defaults to False. Caution: including spans can significantly increase
+                response payload size and degrade performance for traces with many spans.
+                If you experience performance issues, consider fetching spans separately.
+            session_id (Optional[Union[str, Sequence[str]]]): Filter by one or more
+                session IDs or GlobalIDs. Can be a single string or a sequence of strings.
+            limit (int): Maximum number of traces to return. Defaults to 100.
+            timeout (Optional[int]): Request timeout in seconds.
+
+        Returns:
+            list[v1.TraceData]: A list of trace data objects.
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error response.
+
+        Example::
+
+            from phoenix.client import Client
+            client = Client()
+
+            traces = client.traces.get_traces(
+                project_identifier="my-project",
+                limit=50,
+            )
+        """
+        self._guard.require(LIST_PROJECT_TRACES)
+        all_traces: list[v1.TraceData] = []
+        cursor: Optional[str] = None
+        page_size = min(100, limit)
+
+        base_params: dict[str, Union[int, str, bool, Sequence[str]]] = {}
+        if start_time:
+            base_params["start_time"] = start_time.isoformat()
+        if end_time:
+            base_params["end_time"] = end_time.isoformat()
+        if sort:
+            base_params["sort"] = sort
+        if order:
+            base_params["order"] = order
+        if include_spans:
+            base_params["include_spans"] = True
+        if session_id:
+            base_params["session_identifier"] = (
+                [session_id] if isinstance(session_id, str) else list(session_id)
+            )
+
+        while len(all_traces) < limit:
+            remaining = limit - len(all_traces)
+            params = {**base_params, "limit": min(page_size, remaining)}
+            if cursor:
+                params["cursor"] = cursor
+
+            response = self._client.get(
+                url=f"v1/projects/{project_identifier}/traces",
+                params=params,
+                headers={"accept": "application/json"},
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            payload = cast(v1.GetTracesResponseBody, response.json())
+
+            traces = payload["data"]
+            all_traces.extend(traces)
+
+            cursor = payload.get("next_cursor")
+            if not cursor or not traces:
+                break
+
+        return all_traces[:limit]
+
 
 class AsyncTraces:
     def __init__(
@@ -632,3 +731,96 @@ class AsyncTraces:
                 all_responses.extend(response)
 
         return all_responses if sync else None
+
+    async def get_traces(
+        self,
+        *,
+        project_identifier: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        sort: Optional[Literal["start_time", "latency_ms"]] = None,
+        order: Optional[Literal["asc", "desc"]] = None,
+        include_spans: bool = False,
+        session_id: Optional[Union[str, Sequence[str]]] = None,
+        limit: int = 100,
+        timeout: Optional[int] = DEFAULT_TIMEOUT_IN_SECONDS,
+    ) -> list[v1.TraceData]:
+        """Retrieves traces for a project asynchronously.
+
+        Args:
+            project_identifier (str): The project identifier (name or ID).
+            start_time (Optional[datetime]): Inclusive lower bound on trace start time.
+            end_time (Optional[datetime]): Exclusive upper bound on trace start time.
+            sort (Optional[Literal["start_time", "latency_ms"]]): Sort field.
+                Defaults to "start_time" on the server.
+            order (Optional[Literal["asc", "desc"]]): Sort direction.
+                Defaults to "desc" on the server.
+            include_spans (bool): If True, include full span details for each trace.
+                Defaults to False. Caution: including spans can significantly increase
+                response payload size and degrade performance for traces with many spans.
+                If you experience performance issues, consider fetching spans separately.
+            session_id (Optional[Union[str, Sequence[str]]]): Filter by one or more
+                session IDs or GlobalIDs. Can be a single string or a sequence of strings.
+            limit (int): Maximum number of traces to return. Defaults to 100.
+            timeout (Optional[int]): Request timeout in seconds.
+
+        Returns:
+            list[v1.TraceData]: A list of trace data objects.
+
+        Raises:
+            httpx.HTTPStatusError: If the API returns an error response.
+
+        Example::
+
+            from phoenix.client import AsyncClient
+            client = AsyncClient()
+
+            traces = await client.traces.get_traces(
+                project_identifier="my-project",
+                limit=50,
+            )
+        """
+        await self._guard.require(LIST_PROJECT_TRACES)
+        all_traces: list[v1.TraceData] = []
+        cursor: Optional[str] = None
+        page_size = min(100, limit)
+
+        base_params: dict[str, Union[int, str, bool, Sequence[str]]] = {}
+        if start_time:
+            base_params["start_time"] = start_time.isoformat()
+        if end_time:
+            base_params["end_time"] = end_time.isoformat()
+        if sort:
+            base_params["sort"] = sort
+        if order:
+            base_params["order"] = order
+        if include_spans:
+            base_params["include_spans"] = True
+        if session_id:
+            base_params["session_identifier"] = (
+                [session_id] if isinstance(session_id, str) else list(session_id)
+            )
+
+        while len(all_traces) < limit:
+            remaining = limit - len(all_traces)
+            params = {**base_params, "limit": min(page_size, remaining)}
+            if cursor:
+                params["cursor"] = cursor
+
+            response = await self._client.get(
+                url=f"v1/projects/{project_identifier}/traces",
+                params=params,
+                headers={"accept": "application/json"},
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            payload = cast(v1.GetTracesResponseBody, response.json())
+
+            traces = payload["data"]
+            all_traces.extend(traces)
+
+            cursor = payload.get("next_cursor")
+            if not cursor or not traces:
+                break
+
+        return all_traces[:limit]

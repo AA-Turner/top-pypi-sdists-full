@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fiftyone
-Version: 1.13.5
+Version: 1.14.0
 Summary: FiftyOne: the open-source tool for building high-quality datasets and computer vision models
 Home-page: https://github.com/voxel51/fiftyone
 Author: Voxel51, Inc.
@@ -26,54 +26,54 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aiofiles
-Requires-Dist: argcomplete
-Requires-Dist: async_lru>=2
-Requires-Dist: beautifulsoup4
-Requires-Dist: boto3
-Requires-Dist: cachetools
-Requires-Dist: dacite<2,>=1.6.0
-Requires-Dist: dill
 Requires-Dist: Deprecated
-Requires-Dist: exceptiongroup
-Requires-Dist: ftfy
-Requires-Dist: humanize
-Requires-Dist: hypercorn>=0.13.2
-Requires-Dist: Jinja2>=3
-Requires-Dist: jsonpatch
-Requires-Dist: matplotlib
+Requires-Dist: packaging
+Requires-Dist: setuptools
+Requires-Dist: aiofiles<26,>=20
+Requires-Dist: argcomplete<4,>=2
+Requires-Dist: async_lru<3,>=2
+Requires-Dist: beautifulsoup4<5,>=2
+Requires-Dist: boto3<2,>=1
+Requires-Dist: cachetools<7,>=5
+Requires-Dist: dacite<2,>=1.6.0
+Requires-Dist: dill<0.5,>=0.1
+Requires-Dist: exceptiongroup<2,>=1
+Requires-Dist: ftfy<7,>=4
+Requires-Dist: humanize<5,>=2
+Requires-Dist: hypercorn<0.19,>=0.13.2
+Requires-Dist: Jinja2<4,>=3
+Requires-Dist: jsonpatch<2,>=1
 Requires-Dist: mongoengine~=0.29.1
 Requires-Dist: motor~=3.6.0
-Requires-Dist: numpy
-Requires-Dist: packaging
-Requires-Dist: pandas
 Requires-Dist: Pillow!=11.2.*,>=6.2
-Requires-Dist: plotly>=6.1.1
-Requires-Dist: pprintpp
-Requires-Dist: psutil
+Requires-Dist: plotly<7,>=6.1.1
+Requires-Dist: pprintpp<0.5,>=0.1
+Requires-Dist: psutil<8,>=5
+Requires-Dist: pydash<9,>=6
 Requires-Dist: pymongo~=4.9.2
 Requires-Dist: pytz
-Requires-Dist: PyYAML
+Requires-Dist: PyYAML<7,>=4
 Requires-Dist: regex
-Requires-Dist: retrying
-Requires-Dist: rtree
-Requires-Dist: scikit-learn
-Requires-Dist: scikit-image
-Requires-Dist: scipy
-Requires-Dist: setuptools
+Requires-Dist: retrying<2,>=1
 Requires-Dist: sseclient-py<2,>=1.7.2
-Requires-Dist: sse-starlette<1,>=0.10.3
+Requires-Dist: sse-starlette<4,>=0.10.3
 Requires-Dist: starlette<0.53,>=0.24.0
 Requires-Dist: strawberry-graphql<0.292.0,>=0.262.4
-Requires-Dist: tabulate
-Requires-Dist: tqdm
-Requires-Dist: xmltodict
+Requires-Dist: tabulate<0.10,>=0.7
+Requires-Dist: tqdm<5,>=2
+Requires-Dist: xmltodict<2,>=1
 Requires-Dist: universal-analytics-python3<2,>=1.0.1
-Requires-Dist: pydash
+Requires-Dist: matplotlib<4
+Requires-Dist: numpy<3
+Requires-Dist: opencv-python-headless<5
+Requires-Dist: pandas<4
+Requires-Dist: rtree<2
+Requires-Dist: scikit-learn<2
+Requires-Dist: scikit-image<1
+Requires-Dist: scipy<2
 Requires-Dist: fiftyone-brain<0.22,>=0.21.5
 Requires-Dist: fiftyone-db<2.0,>=0.4
 Requires-Dist: voxel51-eta<0.16,>=0.15.3
-Requires-Dist: opencv-python-headless
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -112,10 +112,14 @@ models**
 [![Downloads](https://static.pepy.tech/badge/fiftyone)](https://pepy.tech/project/fiftyone)
 [![Docker Pulls](https://badgen.net/docker/pulls/voxel51/fiftyone?icon=docker&label=pulls)](https://hub.docker.com/r/voxel51/fiftyone/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
 [![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/fiftyone-community)
+[![Hugging Face](https://img.shields.io/badge/Hugging_Face-purple?style=flat&logo=huggingface)](https://huggingface.co/Voxel51)
+[![Voxel51 Blog](https://img.shields.io/badge/Voxel51_Blog-ff6d04?style=flat)](https://voxel51.com/blog)
+[![Newsletter](https://img.shields.io/badge/Newsletter-BE5B25?logo=mail.ru&logoColor=white)](https://share.hsforms.com/1zpJ60ggaQtOoVeBqIZdaaA2ykyk)
+[![LinkedIn](https://img.shields.io/badge/In-white?style=flat&label=Linked&labelColor=blue)](https://www.linkedin.com/company/voxel51)
+[![Twitter](https://img.shields.io/badge/Twitter-000000?logo=x&logoColor=white)](https://x.com/voxel51)
 [![Medium](https://img.shields.io/badge/Medium-12100E?logo=medium&logoColor=white)](https://medium.com/voxel51)
-[![Mailing list](http://bit.ly/2Md9rxM)](https://share.hsforms.com/1zpJ60ggaQtOoVeBqIZdaaA2ykyk)
-[![Twitter](https://img.shields.io/twitter/follow/Voxel51?style=social)](https://twitter.com/voxel51)
 
 </p>
 </div>
@@ -585,10 +589,6 @@ or contact us on [Discord](https://discord.gg/fiftyone-community).
 
 Connect with us through your preferred channels:
 
-[![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/fiftyone-community)
-[![Medium](https://img.shields.io/badge/Medium-12100E?logo=medium&logoColor=white)](https://medium.com/voxel51)
-[![Twitter](https://img.shields.io/badge/Twitter-1DA1F2?logo=twitter&logoColor=white)](https://twitter.com/voxel51)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?logo=linkedin&logoColor=white)](https://www.linkedin.com/company/voxel51)
 [![Facebook](https://img.shields.io/badge/Facebook-1877F2?logo=facebook&logoColor=white)](https://www.facebook.com/voxel51)
 
 🎊 **Share how FiftyOne makes your visual AI projects a reality on social media

@@ -9,7 +9,7 @@ from snowflake.snowpark_connect.config import global_config
 def get_python_udxf_import_files(session: snowpark.Session) -> str:
     config_imports = global_config.get(
         "snowpark.connect.udf.python.imports",
-        "",
+        global_config.get("snowpark.connect.udf.imports", ""),
     )
     config_imports = (
         [x.strip() for x in config_imports.strip("[] ").split(",") if x.strip()]

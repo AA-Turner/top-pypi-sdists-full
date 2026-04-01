@@ -60,6 +60,7 @@ from attrs import Factory, define, field, frozen
 from wcmatch import glob
 
 from semgrep.constants import TOO_MUCH_DATA, UNSUPPORTED_EXT_IGNORE_LANGS, Colors
+from semgrep.core_output import core_error_to_semgrep_error
 from semgrep.error import InvalidScanningRootError, SemgrepCoreError
 from semgrep.formatter.text import BASE_WIDTH as width
 from semgrep.semgrep_types import LANGUAGE, FileExtension, Language, Shebang
@@ -610,6 +611,14 @@ class ScanningRoot:
             and not path.is_symlink()
         )
 
+    def _is_under_cwd(self) -> bool:
+        """Check if this scanning root resolves to a path under CWD."""
+        try:
+            self.path.resolve().relative_to(Path.cwd())
+            return True
+        except ValueError:
+            return False
+
     def _is_valid_file(self, path: Path) -> bool:
         """Check if file is a readable regular file.
 
@@ -704,15 +713,20 @@ class ScanningRoot:
         :param ignore_baseline_handler: if True, will ignore the baseline handler and scan all files. Used in the context of scanning unchanged lockfiles for their dependencies and doing reachability analysis.
         :param git_includes: glob patterns
         """
-        # Fast path: if the scanning root is already a regular file, skip the
-        # semgrep-core subprocess spawn. OCaml's Find_targets always returns
-        # an explicit file scanning root as-is (see Find_targets.ml,
+        # Fast path: if the scanning root is a regular file under CWD, skip
+        # the semgrep-core subprocess spawn. OCaml's Find_targets always
+        # returns an explicit file scanning root as-is (see Find_targets.ml,
         # get_targets_from_filesystem), so we can construct the result here
         # without the overhead of starting a subprocess.
-        if self.path.is_file():
-            # A file scanning root is its own only target — no discovery
-            # or filtering needed, so the ppath is just a placeholder.
-            ppath_str = "/" + self.path.name
+        #
+        # The ppath (project-relative path) is computed relative to CWD,
+        # which is correct when CWD is the project root (the common case).
+        # If the file isn't under CWD (e.g. an absolute path to a file in
+        # another directory), we fall through to the OCaml RPC which
+        # discovers the project root properly.
+        if self.path.is_file() and self._is_under_cwd():
+            rel = self.path.resolve().relative_to(Path.cwd())
+            ppath_str = "/" + str(PurePosixPath(rel))
             fppath = out.Fppath(
                 fpath=out.Fpath(str(self.path)),
                 ppath=out.Ppath(ppath_str),
@@ -759,7 +773,9 @@ class ScanningRoot:
             )
             for x in res.target_paths
         )
-        # TODO: check for errors?
+        for err in res.errors:
+            semgrep_err = core_error_to_semgrep_error(err)
+            logger.warning(f"Target discovery error: {semgrep_err}")
         return TargetScanResult(
             selected_files=target_paths,
             files_with_insufficient_permissions=frozenset(),

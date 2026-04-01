@@ -14,12 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from __future__ import annotations
+
 from typing import (TYPE_CHECKING,
                     Any,
                     Union)
 
 from twisted.internet.defer import Deferred
 
+from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import KeyValueOperationType
 from couchbase.result import CounterResult, MutationResult
 
 if TYPE_CHECKING:
@@ -27,12 +31,13 @@ if TYPE_CHECKING:
                                    DecrementOptions,
                                    IncrementOptions,
                                    PrependOptions)
+    from txcouchbase.logic.collection_impl import TxCollectionImpl
 
 
 class BinaryCollection:
 
-    def __init__(self, collection):
-        self._collection = collection
+    def __init__(self, collection_impl: TxCollectionImpl) -> None:
+        self._impl = collection_impl
 
     def increment(
         self,
@@ -40,7 +45,17 @@ class BinaryCollection:
         *opts,  # type: IncrementOptions
         **kwargs,  # type: Any
     ) -> Deferred[CounterResult]:
-        return self._collection._increment(key, *opts, **kwargs)
+        op_type = KeyValueOperationType.Increment
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_increment_request(key, obs_handler, *opts, **kwargs)
+            d = self._impl.increment_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def decrement(
         self,
@@ -48,7 +63,17 @@ class BinaryCollection:
         *opts,  # type: DecrementOptions
         **kwargs,  # type: Any
     ) -> Deferred[CounterResult]:
-        return self._collection._decrement(key, *opts, **kwargs)
+        op_type = KeyValueOperationType.Decrement
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_decrement_request(key, obs_handler, *opts, **kwargs)
+            d = self._impl.decrement_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def append(
         self,
@@ -57,7 +82,17 @@ class BinaryCollection:
         *opts,  # type: AppendOptions
         **kwargs,  # type: Any
     ) -> Deferred[MutationResult]:
-        return self._collection._append(key, value, *opts, **kwargs)
+        op_type = KeyValueOperationType.Append
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_append_request(key, value, obs_handler, *opts, **kwargs)
+            d = self._impl.append_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def prepend(
         self,
@@ -66,4 +101,14 @@ class BinaryCollection:
         *opts,  # type: PrependOptions
         **kwargs,  # type: Any
     ) -> Deferred[MutationResult]:
-        return self._collection._prepend(key, value, *opts, **kwargs)
+        op_type = KeyValueOperationType.Prepend
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_prepend_request(key, value, obs_handler, *opts, **kwargs)
+            d = self._impl.prepend_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise

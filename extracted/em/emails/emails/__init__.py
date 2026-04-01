@@ -1,4 +1,3 @@
-# coding: utf-8
 """
 python-emails
 ~~~~~~~~~~~~~
@@ -30,20 +29,19 @@ and more:
 Links
 `````
 
-* `documentation <http://python-emails.readthedocs.org/>`_
-* `source code <http://github.com/lavr/python-emails>`_
+* `documentation <https://python-emails.readthedocs.io/>`_
+* `source code <https://github.com/lavr/python-emails>`_
 
 """
 
-from __future__ import unicode_literals
 
 __title__ = 'emails'
-__version__ = '0.6'
+__version__ = '1.0.1'
 __author__ = 'Sergey Lavrinenko'
 __license__ = 'Apache 2.0'
-__copyright__ = 'Copyright 2013-2019 Sergey Lavrinenko'
+__copyright__ = 'Copyright 2013-2026 Sergey Lavrinenko'
 
-USER_AGENT = 'python-emails/%s' % __version__
+USER_AGENT: str = 'python-emails/%s' % __version__
 
 from .message import Message, html
 from .utils import MessageID

@@ -3430,32 +3430,6 @@ class CfnJobDefinition(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(self) -> typing.Any:
-        '''Default parameters or parameter substitution placeholders that are set in the job definition.'''
-        return typing.cast(typing.Any, jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dfa67937c5c5c585d3dedec8653cb0633c802b99afaa23545e8fcc71bf4ef88)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''The tags that are applied to the job definition.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e523eed1bbd28b55b217e2df4a08d397d7fea1eab9961fca2a86f1f43fb0631f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="type")
     def type(self) -> builtins.str:
         '''The type of job definition.'''
@@ -3572,6 +3546,19 @@ class CfnJobDefinition(
         jsii.set(self, "nodeProperties", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(self) -> typing.Any:
+        '''Default parameters or parameter substitution placeholders that are set in the job definition.'''
+        return typing.cast(typing.Any, jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0dfa67937c5c5c585d3dedec8653cb0633c802b99afaa23545e8fcc71bf4ef88)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="platformCapabilities")
     def platform_capabilities(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The platform capabilities required by the job definition.'''
@@ -3653,6 +3640,19 @@ class CfnJobDefinition(
             type_hints = typing.get_type_hints(_typecheckingstub__dba2bfccdff2acf2f90d4e7a4965d8dcb1ae572e2c9cbd92260bf928e42d7e01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schedulingPriority", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''The tags that are applied to the job definition.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e523eed1bbd28b55b217e2df4a08d397d7fea1eab9961fca2a86f1f43fb0631f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="timeout")
@@ -26589,7 +26589,7 @@ class FairshareSchedulingPolicy(
         id: builtins.str,
         fairshare_scheduling_policy_arn: builtins.str,
     ) -> "IFairshareSchedulingPolicy":
-        '''Reference an exisiting Scheduling Policy by its ARN.
+        '''Reference an existing Scheduling Policy by its ARN.
 
         :param scope: -
         :param id: -
@@ -27361,18 +27361,6 @@ def _typecheckingstub__710ae17567654ca123f279efb5ee033134bde1c49217d5abca4db2e98
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0dfa67937c5c5c585d3dedec8653cb0633c802b99afaa23545e8fcc71bf4ef88(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e523eed1bbd28b55b217e2df4a08d397d7fea1eab9961fca2a86f1f43fb0631f(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c96b92c09c064b55548b6669735edc8ffa8187ffae08746200ea2113f36cdcc6(
     value: builtins.str,
 ) -> None:
@@ -27415,6 +27403,12 @@ def _typecheckingstub__e9d18dd3dda5e5761ec3a8f3c7af96598c179ac9f1bca0af0078b6aee
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0dfa67937c5c5c585d3dedec8653cb0633c802b99afaa23545e8fcc71bf4ef88(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__df387fd03e7b9707eac2330bd1c2776f56a71ead17f60e9cc8606c21591b2cca(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -27441,6 +27435,12 @@ def _typecheckingstub__2ac615dba37cd2b5a6e9d6f8cdd4b6beef51ff826d65fe0b5cdc31685
 
 def _typecheckingstub__dba2bfccdff2acf2f90d4e7a4965d8dcb1ae572e2c9cbd92260bf928e42d7e01(
     value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e523eed1bbd28b55b217e2df4a08d397d7fea1eab9961fca2a86f1f43fb0631f(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1885,19 +1885,6 @@ class CfnFileSystem(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="fileSystemPolicy")
-    def file_system_policy(self) -> typing.Any:
-        '''The ``FileSystemPolicy`` for the EFS file system.'''
-        return typing.cast(typing.Any, jsii.get(self, "fileSystemPolicy"))
-
-    @file_system_policy.setter
-    def file_system_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__666e3c63493f31759a99ed7071553b2e9c97fd2b8a0c9b681208a654ad356c9a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fileSystemPolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="availabilityZoneName")
     def availability_zone_name(self) -> typing.Optional[builtins.str]:
         '''For One Zone file systems, specify the AWS Availability Zone in which to create the file system.'''
@@ -1963,6 +1950,19 @@ class CfnFileSystem(
             type_hints = typing.get_type_hints(_typecheckingstub__9501af5a47c0d34d9710df284e85c94248a9579987a05605e729328fa911ff46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encrypted", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="fileSystemPolicy")
+    def file_system_policy(self) -> typing.Any:
+        '''The ``FileSystemPolicy`` for the EFS file system.'''
+        return typing.cast(typing.Any, jsii.get(self, "fileSystemPolicy"))
+
+    @file_system_policy.setter
+    def file_system_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__666e3c63493f31759a99ed7071553b2e9c97fd2b8a0c9b681208a654ad356c9a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fileSystemPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="fileSystemProtection")
@@ -4059,7 +4059,7 @@ typing.cast(typing.Any, IFileSystem).__jsii_proxy_class__ = lambda : _IFileSyste
 class LifecyclePolicy(enum.Enum):
     '''EFS Lifecycle Policy, if a file is not accessed for given days, it will move to EFS Infrequent Access or Archive storage.
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html#cfn-elasticfilesystem-filesystem-lifecyclepolicies
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-filesystem.html#cfn-elasticfilesystem-filesystem-lifecyclepolicies
     :exampleMetadata: infused
 
     Example::
@@ -5422,12 +5422,6 @@ def _typecheckingstub__64147597fb4c53ed2d67a6b0ef31707f2352f072a9c53f4fe39bc7385
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__666e3c63493f31759a99ed7071553b2e9c97fd2b8a0c9b681208a654ad356c9a(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__5bcd28f23c44d69b6a8f6fd61de5866f3fdb618cec9e47e4a49ed73986bdd849(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -5448,6 +5442,12 @@ def _typecheckingstub__bbd68d0f7f29b58d297e40085872ecac516d0817c15d9490f68a92f7a
 
 def _typecheckingstub__9501af5a47c0d34d9710df284e85c94248a9579987a05605e729328fa911ff46(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__666e3c63493f31759a99ed7071553b2e9c97fd2b8a0c9b681208a654ad356c9a(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

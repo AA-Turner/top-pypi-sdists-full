@@ -177,7 +177,7 @@ class KeyValueOpTranscoderTestSuite:
         key, value = cb_env.get_existing_doc_by_type('bytes')
         tc = RawBinaryTranscoder()
         with pytest.raises(ValueFormatException):
-            cb_env.collection.get(key)
+            cb_env.collection.get(key).content_as[bytes]
         res = cb_env.collection.get(key, GetOptions(transcoder=tc))
         assert isinstance(res.value, bytes)
         assert res.content_as[bytes] == value
@@ -186,7 +186,7 @@ class KeyValueOpTranscoderTestSuite:
         key, value = cb_env.get_existing_doc_by_type('bytes')
         tc = RawBinaryTranscoder()
         with pytest.raises(ValueFormatException):
-            cb_env.collection.get_and_touch(key, timedelta(seconds=30))
+            cb_env.collection.get_and_touch(key, timedelta(seconds=30)).content_as[bytes]
 
         res = cb_env.collection.get_and_touch(key,
                                               timedelta(seconds=3),
@@ -203,7 +203,7 @@ class KeyValueOpTranscoderTestSuite:
         key, value = cb_env.get_existing_doc_by_type('bytes')
         tc = RawBinaryTranscoder()
         with pytest.raises(ValueFormatException):
-            cb_env.collection.get_and_lock(key, timedelta(seconds=1))
+            cb_env.collection.get_and_lock(key, timedelta(seconds=1)).content_as[bytes]
 
         # lets get another doc
         key, value = cb_env.get_existing_doc_by_type('bytes')
@@ -223,7 +223,7 @@ class KeyValueOpTranscoderTestSuite:
         # use RawStringTranscoder() so that get() fails as expected
         # since get() w/o passing in transcoder uses the default JSONTranscoder()
         with pytest.raises(ValueFormatException):
-            cb_env.collection.get(key)
+            cb_env.collection.get(key).content_as[bytes]
 
     def test_replace(self, cb_env):
         key = cb_env.get_existing_doc_by_type('bytes', key_only=True)
@@ -233,14 +233,14 @@ class KeyValueOpTranscoderTestSuite:
         new_content = 'some new bytes content'.encode('utf-8')
         cb_env.collection.replace(key, new_content, ReplaceOptions(transcoder=tc))
         with pytest.raises(ValueFormatException):
-            cb_env.collection.get(key)
+            cb_env.collection.get(key).content_as[bytes]
 
     def test_upsert(self, cb_env):
         key = cb_env.get_existing_doc_by_type('bytes', key_only=True)
         # use RawBinaryTranscoder() so that get() fails as expected
         # since get() w/o passing in transcoder uses the default JSONTranscoder()
         with pytest.raises(ValueFormatException):
-            cb_env.collection.get(key)
+            cb_env.collection.get(key).content_as[bytes]
 
 
 class LegacyTranscoderTestSuite:
@@ -682,11 +682,15 @@ class ClassicLegacyTranscoderTests(LegacyTranscoderTestSuite):
 
         cb_env = TranscoderTestEnvironment.from_environment(cb_base_env)
         cb_env.setup(request.param)
-        cb_env.cluster.default_transcoder = LegacyTranscoder()
+        cb_env.default_collection._impl._set_default_transcoder(LegacyTranscoder())
+        if cb_env.named_collection:
+            cb_env.named_collection._impl._set_default_transcoder(LegacyTranscoder())
         yield cb_env
         cb_env.teardown(request.param)
         # reset the transcoder
-        cb_env.cluster.default_transcoder = JSONTranscoder()
+        cb_env.default_collection._impl._set_default_transcoder(JSONTranscoder())
+        if cb_env.named_collection:
+            cb_env.named_collection._impl._set_default_transcoder(JSONTranscoder())
 
 
 class ClassicRawBinaryTranscoderTests(RawBinaryTranscoderTestSuite):
@@ -707,11 +711,15 @@ class ClassicRawBinaryTranscoderTests(RawBinaryTranscoderTestSuite):
 
         cb_env = TranscoderTestEnvironment.from_environment(cb_base_env)
         cb_env.setup(request.param)
-        cb_env.cluster.default_transcoder = RawBinaryTranscoder()
+        cb_env.default_collection._impl._set_default_transcoder(RawBinaryTranscoder())
+        if cb_env.named_collection:
+            cb_env.named_collection._impl._set_default_transcoder(RawBinaryTranscoder())
         yield cb_env
         cb_env.teardown(request.param)
         # reset the transcoder
-        cb_env.cluster.default_transcoder = JSONTranscoder()
+        cb_env.default_collection._impl._set_default_transcoder(JSONTranscoder())
+        if cb_env.named_collection:
+            cb_env.named_collection._impl._set_default_transcoder(JSONTranscoder())
 
 
 class ClassicRawJsonTranscoderTests(RawJsonTranscoderTestSuite):
@@ -732,11 +740,15 @@ class ClassicRawJsonTranscoderTests(RawJsonTranscoderTestSuite):
 
         cb_env = TranscoderTestEnvironment.from_environment(cb_base_env)
         cb_env.setup(request.param)
-        cb_env.cluster.default_transcoder = RawJSONTranscoder()
+        cb_env.default_collection._impl._set_default_transcoder(RawJSONTranscoder())
+        if cb_env.named_collection:
+            cb_env.named_collection._impl._set_default_transcoder(RawJSONTranscoder())
         yield cb_env
         cb_env.teardown(request.param)
         # reset the transcoder
-        cb_env.cluster.default_transcoder = JSONTranscoder()
+        cb_env.default_collection._impl._set_default_transcoder(JSONTranscoder())
+        if cb_env.named_collection:
+            cb_env.named_collection._impl._set_default_transcoder(JSONTranscoder())
 
 
 class ClassicRawStringTranscoderTests(RawStringTranscoderTestSuite):
@@ -757,8 +769,12 @@ class ClassicRawStringTranscoderTests(RawStringTranscoderTestSuite):
 
         cb_env = TranscoderTestEnvironment.from_environment(cb_base_env)
         cb_env.setup(request.param)
-        cb_env.cluster.default_transcoder = RawStringTranscoder()
+        cb_env.default_collection._impl._set_default_transcoder(RawStringTranscoder())
+        if cb_env.named_collection:
+            cb_env.named_collection._impl._set_default_transcoder(RawStringTranscoder())
         yield cb_env
         cb_env.teardown(request.param)
         # reset the transcoder
-        cb_env.cluster.default_transcoder = JSONTranscoder()
+        cb_env.default_collection._impl._set_default_transcoder(JSONTranscoder())
+        if cb_env.named_collection:
+            cb_env.named_collection._impl._set_default_transcoder(JSONTranscoder())

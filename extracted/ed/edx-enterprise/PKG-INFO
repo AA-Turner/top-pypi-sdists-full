@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 6.8.3
+Version: 6.8.4
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -162,6 +162,10 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[6.8.4] - 2026-03-31
+--------------------
+* fix: hard delete customer admin records from API
 
 [6.8.3] - 2026-03-27
 ---------------------

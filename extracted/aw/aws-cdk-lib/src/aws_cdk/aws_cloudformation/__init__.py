@@ -6589,19 +6589,6 @@ class CfnStackSet(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="managedExecution")
-    def managed_execution(self) -> typing.Any:
-        '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.'''
-        return typing.cast(typing.Any, jsii.get(self, "managedExecution"))
-
-    @managed_execution.setter
-    def managed_execution(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30ba7de0572ec3972439a2234107f74e54796d853ad6a78e334871adc49c4a4c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedExecution", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="permissionModel")
     def permission_model(self) -> builtins.str:
         '''Describes how the IAM roles required for StackSet operations are created.'''
@@ -6709,6 +6696,19 @@ class CfnStackSet(
             type_hints = typing.get_type_hints(_typecheckingstub__f336a94333318f89c159203981959dd1aa89598228f5e8eff09903e2d7e979cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "executionRoleName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="managedExecution")
+    def managed_execution(self) -> typing.Any:
+        '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.'''
+        return typing.cast(typing.Any, jsii.get(self, "managedExecution"))
+
+    @managed_execution.setter
+    def managed_execution(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__30ba7de0572ec3972439a2234107f74e54796d853ad6a78e334871adc49c4a4c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "managedExecution", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="operationPreferences")
@@ -10035,12 +10035,6 @@ def _typecheckingstub__e04deb7ddb1fd06f6839d126c919fa0cce705f8816507397905c57e8d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__30ba7de0572ec3972439a2234107f74e54796d853ad6a78e334871adc49c4a4c(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__af07bb659e1916cfa80a5d7739b21b36137879be79a124fe5e7e5c4b846c0d79(
     value: builtins.str,
 ) -> None:
@@ -10085,6 +10079,12 @@ def _typecheckingstub__a32b31569df72cb9c92223c05aae5461caf7d1b5669b21d2dd4487ac1
 
 def _typecheckingstub__f336a94333318f89c159203981959dd1aa89598228f5e8eff09903e2d7e979cc(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30ba7de0572ec3972439a2234107f74e54796d853ad6a78e334871adc49c4a4c(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

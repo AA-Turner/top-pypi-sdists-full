@@ -58,6 +58,7 @@ from plato.worlds.checkpoint import checkpoint
 from plato.worlds.config import (
     AgentConfig,
     CheckpointConfig,
+    ChildWorldConfig,
     DevConfig,
     EnvConfig,
     LLMConfig,
@@ -91,6 +92,7 @@ from plato.worlds.session_review_models import (
     SessionReviewIssue,
     SessionReviewSummary,
 )
+from plato.worlds.slack import disable_slack_notifications, enable_slack_notifications
 
 __all__ = [
     # Base
@@ -103,6 +105,7 @@ __all__ = [
     "get_registered_worlds",
     "get_world",
     # Config
+    "ChildWorldConfig",
     "RunConfig",
     "LLMConfig",
     "CheckpointConfig",
@@ -131,6 +134,9 @@ __all__ = [
     "FromArg",
     "load_durable",
     "load_durable_path",
+    # Slack notifications
+    "enable_slack_notifications",
+    "disable_slack_notifications",
     # Human annotation
     "AnnotationWorkspaceItem",
     "HumanAnnotationRequest",

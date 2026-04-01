@@ -114,6 +114,7 @@ class BaseReviewWorld(BaseWorld[ReviewConfigT]):
         self._host = host_world
         self._session_id = host_world._session_id
         self.plato_session = host_world.plato_session
+        self.session = host_world.session
         self.logger = host_world.logger.getChild(self.name)
         await self.reset()
         return await self.step()
@@ -128,16 +129,17 @@ class BaseReviewWorld(BaseWorld[ReviewConfigT]):
             return self._host.workspace(name)
         return super().workspace(name)
 
-    def agent(
+    def agent(  # type: ignore[override]
         self,
         config: AgentConfig,
         display_name: str | None = None,
         workspaces: list[Workspace] | None = None,
+        **kwargs: Any,
     ) -> AgentRunner:
         """Create an agent runner, delegating to the host world if running inline."""
         if self._host is not None:
-            return self._host.agent(config=config, display_name=display_name, workspaces=workspaces)
-        return super().agent(config=config, display_name=display_name, workspaces=workspaces)
+            return self._host.agent(config=config, display_name=display_name, workspaces=workspaces, **kwargs)
+        return super().agent(config=config, display_name=display_name, workspaces=workspaces, **kwargs)
 
     def llm(self, config: LLMConfig, store: ResultStore | None = None) -> LLMClient:
         """Create an LLM client, delegating to the host world if running inline."""

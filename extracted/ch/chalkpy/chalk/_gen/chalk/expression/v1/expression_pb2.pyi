@@ -509,6 +509,39 @@ class ExprPolicy(_message.Message):
         self, kind: _Optional[_Union[ExprPolicyKind, str]] = ..., params: _Optional[_Mapping[str, str]] = ...
     ) -> None: ...
 
+class ExprBlockingCall(_message.Message):
+    __slots__ = ("blocking_fn", "arguments")
+    BLOCKING_FN_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    blocking_fn: BlockingFunction
+    arguments: _containers.RepeatedCompositeFieldContainer[LogicalExprNode]
+    def __init__(
+        self,
+        blocking_fn: _Optional[_Union[BlockingFunction, _Mapping]] = ...,
+        arguments: _Optional[_Iterable[_Union[LogicalExprNode, _Mapping]]] = ...,
+    ) -> None: ...
+
+class BlockingFunction(_message.Message):
+    __slots__ = ("catalog_call",)
+    CATALOG_CALL_FIELD_NUMBER: _ClassVar[int]
+    catalog_call: CatalogCall
+    def __init__(self, catalog_call: _Optional[_Union[CatalogCall, _Mapping]] = ...) -> None: ...
+
+class CatalogCall(_message.Message):
+    __slots__ = ("qualified_name", "input_types", "output_type")
+    QUALIFIED_NAME_FIELD_NUMBER: _ClassVar[int]
+    INPUT_TYPES_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_TYPE_FIELD_NUMBER: _ClassVar[int]
+    qualified_name: str
+    input_types: _containers.RepeatedCompositeFieldContainer[_arrow_pb2.ArrowType]
+    output_type: _arrow_pb2.ArrowType
+    def __init__(
+        self,
+        qualified_name: _Optional[str] = ...,
+        input_types: _Optional[_Iterable[_Union[_arrow_pb2.ArrowType, _Mapping]]] = ...,
+        output_type: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...,
+    ) -> None: ...
+
 class ExprLiteral(_message.Message):
     __slots__ = ("value", "is_arrow_scalar_object")
     VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -527,6 +560,7 @@ class LogicalExprNode(_message.Message):
         "call",
         "literal_value",
         "typed_identifier",
+        "blocking_call",
         "expr_id",
         "column",
         "alias",
@@ -569,6 +603,7 @@ class LogicalExprNode(_message.Message):
     CALL_FIELD_NUMBER: _ClassVar[int]
     LITERAL_VALUE_FIELD_NUMBER: _ClassVar[int]
     TYPED_IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
+    BLOCKING_CALL_FIELD_NUMBER: _ClassVar[int]
     EXPR_ID_FIELD_NUMBER: _ClassVar[int]
     COLUMN_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
@@ -610,6 +645,7 @@ class LogicalExprNode(_message.Message):
     call: ExprCall
     literal_value: ExprLiteral
     typed_identifier: TypedIdentifier
+    blocking_call: ExprBlockingCall
     expr_id: str
     column: Column
     alias: AliasNode
@@ -653,6 +689,7 @@ class LogicalExprNode(_message.Message):
         call: _Optional[_Union[ExprCall, _Mapping]] = ...,
         literal_value: _Optional[_Union[ExprLiteral, _Mapping]] = ...,
         typed_identifier: _Optional[_Union[TypedIdentifier, _Mapping]] = ...,
+        blocking_call: _Optional[_Union[ExprBlockingCall, _Mapping]] = ...,
         expr_id: _Optional[str] = ...,
         column: _Optional[_Union[Column, _Mapping]] = ...,
         alias: _Optional[_Union[AliasNode, _Mapping]] = ...,

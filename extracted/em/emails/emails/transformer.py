@@ -1,5 +1,3 @@
-# encoding: utf-8
-from __future__ import unicode_literals
 
 import functools
 import logging
@@ -12,7 +10,8 @@ from lxml import etree
 from premailer import Premailer
 from premailer.premailer import ExternalNotFoundError
 
-from .compat import urlparse, to_unicode, is_callable
+import urllib.parse as urlparse
+
 from .loader.local_store import FileNotFound
 from .store import MemoryFileStore, LazyHTTPFile
 from .template.base import BaseTemplate
@@ -125,7 +124,8 @@ class HTMLParser(object):
                             dirty = True
                             value.uri = new_uri
             if dirty:
-                return to_unicode(parser.cssText, 'utf-8')
+                css_text = parser.cssText
+                return css_text.decode('utf-8') if isinstance(css_text, bytes) else css_text
             else:
                 return style_text
 
@@ -242,6 +242,9 @@ class BaseTransformer(HTMLParser):
         # Return local uri
         #
 
+        if uri[:5].lower() == 'data:':
+            return uri
+
         if callback is None:
             # Default callback: skip images with data-emails="ignore" attribute
             callback = lambda _, hints: hints['attrib'] != 'ignore'
@@ -311,7 +314,7 @@ class BaseTransformer(HTMLParser):
         # 2. Load linked images and transform links
         # If load_images is a function, use if as callback
         if load_images:
-            if is_callable(load_images):
+            if callable(load_images):
                 func = functools.partial(self._load_attachment_func, callback=load_images)
             else:
                 func = self._load_attachment_func

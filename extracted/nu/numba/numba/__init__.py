@@ -41,7 +41,7 @@ def _ensure_critical_deps():
 
     if numpy_version > (2, 4):
         msg = (f"Numba needs NumPy 2.4 or less. Got NumPy "
-                f"{numpy_version[0]}.{numpy_version[1]}.")
+               f"{numpy_version[0]}.{numpy_version[1]}.")
         raise ImportError(msg)
 
     try:
@@ -147,7 +147,7 @@ __all__ = """
     """.split() + types.__all__ + errors.__all__
 
 
-_min_llvmlite_version = (0, 46, 0)
+_min_llvmlite_version = (0, 47, 0)
 _min_llvm_version = (14, 0, 0)
 
 def _ensure_llvm():
@@ -227,7 +227,7 @@ def _try_enable_svml():
             # compiled in, set the vector library to SVML.
             llvmlite.binding.set_option('SVML', '-vector-library=SVML')
             return True
-        except:
+        except Exception:
             if platform.machine() == 'x86_64' and config.DEBUG:
                 warnings.warn("SVML was not found/could not be loaded.")
     return False

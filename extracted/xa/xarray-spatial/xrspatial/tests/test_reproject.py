@@ -27,6 +27,10 @@ pytestmark = pytest.mark.skipif(
     not HAS_PYPROJ, reason="pyproj required for reproject tests"
 )
 
+# WGS84 constants for projection round-trip tests
+_WGS84_E2 = 2.0 * (1.0 / 298.257223563) - (1.0 / 298.257223563) ** 2
+_WGS84_A = 6378137.0
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -194,6 +198,78 @@ class TestInterpolation:
         cols = np.array([[0.0]])
         result = _resample_numpy(src, rows, cols, nodata=-999)
         assert result[0, 0] == -999
+
+    def test_nearest_negative_rounding(self):
+        """int(r + 0.5) must round toward -inf, not toward zero (#1086)."""
+        from xrspatial.reproject._interpolate import _resample_numpy
+        src = np.arange(1, 17, dtype=np.float64).reshape(4, 4)
+        # r = -0.6 is beyond the half-pixel boundary of pixel 0 -> nodata
+        rows = np.array([[-0.6]])
+        cols = np.array([[1.0]])
+        result = _resample_numpy(src, rows, cols, resampling='nearest', nodata=-999)
+        assert result[0, 0] == -999, (
+            f"r=-0.6 should be nodata, got {result[0, 0]}"
+        )
+        # r = -0.4 is within pixel 0's domain -> pixel 0
+        rows2 = np.array([[-0.4]])
+        result2 = _resample_numpy(src, rows2, cols, resampling='nearest', nodata=-999)
+        assert result2[0, 0] == src[0, 1], (
+            f"r=-0.4 should map to pixel 0, got {result2[0, 0]}"
+        )
+        # r = -0.5 is exactly on the half-pixel boundary: floor(-0.5+0.5)=0 -> pixel 0
+        rows3 = np.array([[-0.5]])
+        result3 = _resample_numpy(src, rows3, cols, resampling='nearest', nodata=-999)
+        assert result3[0, 0] == src[0, 1], (
+            f"r=-0.5 should map to pixel 0, got {result3[0, 0]}"
+        )
+
+    def test_cubic_oob_fallback(self):
+        """Cubic must fall back to bilinear when stencil extends outside source (#1086)."""
+        from xrspatial.reproject._interpolate import _resample_numpy
+        # 6x6 source with a gradient
+        src = np.arange(36, dtype=np.float64).reshape(6, 6)
+        # Query at r=0.5, c=0.5: cubic stencil needs row -1, which is OOB.
+        # Should fall back to bilinear using pixels (0,0),(0,1),(1,0),(1,1).
+        rows = np.array([[0.5]])
+        cols = np.array([[0.5]])
+        cubic_result = _resample_numpy(src, rows, cols, resampling='cubic', nodata=-999)
+        bilinear_result = _resample_numpy(src, rows, cols, resampling='bilinear', nodata=-999)
+        # At the boundary, cubic should produce the same result as bilinear
+        np.testing.assert_allclose(
+            cubic_result, bilinear_result, atol=1e-10,
+            err_msg="Cubic near boundary should fall back to bilinear"
+        )
+        # Interior query at r=2.5, c=2.5: full stencil fits, cubic should differ from bilinear
+        rows_int = np.array([[2.5]])
+        cols_int = np.array([[2.5]])
+        cubic_int = _resample_numpy(src, rows_int, cols_int, resampling='cubic', nodata=-999)
+        bilinear_int = _resample_numpy(src, rows_int, cols_int, resampling='bilinear', nodata=-999)
+        # For a linear gradient, cubic and bilinear should agree closely
+        # but the point is the code path exercises the non-fallback branch
+        assert cubic_int[0, 0] != -999
+
+    def test_cubic_oob_fallback_far_edge(self):
+        """Cubic at bottom-right boundary: stencil needs row sh, same fallback (#1086)."""
+        from xrspatial.reproject._interpolate import _resample_numpy
+        src = np.arange(36, dtype=np.float64).reshape(6, 6)
+        # r=4.5: cubic stencil needs row 6 (= sh), which is OOB
+        rows = np.array([[4.5]])
+        cols = np.array([[4.5]])
+        cubic = _resample_numpy(src, rows, cols, resampling='cubic', nodata=-999)
+        bilinear = _resample_numpy(src, rows, cols, resampling='bilinear', nodata=-999)
+        np.testing.assert_allclose(cubic, bilinear, atol=1e-10)
+
+    def test_cubic_oob_bilinear_fallback_renormalizes(self):
+        """Cubic at (-0.8,-0.8): stencil OOB triggers bilinear, which
+        finds pixel (0,0) as the only valid neighbor and returns it (#1086)."""
+        from xrspatial.reproject._interpolate import _resample_numpy
+        src = np.arange(1, 17, dtype=np.float64).reshape(4, 4)
+        rows = np.array([[-0.8]])
+        cols = np.array([[-0.8]])
+        result = _resample_numpy(src, rows, cols, resampling='cubic', nodata=-999)
+        # bilinear fallback: r0=-1 (OOB), r1=0, c0=-1 (OOB), c1=0
+        # only (r1,c1)=(0,0) is valid -> returns src[0,0]=1.0
+        assert result[0, 0] == 1.0
 
     def test_invalid_resampling(self):
         from xrspatial.reproject._interpolate import _validate_resampling
@@ -1313,6 +1389,56 @@ class TestDaskGraphOptimization:
         assert _bounds_overlap(a, (0, 0, 10, 10))   # identical
         assert not _bounds_overlap(a, (11, 0, 20, 10))  # no overlap x
         assert not _bounds_overlap(a, (0, 11, 10, 20))  # no overlap y
+
+
+class TestLongitudeNormalization:
+    """CPU projection round-trips should keep longitude in [-180, 180] (#1088)."""
+
+    def test_sinusoidal_round_trip_stays_in_range(self):
+        """Sinusoidal inverse must normalize longitude near antimeridian."""
+        from xrspatial.reproject._projections import (
+            _sinu_fwd_point, _sinu_inv_point, _MLFN_EN,
+        )
+        # Forward: WGS84 point near antimeridian
+        lon_in, lat_in = 179.5, 30.0
+        lon0 = 0.0  # central meridian at 0
+        x, y = _sinu_fwd_point(lon_in, lat_in, lon0, _WGS84_E2, _WGS84_A, _MLFN_EN)
+        # Inverse: should return longitude in [-180, 180]
+        lon_out, lat_out = _sinu_inv_point(x, y, lon0, _WGS84_E2, _WGS84_A, _MLFN_EN)
+        assert -180 <= lon_out <= 180, f"lon {lon_out} outside [-180, 180]"
+        assert abs(lon_out - lon_in) < 1e-6
+        assert abs(lat_out - lat_in) < 1e-6
+
+    def test_lcc_round_trip_stays_in_range(self):
+        """LCC inverse must normalize longitude."""
+        from xrspatial.reproject._projections import (
+            _lcc_fwd_point, _lcc_inv_point, _WGS84_E, _WGS84_A,
+        )
+        import math
+        # EPSG:2154 (France): lon0=3, lat1=44, lat2=49
+        lon0 = math.radians(3.0)
+        lat1, lat2, lat0 = math.radians(44.0), math.radians(49.0), math.radians(46.5)
+        e = _WGS84_E
+        a = _WGS84_A
+        k0 = 1.0
+        # Compute n, c, rho0 for LCC
+        from xrspatial.reproject._projections import _pj_tsfn
+        s1, s2 = math.sin(lat1), math.sin(lat2)
+        ts1 = _pj_tsfn(lat1, s1, e)
+        ts2 = _pj_tsfn(lat2, s2, e)
+        m1 = math.cos(lat1) / math.sqrt(1.0 - e * e * s1 * s1)
+        m2 = math.cos(lat2) / math.sqrt(1.0 - e * e * s2 * s2)
+        n = (math.log(m1) - math.log(m2)) / (math.log(ts1) - math.log(ts2))
+        c = m1 / (n * math.pow(ts1, n))
+        ts0 = _pj_tsfn(lat0, math.sin(lat0), e)
+        rho0 = a * k0 * c * math.pow(ts0, n)
+        # Forward + inverse round trip
+        lon_in, lat_in = 2.5, 47.0
+        x, y = _lcc_fwd_point(lon_in, lat_in, lon0, n, c, rho0, k0, e, a)
+        lon_out, lat_out = _lcc_inv_point(x, y, lon0, n, c, rho0, k0, e, a)
+        assert -180 <= lon_out <= 180
+        assert abs(lon_out - lon_in) < 1e-6
+        assert abs(lat_out - lat_in) < 1e-6
 
 
 class TestReprojWithLiteCRS:

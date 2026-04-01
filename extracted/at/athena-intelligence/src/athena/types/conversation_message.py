@@ -27,6 +27,11 @@ class ConversationMessage(UniversalBaseModel):
     Unique identifier for the message
     """
 
+    name: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Tool name for tool messages
+    """
+
     role: str = pydantic.Field()
     """
     Role of the message sender (user, assistant, system)

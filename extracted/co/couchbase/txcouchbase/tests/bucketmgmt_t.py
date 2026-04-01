@@ -61,6 +61,15 @@ class BucketManagementTests:
     def check_custom_conflict_resolution_supported(self, cb_env):
         cb_env.check_if_feature_supported('custom_conflict_resolution')
 
+    @pytest.fixture(scope="class")
+    def num_nodes(self, cb_env):
+        return len(cb_env.cluster._impl._cluster_info.nodes)
+
+    @pytest.fixture(scope="class")
+    def check_multi_node(self, num_nodes):
+        if num_nodes == 1:
+            pytest.skip("Test only for clusters with more than a single node.")
+
     @pytest.fixture()
     def test_bucket(self, test_buckets):
         return choice(test_buckets)
@@ -71,6 +80,7 @@ class BucketManagementTests:
         cb_env.purge_buckets(test_buckets)
 
     @pytest.mark.usefixtures("check_bucket_mgmt_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_bucket_create(self, cb_env, test_bucket):
         run_in_reactor_thread(cb_env.bm.create_bucket,
@@ -84,29 +94,46 @@ class BucketManagementTests:
 
     @pytest.mark.usefixtures("check_bucket_mgmt_supported")
     @pytest.mark.usefixtures("purge_buckets")
+    def test_bucket_create_zero_replicas(self, cb_env, test_bucket):
+        run_in_reactor_thread(cb_env.bm.create_bucket,
+                              CreateBucketSettings(
+                                  name=test_bucket,
+                                  bucket_type=BucketType.COUCHBASE,
+                                  ram_quota_mb=100,
+                                  num_replicas=0))
+        bucket = cb_env.try_n_times(10, 1, cb_env.bm.get_bucket, test_bucket)
+        assert bucket.get("num_replicas") == 0
+
+    @pytest.mark.usefixtures("check_bucket_mgmt_supported")
+    @pytest.mark.usefixtures("check_multi_node")
+    @pytest.mark.usefixtures("purge_buckets")
     def test_bucket_create_replica_index_true(self, cb_env, test_bucket):
         run_in_reactor_thread(cb_env.bm.create_bucket,
                               CreateBucketSettings(
                                   name=test_bucket,
                                   bucket_type=BucketType.COUCHBASE,
+                                  storage_backend=StorageBackend.COUCHSTORE,
                                   ram_quota_mb=100,
                                   replica_index=True))
         bucket = cb_env.try_n_times(10, 1, cb_env.bm.get_bucket, test_bucket)
         assert bucket.replica_index is True
 
     @pytest.mark.usefixtures("check_bucket_mgmt_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_bucket_create_replica_index_false(self, cb_env, test_bucket):
         run_in_reactor_thread(cb_env.bm.create_bucket,
                               CreateBucketSettings(
                                   name=test_bucket,
                                   bucket_type=BucketType.COUCHBASE,
+                                  storage_backend=StorageBackend.COUCHSTORE,
                                   ram_quota_mb=100,
                                   replica_index=False))
         bucket = cb_env.try_n_times(10, 1, cb_env.bm.get_bucket, test_bucket)
         assert bucket.replica_index is False
 
     @pytest.mark.usefixtures("check_bucket_min_durability_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_bucket_create_durability(self, cb_env, test_bucket):
 
@@ -120,6 +147,7 @@ class BucketManagementTests:
         assert bucket["minimum_durability_level"] == min_durability
 
     @pytest.mark.usefixtures("check_bucket_mgmt_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_bucket_create_fail(self, cb_env, test_bucket):
         settings = CreateBucketSettings(
@@ -131,6 +159,7 @@ class BucketManagementTests:
             run_in_reactor_thread(cb_env.bm.create_bucket, settings)
 
     @pytest.mark.usefixtures("check_bucket_mgmt_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     def test_bucket_drop_fail(self, cb_env, test_bucket):
         settings = CreateBucketSettings(
             name=test_bucket,
@@ -142,6 +171,7 @@ class BucketManagementTests:
             run_in_reactor_thread(cb_env.bm.drop_bucket, test_bucket)
 
     @pytest.mark.usefixtures("check_bucket_mgmt_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_bucket_list(self, cb_env, test_buckets):
         for bucket in test_buckets:
@@ -156,6 +186,7 @@ class BucketManagementTests:
             set(map(lambda b: b.name, buckets)))
 
     @pytest.mark.usefixtures("check_bucket_mgmt_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_cluster_sees_bucket(self, cb_env, test_bucket):
         # Create the bucket
@@ -170,6 +201,7 @@ class BucketManagementTests:
         assert b is not None
 
     @pytest.mark.usefixtures("check_bucket_mgmt_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_change_expiry(self, cb_env, test_bucket):
         # Create the bucket
@@ -192,6 +224,7 @@ class BucketManagementTests:
         cb_env.try_n_times(10, 3, get_bucket_expiry_equal, test_bucket, timedelta(seconds=500), is_deferred=False)
 
     @pytest.mark.usefixtures("check_bucket_mgmt_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_bucket_flush(self, cb_env, test_bucket):
         # Create the bucket
@@ -206,6 +239,7 @@ class BucketManagementTests:
         cb_env.try_n_times(10, 3, cb_env.bm.flush_bucket, bucket.name)
 
     @pytest.mark.usefixtures("check_bucket_mgmt_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_bucket_flush_fail(self, cb_env, test_bucket):
         # Create the bucket
@@ -221,6 +255,7 @@ class BucketManagementTests:
             run_in_reactor_thread(cb_env.bm.flush_bucket, test_bucket)
 
     @pytest.mark.usefixtures("check_bucket_storage_backend_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_bucket_backend_default(self, cb_env, test_bucket):
         # Create the bucket
@@ -230,9 +265,13 @@ class BucketManagementTests:
                                   ram_quota_mb=100,
                                   flush_enabled=False))
         bucket = cb_env.try_n_times(10, 3, cb_env.bm.get_bucket, test_bucket)
-        assert bucket.storage_backend == StorageBackend.COUCHSTORE
+        if cb_env.supports_feature('magma_128_buckets'):
+            assert bucket.storage_backend == StorageBackend.MAGMA
+        else:
+            assert bucket.storage_backend == StorageBackend.COUCHSTORE
 
     @pytest.mark.usefixtures("check_bucket_storage_backend_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_bucket_backend_magma(self, cb_env, test_bucket):
         # Create the bucket
@@ -246,6 +285,7 @@ class BucketManagementTests:
         assert bucket.storage_backend == StorageBackend.MAGMA
 
     @pytest.mark.usefixtures("check_bucket_storage_backend_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_bucket_backend_ephemeral(self, cb_env, test_bucket):
         # Create the bucket
@@ -259,6 +299,7 @@ class BucketManagementTests:
         assert bucket.storage_backend == StorageBackend.UNDEFINED
 
     @pytest.mark.usefixtures("check_custom_conflict_resolution_supported")
+    @pytest.mark.usefixtures("check_multi_node")
     @pytest.mark.usefixtures("purge_buckets")
     def test_bucket_custom_conflict_resolution(self, cb_env, test_bucket):
 

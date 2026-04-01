@@ -10820,7 +10820,7 @@ class DataProcessorIdentifier:
         :param parameter_name: The parameter name that corresponds to the processor resource's identifier.
         :param parameter_value: The identifier of the underlying processor resource.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-processorparameter.html
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-processorparameter.html
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -14708,7 +14708,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
 
         :default: - no data format conversion is done
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-extendeds3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-extendeds3destinationconfiguration-dataformatconversionconfiguration
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-extendeds3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-extendeds3destinationconfiguration-dataformatconversionconfiguration
         '''
         result = self._values.get("data_format_conversion")
         return typing.cast(typing.Optional["DataFormatConversionProps"], result)
@@ -14768,7 +14768,7 @@ class SchemaConfiguration(
 ):
     '''Represents a schema configuration for Firehose S3 data record format conversion.
 
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-dataformatconversionconfiguration.html#cfn-kinesisfirehose-deliverystream-dataformatconversionconfiguration-schemaconfiguration
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-dataformatconversionconfiguration.html#cfn-kinesisfirehose-deliverystream-dataformatconversionconfiguration-schemaconfiguration
     :exampleMetadata: infused
 
     Example::
@@ -14938,7 +14938,7 @@ class SchemaConfigurationFromCfnTableProps:
 
         :default: ``LATEST``
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-schemaconfiguration.html#cfn-kinesisfirehose-deliverystream-schemaconfiguration-versionid
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-schemaconfiguration.html#cfn-kinesisfirehose-deliverystream-schemaconfiguration-versionid
         '''
         result = self._values.get("version_id")
         return typing.cast(typing.Optional[builtins.str], result)

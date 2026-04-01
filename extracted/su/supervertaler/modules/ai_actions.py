@@ -54,9 +54,7 @@ class AIActionSystem:
             'delete_prompt': self._action_delete_prompt,
             'search_prompts': self._action_search_prompts,
             'create_folder': self._action_create_folder,
-            'toggle_favorite': self._action_toggle_favorite,
             'toggle_quick_run': self._action_toggle_quick_run,
-            'get_favorites': self._action_get_favorites,
             'get_quick_run': self._action_get_quick_run,
             'get_folder_structure': self._action_get_folder_structure,
             'get_segment_count': self._action_get_segment_count,
@@ -237,7 +235,7 @@ class AIActionSystem:
             include_content (optional): Include full content (default: False)
 
         Returns:
-            {count: int, prompts: [{name, path, folder, favorite, quick_run, ...}]}
+            {count: int, prompts: [{name, path, folder, quick_run, ...}]}
         """
         folder_filter = params.get('folder')
         include_content = params.get('include_content', False)
@@ -255,9 +253,7 @@ class AIActionSystem:
                 'path': path,
                 'folder': prompt_data.get('_folder', ''),
                 'description': prompt_data.get('description', ''),
-                'favorite': prompt_data.get('favorite', False),
                 'quick_run': prompt_data.get('quick_run', False),
-                'tags': prompt_data.get('tags', [])
             }
 
             if include_content:
@@ -295,9 +291,7 @@ class AIActionSystem:
             'folder': prompt_data.get('_folder', ''),
             'description': prompt_data.get('description', ''),
             'content': prompt_data.get('content', ''),
-            'favorite': prompt_data.get('favorite', False),
             'quick_run': prompt_data.get('quick_run', False),
-            'tags': prompt_data.get('tags', []),
             'category': prompt_data.get('category', prompt_data.get('domain', '')),
             'app': prompt_data.get('app', 'both'),
             'created': prompt_data.get('created', ''),
@@ -313,7 +307,6 @@ class AIActionSystem:
             content (required): Prompt content
             folder (optional): Folder to create in (default: root)
             description (optional): Prompt description
-            tags (optional): List of tags
             domain (optional): Domain category
             task_type (optional): Task type
             activate (optional): If True, activate as primary after creating
@@ -355,9 +348,7 @@ class AIActionSystem:
             'content': content,
             'description': params.get('description', ''),
             'category': params.get('domain', params.get('category', '')),
-            'favorite': False,
             'quick_run': False,
-            'tags': params.get('tags', []),
             'created': datetime.now().strftime('%Y-%m-%d'),
             'modified': datetime.now().strftime('%Y-%m-%d')
         }
@@ -390,7 +381,6 @@ class AIActionSystem:
             content (optional): New content
             name (optional): New name
             description (optional): New description
-            tags (optional): New tags
 
         Returns:
             {success: bool, path: str, message: str}
@@ -412,8 +402,6 @@ class AIActionSystem:
             prompt_data['content'] = params['content']
         if 'description' in params:
             prompt_data['description'] = params['description']
-        if 'tags' in params:
-            prompt_data['tags'] = params['tags']
 
         prompt_data['modified'] = datetime.now().strftime('%Y-%m-%d')
 
@@ -460,11 +448,11 @@ class AIActionSystem:
 
     def _action_search_prompts(self, params: Dict) -> Dict:
         """
-        Search prompts by name, content, or tags.
+        Search prompts by name or content.
 
         Params:
             query (required): Search query
-            search_in (optional): 'name', 'content', 'tags', or 'all' (default: all)
+            search_in (optional): 'name', 'content', or 'all' (default: all)
 
         Returns:
             {count: int, results: [{name, path, folder, match_type, ...}]}
@@ -491,20 +479,13 @@ class AIActionSystem:
                 if query in content:
                     match_type = 'content'
 
-            # Search in tags
-            if not match_type and search_in in ['tags', 'all']:
-                tags = prompt_data.get('tags', [])
-                if any(query in tag.lower() for tag in tags):
-                    match_type = 'tags'
-
             if match_type:
                 results.append({
                     'name': prompt_data.get('name', path),
                     'path': path,
                     'folder': prompt_data.get('_folder', ''),
                     'description': prompt_data.get('description', ''),
-                    'match_type': match_type,
-                    'tags': prompt_data.get('tags', [])
+                    'match_type': match_type
                 })
 
         return {
@@ -537,33 +518,6 @@ class AIActionSystem:
         else:
             raise Exception("Failed to create folder")
 
-    def _action_toggle_favorite(self, params: Dict) -> Dict:
-        """
-        Toggle favorite status of a prompt.
-
-        Params:
-            path (required): Relative path to prompt
-
-        Returns:
-            {success: bool, path: str, favorite: bool, message: str}
-        """
-        path = params.get('path')
-        if not path:
-            raise ValueError("Missing required parameter: path")
-
-        success = self.prompt_library.toggle_favorite(path)
-
-        if success:
-            is_favorite = self.prompt_library.prompts[path].get('favorite', False)
-            return {
-                'success': True,
-                'path': path,
-                'favorite': is_favorite,
-                'message': f"{'Added to' if is_favorite else 'Removed from'} favorites"
-            }
-        else:
-            raise Exception("Failed to toggle favorite")
-
     def _action_toggle_quick_run(self, params: Dict) -> Dict:
         """
         Toggle QuickLauncher (legacy name: quick_run) status of a prompt.
@@ -590,20 +544,6 @@ class AIActionSystem:
             }
         else:
             raise Exception("Failed to toggle quick run")
-
-    def _action_get_favorites(self, params: Dict) -> Dict:
-        """
-        Get list of favorite prompts.
-
-        Returns:
-            {count: int, favorites: [{name, path}]}
-        """
-        favorites = self.prompt_library.get_favorites()
-
-        return {
-            'count': len(favorites),
-            'favorites': [{'name': name, 'path': path} for path, name in favorites]
-        }
 
     def _action_get_quick_run(self, params: Dict) -> Dict:
         """
@@ -817,7 +757,6 @@ PARAMS: {
   "content": "You are an expert medical translator...",
   "folder": "Domain Expertise" (optional),
   "description": "Expert medical translation" (optional),
-  "tags": ["medical", "technical"] (optional)
 }
 
 ### 4. update_prompt
@@ -837,38 +776,30 @@ PARAMS: {"path": "Domain Expertise/Medical.md"}
 Search prompts by query.
 PARAMS: {
   "query": "medical",
-  "search_in": "all" (options: name, content, tags, all)
+  "search_in": "all" (options: name, content, all)
 }
 
 ### 7. create_folder
 Create a new folder.
 PARAMS: {"path": "Domain Expertise/Medical"}
 
-### 8. toggle_favorite
-Toggle favorite status.
-PARAMS: {"path": "Domain Expertise/Medical.md"}
-
-### 9. toggle_quick_run
+### 8. toggle_quick_run
 Toggle QuickLauncher status (legacy name: quick_run).
 PARAMS: {"path": "Domain Expertise/Medical.md"}
 
-### 10. get_favorites
-Get list of favorite prompts.
-PARAMS: {}
-
-### 11. get_quick_run
+### 9. get_quick_run
 Get list of QuickLauncher prompts (legacy name: quick_run).
 PARAMS: {}
 
-### 12. get_folder_structure
+### 10. get_folder_structure
 Get complete folder structure.
 PARAMS: {}
 
-### 13. get_segment_count
+### 11. get_segment_count
 Get total segment count and translation progress.
 PARAMS: {}
 
-### 14. get_segment_info
+### 12. get_segment_info
 Get detailed information about specific segment(s).
 PARAMS: {
   "segment_id": 5 (single segment) OR
@@ -876,7 +807,7 @@ PARAMS: {
   "start_id": 1, "end_id": 10 (range of segments)
 }
 
-### 15. activate_prompt
+### 13. activate_prompt
 Activate/attach a prompt to the current project.
 PARAMS: {
   "path": "Domain Expertise/Medical.md",

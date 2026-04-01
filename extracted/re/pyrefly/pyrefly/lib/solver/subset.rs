@@ -1211,7 +1211,16 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 }
                 Ok(())
             }
-            (_, Type::Any(_)) => Ok(()),
+            (_, Type::Any(_)) => {
+                for var in got.collect_maybe_quantified_vars() {
+                    // Variables in `got` now have `Any` as an upper bound.
+                    self.solver
+                        .add_upper_bound(var, want.clone(), &mut |got, want| {
+                            self.is_subset_eq(got, want).is_ok()
+                        });
+                }
+                Ok(())
+            }
             (Type::Never(_), _) => Ok(()),
             (_, Type::ClassType(want)) if want.is_builtin("object") => {
                 Ok(()) // everything is an instance of `object`
@@ -1670,7 +1679,33 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
                 SubsetError::Other,
             ),
             // Annotated[T, ...] is not a class object; it cannot be assigned to type[T].
-            (Type::Annotated(_), Type::Type(_)) => Err(SubsetError::Other),
+            (Type::Annotated(_, _), Type::Type(_)) => Err(SubsetError::Other),
+            // TypeForm covariance: TypeForm[S] <: TypeForm[T] when S <: T
+            (Type::TypeForm(l), Type::TypeForm(u)) => self.is_subset_eq(l, u),
+            // type[T] <: TypeForm[T] — class objects are valid type forms
+            (Type::Type(l), Type::TypeForm(u)) => self.is_subset_eq(l, u),
+            // The class representation of Any is compatible with any TypeForm.
+            (Type::ClassDef(got), Type::TypeForm(_)) if got.has_toplevel_qname("typing", "Any") => {
+                Ok(())
+            }
+            // ClassDef <: TypeForm[T] — bare class names are valid type forms.
+            (Type::ClassDef(got), Type::TypeForm(want)) => {
+                self.is_subset_eq(&self.type_order.promote_silently(got), want)
+            }
+            // Annotated[T, meta] <: TypeForm[T]
+            (Type::Annotated(inner, _), Type::TypeForm(u)) => self.is_subset_eq(inner, u),
+            // None <: TypeForm[T] when None <: T — None is a valid type form (represents NoneType)
+            (Type::None, Type::TypeForm(u)) => self.is_subset_eq(&Type::None, u),
+            // TypeForm[T] is not a subtype of type[U]
+            (Type::TypeForm(_), Type::Type(_)) => Err(SubsetError::Other),
+            // TypeForm falls back to object for other subtype checks
+            (Type::TypeForm(_), _) => self.is_subset_eq(
+                &self
+                    .solver
+                    .heap
+                    .mk_class_type(self.type_order.stdlib().object().clone()),
+                want,
+            ),
             // Although the object created by a NewType call behaves like a class for type-checking
             // purposes, it isn't one at runtime, so don't allow it to match `type`.
             (Type::ClassDef(got), Type::Type(_)) if self.type_order.is_new_type(got) => {

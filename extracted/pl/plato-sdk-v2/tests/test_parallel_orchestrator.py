@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import shutil
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -50,8 +52,12 @@ class _FakeWorld:
         config: AgentConfig,
         display_name: str | None = None,
         workspaces: list[Workspace] | None = None,
+        warm_pool=None,
+        agent_code_path=None,
     ) -> _FakeRunner:
         del config
+        del warm_pool
+        del agent_code_path
         self.agent_calls.append((display_name, workspaces))
         return _FakeRunner(self._run_fn, display_name or "", workspaces)
 
@@ -65,6 +71,17 @@ def _make_workspace(tmp_path: Path, *, tracked: bool = False) -> Workspace:
     root.mkdir()
     if tracked:
         (root / "data").mkdir()
+    (root / "seed.txt").write_text("seed\n")
+    bare_repo = root / ".git-bare"
+    _git(["init", "-b", "main"], cwd=root)
+    _git(["config", "user.email", "plato@plato.dev"], cwd=root)
+    _git(["config", "user.name", "Plato"], cwd=root)
+    _git(["add", "-A"], cwd=root)
+    _git(["commit", "-m", "Seed workspace", "--allow-empty"], cwd=root)
+    _git(["init", "--bare", "-b", "main", str(bare_repo)], cwd=tmp_path)
+    _git(["remote", "add", "origin", str(bare_repo)], cwd=root)
+    _git(["push", "origin", "main"], cwd=root)
+    shutil.rmtree(root / ".git")
     workspace = Workspace("code", root, tracked=tracked, mount_path="/workspace", backup=tracked)
     transport = GitTransport(
         str(workspace.path),
@@ -164,6 +181,63 @@ class TestParallelAgentOrchestrator:
         assert results[2].merged is True
         assert results[2].agent_id == "agent-queued"
         assert results[3].error == "boom"
+
+    @pytest.mark.asyncio
+    async def test_run_all_resolves_base_ref_once_and_pins_task_transports(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen_base_refs: list[str | None] = []
+
+        async def run_fn(display_name: str, instruction: str, workspaces: list[Workspace] | None) -> str:
+            del display_name, instruction
+            assert workspaces is not None
+            transport = workspaces[0].transport
+            assert isinstance(transport, GitTransport)
+            seen_base_refs.append(transport.checkout_base_ref)
+            return "agent"
+
+        world = _FakeWorld(run_fn)
+        workspace = _make_workspace(tmp_path)
+        orchestrator = ParallelAgentOrchestrator(cast(BaseWorld, world), workspace, _make_agent_config())
+        resolve_mock = AsyncMock(return_value="base-sha")
+        monkeypatch.setattr(orchestrator, "_resolve_base_ref", resolve_mock)
+
+        await orchestrator.submit("task-a", "work-a")
+        await orchestrator.submit("task-b", "work-b")
+
+        results = await orchestrator.run_all()
+
+        assert [result.status for result in results] == ["success", "success"]
+        assert seen_base_refs == ["base-sha", "base-sha"]
+        assert orchestrator.resolved_base_ref == "base-sha"
+        resolve_mock.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_later_task_workspace_keeps_original_pinned_base_after_main_advances(self, tmp_path: Path) -> None:
+        world = _FakeWorld(lambda display_name, instruction, workspaces: f"agent-{display_name}")
+        workspace = _make_workspace(tmp_path)
+        orchestrator = ParallelAgentOrchestrator(cast(BaseWorld, world), workspace, _make_agent_config())
+        initial_main = _git(["--git-dir", str(Path(workspace.path) / ".git-bare"), "rev-parse", "main"], cwd=tmp_path)
+        orchestrator._resolved_base_ref = initial_main.stdout.strip()  # pyright: ignore[reportPrivateUsage]
+
+        await orchestrator.submit("task-a", "work-a")
+        await orchestrator.submit("task-b", "work-b")
+
+        advance_clone = tmp_path / "advance-clone"
+        _git(["clone", str(Path(workspace.path) / ".git-bare"), str(advance_clone)], cwd=tmp_path)
+        _git(["config", "user.email", "plato@plato.dev"], cwd=advance_clone)
+        _git(["config", "user.name", "Plato"], cwd=advance_clone)
+        (advance_clone / "advanced.txt").write_text("new main state\n")
+        _git(["add", "advanced.txt"], cwd=advance_clone)
+        _git(["commit", "-m", "Advance main"], cwd=advance_clone)
+        _git(["push", "origin", "main"], cwd=advance_clone)
+        advanced_main = _git(["--git-dir", str(Path(workspace.path) / ".git-bare"), "rev-parse", "main"], cwd=tmp_path)
+
+        assert advanced_main.stdout.strip() != orchestrator.resolved_base_ref
+
+        _, task_transport = orchestrator._make_task_workspace(orchestrator._tasks[1])
+
+        assert task_transport.checkout_base_ref == orchestrator.resolved_base_ref
 
     @pytest.mark.asyncio
     async def test_agent_slots_release_before_integration_finishes(
@@ -383,6 +457,117 @@ class TestParallelAgentOrchestrator:
         assert task_workspace.mount_path == "/workspace"
         assert task_transport.mount_path == "/workspace"
         assert task_transport.path == str(workspace.path)
+        assert task_transport.checkout_base_ref is None
+
+    @pytest.mark.asyncio
+    async def test_warm_pool_disables_semaphore(self, tmp_path: Path) -> None:
+        """When warm pool is enabled, semaphore is None (pool provides backpressure)."""
+        workspace = _make_workspace(tmp_path)
+
+        orchestrator = ParallelAgentOrchestrator(
+            _FakeWorld(lambda d, i, w: "ok"),
+            workspace,
+            _make_agent_config(),
+            max_parallel=2,
+            warm_pool=True,
+        )
+
+        assert orchestrator._semaphore is None
+
+    @pytest.mark.asyncio
+    async def test_no_warm_pool_creates_semaphore(self, tmp_path: Path) -> None:
+        """Without warm pool, a semaphore is created for concurrency control."""
+        workspace = _make_workspace(tmp_path)
+
+        orchestrator = ParallelAgentOrchestrator(
+            _FakeWorld(lambda d, i, w: "ok"),
+            workspace,
+            _make_agent_config(),
+            max_parallel=3,
+        )
+
+        assert orchestrator._semaphore is not None
+
+    @pytest.mark.asyncio
+    async def test_warm_pool_prewarms_and_shuts_down(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        async def run_fn(display_name: str, instruction: str, workspaces: list[Workspace] | None) -> str:
+            del instruction, workspaces
+            return f"agent-{display_name}"
+
+        world = _FakeWorld(run_fn)
+        workspace = _make_workspace(tmp_path)
+        warm_pool_stub = type(
+            "_WarmPoolStub",
+            (),
+            {
+                "pre_warm": AsyncMock(),
+                "shutdown": AsyncMock(),
+                "max_size": 1,
+            },
+        )()
+
+        orchestrator = ParallelAgentOrchestrator(
+            world,
+            workspace,
+            _make_agent_config(),
+            max_parallel=1,
+            warm_pool=True,
+        )
+
+        # Inject stub pool so we don't need a real Plato session
+        monkeypatch.setattr(orchestrator, "_create_warm_pool", lambda num_tasks: warm_pool_stub)
+
+        await orchestrator.submit("task-1", "work-1")
+        await orchestrator.submit("task-2", "work-2")
+
+        results = await orchestrator.run_all()
+
+        assert [result.status for result in results] == ["success", "success"]
+        warm_pool_stub.pre_warm.assert_awaited_once()
+        warm_pool_stub.shutdown.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_warm_pool_max_size_set_to_max_parallel(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """_create_warm_pool sets max_size to max_parallel."""
+        workspace = _make_workspace(tmp_path)
+        orchestrator = ParallelAgentOrchestrator(
+            _FakeWorld(lambda d, i, w: "ok"),
+            workspace,
+            _make_agent_config(),
+            max_parallel=3,
+            warm_pool=True,
+        )
+
+        # Provide a fake world with session/ssh_key
+        orchestrator._world.plato_session = type("_Sess", (), {})()  # type: ignore[union-attr]
+        orchestrator._world._ssh_key_path = Path("/tmp/fake-key")  # type: ignore[union-attr]
+
+        pool = orchestrator._create_warm_pool(num_tasks=6)
+        assert pool.max_size == 3
+
+    @pytest.mark.asyncio
+    async def test_warm_pool_timeout_scales_with_task_count(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Pool VM timeout should scale based on number of task waves."""
+        workspace = _make_workspace(tmp_path)
+        orchestrator = ParallelAgentOrchestrator(
+            _FakeWorld(lambda d, i, w: "ok"),
+            workspace,
+            _make_agent_config(),
+            max_parallel=2,
+            warm_pool=True,
+        )
+
+        orchestrator._world.plato_session = type("_Sess", (), {})()  # type: ignore[union-attr]
+        orchestrator._world._ssh_key_path = Path("/tmp/fake-key")  # type: ignore[union-attr]
+
+        # 5 tasks with max_parallel=2 → 3 waves → timeout = 7200 * 3
+        pool = orchestrator._create_warm_pool(num_tasks=5)
+        assert pool.vm_config.timeout == 7200 * 3
 
 
 def _git(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:

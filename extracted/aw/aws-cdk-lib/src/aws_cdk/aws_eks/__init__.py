@@ -791,7 +791,7 @@ aws-load-balancer-controller-76bd6c7586-fqxph   1/1     Running   0          109
 ...
 ```
 
-Every Kubernetes manifest that utilizes the ALB Controller is effectively dependant on the controller.
+Every Kubernetes manifest that utilizes the ALB Controller is effectively dependent on the controller.
 If the controller is deleted before the manifest, it might result in dangling ELB/ALB resources.
 Currently, the EKS construct library does not detect such dependencies, and they should be done explicitly.
 
@@ -14759,7 +14759,7 @@ class EndpointAccess(
 
         Worker node traffic will leave your VPC to connect to the endpoint.
 
-        By default, the endpoint is exposed to all adresses. You can optionally limit the CIDR blocks that can access the public endpoint using the ``PUBLIC.onlyFrom`` method.
+        By default, the endpoint is exposed to all addresses. You can optionally limit the CIDR blocks that can access the public endpoint using the ``PUBLIC.onlyFrom`` method.
         If you limit access to specific CIDR blocks, you must ensure that the CIDR blocks that you
         specify include the addresses that worker nodes and Fargate pods (if you use them)
         access the public endpoint from.
@@ -14773,7 +14773,7 @@ class EndpointAccess(
 
         Worker node traffic to the endpoint will stay within your VPC.
 
-        By default, the endpoint is exposed to all adresses. You can optionally limit the CIDR blocks that can access the public endpoint using the ``PUBLIC_AND_PRIVATE.onlyFrom`` method.
+        By default, the endpoint is exposed to all addresses. You can optionally limit the CIDR blocks that can access the public endpoint using the ``PUBLIC_AND_PRIVATE.onlyFrom`` method.
         If you limit access to specific CIDR blocks, you must ensure that the CIDR blocks that you
         specify include the addresses that worker nodes and Fargate pods (if you use them)
         access the public endpoint from.
@@ -20325,7 +20325,7 @@ class RemoteNodeNetwork:
     def cidrs(self) -> typing.List[builtins.str]:
         '''Specifies the list of remote node CIDRs.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-remotenodenetwork.html#cfn-eks-cluster-remotenodenetwork-cidrs
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-remotenodenetwork.html#cfn-eks-cluster-remotenodenetwork-cidrs
         '''
         result = self._values.get("cidrs")
         assert result is not None, "Required property 'cidrs' is missing"
@@ -20377,7 +20377,7 @@ class RemotePodNetwork:
     def cidrs(self) -> typing.List[builtins.str]:
         '''Specifies the list of remote pod CIDRs.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-remotepodnetwork.html#cfn-eks-cluster-remotepodnetwork-cidrs
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-remotepodnetwork.html#cfn-eks-cluster-remotepodnetwork-cidrs
         '''
         result = self._values.get("cidrs")
         assert result is not None, "Required property 'cidrs' is missing"

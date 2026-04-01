@@ -29,6 +29,7 @@ from .literals import (
     ApplicationStatusType,
     AutoTuneDesiredStateType,
     AutoTuneStateType,
+    CapabilityStatusType,
     ConfigChangeStatusType,
     ConnectionModeType,
     DataSourceStatusType,
@@ -139,6 +140,10 @@ __all__ = (
     "CancelServiceSoftwareUpdateRequestTypeDef",
     "CancelServiceSoftwareUpdateResponseTypeDef",
     "CancelledChangePropertyTypeDef",
+    "CapabilityBaseRequestConfigTypeDef",
+    "CapabilityBaseResponseConfigTypeDef",
+    "CapabilityExtendedResponseConfigTypeDef",
+    "CapabilityFailureTypeDef",
     "ChangeProgressDetailsTypeDef",
     "ChangeProgressStageTypeDef",
     "ChangeProgressStatusDetailsTypeDef",
@@ -186,6 +191,8 @@ __all__ = (
     "DeleteVpcEndpointResponseTypeDef",
     "DeploymentStrategyOptionsStatusTypeDef",
     "DeploymentStrategyOptionsTypeDef",
+    "DeregisterCapabilityRequestTypeDef",
+    "DeregisterCapabilityResponseTypeDef",
     "DescribeDomainAutoTunesRequestTypeDef",
     "DescribeDomainAutoTunesResponseTypeDef",
     "DescribeDomainChangeProgressRequestTypeDef",
@@ -247,6 +254,8 @@ __all__ = (
     "FilterTypeDef",
     "GetApplicationRequestTypeDef",
     "GetApplicationResponseTypeDef",
+    "GetCapabilityRequestTypeDef",
+    "GetCapabilityResponseTypeDef",
     "GetCompatibleVersionsRequestTypeDef",
     "GetCompatibleVersionsResponseTypeDef",
     "GetDataSourceRequestTypeDef",
@@ -348,6 +357,8 @@ __all__ = (
     "PutDefaultApplicationSettingRequestTypeDef",
     "PutDefaultApplicationSettingResponseTypeDef",
     "RecurringChargeTypeDef",
+    "RegisterCapabilityRequestTypeDef",
+    "RegisterCapabilityResponseTypeDef",
     "RejectInboundConnectionRequestTypeDef",
     "RejectInboundConnectionResponseTypeDef",
     "RemoveTagsRequestTypeDef",
@@ -592,6 +603,23 @@ class ServiceSoftwareOptionsTypeDef(TypedDict):
     OptionalDeployment: NotRequired[bool]
 
 
+class CapabilityBaseRequestConfigTypeDef(TypedDict):
+    aiConfig: NotRequired[Mapping[str, Any]]
+
+
+class CapabilityBaseResponseConfigTypeDef(TypedDict):
+    aiConfig: NotRequired[dict[str, Any]]
+
+
+class CapabilityExtendedResponseConfigTypeDef(TypedDict):
+    aiConfig: NotRequired[dict[str, Any]]
+
+
+class CapabilityFailureTypeDef(TypedDict):
+    reason: NotRequired[Literal["KMS_KEY_INSUFFICIENT_PERMISSION"]]
+    details: NotRequired[str]
+
+
 class ChangeProgressDetailsTypeDef(TypedDict):
     ChangeId: NotRequired[str]
     Message: NotRequired[str]
@@ -794,6 +822,11 @@ class VpcEndpointSummaryTypeDef(TypedDict):
     Status: NotRequired[VpcEndpointStatusType]
 
 
+class DeregisterCapabilityRequestTypeDef(TypedDict):
+    applicationId: str
+    capabilityName: str
+
+
 class DescribeDomainAutoTunesRequestTypeDef(TypedDict):
     DomainName: str
     MaxResults: NotRequired[int]
@@ -976,6 +1009,11 @@ GetApplicationRequestTypeDef = TypedDict(
         "id": str,
     },
 )
+
+
+class GetCapabilityRequestTypeDef(TypedDict):
+    applicationId: str
+    capabilityName: str
 
 
 class GetCompatibleVersionsRequestTypeDef(TypedDict):
@@ -1336,6 +1374,11 @@ class DeleteIndexResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeregisterCapabilityResponseTypeDef(TypedDict):
+    status: CapabilityStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1472,6 +1515,29 @@ class CancelServiceSoftwareUpdateResponseTypeDef(TypedDict):
 
 class StartServiceSoftwareUpdateResponseTypeDef(TypedDict):
     ServiceSoftwareOptions: ServiceSoftwareOptionsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RegisterCapabilityRequestTypeDef(TypedDict):
+    applicationId: str
+    capabilityName: str
+    capabilityConfig: CapabilityBaseRequestConfigTypeDef
+
+
+class RegisterCapabilityResponseTypeDef(TypedDict):
+    capabilityName: str
+    applicationId: str
+    status: CapabilityStatusType
+    capabilityConfig: CapabilityBaseResponseConfigTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetCapabilityResponseTypeDef(TypedDict):
+    capabilityName: str
+    applicationId: str
+    status: CapabilityStatusType
+    capabilityConfig: CapabilityExtendedResponseConfigTypeDef
+    failures: list[CapabilityFailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

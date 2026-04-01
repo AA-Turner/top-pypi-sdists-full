@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from plato.worlds.review.spec import ReviewSpec
 
 # ============================================================================
@@ -153,11 +151,11 @@ class TestReviewWorldConfig:
         config = ReviewWorldConfig(target_session_id="abc123")
         assert config.target_session_id == "abc123"
 
-    def test_target_session_id_required(self):
+    def test_target_session_id_defaults_to_env_placeholder(self):
         from plato.worlds.review.world import ReviewWorldConfig
 
-        with pytest.raises(Exception):
-            ReviewWorldConfig()
+        config = ReviewWorldConfig()
+        assert config.target_session_id == "${TARGET_SESSION_ID}"
 
 
 # ============================================================================
@@ -239,27 +237,29 @@ class TestReviewIdentity:
         from plato.worlds.review.identity import get_review_target
 
         session = MagicMock()
-        session.world_config = {"target_session_id": "abc123"}
+        session.world_config = MagicMock(config={"target_session_id": "abc123"})
         assert get_review_target(session) == "abc123"
 
     def test_get_review_target_none(self):
         from plato.worlds.review.identity import get_review_target
 
         session = MagicMock()
-        session.world_config = {}
+        session.world_config = MagicMock(config={})
         assert get_review_target(session) is None
 
     def test_get_review_spec(self):
         from plato.worlds.review.identity import get_review_spec
 
         session = MagicMock()
-        session.world_config = {
-            "review": {
-                "world": "webclone-cua-review",
-                "config": {"key": "val"},
-                "review": None,
+        session.world_config = MagicMock(
+            config={
+                "review": {
+                    "world": "webclone-cua-review",
+                    "config": {"key": "val"},
+                    "review": None,
+                }
             }
-        }
+        )
         spec = get_review_spec(session)
         assert spec is not None
         assert spec.world == "webclone-cua-review"
@@ -269,7 +269,7 @@ class TestReviewIdentity:
         from plato.worlds.review.identity import get_review_spec
 
         session = MagicMock()
-        session.world_config = {}
+        session.world_config = MagicMock(config={})
         assert get_review_spec(session) is None
 
 

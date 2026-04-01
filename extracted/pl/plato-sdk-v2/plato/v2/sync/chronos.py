@@ -154,23 +154,20 @@ class ChronosSession:
             x_api_key=self._api_key,
         )
 
-    def stop(self, error_message: str = "Cancelled by user") -> SessionResponse:
+    def stop(self) -> SessionResponse:
         """Stop/cancel this session.
-
-        Args:
-            error_message: Reason for stopping.
 
         Returns:
             Updated SessionResponse.
         """
-        request = CompleteSessionRequest(
-            status=Status1("cancelled"),
-            error_message=error_message,
-        )
-        return complete_session.sync(
+        close_session.sync(
             client=self._http,
             public_id=self._session_id,
-            body=request,
+            x_api_key=self._api_key,
+        )
+        return get_session.sync(
+            client=self._http,
+            public_id=self._session_id,
             x_api_key=self._api_key,
         )
 

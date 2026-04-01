@@ -54,6 +54,11 @@ MODULE_NAME_MAP = {
     "sarvam": "sarvamai",
     "browser-use": "browser_use",
     "mcp": "mcp",
+    "google-adk": "google.adk",
+    "claude-agent-sdk": "claude_agent_sdk",
+    "agent-framework": "agent_framework",
+    "strands": "strands",
+    "smolagents": "smolagents",
     # Database instrumentations
     "psycopg": "psycopg",
     "psycopg-pool": "psycopg_pool",
@@ -124,6 +129,11 @@ INSTRUMENTOR_MAP = {
     "sarvam": "openlit.instrumentation.sarvam.SarvamInstrumentor",
     "browser-use": "openlit.instrumentation.browser_use.BrowserUseInstrumentor",
     "mcp": "openlit.instrumentation.mcp.MCPInstrumentor",
+    "google-adk": "openlit.instrumentation.google_adk.GoogleADKInstrumentor",
+    "claude-agent-sdk": "openlit.instrumentation.claude_agent_sdk.ClaudeAgentSDKInstrumentor",
+    "agent-framework": "openlit.instrumentation.agent_framework.AgentFrameworkInstrumentor",
+    "strands": "openlit.instrumentation.strands.StrandsInstrumentor",
+    "smolagents": "openlit.instrumentation.smolagents.SmolAgentsInstrumentor",
     # Database instrumentations
     "psycopg": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
     "psycopg-pool": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
@@ -163,7 +173,7 @@ def get_instrumentor_class(name):
     try:
         module = importlib.import_module(module_path)
         return getattr(module, class_name)
-    except (ImportError, AttributeError):
+    except Exception:
         return None
 
 

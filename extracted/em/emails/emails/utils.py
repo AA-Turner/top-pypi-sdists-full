@@ -1,24 +1,42 @@
-# encoding: utf-8
-from __future__ import unicode_literals
+from __future__ import annotations
+
 import os
 import socket
 from time import mktime
 from datetime import datetime
 from random import randrange
 from functools import wraps
+from io import StringIO, BytesIO
+from collections.abc import Callable
+from typing import Any, TypeVar, cast
 
 import email.charset
 from email import generator
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header, decode_header as decode_header_
-from email.utils import formataddr, parseaddr, formatdate
-
-import requests
+from email.utils import parseaddr, formatdate
+from email.utils import escapesre, specialsre  # type: ignore[attr-defined]  # private but stable
 
 from . import USER_AGENT
-from .compat import string_types, to_unicode, NativeStringIO, is_py2, BytesIO, to_native
 from .exc import HTTPLoaderError
+
+F = TypeVar('F', bound=Callable[..., Any])
+
+
+def formataddr(pair: tuple[str | None, str]) -> str:
+    """
+    Takes a 2-tuple of the form (realname, email_address) and returns RFC2822-like string.
+    Does not encode non-ascii realname (unlike stdlib email.utils.formataddr).
+    """
+    name, address = pair
+    if name:
+        quotes = ''
+        if specialsre.search(name):
+            quotes = '"'
+        name = escapesre.sub(r'\\\g<0>', name)
+        return '%s%s%s <%s>' % (quotes, name, quotes, address)
+    return address
 
 
 _charsets_loaded = False
@@ -31,7 +49,7 @@ CHARSETS_FIX = [
 ]
 
 
-def load_email_charsets():
+def load_email_charsets() -> None:
     global _charsets_loaded
     if not _charsets_loaded:
         for (charset, header_enc, body_enc) in CHARSETS_FIX:
@@ -41,18 +59,18 @@ def load_email_charsets():
                                       charset)
 
 
-class cached_property(object):
+class cached_property:
     """
     A property that is only computed once per instance and then replaces itself
     with an ordinary attribute. Deleting the attribute resets the property.
     Source: https://github.com/bottlepy/bottle/commit/fa7733e075da0d790d809aa3d2f53071897e6f76
     """  # noqa
 
-    def __init__(self, func):
+    def __init__(self, func: Callable[..., Any]) -> None:
         self.__doc__ = getattr(func, '__doc__')
         self.func = func
 
-    def __get__(self, obj, cls):
+    def __get__(self, obj: Any, cls: type | None = None) -> Any:
         if obj is None:
             return self
         value = obj.__dict__[self.func.__name__] = self.func(obj)
@@ -62,11 +80,11 @@ class cached_property(object):
 # Django's CachedDnsName:
 # Cached the hostname, but do it lazily: socket.getfqdn() can take a couple of
 # seconds, which slows down the restart of the server.
-class CachedDnsName(object):
-    def __str__(self):
+class CachedDnsName:
+    def __str__(self) -> str:
         return self.get_fqdn()
 
-    def get_fqdn(self):
+    def get_fqdn(self) -> str:
         if not hasattr(self, '_fqdn'):
             self._fqdn = socket.getfqdn()
         return self._fqdn
@@ -75,10 +93,17 @@ class CachedDnsName(object):
 DNS_NAME = CachedDnsName()
 
 
-def decode_header(value, default="utf-8", errors='strict'):
+def decode_header(value: str | bytes, default: str = "utf-8", errors: str = 'strict') -> str:
     """Decode the specified header value"""
-    value = to_native(value, charset=default, errors=errors)
-    return "".join([to_unicode(text, charset or default, errors) for text, charset in decode_header_(value)])
+    if isinstance(value, bytes):
+        value = value.decode(default, errors)
+    parts: list[str] = []
+    for text, charset in decode_header_(value):
+        if isinstance(text, bytes):
+            parts.append(text.decode(charset or default, errors))
+        else:
+            parts.append(text)
+    return "".join(parts)
 
 
 class MessageID:
@@ -89,7 +114,7 @@ class MessageID:
     Based on django.core.mail.message.make_msgid
     """
 
-    def __init__(self, domain=None, idstring=None):
+    def __init__(self, domain: str | None = None, idstring: str | int | None = None) -> None:
         self.domain = str(domain or DNS_NAME)
         try:
             pid = os.getpid()
@@ -98,14 +123,19 @@ class MessageID:
             pid = 1
         self.idstring = ".".join([str(idstring or randrange(10000)), str(pid)])
 
-    def __call__(self):
+    def __call__(self) -> str:
         r = ".".join([datetime.now().strftime("%Y%m%d%H%M%S.%f"),
                       str(randrange(100000)),
                       self.idstring])
         return "".join(['<', r, '@', self.domain, '>'])
 
 
-def parse_name_and_email_list(elements, encoding='utf-8'):
+# Type alias for address pairs used throughout the library
+AddressPair = tuple[str | None, str | None]
+
+
+def parse_name_and_email_list(elements: str | tuple[str | None, str] | list[Any] | None,
+                              encoding: str = 'utf-8') -> list[AddressPair]:
     """
     Parse a list of address-like elements, i.e.:
      * "name <email>"
@@ -119,7 +149,7 @@ def parse_name_and_email_list(elements, encoding='utf-8'):
     if not elements:
         return []
 
-    if isinstance(elements, string_types):
+    if isinstance(elements, str):
         return [parse_name_and_email(elements, encoding), ]
 
     if not isinstance(elements, (list, tuple)):
@@ -130,33 +160,34 @@ def parse_name_and_email_list(elements, encoding='utf-8'):
         # Let's do some guesses
         if isinstance(elements, tuple):
             n, e = elements
-            if isinstance(e, string_types) and (not n or isinstance(e, string_types)):
+            if isinstance(e, str) and (not n or isinstance(n, str)):
                 # It is probably a pair (name, email)
                 return [parse_name_and_email(elements, encoding), ]
 
     return [parse_name_and_email(x, encoding) for x in elements]
 
 
-def parse_name_and_email(obj, encoding='utf-8'):
+def parse_name_and_email(obj: str | tuple[str | None, str] | list[str],
+                         encoding: str = 'utf-8') -> AddressPair:
     # In:  'john@smith.me' or  '"John Smith" <john@smith.me>' or ('John Smith', 'john@smith.me')
-    # Out: (u'John Smith', u'john@smith.me')
+    # Out: ('John Smith', 'john@smith.me')
 
     if isinstance(obj, (list, tuple)):
         if len(obj) == 2:
             name, email = obj
         else:
             raise ValueError("Can not parse_name_and_email from %s" % obj)
-    elif isinstance(obj, string_types):
+    elif isinstance(obj, str):
         name, email = parseaddr(obj)
     else:
         raise ValueError("Can not parse_name_and_email from %s" % obj)
 
-    return to_unicode(name, encoding) or None, to_unicode(email, encoding) or None
+    return name or None, email or None
 
 
-def sanitize_email(addr, encoding='ascii', parse=False):
+def sanitize_email(addr: str, encoding: str = 'ascii', parse: bool = False) -> str:
     if parse:
-        _, addr = parseaddr(to_unicode(addr))
+        _, addr = parseaddr(addr)
     try:
         addr.encode('ascii')
     except UnicodeEncodeError:  # IDN
@@ -170,9 +201,9 @@ def sanitize_email(addr, encoding='ascii', parse=False):
     return addr
 
 
-def sanitize_address(addr, encoding='ascii'):
-    if isinstance(addr, string_types):
-        addr = parseaddr(to_unicode(addr))
+def sanitize_address(addr: str | tuple[str, str], encoding: str = 'ascii') -> str:
+    if isinstance(addr, str):
+        addr = parseaddr(addr)
     nm, addr = addr
     # This try-except clause is needed on Python 3 < 3.2.4
     # http://bugs.python.org/issue14291
@@ -183,27 +214,21 @@ def sanitize_address(addr, encoding='ascii'):
     return formataddr((nm, sanitize_email(addr, encoding=encoding, parse=False)))
 
 
-class MIMEMixin():
-    def as_string(self, unixfrom=False, linesep='\n'):
+class MIMEMixin:
+    def as_string(self, unixfrom: bool = False, linesep: str = '\n') -> str:
         """Return the entire formatted message as a string.
         Optional `unixfrom' when True, means include the Unix From_ envelope
         header.
         This overrides the default as_string() implementation to not mangle
         lines that begin with 'From '. See bug #13433 for details.
         """
-        fp = NativeStringIO()
+        fp = StringIO()
         g = generator.Generator(fp, mangle_from_=False)
-        if is_py2:
-            g.flatten(self, unixfrom=unixfrom)
-        else:
-            g.flatten(self, unixfrom=unixfrom, linesep=linesep)
+        g.flatten(self, unixfrom=unixfrom, linesep=linesep)
 
         return fp.getvalue()
 
-    if is_py2:
-        as_bytes = as_string
-    else:
-        def as_bytes(self, unixfrom=False, linesep='\n'):
+    def as_bytes(self, unixfrom: bool = False, linesep: str = '\n') -> bytes:
             """Return the entire formatted message as bytes.
             Optional `unixfrom' when True, means include the Unix From_ envelope
             header.
@@ -216,24 +241,28 @@ class MIMEMixin():
             return fp.getvalue()
 
 
-class SafeMIMEText(MIMEMixin, MIMEText):
-    def __init__(self, text, subtype, charset):
+class SafeMIMEText(MIMEMixin, MIMEText):  # type: ignore[misc]  # intentional override
+    def __init__(self, text: str, subtype: str, charset: str) -> None:
         self.encoding = charset
         MIMEText.__init__(self, text, subtype, charset)
 
 
-class SafeMIMEMultipart(MIMEMixin, MIMEMultipart):
-    def __init__(self, _subtype='mixed', boundary=None, _subparts=None, encoding=None, **_params):
+class SafeMIMEMultipart(MIMEMixin, MIMEMultipart):  # type: ignore[misc]  # intentional override
+    def __init__(self, _subtype: str = 'mixed', boundary: str | None = None,
+                 _subparts: list[Any] | None = None,
+                 encoding: str | None = None, **_params: Any) -> None:
         self.encoding = encoding
         MIMEMultipart.__init__(self, _subtype, boundary, _subparts, **_params)
 
 
-DEFAULT_REQUESTS_PARAMS = dict(allow_redirects=True,
+DEFAULT_REQUESTS_PARAMS: dict[str, Any] = dict(allow_redirects=True,
                              verify=False, timeout=10,
                              headers={'User-Agent': USER_AGENT})
 
 
-def fetch_url(url, valid_http_codes=(200, ), requests_args=None):
+def fetch_url(url: str, valid_http_codes: tuple[int, ...] = (200, ),
+              requests_args: dict[str, Any] | None = None) -> Any:
+    import requests
     args = {}
     args.update(DEFAULT_REQUESTS_PARAMS)
     args.update(requests_args or {})
@@ -243,18 +272,18 @@ def fetch_url(url, valid_http_codes=(200, ), requests_args=None):
     return r
 
 
-def encode_header(value, charset='utf-8'):
-    if isinstance(value, string_types):
-        value = to_unicode(value, charset=charset).rstrip()
+def encode_header(value: str | Any, charset: str = 'utf-8') -> str | Any:
+    if isinstance(value, str):
+        value = value.rstrip()
         _r = Header(value, charset)
         return str(_r)
     else:
         return value
 
 
-def renderable(f):
+def renderable(f: F) -> F:
     @wraps(f)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
         r = f(self, *args, **kwargs)
         render = getattr(r, 'render', None)
         if render:
@@ -263,10 +292,10 @@ def renderable(f):
         else:
             return r
 
-    return wrapper
+    return cast(F, wrapper)
 
 
-def format_date_header(v, localtime=True):
+def format_date_header(v: datetime | float | None, localtime: bool = True) -> str:
     if isinstance(v, datetime):
         return formatdate(mktime(v.timetuple()), localtime)
     elif isinstance(v, float):

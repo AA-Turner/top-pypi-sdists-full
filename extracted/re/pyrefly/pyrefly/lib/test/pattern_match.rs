@@ -813,6 +813,110 @@ def test_multi_match2(o1: object, o2: object) -> None:
 );
 
 testcase!(
+    test_exhaustive_enum_or_pattern_no_missing_return,
+    r#"
+from enum import StrEnum
+
+class ParamKind(StrEnum):
+    POSITIONAL_ONLY = "positional-only"
+    POSITIONAL_OR_KEYWORD = "positional or keyword"
+    VAR_POSITIONAL = "variadic positional"
+    KEYWORD_ONLY = "keyword-only"
+    VAR_KEYWORD = "variadic keyword"
+
+class Param:
+    kind: ParamKind
+    name: str
+
+    def key(self, index: int) -> int | str:
+        match self.kind:
+            case ParamKind.POSITIONAL_ONLY:
+                return index
+            case ParamKind.KEYWORD_ONLY | ParamKind.POSITIONAL_OR_KEYWORD:
+                return self.name
+            case ParamKind.VAR_POSITIONAL:
+                return "*"
+            case ParamKind.VAR_KEYWORD:
+                return "**"
+"#,
+);
+
+testcase!(
+    test_match_alias_capture_uninitialized_in_other_branch,
+    r#"
+def f(items: list[object]) -> None:
+    for item in items:
+        match item:
+            case str() as inner:
+                print(inner)
+            case _:
+                print(inner)  # E: `inner` is uninitialized
+"#,
+);
+
+testcase!(
+    test_match_alias_does_not_leak,
+    r#"
+from enum import Enum
+
+class Color(Enum):
+    RED = 1
+    GREEN = 2
+
+y: Color
+
+def describe(color: Color) -> str: # E: missing an explicit `return`
+    match color: # E: Missing cases: Color.GREEN
+        case Color.RED as y:
+            return "red"
+"#,
+);
+
+testcase!(
+    test_exhaustive_match_nested_facet_subject,
+    r#"
+from enum import Enum
+
+class Color(Enum):
+    RED = 1
+    GREEN = 2
+
+class Inner:
+    color: Color
+
+class Outer:
+    inner: Inner
+
+def describe(o: Outer) -> str:
+    match o.inner.color:
+        case Color.RED:
+            return "red"
+        case Color.GREEN:
+            return "green"
+"#,
+);
+
+testcase!(
+    test_match_alias_no_leak_when_no_narrowing_subject,
+    r#"
+from enum import Enum
+from typing import reveal_type
+
+class Color(Enum):
+    RED = 1
+    GREEN = 2
+
+def make_color() -> Color: ...
+
+def f(y: Color) -> None:
+    match make_color():
+        case Color.RED as y:
+            return
+    reveal_type(y)  # E: revealed type: Color
+"#,
+);
+
+testcase!(
     test_match_multi_subject_with_mapping_pattern,
     r#"
 from typing import Any

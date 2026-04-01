@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llm
-Version: 0.29
+Version: 0.30
 Summary: CLI utility and Python library for interacting with Large Language Models from organizations like OpenAI, Anthropic and Gemini plus local models installed on your own machine.
 Author: Simon Willison
 License-Expression: Apache-2.0
@@ -281,6 +281,7 @@ See also [the llm tag](https://simonwillison.net/tags/llm/) on my blog.
     * [Retrieving similar items](https://llm.datasette.io/en/stable/embeddings/python-api.html#retrieving-similar-items)
     * [SQL schema](https://llm.datasette.io/en/stable/embeddings/python-api.html#sql-schema)
   * [Writing plugins to add new embedding models](https://llm.datasette.io/en/stable/embeddings/writing-plugins.html)
+    * [`EmbeddingModel`](https://llm.datasette.io/en/stable/embeddings/writing-plugins.html#llm.EmbeddingModel)
     * [Embedding binary content](https://llm.datasette.io/en/stable/embeddings/writing-plugins.html#embedding-binary-content)
   * [Embedding storage format](https://llm.datasette.io/en/stable/embeddings/storage.html)
 * [Plugins](https://llm.datasette.io/en/stable/plugins/index.html)
@@ -297,7 +298,7 @@ See also [the llm tag](https://simonwillison.net/tags/llm/) on my blog.
     * [Just for fun](https://llm.datasette.io/en/stable/plugins/directory.html#just-for-fun)
   * [Plugin hooks](https://llm.datasette.io/en/stable/plugins/plugin-hooks.html)
     * [register_commands(cli)](https://llm.datasette.io/en/stable/plugins/plugin-hooks.html#register-commands-cli)
-    * [register_models(register)](https://llm.datasette.io/en/stable/plugins/plugin-hooks.html#register-models-register)
+    * [register_models(register, model_aliases)](https://llm.datasette.io/en/stable/plugins/plugin-hooks.html#register-models-register-model-aliases)
     * [register_embedding_models(register)](https://llm.datasette.io/en/stable/plugins/plugin-hooks.html#register-embedding-models-register)
     * [register_tools(register)](https://llm.datasette.io/en/stable/plugins/plugin-hooks.html#register-tools-register)
     * [register_template_loaders(register)](https://llm.datasette.io/en/stable/plugins/plugin-hooks.html#register-template-loaders-register)
@@ -345,6 +346,7 @@ See also [the llm tag](https://simonwillison.net/tags/llm/) on my blog.
     * [Token usage](https://llm.datasette.io/en/stable/python-api.html#token-usage)
     * [Streaming responses](https://llm.datasette.io/en/stable/python-api.html#streaming-responses)
   * [Async models](https://llm.datasette.io/en/stable/python-api.html#async-models)
+    * [`AsyncResponse`](https://llm.datasette.io/en/stable/python-api.html#llm.AsyncResponse)
     * [Tool functions can be sync or async](https://llm.datasette.io/en/stable/python-api.html#tool-functions-can-be-sync-or-async)
     * [Tool use for async models](https://llm.datasette.io/en/stable/python-api.html#tool-use-for-async-models)
   * [Conversations](https://llm.datasette.io/en/stable/python-api.html#conversations)

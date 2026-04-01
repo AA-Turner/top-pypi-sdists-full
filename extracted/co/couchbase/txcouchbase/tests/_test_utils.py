@@ -126,7 +126,14 @@ class TestEnvironment(CouchbaseTestEnvironment):
         transcoder = kwargs.pop('transcoder', None)
         if transcoder:
             opts['transcoder'] = transcoder
+        tracer = kwargs.pop('tracer', None)
+        if tracer:
+            opts['tracer'] = tracer
+        else:
+            opts['enable_tracing'] = False
+
         okay = False
+        cluster = bucket = None
         for _ in range(3):
             try:
                 cluster = Cluster(conn_string, opts)
@@ -139,10 +146,14 @@ class TestEnvironment(CouchbaseTestEnvironment):
             except (UnAmbiguousTimeoutException, AmbiguousTimeoutException):
                 continue
 
-        if not okay and couchbase_config.is_mock_server:
-            pytest.skip(('CAVES does not seem to be happy. Skipping tests as failure is not'
-                        ' an accurate representation of the state of the test, but rather'
-                         ' there is an environment issue.'))
+        if not okay:
+            if couchbase_config.is_mock_server:
+                pytest.skip(('CAVES does not seem to be happy. Skipping tests as failure is not'
+                            ' an accurate representation of the state of the test, but rather'
+                             ' there is an environment issue.'))
+            else:
+                msg = 'Unable to establish cluster/bucket connection. Check the environment (e.g. VPN).'
+                raise CouchbaseTestEnvironmentException(msg)
 
         coll = bucket.default_collection()
         if coll_type == CollectionType.DEFAULT:
@@ -307,7 +318,7 @@ class TestEnvironment(CouchbaseTestEnvironment):
         self._scope = None
         self._named_collection = None
 
-    def get_scope(self, scope_name, bucket_name=None):
+    def get_scope(self, scope_name, bucket_name=None, cm=None):
         if bucket_name is None and self._test_bucket is None:
             raise CouchbaseTestEnvironmentException("Must provide a bucket name or have a valid test_bucket available")
 
@@ -321,14 +332,16 @@ class TestEnvironment(CouchbaseTestEnvironment):
                 f"{bucket} is an invalid bucket name.")
 
         scopes = []
-        if bucket == self.bucket.name:
+        if bucket_name is not None and cm is not None:
+            scopes = run_in_reactor_thread(cm.get_all_scopes)
+        elif bucket == self.bucket.name:
             scopes = run_in_reactor_thread(self.cm.get_all_scopes)
         else:
             scopes = run_in_reactor_thread(self.test_bucket_cm.get_all_scopes)
         return next((s for s in scopes if s.name == scope_name), None)
 
-    def get_collection(self, scope_name, coll_name, bucket_name=None):
-        scope = self.get_scope(scope_name, bucket_name=bucket_name)
+    def get_collection(self, scope_name, coll_name, bucket_name=None, cm=None):
+        scope = self.get_scope(scope_name, bucket_name=bucket_name, cm=cm)
         if scope:
             return next(
                 (c for c in scope.collections if c.name == coll_name), None)
@@ -363,8 +376,8 @@ class TestEnvironment(CouchbaseTestEnvironment):
                 else:
                     res = func(*args, **kwargs)
                 return res
-            except Exception:
-                print(f'trying {func} failed, sleeping for {seconds_between} seconds...')
+            except Exception as ex:
+                print(f'trying {func} failed ({ex}), sleeping for {seconds_between} seconds...')
                 run_in_reactor_thread(TestEnvironment.deferred_sleep, seconds_between)
 
     def try_n_times(self,

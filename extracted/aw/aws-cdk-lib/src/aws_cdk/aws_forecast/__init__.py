@@ -285,19 +285,6 @@ class CfnDataset(
         jsii.set(self, "domain", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="encryptionConfig")
-    def encryption_config(self) -> typing.Any:
-        '''A Key Management Service (KMS) key and the Identity and Access Management (IAM) role that Amazon Forecast can assume to access the key.'''
-        return typing.cast(typing.Any, jsii.get(self, "encryptionConfig"))
-
-    @encryption_config.setter
-    def encryption_config(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__778db5f74143ef1eb383cda3fc685735767ac95d26e5ed1ee1a8d57826028b3c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="schema")
     def schema(self) -> typing.Any:
         '''The schema for the dataset.'''
@@ -325,6 +312,19 @@ class CfnDataset(
             type_hints = typing.get_type_hints(_typecheckingstub__1880747710a34aa45fe3a21d0b5e87cfc7cb1a3cd69266d3a56c5eb118a9bdd5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataFrequency", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfig")
+    def encryption_config(self) -> typing.Any:
+        '''A Key Management Service (KMS) key and the Identity and Access Management (IAM) role that Amazon Forecast can assume to access the key.'''
+        return typing.cast(typing.Any, jsii.get(self, "encryptionConfig"))
+
+    @encryption_config.setter
+    def encryption_config(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__778db5f74143ef1eb383cda3fc685735767ac95d26e5ed1ee1a8d57826028b3c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1193,12 +1193,6 @@ def _typecheckingstub__bd4a5170dde28222f90fa2eb9089b50cf27e859cac326bf949c4064a1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__778db5f74143ef1eb383cda3fc685735767ac95d26e5ed1ee1a8d57826028b3c(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0f5dccb41607f7af22b487b37c94a337de9edf29cb65181159351c314b80932e(
     value: typing.Any,
 ) -> None:
@@ -1207,6 +1201,12 @@ def _typecheckingstub__0f5dccb41607f7af22b487b37c94a337de9edf29cb65181159351c314
 
 def _typecheckingstub__1880747710a34aa45fe3a21d0b5e87cfc7cb1a3cd69266d3a56c5eb118a9bdd5(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__778db5f74143ef1eb383cda3fc685735767ac95d26e5ed1ee1a8d57826028b3c(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

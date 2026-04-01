@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.7.0
+Version: 2.7.1
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -21,7 +21,7 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Requires-Python: >=3.12
-Requires-Dist: agent-client-protocol==0.8.1
+Requires-Dist: agent-client-protocol==0.9.0
 Requires-Dist: anyio>=4.12.0
 Requires-Dist: cachetools>=5.5.0
 Requires-Dist: cryptography<=46.0.3,>=44.0.0

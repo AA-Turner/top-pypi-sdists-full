@@ -1,19 +1,22 @@
 from __future__ import annotations
 
+import dataclasses as _dataclasses
 import io
 import json
 import types
-import typing
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from io import BytesIO
 from typing import (
     Any,
+    Callable,
+    ClassVar,
     Dict,
     FrozenSet,
     Generic,
     Iterable,
     List,
+    NoReturn,
     Optional,
     Protocol,
     Sequence,
@@ -57,6 +60,9 @@ from chalk.utils.df_utils import pa_array_to_pl_series
 from chalk.utils.json import JSON, TJSON, is_pyarrow_json_type, pyarrow_json_type
 from chalk.utils.log_with_context import get_logger
 
+# pyright: reportIncompatibleMethodOverride=false, reportMissingSuperCall=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false, reportImplicitStringConcatenation=false
+
+
 _logger = get_logger(__name__)
 
 _TRich = TypeVar("_TRich")
@@ -73,41 +79,43 @@ _DEFAULT_FEATURE_ENCODING_OPTIONS = FeatureEncodingOptions()
 
 class FeatureConverter(Protocol[_TPrim, _TRich]):
     @property
-    def polars_dtype(self) -> Any: ...
-
-    @property
-    def pyarrow_dtype(self) -> pa.DataType: ...
-
-    @property
-    def pyarrow_default(self) -> ellipsis | pa.Array | pa.ChunkedArray: ...
-
-    @property
-    def is_nullable(self) -> bool: ...
+    def rich_type(self) -> Type[_TRich]: ...
 
     @property
     def primitive_type(self) -> Type[TPrimitive]: ...
 
     @property
+    def pyarrow_dtype(self) -> pa.DataType: ...
+
+    @property
+    def polars_dtype(self) -> Any: ...
+
+    @property
+    def is_nullable(self) -> bool: ...
+
+    @property
     def has_default(self) -> bool: ...
+
+    @property
+    def pyarrow_default(self) -> ellipsis | pa.Array | pa.ChunkedArray: ...
 
     @property
     def primitive_default(self) -> _TPrim: ...
 
     @property
-    def rich_type(self) -> Type[_TRich]: ...
-
-    @property
     def rich_default(self) -> _TRich: ...
 
-    @property
-    def encoder(self) -> Optional[TEncoder[_TPrim, _TRich]]: ...
+    def has_nontrivial_rich_type(self) -> bool: ...
 
     @property
-    def decoder(self) -> Optional[TDecoder[_TPrim, _TRich]]: ...
+    def encoder(self) -> TEncoder[_TPrim, _TRich] | None: ...
+
+    @property
+    def decoder(self) -> TDecoder[_TPrim, _TRich] | None: ...
 
     def from_pyarrow_to_json(
         self,
-        values: Union[pa.Array, pa.ChunkedArray],
+        values: pa.Array | pa.ChunkedArray,
         options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
     ) -> Sequence[TJSON]: ...
 
@@ -123,7 +131,7 @@ class FeatureConverter(Protocol[_TPrim, _TRich]):
 
     def from_json_to_pyarrow(self, values: Sequence[TJSON]) -> Union[pa.Array, pa.ChunkedArray]: ...
 
-    def from_json_to_primitive(self, value: Union[TJSON, TPrimitive]) -> _TPrim: ...
+    def from_json_to_primitive(self, value: TJSON | TPrimitive) -> _TPrim: ...
 
     def is_value_missing(self, value: Any) -> bool: ...
 
@@ -133,41 +141,2099 @@ class FeatureConverter(Protocol[_TPrim, _TRich]):
 
     def from_rich_to_pyarrow(
         self,
-        values: Sequence[Union[_TRich, ellipsis, None]],
+        values: Sequence[_TRich | ellipsis | None],
         /,
         missing_value_strategy: MissingValueStrategy = "default_or_allow",
     ) -> Union[pa.Array, pa.ChunkedArray]: ...
 
     def from_rich_to_protobuf(
         self,
-        value: Union[_TRich, ellipsis, None],
+        value: _TRich | ellipsis | None,
         missing_value_strategy: MissingValueStrategy = "default_or_allow",
     ) -> pb.ScalarValue: ...
 
     def from_rich_to_primitive(
         self,
-        value: Union[_TRich, ellipsis, None],
+        value: _TRich | ellipsis | None,
         missing_value_strategy: MissingValueStrategy = "default_or_allow",
     ) -> _TPrim: ...
 
     def from_rich_to_json(
         self,
-        value: Union[_TRich, ellipsis, None],
+        value: _TRich | ellipsis | None,
         missing_value_strategy: MissingValueStrategy = "default_or_allow",
         options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
     ) -> TJSON: ...
 
-    def from_pyarrow_to_rich(self, values: Union[pa.Array, pa.ChunkedArray], /) -> Sequence[_TRich]: ...
+    def from_pyarrow_to_rich(self, values: pa.Array | pa.ChunkedArray, /) -> Sequence[_TRich]: ...
 
-    def from_primitive_to_rich(self, value: Union[_TPrim, _TRich]) -> _TRich: ...
+    def from_primitive_to_rich(self, value: _TPrim | _TRich) -> _TRich: ...
 
     def from_json_to_rich(self, value: TJSON) -> _TRich: ...
-
-    def has_nontrivial_rich_type(self) -> bool: ...
 
     def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar: ...
 
     def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue: ...
+
+
+try:
+    import polars as pl
+except ImportError:
+    pl = None
+
+_FROM_NEW = object()
+
+
+def _identity(v: Any) -> Any:
+    return v
+
+
+_UNSUPPORTED_MISSING_VALUE_STRATEGY_MESSAGE = (
+    "It must be one of 'allow', 'default_or_allow', 'default_or_error', or 'error'."
+)
+
+
+def _raise_unsupported_missing_value_strategy(missing_value_strategy: MissingValueStrategy) -> NoReturn:
+    raise ValueError(
+        f"Unsupported missing value strategy: {missing_value_strategy}. {_UNSUPPORTED_MISSING_VALUE_STRATEGY_MESSAGE}"
+    )
+
+
+def _unwrap_scalar_value(value: Any) -> Any:
+    if isinstance(value, pa.Scalar):
+        return value.as_py()
+    return value
+
+
+class _FeatureConverterArrowProtoHelpers:
+    def convert_pa_dtype_to_proto_dtype(self, dtype: pa.DataType) -> pb.ArrowType:
+        return PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(dtype)
+
+    def convert_proto_dtype_to_pa_dtype(self, dtype: pb.ArrowType) -> pa.DataType:
+        return PrimitiveFeatureConverter.convert_proto_dtype_to_pa_dtype(dtype)
+
+    def convert_pa_field_to_proto_field(self, field: pa.Field) -> pb.Field:
+        return PrimitiveFeatureConverter.convert_pa_field_to_proto_field(field)
+
+    def convert_proto_field_to_pa_field(self, proto_field: pb.Field) -> pa.Field:
+        return PrimitiveFeatureConverter.convert_proto_field_to_pa_field(proto_field)
+
+    def convert_pa_schema_to_proto_schema(self, schema: pa.Schema) -> pb.Schema:
+        return PrimitiveFeatureConverter.convert_pa_schema_to_proto_schema(schema)
+
+    def convert_proto_schema_to_pa_schema(self, proto_schema: pb.Schema) -> pa.Schema:
+        return PrimitiveFeatureConverter.convert_proto_schema_to_pa_schema(proto_schema)
+
+
+class _SpecializedFeatureConverterProperties(Generic[_TPrim, _TRich]):
+    _rich_type_value: ClassVar[Type[Any]]
+    _primitive_type_value: ClassVar[Type[Any]]
+    _pyarrow_dtype_value: ClassVar[pa.DataType]
+    _polars_dtype_value: ClassVar[Any]
+
+    @property
+    def rich_type(self) -> Type[_TRich]:
+        t = cast(Type[_TRich], type(self)._rich_type_value)
+        if self._is_nullable:  # type: ignore[attr-defined]
+            from typing import Optional as _Optional
+
+            return _Optional[t]  # type: ignore[return-value]
+        return t
+
+    @property
+    def primitive_type(self) -> Type[TPrimitive]:
+        return cast(Type[TPrimitive], type(self)._primitive_type_value)
+
+    @property
+    def pyarrow_dtype(self) -> pa.DataType:
+        return type(self)._pyarrow_dtype_value
+
+    @property
+    def polars_dtype(self) -> Any:
+        return type(self)._polars_dtype_value
+
+    @property
+    def encoder(self) -> TEncoder[_TPrim, _TRich] | None:
+        return None
+
+    @property
+    def decoder(self) -> TDecoder[_TPrim, _TRich] | None:
+        return None
+
+
+class BoolFeatureConverter(
+    _FeatureConverterArrowProtoHelpers,
+    _SpecializedFeatureConverterProperties[bool, bool],
+    FeatureConverter[bool, bool],
+):
+    _rich_type_value: ClassVar[Type[bool]] = bool
+    _primitive_type_value: ClassVar[Type[bool]] = bool
+    _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.bool_()
+    _polars_dtype_value: ClassVar[Any] = pl.Boolean() if pl is not None else None
+
+    _cache: ClassVar[Dict[Tuple[bool | None | ellipsis, bool], "BoolFeatureConverter"]] = {}
+
+    @classmethod
+    def new(cls, default: bool | None | ellipsis, is_nullable: bool) -> "BoolFeatureConverter":
+        key = (default, is_nullable)
+        cached = cls._cache.get(key)
+        if cached is not None:
+            return cached
+        inst = cls(default, is_nullable, _from_new=_FROM_NEW)
+        cls._cache[key] = inst
+        return inst
+
+    def __init__(self, default: bool | None | ellipsis, is_nullable: bool, *, _from_new: object = None):
+        super().__init__()
+        if _from_new is not _FROM_NEW:
+            raise TypeError("Use BoolFeatureConverter.new() instead of calling the constructor directly")
+        self._is_nullable = is_nullable
+        if is_nullable and default is ...:
+            default = None
+        if default is not ...:
+            self._primitive_default: bool | None | ellipsis
+            self._primitive_default = default
+            self._has_default = True
+            self._pyarrow_default: ellipsis | pa.Array | pa.ChunkedArray = pa.array([default], type=pa.bool_())
+        else:
+            self._has_default = False
+            self._primitive_default = ...
+            self._pyarrow_default = ...
+
+    @property
+    def is_nullable(self) -> bool:
+        return self._is_nullable
+
+    @property
+    def has_default(self) -> bool:
+        return self._has_default
+
+    @property
+    def pyarrow_default(self) -> ellipsis | pa.Array | pa.ChunkedArray:
+        return self._pyarrow_default
+
+    @property
+    def primitive_default(self) -> bool:
+        if self._primitive_default is ...:
+            raise ValueError("No default value specified")
+        return cast(bool, self._primitive_default)
+
+    @property
+    def rich_default(self) -> bool:
+        return self.primitive_default
+
+    def has_nontrivial_rich_type(self) -> bool:
+        return False
+
+    def from_pyarrow_to_json(
+        self,
+        values: pa.Array | pa.ChunkedArray,
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> Sequence[TJSON]:
+        return values.to_pylist()
+
+    def from_pyarrow_to_primitive(self, values: Union[pa.Array, pa.ChunkedArray]) -> Sequence[bool]:
+        return values.to_pylist()
+
+    def from_primitive_to_pyarrow(self, value: Iterable[bool]) -> Union[pa.Array, pa.ChunkedArray]:
+        return pa.array([None if x is ... else x for x in value], type=pa.bool_())
+
+    def from_primitive_to_json(
+        self,
+        value: TPrimitive,
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        return value
+
+    def from_json_to_pyarrow(self, values: Sequence[TJSON]) -> Union[pa.Array, pa.ChunkedArray]:
+        converted: list[bool | None] = []
+        for value in values:
+            if value is None or value is ...:
+                converted.append(None)
+            elif value in (True, 1, 1.0):
+                converted.append(True)
+            elif value in (False, 0, 0.0):
+                converted.append(False)
+            else:
+                raise TypeError(
+                    f"Could not convert '{value}' to `<class 'bool'>`: Cannot convert '{value}' to a Boolean. Valid values are 1, True, 0, or False."
+                )
+        return pa.array(converted, type=pa.bool_())
+
+    def from_json_to_primitive(self, value: TJSON | TPrimitive) -> bool:
+        if value is None:
+            return cast(bool, None)
+        if value in (True, 1, 1.0):
+            return True
+        if value in (False, 0, 0.0):
+            return False
+        raise TypeError(
+            f"Could not convert '{value}' to `<class 'bool'>`: Cannot convert '{value}' to a Boolean. Valid values are 1, True, 0, or False."
+        )
+
+    def is_value_missing(self, value: Any) -> bool:
+        if value is ...:
+            return True
+        if value is None:
+            return not self._is_nullable
+        return False
+
+    def from_primitive_to_protobuf(self, value: bool | pa.Scalar) -> pb.ScalarValue:
+        scalar_value = _unwrap_scalar_value(value)
+        if scalar_value is None or scalar_value is ...:
+            return pb.ScalarValue(null_value=pb.ArrowType(bool=pb.EmptyMessage()))
+        return pb.ScalarValue(bool_value=cast(bool, scalar_value))
+
+    def is_rich_valid(self, value: bool) -> bool:
+        try:
+            pa.scalar(self.from_rich_to_primitive(value, "default_or_error"), type=pa.bool_())
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    def from_rich_to_pyarrow(
+        self,
+        values: Sequence[bool | ellipsis | None],
+        /,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> Union[pa.Array, pa.ChunkedArray]:
+        pa_values = [
+            None if x is ... else (None if x is None else structure_primitive_to_rich(x, bool)) for x in values
+        ]
+        if missing_value_strategy == "allow":
+            return pa.array(pa_values, type=pa.bool_())
+        if missing_value_strategy == "default_or_allow":
+            if not self._has_default:
+                return pa.array(pa_values, type=pa.bool_())
+            if self._is_nullable:
+                return pa.array(
+                    [
+                        (
+                            self.primitive_default
+                            if x is ...
+                            else (None if x is None else structure_primitive_to_rich(x, bool))
+                        )
+                        for x in values
+                    ],
+                    type=pa.bool_(),
+                )
+            return cast(
+                Union[pa.Array, pa.ChunkedArray],
+                pc.fill_null(pa.array(pa_values, type=pa.bool_()), pa.scalar(self.primitive_default, type=pa.bool_())),
+            )
+        if missing_value_strategy == "default_or_error":
+            if self._has_default:
+                if self._is_nullable:
+                    return pa.array(
+                        [
+                            (
+                                self.primitive_default
+                                if x is ...
+                                else (None if x is None else structure_primitive_to_rich(x, bool))
+                            )
+                            for x in values
+                        ],
+                        type=pa.bool_(),
+                    )
+                return cast(
+                    Union[pa.Array, pa.ChunkedArray],
+                    pc.fill_null(
+                        pa.array(pa_values, type=pa.bool_()),
+                        pa.scalar(self.primitive_default, type=pa.bool_()),
+                    ),
+                )
+            for x in values:
+                if x is ... or (x is None and not self._is_nullable):
+                    raise TypeError("The value is missing, and this feature has no default value.")
+            return pa.array(pa_values, type=pa.bool_())
+        if missing_value_strategy == "error":
+            for x in values:
+                if x is ... or (x is None and not self._is_nullable):
+                    raise MissingValueError(
+                        "The value is missing, but `replace_missing_with_defaults` was set to `False`."
+                    )
+            return pa.array(pa_values, type=pa.bool_())
+        _raise_unsupported_missing_value_strategy(missing_value_strategy)
+
+    def from_rich_to_protobuf(
+        self,
+        value: bool | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> pb.ScalarValue:
+        prim = cast(bool | None, self.from_rich_to_primitive(value, missing_value_strategy))
+        if prim is None or prim is ...:
+            return pb.ScalarValue(null_value=pb.ArrowType(bool=pb.EmptyMessage()))
+        return pb.ScalarValue(bool_value=prim)
+
+    def from_rich_to_primitive(
+        self,
+        value: bool | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> bool:
+        if value is ... or (value is None and not self._is_nullable):
+            if missing_value_strategy == "allow":
+                return cast(bool, value)
+            elif missing_value_strategy == "default_or_error":
+                if self._has_default:
+                    return self.primitive_default
+                raise TypeError("The value is missing, and this feature has no default value.")
+            elif missing_value_strategy == "default_or_allow":
+                if self._has_default:
+                    return self.primitive_default
+                return cast(bool, value)
+            elif missing_value_strategy == "error":
+                raise MissingValueError("The value is missing, but `replace_missing_with_defaults` was set to `False`.")
+            else:
+                _raise_unsupported_missing_value_strategy(missing_value_strategy)
+        return structure_primitive_to_rich(value, bool)
+
+    def from_rich_to_json(
+        self,
+        value: bool | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        if value is ... or (value is None and not self._is_nullable):
+            if missing_value_strategy == "allow":
+                return cast(TJSON, value)
+            if missing_value_strategy == "default_or_error":
+                if self._has_default:
+                    return cast(TJSON, self.primitive_default)
+                raise TypeError("The value is missing, and this feature has no default value.")
+            if missing_value_strategy == "default_or_allow":
+                if self._has_default:
+                    return cast(TJSON, self.primitive_default)
+                return cast(TJSON, value)
+            if missing_value_strategy == "error":
+                raise MissingValueError("The value is missing, but `replace_missing_with_defaults` was set to `False`.")
+            _raise_unsupported_missing_value_strategy(missing_value_strategy)
+        return structure_primitive_to_rich(value, bool)
+
+    def from_pyarrow_to_rich(self, values: pa.Array | pa.ChunkedArray, /) -> Sequence[bool]:
+        return values.to_pylist()
+
+    def from_primitive_to_rich(self, value: bool) -> bool:
+        return structure_primitive_to_rich(value, bool)
+
+    def from_json_to_rich(self, value: TJSON) -> bool:
+        return self.from_json_to_primitive(value)
+
+    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
+        if pb_value.HasField("null_value"):
+            return pa.nulls(1, type=pa.bool_())[0]
+        if pb_value.HasField("bool_value"):
+            return pa.scalar(pb_value.bool_value, pa.bool_())
+        raise ValueError(f"Unsupported protobuf value for BoolFeatureConverter: {pb_value}")
+
+    def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
+        scalar_value = value.as_py()
+        if scalar_value is None:
+            return pb.ScalarValue(null_value=pb.ArrowType(bool=pb.EmptyMessage()))
+        return pb.ScalarValue(bool_value=cast(bool, scalar_value))
+
+
+class Int64FeatureConverter(
+    _FeatureConverterArrowProtoHelpers,
+    _SpecializedFeatureConverterProperties[int, int],
+    FeatureConverter[int, int],
+):
+    _rich_type_value: ClassVar[Type[int]] = int
+    _primitive_type_value: ClassVar[Type[int]] = int
+    _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.int64()
+    _polars_dtype_value: ClassVar[Any] = pl.Int64() if pl is not None else None
+
+    _cache: ClassVar[Dict[Tuple[int | None | ellipsis, bool], "Int64FeatureConverter"]] = {}
+
+    @classmethod
+    def new(cls, default: int | None | ellipsis, is_nullable: bool) -> "Int64FeatureConverter":
+        key = (default, is_nullable)
+        cached = cls._cache.get(key)
+        if cached is not None:
+            return cached
+        inst = cls(default, is_nullable, _from_new=_FROM_NEW)
+        cls._cache[key] = inst
+        return inst
+
+    def __init__(self, default: int | None | ellipsis, is_nullable: bool, *, _from_new: object = None):
+        super().__init__()
+        if _from_new is not _FROM_NEW:
+            raise TypeError("Use Int64FeatureConverter.new() instead of calling the constructor directly")
+        self._is_nullable = is_nullable
+        if is_nullable and default is ...:
+            default = None
+        if default is not ...:
+            self._primitive_default: int | None | ellipsis
+            self._primitive_default = default
+            self._has_default = True
+            self._pyarrow_default: ellipsis | pa.Array | pa.ChunkedArray = pa.array([default], type=pa.int64())
+        else:
+            self._has_default = False
+            self._primitive_default = ...
+            self._pyarrow_default = ...
+
+    @property
+    def is_nullable(self) -> bool:
+        return self._is_nullable
+
+    @property
+    def has_default(self) -> bool:
+        return self._has_default
+
+    @property
+    def pyarrow_default(self) -> ellipsis | pa.Array | pa.ChunkedArray:
+        return self._pyarrow_default
+
+    @property
+    def primitive_default(self) -> int:
+        if self._primitive_default is ...:
+            raise ValueError("No default value specified")
+        return cast(int, self._primitive_default)
+
+    @property
+    def rich_default(self) -> int:
+        if self._primitive_default is ...:
+            raise ValueError("No default value specified")
+        return cast(int, self._primitive_default)
+
+    def has_nontrivial_rich_type(self) -> bool:
+        return False
+
+    def from_pyarrow_to_json(
+        self,
+        values: pa.Array | pa.ChunkedArray,
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> Sequence[TJSON]:
+        return values.to_pylist()
+
+    def from_pyarrow_to_primitive(self, values: Union[pa.Array, pa.ChunkedArray]) -> Sequence[int]:
+        return values.to_pylist()
+
+    def from_primitive_to_pyarrow(self, value: Iterable[int]) -> Union[pa.Array, pa.ChunkedArray]:
+        return pa.array([None if x is ... else x for x in value], type=pa.int64())
+
+    def from_primitive_to_json(
+        self,
+        value: TPrimitive,
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        return value
+
+    def from_json_to_pyarrow(self, values: Sequence[TJSON]) -> Union[pa.Array, pa.ChunkedArray]:
+        return pa.array(
+            [None if x is None or x is ... else int(cast(Any, x)) for x in values],
+            type=pa.int64(),
+        )
+
+    def from_json_to_primitive(self, value: TJSON | TPrimitive) -> int:
+        if value is None or value is ...:
+            return cast(int, None)
+        return int(cast(Any, value))
+
+    def is_value_missing(self, value: Any) -> bool:
+        if value is ...:
+            return True
+        if value is None:
+            return not self._is_nullable
+        return False
+
+    def from_primitive_to_protobuf(self, value: int | pa.Scalar) -> pb.ScalarValue:
+        scalar_value = _unwrap_scalar_value(value)
+        if scalar_value is None or scalar_value is ...:
+            return pb.ScalarValue(null_value=pb.ArrowType(int64=pb.EmptyMessage()))
+        return pb.ScalarValue(int64_value=cast(int, scalar_value))
+
+    def is_rich_valid(self, value: int) -> bool:
+        try:
+            pa.scalar(self.from_rich_to_primitive(value, "default_or_error"), type=pa.int64())
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    def from_rich_to_pyarrow(
+        self,
+        values: Sequence[int | ellipsis | None],
+        /,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> Union[pa.Array, pa.ChunkedArray]:
+        pa_values = [None if x is ... else (None if x is None else int(x)) for x in values]
+        if missing_value_strategy == "allow":
+            return pa.array(pa_values, type=pa.int64())
+        if missing_value_strategy == "default_or_allow":
+            if not self._has_default:
+                return pa.array(pa_values, type=pa.int64())
+            if self._is_nullable:
+                return pa.array(
+                    [self.primitive_default if x is ... else (None if x is None else int(x)) for x in values],
+                    type=pa.int64(),
+                )
+            return cast(
+                Union[pa.Array, pa.ChunkedArray],
+                pc.fill_null(pa.array(pa_values, type=pa.int64()), pa.scalar(self.primitive_default, type=pa.int64())),
+            )
+        if missing_value_strategy == "default_or_error":
+            if self._has_default:
+                if self._is_nullable:
+                    return pa.array(
+                        [self.primitive_default if x is ... else (None if x is None else int(x)) for x in values],
+                        type=pa.int64(),
+                    )
+                return cast(
+                    Union[pa.Array, pa.ChunkedArray],
+                    pc.fill_null(
+                        pa.array(pa_values, type=pa.int64()),
+                        pa.scalar(self.primitive_default, type=pa.int64()),
+                    ),
+                )
+            for x in values:
+                if x is ... or (x is None and not self._is_nullable):
+                    raise TypeError("The value is missing, and this feature has no default value.")
+            return pa.array(pa_values, type=pa.int64())
+        if missing_value_strategy == "error":
+            for x in values:
+                if x is ... or (x is None and not self._is_nullable):
+                    raise MissingValueError(
+                        "The value is missing, but `replace_missing_with_defaults` was set to `False`."
+                    )
+            return pa.array(pa_values, type=pa.int64())
+        _raise_unsupported_missing_value_strategy(missing_value_strategy)
+
+    def from_rich_to_protobuf(
+        self,
+        value: int | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> pb.ScalarValue:
+        prim = cast(int | None, self.from_rich_to_primitive(value, missing_value_strategy))
+        if prim is None:
+            return pb.ScalarValue(null_value=pb.ArrowType(int64=pb.EmptyMessage()))
+        if prim is ...:
+            return pb.ScalarValue(null_value=pb.ArrowType(int64=pb.EmptyMessage()))
+        return pb.ScalarValue(int64_value=prim)
+
+    def from_rich_to_primitive(
+        self,
+        value: int | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> int:
+        if value is ... or (value is None and not self._is_nullable):
+            if missing_value_strategy == "allow":
+                return cast(int, value)
+            elif missing_value_strategy == "default_or_error":
+                if self._has_default:
+                    return self.primitive_default
+                raise TypeError("The value is missing, and this feature has no default value.")
+            elif missing_value_strategy == "default_or_allow":
+                if self._has_default:
+                    return self.primitive_default
+                return cast(int, value)
+            elif missing_value_strategy == "error":
+                raise MissingValueError("The value is missing, but `replace_missing_with_defaults` was set to `False`.")
+            else:
+                _raise_unsupported_missing_value_strategy(missing_value_strategy)
+        if value is None:
+            return cast(int, None)
+        return int(cast(Any, value))
+
+    def from_rich_to_json(
+        self,
+        value: int | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        if value is ... or (value is None and not self._is_nullable):
+            if missing_value_strategy == "allow":
+                return cast(TJSON, value)
+            if missing_value_strategy == "default_or_error":
+                if self._has_default:
+                    return cast(TJSON, self.primitive_default)
+                raise TypeError("The value is missing, and this feature has no default value.")
+            if missing_value_strategy == "default_or_allow":
+                if self._has_default:
+                    return cast(TJSON, self.primitive_default)
+                return cast(TJSON, value)
+            if missing_value_strategy == "error":
+                raise MissingValueError("The value is missing, but `replace_missing_with_defaults` was set to `False`.")
+            _raise_unsupported_missing_value_strategy(missing_value_strategy)
+        if value is None:
+            return None
+        return int(cast(Any, value))
+
+    def from_pyarrow_to_rich(self, values: pa.Array | pa.ChunkedArray, /) -> Sequence[int]:
+        return values.to_pylist()
+
+    def from_primitive_to_rich(self, value: int | None) -> int:
+        if value is None:
+            return cast(int, None)
+        if value is ...:
+            return cast(int, ...)
+        return int(cast(Any, value))
+
+    def from_json_to_rich(self, value: TJSON) -> int:
+        if value is None:
+            return cast(int, None)
+        return int(cast(Any, value))
+
+    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
+        if pb_value.HasField("null_value"):
+            return pa.nulls(1, type=pa.int64())[0]
+        if pb_value.HasField("int64_value"):
+            return pa.scalar(pb_value.int64_value, pa.int64())
+        raise ValueError(f"Unsupported protobuf value for Int64FeatureConverter: {pb_value}")
+
+    def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
+        scalar_value = value.as_py()
+        if scalar_value is None:
+            return pb.ScalarValue(null_value=pb.ArrowType(int64=pb.EmptyMessage()))
+        return pb.ScalarValue(int64_value=cast(int, scalar_value))
+
+
+class Int32FeatureConverter(
+    _FeatureConverterArrowProtoHelpers,
+    _SpecializedFeatureConverterProperties[int, int],
+    FeatureConverter[int, int],
+):
+    _rich_type_value: ClassVar[Type[int]] = int
+    _primitive_type_value: ClassVar[Type[int]] = int
+    _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.int32()
+    _polars_dtype_value: ClassVar[Any] = pl.Int32() if pl is not None else None
+
+    _cache: ClassVar[Dict[Tuple[int | None | ellipsis, bool], "Int32FeatureConverter"]] = {}
+
+    @classmethod
+    def new(cls, default: int | None | ellipsis, is_nullable: bool) -> "Int32FeatureConverter":
+        key = (default, is_nullable)
+        cached = cls._cache.get(key)
+        if cached is not None:
+            return cached
+        inst = cls(default, is_nullable, _from_new=_FROM_NEW)
+        cls._cache[key] = inst
+        return inst
+
+    def __init__(self, default: int | None | ellipsis, is_nullable: bool, *, _from_new: object = None):
+        super().__init__()
+        if _from_new is not _FROM_NEW:
+            raise TypeError("Use Int32FeatureConverter.new() instead of calling the constructor directly")
+        self._is_nullable = is_nullable
+        if is_nullable and default is ...:
+            default = None
+        if default is not ...:
+            self._primitive_default: int | None | ellipsis
+            self._primitive_default = default
+            self._has_default = True
+            self._pyarrow_default: ellipsis | pa.Array | pa.ChunkedArray = pa.array([default], type=pa.int32())
+        else:
+            self._has_default = False
+            self._primitive_default = ...
+            self._pyarrow_default = ...
+
+    @property
+    def is_nullable(self) -> bool:
+        return self._is_nullable
+
+    @property
+    def has_default(self) -> bool:
+        return self._has_default
+
+    @property
+    def pyarrow_default(self) -> ellipsis | pa.Array | pa.ChunkedArray:
+        return self._pyarrow_default
+
+    @property
+    def primitive_default(self) -> int:
+        if self._primitive_default is ...:
+            raise ValueError("No default value specified")
+        return cast(int, self._primitive_default)
+
+    @property
+    def rich_default(self) -> int:
+        return self.primitive_default
+
+    def has_nontrivial_rich_type(self) -> bool:
+        return False
+
+    def from_pyarrow_to_json(
+        self,
+        values: pa.Array | pa.ChunkedArray,
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> Sequence[TJSON]:
+        return values.to_pylist()
+
+    def from_pyarrow_to_primitive(self, values: Union[pa.Array, pa.ChunkedArray]) -> Sequence[int]:
+        return values.to_pylist()
+
+    def from_primitive_to_pyarrow(self, value: Iterable[int]) -> Union[pa.Array, pa.ChunkedArray]:
+        return pa.array([None if x is ... else x for x in value], type=pa.int32())
+
+    def from_primitive_to_json(
+        self,
+        value: TPrimitive,
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        return value
+
+    def from_json_to_pyarrow(self, values: Sequence[TJSON]) -> Union[pa.Array, pa.ChunkedArray]:
+        return pa.array(
+            [None if x is None or x is ... else int(cast(Any, x)) for x in values],
+            type=pa.int32(),
+        )
+
+    def from_json_to_primitive(self, value: TJSON | TPrimitive) -> int:
+        if value is None:
+            return cast(int, None)
+        return int(cast(Any, value))
+
+    def is_value_missing(self, value: Any) -> bool:
+        if value is ...:
+            return True
+        if value is None:
+            return not self._is_nullable
+        return False
+
+    def from_primitive_to_protobuf(self, value: int | pa.Scalar) -> pb.ScalarValue:
+        scalar_value = _unwrap_scalar_value(value)
+        if scalar_value is None or scalar_value is ...:
+            return pb.ScalarValue(null_value=pb.ArrowType(int32=pb.EmptyMessage()))
+        return pb.ScalarValue(int32_value=cast(int, scalar_value))
+
+    def is_rich_valid(self, value: int) -> bool:
+        try:
+            pa.scalar(self.from_rich_to_primitive(value, "default_or_error"), type=pa.int32())
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    def from_rich_to_pyarrow(
+        self,
+        values: Sequence[int | ellipsis | None],
+        /,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> Union[pa.Array, pa.ChunkedArray]:
+        pa_values = [None if x is ... else (None if x is None else int(x)) for x in values]
+        if missing_value_strategy == "allow":
+            return pa.array(pa_values, type=pa.int32())
+        if missing_value_strategy == "default_or_allow":
+            if not self._has_default:
+                return pa.array(pa_values, type=pa.int32())
+            if self._is_nullable:
+                return pa.array(
+                    [self.primitive_default if x is ... else (None if x is None else int(x)) for x in values],
+                    type=pa.int32(),
+                )
+            return cast(
+                Union[pa.Array, pa.ChunkedArray],
+                pc.fill_null(pa.array(pa_values, type=pa.int32()), pa.scalar(self.primitive_default, type=pa.int32())),
+            )
+        if missing_value_strategy == "default_or_error":
+            if self._has_default:
+                if self._is_nullable:
+                    return pa.array(
+                        [self.primitive_default if x is ... else (None if x is None else int(x)) for x in values],
+                        type=pa.int32(),
+                    )
+                return cast(
+                    Union[pa.Array, pa.ChunkedArray],
+                    pc.fill_null(
+                        pa.array(pa_values, type=pa.int32()),
+                        pa.scalar(self.primitive_default, type=pa.int32()),
+                    ),
+                )
+            for x in values:
+                if x is ... or (x is None and not self._is_nullable):
+                    raise TypeError("The value is missing, and this feature has no default value.")
+            return pa.array(pa_values, type=pa.int32())
+        if missing_value_strategy == "error":
+            for x in values:
+                if x is ... or (x is None and not self._is_nullable):
+                    raise MissingValueError(
+                        "The value is missing, but `replace_missing_with_defaults` was set to `False`."
+                    )
+            return pa.array(pa_values, type=pa.int32())
+        _raise_unsupported_missing_value_strategy(missing_value_strategy)
+
+    def from_rich_to_protobuf(
+        self,
+        value: int | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> pb.ScalarValue:
+        prim = cast(int | None, self.from_rich_to_primitive(value, missing_value_strategy))
+        if prim is None or prim is ...:
+            return pb.ScalarValue(null_value=pb.ArrowType(int32=pb.EmptyMessage()))
+        return pb.ScalarValue(int32_value=prim)
+
+    def from_rich_to_primitive(
+        self,
+        value: int | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> int:
+        if value is ... or (value is None and not self._is_nullable):
+            if missing_value_strategy == "allow":
+                return cast(int, value)
+            elif missing_value_strategy == "default_or_error":
+                if self._has_default:
+                    return self.primitive_default
+                raise TypeError("The value is missing, and this feature has no default value.")
+            elif missing_value_strategy == "default_or_allow":
+                if self._has_default:
+                    return self.primitive_default
+                return cast(int, value)
+            elif missing_value_strategy == "error":
+                raise MissingValueError("The value is missing, but `replace_missing_with_defaults` was set to `False`.")
+            else:
+                _raise_unsupported_missing_value_strategy(missing_value_strategy)
+        if value is None:
+            return cast(int, None)
+        return int(cast(Any, value))
+
+    def from_rich_to_json(
+        self,
+        value: int | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        if value is ... or (value is None and not self._is_nullable):
+            if missing_value_strategy == "allow":
+                return cast(TJSON, value)
+            if missing_value_strategy == "default_or_error":
+                if self._has_default:
+                    return cast(TJSON, self.primitive_default)
+                raise TypeError("The value is missing, and this feature has no default value.")
+            if missing_value_strategy == "default_or_allow":
+                if self._has_default:
+                    return cast(TJSON, self.primitive_default)
+                return cast(TJSON, value)
+            if missing_value_strategy == "error":
+                raise MissingValueError("The value is missing, but `replace_missing_with_defaults` was set to `False`.")
+            _raise_unsupported_missing_value_strategy(missing_value_strategy)
+        if value is None:
+            return None
+        return int(cast(Any, value))
+
+    def from_pyarrow_to_rich(self, values: pa.Array | pa.ChunkedArray, /) -> Sequence[int]:
+        return values.to_pylist()
+
+    def from_primitive_to_rich(self, value: int | None) -> int:
+        if value is None or value is ...:
+            return cast(int, value)
+        return int(cast(Any, value))
+
+    def from_json_to_rich(self, value: TJSON) -> int:
+        if value is None:
+            return cast(int, None)
+        return int(cast(Any, value))
+
+    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
+        if pb_value.HasField("null_value"):
+            return pa.nulls(1, type=pa.int32())[0]
+        if pb_value.HasField("int32_value"):
+            return pa.scalar(pb_value.int32_value, pa.int32())
+        raise ValueError(f"Unsupported protobuf value for Int32FeatureConverter: {pb_value}")
+
+    def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
+        scalar_value = value.as_py()
+        if scalar_value is None:
+            return pb.ScalarValue(null_value=pb.ArrowType(int32=pb.EmptyMessage()))
+        return pb.ScalarValue(int32_value=cast(int, scalar_value))
+
+
+class StringFeatureConverter(
+    _FeatureConverterArrowProtoHelpers,
+    _SpecializedFeatureConverterProperties[str, str],
+    FeatureConverter[str, str],
+):
+    _rich_type_value: ClassVar[Type[str]] = str
+    _primitive_type_value: ClassVar[Type[str]] = str
+    _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.utf8()
+    _polars_dtype_value: ClassVar[Any] = pl.Utf8() if pl is not None else None
+
+    _cache: ClassVar[Dict[Tuple[str | None | ellipsis, bool], "StringFeatureConverter"]] = {}
+
+    @classmethod
+    def new(cls, default: str | None | ellipsis, is_nullable: bool) -> "StringFeatureConverter":
+        key = (default, is_nullable)
+        cached = cls._cache.get(key)
+        if cached is not None:
+            return cached
+        inst = cls(default, is_nullable, _from_new=_FROM_NEW)
+        cls._cache[key] = inst
+        return inst
+
+    def __init__(self, default: str | None | ellipsis, is_nullable: bool, *, _from_new: object = None):
+        super().__init__()
+        if _from_new is not _FROM_NEW:
+            raise TypeError("Use StringFeatureConverter.new() instead of calling the constructor directly")
+        self._is_nullable = is_nullable
+        if is_nullable and default is ...:
+            default = None
+        if default is not ...:
+            self._primitive_default: str | None | ellipsis
+            self._primitive_default = default
+            self._has_default = True
+            self._pyarrow_default: ellipsis | pa.Array | pa.ChunkedArray = pa.array([default], type=pa.utf8())
+        else:
+            self._has_default = False
+            self._primitive_default = ...
+            self._pyarrow_default = ...
+
+    @property
+    def is_nullable(self) -> bool:
+        return self._is_nullable
+
+    @property
+    def has_default(self) -> bool:
+        return self._has_default
+
+    @property
+    def pyarrow_default(self) -> ellipsis | pa.Array | pa.ChunkedArray:
+        return self._pyarrow_default
+
+    @property
+    def primitive_default(self) -> str:
+        if self._primitive_default is ...:
+            raise ValueError("No default value specified")
+        return cast(str, self._primitive_default)
+
+    @property
+    def rich_default(self) -> str:
+        return self.primitive_default
+
+    def has_nontrivial_rich_type(self) -> bool:
+        return False
+
+    def from_pyarrow_to_json(
+        self,
+        values: pa.Array | pa.ChunkedArray,
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> Sequence[TJSON]:
+        return values.to_pylist()
+
+    def from_pyarrow_to_primitive(self, values: Union[pa.Array, pa.ChunkedArray]) -> Sequence[str]:
+        return values.to_pylist()
+
+    def from_primitive_to_pyarrow(self, value: Iterable[str]) -> Union[pa.Array, pa.ChunkedArray]:
+        return pa.array([None if x is ... else x for x in value], type=pa.utf8())
+
+    def from_primitive_to_json(
+        self,
+        value: TPrimitive,
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        return value
+
+    def from_json_to_pyarrow(self, values: Sequence[TJSON]) -> Union[pa.Array, pa.ChunkedArray]:
+        return pa.array(
+            [None if x is None or x is ... else x for x in values],
+            type=pa.utf8(),
+        )
+
+    def from_json_to_primitive(self, value: TJSON | TPrimitive) -> str:
+        if value is None:
+            return cast(str, None)
+        return cast(str, value)
+
+    def is_value_missing(self, value: Any) -> bool:
+        if value is ...:
+            return True
+        if value is None:
+            return not self._is_nullable
+        return False
+
+    def from_primitive_to_protobuf(self, value: str | pa.Scalar) -> pb.ScalarValue:
+        scalar_value = _unwrap_scalar_value(value)
+        if scalar_value is None or scalar_value is ...:
+            return pb.ScalarValue(null_value=pb.ArrowType(utf8=pb.EmptyMessage()))
+        return pb.ScalarValue(utf8_value=cast(str, scalar_value))
+
+    def is_rich_valid(self, value: str) -> bool:
+        try:
+            pa.scalar(self.from_rich_to_primitive(value, "default_or_error"), type=pa.utf8())
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    def from_rich_to_pyarrow(
+        self,
+        values: Sequence[str | ellipsis | None],
+        /,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> Union[pa.Array, pa.ChunkedArray]:
+        pa_values = [None if x is ... else (None if x is None else str(x)) for x in values]
+        if missing_value_strategy == "allow":
+            return pa.array(pa_values, type=pa.utf8())
+        if missing_value_strategy == "default_or_allow":
+            if not self._has_default:
+                return pa.array(pa_values, type=pa.utf8())
+            if self._is_nullable:
+                return pa.array(
+                    [self.primitive_default if x is ... else (None if x is None else str(x)) for x in values],
+                    type=pa.utf8(),
+                )
+            return cast(
+                Union[pa.Array, pa.ChunkedArray],
+                pc.fill_null(pa.array(pa_values, type=pa.utf8()), pa.scalar(self.primitive_default, type=pa.utf8())),
+            )
+        if missing_value_strategy == "default_or_error":
+            if self._has_default:
+                if self._is_nullable:
+                    return pa.array(
+                        [self.primitive_default if x is ... else (None if x is None else str(x)) for x in values],
+                        type=pa.utf8(),
+                    )
+                return cast(
+                    Union[pa.Array, pa.ChunkedArray],
+                    pc.fill_null(
+                        pa.array(pa_values, type=pa.utf8()),
+                        pa.scalar(self.primitive_default, type=pa.utf8()),
+                    ),
+                )
+            for x in values:
+                if x is ... or (x is None and not self._is_nullable):
+                    raise TypeError("The value is missing, and this feature has no default value.")
+            return pa.array(pa_values, type=pa.utf8())
+        if missing_value_strategy == "error":
+            for x in values:
+                if x is ... or (x is None and not self._is_nullable):
+                    raise MissingValueError(
+                        "The value is missing, but `replace_missing_with_defaults` was set to `False`."
+                    )
+            return pa.array(pa_values, type=pa.utf8())
+        _raise_unsupported_missing_value_strategy(missing_value_strategy)
+
+    def from_rich_to_protobuf(
+        self,
+        value: str | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> pb.ScalarValue:
+        prim = cast(str | None, self.from_rich_to_primitive(value, missing_value_strategy))
+        if prim is None:
+            return pb.ScalarValue(null_value=pb.ArrowType(utf8=pb.EmptyMessage()))
+        return pb.ScalarValue(utf8_value=prim)
+
+    def from_rich_to_primitive(
+        self,
+        value: str | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> str:
+        if value is ... or (value is None and not self._is_nullable):
+            if missing_value_strategy == "allow":
+                return cast(str, value)
+            elif missing_value_strategy == "default_or_error":
+                if self._has_default:
+                    return self.primitive_default
+                raise TypeError("The value is missing, and this feature has no default value.")
+            elif missing_value_strategy == "default_or_allow":
+                if self._has_default:
+                    return self.primitive_default
+                return cast(str, value)
+            elif missing_value_strategy == "error":
+                raise MissingValueError("The value is missing, but `replace_missing_with_defaults` was set to `False`.")
+            else:
+                _raise_unsupported_missing_value_strategy(missing_value_strategy)
+        if value is None:
+            return cast(str, None)
+        return str(value)
+
+    def from_rich_to_json(
+        self,
+        value: str | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        if value is ... or (value is None and not self._is_nullable):
+            if missing_value_strategy == "allow":
+                return cast(TJSON, value)
+            if missing_value_strategy == "default_or_error":
+                if self._has_default:
+                    return cast(TJSON, self.primitive_default)
+                raise TypeError("The value is missing, and this feature has no default value.")
+            if missing_value_strategy == "default_or_allow":
+                if self._has_default:
+                    return cast(TJSON, self.primitive_default)
+                return cast(TJSON, value)
+            if missing_value_strategy == "error":
+                raise MissingValueError("The value is missing, but `replace_missing_with_defaults` was set to `False`.")
+            _raise_unsupported_missing_value_strategy(missing_value_strategy)
+        if value is None:
+            return None
+        return str(value)
+
+    def from_pyarrow_to_rich(self, values: pa.Array | pa.ChunkedArray, /) -> Sequence[str]:
+        return values.to_pylist()
+
+    def from_primitive_to_rich(self, value: str | None) -> str:
+        if value is None:
+            return cast(str, None)
+        return str(value)
+
+    def from_json_to_rich(self, value: TJSON) -> str:
+        if value is None:
+            return cast(str, None)
+        return str(value)
+
+    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
+        if pb_value.HasField("null_value"):
+            return pa.nulls(1, type=pa.utf8())[0]
+        if pb_value.HasField("utf8_value"):
+            return pa.scalar(pb_value.utf8_value, pa.utf8())
+        raise ValueError(f"Unsupported protobuf value for StringFeatureConverter: {pb_value}")
+
+    def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
+        scalar_value = value.as_py()
+        if scalar_value is None:
+            return pb.ScalarValue(null_value=pb.ArrowType(utf8=pb.EmptyMessage()))
+        return pb.ScalarValue(utf8_value=cast(str, scalar_value))
+
+
+def _build_to_primitive_converter(typ: type) -> "Callable[[Any], Any] | None":
+    """Return a closure that converts a value of *typ* to its primitive form, or ``None`` if
+    the type is already primitive (no conversion needed).
+
+    Handles arbitrary nesting: dataclasses, ``list[T]``, and combinations thereof.
+    ``Optional[T]`` / ``Annotated[T, ...]`` wrappers are stripped before dispatch.
+    """
+    inner = unwrap_optional_and_annotated_if_needed(typ)
+
+    if _dataclasses.is_dataclass(inner) and isinstance(inner, type):
+        return _build_dc_to_dict(inner)
+
+    origin = get_origin(inner)
+    if origin in (list, List):
+        args = get_args(inner)
+        if args:
+            item_conv = _build_to_primitive_converter(args[0])
+            if item_conv is not None:
+                return lambda lst, _c=item_conv: None if lst is None else [_c(x) for x in lst]
+
+    return None
+
+
+def _build_to_rich_converter(typ: type) -> "Callable[[Any], Any] | None":
+    """Return a closure that converts a primitive value back to *typ*, or ``None`` if
+    the type is already primitive (no conversion needed).
+
+    Mirrors :func:`_build_to_primitive_converter` in the reverse direction.
+    """
+    inner = unwrap_optional_and_annotated_if_needed(typ)
+
+    if _dataclasses.is_dataclass(inner) and isinstance(inner, type):
+        return _build_dict_to_dc(inner)
+
+    origin = get_origin(inner)
+    if origin in (list, List):
+        args = get_args(inner)
+        if args:
+            item_conv = _build_to_rich_converter(args[0])
+            if item_conv is not None:
+                return lambda lst, _c=item_conv: None if lst is None else [_c(x) for x in lst]
+
+    return None
+
+
+def _build_dc_to_dict(dc_class: type) -> "Callable[[Any], Any]":
+    """Build a converter from a dataclass instance to a plain dict.
+
+    Uses :func:`_build_to_primitive_converter` for each field, so nested
+    dataclasses, ``list[dataclass]``, and any combination are handled recursively.
+    Primitive fields are read directly from ``v.__dict__`` with no extra calls.
+    """
+    import typing as _typing_mod
+
+    field_names: tuple[str, ...] = tuple(f.name for f in _dataclasses.fields(dc_class))
+    hints = _typing_mod.get_type_hints(dc_class)
+
+    sub: dict[str, Callable] = {
+        name: conv for name in field_names if (conv := _build_to_primitive_converter(hints[name])) is not None
+    }
+
+    null_prim: dict = {f: None for f in field_names}
+
+    if not sub:
+
+        def _convert_flat(v: Any) -> Any:
+            if v is None:
+                return null_prim
+            if v is ...:
+                return v
+            # Assume v is a dataclass or dict
+            d = getattr(v, "__dict__", v)
+            return {f: d[f] for f in field_names}
+
+        return _convert_flat
+    else:
+
+        def _convert_nested(v: Any) -> Any:
+            if v is None:
+                return {f: sub[f](None) if f in sub else None for f in field_names}
+            # Assume v is a dataclass or dict
+            d = getattr(v, "__dict__", v)
+            return {f: sub[f](d[f]) if f in sub else d[f] for f in field_names}
+
+        return _convert_nested
+
+
+def _build_dict_to_dc(dc_class: type) -> "Callable[[Any], Any]":
+    """Build a converter from a plain dict back to a dataclass instance.
+
+    Uses :func:`_build_to_rich_converter` for each field, mirroring
+    :func:`_build_dc_to_dict` in the reverse direction.
+    """
+    import typing as _typing_mod
+
+    field_names: tuple[str, ...] = tuple(f.name for f in _dataclasses.fields(dc_class))
+    hints = _typing_mod.get_type_hints(dc_class)
+
+    sub: dict[str, Callable] = {
+        name: conv for name in field_names if (conv := _build_to_rich_converter(hints[name])) is not None
+    }
+
+    if not sub:
+
+        def _reconstruct_flat(d: Any) -> Any:
+            if d is None:
+                return dc_class(*[None] * len(field_names))
+            if isinstance(d, dc_class):
+                return d
+            return dc_class(**d)
+
+        return _reconstruct_flat
+    else:
+
+        def _reconstruct_nested(d: Any) -> Any:
+            if d is None:
+                return dc_class(**{f: sub[f](None) if f in sub else None for f in field_names})
+            if isinstance(d, dc_class):
+                return d
+            return dc_class(**{f: sub[f](d[f]) if f in sub else d[f] for f in field_names})
+
+        return _reconstruct_nested
+
+
+class DataclassFeatureConverter(
+    _FeatureConverterArrowProtoHelpers,
+    FeatureConverter["dict[str, Any]", Any],
+):
+    """Full :class:`FeatureConverter` for a single dataclass (struct) element.
+
+    Rich type:      T (a dataclass)
+    Primitive type: dict[str, Any]
+    PyArrow type:   pa.struct([...])
+
+    Also serves as the ``item_converter`` for :class:`ListConverter`.  Use
+    :meth:`for_class` to get a cached instance suitable for that purpose.
+    """
+
+    _cache: ClassVar[Dict[Tuple[type, Any, bool], "DataclassFeatureConverter"]] = {}
+
+    @classmethod
+    def for_class(cls, dc_class: type) -> "DataclassFeatureConverter":
+        """Return a cached ``DataclassConverter`` (``is_nullable=True``, no default).
+
+        Suitable for use as the ``item_converter`` in :class:`ListConverter`.
+        """
+        return cls.new(dc_class, ..., is_nullable=True)
+
+    @classmethod
+    def new(
+        cls,
+        dc_class: type,
+        default: "Any | ellipsis",
+        is_nullable: bool,
+    ) -> "DataclassFeatureConverter":
+        """Factory with caching for simple defaults (``None`` / ``...``)."""
+        if default is None or default is ...:
+            key = (dc_class, default, is_nullable)
+            cached = cls._cache.get(key)
+            if cached is not None:
+                return cached
+            inst = cls(dc_class, default, is_nullable, _from_new=_FROM_NEW)
+            cls._cache[key] = inst
+            return inst
+        return cls(dc_class, default, is_nullable, _from_new=_FROM_NEW)
+
+    def __init__(
+        self,
+        dc_class: type,
+        default: "Any | ellipsis",
+        is_nullable: bool,
+        *,
+        _from_new: object = None,
+    ) -> None:
+        super().__init__()
+        if _from_new is not _FROM_NEW:
+            raise TypeError("Use DataclassConverter.new() or DataclassConverter.for_class() instead")
+        self._dc_class = dc_class
+        self._is_nullable = is_nullable
+
+        import typing as _typing_mod
+
+        field_names: tuple[str, ...] = tuple(f.name for f in _dataclasses.fields(dc_class))
+        hints = _typing_mod.get_type_hints(dc_class)
+        struct_fields = [pa.field(name, rich_to_pyarrow(hints[name], name)) for name in field_names]
+        self._pa_struct_type: pa.DataType = pa.struct(struct_fields)
+        self._primitive_type = pyarrow_to_primitive(self._pa_struct_type, "")
+        self._rich_to_prim: Callable[[Any], Any] = _build_dc_to_dict(dc_class)
+        self._prim_to_rich: Callable[[Any], Any] = _build_dict_to_dc(dc_class)
+        # Null primitive: a dict with every field set to None — used when a None rich value
+        # is received.  GenericFeatureConverter converts None to this form for struct types
+        # (None is never "missing" for structs), and we must match that behaviour.
+        self._null_prim: dict = {name: None for name in field_names}
+
+        # Columnar PyArrow path: per-field sub-converters used by _to_pyarrow_flat /
+        # _from_pyarrow_flat to avoid building intermediate Python dicts per element.
+        self._field_names = field_names
+        self._struct_fields_list = struct_fields  # list[pa.Field] in field order
+        self._sub_dc_converters: Dict[str, "DataclassFeatureConverter"] = {}
+        self._field_prim_convs: Dict[str, Callable[[Any], Any]] = {}
+        self._field_rich_convs: Dict[str, Callable[[Any], Any]] = {}
+        for _fname in field_names:
+            _inner_t = unwrap_optional_and_annotated_if_needed(hints[_fname])
+            if _dataclasses.is_dataclass(_inner_t) and isinstance(_inner_t, type):
+                self._sub_dc_converters[_fname] = DataclassFeatureConverter.for_class(_inner_t)
+            else:
+                _to_prim = _build_to_primitive_converter(hints[_fname])
+                _to_rich = _build_to_rich_converter(hints[_fname])
+                if _to_prim is not None:
+                    self._field_prim_convs[_fname] = _to_prim
+                if _to_rich is not None:
+                    self._field_rich_convs[_fname] = _to_rich
+
+        if is_nullable and default is ...:
+            default = None
+        if default is not ...:
+            self._has_default = True
+            self._rich_default_val: Any = default
+            if default is None:
+                self._primitive_default: "dict | None | ellipsis" = None
+                self._pyarrow_default: "ellipsis | pa.Array | pa.ChunkedArray" = pa.array(
+                    [None], type=self._pa_struct_type
+                )
+            else:
+                prim = self._rich_to_prim(default)
+                self._primitive_default = prim
+                self._pyarrow_default = pa.array([prim], type=self._pa_struct_type)
+        else:
+            self._has_default = False
+            self._primitive_default = ...
+            self._rich_default_val = None
+            self._pyarrow_default = ...
+
+    # ── columnar PyArrow helpers ──────────────────────────────────────────────
+
+    def _to_pyarrow_flat(self, instances: list) -> "pa.StructArray":
+        """Convert a flat list of dataclass instances → pa.StructArray (columnar).
+
+        *instances* may contain ``None`` entries (e.g. ``None`` list elements or
+        ``Optional[SubDC]`` fields set to ``None``).  Following
+        :class:`GenericFeatureConverter`, ``None`` is treated as a valid struct
+        whose fields are all ``null`` — NOT as a null struct.  This means the
+        rich→pyarrow→rich round-trip is intentionally lossy for ``None`` instances:
+        ``None`` decodes back as ``DC(None, None, …)``.
+        """
+        if not instances:
+            return pa.array([], type=self._pa_struct_type)
+        arrays: list = []
+        for pa_field in self._struct_fields_list:
+            fname = pa_field.name
+            col = [None if inst is None else getattr(inst, "__dict__", inst)[fname] for inst in instances]
+            if fname in self._sub_dc_converters:
+                arrays.append(self._sub_dc_converters[fname]._to_pyarrow_flat(col))
+            elif fname in self._field_prim_convs:
+                prim_conv = self._field_prim_convs[fname]
+                arrays.append(pa.array([None if x is None else prim_conv(x) for x in col], type=pa_field.type))
+            else:
+                arrays.append(pa.array(col, type=pa_field.type))
+        return pa.StructArray.from_arrays(arrays, fields=self._struct_fields_list)
+
+    def _from_pyarrow_flat(self, struct_arr: "pa.StructArray") -> list:
+        """Convert a pa.StructArray → list of dataclass instances (columnar).
+
+        Null struct rows (validity bit False) are returned as ``None``, preserving
+        the distinction between a null struct and a struct whose fields are all null.
+        """
+        n = len(struct_arr)
+        if n == 0:
+            return []
+        valid = struct_arr.is_valid().to_pylist()
+        has_nulls = not all(valid)
+        field_data: list[list] = []
+        for pa_field in self._struct_fields_list:
+            fname = pa_field.name
+            col = struct_arr.field(fname)
+            if fname in self._sub_dc_converters:
+                field_data.append(self._sub_dc_converters[fname]._from_pyarrow_flat(col))
+            elif fname in self._field_rich_convs:
+                rich_conv = self._field_rich_convs[fname]
+                field_data.append([rich_conv(x) for x in col.to_pylist()])
+            else:
+                field_data.append(col.to_pylist())
+        dc = self._dc_class
+        n_fields = len(field_data)
+        if has_nulls:
+            return [None if not valid[i] else dc(*[field_data[fi][i] for fi in range(n_fields)]) for i in range(n)]
+        return [dc(*row) for row in zip(*field_data)]
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _handle_missing(self, value: Any, missing_value_strategy: MissingValueStrategy) -> Any:
+        if missing_value_strategy == "allow":
+            return value
+        if missing_value_strategy in ("default_or_allow", "default_or_error"):
+            if self._has_default:
+                return self.primitive_default
+            if missing_value_strategy == "default_or_error":
+                raise TypeError("The value is missing, and this feature has no default value.")
+            return value
+        if missing_value_strategy == "error":
+            raise MissingValueError("The value is missing, but `replace_missing_with_defaults` was set to `False`.")
+        _raise_unsupported_missing_value_strategy(missing_value_strategy)
+
+    # ── properties ───────────────────────────────────────────────────────────
+
+    @property
+    def rich_type(self) -> type:
+        return self._dc_class
+
+    @property
+    def primitive_type(self) -> type:
+        return dict
+
+    @property
+    def pyarrow_dtype(self) -> pa.DataType:
+        return self._pa_struct_type
+
+    @property
+    def polars_dtype(self) -> Any:
+        return pyarrow_to_polars(self._pa_struct_type)
+
+    @property
+    def encoder(self) -> None:
+        return None
+
+    @property
+    def decoder(self) -> None:
+        return None
+
+    @property
+    def is_nullable(self) -> bool:
+        return self._is_nullable
+
+    @property
+    def has_default(self) -> bool:
+        return self._has_default
+
+    @property
+    def pyarrow_default(self) -> "ellipsis | pa.Array | pa.ChunkedArray":
+        return self._pyarrow_default
+
+    @property
+    def primitive_default(self) -> "dict | None":
+        if self._primitive_default is ...:
+            raise ValueError("No default value specified")
+        return cast("dict | None", self._primitive_default)
+
+    @property
+    def rich_default(self) -> Any:
+        if not self._has_default:
+            raise ValueError("No default value specified")
+        return self._rich_default_val
+
+    def has_nontrivial_rich_type(self) -> bool:
+        return True
+
+    # ── missing-value helpers ─────────────────────────────────────────────────
+
+    def is_value_missing(self, value: Any) -> bool:
+        if value is ...:
+            return True
+        # None is never "missing" for struct types — it converts to an all-null struct.
+        # This matches GenericFeatureConverter.is_value_missing behaviour.
+        return False
+
+    def is_rich_valid(self, value: Any) -> bool:
+        try:
+            self.from_rich_to_primitive(value, "default_or_error")
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    # ── rich ↔ primitive ─────────────────────────────────────────────────────
+
+    def from_rich_to_primitive(
+        self,
+        value: "Any | ellipsis | None",
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> "dict | None":
+        if value is ...:
+            return cast("dict | None", self._handle_missing(value, missing_value_strategy))
+        if value is None:
+            # None → all-null struct dict, matching GenericFeatureConverter semantics.
+            return self._null_prim
+        if not isinstance(value, self._dc_class):
+            # Coerce non-dataclass inputs (e.g. tuples, dicts) to the rich type first,
+            # matching GenericFeatureConverter which calls from_primitive_to_rich before encoding.
+            value = structure_primitive_to_rich(value, self._dc_class)
+        return self._rich_to_prim(value)
+
+    def from_primitive_to_rich(self, value: "dict | None") -> Any:
+        if value is None or value is ...:
+            return cast(Any, value)
+        return self._prim_to_rich(value)
+
+    # ── primitive ↔ pyarrow ───────────────────────────────────────────────────
+
+    def from_pyarrow_to_primitive(self, values: "pa.Array | pa.ChunkedArray") -> "Sequence[dict | None]":
+        return values.to_pylist()
+
+    def from_primitive_to_pyarrow(self, values: "Iterable[dict | None]") -> "pa.Array | pa.ChunkedArray":
+        return pa.array(
+            [None if v is ... else v for v in values],
+            type=self._pa_struct_type,
+        )
+
+    def from_pyarrow_to_rich(self, values: "pa.Array | pa.ChunkedArray", /) -> "Sequence[Any]":
+        return [self._prim_to_rich(v) for v in values.to_pylist()]
+
+    def from_rich_to_pyarrow(
+        self,
+        values: "Sequence[Any | ellipsis | None]",
+        /,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> "pa.Array | pa.ChunkedArray":
+        converted: list = []
+        for v in values:
+            if v is ...:
+                result = self._handle_missing(v, missing_value_strategy)
+                converted.append(None if result is ... else cast(Any, result))
+            elif v is None:
+                # None → all-null struct dict, matching GenericFeatureConverter semantics.
+                converted.append(self._null_prim)
+            else:
+                if not isinstance(v, self._dc_class):
+                    v = structure_primitive_to_rich(v, self._dc_class)
+                converted.append(self._rich_to_prim(v))
+        return pa.array(converted, type=self._pa_struct_type)
+
+    # ── json ↔ * ──────────────────────────────────────────────────────────────
+
+    def from_pyarrow_to_json(
+        self,
+        values: "pa.Array | pa.ChunkedArray",
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> "Sequence[TJSON]":
+        return [self.from_primitive_to_json(x, options=options) for x in self.from_pyarrow_to_primitive(values)]
+
+    def from_json_to_pyarrow(self, values: "Sequence[TJSON]") -> "pa.Array | pa.ChunkedArray":
+        return self.from_primitive_to_pyarrow([self.from_json_to_primitive(x) for x in values])
+
+    def from_primitive_to_json(
+        self,
+        value: "dict | None",
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        if options.encode_structs_as_objects or is_map_in_dtype_tree(self._pa_struct_type):
+            return structs_as_objects_feature_json_converter.unstructure_primitive_to_json(value)
+        return unstructure_primitive_to_json(value)
+
+    def from_json_to_primitive(self, value: "TJSON | dict | None") -> "dict | None":
+        if value is None:
+            return None
+        try:
+            return cast(dict, structure_json_to_primitive(value, self._primitive_type))
+        except (ValueError, TypeError) as e:
+            raise TypeError(f"Could not convert '{value}' to `{self._primitive_type}`: {e}") from e
+
+    def from_json_to_rich(self, value: TJSON) -> Any:
+        if value is None:
+            return None
+        prim = self.from_json_to_primitive(value)
+        if prim is None:
+            return None
+        return self._prim_to_rich(prim)
+
+    def from_rich_to_json(
+        self,
+        value: "Any | ellipsis | None",
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        prim = self.from_rich_to_primitive(value, missing_value_strategy)
+        return self.from_primitive_to_json(cast("dict | None", prim), options=options)
+
+    # ── protobuf ↔ * ─────────────────────────────────────────────────────────
+
+    def from_rich_to_protobuf(
+        self,
+        value: "Any | ellipsis | None",
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> pb.ScalarValue:
+        prim = self.from_rich_to_primitive(value, missing_value_strategy)
+        return self.from_primitive_to_protobuf(prim)
+
+    def from_primitive_to_protobuf(self, value: "dict | None | pa.Scalar") -> pb.ScalarValue:
+        if isinstance(value, pa.Scalar):
+            return self.from_pyarrow_to_protobuf(value)
+        as_arr = self.from_primitive_to_pyarrow([value])
+        return self.from_pyarrow_to_protobuf(as_arr[0])
+
+    def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
+        if value.as_py() is None:
+            return pb.ScalarValue(null_value=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(value.type))
+        # PrimitiveFeatureConverter handles all scalar types (including nested structs) recursively
+        return PrimitiveFeatureConverter("", True, self._pa_struct_type).from_pyarrow_to_protobuf(value)
+
+    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
+        if pb_value.HasField("null_value"):
+            return pa.nulls(1, type=self._pa_struct_type)[0]
+        return PrimitiveFeatureConverter("", True, self._pa_struct_type).from_protobuf_to_pyarrow(pb_value)
+
+
+class ListFeatureConverter(
+    _FeatureConverterArrowProtoHelpers,
+    FeatureConverter[list, list],
+):
+    """List-level feature converter parameterized by an item :class:`FeatureConverter`.
+
+    Rich type:      list[T]
+    Primitive type: list[primitive(T)]
+    PyArrow type:   pa.large_list(item_converter.pyarrow_dtype)
+
+    Use :meth:`new` to obtain a (possibly cached) instance.  For list[dataclass]
+    features, pair with :class:`DataclassConverter` as the ``item_converter``.
+    """
+
+    _cache: ClassVar[Dict[Tuple[Any, Any, bool], "ListFeatureConverter"]] = {}
+
+    @classmethod
+    def new(
+        cls,
+        item_converter: FeatureConverter,
+        default: "list | None | ellipsis",
+        is_nullable: bool,
+    ) -> "ListFeatureConverter":
+        # Cache only for simple defaults since lists are not hashable.
+        # item_converter instances are cached themselves (e.g. DataclassConverter.for_class),
+        # so using object identity as the key is stable.
+        if default is None or default is ...:
+            key = (item_converter, default, is_nullable)
+            cached = cls._cache.get(key)
+            if cached is not None:
+                return cached
+            inst = cls(item_converter, default, is_nullable)
+            cls._cache[key] = inst
+            return inst
+        return cls(item_converter, default, is_nullable)
+
+    def __init__(
+        self,
+        item_converter: FeatureConverter,
+        default: "list | None | ellipsis",
+        is_nullable: bool,
+    ) -> None:
+        super().__init__()
+        self._item = item_converter
+        self._is_nullable = is_nullable
+        self._pa_list_type: pa.DataType = pa.large_list(item_converter.pyarrow_dtype)
+        # Store the element-level closures directly to avoid method-dispatch overhead
+        # in _to_primitive / _to_rich.  ListConverter guarantees it only calls these
+        # with non-None, non-... values (missing values are handled at the list level).
+        if isinstance(item_converter, DataclassFeatureConverter):
+            self._elem_to_prim: Callable[[Any], Any] = (
+                item_converter._rich_to_prim  # pyright: ignore[reportPrivateUsage]
+            )
+            self._elem_to_rich: Callable[[Any], Any] = (
+                item_converter._prim_to_rich  # pyright: ignore[reportPrivateUsage]
+            )
+        elif not item_converter.has_nontrivial_rich_type():
+            # Primitive types (bool, int, str, …): rich IS primitive — no conversion needed.
+            self._elem_to_prim = _identity
+            self._elem_to_rich = _identity
+        else:
+            self._elem_to_prim = item_converter.from_rich_to_primitive
+            self._elem_to_rich = item_converter.from_primitive_to_rich
+        self._primitive_type = pyarrow_to_primitive(self._pa_list_type, "")
+
+        if is_nullable and default is ...:
+            default = None
+        if default is not ...:
+            self._has_default = True
+            self._rich_default_val: "list | None" = cast("list | None", default)
+            if default is None:
+                self._primitive_default: "list | None | ellipsis" = None
+                self._pyarrow_default: "ellipsis | pa.Array | pa.ChunkedArray" = pa.array(
+                    [None], type=self._pa_list_type
+                )
+            else:
+                prim = self._to_primitive(default)
+                self._primitive_default = prim
+                self._pyarrow_default = pa.array([prim], type=self._pa_list_type)
+        else:
+            self._has_default = False
+            self._primitive_default = ...
+            self._rich_default_val = None
+            self._pyarrow_default = ...
+
+    # ── helpers ──────────────────────────────────────────────────────────────
+
+    def _to_primitive(self, value: list) -> "list[Any]":
+        """Convert list[T] → list[primitive] via the element closure."""
+        conv = self._elem_to_prim
+        return [conv(v) for v in value]
+
+    def _to_rich(self, value: "list[Any]") -> list:
+        """Convert list[primitive] → list[T] via the element closure."""
+        conv = self._elem_to_rich
+        return [conv(d) for d in value]
+
+    def _handle_missing(self, value: Any, missing_value_strategy: MissingValueStrategy) -> Any:
+        if missing_value_strategy == "allow":
+            return value
+        if missing_value_strategy in ("default_or_allow", "default_or_error"):
+            if self._has_default:
+                return self.primitive_default
+            if missing_value_strategy == "default_or_error":
+                raise TypeError("The value is missing, and this feature has no default value.")
+            return value
+        if missing_value_strategy == "error":
+            raise MissingValueError("The value is missing, but `replace_missing_with_defaults` was set to `False`.")
+        _raise_unsupported_missing_value_strategy(missing_value_strategy)
+
+    # ── properties ───────────────────────────────────────────────────────────
+
+    @property
+    def rich_type(self) -> Type[list]:
+        return list
+
+    @property
+    def primitive_type(self) -> Type[list]:
+        return list
+
+    @property
+    def pyarrow_dtype(self) -> pa.DataType:
+        return self._pa_list_type
+
+    @property
+    def polars_dtype(self) -> Any:
+        return pyarrow_to_polars(self._pa_list_type)
+
+    @property
+    def encoder(self) -> None:
+        return None
+
+    @property
+    def decoder(self) -> None:
+        return None
+
+    @property
+    def is_nullable(self) -> bool:
+        return self._is_nullable
+
+    @property
+    def has_default(self) -> bool:
+        return self._has_default
+
+    @property
+    def pyarrow_default(self) -> ellipsis | pa.Array | pa.ChunkedArray:
+        return self._pyarrow_default
+
+    @property
+    def primitive_default(self) -> list | None:
+        if self._primitive_default is ...:
+            raise ValueError("No default value specified")
+        return cast(list | None, self._primitive_default)
+
+    @property
+    def rich_default(self) -> list | None:
+        if not self._has_default:
+            raise ValueError("No default value specified")
+        return self._rich_default_val
+
+    def has_nontrivial_rich_type(self) -> bool:
+        # The list type is trivial iff its element type is trivial (e.g. list[int], list[str]).
+        return self._item.has_nontrivial_rich_type()
+
+    # ── missing-value helpers ─────────────────────────────────────────────────
+
+    def is_value_missing(self, value: Any) -> bool:
+        if value is ...:
+            return True
+        if value is None:
+            return not self._is_nullable
+        return False
+
+    def is_rich_valid(self, value: list) -> bool:
+        try:
+            self.from_rich_to_primitive(value, "default_or_error")
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    # ── rich ↔ primitive ─────────────────────────────────────────────────────
+
+    def from_rich_to_primitive(
+        self,
+        value: list | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> list | None:
+        if value is ... or (value is None and not self._is_nullable):
+            return cast(list | None, self._handle_missing(value, missing_value_strategy))
+        if value is None:
+            return None
+        return self._to_primitive(value)
+
+    def from_primitive_to_rich(self, value: list | None) -> list | None:
+        if value is None or value is ...:
+            return cast(list | None, value)
+        return self._to_rich(value)
+
+    # ── primitive ↔ pyarrow ───────────────────────────────────────────────────
+
+    def from_pyarrow_to_primitive(self, values: pa.Array | pa.ChunkedArray) -> Sequence[list | None]:
+        return values.to_pylist()
+
+    def from_primitive_to_pyarrow(self, values: Iterable[list | None]) -> pa.Array | pa.ChunkedArray:
+        return pa.array(
+            [None if v is None or v is ... else v for v in values],
+            type=self._pa_list_type,
+        )
+
+    def from_pyarrow_to_rich(self, values: pa.Array | pa.ChunkedArray, /) -> Sequence[list | None]:
+        if not isinstance(self._item, DataclassFeatureConverter):
+            return [None if v is None else self._to_rich(v) for v in values.to_pylist()]
+        # Columnar path: avoid materialising N intermediate Python dicts via to_pylist()
+        if isinstance(values, pa.ChunkedArray):
+            values = values.combine_chunks()
+        flat_struct = values.values  # pa.StructArray backing all list elements
+        flat_rich = self._item._from_pyarrow_flat(flat_struct)  # pyright: ignore[reportPrivateUsage]
+        offsets = values.offsets.to_pylist()
+        valid = values.is_valid().to_pylist()
+        result: list = []
+        for i in range(len(offsets) - 1):
+            result.append(flat_rich[offsets[i] : offsets[i + 1]] if valid[i] else None)
+        return result
+
+    def from_rich_to_pyarrow(
+        self,
+        values: Sequence[list | ellipsis | None],
+        /,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> pa.Array | pa.ChunkedArray:
+        if not isinstance(self._item, DataclassFeatureConverter):
+            converted: list[list | None] = []
+            for v in values:
+                if v is ... or (v is None and not self._is_nullable):
+                    result = self._handle_missing(v, missing_value_strategy)
+                    converted.append(None if result is ... else cast(Any, result))
+                elif v is None:
+                    converted.append(None)
+                else:
+                    converted.append(self._to_primitive(v))
+            return pa.array(converted, type=self._pa_list_type)
+
+        # Columnar path: build a flat StructArray + offsets instead of N intermediate dicts
+        flat_elems: list = []
+        offsets: list[int] = [0]
+        null_flags: list[bool] = []
+        has_nulls = False
+        for v in values:
+            if v is ... or (v is None and not self._is_nullable):
+                res = self._handle_missing(v, missing_value_strategy)
+                if res is ... or res is None:
+                    null_flags.append(True)
+                    offsets.append(offsets[-1])
+                    has_nulls = True
+                else:
+                    # res is a primitive list from a non-None default; convert to rich
+                    rich_res = self._to_rich(cast(list, res))
+                    null_flags.append(False)
+                    flat_elems.extend(rich_res)
+                    offsets.append(offsets[-1] + len(rich_res))
+            elif v is None:
+                null_flags.append(True)
+                offsets.append(offsets[-1])
+                has_nulls = True
+            else:
+                null_flags.append(False)
+                flat_elems.extend(v)
+                offsets.append(offsets[-1] + len(v))
+        flat_struct = self._item._to_pyarrow_flat(flat_elems)  # pyright: ignore[reportPrivateUsage]
+        offsets_arr = pa.array(offsets, type=pa.int64())
+        if has_nulls:
+            return pa.LargeListArray.from_arrays(offsets_arr, flat_struct, mask=pa.array(null_flags))
+        return pa.LargeListArray.from_arrays(offsets_arr, flat_struct)
+
+    # ── json ↔ * ──────────────────────────────────────────────────────────────
+
+    def from_pyarrow_to_json(
+        self,
+        values: pa.Array | pa.ChunkedArray,
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> Sequence[TJSON]:
+        return [self.from_primitive_to_json(x, options=options) for x in self.from_pyarrow_to_primitive(values)]
+
+    def from_json_to_pyarrow(self, values: Sequence[TJSON]) -> pa.Array | pa.ChunkedArray:
+        return self.from_primitive_to_pyarrow([self.from_json_to_primitive(x) for x in values])
+
+    def from_primitive_to_json(
+        self,
+        value: list | None,
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        if options.encode_structs_as_objects or is_map_in_dtype_tree(self._pa_list_type):
+            return structs_as_objects_feature_json_converter.unstructure_primitive_to_json(value)
+        return unstructure_primitive_to_json(value)
+
+    def from_json_to_primitive(self, value: TJSON | list | None) -> list | None:
+        if value is None:
+            return None
+        try:
+            return cast(list, structure_json_to_primitive(value, self._primitive_type))
+        except (ValueError, TypeError) as e:
+            raise TypeError(f"Could not convert '{value}' to `{self._primitive_type}`: {e}") from e
+
+    def from_json_to_rich(self, value: TJSON) -> list | None:
+        if value is None:
+            return None
+        prim = self.from_json_to_primitive(value)
+        if prim is None:
+            return None
+        return self._to_rich(prim)
+
+    def from_rich_to_json(
+        self,
+        value: list | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+        options: FeatureEncodingOptions = _DEFAULT_FEATURE_ENCODING_OPTIONS,
+    ) -> TJSON:
+        prim = self.from_rich_to_primitive(value, missing_value_strategy)
+        return self.from_primitive_to_json(cast(list | None, prim), options=options)
+
+    # ── protobuf ↔ * ─────────────────────────────────────────────────────────
+
+    def from_rich_to_protobuf(
+        self,
+        value: list | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> pb.ScalarValue:
+        prim = self.from_rich_to_primitive(value, missing_value_strategy)
+        return self.from_primitive_to_protobuf(prim)
+
+    def from_primitive_to_protobuf(self, value: list | None | pa.Scalar) -> pb.ScalarValue:
+        if isinstance(value, pa.Scalar):
+            return self.from_pyarrow_to_protobuf(value)
+        as_arr = self.from_primitive_to_pyarrow([value])
+        return self.from_pyarrow_to_protobuf(as_arr[0])
+
+    def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
+        if value.as_py() is None:
+            return pb.ScalarValue(null_value=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(value.type))
+        return PrimitiveFeatureConverter._serialize_pa_list_to_pb(value)  # pyright: ignore[reportPrivateUsage]
+
+    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
+        if pb_value.HasField("null_value"):
+            return pa.nulls(1, type=self._pa_list_type)[0]
+        return PrimitiveFeatureConverter._deserialize_pb_list_to_pa(pb_value)  # pyright: ignore[reportPrivateUsage]
+
+
+def make_primitive_converter(
+    name: str,
+    is_nullable: bool,
+    pyarrow_dtype: pa.DataType,
+    primitive_default: Any = ...,
+) -> FeatureConverter[Any, Any]:
+    """Create a primitive-shaped feature converter, using a specialized implementation when possible."""
+    return make_feature_converter(
+        name=name,
+        is_nullable=is_nullable,
+        rich_type=...,
+        primitive_default=primitive_default,
+        pyarrow_dtype=pyarrow_dtype,
+    )
+
+
+def make_feature_converter(
+    name: str | None,
+    is_nullable: bool,
+    rich_type: Type[Any] | ellipsis = ...,
+    primitive_default: Any = ...,
+    rich_default: Any = ...,
+    pyarrow_dtype: pa.DataType | None = None,
+    encoder: TEncoder[Any, Any] | None = None,
+    decoder: TDecoder[Any, Any] | None = None,
+) -> FeatureConverter[Any, Any]:
+    """Create a feature converter, using a specialized implementation when possible."""
+    rich_type = unwrap_annotated_if_needed(rich_type)
+
+    if pyarrow_dtype is None:
+        if rich_type is ...:
+            raise ValueError("Either the `rich_type` or `pyarrow_dtype` must be provided")
+        pyarrow_dtype = rich_to_pyarrow(rich_type, "" if name is None else name)
+
+    specialized_default = primitive_default
+    if rich_type is ...:
+        if rich_default != ...:
+            raise ValueError(
+                "The `rich_default` cannot be used without the `rich_type`. Perhaps specify the `primitive_default` instead?"
+            )
+        if is_nullable and primitive_default is ...:
+            specialized_default = None
+    else:
+        if primitive_default != ...:
+            raise ValueError(
+                "The `primitive_default` cannot be used when specifying the `rich_type`. Instead, specify the `rich_default`."
+            )
+        if is_nullable and rich_default is ...:
+            rich_default = None
+        if isinstance(rich_default, UnresolvedFeature):
+            rich_default = ...
+        specialized_default = rich_default
+
+    rich_primitive_type = ... if rich_type is ... else unwrap_optional_and_annotated_if_needed(rich_type)
+    if encoder is None and decoder is None:
+        # if pa.types.is_boolean(pyarrow_dtype) and (rich_type is ... or rich_primitive_type is bool):
+        #     return BoolFeatureConverter.new(default=specialized_default, is_nullable=is_nullable)
+        # if pa.types.is_int64(pyarrow_dtype) and (rich_type is ... or rich_primitive_type is int):
+        #     return Int64FeatureConverter.new(default=specialized_default, is_nullable=is_nullable)
+        # if pa.types.is_int32(pyarrow_dtype) and (rich_type is ... or rich_primitive_type is int):
+        #     return Int32FeatureConverter.new(default=specialized_default, is_nullable=is_nullable)
+        # if pa.types.is_string(pyarrow_dtype) and (rich_type is ... or rich_primitive_type is str):
+        #     return StringFeatureConverter.new(default=specialized_default, is_nullable=is_nullable)
+        if (
+            pa.types.is_struct(pyarrow_dtype)
+            and isinstance(rich_primitive_type, type)
+            and _dataclasses.is_dataclass(rich_primitive_type)
+        ):
+            return DataclassFeatureConverter.new(rich_primitive_type, specialized_default, is_nullable)
+        if (
+            (pyarrow_dtype is not None and (pa.types.is_list(pyarrow_dtype) or pa.types.is_large_list(pyarrow_dtype)))
+            and rich_primitive_type is not ...
+            and get_origin(rich_primitive_type) in (list, List)
+        ):
+            inner_args = get_args(rich_primitive_type)
+            if inner_args:
+                inner_type = unwrap_optional_and_annotated_if_needed(inner_args[0])
+                # Temporary: only use ListFeatureConverter for list[dataclass]. This will be
+                # generalized to other inner types (e.g. list[str], list[int]) in the near future.
+                if isinstance(inner_type, type) and _dataclasses.is_dataclass(inner_type):
+                    item_conv = make_feature_converter(
+                        name=None,
+                        is_nullable=True,
+                        rich_type=inner_args[0],
+                        pyarrow_dtype=pyarrow_dtype.value_type,
+                    )
+                    return ListFeatureConverter.new(
+                        item_converter=item_conv,
+                        default=specialized_default,
+                        is_nullable=is_nullable,
+                    )
+
+    return GenericFeatureConverter(
+        name="" if name is None else name,
+        is_nullable=is_nullable,
+        rich_type=rich_type,
+        primitive_default=primitive_default,
+        rich_default=rich_default,
+        pyarrow_dtype=pyarrow_dtype,
+        encoder=encoder,
+        decoder=decoder,
+    )
 
 
 def _recursively_unwrap(x: Any, dtype: pa.DataType) -> Any:
@@ -400,7 +2466,12 @@ class PrimitiveFeatureConverter(FeatureConverter[_TPrim, _TRich], Generic[_TPrim
 
     @property
     def rich_type(self) -> Type[_TRich]:
-        return cast(Type[_TRich], self._primitive_type)
+        t = cast(Type[_TRich], self._primitive_type)
+        if self._is_nullable:
+            from typing import Optional as _Optional
+
+            return _Optional[t]  # type: ignore[return-value]
+        return t
 
     @property
     def rich_default(self) -> _TRich:
@@ -1628,5 +3699,5 @@ class GenericFeatureConverter(PrimitiveFeatureConverter[_TPrim, _TRich], Generic
             # So Optional[str] will become just 'str' and needs to be re-wrapped in an Optional[] to compare w/ the rich type
             # This is mainly a hack for re-creating python Feature objects from serialize proto features (e.g. for running notebook-defined resolvers)
             # We can remove this once we support encoding more information about the rich type itself in the feature proto.
-            prim_canonical = typing.Optional[prim_canonical]
+            prim_canonical = Optional[prim_canonical]
         return prim_canonical != rich_canonical

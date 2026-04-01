@@ -1,5 +1,5 @@
 __all__ = (
-    'fade', 'slide', 'scale', 'iris', 'shader', 'gl_transitions_dot_com',
+    'fade', 'fade_multiple', 'slide', 'scale', 'iris', 'shader', 'gl_transitions_dot_com',
 )
 
 from typing import Literal, TypeAlias, Union
@@ -9,17 +9,17 @@ import math
 import string
 
 from kivy.utils import colormap
-from kivy.graphics.texture import Texture
 from kivy.graphics import (
     Translate, Scale, InstructionGroup, StencilPop, StencilPush, StencilUnUse, StencilUse,
-    Rectangle, Ellipse, Color, VertexInstruction, Canvas, BindTexture, Fbo, RenderContext,
+    Rectangle, Ellipse, Color, VertexInstruction, Canvas, BindTexture, RenderContext,
 )
 from kivy.animation import AnimationTransition
 from kivy.core.window import Window, WindowBase
 from kivy.uix.widget import Widget
 
 import asynckivy as ak
-from asynckivy import transform, anim_attrs_abbr as anim_attrs
+from asynckivy import transform, anim_attrs_abbr as anim_attrs, sleep_freq
+from asynckivy.utils import render_widget_to_texture
 
 
 linear = AnimationTransition.linear
@@ -46,10 +46,47 @@ async def fade(target: Wow | Canvas=Window.canvas, *, goal_opacity=0., duration=
 
 
 @asynccontextmanager
+async def fade_multiple(*widgets, duration=1., out_curve=linear, in_curve=linear):
+    '''
+    Fades out the ``widgets`` simultaneously, executes the code inside the with-block, and then fades them back in.
+
+    .. versionadded:: 0.10.0
+    '''
+    zip_ = zip
+    half_d = duration / 2.
+    orig_opacities = [w.opacity for w in widgets]
+    if isinstance(out_curve, str):
+        out_curve = getattr(AnimationTransition, out_curve)
+    if isinstance(in_curve, str):
+        in_curve = getattr(AnimationTransition, in_curve)
+    try:
+        async with sleep_freq() as sleep:
+            elapsed_time = 0.
+            while True:
+                elapsed_time += await sleep()
+                p = 1.0 - out_curve(elapsed_time / half_d)
+                for w, o in zip_(widgets, orig_opacities):
+                    w.opacity = p * o
+                if elapsed_time >= half_d:
+                    break
+        yield
+        async with sleep_freq() as sleep:
+            elapsed_time = 0.
+            while elapsed_time < half_d:
+                elapsed_time += await sleep()
+                p = in_curve(elapsed_time / half_d)
+                for w, o in zip_(widgets, orig_opacities):
+                    w.opacity = p * o
+    finally:
+        for w, o in zip_(widgets, orig_opacities):
+            w.opacity = o
+
+
+@asynccontextmanager
 async def slide(target: Wow=Window, *, duration=1., out_curve='in_back', in_curve='out_back',
                 x_direction: Literal['left', 'right', None]='left',
                 y_direction: Literal['down', 'up', None]=None,
-                use_outer_canvas=False):
+                canvas_layer="inner"):
     '''
     Slides the ``target`` out, executes the code inside the with-block, and then slides it back in.
 
@@ -68,7 +105,7 @@ async def slide(target: Wow=Window, *, duration=1., out_curve='in_back', in_curv
     elif y_direction == 'down':
         y_dist = -y_dist
 
-    with transform(target, use_outer_canvas=use_outer_canvas) as ig:
+    with transform(target, canvas_layer=canvas_layer) as ig:
         ig.add(mat := Translate())
         half_d = duration / 2
         await anim_attrs(mat, d=half_d, t=out_curve, x=x_dist, y=y_dist)
@@ -80,13 +117,13 @@ async def slide(target: Wow=Window, *, duration=1., out_curve='in_back', in_curv
 
 @asynccontextmanager
 async def scale(target: Wow=Window, *, duration=1, out_curve='out_quad', in_curve='in_quad',
-                use_outer_canvas=False):
+                canvas_layer="inner"):
     '''
     Shrinks the ``target``, executes the code inside the with-block, and then restores it to its original size.
 
     .. versionadded:: 0.9.0
     '''
-    with transform(target, use_outer_canvas=use_outer_canvas) as ig:
+    with transform(target, canvas_layer=canvas_layer) as ig:
         ig.add(mat := Scale(origin=target.center))
         half_d = duration / 2
         await anim_attrs(mat, d=half_d, t=out_curve, xyz=(0, 0, 1))
@@ -156,16 +193,6 @@ async def iris(target: WindowBase=Window, *, duration=1, out_curve='in_cubic', i
         canvas.remove(ig)
 
 
-def _render_to_texture(widget) -> Texture:
-    fbo = Fbo(size=widget.size)
-    fbo.children.extend(
-        (Translate(-widget.x, -widget.y, 0.), widget.canvas, )
-    )
-    fbo.draw()
-    fbo.children.clear()
-    return fbo.texture
-
-
 @asynccontextmanager
 async def shader(target: Widget, fs: str, *, duration=1., uniforms: Mapping=None,
                  progress_var: str='progress', out_texture_var: str='out_tex', in_texture_var: str='in_tex'):
@@ -213,7 +240,7 @@ async def shader(target: Widget, fs: str, *, duration=1., uniforms: Mapping=None
     with ExitStack() as stack:
         parent_canvas.remove(target.canvas)
         stack.callback(parent_canvas.insert, original_idx, target.canvas)
-        out_texture = _render_to_texture(target)
+        out_texture = render_widget_to_texture(target)
         ig = InstructionGroup()
         parent_canvas.insert(original_idx, ig)
         try:
@@ -225,7 +252,7 @@ async def shader(target: Widget, fs: str, *, duration=1., uniforms: Mapping=None
             parent_canvas.remove(ig)
             ig.clear()
 
-        in_texture = _render_to_texture(target)
+        in_texture = render_widget_to_texture(target)
         rc = RenderContext(fs=fs, use_parent_projection=True, use_parent_modelview=True)
         if not rc.shader.success:
             raise ValueError('Failed to set shader')

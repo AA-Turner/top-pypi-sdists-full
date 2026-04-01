@@ -14,6 +14,7 @@ import time
 import collections
 from typing import Any, Awaitable, Callable, Deque, Dict, Optional, Union, List
 
+
 class ServerlessRequest(asyncio.Future):
     """A request to a Serverless endpoint managed by the client"""
     def __init__(self):
@@ -134,6 +135,11 @@ class Serverless:
 
             ctx = ssl.create_default_context()
             ctx.load_verify_locations(cafile=tmpfile.name)
+            # The Vast.ai root CA cert has pathlen set without keyCertSign in
+            # Key Usage.  OpenSSL 3.x (Python ≥3.10) rejects this by default.
+            # Clearing VERIFY_X509_STRICT relaxes that single check while
+            # keeping full chain-of-trust and signature verification intact.
+            ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
             self.logger.info("Loaded Vast.ai SSL certificate")
 
             self._ssl_context = ctx
@@ -303,11 +309,13 @@ class Serverless:
                 raise Exception(error_msg)
             response = session_start_response.get("response")
             if response is None:
-                raise Exception(f"No response from /session/create. Status {response.get('status')}")
-            session_id = session_start_response.get("response").get("session_id")
+                raise Exception("No response from /session/create")
+            if not isinstance(response, dict):
+                raise Exception("Invalid response from /session/create: expected mapping")
+            session_id = response.get("session_id")
             if session_id is None:
                 raise Exception("Missing session id")
-            expiration = session_start_response.get("response").get("expiration")
+            expiration = response.get("expiration")
             url = session_start_response.get("url")
             if url is None:
                 raise Exception("Missing URL")

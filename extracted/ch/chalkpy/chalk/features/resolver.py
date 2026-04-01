@@ -2058,7 +2058,7 @@ def _validate_feature_reference_collection(
 
 def simplify_function_definition(text: str) -> str:
     lines = text.split("\n")
-    if lines[0].startswith("@"):
+    if lines[0].lstrip().startswith("@"):
         lines = lines[1:]
     open_parentheses_count = 0
     started = False

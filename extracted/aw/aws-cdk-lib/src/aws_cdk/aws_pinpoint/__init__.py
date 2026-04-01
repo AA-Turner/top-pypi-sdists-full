@@ -4222,19 +4222,6 @@ class CfnCampaign(
         jsii.set(self, "segmentId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a55591fb10b3aa649e3cc4fff7081bd27134808f40b3426f0d1b1040c798fa32)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="additionalTreatments")
     def additional_treatments(
         self,
@@ -4393,6 +4380,19 @@ class CfnCampaign(
             type_hints = typing.get_type_hints(_typecheckingstub__c7789111cb61d2c87282d1ee29b8e1ecd9cdfe305539a62babdf135df40e102a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "segmentVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a55591fb10b3aa649e3cc4fff7081bd27134808f40b3426f0d1b1040c798fa32)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="templateConfiguration")
@@ -9097,19 +9097,6 @@ class CfnEmailTemplate(
         jsii.set(self, "subject", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23b95a2d7d0d9191200b484886260a273682ff8d2a18c40ed91b782e67a644f0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="templateName")
     def template_name(self) -> builtins.str:
         '''The name of the message template.'''
@@ -9147,6 +9134,19 @@ class CfnEmailTemplate(
             type_hints = typing.get_type_hints(_typecheckingstub__3064679445a684550ed2de9bfc8b89465ffd8b09aabf1e7a299ac6a62dbee6bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "htmlPart", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__23b95a2d7d0d9191200b484886260a273682ff8d2a18c40ed91b782e67a644f0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="templateDescription")
@@ -10184,32 +10184,6 @@ class CfnInAppTemplate(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="customConfig")
-    def custom_config(self) -> typing.Any:
-        '''Custom data, in the form of key-value pairs, that is included in an in-app messaging payload.'''
-        return typing.cast(typing.Any, jsii.get(self, "customConfig"))
-
-    @custom_config.setter
-    def custom_config(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2ca164aa9281ef31e4a2e0a2f52e7cb0f98adf80d4e8d05370ff01dc3a8c724)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26614d8a74e54c08b442c84a7e9695ce8c396ca893b287d6ae5b7ff009122c16)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="templateName")
     def template_name(self) -> builtins.str:
         '''The name of the in-app message template.'''
@@ -10241,6 +10215,19 @@ class CfnInAppTemplate(
         jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="customConfig")
+    def custom_config(self) -> typing.Any:
+        '''Custom data, in the form of key-value pairs, that is included in an in-app messaging payload.'''
+        return typing.cast(typing.Any, jsii.get(self, "customConfig"))
+
+    @custom_config.setter
+    def custom_config(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d2ca164aa9281ef31e4a2e0a2f52e7cb0f98adf80d4e8d05370ff01dc3a8c724)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="layout")
     def layout(self) -> typing.Optional[builtins.str]:
         '''A string that determines the appearance of the in-app message.
@@ -10255,6 +10242,19 @@ class CfnInAppTemplate(
             type_hints = typing.get_type_hints(_typecheckingstub__b43b04a5a55917e5e8acbe2af8759330169d92abcb7e8f70276761c87fde2b09)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "layout", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26614d8a74e54c08b442c84a7e9695ce8c396ca893b287d6ae5b7ff009122c16)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="templateDescription")
@@ -11432,19 +11432,6 @@ class CfnPushTemplate(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4cbceedb7f94ba5ae9fa8704dff30ab1f8d628748f0401c3a77272aace3cb98)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="templateName")
     def template_name(self) -> builtins.str:
         '''The name of the message template to use for the message.'''
@@ -11559,6 +11546,19 @@ class CfnPushTemplate(
             type_hints = typing.get_type_hints(_typecheckingstub__156c2a5b1c581871d4bbfb9adc0ebccc63555f7c7e7091b1772889dc981ccba4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "gcm", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4cbceedb7f94ba5ae9fa8704dff30ab1f8d628748f0401c3a77272aace3cb98)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="templateDescription")
@@ -12888,19 +12888,6 @@ class CfnSegment(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19cf08f783ce7a107cff33dc3328d3098db5e5346e4d3f31d8f9929137028aa2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="dimensions")
     def dimensions(
         self,
@@ -12935,6 +12922,19 @@ class CfnSegment(
             type_hints = typing.get_type_hints(_typecheckingstub__7e5f8482204fc248f33a5d809b6fe0b1a60a440ed824a88a497c788578f74864)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "segmentGroups", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19cf08f783ce7a107cff33dc3328d3098db5e5346e4d3f31d8f9929137028aa2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_pinpoint.CfnSegment.AttributeDimensionProperty",
@@ -14613,19 +14613,6 @@ class CfnSmsTemplate(
         jsii.set(self, "body", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10b1b81307b1076556a881c595d43cb014a04a4bd2d3218f10021904adb69043)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="templateName")
     def template_name(self) -> builtins.str:
         '''The name of the message template to use for the message.'''
@@ -14650,6 +14637,19 @@ class CfnSmsTemplate(
             type_hints = typing.get_type_hints(_typecheckingstub__6a6ff98aa698d81509091ca1cf004f062a6bbff5ac1491a78ba87aa2bc032f69)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultSubstitutions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__10b1b81307b1076556a881c595d43cb014a04a4bd2d3218f10021904adb69043)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="templateDescription")
@@ -15853,12 +15853,6 @@ def _typecheckingstub__785cdfc13b1f0cf0280965fcfdcb49bb03ad6603227a7fafd5b6f82cd
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a55591fb10b3aa649e3cc4fff7081bd27134808f40b3426f0d1b1040c798fa32(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0cb8abceb723e5d996583338abd7b9da817cebc58734650cbcd416e12f060c3e(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCampaign.WriteTreatmentResourceProperty]]]],
 ) -> None:
@@ -15915,6 +15909,12 @@ def _typecheckingstub__11af643454a88e879a3d44a841a7440d463052b9a9f8894837afdeb1d
 
 def _typecheckingstub__c7789111cb61d2c87282d1ee29b8e1ecd9cdfe305539a62babdf135df40e102a(
     value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a55591fb10b3aa649e3cc4fff7081bd27134808f40b3426f0d1b1040c798fa32(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16346,12 +16346,6 @@ def _typecheckingstub__842354b6737d3f066011001448187e6cd47eb9292c3c3d91c53ed677f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__23b95a2d7d0d9191200b484886260a273682ff8d2a18c40ed91b782e67a644f0(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__8d7fb2858f2a5e78df5c14250eeed341724afc16b64bc850806da4d4163ec985(
     value: builtins.str,
 ) -> None:
@@ -16366,6 +16360,12 @@ def _typecheckingstub__425a551c7dd2994ef2bc28faf10c1acccbf845469fdf77c6105ccd9df
 
 def _typecheckingstub__3064679445a684550ed2de9bfc8b89465ffd8b09aabf1e7a299ac6a62dbee6bb(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23b95a2d7d0d9191200b484886260a273682ff8d2a18c40ed91b782e67a644f0(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16577,18 +16577,6 @@ def _typecheckingstub__102b7ba4ca5d76c2bcb7d579a1ce2b270541375ae87c3324aec995eb1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d2ca164aa9281ef31e4a2e0a2f52e7cb0f98adf80d4e8d05370ff01dc3a8c724(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__26614d8a74e54c08b442c84a7e9695ce8c396ca893b287d6ae5b7ff009122c16(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__783c9d3a13dcf9b910dcd7009b3f921a2196ebca80cad6d5f6d8d9a2131b6317(
     value: builtins.str,
 ) -> None:
@@ -16601,8 +16589,20 @@ def _typecheckingstub__29c306b59b5a82d785edcc24ad4f92afce261ef2ea4bd786f4c5db21c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d2ca164aa9281ef31e4a2e0a2f52e7cb0f98adf80d4e8d05370ff01dc3a8c724(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b43b04a5a55917e5e8acbe2af8759330169d92abcb7e8f70276761c87fde2b09(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26614d8a74e54c08b442c84a7e9695ce8c396ca893b287d6ae5b7ff009122c16(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16726,12 +16726,6 @@ def _typecheckingstub__b0ea973d201048a1d85c8527dd218e3ea4ba36e582e42e4b36d47bb6c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d4cbceedb7f94ba5ae9fa8704dff30ab1f8d628748f0401c3a77272aace3cb98(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9e6689f4b17f3d51c97d046ff920f42167020ecdb954bcbb703df795aa48fd62(
     value: builtins.str,
 ) -> None:
@@ -16770,6 +16764,12 @@ def _typecheckingstub__c5a64a0af135c2c3f325587b4f9494bb2df541b2eb06fed9948a862f1
 
 def _typecheckingstub__156c2a5b1c581871d4bbfb9adc0ebccc63555f7c7e7091b1772889dc981ccba4(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPushTemplate.AndroidPushNotificationTemplateProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4cbceedb7f94ba5ae9fa8704dff30ab1f8d628748f0401c3a77272aace3cb98(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16945,12 +16945,6 @@ def _typecheckingstub__e74415b4339bad69f40ae0cf82368a3aa0c5a21ee8d8ab9924fa39314
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__19cf08f783ce7a107cff33dc3328d3098db5e5346e4d3f31d8f9929137028aa2(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__7596346842df00f96b4cdfdbd4c88e3d1ebd1006ff6eef96d986ad843c4fe2e1(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSegment.SegmentDimensionsProperty]],
 ) -> None:
@@ -16959,6 +16953,12 @@ def _typecheckingstub__7596346842df00f96b4cdfdbd4c88e3d1ebd1006ff6eef96d986ad843
 
 def _typecheckingstub__7e5f8482204fc248f33a5d809b6fe0b1a60a440ed824a88a497c788578f74864(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSegment.SegmentGroupsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19cf08f783ce7a107cff33dc3328d3098db5e5346e4d3f31d8f9929137028aa2(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17122,12 +17122,6 @@ def _typecheckingstub__84ff9f4a2706bc6d280232f48449544baf035de043a7edd477c36b49a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__10b1b81307b1076556a881c595d43cb014a04a4bd2d3218f10021904adb69043(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__68a2e9c56e1723b59d90c1859572868534e794fb2dfb13f93bee7d09edcc1a16(
     value: builtins.str,
 ) -> None:
@@ -17136,6 +17130,12 @@ def _typecheckingstub__68a2e9c56e1723b59d90c1859572868534e794fb2dfb13f93bee7d09e
 
 def _typecheckingstub__6a6ff98aa698d81509091ca1cf004f062a6bbff5ac1491a78ba87aa2bc032f69(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10b1b81307b1076556a881c595d43cb014a04a4bd2d3218f10021904adb69043(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

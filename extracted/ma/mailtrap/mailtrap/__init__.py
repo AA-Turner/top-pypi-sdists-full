@@ -15,6 +15,9 @@ from .models.contacts import CreateContactParams
 from .models.contacts import ImportContactParams
 from .models.contacts import UpdateContactFieldParams
 from .models.contacts import UpdateContactParams
+from .models.email_logs import EmailLogMessage
+from .models.email_logs import EmailLogsListFilters
+from .models.email_logs import EmailLogsListResponse
 from .models.inboxes import CreateInboxParams
 from .models.inboxes import UpdateInboxParams
 from .models.mail import Address
@@ -32,5 +35,6 @@ from .models.permissions import PermissionResourceParams
 from .models.projects import ProjectParams
 from .models.sending_domains import CreateSendingDomainParams
 from .models.sending_domains import SendSetupInstructionsParams
+from .models.stats import StatsFilterParams
 from .models.templates import CreateEmailTemplateParams
 from .models.templates import UpdateEmailTemplateParams

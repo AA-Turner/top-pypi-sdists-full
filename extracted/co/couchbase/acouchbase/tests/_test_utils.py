@@ -213,6 +213,11 @@ class TestEnvironment(CouchbaseTestEnvironment):
         transcoder = kwargs.pop('transcoder', None)
         if transcoder:
             opts['transcoder'] = transcoder
+        tracer = kwargs.pop('tracer', None)
+        if tracer:
+            opts['tracer'] = tracer
+        else:
+            opts['enable_tracing'] = False
         okay = False
         cluster = None
         bucket = None
@@ -232,10 +237,9 @@ class TestEnvironment(CouchbaseTestEnvironment):
                 pytest.skip(('CAVES does not seem to be happy. Skipping tests as failure is not'
                             ' an accurate representation of the state of the test, but rather'
                              ' there is an environment issue.'))
-            elif not cluster or not bucket:
-                pytest.skip(('Skipping tests as failure is not'
-                            ' an accurate representation of the state of the test, but rather'
-                             ' there is an environment issue.'))
+            else:
+                msg = 'Unable to establish cluster/bucket connection. Check the environment (e.g. VPN).'
+                raise CouchbaseTestEnvironmentException(msg)
 
         coll = bucket.default_collection()
         if coll_type == CollectionType.DEFAULT:
@@ -339,7 +343,7 @@ class TestEnvironment(CouchbaseTestEnvironment):
         return None
 
     async def purge_data(self):
-        await asyncio.gather(*[self.collection.remove(key) for key in self._loaded_keys])
+        await asyncio.gather(*[self.collection.remove(key) for key in self._loaded_keys], return_exceptions=True)
 
     # binary data load/purge
 

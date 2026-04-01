@@ -7,18 +7,18 @@ from collections.abc import MutableMapping, MutableSequence
 from importlib.resources import files
 from io import StringIO
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, cast
 from xml.sax.saxutils import escape  # nosec
 
 from . import _logger, schema
 from .codegen_base import CodeGenBase, LazyInitDef, TypeDef
-from .exceptions import SchemaException
+from .exceptions import SchemaException, SchemaSaladException
 from .java_codegen import _ensure_directory_and_write, _safe_makedirs
 from .schema import shortname
 from .utils import Traversable
 
 
-def doc_to_doc_string(doc: Optional[str], indent_level: int = 0) -> str:
+def doc_to_doc_string(doc: str | None, indent_level: int = 0) -> str:
     """Generate a documentation string from a schema salad doc field."""
     lead = "" + "    " * indent_level + "/// "
     if doc:
@@ -100,9 +100,7 @@ prims = {
 class DotNetCodeGen(CodeGenBase):
     """Generation of TypeScript code for a given Schema Salad definition."""
 
-    def __init__(
-        self, base: str, examples: Optional[str], target: Optional[str], package: str
-    ) -> None:
+    def __init__(self, base: str, examples: str | None, target: str | None, package: str) -> None:
         """Initialize the TypeScript codegen."""
         super().__init__()
         self.target_dir = Path(target or ".").resolve()
@@ -112,6 +110,18 @@ class DotNetCodeGen(CodeGenBase):
         self.package = package
         self.base_uri = base
         self.examples = examples
+        self.current_class = ""
+        self.current_class_is_abstract: bool = False
+        self.current_constructor_signature: StringIO = StringIO()
+        self.current_constructor_signature_optionals: StringIO = StringIO()
+        self.current_constructor_body: StringIO = StringIO()
+        self.current_loader: StringIO = StringIO()
+        self.current_serializer: StringIO = StringIO()
+        self.current_fieldtypes: dict[str, TypeDef] = {}
+        self.optional_field_names: list[str] = []
+        self.mandatory_field_names: list[str] = []
+        self.idfield: str | None = None
+        self.id_field_type: TypeDef | None = None
 
     def prologue(self) -> None:
         """Trigger to generate the prolouge code."""
@@ -142,6 +152,18 @@ class DotNetCodeGen(CodeGenBase):
 
         return avn
 
+    def _current_interface(self, classname: str) -> str:
+        return "I" + self.safe_name(classname)
+
+    def _current_class(self, classname: str) -> str:
+        return self.safe_name(classname)
+
+    def _current_interface_target_file(self, interface_module_name: str) -> Path:
+        return self.main_src_dir / f"{interface_module_name}.cs"
+
+    def _current_class_target_file(self, class_module_name: str) -> Path:
+        return self.main_src_dir / f"{class_module_name}.cs"
+
     def begin_class(
         self,  # pylint: disable=too-many-arguments
         classname: str,
@@ -153,22 +175,19 @@ class DotNetCodeGen(CodeGenBase):
         optional_fields: set[str],
     ) -> None:
         """Produce the header for the given class."""
-        self.current_interface = "I" + self.safe_name(classname)
-        cls = self.safe_name(classname)
-        self.current_class = cls
+        current_interface = self._current_interface(classname)
+        cls = self.current_class = self._current_class(classname)
         self.current_class_is_abstract = abstract
-        interface_module_name = self.current_interface
-        self.current_interface_target_file = self.main_src_dir / f"{interface_module_name}.cs"
-        class_module_name = self.current_class
-        self.current_class_target_file = self.main_src_dir / f"{class_module_name}.cs"
+        current_interface_target_file = self._current_interface_target_file(current_interface)
+        current_class_target_file = self._current_class_target_file(self.current_class)
         self.current_constructor_signature = StringIO()
         self.current_constructor_signature_optionals = StringIO()
         self.current_constructor_body = StringIO()
         self.current_loader = StringIO()
         self.current_serializer = StringIO()
-        self.current_fieldtypes: dict[str, TypeDef] = {}
-        self.optional_field_names: list[str] = []
-        self.mandatory_field_names: list[str] = []
+        self.current_fieldtypes = {}
+        self.optional_field_names = []
+        self.mandatory_field_names = []
         self.idfield = idfield
 
         doc_string = f"""
@@ -181,8 +200,8 @@ class DotNetCodeGen(CodeGenBase):
             doc_string += "\n"
         doc_string += "/// </summary>"
 
-        with open(self.current_interface_target_file, "w") as f:
-            _logger.info("Writing file: %s", self.current_interface_target_file)
+        with open(current_interface_target_file, "w") as f:
+            _logger.info("Writing file: %s", current_interface_target_file)
             if extends:
                 ext = " : " + ", ".join("I" + self.safe_name(e) for e in extends)
             else:
@@ -195,7 +214,7 @@ public interface {cls}{ext}
 {{
 """.format(
                     docstring=doc_string,
-                    cls=f"{self.current_interface}",
+                    cls=current_interface,
                     ext=ext,
                     package=self.package,
                 )
@@ -212,8 +231,8 @@ public interface {cls}{ext}
             doc_string += doc_to_doc_string(doc)
             doc_string += "\n"
         doc_string += "/// </summary>"
-        with open(self.current_class_target_file, "w") as f:
-            _logger.info("Writing file: %s", self.current_class_target_file)
+        with open(current_class_target_file, "w") as f:
+            _logger.info("Writing file: %s", current_class_target_file)
             f.write(
                 """using System.Collections;
 using OneOf;
@@ -228,7 +247,7 @@ public class {cls} : {current_interface}, ISaveable
     readonly Dictionary<object, object> extensionFields;
 """.format(
                     cls=cls,
-                    current_interface=self.current_interface,
+                    current_interface=current_interface,
                     docstring=doc_string,
                     package=self.package,
                 )
@@ -240,14 +259,11 @@ public class {cls} : {current_interface}, ISaveable
                 cls=cls,
             )
         )
-        self.current_constructor_body.write(
-            """
+        self.current_constructor_body.write("""
         this.loadingOptions = loadingOptions ?? new LoadingOptions();
         this.extensionFields = extensionFields ?? new Dictionary<object, object>();
-"""
-        )
-        self.current_loader.write(
-            """
+""")
+        self.current_loader.write("""
     public static ISaveable FromDoc(object doc__, string baseUri, LoadingOptions loadingOptions,
         string? docRoot = null)
     {
@@ -261,11 +277,9 @@ public class {cls} : {current_interface}, ISaveable
         Dictionary<object, object> doc_ = ((IDictionary)doc__)
             .Cast<dynamic>()
             .ToDictionary(entry => entry.Key, entry => entry.Value);
-"""
-        )
+""")
 
-        self.current_serializer.write(
-            """
+        self.current_serializer.write("""
     public Dictionary<object, object> Save(bool top = false, string baseUrl = "",
         bool relativeUris = true)
     {
@@ -274,13 +288,15 @@ public class {cls} : {current_interface}, ISaveable
         {
             r[loadingOptions.PrefixUrl((string)ef.Value)] = ef.Value;
         }
-"""
-        )
+""")
 
     def end_class(self, classname: str, field_names: list[str]) -> None:
         """Signal that we are done with this class."""
-        with open(self.current_interface_target_file, "a") as f:
-            f.write("}\n")
+        current_interface_target_file = self._current_interface_target_file(
+            self._current_interface(classname)
+        )
+        with open(current_interface_target_file, "a") as f1:
+            f1.write("}\n")
         if self.current_class_is_abstract:
             return
 
@@ -337,18 +353,15 @@ public class {cls} : {current_interface}, ISaveable
         self.current_loader.write("\n        );\n")
 
         for optionalField in self.optional_field_names:
-            self.current_loader.write(
-                f"""
+            self.current_loader.write(f"""
         if ({optionalField} != null)
         {{
             res__.{optionalField} = {optionalField};
         }}
-"""
-            )
+""")
         self.current_loader.write("\n        return res__;")
         self.current_loader.write("\n    " + "}" + "\n")
-        self.current_serializer.write(
-            """
+        self.current_serializer.write("""
         if (top)
         {
             if (loadingOptions.namespaces != null)
@@ -365,55 +378,54 @@ public class {cls} : {current_interface}, ISaveable
         return r;
     }
 
-"""
-        )
+""")
+        current_class_target_file = self._current_class_target_file(self.current_class)
         with open(
-            self.current_class_target_file,
+            current_class_target_file,
             "a",
-        ) as f:
-            f.write(self.current_constructor_signature.getvalue())
-            f.write(self.current_constructor_body.getvalue())
-            f.write(self.current_loader.getvalue())
-            f.write(self.current_serializer.getvalue())
-            f.write(
+        ) as f2:
+            f2.write(self.current_constructor_signature.getvalue())
+            f2.write(self.current_constructor_body.getvalue())
+            f2.write(self.current_loader.getvalue())
+            f2.write(self.current_serializer.getvalue())
+            f2.write(
                 "    static readonly System.Collections.Generic.HashSet<string>"
                 + " attr = new() { "
                 + ", ".join(['"' + shortname(f) + '"' for f in field_names])
                 + " };"
             )
-            f.write(
-                """
+            f2.write("""
 }
-"""
-            )
+""")
 
     def type_loader(
         self,
-        type_declaration: Union[list[Any], dict[str, Any], str],
-        container: Optional[str] = None,
-        no_link_check: Optional[bool] = None,
+        type_declaration: list[Any] | dict[str, Any] | str,
+        container: str | None = None,
+        no_link_check: bool | None = None,
     ) -> TypeDef:
         """Parse the given type declaration and declare its components."""
-        if isinstance(type_declaration, MutableSequence):
-            sub_types = [self.type_loader(i) for i in type_declaration]
-            sub_names: list[str] = list(dict.fromkeys([i.name for i in sub_types]))
-            sub_instance_types: list[str] = list(
-                dict.fromkeys([i.instance_type for i in sub_types if i.instance_type is not None])
-            )
-            return self.declare_type(
-                TypeDef(
-                    name="union_of_{}".format("_or_".join(sub_names)),
-                    init="new UnionLoader(new List<ILoader> {{ {} }})".format(", ".join(sub_names)),
-                    instance_type="OneOf<" + ", ".join(sub_instance_types) + ">",
-                    loader_type="ILoader<object>",
+        match type_declaration:
+            case MutableSequence():
+                sub_types = [self.type_loader(i) for i in type_declaration]
+                sub_names: list[str] = list(dict.fromkeys([i.name for i in sub_types]))
+                sub_instance_types: list[str] = list(
+                    dict.fromkeys(
+                        [i.instance_type for i in sub_types if i.instance_type is not None]
+                    )
                 )
-            )
-        if isinstance(type_declaration, MutableMapping):
-            if type_declaration["type"] in (
-                "array",
-                "https://w3id.org/cwl/salad#array",
-            ):
-                i = self.type_loader(type_declaration["items"])
+                return self.declare_type(
+                    TypeDef(
+                        name="union_of_{}".format("_or_".join(sub_names)),
+                        init="new UnionLoader(new List<ILoader> {{ {} }})".format(
+                            ", ".join(sub_names)
+                        ),
+                        instance_type="OneOf<" + ", ".join(sub_instance_types) + ">",
+                        loader_type="ILoader<object>",
+                    )
+                )
+            case {"type": "array" | "https://w3id.org/cwl/salad#array", "items": items}:
+                i = self.type_loader(items)
                 return self.declare_type(
                     TypeDef(
                         instance_type=f"List<{i.instance_type}>",
@@ -422,11 +434,8 @@ public class {cls} : {current_interface}, ISaveable
                         init=f"new ArrayLoader<{i.instance_type}>({i.name})",
                     )
                 )
-            if type_declaration["type"] in (
-                "map",
-                "https://w3id.org/cwl/salad#map",
-            ):
-                i = self.type_loader(type_declaration["values"])
+            case {"type": "map" | "https://w3id.org/cwl/salad#map", "values": values}:
+                i = self.type_loader(values)
                 return self.declare_type(
                     TypeDef(
                         instance_type=f"Dictionary<string, {i.instance_type}>",
@@ -442,33 +451,35 @@ public class {cls} : {current_interface}, ISaveable
                         ),
                     )
                 )
-            if type_declaration["type"] in ("enum", "https://w3id.org/cwl/salad#enum"):
-                return self.type_loader_enum(type_declaration)
-            if type_declaration["type"] in (
-                "record",
-                "https://w3id.org/cwl/salad#record",
-            ):
+            case {"type": "enum" | "https://w3id.org/cwl/salad#enum"}:
+                return self.type_loader_enum(type_declaration)  # type: ignore[arg-type]
+            case {
+                "type": "record" | "https://w3id.org/cwl/salad#record",
+                "name": str(name),
+                **rest,
+            }:
                 return self.declare_type(
                     TypeDef(
-                        instance_type=self.safe_name(type_declaration["name"]),
-                        name=self.safe_name(type_declaration["name"]) + "Loader",
+                        instance_type=self.safe_name(name),
+                        name=self.safe_name(name) + "Loader",
                         init="new RecordLoader<{}>({}, {})".format(
-                            self.safe_name(type_declaration["name"]),
+                            self.safe_name(name),
                             (
                                 f"'{container}'" if container is not None else self.to_dotnet(None)
                             ),  # noqa: B907
                             self.to_dotnet(no_link_check),
                         ),
-                        loader_type="ILoader<{}>".format(self.safe_name(type_declaration["name"])),
-                        abstract=type_declaration.get("abstract", False),
+                        loader_type=f"ILoader<{self.safe_name(name)}>",
+                        abstract=cast(bool, rest.get("abstract", False)),
                     )
                 )
-            if type_declaration["type"] in (
-                "union",
-                "https://w3id.org/cwl/salad#union",
-            ):
+            case {
+                "type": "union" | "https://w3id.org/cwl/salad#union",
+                "name": name,
+                "names": names,
+            }:
                 # Declare the named loader to handle recursive union definitions
-                loader_name = self.safe_name(type_declaration["name"]) + "Loader"
+                loader_name = self.safe_name(name) + "Loader"
                 loader_type = TypeDef(
                     name=loader_name,
                     init="new UnionLoader(new List<ILoader>())",
@@ -477,7 +488,7 @@ public class {cls} : {current_interface}, ISaveable
                 )
                 self.declare_type(loader_type)
                 # Parse inner types
-                sub_types = [self.type_loader(i) for i in type_declaration["names"]]
+                sub_types = [self.type_loader(i) for i in names]
                 # Register lazy initialization for the loader
                 self.add_lazy_init(
                     LazyInitDef(
@@ -488,19 +499,23 @@ public class {cls} : {current_interface}, ISaveable
                     )
                 )
                 return loader_type
-            raise SchemaException("wft {}".format(type_declaration["type"]))
-        if type_declaration in prims:
-            return prims[type_declaration]
-        if type_declaration in ("Expression", "https://w3id.org/cwl/cwl#Expression"):
-            return self.declare_type(
-                TypeDef(
-                    name=self.safe_name(type_declaration) + "Loader",
-                    init="new ExpressionLoader()",
-                    loader_type="ILoader<string>",
-                    instance_type="string",
+            case {"type": type_decl}:
+                raise SchemaException(f"wft {type_decl}")
+            case str(decl) if decl in prims:
+                return prims[decl]
+            case "Expression" | "https://w3id.org/cwl/cwl#Expression" as decl:
+                return self.declare_type(
+                    TypeDef(
+                        name=self.safe_name(decl) + "Loader",
+                        init="new ExpressionLoader()",
+                        loader_type="ILoader<string>",
+                        instance_type="string",
+                    )
                 )
-            )
-        return self.collected_types[self.safe_name(type_declaration) + "Loader"]
+            case str(decl):
+                return self.collected_types[self.safe_name(decl) + "Loader"]
+            case _ as decl:
+                raise SchemaException(f"wft {decl}")
 
     def type_loader_enum(self, type_declaration: dict[str, Any]) -> TypeDef:
         """Build an enum type loader for the given declaration."""
@@ -511,18 +526,14 @@ public class {cls} : {current_interface}, ISaveable
         enum_path = self.main_src_dir / f"{enum_module_name}.cs"
         with open(enum_path, "w") as f:
             _logger.info("Writing file: %s", enum_path)
-            f.write(
-                """namespace {package};
+            f.write("""namespace {package};
 
 public class {enum_name} : IEnumClass<{enum_name}>
 {{
     private string _Name;
     private static readonly List<{enum_name}> members = new();
 
-""".format(
-                    enum_name=enum_name, package=self.package
-                )
-            )
+""".format(enum_name=enum_name, package=self.package))
             for sym in type_declaration["symbols"]:
                 const = self.safe_name(sym).replace("-", "_").replace(".", "_").upper()
                 f.write(
@@ -531,8 +542,7 @@ public class {enum_name} : IEnumClass<{enum_name}>
                         const=const, val=self.safe_name(sym), enum_name=enum_name
                     )
                 )
-            f.write(
-                """
+            f.write("""
     public string Name
     {{
         get {{ return _Name; }}
@@ -587,10 +597,7 @@ public class {enum_name} : IEnumClass<{enum_name}>
         return _Name;
     }}
 }}
-""".format(
-                    enum_name=enum_name
-                )
-            )
+""".format(enum_name=enum_name))
         return self.declare_type(
             TypeDef(
                 instance_type=enum_name,
@@ -604,13 +611,14 @@ public class {enum_name} : IEnumClass<{enum_name}>
         self,
         name: str,
         fieldtype: TypeDef,
-        doc: Optional[str],
+        doc: str | None,
         optional: bool,
-        subscope: Optional[str],
+        subscope: str | None,
     ) -> None:
         """Output the code to load the given field."""
         if self.current_class_is_abstract:
             return
+        current_class_target_file = self._current_class_target_file(self.current_class)
         safename = self.safe_name(name)
         fieldname = shortname(name)
         self.current_fieldtypes[safename] = fieldtype
@@ -627,17 +635,13 @@ public class {enum_name} : IEnumClass<{enum_name}>
             self.mandatory_field_names.append(safename)
             optionalstring = ""
 
-        with open(self.current_class_target_file, "a") as f:
+        with open(current_class_target_file, "a") as f:
             if doc:
-                f.write(
-                    """
+                f.write("""
     /// <summary>
 {doc_str}
     /// </summary>
-""".format(
-                        doc_str=doc_to_doc_string(doc, indent_level=1)
-                    )
-                )
+""".format(doc_str=doc_to_doc_string(doc, indent_level=1)))
             f.write(
                 "    public {type}{optionalstring} {safename} {{ get; set; }}\n".format(
                     safename=safename,
@@ -697,20 +701,12 @@ public class {enum_name} : IEnumClass<{enum_name}>
                 "        this.{safeName} = {safeName};\n".format(safeName=safename)
             )
 
-        self.current_loader.write(
-            """
-        dynamic {safename} = default!;""".format(
-                safename=safename
-            )
-        )
+        self.current_loader.write("""
+        dynamic {safename} = default!;""".format(safename=safename))
         if optional:
-            self.current_loader.write(
-                """
+            self.current_loader.write("""
         if (doc_.ContainsKey("{fieldname}"))
-        {{""".format(
-                    fieldname=fieldname
-                )
-            )
+        {{""".format(fieldname=fieldname))
             spc = "        "
         else:
             spc = "    "
@@ -741,14 +737,17 @@ public class {enum_name} : IEnumClass<{enum_name}>
 
         if name == self.idfield or not self.idfield:
             baseurl = "baseUrl"
-        elif self.id_field_type.instance_type is not None:
-            if self.id_field_type.instance_type.startswith("OneOf"):
-                baseurl = (
-                    f"(this.{self.safe_name(self.idfield)}.Value is "
-                    f'None ? "" : {self.safe_name(self.idfield)}.Value)'
-                )
-            else:
-                baseurl = f"this.{self.safe_name(self.idfield)}"
+        else:
+            if self.id_field_type is None:
+                raise SchemaSaladException("Must call declare_id_field before declare_field.")
+            if self.id_field_type.instance_type is not None:
+                if self.id_field_type.instance_type.startswith("OneOf"):
+                    baseurl = (
+                        f"(this.{self.safe_name(self.idfield)}.Value is "
+                        f'None ? "" : {self.safe_name(self.idfield)}.Value)'
+                    )
+                else:
+                    baseurl = f"this.{self.safe_name(self.idfield)}"
 
         if fieldtype.is_uri:
             self.current_serializer.write(
@@ -787,7 +786,7 @@ public class {enum_name} : IEnumClass<{enum_name}>
         self,
         name: str,
         fieldtype: TypeDef,
-        doc: Optional[str],
+        doc: str | None,
         optional: bool,
     ) -> None:
         """Output the code to handle the given ID field."""
@@ -802,8 +801,7 @@ public class {enum_name} : IEnumClass<{enum_name}>
                 fieldname=shortname(name)
             )
 
-        self.current_loader.write(
-            """
+        self.current_loader.write("""
         if ({safename} == null)
         {{
             if (docRoot != null)
@@ -819,19 +817,17 @@ public class {enum_name} : IEnumClass<{enum_name}>
         {{
             baseUri = (string){safename};
         }}
-""".format(
-                safename=self.safe_name(name), opt=opt
-            )
-        )
+""".format(safename=self.safe_name(name), opt=opt))
 
     def to_dotnet(self, val: Any) -> Any:
         """Convert a Python keyword to a DotNet keyword."""
-        if val is True:
-            return "true"
-        elif val is None:
-            return "null"
-        elif val is False:
-            return "false"
+        match val:
+            case True:
+                return "true"
+            case None:
+                return "null"
+            case False:
+                return "false"
         return val
 
     def uri_loader(
@@ -839,8 +835,8 @@ public class {enum_name} : IEnumClass<{enum_name}>
         inner: TypeDef,
         scoped_id: bool,
         vocab_term: bool,
-        ref_scope: Optional[int],
-        no_link_check: Optional[bool] = None,
+        ref_scope: int | None,
+        no_link_check: bool | None = None,
     ) -> TypeDef:
         """Construct the TypeDef for the given URI loader."""
         instance_type = inner.instance_type or "object"
@@ -863,7 +859,7 @@ public class {enum_name} : IEnumClass<{enum_name}>
         )
 
     def idmap_loader(
-        self, field: str, inner: TypeDef, map_subject: str, map_predicate: Optional[str]
+        self, field: str, inner: TypeDef, map_subject: str, map_predicate: str | None
     ) -> TypeDef:
         """Construct the TypeDef for the given mapped ID loader."""
         instance_type = inner.instance_type or "object"
@@ -878,7 +874,7 @@ public class {enum_name} : IEnumClass<{enum_name}>
             )
         )
 
-    def typedsl_loader(self, inner: TypeDef, ref_scope: Optional[int]) -> TypeDef:
+    def typedsl_loader(self, inner: TypeDef, ref_scope: int | None) -> TypeDef:
         """Construct the TypeDef for the given DSL loader."""
         instance_type = inner.instance_type or "object"
         return self.declare_type(
@@ -898,12 +894,12 @@ public class {enum_name} : IEnumClass<{enum_name}>
         pd = pd + " for parsing documents corresponding to the "
         pd = pd + str(self.base_uri) + " schema."
 
-        template_vars: MutableMapping[str, str] = dict(
-            project_name=self.package,
-            version="0.0.1-SNAPSHOT",
-            project_description=pd,
-            license_name="Apache License, Version 2.0",
-        )
+        template_vars: MutableMapping[str, str] = {
+            "project_name": self.package,
+            "version": "0.0.1-SNAPSHOT",
+            "project_description": pd,
+            "license_name": "Apache License, Version 2.0",
+        }
 
         def template_from_resource(resource: Traversable) -> string.Template:
             template_str = resource.read_text("utf-8")
@@ -979,16 +975,16 @@ public class {enum_name} : IEnumClass<{enum_name}>
                         example_name=example_name,
                     )
 
-        template_args: MutableMapping[str, str] = dict(
-            project_name=self.package,
-            loader_instances=loader_instances,
-            vocab=vocab,
-            rvocab=rvocab,
-            root_loader=root_loader.name,
-            root_loader_type=root_loader.instance_type or "object",
-            tests=example_tests,
-            project_description=pd,
-        )
+        template_args: MutableMapping[str, str] = {
+            "project_name": self.package,
+            "loader_instances": loader_instances,
+            "vocab": vocab,
+            "rvocab": rvocab,
+            "root_loader": root_loader.name,
+            "root_loader_type": root_loader.instance_type or "object",
+            "tests": example_tests,
+            "project_description": pd,
+        }
 
         util_src_dirs = {
             "util": self.main_src_dir / "util",

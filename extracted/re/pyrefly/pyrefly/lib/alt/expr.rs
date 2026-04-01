@@ -72,6 +72,7 @@ use crate::alt::nn_module_specials::is_nn_module_dict;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::unwrap::Hint;
 use crate::alt::unwrap::HintRef;
+use crate::binding::binding::Binding;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
@@ -221,6 +222,15 @@ impl Display for ConditionRedundantReason {
 static MAX_TUPLE_LENGTH: usize = 256;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+    fn synthesized_functional_class_type(&self, call: &ExprCall) -> Option<Type> {
+        let anon_key = Key::Anon(call.range);
+        let idx = self
+            .bindings()
+            .key_to_idx_hashed_opt(Hashed::new(&anon_key))?;
+        matches!(self.bindings().get(idx), Binding::ClassDef(..))
+            .then(|| self.get_hashed(Hashed::new(&anon_key)).ty().clone())
+    }
+
     /// Infer a type for an expression, with an optional type hint that influences the inferred type.
     /// The inferred type is also checked against the hint.
     pub fn expr(
@@ -578,6 +588,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::YieldFrom(x) => self.get(&KeyYieldFrom(x.range)).return_ty.clone(),
             Expr::Compare(x) => self.compare_infer(x, errors),
             Expr::Call(x) => {
+                if let Some(ty) = self.synthesized_functional_class_type(x) {
+                    return ty;
+                }
                 let callee_ty = self.expr_infer(&x.func, errors);
                 if let Some(d) = self.call_to_dict(&callee_ty, &x.arguments) {
                     self.dict_infer(&d, hint, x.range, errors)
@@ -2223,7 +2236,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 }
                 Type::ClassType(ref cls) | Type::SelfType(ref cls)
-                    if let Some(tuple) = self.as_tuple(cls) =>
+                    if let Some(tuple) = self.as_tuple(cls)
+                        && !self.class_overrides_tuple_getitem(cls) =>
                 {
                     self.infer_tuple_subscript(
                         tuple,
@@ -2415,6 +2429,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // None type (e.g. from a variable typed as None)
             if matches!(&idx_ty, Type::None) {
                 return Some(IndexOp::NewAxis);
+            }
+            if let Type::Tensor(ref idx_tensor) = idx_ty {
+                if let TensorShape::Concrete(dims) = &idx_tensor.shape {
+                    return Some(IndexOp::TensorIndex(dims.clone()));
+                }
+                return None; // shapeless index tensor → bail
             }
             if let Type::Tuple(ref tuple) = idx_ty {
                 return match tuple {

@@ -157,7 +157,9 @@ def setup_logging(verbose: bool = False, debug: bool = False) -> None:
 def init(
     force: bool = typer.Option(False, "--force", help="Overwrite existing config."),
     config_file: Optional[Path] = typer.Option(
-        None, "--config", help="Path to configuration file (default: ~/.bake.toml)."
+        None,
+        "--config",
+        help="Path to configuration file (default: {XDG_CONFIG_HOME}/bake.toml).",
     ),
 ) -> None:
     """Initialize configuration file with defaults."""
@@ -199,7 +201,7 @@ def config(
     ),
 ) -> None:
     """Show current configuration."""
-    config_path = config_file or Path.home() / ".bake.toml"
+    config_path = config_file or Config.determine_config_path()
 
     if show_path:
         console.print(str(config_path))
@@ -924,11 +926,15 @@ def update(
                 latest_prerelease if has_prerelease_update else latest_stable
             )
 
-        # Perform update
+        # Perform update (pip ignores pre-releases unless --pre is passed)
+        install_prerelease = bool(
+            latest_prerelease is not None and target_version == latest_prerelease
+        )
+
         console.print("📦 Updating mbake...", style="dim")
 
         with console.status("Installing update..."):
-            success = update_package("mbake")
+            success = update_package("mbake", prerelease=install_prerelease)
 
         if success:
             console.print(
@@ -941,6 +947,9 @@ def update(
             console.print("[red]❌ Update failed[/red]")
             console.print(
                 "Try updating manually with: [bold]pip install --upgrade mbake[/bold]"
+            )
+            console.print(
+                "For a pre-release: [bold]pip install --upgrade --pre mbake[/bold]"
             )
             raise typer.Exit(1)
 

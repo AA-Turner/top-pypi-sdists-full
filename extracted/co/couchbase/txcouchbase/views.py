@@ -20,7 +20,7 @@ from couchbase.exceptions import (PYCBC_ERROR_MAP,
                                   CouchbaseException,
                                   ErrorMapper,
                                   ExceptionMap)
-from couchbase.exceptions import exception as CouchbaseBaseException
+from couchbase.logic.pycbc_core import pycbc_exception as PycbcCoreException
 from couchbase.logic.views import ViewRequestLogic, ViewRow
 
 
@@ -48,7 +48,6 @@ class ViewRequest(ViewRequestLogic):
         return cls(connection, loop, encoded_query, **kwargs)
 
     def execute_view_query(self):
-        # if self._query_request_ftr is not None and self._query_request_ftr.done():
         if self.done_streaming:
             raise AlreadyQueriedException()
 
@@ -81,7 +80,7 @@ class ViewRequest(ViewRequestLogic):
             return
 
         row = next(self._streaming_result)
-        if isinstance(row, CouchbaseBaseException):
+        if isinstance(row, PycbcCoreException):
             raise ErrorMapper.build_exception(row)
         # should only be None one query request is complete and _no_ errors found
         if row is None:
@@ -99,14 +98,22 @@ class ViewRequest(ViewRequestLogic):
 
     def __next__(self):
         try:
-            return self._get_next_row()
+            row = self._get_next_row()
+            # We want to end the streaming op span once we have a response from the C++ core.
+            # Unfortunately right now, that means we need to wait until we have the first row (or we have an error).
+            # As this method is idempotent, it is safe to call for each row (it will only do work for the first call).
+            self._process_core_span()
+            return row
         except StopIteration:
             self._done_streaming = True
+            self._process_core_span()
             self._get_metadata()
             raise
         except CouchbaseException as ex:
+            self._process_core_span(exc_val=ex)
             raise ex
         except Exception as ex:
             exc_cls = PYCBC_ERROR_MAP.get(ExceptionMap.InternalSDKException.value, CouchbaseException)
             excptn = exc_cls(str(ex))
+            self._process_core_span(exc_val=excptn)
             raise excptn

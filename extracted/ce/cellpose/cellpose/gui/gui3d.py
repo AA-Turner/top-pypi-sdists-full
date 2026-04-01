@@ -486,6 +486,10 @@ class MainW_3d(MainW):
                                 self.saturation[0][self.currentZ])
                     elif self.color == 4:
                         if image.ndim > 2:
+                            # exclude blank channels: 
+                            ranges = np.ptp(image, tuple(range(image.ndim-1)))
+                            range_mask = ranges > 1e-5
+                            image = image[..., range_mask]
                             image = image.astype("float32").mean(axis=2).astype("uint8")
                         self.imgOrtho[j].setImage(image, autoLevels=False, lut=None)
                         self.imgOrtho[j].setLevels(self.saturation[0][self.currentZ])

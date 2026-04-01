@@ -48,6 +48,7 @@ class QueryCollectionTestSuite:
         'test_query_fully_qualified',
         'test_query_in_thread',
         'test_query_metadata',
+        'test_query_metadata_no_metrics',
         'test_query_ryow',
         'test_query_with_metrics',
         'test_scope_query',
@@ -134,6 +135,28 @@ class QueryCollectionTestSuite:
             assert isinstance(warning.message(), str)
             assert isinstance(warning.code(), int)
 
+    def test_query_metadata_no_metrics(self, cb_env):
+        result = cb_env.scope.query(f"SELECT * FROM `{cb_env.collection.name}` LIMIT 2",
+                                    QueryOptions(metrics=False))
+        cb_env.assert_rows(result, 2)
+        metadata = result.metadata()  # type: QueryMetaData
+        for id_meth in (metadata.client_context_id, metadata.request_id):
+            id_res = id_meth()
+            fail_msg = "{} failed".format(id_meth)
+            assert isinstance(id_res, str), fail_msg
+
+        metrics = metadata.metrics()
+        assert metrics is None
+
+        assert metadata.status() == QueryStatus.SUCCESS
+        assert isinstance(metadata.signature(), (str, dict))
+        assert isinstance(metadata.warnings(), list)
+
+        for warning in metadata.warnings():
+            assert isinstance(warning, QueryWarning)
+            assert isinstance(warning.message(), str)
+            assert isinstance(warning.code(), int)
+
     def test_query_ryow(self, cb_env):
         key, value = cb_env.get_new_doc()
         result = cb_env.scope.query(f'SELECT * FROM `{cb_env.collection.name}` USE KEYS "{key}"')
@@ -199,6 +222,7 @@ class QueryTestSuite:
         'test_query_error_context',
         'test_query_in_thread',
         'test_query_metadata',
+        'test_query_metadata_no_metrics',
         'test_query_raw_options',
         'test_query_ryow',
         'test_query_timeout',
@@ -319,6 +343,28 @@ class QueryTestSuite:
             assert isinstance(warning.message(), str)
             assert isinstance(warning.code(), int)
 
+    def test_query_metadata_no_metrics(self, cb_env):
+        result = cb_env.cluster.query(f"SELECT * FROM `{cb_env.bucket.name}` LIMIT 2",
+                                      QueryOptions(metrics=False))
+        cb_env.assert_rows(result, 2)
+        metadata = result.metadata()  # type: QueryMetaData
+        for id_meth in (metadata.client_context_id, metadata.request_id):
+            id_res = id_meth()
+            fail_msg = "{} failed".format(id_meth)
+            assert isinstance(id_res, str), fail_msg
+
+        metrics = metadata.metrics()
+        assert metrics is None
+
+        assert metadata.status() == QueryStatus.SUCCESS
+        assert isinstance(metadata.signature(), (str, dict))
+        assert isinstance(metadata.warnings(), list)
+
+        for warning in metadata.warnings():
+            assert isinstance(warning, QueryWarning)
+            assert isinstance(warning.message(), str)
+            assert isinstance(warning.code(), int)
+
     def test_query_raw_options(self, cb_env):
         # via raw, we should be able to pass any option
         # if using named params, need to match full name param in query
@@ -340,14 +386,19 @@ class QueryTestSuite:
             pytest.skip("Query used in test only available on server versions >= 7.1")
         from couchbase.auth import PasswordAuthenticator
         from couchbase.cluster import Cluster
-        from couchbase.options import ClusterOptions, ClusterTimeoutOptions
+        from couchbase.options import (ClusterOptions,
+                                       ClusterTimeoutOptions,
+                                       ClusterTracingOptions)
         conn_string = cb_env.config.get_connection_string()
         username, pw = cb_env.config.get_username_and_pw()
         auth = PasswordAuthenticator(username, pw)
         # Prior to PYCBC-1521, this test would fail as each request would override the cluster level query_timeout.
         # If a timeout was not provided in the request, the default 75s timeout would be used.
         timeout_opts = ClusterTimeoutOptions(query_timeout=timedelta(seconds=1.5))
-        cluster = Cluster.connect(f'{conn_string}', ClusterOptions(auth, timeout_options=timeout_opts))
+        cluster_opts = ClusterOptions(auth,
+                                      timeout_options=timeout_opts,
+                                      tracing_options=ClusterTracingOptions(enable_tracing=False))
+        cluster = Cluster.connect(f'{conn_string}', cluster_opts)
         # don't need to do this except for older server versions
         _ = cluster.bucket(f'{cb_env.bucket.name}')
         slow_query = ' '.join(['SELECT COUNT (1) AS c FROM',

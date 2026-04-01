@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry-sdk
-Version: 2.56.0
+Version: 2.57.0
 Summary: Python client for Sentry (https://sentry.io)
 Home-page: https://github.com/getsentry/sentry-python
 Author: Sentry Team and Contributors
@@ -65,6 +65,8 @@ Requires-Dist: grpcio>=1.21.1; extra == "grpcio"
 Requires-Dist: protobuf>=3.8.0; extra == "grpcio"
 Provides-Extra: http2
 Requires-Dist: httpcore[http2]==1.*; extra == "http2"
+Provides-Extra: asyncio
+Requires-Dist: httpcore[asyncio]==1.*; extra == "asyncio"
 Provides-Extra: httpx
 Requires-Dist: httpx>=0.16.0; extra == "httpx"
 Provides-Extra: huey
@@ -78,7 +80,7 @@ Requires-Dist: langgraph>=0.6.6; extra == "langgraph"
 Provides-Extra: launchdarkly
 Requires-Dist: launchdarkly-server-sdk>=9.8.0; extra == "launchdarkly"
 Provides-Extra: litellm
-Requires-Dist: litellm>=1.77.5; extra == "litellm"
+Requires-Dist: litellm!=1.82.7,!=1.82.8,>=1.77.5; extra == "litellm"
 Provides-Extra: litestar
 Requires-Dist: litestar>=2.0.0; extra == "litestar"
 Provides-Extra: loguru

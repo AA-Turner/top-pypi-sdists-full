@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: cogames
-Version: 0.21.1
+Version: 0.22.2
 Summary: Multi-agent cooperative games
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: <3.13,>=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mettagrid==0.21.1
+Requires-Dist: mettagrid==0.22.3
 Requires-Dist: packaging>=24.0.0
 Requires-Dist: pufferlib-core
 Requires-Dist: pydantic>=2.11.5
@@ -21,6 +21,8 @@ Requires-Dist: questionary>=2.1.0
 Requires-Dist: fastapi>=0.115.0
 Requires-Dist: uvicorn>=0.34.0
 Requires-Dist: httpx>=0.28.1
+Requires-Dist: anthropic[bedrock]>=0.64.0
+Requires-Dist: openai>=1.0.0
 Requires-Dist: nbstripout>=0.8.0
 Requires-Dist: nbconvert>=7.16.0
 Requires-Dist: jupytext>=1.16.0

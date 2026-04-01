@@ -1617,6 +1617,138 @@ fn is_clause_punctuation(c: char) -> bool {
     matches!(c, ',' | ';' | ':' | '\u{2014}') // comma, semicolon, colon, em dash
 }
 
+/// Find the closing `)` that balances the `(` at the start of `slice`.
+///
+/// `offset` is the byte position of the `(` in the original full-line string;
+/// it is used to translate local byte positions into global positions for
+/// element-span lookups.  Parens inside markdown element spans are skipped so
+/// that, e.g., the closing `)` of an inline link does not prematurely end the
+/// scan.  The char's *start* byte (not byte-after) is used for the span check
+/// so that closing element delimiters — which sit exactly at the span's
+/// exclusive-end boundary — are correctly excluded.
+///
+/// Returns `(end_local, inner)` where `end_local` is the byte offset within
+/// `slice` just past the closing `)`, and `inner` is the content between the
+/// outermost `(` and `)`.
+fn paren_group_end<'a>(slice: &'a str, element_spans: &[(usize, usize)], offset: usize) -> Option<(usize, &'a str)> {
+    debug_assert!(slice.starts_with('('));
+    let mut depth: i32 = 0;
+    for (local_byte, c) in slice.char_indices() {
+        let global_byte = offset + local_byte;
+        // When depth > 0, skip parens that belong to a markdown element.
+        // Use the char's start byte so that a closing element delimiter
+        // (whose byte_after equals the span's exclusive end) is treated as
+        // inside the element rather than outside it.
+        if depth > 0 && is_inside_element(global_byte, element_spans) {
+            continue;
+        }
+        match c {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    let end = local_byte + 1;
+                    let inner = &slice[1..local_byte];
+                    return Some((end, inner));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Split a line at a parenthetical boundary for semantic line breaks.
+///
+/// Two strategies are tried in order:
+///
+/// 1. **Leading parenthetical** — if the line begins with `(`, isolate the
+///    entire balanced group on this line and start the rest on the next.
+///    This handles lines produced by a prior split that placed a `(` at the
+///    very beginning.
+///
+/// 2. **Mid-line parenthetical** — find the rightmost balanced `(…)` whose
+///    content spans multiple words and whose preceding text fits within
+///    `[min_first_len, line_length]`.  Split just before the `(` so the
+///    parenthetical begins the following line.
+///
+/// Parentheses that fall inside markdown element spans (links, code, etc.)
+/// are ignored in both strategies.
+fn split_at_parenthetical(
+    text: &str,
+    line_length: usize,
+    element_spans: &[(usize, usize)],
+    length_mode: ReflowLengthMode,
+) -> Option<(String, String)> {
+    let min_first_len = ((line_length as f64) * MIN_SPLIT_RATIO) as usize;
+
+    // Strategy 1: text starts with '(' — isolate the parenthetical as its own line.
+    if text.starts_with('(')
+        && let Some((end_local, inner)) = paren_group_end(text, element_spans, 0)
+        && inner.contains(' ')
+    {
+        // If clause punctuation immediately follows the closing ')', attach it
+        // to the parenthetical so the continuation line does not start with a
+        // bare comma or semicolon (e.g., "(foo, bar), then" → "(foo, bar),"
+        // on one line and "then" on the next).
+        let tail = &text[end_local..];
+        let (first_end, rest_start) = match tail.chars().next() {
+            Some(c) if is_clause_punctuation(c) => (end_local + c.len_utf8(), end_local + c.len_utf8()),
+            _ => (end_local, end_local),
+        };
+        let first = &text[..first_end];
+        let first_len = display_len(first, length_mode);
+        // No MIN_SPLIT_RATIO check: a parenthetical unit is always a valid
+        // semantic line regardless of its length.
+        if first_len <= line_length {
+            let rest = text[rest_start..].trim_start();
+            if !rest.is_empty() {
+                return Some((first.to_string(), rest.to_string()));
+            }
+        }
+    }
+
+    // Strategy 2: find the rightmost multi-word '(' whose preceding text fits.
+    let mut best_open_byte: Option<usize> = None;
+    let mut pos = 0usize;
+    while pos < text.len() {
+        // '(' is ASCII so a single-byte comparison is safe in UTF-8.
+        if text.as_bytes()[pos] != b'(' {
+            let c = text[pos..].chars().next().unwrap();
+            pos += c.len_utf8();
+            continue;
+        }
+        // Skip '(' that are part of a markdown element (use start byte).
+        if is_inside_element(pos, element_spans) {
+            pos += 1;
+            continue;
+        }
+        if let Some((end_local, inner)) = paren_group_end(&text[pos..], element_spans, pos) {
+            let first = text[..pos].trim_end();
+            let first_len = display_len(first, length_mode);
+            if !first.is_empty()
+                && first_len >= min_first_len
+                && first_len <= line_length
+                && inner.contains(' ')
+                && best_open_byte.is_none_or(|prev| pos > prev)
+            {
+                best_open_byte = Some(pos);
+            }
+            pos += end_local;
+        } else {
+            pos += 1;
+        }
+    }
+
+    let open_byte = best_open_byte?;
+    let first = text[..open_byte].trim_end().to_string();
+    let rest = text[open_byte..].to_string();
+    if first.is_empty() || rest.trim().is_empty() {
+        return None;
+    }
+    Some((first, rest))
+}
+
 /// Compute element spans for a flat text representation of elements.
 /// Returns Vec of (start, end) byte offsets for non-Text elements,
 /// so we can check that a split position doesn't fall inside them.
@@ -1667,15 +1799,31 @@ fn split_at_clause_punctuation(
         search_end_char = idx + 1;
     }
 
+    // Scan backwards tracking parenthesis depth to skip clause punctuation
+    // inside plain-text parenthetical groups.  Scanning right-to-left means
+    // ')' opens a depth level and '(' closes it.  Parens that belong to a
+    // markdown element are excluded using the char's start byte (not byte-after)
+    // so that closing element delimiters at the span boundary are correctly
+    // treated as part of the element.
+    let mut paren_depth: i32 = 0;
     let mut best_pos = None;
     for i in (0..search_end_char).rev() {
-        if is_clause_punctuation(chars[i]) {
-            // Convert char position to byte position for element span check
-            let byte_pos: usize = chars[..=i].iter().map(|c| c.len_utf8()).sum();
-            if !is_inside_element(byte_pos, element_spans) {
-                best_pos = Some(i);
-                break;
+        // Start byte of char i (for paren element check)
+        let byte_start: usize = chars[..i].iter().map(|c| c.len_utf8()).sum();
+        // Byte just after char i (for clause punctuation element check — existing convention)
+        let byte_after: usize = byte_start + chars[i].len_utf8();
+
+        if !is_inside_element(byte_start, element_spans) {
+            match chars[i] {
+                ')' => paren_depth += 1,
+                '(' => paren_depth = paren_depth.saturating_sub(1),
+                _ => {}
             }
+        }
+
+        if paren_depth == 0 && is_clause_punctuation(chars[i]) && !is_inside_element(byte_after, element_spans) {
+            best_pos = Some(i);
+            break;
         }
     }
 
@@ -1699,6 +1847,70 @@ fn split_at_clause_punctuation(
     Some((first, rest))
 }
 
+/// Compute plain-text paren-depth at each byte offset in `text`.
+///
+/// Returns a `Vec<i32>` of length `text.len()` where entry `i` is the
+/// nesting depth at byte `i` — counting only `(` and `)` that fall
+/// outside markdown element spans.  This lets callers quickly check
+/// whether a byte position lies inside a plain-text parenthetical group.
+fn paren_depth_map(text: &str, element_spans: &[(usize, usize)]) -> Vec<i32> {
+    let mut map = vec![0i32; text.len()];
+    let mut depth = 0i32;
+    for (byte, c) in text.char_indices() {
+        if !is_inside_element(byte, element_spans) {
+            match c {
+                '(' => depth += 1,
+                ')' => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+        }
+        // Fill the depth value for every byte of this (possibly multi-byte) char.
+        let end = (byte + c.len_utf8()).min(map.len());
+        for slot in &mut map[byte..end] {
+            *slot = depth;
+        }
+    }
+    map
+}
+
+/// Return `true` if `line` is a complete, balanced, multi-word parenthetical
+/// group — i.e. it starts with `(`, ends with `)` (possibly followed by
+/// clause punctuation), has balanced parens throughout, and the inner content
+/// contains at least one space (matching the ≥2-word threshold used by
+/// `split_at_parenthetical` when deciding to split).
+///
+/// Used to prevent the short-line merge step from collapsing intentional
+/// parenthetical splits back into the previous line.
+fn is_standalone_parenthetical(line: &str) -> bool {
+    let trimmed = line.trim();
+    if !trimmed.starts_with('(') {
+        return false;
+    }
+    // Strip optional trailing clause punctuation to find the real end.
+    let core = trimmed.trim_end_matches(|c: char| is_clause_punctuation(c));
+    if !core.ends_with(')') {
+        return false;
+    }
+    // Inner content must span multiple words (same threshold as split_at_parenthetical).
+    let inner = &core[1..core.len() - 1];
+    if !inner.contains(' ') {
+        return false;
+    }
+    // Verify the parens are balanced (depth returns to 0 at the last ')').
+    let mut depth = 0i32;
+    for c in core.chars() {
+        match c {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            _ => {}
+        }
+        if depth < 0 {
+            return false;
+        }
+    }
+    depth == 0
+}
+
 /// Split a line before the latest break-word that keeps the first part
 /// within `line_length`. Returns None if no valid split point exists or if
 /// the split would create an unreasonably short first line.
@@ -1711,6 +1923,10 @@ fn split_at_break_word(
     let lower = text.to_lowercase();
     let min_first_len = ((line_length as f64) * MIN_SPLIT_RATIO) as usize;
     let mut best_split: Option<(usize, usize)> = None; // (byte_start, word_len_bytes)
+
+    // Build a paren-depth map so we can skip break-words inside plain-text
+    // parenthetical groups (matching the protection added to split_at_clause_punctuation).
+    let depth_map = paren_depth_map(text, element_spans);
 
     for &word in BREAK_WORDS {
         let mut search_start = 0;
@@ -1726,9 +1942,13 @@ fn split_at_break_word(
                 let first_part = text[..abs_pos].trim_end();
                 let first_part_len = display_len(first_part, length_mode);
 
+                // Skip break-words inside plain-text parenthetical groups.
+                let inside_paren = depth_map.get(abs_pos).is_some_and(|&d| d > 0);
+
                 if first_part_len >= min_first_len
                     && first_part_len <= line_length
                     && !is_inside_element(abs_pos, element_spans)
+                    && !inside_paren
                 {
                     // Prefer the latest valid split point
                     if best_split.is_none_or(|(prev_pos, _)| abs_pos > prev_pos) {
@@ -1768,6 +1988,20 @@ fn cascade_split_line(
 
     let elements = parse_markdown_elements_inner(text, attr_lists);
     let element_spans = compute_element_spans(&elements);
+
+    // Try parenthetical boundary split (before clause punctuation so that
+    // multi-word parentheticals are kept intact as semantic units)
+    if let Some((first, rest)) = split_at_parenthetical(text, line_length, &element_spans, length_mode) {
+        let mut result = vec![first];
+        result.extend(cascade_split_line(
+            &rest,
+            line_length,
+            abbreviations,
+            length_mode,
+            attr_lists,
+        ));
+        return result;
+    }
 
     // Try clause punctuation split
     if let Some((first, rest)) = split_at_clause_punctuation(text, line_length, &element_spans, length_mode) {
@@ -1847,6 +2081,13 @@ fn reflow_elements_semantic(elements: &[Element], options: &ReflowOptions) -> Ve
     let mut merged: Vec<String> = Vec::with_capacity(result.len());
     for line in result {
         if !merged.is_empty() && display_len(&line, length_mode) < min_line_len && !line.trim().is_empty() {
+            // Don't merge a line that is itself a standalone parenthetical group —
+            // it was placed on its own line intentionally by split_at_parenthetical.
+            if is_standalone_parenthetical(&line) {
+                merged.push(line);
+                continue;
+            }
+
             // Don't merge across sentence boundaries — sentence splits are intentional
             let prev_ends_at_sentence = {
                 let trimmed = merged.last().unwrap().trim_end();

@@ -1,11 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Classes for docker-extract."""
+
 import logging
-import os
 import subprocess  # nosec
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Union
 
 from .singularity import get_version as get_singularity_version
 from .singularity import is_version_2_6 as is_singularity_version_2_6
@@ -19,7 +18,7 @@ class ImagePuller(ABC):
     def __init__(
         self,
         req: str,
-        save_directory: Optional[Union[str, Path]],
+        save_directory: str | Path | None,
         cmd: str,
         force_pull: bool,
     ) -> None:
@@ -54,11 +53,9 @@ class DockerImagePuller(ImagePuller):
 
     def get_image_name(self) -> str:
         """Get the name of the tarball."""
-        name = "".join(self.req.split("/")) + ".tar"
         # Replace colons with underscores in the name.
         # See https://github.com/containers/podman/issues/489
-        name = name.replace(":", "_")
-        return name
+        return ("".join(self.req.split("/")) + ".tar").replace(":", "_")
 
     def generate_udocker_loading_command(self) -> str:
         """Generate the udocker loading command."""
@@ -71,14 +68,14 @@ class DockerImagePuller(ImagePuller):
         ImagePuller._run_command_pull(cmd_pull)
         _LOGGER.info(f"Image successfully pulled: {self.req}")
         if self.save_directory:
-            dest = os.path.join(self.save_directory, self.get_image_name())
+            dest = Path(self.save_directory, self.get_image_name())
             if self.save_directory and self.force_pull:
-                os.remove(dest)
+                dest.unlink()
             cmd_save = [
                 self.cmd,
                 "save",
                 "-o",
-                dest,
+                str(dest),
                 self.req,
             ]
             subprocess.run(cmd_save, check=True)  # nosec
@@ -109,13 +106,11 @@ class SingularityImagePuller(ImagePuller):
 
     def save_docker_image(self) -> None:
         """Pull down the Docker software container image and save it in the Singularity image format."""
-        save_directory: Union[str, Path]
+        save_directory: str | Path
         if self.save_directory:
             save_directory = self.save_directory
-        if (
-            os.path.exists(os.path.join(save_directory, self.get_image_name()))
-            and not self.force_pull
-        ):
+        target = Path(save_directory, self.get_image_name())
+        if target.exists() and not self.force_pull:
             _LOGGER.info(f"Already cached {self.req} with Singularity.")
             return
         _LOGGER.info(f"Pulling {self.req} with Singularity...")
@@ -128,7 +123,7 @@ class SingularityImagePuller(ImagePuller):
         cmd_pull.extend(
             [
                 "--name",
-                os.path.join(save_directory, self.get_image_name()),
+                str(target),
                 f"docker://{self.req}",
             ]
         )

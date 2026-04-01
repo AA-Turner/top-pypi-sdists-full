@@ -1,0 +1,110 @@
+default_stages: [pre-commit]
+repos:
+  - repo: https://github.com/ambv/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        language_version: python3
+        exclude: snap_
+
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.importlinter|tests/unit/verticals/secret(/output)?/__snapshots__/.*|tests/unit/core/scan/test_commit_utils.py
+      - id: check-json
+      - id: check-added-large-files
+      - id: check-yaml
+      - id: check-toml
+      - id: end-of-file-fixer
+        exclude: .importlinter
+
+  - repo: https://github.com/Woile/commitizen
+    rev: v4.1.0
+    hooks:
+      - id: commitizen
+        # don't forget to run pre-commit install --hook-type commit-msg for this hook to run
+        stages: [commit-msg]
+
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.6.0
+    hooks:
+      - id: prettier
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+
+  - repo: https://github.com/thlorenz/doctoc
+    rev: v2.2.0
+    hooks:
+      - id: doctoc
+        types: [markdown]
+        # Can't use "args: [README.md]" because it *adds* the
+        # argument to the list
+        files: '^README\.md$'
+
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.31.0
+    hooks:
+      - id: check-github-workflows
+
+  # use a "local" repo and not the pyright hook to ensure pyright runs in the same virtualenv
+  # as the rest of the code
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright
+        entry: 'uv run pyright'
+        language: system
+        types: [python]
+        # do not pass filenames, otherwise Pyright might scan files we don't want it to scan
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: ggshield-local
+        name: GitGuardian Shield
+        entry: uv run ggshield secret scan pre-commit
+        language: system
+        stages: [pre-commit]
+
+  - repo: local
+    hooks:
+      - id: ggshield-local
+        name: GitGuardian Shield
+        entry: uv run ggshield secret scan pre-push
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+  - repo: https://github.com/gitguardian/ggshield
+    rev: v1.48.0
+    hooks:
+      - id: ggshield
+        language_version: python3
+        stages: [pre-commit]
+
+  - repo: local
+    hooks:
+      - id: import-linter-config
+        name: Import Linter Config Check
+        entry: ./scripts/check-import-linter-config.sh
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-commit]
+
+      - id: import-linter
+        name: Import Linter
+        entry: uv run lint-imports
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-commit]

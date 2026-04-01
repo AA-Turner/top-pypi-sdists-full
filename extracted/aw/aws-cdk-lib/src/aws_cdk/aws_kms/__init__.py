@@ -1072,19 +1072,6 @@ class CfnKey(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="keyPolicy")
-    def key_policy(self) -> typing.Any:
-        '''The key policy to attach to the KMS key.'''
-        return typing.cast(typing.Any, jsii.get(self, "keyPolicy"))
-
-    @key_policy.setter
-    def key_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd3f4724ca140c9b1dca16904dd53ab0905d0688de411b0f60d4f538cb2ac4a2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyPolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="bypassPolicyLockoutSafetyCheck")
     def bypass_policy_lockout_safety_check(
         self,
@@ -1156,6 +1143,19 @@ class CfnKey(
             type_hints = typing.get_type_hints(_typecheckingstub__1949abfe35e26dd5174b35137bea94a550270331496fd2f865d63e22360c88de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enableKeyRotation", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="keyPolicy")
+    def key_policy(self) -> typing.Any:
+        '''The key policy to attach to the KMS key.'''
+        return typing.cast(typing.Any, jsii.get(self, "keyPolicy"))
+
+    @key_policy.setter
+    def key_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd3f4724ca140c9b1dca16904dd53ab0905d0688de411b0f60d4f538cb2ac4a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keyPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="keySpec")
@@ -4076,12 +4076,6 @@ def _typecheckingstub__7468635e1eaf46c92748f2c14a3230215aa887e54ed03c370eee59b7e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__cd3f4724ca140c9b1dca16904dd53ab0905d0688de411b0f60d4f538cb2ac4a2(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__ba782ca88c8b210d0c18f73ecee5e7266ed06b7428c903676aca9b26b6490443(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
@@ -4102,6 +4096,12 @@ def _typecheckingstub__7d16a27f134df94f3471ae307ddaf158320e92fc426e0a715a044c762
 
 def _typecheckingstub__1949abfe35e26dd5174b35137bea94a550270331496fd2f865d63e22360c88de(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd3f4724ca140c9b1dca16904dd53ab0905d0688de411b0f60d4f538cb2ac4a2(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

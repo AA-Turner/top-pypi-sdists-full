@@ -1181,7 +1181,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 seen_param_specs,
                 tparams,
             ),
-            Type::Type(t) | Type::Annotated(t) => self.tvars_to_tparams_for_type_alias(
+            Type::Type(t) | Type::Annotated(t, _) => self.tvars_to_tparams_for_type_alias(
                 t,
                 seen_type_vars,
                 seen_type_var_tuples,
@@ -1204,9 +1204,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if !self.has_valid_annotation_syntax(expr, errors) {
             return TypeAlias::error(name.clone(), style);
         }
-        // Check whether the original type was Annotated before it gets rebound below.
-        // We use this later to decide whether to wrap the stored type in Annotated.
-        let original_was_annotated = matches!(ty, Type::Annotated(_));
+        let annotated_metadata = match &ty {
+            Type::Annotated(_, metadata) => Some(metadata.clone()),
+            _ => None,
+        };
         let untyped = self.untype_opt(ty.clone(), range, errors);
         let ty = if let Some(untyped) = untyped {
             let validated =
@@ -1224,20 +1225,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
             return TypeAlias::error(name.clone(), style);
         };
-        // Extract Annotated metadata; skip the first element since that's the type and collect the rest of the vector
-        let annotated_metadata = self
-            .get_annotated_metadata(expr, TypeFormContext::TypeAlias, errors)
-            .iter()
-            .map(|e| self.expr_infer(e, &self.error_swallower()))
-            .collect();
         // If the original type was Annotated[T, ...], preserve the wrapper so that
         // the alias is not callable and not assignable to type[T] in value position.
-        let stored_ty = if original_was_annotated {
-            Type::Annotated(Box::new(ty))
+        let stored_ty = if let Some(metadata) = annotated_metadata {
+            Type::Annotated(Box::new(ty), metadata)
         } else {
             self.heap.mk_type_form(ty)
         };
-        TypeAlias::new(name.clone(), stored_ty, style, annotated_metadata)
+        TypeAlias::new(name.clone(), stored_ty, style)
     }
 
     /// Check whether a type alias body contains a cyclic self-reference.
@@ -1559,7 +1554,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let mut body = match ta.as_type() {
                     Type::Type(inner) => *inner,
                     // If the body was an Annotated type, return it without the wrapper
-                    Type::Annotated(inner) => *inner,
+                    Type::Annotated(inner, _) => *inner,
                     _ => return,
                 };
                 // Recursively expand any Refs in the inlined body, so that all nested
@@ -1733,12 +1728,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .mk_optional(self.heap.mk_class_type(self.stdlib.bool().clone())),
                 range,
                 errors,
-                &|| TypeCheckContext {
-                    kind: TypeCheckKind::MagicMethodReturn(
+                &|| {
+                    TypeCheckContext::of_kind(TypeCheckKind::MagicMethodReturn(
                         self.for_display(context_manager_type.clone()),
                         kind.context_exit_dunder(),
-                    ),
-                    context: Some(context()),
+                    ))
+                    .with_context(Some(context()))
                 },
             );
             // TODO: `exit_type` may also affect exceptional control flow, which is yet to be supported:
@@ -2855,7 +2850,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Per PEP 696: when default is a TypeVar, "T1's bound must be a subtype of T2's bound"
             Restriction::Bound(bound_ty) => {
                 let default_for_check = match default {
-                    Type::TypeVar(tv) => tv.restriction().as_type(self.stdlib, self.heap),
+                    Type::TypeVar(tv) => tv.bound_type(self.stdlib, self.heap),
                     Type::Quantified(q) if q.is_type_var() => q.bound_type(self.stdlib, self.heap),
                     _ => default.clone(),
                 };
@@ -3088,6 +3083,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Extract the source range of an annotation expression from a binding key.
+    /// Returns `None` for special forms which don't have a source expression.
+    pub(crate) fn annotation_range(&self, key: Idx<KeyAnnotation>) -> Option<TextRange> {
+        match self.bindings().get(key) {
+            BindingAnnotation::AnnotateExpr(_, expr, _) => Some(expr.range()),
+            BindingAnnotation::SpecialForm(..) => None,
+        }
+    }
+
     fn name_assign_infer(
         &self,
         name: &Name,
@@ -3099,11 +3103,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // First infer the type as a normal value
             Some((style, k)) => {
                 let annot = self.get_idx(*k);
+                let annot_range = self.annotation_range(*k);
                 let tcc: &dyn Fn() -> TypeCheckContext = &|| {
                     TypeCheckContext::of_kind(match style {
                         AnnotationStyle::Direct => TypeCheckKind::AnnAssign,
                         AnnotationStyle::Forwarded => TypeCheckKind::AnnotatedName(name.clone()),
                     })
+                    .with_annotation(annot_range, "declared type".to_owned())
                 };
                 let annot_ty = annot.ty(self.heap, self.stdlib);
                 let hint = annot_ty.as_ref().map(|t| (t, tcc));
@@ -3330,8 +3336,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         } else if x.is_generator {
             let hint = hint.and_then(|ty| self.decompose_generator(&ty).map(|(_, _, r)| r));
-            let tcc: &dyn Fn() -> TypeCheckContext =
-                &|| TypeCheckContext::of_kind(TypeCheckKind::ExplicitFunctionReturn);
+            let annot_range = x.annot.and_then(|k| self.annotation_range(k));
+            let tcc: &dyn Fn() -> TypeCheckContext = &|| {
+                TypeCheckContext::of_kind(TypeCheckKind::ExplicitFunctionReturn)
+                    .with_annotation(annot_range, "declared return type".to_owned())
+            };
             if let Some(box expr) = &x.expr {
                 self.expr(expr, hint.as_ref().map(|t| (t, tcc)), errors)
             } else if let Some(hint) = hint {
@@ -3355,8 +3364,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.heap.mk_none()
             }
         } else {
-            let tcc: &dyn Fn() -> TypeCheckContext =
-                &|| TypeCheckContext::of_kind(TypeCheckKind::ExplicitFunctionReturn);
+            let annot_range = x.annot.and_then(|k| self.annotation_range(k));
+            let tcc: &dyn Fn() -> TypeCheckContext = &|| {
+                TypeCheckContext::of_kind(TypeCheckKind::ExplicitFunctionReturn)
+                    .with_annotation(annot_range, "declared return type".to_owned())
+            };
             if let Some(box expr) = &x.expr {
                 self.expr(expr, hint.as_ref().map(|t| (t, tcc)), errors)
             } else if let Some(hint) = hint {
@@ -3905,12 +3917,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     },
             } = &*self.get_idx(k)
         {
-            self.check_and_return_type(ty, want, x.range, errors, &|| {
+            // Validate the annotation but always preserve the special TypeVarTuple type,
+            // so that solve_legacy_tparam can recognize it downstream.
+            self.check_type(&ty, want, x.range, errors, &|| {
                 TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
-            })
-        } else {
-            ty
+            });
         }
+        ty
     }
 
     /// Handle `Binding::StmtExpr` - process statement expression.
@@ -4279,7 +4292,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             prefix.push(FacetKind::Key(lit.value.to_string()));
             if let Ok(chain) = Vec1::try_from_vec(prefix.clone()) {
                 let swallower = self.error_swallower();
-                let value_ty = self.expr_infer(&item.value, &swallower);
+                let mut value_ty = self.expr_infer(&item.value, &swallower);
+                // Swallow errors when pinning inner placeholder types.
+                self.pin_all_placeholder_types(&mut value_ty, true, item.value.range(), &swallower);
+                self.expand_vars_mut(&mut value_ty);
                 info.record_key_completion(&chain, Some(value_ty.clone()));
                 self.populate_dict_literal_facets(info, prefix, &item.value);
             }
@@ -4558,7 +4574,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | Type::TypeVar(_)
             | Type::ParamSpec(_)
             | Type::TypeVarTuple(_)
-            | Type::Annotated(_) => true,
+            | Type::Annotated(_, _) => true,
             Type::TypeAlias(ta) => {
                 self.check_type_form(&self.get_type_alias(ta).as_type(), allow_none)
             }
@@ -4712,12 +4728,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             },
                     } = &*self.get_idx(*k)
                 {
-                    self.check_and_return_type(ty, want, call.range, errors, &|| {
+                    // Validate the annotation but always preserve the special TypeVar type,
+                    // so that solve_legacy_tparam can recognize it downstream.
+                    self.check_type(&ty, want, call.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
-                    })
-                } else {
-                    ty
+                    });
                 }
+                ty
             }
             Binding::ParamSpec(x) => {
                 let (ann, name, call) = x.as_ref();
@@ -4734,12 +4751,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             },
                     } = &*self.get_idx(*k)
                 {
-                    self.check_and_return_type(ty, want, call.range, errors, &|| {
+                    // Validate the annotation but always preserve the special ParamSpec type,
+                    // so that solve_legacy_tparam can recognize it downstream.
+                    self.check_type(&ty, want, call.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::from_annotation_target(target))
-                    })
-                } else {
-                    ty
+                    });
                 }
+                ty
             }
             Binding::TypeVarTuple(x) => {
                 let (ann, name, call) = x.as_ref();
@@ -5115,6 +5133,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ty @ (Type::TypeVar(_)
             | Type::ParamSpec(_)
             | Type::TypeVarTuple(_)
+            | Type::TypeForm(_)
             | Type::Args(_)
             | Type::Kwargs(_)) => Some(ty),
             Type::Type(t) => {
@@ -5139,6 +5158,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     && cls.has_qname("types", "NoneType")
                 {
                     return Some(self.heap.mk_none());
+                }
+                // Bare TypeForm (no subscript) is equivalent to TypeForm[Any]
+                if let Type::SpecialForm(SpecialForm::TypeForm) = t.as_ref() {
+                    return Some(Type::TypeForm(Box::new(Type::Any(AnyStyle::Implicit))));
                 }
                 Some(*t)
             }
@@ -5183,7 +5206,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.untype_opt(canonicalized, range, errors)
             }
             // Annotated[T, meta] in annotation/type-alias context unwraps to T
-            Type::Annotated(t) => Some(*t),
+            Type::Annotated(t, _) => Some(*t),
             _ => None,
         }
     }

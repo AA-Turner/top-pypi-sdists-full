@@ -3,7 +3,6 @@ import logging
 import os
 import shutil
 import struct
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -69,15 +68,24 @@ async def _read_until_initial_list(
             return frame
 
 
-def get_blit_socket_path(terminal_controller_socket_path: str) -> str:
+def _default_blit_socket_path() -> str:
+    tmpdir = os.environ.get("TMPDIR")
+    if tmpdir:
+        return f"{tmpdir}/blit.sock"
+    xdg = os.environ.get("XDG_RUNTIME_DIR")
+    if xdg:
+        return f"{xdg}/blit.sock"
+    user = os.environ.get("USER")
+    if user:
+        return f"/tmp/blit-{user}.sock"
+    return "/tmp/blit.sock"
+
+
+def get_blit_socket_path() -> str:
     explicit_socket_path = os.environ.get(BLIT_SOCKET_ENV)
     if explicit_socket_path:
         return explicit_socket_path
-
-    socket_path = Path(terminal_controller_socket_path)
-    if socket_path.suffix:
-        return str(socket_path.with_name(f"{socket_path.stem}-blit{socket_path.suffix}"))
-    return f"{terminal_controller_socket_path}-blit"
+    return _default_blit_socket_path()
 
 
 class BlitTerminalServer:
@@ -88,8 +96,20 @@ class BlitTerminalServer:
         self._stderr_task: asyncio.Task[None] | None = None
 
     @classmethod
-    def from_terminal_controller_socket(cls, terminal_controller_socket_path: str) -> "BlitTerminalServer":
-        return cls(socket_path=get_blit_socket_path(terminal_controller_socket_path))
+    async def connect_existing(cls, socket_path: str) -> "BlitTerminalServer":
+        if not os.path.exists(socket_path):
+            raise RuntimeError(f"Blit socket not found at {socket_path}")
+        reader, writer = await asyncio.open_unix_connection(socket_path)
+        try:
+            list_frame = await _read_until_initial_list(reader, timeout_s=_BLIT_FRAME_TIMEOUT_S)
+            if list_frame is None:
+                raise RuntimeError(f"Blit socket at {socket_path} is not responding")
+        finally:
+            writer.close()
+            await writer.wait_closed()
+        server = cls(socket_path=socket_path)
+        logger.info("Attached to existing blit terminal server", extra={"socket_path": socket_path})
+        return server
 
     async def start(self) -> None:
         if self._process is not None:

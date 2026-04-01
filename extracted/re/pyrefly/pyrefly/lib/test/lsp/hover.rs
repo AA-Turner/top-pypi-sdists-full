@@ -12,7 +12,10 @@ use pyrefly_build::handle::Handle;
 use ruff_text_size::TextSize;
 
 use crate::lsp::wasm::hover::get_hover;
+use crate::state::require::Require;
 use crate::state::state::State;
+use crate::test::util::TestEnv;
+use crate::test::util::extract_cursors_for_test;
 use crate::test::util::get_batched_lsp_operations_report;
 use crate::test::util::get_batched_lsp_operations_report_allow_error;
 
@@ -905,6 +908,107 @@ from lib import bar as baz
 }
 
 #[test]
+fn hover_on_imported_class_shows_constructor_signature_and_docstring() {
+    let lib = r#"
+class Person:
+    """Test docstring"""
+    def __init__(self, name: str, age: int) -> None: ...
+"#;
+    let code = r#"
+from lib import Person
+#                ^
+"#;
+    let report =
+        get_batched_lsp_operations_report(&[("main", code), ("lib", lib)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+2 | from lib import Person
+                     ^
+```python
+(class) Person: def __init__(
+    name: str,
+    age: int
+) -> Person: ...
+```
+---
+Test docstring
+
+
+# lib.py
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn hover_on_class_in_type_annotation_shows_constructor() {
+    let code = r#"
+class Foo:
+    """Foo docstring"""
+    def __init__(self, x: int) -> None: ...
+
+y: Foo
+#  ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+6 | y: Foo
+       ^
+```python
+(class) Foo: def __init__(x: int) -> Foo: ...
+```
+---
+Foo docstring
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn hover_on_imported_pyi_class_shows_constructor_signature() {
+    let mut test_env = TestEnv::new();
+    test_env.add_with_path(
+        "lib",
+        "lib.pyi",
+        r#"
+class Widget:
+    """Widget docstring"""
+    def __init__(self, width: int, height: int) -> None: ...
+"#,
+    );
+    let main_code = r#"
+from lib import Widget
+#                ^
+"#;
+    test_env.add("main", main_code);
+    let (state, handle) = test_env
+        .with_default_require_level(Require::Exports)
+        .to_state();
+    let main_handle = handle("main");
+    let positions = extract_cursors_for_test(main_code);
+    let position = positions[0];
+    let report = get_test_report(&state, &main_handle, position);
+    assert_eq!(
+        r#"
+```python
+(class) Widget: def __init__(
+    width: int,
+    height: int
+) -> Widget: ...
+```
+---
+Widget docstring"#
+            .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
 fn hover_on_first_component_of_multi_part_import() {
     let mymod_init = r#"# mymod/__init__.py
 def version() -> str: ...
@@ -1068,6 +1172,46 @@ Person("Alice", 25)
     assert!(
         report.contains("-> Person"),
         "Expected constructor hover to show -> Person, got: {report}"
+    );
+}
+
+#[test]
+fn hover_on_namedtuple_constructor_shows_field_signature() {
+    let code = r#"
+from typing import NamedTuple
+
+class Test(NamedTuple):
+    a: str
+    b: int
+
+Test()
+#^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        |state, handle, position| match get_hover(&state.transaction(), handle, position, false) {
+            Some(Hover {
+                contents: HoverContents::Markup(markup),
+                ..
+            }) => markup.value,
+            _ => "None".to_owned(),
+        },
+    );
+    assert_eq!(
+        r#"
+# main.py
+8 | Test()
+     ^
+```python
+(method) __init__: def __init__(
+    cls: type[Test],
+    a: str,
+    b: int
+) -> Test: ...
+```
+"#
+        .trim(),
+        report.trim(),
     );
 }
 
@@ -1257,5 +1401,30 @@ f(x=1.0)
     assert!(
         report.contains("x: float = -1.5"),
         "Expected hover to show negative float default '-1.5', got: {report}"
+    );
+}
+
+/// When `check_unannotated_defs = false`, hover should still work inside
+/// unannotated function bodies so IDE features remain functional.
+#[test]
+fn hover_works_in_unannotated_function_with_skip_check() {
+    let code = r#"
+def unannotated():
+    x = 42
+#   ^
+    return x
+"#;
+    let mut test_env = TestEnv::new_skip_check_no_infer();
+    test_env.add("main", code);
+    let (state, handle_fn) = test_env
+        .with_default_require_level(Require::Exports)
+        .to_state();
+    let handle = handle_fn("main");
+    let cursors = extract_cursors_for_test(code);
+    assert_eq!(cursors.len(), 1);
+    let result = get_hover(&state.transaction(), &handle, cursors[0], true);
+    assert!(
+        result.is_none(),
+        "Expected no hover result for variable inside unannotated function body when check is skipped"
     );
 }

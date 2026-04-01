@@ -702,7 +702,9 @@ class PraisonAI:
             generator = AutoGenerator(topic=self.topic, framework=self.framework, agent_file=self.agent_file)
             self.agent_file = generator.generate(merge=getattr(args, 'merge', False))
             AgentsGenerator = _get_agents_generator()
-            agents_generator = AgentsGenerator(self.agent_file, self.framework, self.config_list)
+            # Extract CLI configuration for YAML CLI parity
+            cli_config = self._extract_cli_config_for_yaml()
+            agents_generator = AgentsGenerator(self.agent_file, self.framework, self.config_list, cli_config=cli_config)
             result = agents_generator.generate_crew_and_kickoff()
             print(result)
             return result
@@ -727,12 +729,15 @@ class PraisonAI:
             else:
                 # Modify code to allow default UI
                 AgentsGenerator = _get_agents_generator()
+                # Extract CLI configuration for YAML CLI parity
+                cli_config = self._extract_cli_config_for_yaml()
                 agents_generator = AgentsGenerator(
                     self.agent_file,
                     self.framework,
                     self.config_list,
                     agent_yaml=self.agent_yaml,
-                    tools=self.tools
+                    tools=self.tools,
+                    cli_config=cli_config
                 )
                 result = agents_generator.generate_crew_and_kickoff()
                 print(result)
@@ -795,12 +800,15 @@ class PraisonAI:
             
             try:
                 AgentsGenerator = _get_agents_generator()
+                # Extract CLI configuration for YAML CLI parity 
+                cli_config = self._extract_cli_config_for_yaml()
                 agents_generator = AgentsGenerator(
                     self.agent_file,
                     self.framework,
                     self.config_list,
                     agent_yaml=self.agent_yaml,
-                    tools=self.tools
+                    tools=self.tools,
+                    cli_config=cli_config
                 )
                 result = agents_generator.generate_crew_and_kickoff()
                 print(result)
@@ -1121,7 +1129,8 @@ class PraisonAI:
         if args.command == 'api:app' or args.command == '/app/api:app':
             args.command = 'agents.yaml'
         if args.command == 'ui':
-            args.ui = 'chainlit'
+            # UI command — routes to Typer CLI for clean chat UI (praisonaiui)
+            pass
         # chat and code commands are now terminal-native (handled by Typer commands)
         # They no longer set args.ui = 'chainlit' or open browser
         
@@ -1230,11 +1239,16 @@ class PraisonAI:
                 config_yaml_destination = os.path.join(os.getcwd(), 'config.yaml')
 
             elif args.command == 'ui':
-                if not CHAINLIT_AVAILABLE:
-                    print("[red]ERROR: UI is not installed. Install with:[/red]")
-                    print("\npip install \"praisonai[ui]\"\n")
-                    sys.exit(1)
-                self.create_chainlit_interface()
+                # UI command — Clean Chat UI (praisonaiui)
+                # Routes to Typer CLI for ui command (launches clean chat)
+                from .app import app as typer_app, register_commands
+                register_commands()
+                import sys as _sys
+                _sys.argv = ['praisonai', 'ui'] + unknown_args
+                try:
+                    typer_app()
+                except SystemExit as e:
+                    sys.exit(e.code if e.code else 0)
                 sys.exit(0)
 
             elif args.command == 'context':
@@ -3948,6 +3962,42 @@ Do NOT add any explanations or formatting."""
         
         return results[-1].get("output", "") if results else ""
 
+    def _extract_cli_config_for_yaml(self):
+        """
+        Extract CLI configuration that should be passed to YAML processing.
+        
+        Returns:
+            dict: CLI configuration for the missing CLI parity features
+        """
+        if not hasattr(self, 'args'):
+            return {}
+            
+        cli_config = {}
+        
+        # Extract --trust flag
+        if getattr(self.args, 'trust', False):
+            cli_config['trust'] = True
+            
+        # Extract --tool-timeout flag  
+        tool_timeout = getattr(self.args, 'tool_timeout', None)
+        if tool_timeout is not None:
+            cli_config['tool_timeout'] = tool_timeout
+            
+        # Extract --planning-tools flag
+        planning_tools = getattr(self.args, 'planning_tools', None)
+        if planning_tools:
+            cli_config['planning_tools'] = planning_tools
+            
+        # Extract --acp flag
+        if getattr(self.args, 'acp', False):
+            cli_config['acp'] = True
+            
+        # Extract --lsp flag
+        if getattr(self.args, 'lsp', False):
+            cli_config['lsp'] = True
+            
+        return cli_config
+
     def handle_direct_prompt(self, prompt):
         """
         Handle direct prompt by creating a single agent and running it.
@@ -4066,12 +4116,15 @@ Do NOT add any explanations or formatting."""
             
             # Add feature flags if enabled
             if hasattr(self, 'args'):
-                if getattr(self.args, 'web_search', False):
-                    agent_config["web_search"] = True
-                if getattr(self.args, 'web_fetch', False):
-                    agent_config["web_fetch"] = True
+                if getattr(self.args, 'web_search', False) or getattr(self.args, 'web_fetch', False):
+                    from praisonaiagents.config.web_config import WebConfig
+                    agent_config["web"] = WebConfig(
+                        search=getattr(self.args, 'web_search', False),
+                        fetch=getattr(self.args, 'web_fetch', False),
+                    )
                 if getattr(self.args, 'prompt_caching', False):
-                    agent_config["prompt_caching"] = True
+                    from praisonaiagents import CachingConfig
+                    agent_config["caching"] = CachingConfig(prompt_caching=True)
                 
                 # Load tools if specified (--tools flag)
                 if getattr(self.args, 'tools', None):
@@ -4087,21 +4140,24 @@ Do NOT add any explanations or formatting."""
                 
                 # Planning Mode
                 if getattr(self.args, 'planning', False):
-                    agent_config["planning"] = True
+                    from praisonaiagents import PlanningConfig
+                    planning_kwargs = {}
                     print("[bold cyan]Planning mode enabled - agent will create a plan before execution[/bold cyan]")
                     
                     # Load planning tools if specified
                     if getattr(self.args, 'planning_tools', None):
                         planning_tools_list = self._load_tools(self.args.planning_tools)
                         if planning_tools_list:
-                            agent_config["planning_tools"] = planning_tools_list
+                            planning_kwargs["tools"] = planning_tools_list
                     # If no planning_tools but --tools is specified, use those for planning too
                     elif getattr(self.args, 'tools', None) and agent_config.get('tools'):
-                        agent_config["planning_tools"] = agent_config['tools']
+                        planning_kwargs["tools"] = agent_config['tools']
                         print("[cyan]Using --tools for planning as well[/cyan]")
                     
                     if getattr(self.args, 'planning_reasoning', False):
-                        agent_config["planning_reasoning"] = True
+                        planning_kwargs["reasoning"] = True
+                    
+                    agent_config["planning"] = PlanningConfig(**planning_kwargs) if planning_kwargs else True
                 
                 # P8/G11: Tool timeout - prevent slow tools from blocking
                 tool_timeout = getattr(self.args, 'tool_timeout', 60)
@@ -4110,20 +4166,26 @@ Do NOT add any explanations or formatting."""
                 
                 # Memory
                 if getattr(self.args, 'memory', False):
-                    agent_config["memory"] = True
-                    print("[bold cyan]Memory enabled - agent will remember context across sessions[/bold cyan]")
-                    
+                    memory_kwargs = {}
                     if getattr(self.args, 'user_id', None):
-                        agent_config["user_id"] = self.args.user_id
-                
-                # Session management
-                if getattr(self.args, 'auto_save', None):
-                    agent_config["memory"] = True  # Auto-save requires memory
-                    agent_config["auto_save"] = self.args.auto_save
+                        memory_kwargs["user_id"] = self.args.user_id
+                    if getattr(self.args, 'auto_save', None):
+                        memory_kwargs["auto_save"] = self.args.auto_save
+                        print(f"[bold cyan]Auto-save enabled - session will be saved as '{self.args.auto_save}'[/bold cyan]")
+                    if memory_kwargs:
+                        from praisonaiagents import MemoryConfig
+                        agent_config["memory"] = MemoryConfig(**memory_kwargs)
+                    else:
+                        agent_config["memory"] = True
+                    print("[bold cyan]Memory enabled - agent will remember context across sessions[/bold cyan]")
+                elif getattr(self.args, 'auto_save', None):
+                    from praisonaiagents import MemoryConfig
+                    agent_config["memory"] = MemoryConfig(auto_save=self.args.auto_save)
                     print(f"[bold cyan]Auto-save enabled - session will be saved as '{self.args.auto_save}'[/bold cyan]")
                 
                 if getattr(self.args, 'history', None):
-                    agent_config["memory"] = True  # History requires memory
+                    if agent_config.get("memory") is None:
+                        agent_config["memory"] = True  # History requires memory
                     # Note: history_in_context param removed - history loading now via context= param
                     print(f"[bold cyan]History enabled - loading context from last {self.args.history} session(s)[/bold cyan]")
                 
@@ -4131,7 +4193,12 @@ Do NOT add any explanations or formatting."""
                 if getattr(self.args, 'claude_memory', False):
                     llm = getattr(self.args, 'llm', '')
                     if llm and 'anthropic' in llm.lower():
-                        agent_config["claude_memory"] = True
+                        from praisonaiagents import MemoryConfig
+                        existing_memory = agent_config.get("memory")
+                        if isinstance(existing_memory, MemoryConfig):
+                            existing_memory.claude_memory = True
+                        else:
+                            agent_config["memory"] = MemoryConfig(claude_memory=True)
                         print("[bold cyan]Claude Memory Tool enabled - Claude will autonomously manage memories[/bold cyan]")
                     else:
                         print("[yellow]Warning: --claude-memory requires an Anthropic model (--llm anthropic/...)[/yellow]")
@@ -4194,7 +4261,8 @@ Do NOT add any explanations or formatting."""
                 
                 # Metrics - Token/cost tracking (display happens AFTER execution)
                 if getattr(self.args, 'metrics', False):
-                    agent_config["metrics"] = True
+                    from praisonaiagents import OutputConfig
+                    agent_config["output"] = OutputConfig(metrics=True)
                 
                 # Telemetry - Usage monitoring
                 if getattr(self.args, 'telemetry', False):
@@ -4795,7 +4863,7 @@ Now, {final_instruction.lower()}:"""
             praisonai agents.yaml --serve
         """
         import yaml
-        from praisonaiagents import Agent, Agents
+        from praisonaiagents import Agent, AgentTeam
         
         # Determine the YAML file path
         yaml_file = None
@@ -5046,7 +5114,9 @@ Now, {final_instruction.lower()}:"""
                 generator = AutoGenerator(topic=auto_args, framework=self.framework)
                 self.agent_file = generator.generate()
                 AgentsGenerator = _get_agents_generator()
-                agents_generator = AgentsGenerator(self.agent_file, self.framework, self.config_list)
+                # Extract CLI configuration for YAML CLI parity
+                cli_config = self._extract_cli_config_for_yaml()
+                agents_generator = AgentsGenerator(self.agent_file, self.framework, self.config_list, cli_config=cli_config)
                 result = agents_generator.generate_crew_and_kickoff()
                 return result
 
@@ -5232,7 +5302,7 @@ Now, {final_instruction.lower()}:"""
             
             # If tools are provided, use Agent with tools first, then DeepResearchAgent
             if tools_list:
-                from praisonaiagents import Agent, Task, Agents
+                from praisonaiagents import Agent, Task, AgentTeam
                 
                 # Create a research assistant agent with tools
                 research_assistant = Agent(

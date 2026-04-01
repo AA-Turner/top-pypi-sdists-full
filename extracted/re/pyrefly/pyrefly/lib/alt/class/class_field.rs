@@ -186,6 +186,23 @@ impl ClassAttribute {
             _ => false,
         }
     }
+
+    /// Returns true if this attribute represents a data descriptor
+    /// (has both `__get__` and `__set__`), including properties with setters.
+    pub fn is_data_descriptor(&self) -> bool {
+        match self {
+            ClassAttribute::Property(_, Some(_), _)
+            | ClassAttribute::Descriptor(
+                Descriptor {
+                    getter: true,
+                    setter: true,
+                    ..
+                },
+                _,
+            ) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, TypeEq, PartialEq, Eq, VisitMut)]
@@ -728,6 +745,10 @@ impl ClassField {
     fn as_special_method_type(&self, heap: &TypeHeap, instance: &Instance) -> Option<Type> {
         self.as_raw_special_method_type(heap, instance)
             .and_then(|ty| make_bound_method(heap, instance.to_type(heap), ty).ok())
+    }
+
+    pub fn is_property(&self) -> bool {
+        matches!(&self.0, ClassFieldInner::Property { .. })
     }
 
     pub fn is_simple_instance_attribute(&self) -> bool {
@@ -1757,6 +1778,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         };
 
+        // ClassVar[Final] is invalid except in dataclasses, where it's the recommended
+        // way to declare a final class variable. Final[ClassVar] is already caught in expr_annotation.
+        if metadata.dataclass_metadata().is_none()
+            && let Some(annot) = direct_annotation.as_ref()
+            && annot.qualifiers.first() == Some(&Qualifier::ClassVar)
+            && annot.is_final()
+        {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                "`Final` may not be nested inside `ClassVar`".to_owned(),
+            );
+        }
+
         // Identify whether this is a descriptor
         let mut descriptor = None;
         // Descriptor semantics apply when:
@@ -2466,6 +2502,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // (e.g. generic functions assigned to attributes have their own
         // type parameters that should not trigger invalid-type-var errors).
         let mut forall_bound: SmallSet<&Quantified> = SmallSet::new();
+        fn collect_overload_tparams<'a>(
+            overload: &'a Overload,
+            acc: &mut SmallSet<&'a Quantified>,
+        ) {
+            for sig in overload.signatures.iter() {
+                if let OverloadType::Forall(forall) = sig {
+                    for q in forall.tparams.iter() {
+                        acc.insert(q);
+                    }
+                }
+            }
+        }
         fn collect_forall_tparams<'a>(ty: &'a Type, acc: &mut SmallSet<&'a Quantified>) {
             match ty {
                 Type::Forall(forall) => {
@@ -2473,13 +2521,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         acc.insert(q);
                     }
                 }
-                Type::BoundMethod(bm) => {
-                    if let BoundMethodType::Forall(forall) = &bm.func {
+                Type::Overload(overload) => collect_overload_tparams(overload, acc),
+                Type::BoundMethod(bm) => match &bm.func {
+                    BoundMethodType::Forall(forall) => {
                         for q in forall.tparams.iter() {
                             acc.insert(q);
                         }
                     }
-                }
+                    BoundMethodType::Overload(overload) => collect_overload_tparams(overload, acc),
+                    BoundMethodType::Function(_) => {}
+                },
                 _ => {}
             }
             ty.recurse(&mut |inner| collect_forall_tparams(inner, acc));
@@ -3039,6 +3090,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut parent_attr_found = false;
         let mut parent_has_any = false;
         let is_typed_dict_field = self.is_typed_dict_field(metadata.as_ref(), field_name);
+        let is_named_tuple_element = metadata
+            .named_tuple_metadata()
+            .is_some_and(|named_tuple| named_tuple.elements.contains(field_name));
 
         let bases_to_check: Box<dyn Iterator<Item = &ClassType>> = if bases.is_empty() {
             // If the class doesn't have any base type, we should just use `object` as base to ensure
@@ -3062,6 +3116,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ErrorInfo::Kind(ErrorKind::BadOverride),
                     format!("Cannot override named tuple element `{field_name}`"),
                 );
+            }
+            // Skip override checks for named tuple elements. Named tuples are final, so the only checks are
+            // overrides on NamedTupleFallback.
+            if is_named_tuple_element {
+                continue;
             }
             let Some(want_field) = self.get_class_member(parent_cls, field_name) else {
                 continue;

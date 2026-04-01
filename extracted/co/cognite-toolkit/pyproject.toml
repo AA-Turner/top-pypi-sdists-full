@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.7.225"
+version = "0.7.227"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 authors = [
     {name ="Cognite AS", email="support@cognite.com"}
@@ -158,7 +158,7 @@ exclude = [
 exclude = []
 
 [build-system]
-requires = ["uv_build>=0.10.0,<0.11.0"]
+requires = ["uv_build>=0.11.0,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]

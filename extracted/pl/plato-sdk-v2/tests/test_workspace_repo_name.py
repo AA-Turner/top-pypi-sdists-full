@@ -175,8 +175,8 @@ class TestWorkspaceSpecsNormalization:
         assert recorded_dvc_files == fake_dvc_files, f"Expected dvc_files to be forwarded but got: {recorded_dvc_files}"
 
     @pytest.mark.asyncio
-    async def test_short_field_name_keys_warn_and_are_ignored(self):
-        """Config with short field names (code) should warn and be ignored."""
+    async def test_short_field_name_keys_are_accepted_as_legacy_aliases(self):
+        """Legacy short field names should still restore tracked workspaces."""
         world = self._make_world_with_workspaces(
             "stripe",
             {
@@ -185,15 +185,14 @@ class TestWorkspaceSpecsNormalization:
         )
 
         world._download_state = AsyncMock(return_value=None)
+        world._workspaces["code"].restore = AsyncMock(return_value=True)
+        world._workspaces["code"]._record_workspace_ref = AsyncMock()
 
         result = await world.load_state()
 
-        assert result is False
-        world.logger.warning.assert_called_once_with(
-            "Ignoring unknown workspace repo name '%s' in state.workspaces. Expected one of: %s",
-            "code",
-            ["webclone/stripe/code", "webclone/stripe/recordings"],
-        )
+        assert result is True
+        world._workspaces["code"].restore.assert_called_once_with("step.1.stage.build")
+        world.logger.warning.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_unmatched_full_name_warns_and_is_ignored(self):
@@ -211,9 +210,9 @@ class TestWorkspaceSpecsNormalization:
 
         assert result is False
         world.logger.warning.assert_called_once_with(
-            "Ignoring unknown workspace repo name '%s' in state.workspaces. Expected one of: %s",
+            "Ignoring unknown workspace key '%s' in state.workspaces. Expected one of: %s",
             "webclone/hubspot/code",
-            ["webclone/stripe/code", "webclone/stripe/recordings"],
+            ["webclone/stripe/code", "webclone/stripe/recordings", "code", "recordings"],
         )
 
     @pytest.mark.asyncio
@@ -240,9 +239,9 @@ class TestWorkspaceSpecsNormalization:
         world._workspaces["code"].restore.assert_called_once_with("step.1.stage.build")
         world._workspaces["recordings"].restore.assert_not_called()
         world.logger.warning.assert_called_once_with(
-            "Ignoring unknown workspace repo name '%s' in state.workspaces. Expected one of: %s",
+            "Ignoring unknown workspace key '%s' in state.workspaces. Expected one of: %s",
             "webclone/hubspot/code",
-            ["webclone/stripe/code", "webclone/stripe/recordings"],
+            ["webclone/stripe/code", "webclone/stripe/recordings", "code", "recordings"],
         )
 
     @pytest.mark.asyncio

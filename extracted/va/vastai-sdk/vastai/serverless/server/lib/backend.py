@@ -83,6 +83,22 @@ class Backend:
     session_metrics: Dict[str, RequestMetrics] = dataclasses.field(default_factory=dict)
     max_sessions: int = dataclasses.field(default=-1)
         
+    async def pyworker_update_handler(self, request: web.Request) -> web.Response:
+        # Verify authorization header matches mtoken
+        auth_header = request.headers.get("Authorization", "")
+        token = auth_header.removeprefix("Bearer ") if auth_header.startswith("Bearer ") else auth_header
+        if token != self.mtoken:
+            return web.json_response({"error": "unauthorized"}, status=401)
+
+        try:
+            async with await open_file("/.force_update", "w") as f:
+                await f.write("")
+        except Exception as e:
+            log.error(f"Failed to write /.force_update: {e}")
+            return web.json_response({"error": f"failed to write file: {e}"}, status=500)
+
+        return web.json_response({"ok": True}, status=200)
+
     async def session_health_handler(self, request: web.Request) -> web.Response:
         try:
             data = await request.json()
@@ -319,7 +335,7 @@ class Backend:
     def session(self):
         log.debug(f"Starting TCP session with model server at {self.model_server_url}")
         connector = TCPConnector(
-            force_close=True, # Required for long running jobs
+            force_close=True,  # Required for long running jobs
             enable_cleanup_closed=True,
         )
         
@@ -448,7 +464,12 @@ class Backend:
 
         try:
             if handler.allow_parallel_requests:
-                work_task = create_task(make_request())
+                coro = make_request()
+                try:
+                    work_task = create_task(coro)
+                except Exception:
+                    coro.close()
+                    raise
                 # Handler cancellation will raise CancelledError on client disconnect
                 return await work_task
 
@@ -471,7 +492,12 @@ class Backend:
                     log.debug(f"Starting work on request {request_metrics.session_reqnum} in session {request_metrics.session.request_idx}")
 
                 # Execute the work task
-                work_task = create_task(make_request())
+                coro = make_request()
+                try:
+                    work_task = create_task(coro)
+                except Exception:
+                    coro.close()
+                    raise
                 return await work_task
 
         except asyncio.CancelledError:

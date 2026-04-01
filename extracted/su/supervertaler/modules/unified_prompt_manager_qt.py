@@ -3,7 +3,7 @@ Unified Prompt Manager Module - Qt Edition (powers the AI tab)
 Simplified 2-Layer Architecture:
 
 1. System Prompts (in Settings) - mode-specific, auto-selected based on document type
-2. Prompt Manager (main UI) - unified workspace with folders, favorites, multi-attach
+2. Prompt Manager (main UI) - unified workspace with folders, multi-attach
 
 This replaces the old 4-layer system (System/Domain/Project/Style Guides).
 """
@@ -190,7 +190,7 @@ class PromptLibraryTreeWidget(QTreeWidget):
                     if dest_folder == '.':
                         dest_folder = ''
                 else:
-                    # Special nodes like Favorites / Quick Run: ignore.
+                    # Special nodes like Quick Run: ignore.
                     event.ignore()
                     return
 
@@ -820,7 +820,7 @@ class UnifiedPromptManagerQt:
     """
     Unified Prompt Manager - Single-tab interface with:
     - Tree view with nested folders
-    - Favorites and QuickLauncher
+    - QuickLauncher
     - Multi-attach capability
     - Active prompt configuration panel
     """
@@ -2268,25 +2268,6 @@ class UnifiedPromptManagerQt:
         self.log_message(f"🔍 DEBUG: Library dir: {self.unified_library_dir}")
         self.log_message(f"🔍 DEBUG: Library dir exists: {self.unified_library_dir.exists()}")
         
-        # Favorites section
-        favorites_root = QTreeWidgetItem(["⭐ Favorites"])
-        # Special node: not draggable/droppable
-        favorites_root.setData(0, Qt.ItemDataRole.UserRole, {'type': 'special', 'kind': 'favorites'})
-        favorites_root.setExpanded(False)
-        font = favorites_root.font(0)
-        font.setBold(True)
-        favorites_root.setFont(0, font)
-        self.tree_widget.addTopLevelItem(favorites_root)
-        
-        favorites = self.library.get_favorites()
-        self.log_message(f"🔍 DEBUG: Favorites count: {len(favorites)}")
-        for path, name in favorites:
-            item = QTreeWidgetItem([name])
-            item.setData(0, Qt.ItemDataRole.UserRole, {'type': 'prompt', 'path': path})
-            # Favorites are shortcuts, but allow dragging to move the actual prompt file.
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsDragEnabled)
-            favorites_root.addChild(item)
-        
         # Library folders (QuickLauncher parent folder removed - folder hierarchy now defines menu structure)
         self.log_message(f"🔍 DEBUG: Building tree from {self.unified_library_dir}")
         self._build_tree_recursive(None, self.unified_library_dir, "")
@@ -2397,7 +2378,7 @@ class UnifiedPromptManagerQt:
                 if kind in expanded_special:
                     item.setExpanded(bool(expanded_special[kind]))
 
-        # Restore selection (prefer the main library tree item over Favorites/Quick Run shortcuts)
+        # Restore selection (prefer the main library tree item over Quick Run shortcuts)
         if current_sel and len(current_sel) == 2:
             sel_type, sel_path = current_sel
             if sel_type == 'prompt' and sel_path:
@@ -2690,14 +2671,16 @@ class UnifiedPromptManagerQt:
                     
                     # Visual indicators
                     indicators = []
-                    if prompt_data.get('favorite'):
-                        indicators.append("⭐")
                     if prompt_data.get('quicklauncher', prompt_data.get('quick_run', False)):
                         indicators.append("⚡")
                     if prompt_data.get('quicklauncher_grid', False):
                         indicators.append("🖱️")
                     if indicators:
                         prompt_item.setText(0, f"{' '.join(indicators)} {name}")
+
+                    # Grey out default prompts
+                    if prompt_data.get('default', False):
+                        prompt_item.setForeground(0, QBrush(QColor(130, 130, 130)))
                     
                     if parent_item:
                         parent_item.addChild(prompt_item)
@@ -2750,16 +2733,9 @@ class UnifiedPromptManagerQt:
                 action_attach.triggered.connect(lambda: self._attach_prompt(path))
             
             menu.addSeparator()
-            
-            # Toggle favorite
-            prompt_data = self.library.prompts.get(path, {})
-            if prompt_data.get('favorite'):
-                action_fav = menu.addAction("★ Remove from Favorites")
-            else:
-                action_fav = menu.addAction("☆ Add to Favorites")
-            action_fav.triggered.connect(lambda: self._toggle_favorite(path))
-            
+
             # Toggle QuickLauncher (legacy: quick_run)
+            prompt_data = self.library.prompts.get(path, {})
             if prompt_data.get('quicklauncher', prompt_data.get('quick_run', False)):
                 action_qr = menu.addAction("⚡ Remove from QuickLauncher")
             else:
@@ -2781,9 +2757,12 @@ class UnifiedPromptManagerQt:
             
             action_dup = menu.addAction("📋 Duplicate")
             action_dup.triggered.connect(lambda: self._duplicate_prompt(path))
-            
+
             action_del = menu.addAction("🗑️ Delete")
             action_del.triggered.connect(lambda: self._delete_prompt(path))
+            # Disable delete for default prompts (they get recreated anyway)
+            if prompt_data.get('default', False):
+                action_del.setEnabled(False)
         
         elif data['type'] == 'folder':
             # Folder operations
@@ -2825,14 +2804,18 @@ class UnifiedPromptManagerQt:
             self.editor_app_combo.setCurrentIndex(idx_map.get(app_val, 0))
         self.editor_content.setPlainText(prompt_data.get('content', ''))
 
-        # Handle read-only state
-        is_read_only = bool(prompt_data.get('read_only', False))
+        # Handle read-only / default state
+        is_default = bool(prompt_data.get('default', False))
+        is_read_only = bool(prompt_data.get('read_only', False)) or is_default
         if hasattr(self, 'editor_read_only_cb'):
             self.editor_read_only_cb.blockSignals(True)
             self.editor_read_only_cb.setChecked(is_read_only)
-            self.editor_read_only_cb.setVisible(True)
+            self.editor_read_only_cb.setVisible(not is_default)  # hide checkbox for defaults
             self.editor_read_only_cb.blockSignals(False)
         self._apply_read_only_state(is_read_only)
+
+        if is_default:
+            self.editor_name_label.setText(f"Editing: {filename}  (default prompt \u2013 use Duplicate to modify)")
 
         # Store current path for saving
         self.editor_current_path = relative_path
@@ -2955,14 +2938,12 @@ class UnifiedPromptManagerQt:
                     'description': description,
                     'content': content,
                     'category': '',
-                    'favorite': False,
                     # QuickLauncher
                     'quicklauncher_label': quicklauncher_label or name,
                     'quicklauncher_grid': quicklauncher_grid,
                     'quicklauncher': quicklauncher_flag,
                     # Legacy
                     'quick_run': quicklauncher_flag,
-                    'tags': [],
                     'created': datetime.now().strftime('%Y-%m-%d'),
                     'modified': datetime.now().strftime('%Y-%m-%d')
                 }
@@ -3166,11 +3147,6 @@ class UnifiedPromptManagerQt:
         self._update_attached_list()
         self.log_message("✓ Cleared all attachments")
     
-    def _toggle_favorite(self, relative_path: str):
-        """Toggle favorite status"""
-        if self.library.toggle_favorite(relative_path):
-            self._refresh_tree()
-    
     def _on_read_only_toggled(self, state):
         """Handle read-only checkbox toggle in editor"""
         is_read_only = bool(state)
@@ -3242,16 +3218,14 @@ class UnifiedPromptManagerQt:
             'description': '',
             'content': '# Your prompt content here\n\nProvide translation instructions...',
             'category': '',
-            'favorite': False,
             'quicklauncher_label': name_without_ext,
             'quicklauncher_grid': False,
             'quicklauncher': False,
             'quick_run': False,
-            'tags': [],
             'created': datetime.now().strftime('%Y-%m-%d'),
             'modified': datetime.now().strftime('%Y-%m-%d')
         }
-        
+
         # Create prompt file (name already includes extension)
         relative_path = f"{folder_path}/{name}" if folder_path else name
         
@@ -3290,7 +3264,6 @@ class UnifiedPromptManagerQt:
         new_name = Path(new_path).stem
 
         src_data['name'] = new_name
-        src_data['favorite'] = False
         src_data['quick_run'] = False
         src_data['quicklauncher_grid'] = False
         src_data['quicklauncher'] = False

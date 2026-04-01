@@ -1,18 +1,22 @@
-# expose jupyter_ai_magics ipython extension
-# DO NOT REMOVE.
-from jupyter_ai_magics import load_ipython_extension, unload_ipython_extension
+__version__ = "3.0.0"
 
-# expose jupyter_ai_magics providers
-# DO NOT REMOVE.
-from jupyter_ai_magics.providers import *
-
-from ._version import __version__
-from .extension import AiExtension
-
-
-def _jupyter_labextension_paths():
-    return [{"src": "labextension", "dest": "@jupyter-ai/core"}]
-
-
-def _jupyter_server_extension_points():
-    return [{"module": "jupyter_ai", "app": AiExtension}]
+DEFAULT_JUPYTER_SERVER_MCP_TOOLS = [
+    # notebook toolkit
+    "jupyter_ai_tools.toolkits.notebook:read_notebook",
+    "jupyter_ai_tools.toolkits.notebook:read_notebook_cells",
+    "jupyter_ai_tools.toolkits.notebook:read_cell",
+    "jupyter_ai_tools.toolkits.notebook:add_cell",
+    "jupyter_ai_tools.toolkits.notebook:insert_cell",
+    "jupyter_ai_tools.toolkits.notebook:delete_cell",
+    "jupyter_ai_tools.toolkits.notebook:edit_cell",
+    "jupyter_ai_tools.toolkits.notebook:select_cell",
+    "jupyter_ai_tools.toolkits.notebook:get_cell_id_from_index",
+    "jupyter_ai_tools.toolkits.notebook:get_active_notebook",
+    "jupyter_ai_tools.toolkits.notebook:get_active_cell_id",
+    "jupyter_ai_tools.toolkits.notebook:get_open_documents",
+    "jupyter_ai_tools.toolkits.notebook:create_notebook",
+    # jupyterlab toolkit
+    "jupyter_ai_tools.toolkits.jupyterlab:open_file",
+    "jupyter_ai_tools.toolkits.jupyterlab:run_cell",
+    "jupyter_ai_tools.toolkits.jupyterlab:run_all_cells",
+]

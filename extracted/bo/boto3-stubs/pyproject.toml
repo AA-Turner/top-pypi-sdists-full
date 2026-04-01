@@ -4,10 +4,10 @@
 
 [project]
 name = "boto3-stubs"
-version = "1.42.79"
+version = "1.42.80"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.42.79 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.42.80 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "boto3-stubs-full>=1.42.0, <1.43.0",
 ]
 boto3 = [
-    "boto3==1.42.79",
+    "boto3==1.42.80",
 ]
 all = [
     "mypy-boto3-accessanalyzer>=1.42.0, <1.43.0",
@@ -425,6 +425,7 @@ all = [
     "mypy-boto3-sdb>=1.42.0, <1.43.0",
     "mypy-boto3-secretsmanager>=1.42.0, <1.43.0",
     "mypy-boto3-security-ir>=1.42.0, <1.43.0",
+    "mypy-boto3-securityagent>=1.42.0, <1.43.0",
     "mypy-boto3-securityhub>=1.42.0, <1.43.0",
     "mypy-boto3-securitylake>=1.42.0, <1.43.0",
     "mypy-boto3-serverlessrepo>=1.42.0, <1.43.0",
@@ -460,6 +461,7 @@ all = [
     "mypy-boto3-supplychain>=1.42.0, <1.43.0",
     "mypy-boto3-support>=1.42.0, <1.43.0",
     "mypy-boto3-support-app>=1.42.0, <1.43.0",
+    "mypy-boto3-sustainability>=1.42.0, <1.43.0",
     "mypy-boto3-swf>=1.42.0, <1.43.0",
     "mypy-boto3-synthetics>=1.42.0, <1.43.0",
     "mypy-boto3-taxsettings>=1.42.0, <1.43.0",
@@ -1559,6 +1561,9 @@ secretsmanager = [
 security-ir = [
     "mypy-boto3-security-ir>=1.42.0, <1.43.0",
 ]
+securityagent = [
+    "mypy-boto3-securityagent>=1.42.0, <1.43.0",
+]
 securityhub = [
     "mypy-boto3-securityhub>=1.42.0, <1.43.0",
 ]
@@ -1663,6 +1668,9 @@ support = [
 ]
 support-app = [
     "mypy-boto3-support-app>=1.42.0, <1.43.0",
+]
+sustainability = [
+    "mypy-boto3-sustainability>=1.42.0, <1.43.0",
 ]
 swf = [
     "mypy-boto3-swf>=1.42.0, <1.43.0",

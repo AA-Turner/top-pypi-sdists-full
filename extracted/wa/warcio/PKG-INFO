@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: warcio
-Version: 1.8.0
+Version: 1.8.1
 Summary: Streaming WARC (and ARC) IO library
 Home-page: https://github.com/webrecorder/warcio
 Author: Ilya Kreymer

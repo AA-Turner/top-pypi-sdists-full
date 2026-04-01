@@ -277,3 +277,96 @@ c = C()
 c.x = 2  # OK: descriptor __set__ handles this, not instance storage
 "#,
 );
+
+// https://github.com/facebook/pyrefly/issues/2917
+testcase!(
+    bug = "Should detect instance layout conflict when multiple bases have __slots__",
+    test_slots_multiple_inheritance_layout_conflict,
+    r#"
+class Left:
+    __slots__ = ("a", "b")
+
+class Right:
+    __slots__ = ("c", "d")
+
+# Inheriting from two classes that both define non-empty __slots__
+# causes a TypeError at runtime.
+class Combined(Left, Right): ...
+"#,
+);
+
+// https://github.com/facebook/pyrefly/issues/2916
+testcase!(
+    bug = "Should detect instance layout conflict even with identical slot names",
+    test_slots_layout_conflict_same_names,
+    r#"
+class First:
+    __slots__ = ("x",)
+
+class Second:
+    __slots__ = ("x",)
+
+# Even though the slot names match, these are different C-level layouts.
+class Both(First, Second): ...
+"#,
+);
+
+testcase!(
+    test_slots_dunder_name_no_false_positive,
+    r#"
+from typing import assert_type
+
+class Foo:
+    __slots__ = ["__name__"]
+
+    def __init__(self):
+        self.__name__ = "foo_instance"
+
+assert_type(Foo.__name__, str)
+"#,
+);
+
+testcase!(
+    bug = "Foo.b returns a member_descriptor at runtime, not an error",
+    test_slots_instance_only_attr_not_visible_on_class,
+    r#"
+class Foo:
+    __slots__ = ["b"]
+
+    def __init__(self):
+        self.b = "b"
+
+print(Foo.b)  # E: Instance-only attribute `b` of class `Foo` is not visible on the class
+"#,
+);
+
+testcase!(
+    test_slots_metaclass_plain_attr_no_override,
+    r#"
+class Meta(type):
+    x: int = 42
+
+class Baz(metaclass=Meta):
+    __slots__ = ["x"]
+
+    def __init__(self):
+        self.x = 10
+
+# Meta.x is a plain attribute, not a data descriptor, so it does not
+# override the slot descriptor in the MRO.
+print(Baz.x)  # E: Instance-only attribute `x` of class `Baz` is not visible on the class
+"#,
+);
+
+testcase!(
+    test_instance_attr_dunder_name_metaclass_fallback,
+    r#"
+from typing import assert_type
+
+class Foo:
+    def __init__(self):
+        self.__name__ = "foo_instance"
+
+assert_type(Foo.__name__, str)
+"#,
+);

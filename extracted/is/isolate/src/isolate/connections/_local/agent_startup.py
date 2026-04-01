@@ -41,7 +41,23 @@ def load_pth_files() -> None:
 def main():
     real_agent, *real_arguments = sys.argv[1:]
 
+    try:
+        log_fd = int(real_arguments[real_arguments.index("--log-fd") + 1])
+        log_file = os.fdopen(log_fd, "w")
+    except Exception:
+        log_file = None
+
+    def log(msg: str) -> None:
+        if log_file is not None:
+            log_file.write(msg + "\n")
+            log_file.flush()
+        else:
+            print(msg, file=sys.stderr)
+
+    log("Loading .pth files")
     load_pth_files()
+
+    log("Running agent module")
     # TODO(feat): implement a check to parse "agent-requires" line and see if
     # all the dependencies are installed.
     sys.argv = [real_agent] + real_arguments
@@ -49,5 +65,4 @@ def main():
 
 
 if __name__ == "__main__":
-    load_pth_files()
     main()

@@ -51,6 +51,7 @@ if TYPE_CHECKING:
     from sentry_sdk._types import TextPart
 
     from openai.types.responses import ResponseInputParam, SequenceNotStr
+    from openai.types.responses import ResponseStreamEvent
     from openai import Omit
 
 try:
@@ -66,6 +67,8 @@ try:
 
     from openai.resources.chat.completions import Completions, AsyncCompletions
     from openai.resources import Embeddings, AsyncEmbeddings
+
+    from openai import Stream, AsyncStream
 
     if TYPE_CHECKING:
         from openai.types.chat import (
@@ -219,37 +222,6 @@ def _calculate_token_usage(
     )
 
 
-def _commmon_set_input_data(
-    span: "Span",
-    kwargs: "dict[str, Any]",
-) -> None:
-    # Input attributes: Common
-    set_data_normalized(span, SPANDATA.GEN_AI_SYSTEM, "openai")
-
-    # Input attributes: Optional
-    kwargs_keys_to_attributes = {
-        "model": SPANDATA.GEN_AI_REQUEST_MODEL,
-        "stream": SPANDATA.GEN_AI_RESPONSE_STREAMING,
-        "max_tokens": SPANDATA.GEN_AI_REQUEST_MAX_TOKENS,
-        "presence_penalty": SPANDATA.GEN_AI_REQUEST_PRESENCE_PENALTY,
-        "frequency_penalty": SPANDATA.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-        "temperature": SPANDATA.GEN_AI_REQUEST_TEMPERATURE,
-        "top_p": SPANDATA.GEN_AI_REQUEST_TOP_P,
-    }
-    for key, attribute in kwargs_keys_to_attributes.items():
-        value = kwargs.get(key)
-
-        if value is not None and _is_given(value):
-            set_data_normalized(span, attribute, value)
-
-    # Input attributes: Tools
-    tools = kwargs.get("tools")
-    if tools is not None and _is_given(tools) and len(tools) > 0:
-        set_data_normalized(
-            span, SPANDATA.GEN_AI_REQUEST_AVAILABLE_TOOLS, safe_serialize(tools)
-        )
-
-
 def _set_responses_api_input_data(
     span: "Span",
     kwargs: "dict[str, Any]",
@@ -258,9 +230,30 @@ def _set_responses_api_input_data(
     explicit_instructions: "Union[Optional[str], Omit]" = kwargs.get("instructions")
     messages: "Optional[Union[str, ResponseInputParam]]" = kwargs.get("input")
 
+    tools = kwargs.get("tools")
+    if tools is not None and _is_given(tools) and len(tools) > 0:
+        set_data_normalized(
+            span, SPANDATA.GEN_AI_REQUEST_AVAILABLE_TOOLS, safe_serialize(tools)
+        )
+
+    model = kwargs.get("model")
+    if model is not None:
+        span.set_data(SPANDATA.GEN_AI_REQUEST_MODEL, model)
+
+    max_tokens = kwargs.get("max_output_tokens")
+    if max_tokens is not None and _is_given(max_tokens):
+        span.set_data(SPANDATA.GEN_AI_REQUEST_MAX_TOKENS, max_tokens)
+
+    temperature = kwargs.get("temperature")
+    if temperature is not None and _is_given(temperature):
+        span.set_data(SPANDATA.GEN_AI_REQUEST_TEMPERATURE, temperature)
+
+    top_p = kwargs.get("top_p")
+    if top_p is not None and _is_given(top_p):
+        span.set_data(SPANDATA.GEN_AI_REQUEST_TOP_P, top_p)
+
     if not should_send_default_pii() or not integration.include_prompts:
         set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "responses")
-        _commmon_set_input_data(span, kwargs)
         return
 
     if (
@@ -281,12 +274,10 @@ def _set_responses_api_input_data(
         )
 
         set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "responses")
-        _commmon_set_input_data(span, kwargs)
         return
 
     if messages is None:
         set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "responses")
-        _commmon_set_input_data(span, kwargs)
         return
 
     instructions_text_parts: "list[TextPart]" = []
@@ -319,7 +310,6 @@ def _set_responses_api_input_data(
             )
 
         set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "responses")
-        _commmon_set_input_data(span, kwargs)
         return
 
     non_system_messages = [
@@ -335,7 +325,6 @@ def _set_responses_api_input_data(
             )
 
     set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "responses")
-    _commmon_set_input_data(span, kwargs)
 
 
 def _set_completions_api_input_data(
@@ -347,13 +336,42 @@ def _set_completions_api_input_data(
         "messages"
     )
 
+    tools = kwargs.get("tools")
+    if tools is not None and _is_given(tools) and len(tools) > 0:
+        set_data_normalized(
+            span, SPANDATA.GEN_AI_REQUEST_AVAILABLE_TOOLS, safe_serialize(tools)
+        )
+
+    model = kwargs.get("model")
+    if model is not None:
+        span.set_data(SPANDATA.GEN_AI_REQUEST_MODEL, model)
+
+    max_tokens = kwargs.get("max_tokens")
+    if max_tokens is not None and _is_given(max_tokens):
+        span.set_data(SPANDATA.GEN_AI_REQUEST_MAX_TOKENS, max_tokens)
+
+    presence_penalty = kwargs.get("presence_penalty")
+    if presence_penalty is not None and _is_given(presence_penalty):
+        span.set_data(SPANDATA.GEN_AI_REQUEST_PRESENCE_PENALTY, presence_penalty)
+
+    frequency_penalty = kwargs.get("frequency_penalty")
+    if frequency_penalty is not None and _is_given(frequency_penalty):
+        span.set_data(SPANDATA.GEN_AI_REQUEST_FREQUENCY_PENALTY, frequency_penalty)
+
+    temperature = kwargs.get("temperature")
+    if temperature is not None and _is_given(temperature):
+        span.set_data(SPANDATA.GEN_AI_REQUEST_TEMPERATURE, temperature)
+
+    top_p = kwargs.get("top_p")
+    if top_p is not None and _is_given(top_p):
+        span.set_data(SPANDATA.GEN_AI_REQUEST_TOP_P, top_p)
+
     if (
         not should_send_default_pii()
         or not integration.include_prompts
         or messages is None
     ):
         set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "chat")
-        _commmon_set_input_data(span, kwargs)
         return
 
     if isinstance(messages, str):
@@ -365,13 +383,11 @@ def _set_completions_api_input_data(
                 span, SPANDATA.GEN_AI_REQUEST_MESSAGES, messages_data, unpack=False
             )
         set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "chat")
-        _commmon_set_input_data(span, kwargs)
         return
 
     # dict special case following https://github.com/openai/openai-python/blob/3e0c05b84a2056870abf3bd6a5e7849020209cc3/src/openai/_utils/_transform.py#L194-L197
     if not isinstance(messages, Iterable) or isinstance(messages, dict):
         set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "chat")
-        _commmon_set_input_data(span, kwargs)
         return
 
     messages = list(messages)
@@ -399,7 +415,6 @@ def _set_completions_api_input_data(
             )
 
     set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "chat")
-    _commmon_set_input_data(span, kwargs)
 
 
 def _set_embeddings_input_data(
@@ -411,19 +426,21 @@ def _set_embeddings_input_data(
         "input"
     )
 
+    model = kwargs.get("model")
+    if model is not None:
+        span.set_data(SPANDATA.GEN_AI_REQUEST_MODEL, model)
+
     if (
         not should_send_default_pii()
         or not integration.include_prompts
         or messages is None
     ):
         set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "embeddings")
-        _commmon_set_input_data(span, kwargs)
 
         return
 
     if isinstance(messages, str):
         set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "embeddings")
-        _commmon_set_input_data(span, kwargs)
 
         normalized_messages = normalize_message_roles([messages])  # type: ignore
         scope = sentry_sdk.get_current_scope()
@@ -440,7 +457,6 @@ def _set_embeddings_input_data(
     # dict special case following https://github.com/openai/openai-python/blob/3e0c05b84a2056870abf3bd6a5e7849020209cc3/src/openai/_utils/_transform.py#L194-L197
     if not isinstance(messages, Iterable) or isinstance(messages, dict):
         set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "embeddings")
-        _commmon_set_input_data(span, kwargs)
         return
 
     messages = list(messages)
@@ -458,7 +474,6 @@ def _set_embeddings_input_data(
             )
 
     set_data_normalized(span, SPANDATA.GEN_AI_OPERATION_NAME, "embeddings")
-    _commmon_set_input_data(span, kwargs)
 
 
 def _set_common_output_data(
@@ -551,15 +566,49 @@ def _new_chat_completion_common(f: "Any", *args: "Any", **kwargs: "Any") -> "Any
     )
     span.__enter__()
 
+    span.set_data(SPANDATA.GEN_AI_SYSTEM, "openai")
+
+    # Same bool handling as in https://github.com/openai/openai-python/blob/acd0c54d8a68efeedde0e5b4e6c310eef1ce7867/src/openai/resources/completions.py#L585
+    is_streaming_response = kwargs.get("stream", False) or False
+    span.set_data(SPANDATA.GEN_AI_RESPONSE_STREAMING, is_streaming_response)
+
     _set_completions_api_input_data(span, kwargs, integration)
 
     start_time = time.perf_counter()
     response = yield f, args, kwargs
 
-    is_streaming_response = kwargs.get("stream", False)
-    if is_streaming_response:
-        _set_streaming_completions_api_output_data(
-            span, response, kwargs, integration, start_time, finish_span=True
+    # Attribute check to fail gracefully if the attribute is not present in future `openai` versions.
+    if isinstance(response, Stream) and hasattr(response, "_iterator"):
+        messages = kwargs.get("messages")
+
+        if messages is not None and isinstance(messages, str):
+            messages = [messages]
+
+        response._iterator = _wrap_synchronous_completions_chunk_iterator(
+            span=span,
+            integration=integration,
+            start_time=start_time,
+            messages=messages,
+            response=response,
+            old_iterator=response._iterator,
+            finish_span=True,
+        )
+
+    # Attribute check to fail gracefully if the attribute is not present in future `openai` versions.
+    elif isinstance(response, AsyncStream) and hasattr(response, "_iterator"):
+        messages = kwargs.get("messages")
+
+        if messages is not None and isinstance(messages, str):
+            messages = [messages]
+
+        response._iterator = _wrap_asynchronous_completions_chunk_iterator(
+            span=span,
+            integration=integration,
+            start_time=start_time,
+            messages=messages,
+            response=response,
+            old_iterator=response._iterator,
+            finish_span=True,
         )
     else:
         _set_completions_api_output_data(
@@ -590,116 +639,241 @@ def _set_completions_api_output_data(
     )
 
 
-def _set_streaming_completions_api_output_data(
+def _wrap_synchronous_completions_chunk_iterator(
     span: "Span",
-    response: "Any",
-    kwargs: "dict[str, Any]",
     integration: "OpenAIIntegration",
-    start_time: "Optional[float]" = None,
-    finish_span: bool = True,
-) -> None:
-    messages = kwargs.get("messages")
+    start_time: "Optional[float]",
+    messages: "Optional[Iterable[ChatCompletionMessageParam]]",
+    response: "Stream[ChatCompletionChunk]",
+    old_iterator: "Iterator[ChatCompletionChunk]",
+    finish_span: "bool",
+) -> "Iterator[ChatCompletionChunk]":
+    """
+    Sets information received while iterating the response stream on the AI Client Span.
+    Compute token count based on inputs and outputs using tiktoken if token counts are not in the model response.
+    Responsible for closing the AI Client Span if instructed to by the `finish_span` argument.
+    """
+    ttft = None
+    data_buf: "list[list[str]]" = []  # one for each choice
 
-    if messages is not None and isinstance(messages, str):
-        messages = [messages]
+    for x in old_iterator:
+        span.set_data(SPANDATA.GEN_AI_RESPONSE_MODEL, x.model)
 
+        with capture_internal_exceptions():
+            if hasattr(x, "choices"):
+                choice_index = 0
+                for choice in x.choices:
+                    if hasattr(choice, "delta") and hasattr(choice.delta, "content"):
+                        if start_time is not None and ttft is None:
+                            ttft = time.perf_counter() - start_time
+                        content = choice.delta.content
+                        if len(data_buf) <= choice_index:
+                            data_buf.append([])
+                        data_buf[choice_index].append(content or "")
+                    choice_index += 1
+
+        yield x
+
+    with capture_internal_exceptions():
+        if ttft is not None:
+            set_data_normalized(
+                span, SPANDATA.GEN_AI_RESPONSE_TIME_TO_FIRST_TOKEN, ttft
+            )
+        if len(data_buf) > 0:
+            all_responses = ["".join(chunk) for chunk in data_buf]
+            if should_send_default_pii() and integration.include_prompts:
+                set_data_normalized(span, SPANDATA.GEN_AI_RESPONSE_TEXT, all_responses)
+            _calculate_token_usage(
+                messages,
+                response,
+                span,
+                all_responses,
+                integration.count_tokens,
+            )
+
+    if finish_span:
+        span.__exit__(None, None, None)
+
+
+async def _wrap_asynchronous_completions_chunk_iterator(
+    span: "Span",
+    integration: "OpenAIIntegration",
+    start_time: "Optional[float]",
+    messages: "Optional[Iterable[ChatCompletionMessageParam]]",
+    response: "AsyncStream[ChatCompletionChunk]",
+    old_iterator: "AsyncIterator[ChatCompletionChunk]",
+    finish_span: "bool",
+) -> "AsyncIterator[ChatCompletionChunk]":
+    """
+    Sets information received while iterating the response stream on the AI Client Span.
+    Compute token count based on inputs and outputs using tiktoken if token counts are not in the model response.
+    Responsible for closing the AI Client Span if instructed to by the `finish_span` argument.
+    """
+    ttft = None
+    data_buf: "list[list[str]]" = []  # one for each choice
+
+    async for x in old_iterator:
+        span.set_data(SPANDATA.GEN_AI_RESPONSE_MODEL, x.model)
+
+        with capture_internal_exceptions():
+            if hasattr(x, "choices"):
+                choice_index = 0
+                for choice in x.choices:
+                    if hasattr(choice, "delta") and hasattr(choice.delta, "content"):
+                        if start_time is not None and ttft is None:
+                            ttft = time.perf_counter() - start_time
+                        content = choice.delta.content
+                        if len(data_buf) <= choice_index:
+                            data_buf.append([])
+                        data_buf[choice_index].append(content or "")
+                    choice_index += 1
+
+        yield x
+
+    with capture_internal_exceptions():
+        if ttft is not None:
+            set_data_normalized(
+                span, SPANDATA.GEN_AI_RESPONSE_TIME_TO_FIRST_TOKEN, ttft
+            )
+        if len(data_buf) > 0:
+            all_responses = ["".join(chunk) for chunk in data_buf]
+            if should_send_default_pii() and integration.include_prompts:
+                set_data_normalized(span, SPANDATA.GEN_AI_RESPONSE_TEXT, all_responses)
+            _calculate_token_usage(
+                messages,
+                response,
+                span,
+                all_responses,
+                integration.count_tokens,
+            )
+
+    if finish_span:
+        span.__exit__(None, None, None)
+
+
+def _wrap_synchronous_responses_event_iterator(
+    span: "Span",
+    integration: "OpenAIIntegration",
+    start_time: "Optional[float]",
+    input: "Optional[Union[str, ResponseInputParam]]",
+    response: "Stream[ResponseStreamEvent]",
+    old_iterator: "Iterator[ResponseStreamEvent]",
+    finish_span: "bool",
+) -> "Iterator[ResponseStreamEvent]":
+    """
+    Sets information received while iterating the response stream on the AI Client Span.
+    Compute token count based on inputs and outputs using tiktoken if token counts are not in the model response.
+    Responsible for closing the AI Client Span if instructed to by the `finish_span` argument.
+    """
+    ttft = None
+    data_buf: "list[list[str]]" = []  # one for each choice
+
+    count_tokens_manually = True
+    for x in old_iterator:
+        with capture_internal_exceptions():
+            if hasattr(x, "delta"):
+                if start_time is not None and ttft is None:
+                    ttft = time.perf_counter() - start_time
+                if len(data_buf) == 0:
+                    data_buf.append([])
+                data_buf[0].append(x.delta or "")
+
+            if isinstance(x, ResponseCompletedEvent):
+                span.set_data(SPANDATA.GEN_AI_RESPONSE_MODEL, x.response.model)
+
+                _calculate_token_usage(
+                    input,
+                    x.response,
+                    span,
+                    None,
+                    integration.count_tokens,
+                )
+                count_tokens_manually = False
+
+        yield x
+
+    with capture_internal_exceptions():
+        if ttft is not None:
+            set_data_normalized(
+                span, SPANDATA.GEN_AI_RESPONSE_TIME_TO_FIRST_TOKEN, ttft
+            )
+        if len(data_buf) > 0:
+            all_responses = ["".join(chunk) for chunk in data_buf]
+            if should_send_default_pii() and integration.include_prompts:
+                set_data_normalized(span, SPANDATA.GEN_AI_RESPONSE_TEXT, all_responses)
+            if count_tokens_manually:
+                _calculate_token_usage(
+                    input,
+                    response,
+                    span,
+                    all_responses,
+                    integration.count_tokens,
+                )
+
+    if finish_span:
+        span.__exit__(None, None, None)
+
+
+async def _wrap_asynchronous_responses_event_iterator(
+    span: "Span",
+    integration: "OpenAIIntegration",
+    start_time: "Optional[float]",
+    input: "Optional[Union[str, ResponseInputParam]]",
+    response: "AsyncStream[ResponseStreamEvent]",
+    old_iterator: "AsyncIterator[ResponseStreamEvent]",
+    finish_span: "bool",
+) -> "AsyncIterator[ResponseStreamEvent]":
+    """
+    Sets information received while iterating the response stream on the AI Client Span.
+    Compute token count based on inputs and outputs using tiktoken if token counts are not in the model response.
+    Responsible for closing the AI Client Span if instructed to by the `finish_span` argument.
+    """
     ttft: "Optional[float]" = None
     data_buf: "list[list[str]]" = []  # one for each choice
 
-    old_iterator = response._iterator
-
-    def new_iterator() -> "Iterator[ChatCompletionChunk]":
-        nonlocal ttft
-        for x in old_iterator:
-            span.set_data(SPANDATA.GEN_AI_RESPONSE_MODEL, x.model)
-
-            with capture_internal_exceptions():
-                if hasattr(x, "choices"):
-                    choice_index = 0
-                    for choice in x.choices:
-                        if hasattr(choice, "delta") and hasattr(
-                            choice.delta, "content"
-                        ):
-                            if start_time is not None and ttft is None:
-                                ttft = time.perf_counter() - start_time
-                            content = choice.delta.content
-                            if len(data_buf) <= choice_index:
-                                data_buf.append([])
-                            data_buf[choice_index].append(content or "")
-                        choice_index += 1
-
-            yield x
-
+    count_tokens_manually = True
+    async for x in old_iterator:
         with capture_internal_exceptions():
-            if ttft is not None:
-                set_data_normalized(
-                    span, SPANDATA.GEN_AI_RESPONSE_TIME_TO_FIRST_TOKEN, ttft
-                )
-            if len(data_buf) > 0:
-                all_responses = ["".join(chunk) for chunk in data_buf]
-                if should_send_default_pii() and integration.include_prompts:
-                    set_data_normalized(
-                        span, SPANDATA.GEN_AI_RESPONSE_TEXT, all_responses
-                    )
+            if hasattr(x, "delta"):
+                if start_time is not None and ttft is None:
+                    ttft = time.perf_counter() - start_time
+                if len(data_buf) == 0:
+                    data_buf.append([])
+                data_buf[0].append(x.delta or "")
+
+            if isinstance(x, ResponseCompletedEvent):
+                span.set_data(SPANDATA.GEN_AI_RESPONSE_MODEL, x.response.model)
+
                 _calculate_token_usage(
-                    messages,
+                    input,
+                    x.response,
+                    span,
+                    None,
+                    integration.count_tokens,
+                )
+                count_tokens_manually = False
+
+        yield x
+
+    with capture_internal_exceptions():
+        if ttft is not None:
+            set_data_normalized(
+                span, SPANDATA.GEN_AI_RESPONSE_TIME_TO_FIRST_TOKEN, ttft
+            )
+        if len(data_buf) > 0:
+            all_responses = ["".join(chunk) for chunk in data_buf]
+            if should_send_default_pii() and integration.include_prompts:
+                set_data_normalized(span, SPANDATA.GEN_AI_RESPONSE_TEXT, all_responses)
+            if count_tokens_manually:
+                _calculate_token_usage(
+                    input,
                     response,
                     span,
                     all_responses,
                     integration.count_tokens,
                 )
-
-        if finish_span:
-            span.__exit__(None, None, None)
-
-    async def new_iterator_async() -> "AsyncIterator[ChatCompletionChunk]":
-        nonlocal ttft
-        async for x in old_iterator:
-            span.set_data(SPANDATA.GEN_AI_RESPONSE_MODEL, x.model)
-
-            with capture_internal_exceptions():
-                if hasattr(x, "choices"):
-                    choice_index = 0
-                    for choice in x.choices:
-                        if hasattr(choice, "delta") and hasattr(
-                            choice.delta, "content"
-                        ):
-                            if start_time is not None and ttft is None:
-                                ttft = time.perf_counter() - start_time
-                            content = choice.delta.content
-                            if len(data_buf) <= choice_index:
-                                data_buf.append([])
-                            data_buf[choice_index].append(content or "")
-                        choice_index += 1
-
-            yield x
-
-        with capture_internal_exceptions():
-            if ttft is not None:
-                set_data_normalized(
-                    span, SPANDATA.GEN_AI_RESPONSE_TIME_TO_FIRST_TOKEN, ttft
-                )
-            if len(data_buf) > 0:
-                all_responses = ["".join(chunk) for chunk in data_buf]
-                if should_send_default_pii() and integration.include_prompts:
-                    set_data_normalized(
-                        span, SPANDATA.GEN_AI_RESPONSE_TEXT, all_responses
-                    )
-                _calculate_token_usage(
-                    messages,
-                    response,
-                    span,
-                    all_responses,
-                    integration.count_tokens,
-                )
-
-        if finish_span:
-            span.__exit__(None, None, None)
-
-    if str(type(response._iterator)) == "<class 'async_generator'>":
-        response._iterator = new_iterator_async()
-    else:
-        response._iterator = new_iterator()
+    if finish_span:
+        span.__exit__(None, None, None)
 
 
 def _set_responses_api_output_data(
@@ -721,127 +895,6 @@ def _set_responses_api_output_data(
         integration,
         finish_span,
     )
-
-
-def _set_streaming_responses_api_output_data(
-    span: "Span",
-    response: "Any",
-    kwargs: "dict[str, Any]",
-    integration: "OpenAIIntegration",
-    start_time: "Optional[float]" = None,
-    finish_span: bool = True,
-) -> None:
-    input = kwargs.get("input")
-
-    if input is not None and isinstance(input, str):
-        input = [input]
-
-    ttft: "Optional[float]" = None
-    data_buf: "list[list[str]]" = []  # one for each choice
-
-    old_iterator = response._iterator
-
-    def new_iterator() -> "Iterator[ChatCompletionChunk]":
-        nonlocal ttft
-        count_tokens_manually = True
-        for x in old_iterator:
-            with capture_internal_exceptions():
-                if hasattr(x, "delta"):
-                    if start_time is not None and ttft is None:
-                        ttft = time.perf_counter() - start_time
-                    if len(data_buf) == 0:
-                        data_buf.append([])
-                    data_buf[0].append(x.delta or "")
-
-                if isinstance(x, ResponseCompletedEvent):
-                    span.set_data(SPANDATA.GEN_AI_RESPONSE_MODEL, x.response.model)
-
-                    _calculate_token_usage(
-                        input,
-                        x.response,
-                        span,
-                        None,
-                        integration.count_tokens,
-                    )
-                    count_tokens_manually = False
-
-            yield x
-
-        with capture_internal_exceptions():
-            if ttft is not None:
-                set_data_normalized(
-                    span, SPANDATA.GEN_AI_RESPONSE_TIME_TO_FIRST_TOKEN, ttft
-                )
-            if len(data_buf) > 0:
-                all_responses = ["".join(chunk) for chunk in data_buf]
-                if should_send_default_pii() and integration.include_prompts:
-                    set_data_normalized(
-                        span, SPANDATA.GEN_AI_RESPONSE_TEXT, all_responses
-                    )
-                if count_tokens_manually:
-                    _calculate_token_usage(
-                        input,
-                        response,
-                        span,
-                        all_responses,
-                        integration.count_tokens,
-                    )
-
-        if finish_span:
-            span.__exit__(None, None, None)
-
-    async def new_iterator_async() -> "AsyncIterator[ChatCompletionChunk]":
-        nonlocal ttft
-        count_tokens_manually = True
-        async for x in old_iterator:
-            with capture_internal_exceptions():
-                if hasattr(x, "delta"):
-                    if start_time is not None and ttft is None:
-                        ttft = time.perf_counter() - start_time
-                    if len(data_buf) == 0:
-                        data_buf.append([])
-                    data_buf[0].append(x.delta or "")
-
-                if isinstance(x, ResponseCompletedEvent):
-                    span.set_data(SPANDATA.GEN_AI_RESPONSE_MODEL, x.response.model)
-
-                    _calculate_token_usage(
-                        input,
-                        x.response,
-                        span,
-                        None,
-                        integration.count_tokens,
-                    )
-                    count_tokens_manually = False
-
-            yield x
-
-        with capture_internal_exceptions():
-            if ttft is not None:
-                set_data_normalized(
-                    span, SPANDATA.GEN_AI_RESPONSE_TIME_TO_FIRST_TOKEN, ttft
-                )
-            if len(data_buf) > 0:
-                all_responses = ["".join(chunk) for chunk in data_buf]
-                if should_send_default_pii() and integration.include_prompts:
-                    set_data_normalized(
-                        span, SPANDATA.GEN_AI_RESPONSE_TEXT, all_responses
-                    )
-                if count_tokens_manually:
-                    _calculate_token_usage(
-                        input,
-                        response,
-                        span,
-                        all_responses,
-                        integration.count_tokens,
-                    )
-        if finish_span:
-            span.__exit__(None, None, None)
-
-    if str(type(response._iterator)) == "<class 'async_generator'>":
-        response._iterator = new_iterator_async()
-    else:
-        response._iterator = new_iterator()
 
 
 def _set_embeddings_output_data(
@@ -945,6 +998,7 @@ def _new_embeddings_create_common(f: "Any", *args: "Any", **kwargs: "Any") -> "A
         name=f"embeddings {model}",
         origin=OpenAIIntegration.origin,
     ) as span:
+        span.set_data(SPANDATA.GEN_AI_SYSTEM, "openai")
         _set_embeddings_input_data(span, kwargs, integration)
 
         response = yield f, args, kwargs
@@ -1036,15 +1090,49 @@ def _new_responses_create_common(f: "Any", *args: "Any", **kwargs: "Any") -> "An
     )
     span.__enter__()
 
+    span.set_data(SPANDATA.GEN_AI_SYSTEM, "openai")
+
+    # Same bool handling as in https://github.com/openai/openai-python/blob/acd0c54d8a68efeedde0e5b4e6c310eef1ce7867/src/openai/resources/responses/responses.py#L940
+    is_streaming_response = kwargs.get("stream", False) or False
+    span.set_data(SPANDATA.GEN_AI_RESPONSE_STREAMING, is_streaming_response)
+
     _set_responses_api_input_data(span, kwargs, integration)
 
     start_time = time.perf_counter()
     response = yield f, args, kwargs
 
-    is_streaming_response = kwargs.get("stream", False)
-    if is_streaming_response:
-        _set_streaming_responses_api_output_data(
-            span, response, kwargs, integration, start_time, finish_span=True
+    # Attribute check to fail gracefully if the attribute is not present in future `openai` versions.
+    if isinstance(response, Stream) and hasattr(response, "_iterator"):
+        input = kwargs.get("input")
+
+        if input is not None and isinstance(input, str):
+            input = [input]
+
+        response._iterator = _wrap_synchronous_responses_event_iterator(
+            span=span,
+            integration=integration,
+            start_time=start_time,
+            input=input,
+            response=response,
+            old_iterator=response._iterator,
+            finish_span=True,
+        )
+
+    # Attribute check to fail gracefully if the attribute is not present in future `openai` versions.
+    elif isinstance(response, AsyncStream) and hasattr(response, "_iterator"):
+        input = kwargs.get("input")
+
+        if input is not None and isinstance(input, str):
+            input = [input]
+
+        response._iterator = _wrap_asynchronous_responses_event_iterator(
+            span=span,
+            integration=integration,
+            start_time=start_time,
+            input=input,
+            response=response,
+            old_iterator=response._iterator,
+            finish_span=True,
         )
     else:
         _set_responses_api_output_data(

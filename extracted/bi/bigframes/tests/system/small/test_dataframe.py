@@ -5902,6 +5902,19 @@ def test_to_gbq_table_labels(scalars_df_index):
     assert table.labels["test"] == "labels"
 
 
+def test_to_gbq_obj_ref_persists(session):
+    # Test that saving and loading an Object Reference retains its dtype
+    bdf = session.from_glob_path(
+        "gs://cloud-samples-data/vision/ocr/*.jpg", name="uris"
+    ).head(1)
+
+    destination_table = "bigframes-dev.bigframes_tests_sys.test_obj_ref_persistence"
+    bdf.to_gbq(destination_table, if_exists="replace")
+
+    loaded_df = session.read_gbq(destination_table)
+    assert loaded_df["uris"].dtype == dtypes.OBJ_REF_DTYPE
+
+
 @pytest.mark.parametrize(
     ("col_names", "ignore_index"),
     [
@@ -6283,3 +6296,20 @@ def test_agg_with_dict_containing_non_existing_col_raise_key_error(scalars_dfs):
 
     with pytest.raises(KeyError):
         bf_df.agg(agg_funcs)
+
+
+def test_empty_agg_projection_succeeds():
+    # Tests that the compiler generates a SELECT 1 fallback for empty aggregations,
+    # protecting against BigQuery syntax errors when both groups and metrics are empty.
+    import importlib
+
+    bq = importlib.import_module(
+        "bigframes_vendored.ibis.backends.sql.compilers.bigquery"
+    )
+    sg = importlib.import_module("bigframes_vendored.sqlglot")
+
+    compiler = bq.BigQueryCompiler()
+    res = compiler.visit_Aggregate(
+        "op", parent=sg.table("parent_table"), groups=[], metrics=[]
+    )
+    assert "SELECT 1" in res.sql()

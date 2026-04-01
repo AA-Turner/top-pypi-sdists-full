@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-pinpoint-sms-voice-v2
-Version: 1.42.16
-Summary: Type annotations for boto3 PinpointSMSVoiceV2 1.42.16 service generated with mypy-boto3-builder 8.12.0
+Version: 1.42.80
+Summary: Type annotations for boto3 PinpointSMSVoiceV2 1.42.80 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 PinpointSMSVoiceV2 1.42.16](https://pypi.org/project/boto3/) compatible
+[boto3 PinpointSMSVoiceV2 1.42.80](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.16' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.80' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `PinpointSMSVoiceV2` service.
 4. Use provided commands to install generated packages.
@@ -345,11 +345,15 @@ from mypy_boto3_pinpoint_sms_voice_v2.paginator import (
     DescribeAccountLimitsPaginator,
     DescribeConfigurationSetsPaginator,
     DescribeKeywordsPaginator,
+    DescribeNotifyConfigurationsPaginator,
+    DescribeNotifyTemplatesPaginator,
     DescribeOptOutListsPaginator,
     DescribeOptedOutNumbersPaginator,
     DescribePhoneNumbersPaginator,
     DescribePoolsPaginator,
     DescribeProtectConfigurationsPaginator,
+    DescribeRcsAgentCountryLaunchStatusPaginator,
+    DescribeRcsAgentsPaginator,
     DescribeRegistrationAttachmentsPaginator,
     DescribeRegistrationFieldDefinitionsPaginator,
     DescribeRegistrationFieldValuesPaginator,
@@ -360,6 +364,7 @@ from mypy_boto3_pinpoint_sms_voice_v2.paginator import (
     DescribeSenderIdsPaginator,
     DescribeSpendLimitsPaginator,
     DescribeVerifiedDestinationNumbersPaginator,
+    ListNotifyCountriesPaginator,
     ListPoolOriginationIdentitiesPaginator,
     ListProtectConfigurationRuleSetNumberOverridesPaginator,
     ListRegistrationAssociationsPaginator,
@@ -379,6 +384,12 @@ describe_configuration_sets_paginator: DescribeConfigurationSetsPaginator = clie
     "describe_configuration_sets"
 )
 describe_keywords_paginator: DescribeKeywordsPaginator = client.get_paginator("describe_keywords")
+describe_notify_configurations_paginator: DescribeNotifyConfigurationsPaginator = (
+    client.get_paginator("describe_notify_configurations")
+)
+describe_notify_templates_paginator: DescribeNotifyTemplatesPaginator = client.get_paginator(
+    "describe_notify_templates"
+)
 describe_opt_out_lists_paginator: DescribeOptOutListsPaginator = client.get_paginator(
     "describe_opt_out_lists"
 )
@@ -391,6 +402,12 @@ describe_phone_numbers_paginator: DescribePhoneNumbersPaginator = client.get_pag
 describe_pools_paginator: DescribePoolsPaginator = client.get_paginator("describe_pools")
 describe_protect_configurations_paginator: DescribeProtectConfigurationsPaginator = (
     client.get_paginator("describe_protect_configurations")
+)
+describe_rcs_agent_country_launch_status_paginator: DescribeRcsAgentCountryLaunchStatusPaginator = (
+    client.get_paginator("describe_rcs_agent_country_launch_status")
+)
+describe_rcs_agents_paginator: DescribeRcsAgentsPaginator = client.get_paginator(
+    "describe_rcs_agents"
 )
 describe_registration_attachments_paginator: DescribeRegistrationAttachmentsPaginator = (
     client.get_paginator("describe_registration_attachments")
@@ -421,6 +438,9 @@ describe_spend_limits_paginator: DescribeSpendLimitsPaginator = client.get_pagin
 )
 describe_verified_destination_numbers_paginator: DescribeVerifiedDestinationNumbersPaginator = (
     client.get_paginator("describe_verified_destination_numbers")
+)
+list_notify_countries_paginator: ListNotifyCountriesPaginator = client.get_paginator(
+    "list_notify_countries"
 )
 list_pool_origination_identities_paginator: ListPoolOriginationIdentitiesPaginator = (
     client.get_paginator("list_pool_origination_identities")

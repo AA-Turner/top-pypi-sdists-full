@@ -73,6 +73,8 @@ from .type_defs import (
     DeletePackageResponseTypeDef,
     DeleteVpcEndpointRequestTypeDef,
     DeleteVpcEndpointResponseTypeDef,
+    DeregisterCapabilityRequestTypeDef,
+    DeregisterCapabilityResponseTypeDef,
     DescribeDomainAutoTunesRequestTypeDef,
     DescribeDomainAutoTunesResponseTypeDef,
     DescribeDomainChangeProgressRequestTypeDef,
@@ -112,6 +114,8 @@ from .type_defs import (
     EmptyResponseMetadataTypeDef,
     GetApplicationRequestTypeDef,
     GetApplicationResponseTypeDef,
+    GetCapabilityRequestTypeDef,
+    GetCapabilityResponseTypeDef,
     GetCompatibleVersionsRequestTypeDef,
     GetCompatibleVersionsResponseTypeDef,
     GetDataSourceRequestTypeDef,
@@ -163,6 +167,8 @@ from .type_defs import (
     PurchaseReservedInstanceOfferingResponseTypeDef,
     PutDefaultApplicationSettingRequestTypeDef,
     PutDefaultApplicationSettingResponseTypeDef,
+    RegisterCapabilityRequestTypeDef,
+    RegisterCapabilityResponseTypeDef,
     RejectInboundConnectionRequestTypeDef,
     RejectInboundConnectionResponseTypeDef,
     RemoveTagsRequestTypeDef,
@@ -215,6 +221,7 @@ class Exceptions(BaseClientExceptions):
     LimitExceededException: type[BotocoreClientError]
     ResourceAlreadyExistsException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
     SlotNotAvailableException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
@@ -504,6 +511,16 @@ class OpenSearchServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#delete_vpc_endpoint)
         """
 
+    def deregister_capability(
+        self, **kwargs: Unpack[DeregisterCapabilityRequestTypeDef]
+    ) -> DeregisterCapabilityResponseTypeDef:
+        """
+        Deregisters a capability from an OpenSearch UI application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/deregister_capability.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#deregister_capability)
+        """
+
     def describe_domain(
         self, **kwargs: Unpack[DescribeDomainRequestTypeDef]
     ) -> DescribeDomainResponseTypeDef:
@@ -706,6 +723,17 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/get_application.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#get_application)
+        """
+
+    def get_capability(
+        self, **kwargs: Unpack[GetCapabilityRequestTypeDef]
+    ) -> GetCapabilityResponseTypeDef:
+        """
+        Retrieves information about a registered capability for an OpenSearch UI
+        application, including its configuration and current status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/get_capability.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#get_capability)
         """
 
     def get_compatible_versions(
@@ -977,6 +1005,16 @@ class OpenSearchServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/put_default_application_setting.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#put_default_application_setting)
+        """
+
+    def register_capability(
+        self, **kwargs: Unpack[RegisterCapabilityRequestTypeDef]
+    ) -> RegisterCapabilityResponseTypeDef:
+        """
+        Registers a capability for an OpenSearch UI application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/register_capability.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearch/client/#register_capability)
         """
 
     def reject_inbound_connection(

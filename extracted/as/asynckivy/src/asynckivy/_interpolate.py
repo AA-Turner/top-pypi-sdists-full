@@ -1,4 +1,3 @@
-__all__ = ('interpolate', 'interpolate_seq', 'fade_transition', )
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from kivy.animation import AnimationTransition
@@ -111,7 +110,7 @@ async def fade_transition(*widgets, duration=1.0, step=0):
     Anything with an attribute named ``opacity``--such as ``kivy.core.window.Window``--would work.
 
     .. deprecated:: 0.9.0
-        This will be removed in version 0.11.0. Use :func:`asynckivy.transition.fade_transition` instead.
+        This will be removed in version 0.11.0. Use :func:`asynckivy.transition.fade_multiple` instead.
     '''
     zip_ = zip
     half_duration = duration / 2.

@@ -7,6 +7,7 @@ import base64
 import json
 import logging
 import os
+import sys
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +45,8 @@ from plato.utils.tool_execution import (
 )
 
 if TYPE_CHECKING:
+    from plato.agents.base import BaseAgent
+    from plato.agents.runtime.warmpool import WarmPool
     from plato.v2.async_.session import Session
     from plato.worlds.config import AgentConfig
 
@@ -78,6 +81,7 @@ def create_runtime(
     agent: AgentConfig,
     session: Session | None = None,
     ssh_key_path: Path | None = None,
+    warm_pool: WarmPool | None = None,
 ) -> Runtime:
     """Create a runtime instance based on agent config."""
     runtime_cfg = agent.runtime
@@ -95,6 +99,7 @@ def create_runtime(
                 disk=runtime_cfg.vm.disk or 10240,
                 timeout=runtime_cfg.vm.timeout or 7200,
             ),
+            warm_pool=warm_pool,
         )
     else:
         return DockerRuntime()
@@ -145,6 +150,8 @@ class AgentRunner:
         self._trigger_server_url: str | None = None
         # Populated after run() completes — hex span ID of the agent.execution.output span
         self.last_execution_span_id: str = ""
+        # Concurrency semaphore — set by BaseWorld.agent() when AgentConfig.max_parallel is set
+        self._concurrency_semaphore: asyncio.Semaphore | None = None
 
     def on_prepare(self, fn: Callable[[PreparedAgent], Awaitable[None]]) -> AgentRunner:
         """Register a hook that runs after the environment is ready but before the agent task.
@@ -667,6 +674,17 @@ class AgentRunner:
 
         Returns the agent_id (container name or VM job ID).
         """
+        if self._concurrency_semaphore is not None:
+            return await self._run_with_semaphore(instruction, display_name)
+
+        return await self._run_impl(instruction, display_name)
+
+    async def _run_with_semaphore(self, instruction: str, display_name: str | None = None) -> str:
+        assert self._concurrency_semaphore is not None
+        async with self._concurrency_semaphore:
+            return await self._run_impl(instruction, display_name)
+
+    async def _run_impl(self, instruction: str, display_name: str | None = None) -> str:
         current_display_name = display_name or self._display_name
         audit_scopes = self._configure_audit_scopes(current_display_name)
 
@@ -864,7 +882,7 @@ def discover_agents() -> None:
 
 async def _run_agent_cli(instruction: str, tools_path: str | None = None) -> None:
     """Run an agent with config from environment."""
-    from plato.agents.base import get_agent, get_registered_agents
+    from plato.agents.base import get_registered_agents
     from plato.otel import instrument, shutdown_tracing
 
     # Debug: show OTEL config
@@ -895,19 +913,8 @@ async def _run_agent_cli(instruction: str, tools_path: str | None = None) -> Non
 
     config_dict = json.loads(base64.b64decode(config_b64).decode())
 
-    # Discover agents
     discover_agents()
-
-    # Get agent class
-    agents = get_registered_agents()
-    if not agents:
-        raise ValueError("No agents registered")
-
-    # Use first registered agent (typically only one per package)
-    agent_name = list(agents.keys())[0]
-    agent_cls = get_agent(agent_name)
-    if not agent_cls:
-        raise ValueError(f"Agent '{agent_name}' not found")
+    agent_cls = _load_registered_agent_cls(get_registered_agents())
 
     # Create agent and set config
     agent = agent_cls()
@@ -923,6 +930,30 @@ async def _run_agent_cli(instruction: str, tools_path: str | None = None) -> Non
         shutdown_tracing()
 
 
+def _load_registered_agent_cls(
+    registered_agents: dict[str, type[BaseAgent]],
+) -> type[BaseAgent]:
+    """Return the single agent class exposed by the current agent package."""
+    if not registered_agents:
+        raise ValueError("No agents registered")
+
+    agent_name = list(registered_agents.keys())[0]
+    agent_cls = registered_agents.get(agent_name)
+    if not agent_cls:
+        raise ValueError(f"Agent '{agent_name}' not found")
+    return agent_cls
+
+
+def _reset_commands_cli(workspace_paths: list[str]) -> None:
+    """Print pooled-VM reset commands for the installed agent package."""
+    from plato.agents.base import get_registered_agents
+
+    discover_agents()
+    agent_cls = _load_registered_agent_cls(get_registered_agents())
+    commands = agent_cls.reset_commands(workspace_paths)
+    print(json.dumps(commands))
+
+
 def main() -> None:
     """CLI entry point for plato-agent-runner."""
     import argparse
@@ -935,6 +966,14 @@ def main() -> None:
     run_parser.add_argument("--instruction-b64", help="Base64 encoded instruction")
     run_parser.add_argument("--tools-path", help="Path to pickled plato tools (.pkl)")
     run_parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
+
+    reset_parser = subparsers.add_parser("reset-commands", help="Print pooled VM reset commands as JSON")
+    reset_parser.add_argument(
+        "--workspace-paths",
+        nargs="*",
+        default=[],
+        help="Workspace mount paths to clean before reusing the VM",
+    )
 
     args = parser.parse_args()
 
@@ -956,6 +995,12 @@ def main() -> None:
             parser.error("--instruction or --instruction-b64 required")
 
         asyncio.run(_run_agent_cli(instruction, tools_path=args.tools_path))
+    elif args.command == "reset-commands":
+        try:
+            _reset_commands_cli(args.workspace_paths)
+        except Exception as exc:
+            print(str(exc), file=sys.stderr)
+            raise SystemExit(1) from exc
     else:
         parser.print_help()
 

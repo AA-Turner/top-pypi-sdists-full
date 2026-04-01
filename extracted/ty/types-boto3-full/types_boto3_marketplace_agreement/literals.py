@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_marketplace_agreement.literals import AgreementStatusType
+    from types_boto3_marketplace_agreement.literals import AgreementCancellationRequestReasonCodeType
 
-    data: AgreementStatusType = "ACTIVE"
+    data: AgreementCancellationRequestReasonCodeType = "ALTERNATIVE_PROCUREMENT_CHANNEL"
     ```
 """
 
@@ -23,9 +23,19 @@ else:
 
 
 __all__ = (
+    "AgreementCancellationRequestReasonCodeType",
+    "AgreementCancellationRequestStatusType",
     "AgreementServiceServiceName",
     "AgreementStatusType",
+    "BillingAdjustmentErrorCodeType",
+    "BillingAdjustmentReasonCodeType",
+    "BillingAdjustmentStatusType",
+    "InvoiceTypeType",
+    "LineItemGroupByType",
+    "ListAgreementCancellationRequestsPaginatorName",
+    "ListAgreementInvoiceLineItemsPaginatorName",
     "ListAgreementPaymentRequestsPaginatorName",
+    "ListBillingAdjustmentRequestsPaginatorName",
     "PaginatorName",
     "PaymentRequestApprovalStrategyType",
     "PaymentRequestStatusType",
@@ -36,6 +46,19 @@ __all__ = (
 )
 
 
+AgreementCancellationRequestReasonCodeType = Literal[
+    "ALTERNATIVE_PROCUREMENT_CHANNEL",
+    "BUYER_DISSATISFACTION",
+    "INCORRECT_TERMS_ACCEPTED",
+    "OTHER",
+    "PRODUCT_DISCONTINUED",
+    "REPLACING_AGREEMENT",
+    "TEST_AGREEMENT",
+    "UNINTENDED_RENEWAL",
+]
+AgreementCancellationRequestStatusType = Literal[
+    "APPROVED", "CANCELLED", "PENDING_APPROVAL", "REJECTED", "VALIDATION_FAILED"
+]
 AgreementStatusType = Literal[
     "ACTIVE",
     "ARCHIVED",
@@ -47,7 +70,25 @@ AgreementStatusType = Literal[
     "SUPERSEDED",
     "TERMINATED",
 ]
+BillingAdjustmentErrorCodeType = Literal[
+    "CONFLICT_EXCEPTION", "INTERNAL_FAILURE", "RESOURCE_NOT_FOUND_EXCEPTION", "VALIDATION_EXCEPTION"
+]
+BillingAdjustmentReasonCodeType = Literal[
+    "ALTERNATIVE_PROCUREMENT_CHANNEL",
+    "BUYER_DISSATISFACTION",
+    "INCORRECT_METERING",
+    "INCORRECT_TERMS_ACCEPTED",
+    "OTHER",
+    "TEST_ENVIRONMENT_CHARGES",
+    "UNINTENDED_RENEWAL",
+]
+BillingAdjustmentStatusType = Literal["COMPLETED", "PENDING", "VALIDATION_FAILED"]
+InvoiceTypeType = Literal["CREDIT_MEMO", "INVOICE"]
+LineItemGroupByType = Literal["INVOICE_ID"]
+ListAgreementCancellationRequestsPaginatorName = Literal["list_agreement_cancellation_requests"]
+ListAgreementInvoiceLineItemsPaginatorName = Literal["list_agreement_invoice_line_items"]
 ListAgreementPaymentRequestsPaginatorName = Literal["list_agreement_payment_requests"]
+ListBillingAdjustmentRequestsPaginatorName = Literal["list_billing_adjustment_requests"]
 PaymentRequestApprovalStrategyType = Literal["AUTO_APPROVE_ON_EXPIRATION", "WAIT_FOR_APPROVAL"]
 PaymentRequestStatusType = Literal[
     "APPROVED", "CANCELLED", "PENDING_APPROVAL", "REJECTED", "VALIDATING", "VALIDATION_FAILED"
@@ -408,6 +449,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -443,6 +485,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -477,5 +520,10 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_agreement_payment_requests"]
+PaginatorName = Literal[
+    "list_agreement_cancellation_requests",
+    "list_agreement_invoice_line_items",
+    "list_agreement_payment_requests",
+    "list_billing_adjustment_requests",
+]
 RegionName = Literal["us-east-1"]

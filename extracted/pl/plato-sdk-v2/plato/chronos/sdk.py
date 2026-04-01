@@ -39,6 +39,7 @@ from plato.chronos.api.reviews import (
     list_reviews_api_reviews_get as list_reviews_api,
 )
 from plato.chronos.api.sessions import (
+    close_session,
     complete_session,
     get_session,
     get_session_artifact_download,
@@ -141,6 +142,7 @@ class _ChronosBase:
         self,
         package: str,
         config: dict[str, Any] | None,
+        child_worlds: dict[str, Any] | None,
         tags: list[str] | None,
         runtime: dict[str, Any] | None,
         allow_prerelease: bool,
@@ -152,6 +154,7 @@ class _ChronosBase:
         world_runtime = WorldRuntimeConfig(**runtime) if runtime else None
         return LaunchJobRequest(
             world=WorldConfigInput(package=package, config=config, runtime=world_runtime, world_name=world_name),
+            child_worlds=child_worlds,
             tags=[_normalize_tag(t) for t in tags] if tags else None,
             allow_prerelease=allow_prerelease or None,
             parent_session_id=parent_session_id,
@@ -266,6 +269,7 @@ class Chronos(_ChronosBase):
         self,
         package: str,
         config: dict[str, Any] | None = None,
+        child_worlds: dict[str, Any] | None = None,
         tags: list[str] | None = None,
         runtime: dict[str, Any] | None = None,
         allow_prerelease: bool = False,
@@ -273,7 +277,7 @@ class Chronos(_ChronosBase):
         world_name: str | None = None,
     ) -> LaunchJobResponse:
         body = self._build_launch_body(
-            package, config, tags, runtime, allow_prerelease, parent_session_id, world_name=world_name
+            package, config, child_worlds, tags, runtime, allow_prerelease, parent_session_id, world_name=world_name
         )
         resp = launch_job.sync(self._client, body=body)
         _emit_child_session_span(resp.session_id, package)
@@ -323,8 +327,8 @@ class Chronos(_ChronosBase):
         return complete_session.sync(self._client, public_id=session_id, body=body)
 
     def stop(self, session_id: str) -> SessionResponse:
-        body = CompleteSessionRequest(status=Status1("cancelled"), error_message="User cancelled")
-        return complete_session.sync(self._client, public_id=session_id, body=body)
+        close_session.sync(self._client, public_id=session_id)
+        return self.get_session(session_id)
 
     def update_notes(
         self,
@@ -639,6 +643,7 @@ class AsyncChronos(_ChronosBase):
         self,
         package: str,
         config: dict[str, Any] | None = None,
+        child_worlds: dict[str, Any] | None = None,
         tags: list[str] | None = None,
         runtime: dict[str, Any] | None = None,
         allow_prerelease: bool = False,
@@ -646,7 +651,7 @@ class AsyncChronos(_ChronosBase):
         world_name: str | None = None,
     ) -> LaunchJobResponse:
         body = self._build_launch_body(
-            package, config, tags, runtime, allow_prerelease, parent_session_id, world_name=world_name
+            package, config, child_worlds, tags, runtime, allow_prerelease, parent_session_id, world_name=world_name
         )
         resp = await launch_job.asyncio(self._client, body=body)
         _emit_child_session_span(resp.session_id, package)
@@ -696,8 +701,8 @@ class AsyncChronos(_ChronosBase):
         return await complete_session.asyncio(self._client, public_id=session_id, body=body)
 
     async def stop(self, session_id: str) -> SessionResponse:
-        body = CompleteSessionRequest(status=Status1("cancelled"), error_message="User cancelled")
-        return await complete_session.asyncio(self._client, public_id=session_id, body=body)
+        await close_session.asyncio(self._client, public_id=session_id)
+        return await self.get_session(session_id)
 
     async def update_notes(
         self,

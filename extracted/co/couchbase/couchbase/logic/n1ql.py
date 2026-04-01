@@ -26,15 +26,14 @@ from typing import (TYPE_CHECKING,
                     Union)
 
 from couchbase._utils import (JSONType,
-                              timedelta_as_microseconds,
-                              to_microseconds)
+                              timedelta_as_milliseconds,
+                              to_milliseconds)
 from couchbase.exceptions import ErrorMapper, InvalidArgumentException
-from couchbase.exceptions import exception as CouchbaseBaseException
+from couchbase.logic.observability import ObservableRequestHandler, SpanProtocol
 from couchbase.logic.options import QueryOptionsBase
+from couchbase.logic.pycbc_core import pycbc_exception as PycbcCoreException
 from couchbase.options import QueryOptions, UnsignedInt64
-from couchbase.pycbc_core import n1ql_query
 from couchbase.serializer import DefaultJsonSerializer, Serializer
-from couchbase.tracing import CouchbaseSpan
 
 if TYPE_CHECKING:
     from couchbase.mutation_state import MutationState  # noqa: F401
@@ -225,7 +224,7 @@ class QueryMetaData:
     def __init__(self, raw  # type: Dict[str, Any]
                  ) -> None:
         if raw is not None:
-            self._raw = raw.get('metadata', None)
+            self._raw = raw
             sig = self._raw.get('signature', None)
             if sig is not None:
                 self._raw['signature'] = json.loads(sig)
@@ -273,9 +272,10 @@ class QueryMetaData:
         Returns:
             List[:class:`.QueryWarning`]: Any warnings that occurred during the execution of the query.
         """
-        return list(
-            map(QueryWarning, self._raw.get("warnings", []))
-        )
+        warnings = self._raw.get('warnings')
+        if warnings is None:
+            return []
+        return list(map(QueryWarning, warnings))
 
     def errors(self) -> List[QueryError]:
         """Get errors that occurred during the execution of the query.
@@ -283,9 +283,10 @@ class QueryMetaData:
         Returns:
             List[:class:`.QueryWarning`]: Any errors that occurred during the execution of the query.
         """
-        return list(
-            map(QueryError, self._raw.get("errors", []))
-        )
+        errors = self._raw.get('errors')
+        if errors is None:
+            return []
+        return list(map(QueryWarning, errors))
 
     def metrics(self) -> Optional[QueryMetrics]:
         """Get the various metrics which are made available by the query engine.
@@ -293,8 +294,9 @@ class QueryMetaData:
         Returns:
             Optional[:class:`.QueryMetrics`]: A :class:`.QueryMetrics` instance.
         """
-        if "metrics" in self._raw:
-            return QueryMetrics(self._raw.get("metrics", {}))
+        raw_metrics = self._raw.get('metrics', None)
+        if raw_metrics:
+            return QueryMetrics(raw_metrics)
         return None
 
     def profile(self) -> Optional[JSONType]:
@@ -327,7 +329,7 @@ class N1QLQuery:
         "query_context": {"query_context": lambda x: x},
         "raw": {"raw": lambda x: x},
         "scan_cap": {"scan_cap": lambda x: x},
-        "scan_wait": {"scan_wait": timedelta_as_microseconds},
+        "scan_wait": {"scan_wait": timedelta_as_milliseconds},
         "metrics": {"metrics": lambda x: x},
         "flex_index": {"flex_index": lambda x: x},
         "preserve_expiry": {"preserve_expiry": lambda x: x},
@@ -335,7 +337,8 @@ class N1QLQuery:
         "serializer": {"serializer": lambda x: x},
         "positional_parameters": {},
         "named_parameters": {},
-        "span": {"span": lambda x: x}
+        "span": {"span": lambda x: x},
+        "parent_span": {"parent_span": lambda x: x},
     }
 
     def __init__(self, query, *args, **kwargs):
@@ -359,7 +362,10 @@ class N1QLQuery:
 
         """
         arg_dict = self._params.setdefault("named_parameters", {})
-        arg_dict.update(kv)
+        # C++ core wants all args JSONified bytes
+        named_params = {f'${k}': json.dumps(v).encode('utf-8') for k, v in kv.items()}
+        arg_dict.update(named_params)
+        return self
 
     def _add_pos_args(self, *args):
         """
@@ -368,7 +374,9 @@ class N1QLQuery:
         :param args: Values to be used
         """
         arg_array = self._params.setdefault("positional_parameters", [])
-        arg_array.extend(args)
+        # C++ core wants all args JSONified bytes
+        json_args = [json.dumps(arg).encode('utf-8') for arg in args]
+        arg_array.extend(json_args)
 
     def set_option(self, name, value):
         """
@@ -383,23 +391,8 @@ class N1QLQuery:
         self._params[name] = value
 
     @property
-    def params(self) -> Dict[str, Any]:
-        params = self._params
-
-        # couchbase++ wants all args JSONified,
-        # For now encode to bytes to make couchbase::json_string <--> std::vector<std::byte> easier
-        raw = params.pop('raw', None)
-        if raw:
-            params['raw'] = {f'{k}': self._serializer.serialize(v) for k, v in raw.items()}
-
-        positional_args = params.pop('positional_parameters', None)
-        if positional_args:
-            params['positional_parameters'] = [self._serializer.serialize(arg) for arg in positional_args]
-
-        named_params = params.pop('named_parameters', None)
-        if named_params:
-            params['named_parameters'] = {f'${k}': self._serializer.serialize(v) for k, v in named_params.items()}
-        return params
+    def params(self):
+        return self._params
 
     @property
     def metrics(self) -> bool:
@@ -428,8 +421,8 @@ class N1QLQuery:
         if not value:
             self._params.pop('timeout', 0)
         else:
-            total_us = to_microseconds(value)
-            self.set_option('timeout', total_us)
+            total_ms = to_milliseconds(value)
+            self.set_option('timeout', total_ms)
 
     @property
     def readonly(self) -> bool:
@@ -496,8 +489,7 @@ class N1QLQuery:
         :type state: :class:`~.couchbase.mutation_state.MutationState`
         """
         if self.consistency != QueryScanConsistency.NOT_BOUNDED:
-            raise TypeError(
-                'consistent_with not valid with other consistency options')
+            raise TypeError('consistent_with not valid with other consistency options')
 
         # avoid circular import
         from couchbase.mutation_state import MutationState  # noqa: F811
@@ -555,7 +547,7 @@ class N1QLQuery:
     @property
     def profile(self) -> QueryProfile:
         value = self._params.get(
-            'profile_mode', None
+            'profile', None
         )
 
         if value is None:
@@ -572,9 +564,9 @@ class N1QLQuery:
     def profile(self, value  # type: Union[QueryProfile, str]
                 ) -> None:
         if isinstance(value, QueryProfile):
-            self.set_option('profile_mode', value.value)
+            self.set_option('profile', value.value)
         elif isinstance(value, str) and value in [pm.value for pm in QueryProfile]:
-            self.set_option('profile_mode', value)
+            self.set_option('profile', value)
         else:
             raise InvalidArgumentException(message=("Excepted profile to be either of type "
                                                     "QueryProfile or str representation of QueryProfile"))
@@ -622,7 +614,7 @@ class N1QLQuery:
         else:
             # if using the setter, need to validate/transform timedelta, otherwise, just add the value
             if 'scan_wait' in self._params:
-                value = timedelta_as_microseconds(value)
+                value = timedelta_as_milliseconds(value)
 
             self.set_option('scan_wait', value)
 
@@ -665,18 +657,24 @@ class N1QLQuery:
         for k in value.keys():
             if not isinstance(k, str):
                 raise TypeError("key for raw value must be str")
-        self.set_option('raw', value)
+        raw_params = {f'{k}': json.dumps(v).encode('utf-8') for k, v in value.items()}
+        self.set_option('raw', raw_params)
 
     @property
-    def span(self) -> Optional[CouchbaseSpan]:
+    def span(self) -> Optional[SpanProtocol]:
         return self._params.get('span', None)
 
     @span.setter
-    def span(self, value  # type CouchbaseSpan
-             ) -> None:
-        if not issubclass(value.__class__, CouchbaseSpan):
-            raise InvalidArgumentException(message='Span should implement CouchbaseSpan interface')
+    def span(self, value: SpanProtocol) -> None:
         self.set_option('span', value)
+
+    @property
+    def parent_span(self) -> Optional[SpanProtocol]:
+        return self._params.get('parent_span', None)
+
+    @parent_span.setter
+    def parent_span(self, value: SpanProtocol) -> None:
+        self.set_option('parent_span', value)
 
     @property
     def serializer(self) -> Optional[Serializer]:
@@ -749,6 +747,8 @@ class QueryRequestLogic:
         self._default_serializer = kwargs.pop('default_serializer', DefaultJsonSerializer())
         self._serializer = None
         self._streaming_timeout = kwargs.pop('streaming_timeout', None)
+        self._obs_handler: Optional[ObservableRequestHandler] = kwargs.pop('obs_handler', None)
+        self._processed_core_span = False
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -778,21 +778,52 @@ class QueryRequestLogic:
         # @TODO:  raise if query isn't complete?
         return self._metadata
 
+    def _process_core_span(self, exc_val: Optional[BaseException] = None) -> None:
+        if self._processed_core_span:
+            return
+        self._processed_core_span = True
+        if self._obs_handler and self._streaming_result:
+            self._obs_handler.process_meter_end(exc_val=exc_val)
+            # TODO(PYCBC-1746): Update once legacy tracing logic is removed
+            if self._obs_handler.is_legacy_tracer:
+                # the handler knows how to handle this legacy situation (essentially just ends the span)
+                self._obs_handler.process_core_span(None)
+            elif hasattr(self._streaming_result, 'core_span'):
+                self._obs_handler.process_core_span(self._streaming_result.core_span,
+                                                    with_error=(exc_val is not None))
+
     def _set_metadata(self, query_response):
-        if isinstance(query_response, CouchbaseBaseException):
+        if isinstance(query_response, PycbcCoreException):
             raise ErrorMapper.build_exception(query_response)
 
-        self._metadata = QueryMetaData(query_response.raw_result.get('value', None))
+        self._metadata = QueryMetaData(query_response.raw_result.get('metadata', None))
 
     def _submit_query(self, **kwargs):
         if self.done_streaming:
             return
 
         self._started_streaming = True
-        n1ql_kwargs = {
-            'conn': self._connection,
-            'query_args': self.params,
-        }
+        # we don't need the spans in the kwargs, tracing is handled by the ObservableRequestHandler
+        span = self.params.pop('span', None)
+        parent_span = self.params.pop('parent_span', None)
+        if self._obs_handler:
+            # since query is lazy executed, we wait until we submit the query to create the span
+            parent_span = ObservableRequestHandler.maybe_get_parent_span(span=span, parent_span=parent_span)
+            q_context = self.params.get('query_context', None)
+            attr_opts = {
+                'statement': self.params.get('statement'),
+                'query_params': self.params,
+                'parent_span': parent_span,
+                'use_now_as_start_time': True
+            }
+            if q_context:
+                bname, sname = ObservableRequestHandler.get_query_context_components(q_context)
+                attr_opts['bucket_name'] = bname
+                attr_opts['scope_name'] = sname
+            self._obs_handler.create_http_span(**attr_opts)
+
+        n1ql_kwargs = {}
+        n1ql_kwargs.update(self.params)
 
         streaming_timeout = self.params.get('timeout', self._streaming_timeout)
         if streaming_timeout:
@@ -807,4 +838,13 @@ class QueryRequestLogic:
         if errback:
             n1ql_kwargs['errback'] = errback
 
-        self._streaming_result = n1ql_query(**n1ql_kwargs)
+        if self._obs_handler:
+            # TODO(PYCBC-1746): Update once legacy tracing logic is removed
+            if self._obs_handler.is_legacy_tracer:
+                legacy_request_span = self._obs_handler.legacy_request_span
+                if legacy_request_span:
+                    n1ql_kwargs['parent_span'] = legacy_request_span
+            else:
+                n1ql_kwargs['wrapper_span_name'] = self._obs_handler.wrapper_span_name
+
+        self._streaming_result = self._connection.pycbc_query(**n1ql_kwargs)

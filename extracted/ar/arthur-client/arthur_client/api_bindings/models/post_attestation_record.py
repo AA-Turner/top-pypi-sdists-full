@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,7 +27,7 @@ class PostAttestationRecord(BaseModel):
     PostAttestationRecord
     """ # noqa: E501
     attestation_rule_id: StrictStr = Field(description="The ID of the attestation rule this attestation satisfies.")
-    notes: Optional[StrictStr] = None
+    notes: StrictStr = Field(description="Notes from the reviewer.")
     __properties: ClassVar[List[str]] = ["attestation_rule_id", "notes"]
 
     model_config = ConfigDict(
@@ -69,11 +69,6 @@ class PostAttestationRecord(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # set to None if notes (nullable) is None
-        # and model_fields_set contains the field
-        if self.notes is None and "notes" in self.model_fields_set:
-            _dict['notes'] = None
-
         return _dict
 
     @classmethod

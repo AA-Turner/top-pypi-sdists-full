@@ -736,6 +736,7 @@ class GetDataAccessRequestTypeDef(TypedDict):
     DurationSeconds: NotRequired[int]
     Privilege: NotRequired[PrivilegeType]
     TargetType: NotRequired[Literal["Object"]]
+    AuditContext: NotRequired[str]
 
 class GetJobTaggingRequestTypeDef(TypedDict):
     AccountId: str

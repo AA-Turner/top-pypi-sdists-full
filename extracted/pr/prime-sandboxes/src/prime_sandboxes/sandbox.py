@@ -29,6 +29,7 @@ from .core import APIClient, APIError, AsyncAPIClient
 from .exceptions import (
     CommandTimeoutError,
     DownloadTimeoutError,
+    SandboxFileNotFoundError,
     SandboxImagePullError,
     SandboxNotRunningError,
     SandboxOOMError,
@@ -297,23 +298,23 @@ class SandboxAuthCache:
                 if ev is not None:
                     ev.set()
 
-    def is_gpu(self, sandbox_id: str) -> bool:
-        """Return True if sandbox is GPU-backed, cached alongside auth token data."""
+    def is_vm(self, sandbox_id: str) -> bool:
+        """Return True if sandbox is VM-backed, cached alongside auth token data."""
         with self._lock:
             cached = _check_cached_auth(self._auth_cache, sandbox_id)
-            if cached and isinstance(cached.get("is_gpu"), bool):
-                return bool(cached["is_gpu"])
+            if cached and isinstance(cached.get("is_vm"), bool):
+                return bool(cached["is_vm"])
 
         sandbox_data = self.client.request("GET", f"/sandbox/{sandbox_id}")
         sandbox = Sandbox.model_validate(sandbox_data)
-        is_gpu = sandbox.gpu_count > 0
+        is_vm = sandbox.vm
 
         with self._lock:
             if sandbox_id in self._auth_cache:
-                self._auth_cache[sandbox_id]["is_gpu"] = is_gpu
+                self._auth_cache[sandbox_id]["is_vm"] = is_vm
                 self._save_cache()
 
-        return is_gpu
+        return is_vm
 
     def set(self, sandbox_id: str, auth_info: Dict[str, Any]) -> None:
         with self._lock:
@@ -398,24 +399,24 @@ class AsyncSandboxAuthCache:
                 if ev is not None:
                     ev.set()
 
-    async def is_gpu(self, sandbox_id: str) -> bool:
-        """Return True if sandbox is GPU-backed, cached alongside auth token data."""
+    async def is_vm(self, sandbox_id: str) -> bool:
+        """Return True if sandbox is VM-backed, cached alongside auth token data."""
         async with self._lock:
             await self._ensure_loaded()
             cached = _check_cached_auth(self._auth_cache, sandbox_id)
-            if cached and isinstance(cached.get("is_gpu"), bool):
-                return bool(cached["is_gpu"])
+            if cached and isinstance(cached.get("is_vm"), bool):
+                return bool(cached["is_vm"])
 
         sandbox_data = await self.client.request("GET", f"/sandbox/{sandbox_id}")
         sandbox = Sandbox.model_validate(sandbox_data)
-        is_gpu = sandbox.gpu_count > 0
+        is_vm = sandbox.vm
 
         async with self._lock:
             if sandbox_id in self._auth_cache:
-                self._auth_cache[sandbox_id]["is_gpu"] = is_gpu
+                self._auth_cache[sandbox_id]["is_vm"] = is_vm
                 await self._save_cache()
 
-        return is_gpu
+        return is_vm
 
     async def set(self, sandbox_id: str, auth_info: Dict[str, Any]) -> None:
         async with self._lock:
@@ -621,7 +622,7 @@ class SandboxClient:
         """Execute command directly via gateway."""
         auth = self._auth_cache.get_or_refresh(sandbox_id)
 
-        if self._auth_cache.is_gpu(sandbox_id):
+        if self._auth_cache.is_vm(sandbox_id):
             return self._execute_command_connect_rpc(
                 sandbox_id=sandbox_id,
                 command=command,
@@ -866,15 +867,13 @@ class SandboxClient:
             BackgroundJobStatus with completed flag, and exit_code/stdout if done
         """
 
-        def read_or_cat(path: str, timeout: int = 60) -> str:
+        def read_or_empty(path: str) -> str:
             try:
                 return self.read_file(sandbox_id, path).content
-            except APIError:
-                return self.execute_command(
-                    sandbox_id, f"cat {shlex.quote(path)} 2>/dev/null", timeout=timeout
-                ).stdout
+            except SandboxFileNotFoundError:
+                return ""
 
-        exit_content = read_or_cat(job.exit_file, timeout=30)
+        exit_content = read_or_empty(job.exit_file)
         if not exit_content.strip():
             return BackgroundJobStatus(job_id=job.job_id, completed=False)
 
@@ -887,9 +886,47 @@ class SandboxClient:
             job_id=job.job_id,
             completed=True,
             exit_code=exit_code,
-            stdout=read_or_cat(job.stdout_log_file),
-            stderr=read_or_cat(job.stderr_log_file),
+            stdout=read_or_empty(job.stdout_log_file),
+            stderr=read_or_empty(job.stderr_log_file),
         )
+
+    def run_background_job(
+        self,
+        sandbox_id: str,
+        command: str,
+        timeout: int = 900,
+        working_dir: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        poll_interval: int = 3,
+    ) -> BackgroundJobStatus:
+        """Run a command in the background and wait for completion.
+
+        Combines start_background_job() + polling into a single call.
+        Use this for long-running commands that would exceed HTTP timeouts
+        with execute_command().
+
+        Args:
+            sandbox_id: The sandbox ID
+            command: Command to execute
+            timeout: Maximum seconds to wait for completion
+            working_dir: Working directory for command execution
+            env: Environment variables
+            poll_interval: Seconds between status polls
+
+        Returns:
+            BackgroundJobStatus with exit_code, stdout, stderr
+
+        Raises:
+            CommandTimeoutError: If command doesn't complete within timeout
+        """
+        job = self.start_background_job(sandbox_id, command, working_dir=working_dir, env=env)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            status = self.get_background_job(sandbox_id, job)
+            if status.completed:
+                return status
+            time.sleep(poll_interval)
+        raise CommandTimeoutError(sandbox_id, command, timeout)
 
     def wait_for_creation(
         self, sandbox_id: str, max_attempts: int = 60, stability_checks: int = 1
@@ -1162,6 +1199,8 @@ class SandboxClient:
                     f"Read file timed out after {effective_timeout}s: {file_path}"
                 ) from e
             except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    raise SandboxFileNotFoundError(f"File not found: {file_path}") from e
                 if e.response.status_code == 409:
                     if self._should_retry_409(sandbox_id, e, attempt):
                         continue
@@ -1434,7 +1473,7 @@ class AsyncSandboxClient:
         """Execute command directly via gateway (async)."""
         auth = await self._auth_cache.get_or_refresh(sandbox_id)
 
-        if await self._auth_cache.is_gpu(sandbox_id):
+        if await self._auth_cache.is_vm(sandbox_id):
             return await self._execute_command_connect_rpc(
                 sandbox_id=sandbox_id,
                 command=command,
@@ -1679,19 +1718,13 @@ class AsyncSandboxClient:
             BackgroundJobStatus with completed flag, and exit_code/stdout if done
         """
 
-        async def read_or_cat(path: str, timeout: int = 60) -> str:
+        async def read_or_empty(path: str) -> str:
             try:
                 return (await self.read_file(sandbox_id, path)).content
-            except APIError:
-                return (
-                    await self.execute_command(
-                        sandbox_id,
-                        f"cat {shlex.quote(path)} 2>/dev/null",
-                        timeout=timeout,
-                    )
-                ).stdout
+            except SandboxFileNotFoundError:
+                return ""
 
-        exit_content = await read_or_cat(job.exit_file, timeout=30)
+        exit_content = await read_or_empty(job.exit_file)
         if not exit_content.strip():
             return BackgroundJobStatus(job_id=job.job_id, completed=False)
 
@@ -1704,9 +1737,47 @@ class AsyncSandboxClient:
             job_id=job.job_id,
             completed=True,
             exit_code=exit_code,
-            stdout=await read_or_cat(job.stdout_log_file),
-            stderr=await read_or_cat(job.stderr_log_file),
+            stdout=await read_or_empty(job.stdout_log_file),
+            stderr=await read_or_empty(job.stderr_log_file),
         )
+
+    async def run_background_job(
+        self,
+        sandbox_id: str,
+        command: str,
+        timeout: int = 900,
+        working_dir: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        poll_interval: int = 3,
+    ) -> BackgroundJobStatus:
+        """Run a command in the background and wait for completion (async).
+
+        Combines start_background_job() + polling into a single call.
+        Use this for long-running commands that would exceed HTTP timeouts
+        with execute_command().
+
+        Args:
+            sandbox_id: The sandbox ID
+            command: Command to execute
+            timeout: Maximum seconds to wait for completion
+            working_dir: Working directory for command execution
+            env: Environment variables
+            poll_interval: Seconds between status polls
+
+        Returns:
+            BackgroundJobStatus with exit_code, stdout, stderr
+
+        Raises:
+            CommandTimeoutError: If command doesn't complete within timeout
+        """
+        job = await self.start_background_job(sandbox_id, command, working_dir=working_dir, env=env)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            status = await self.get_background_job(sandbox_id, job)
+            if status.completed:
+                return status
+            await asyncio.sleep(poll_interval)
+        raise CommandTimeoutError(sandbox_id, command, timeout)
 
     async def wait_for_creation(
         self, sandbox_id: str, max_attempts: int = 60, stability_checks: int = 1
@@ -1995,6 +2066,8 @@ class AsyncSandboxClient:
                     f"Read file timed out after {effective_timeout}s: {file_path}"
                 ) from e
             except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    raise SandboxFileNotFoundError(f"File not found: {file_path}") from e
                 if e.response.status_code == 409:
                     if await self._should_retry_409(sandbox_id, e, attempt):
                         continue

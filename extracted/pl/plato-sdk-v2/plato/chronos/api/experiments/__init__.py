@@ -4,6 +4,7 @@ from . import (
     attach_session_to_experiment_version,
     create_experiment_file,
     create_experiment_file_version,
+    create_experiment_test_run,
     delete_experiment_file,
     delete_experiment_version,
     detach_session_from_experiment_version,
@@ -11,9 +12,11 @@ from . import (
     list_experiment_files,
     list_experiment_folders,
     list_experiment_tags,
+    list_experiment_test_runs,
     rename_experiment_folder,
     run_experiment_target_reviews,
     update_experiment_file,
+    update_experiment_test_run,
     update_experiment_version,
 )
 
@@ -32,4 +35,7 @@ __all__ = [
     "attach_session_to_experiment_version",
     "detach_session_from_experiment_version",
     "run_experiment_target_reviews",
+    "list_experiment_test_runs",
+    "create_experiment_test_run",
+    "update_experiment_test_run",
 ]

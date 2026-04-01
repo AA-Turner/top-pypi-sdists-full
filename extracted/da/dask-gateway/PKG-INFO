@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dask-gateway
-Version: 2025.4.0
+Version: 2026.3.0
 Summary: A client library for interacting with a dask-gateway server
 Project-URL: Documentation, https://gateway.dask.org/
 Project-URL: Source, https://github.com/dask/dask-gateway/

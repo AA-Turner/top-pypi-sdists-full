@@ -795,7 +795,8 @@ pub enum Type {
     /// Used for special form `Annotated[T, ...]`.
     /// This is transparent when resolving annotations, but is not callable and
     /// cannot be assigned to `type[T]`.
-    Annotated(Box<Type>),
+    /// The second field carries the metadata items (the `...` in `Annotated[T, ...]`).
+    Annotated(Box<Type>, Box<[Type]>),
     Unpack(Box<Type>),
     TypeVar(TypeVar),
     ParamSpec(ParamSpec),
@@ -817,6 +818,8 @@ pub enum Type {
     KwargsValue(Box<Quantified>),
     /// Used to represent a type that has a value representation, e.g. a class
     Type(Box<Type>),
+    /// TypeForm[T] — a type form object (PEP 747).
+    TypeForm(Box<Type>),
     Ellipsis,
     Any(AnyStyle),
     Never(NeverStyle),
@@ -883,7 +886,7 @@ impl Visit for Type {
             Type::ElementOfTypeVarTuple(x) => x.visit(f),
             Type::TypeGuard(x) => x.visit(f),
             Type::TypeIs(x) => x.visit(f),
-            Type::Annotated(x) => x.visit(f),
+            Type::Annotated(x, _metadata) => x.visit(f),
             Type::Unpack(x) => x.visit(f),
             Type::TypeVar(x) => x.visit(f),
             Type::ParamSpec(x) => x.visit(f),
@@ -896,6 +899,7 @@ impl Visit for Type {
             Type::ArgsValue(x) => x.visit(f),
             Type::KwargsValue(x) => x.visit(f),
             Type::Type(x) => x.visit(f),
+            Type::TypeForm(x) => x.visit(f),
             Type::Ellipsis => {}
             Type::Any(x) => x.visit(f),
             Type::Never(x) => x.visit(f),
@@ -937,7 +941,7 @@ impl VisitMut for Type {
             Type::ElementOfTypeVarTuple(x) => x.visit_mut(f),
             Type::TypeGuard(x) => x.visit_mut(f),
             Type::TypeIs(x) => x.visit_mut(f),
-            Type::Annotated(x) => x.visit_mut(f),
+            Type::Annotated(x, _metadata) => x.visit_mut(f),
             Type::Unpack(x) => x.visit_mut(f),
             Type::TypeVar(x) => x.visit_mut(f),
             Type::ParamSpec(x) => x.visit_mut(f),
@@ -950,6 +954,7 @@ impl VisitMut for Type {
             Type::ArgsValue(x) => x.visit_mut(f),
             Type::KwargsValue(x) => x.visit_mut(f),
             Type::Type(x) => x.visit_mut(f),
+            Type::TypeForm(x) => x.visit_mut(f),
             Type::Ellipsis => {}
             Type::Any(x) => x.visit_mut(f),
             Type::Never(x) => x.visit_mut(f),
@@ -1908,6 +1913,16 @@ impl Type {
             members,
             display_name: None,
         }))
+    }
+
+    /// Returns `true` if this type is an explicit type variable — i.e., a `Quantified` or
+    /// legacy `TypeVar` that a user wrote in an annotation.
+    pub fn is_explicit_type_variable(&self) -> bool {
+        match self {
+            Type::Quantified(q) => q.is_type_var(),
+            Type::TypeVar(_) => true,
+            _ => false,
+        }
     }
 }
 

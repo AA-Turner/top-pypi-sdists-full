@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2021 Michael R. Crusoe
 """Normalize CWL documents to CWL v1.2, JSON style."""
+
 import argparse
 import logging
 import sys
@@ -100,11 +101,7 @@ def run(args: argparse.Namespace) -> int:
             if not isinstance(refactored, MutableSequence):
                 result = save(
                     refactored,
-                    base_url=(
-                        refactored.loadingOptions.fileuri
-                        if refactored.loadingOptions.fileuri
-                        else ""
-                    ),
+                    base_url=(refactored.loadingOptions.fileuri or ""),
                 )
             #   ^^ Setting the base_url and keeping the default value
             #      for relative_uris=True means that the IDs in the generated
@@ -121,7 +118,7 @@ def run(args: argparse.Namespace) -> int:
                 path = Path(tmpdirname) / Path(document).name
                 packed = pack(str(path))
         output = Path(args.dir) / Path(document).name
-        with open(output, "w", encoding="utf-8") as output_filehandle:
+        with output.open("w", encoding="utf-8") as output_filehandle:
             output_filehandle.write(packed)
     return 0
 

@@ -96,8 +96,10 @@ exclude = ["plato/v1"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+timeout = 10
 markers = [
     "integration: marks tests that require real Chronos VMs and API keys (PLATO_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY)",
+    "timeout: override the default 10s unit test timeout (e.g. @pytest.mark.timeout(60))",
 ]
 
 [dependency-groups]
@@ -113,6 +115,8 @@ dev = [
     "sqlalchemy[asyncio]>=2.0",
     "psycopg2-binary",
     "pymysql",
+    "pytest-xdist>=3.8.0",
+    "pytest-timeout>=2.4.0",
 ]
 
 [tool.ty.rules]

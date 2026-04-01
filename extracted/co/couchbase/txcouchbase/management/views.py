@@ -13,18 +13,22 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from __future__ import annotations
+
 from typing import (TYPE_CHECKING,
                     Any,
-                    Dict,
                     Iterable)
 
-from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.internet.defer import Deferred
 
-from couchbase.management.logic.view_index_logic import (DesignDocument,
-                                                         DesignDocumentNamespace,
-                                                         ViewIndexManagerLogic)
+from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import MgmtOperationType, ViewIndexMgmtOperationType
+from couchbase.management.logic.view_index_mgmt_types import DesignDocument, DesignDocumentNamespace
+from txcouchbase.management.logic.view_index_mgmt_impl import TxViewIndexMgmtImpl
 
 if TYPE_CHECKING:
+    from acouchbase.logic.client_adapter import AsyncClientAdapter
+    from couchbase.logic.observability import ObservabilityInstruments
     from couchbase.management.options import (DropDesignDocumentOptions,
                                               GetAllDesignDocumentsOptions,
                                               GetDesignDocumentOptions,
@@ -32,78 +36,118 @@ if TYPE_CHECKING:
                                               UpsertDesignDocumentOptions)
 
 
-class ViewIndexManager(ViewIndexManagerLogic):
-    def __init__(self, connection, loop, bucket_name):
-        super().__init__(connection, bucket_name)
-        self._loop = loop
+class ViewIndexManager:
 
-    @property
-    def loop(self):
-        """
-        **INTERNAL**
-        """
-        return self._loop
+    def __init__(self,
+                 client_adapter: AsyncClientAdapter,
+                 bucket_name: str,
+                 observability_instruments: ObservabilityInstruments) -> None:
+        self._impl = TxViewIndexMgmtImpl(client_adapter, observability_instruments)
+        self._bucket_name = bucket_name
 
     def get_design_document(self,
                             design_doc_name,  # type: str
                             namespace,  # type: DesignDocumentNamespace
                             *options,   # type: GetDesignDocumentOptions
-                            **kwargs    # type: Dict[str, Any]
+                            **kwargs    # type: Any
                             ) -> Deferred[DesignDocument]:
-        return Deferred.fromFuture(super().get_design_document(design_doc_name, namespace, *options, **kwargs))
+        op_type = ViewIndexMgmtOperationType.ViewIndexGet
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_get_design_document_request(self._bucket_name,
+                                                                               design_doc_name,
+                                                                               namespace,
+                                                                               obs_handler,
+                                                                               *options,
+                                                                               **kwargs)
+            d = self._impl.get_design_document_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def get_all_design_documents(self,
                                  namespace,     # type: DesignDocumentNamespace
                                  *options,      # type: GetAllDesignDocumentsOptions
-                                 **kwargs       # type: Dict[str, Any]
+                                 **kwargs       # type: Any
                                  ) -> Deferred[Iterable[DesignDocument]]:
-        return Deferred.fromFuture(super().get_all_design_documents(namespace, *options, **kwargs))
+        op_type = ViewIndexMgmtOperationType.ViewIndexGetAll
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_get_all_design_documents_request(self._bucket_name,
+                                                                                    namespace,
+                                                                                    obs_handler,
+                                                                                    *options,
+                                                                                    **kwargs)
+            d = self._impl.get_all_design_documents_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def upsert_design_document(self,
                                design_doc_data,     # type: DesignDocument
                                namespace,           # type: DesignDocumentNamespace
                                *options,            # type: UpsertDesignDocumentOptions
-                               **kwargs             # type: Dict[str, Any]
+                               **kwargs             # type: Any
                                ) -> Deferred[None]:
-        return Deferred.fromFuture(super().upsert_design_document(design_doc_data, namespace, *options, **kwargs))
+        op_type = ViewIndexMgmtOperationType.ViewIndexUpsert
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_upsert_design_document_request(self._bucket_name,
+                                                                                  design_doc_data,
+                                                                                  namespace,
+                                                                                  obs_handler,
+                                                                                  *options,
+                                                                                  **kwargs)
+            d = self._impl.upsert_design_document_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def drop_design_document(self,
                              design_doc_name,   # type: str
                              namespace,         # type: DesignDocumentNamespace
                              *options,          # type: DropDesignDocumentOptions
-                             **kwargs           # type: Dict[str, Any]
+                             **kwargs           # type: Any
                              ) -> Deferred[None]:
-        return Deferred.fromFuture(super().drop_design_document(design_doc_name, namespace, *options, **kwargs))
-
-    @inlineCallbacks
-    def _publish_design_document(self,
-                                 design_doc_name,    # type: str
-                                 *options,           # type: PublishDesignDocumentOptions
-                                 **kwargs            # type: Dict[str, Any]
-                                 ) -> Deferred[None]:
-
-        doc = yield self.get_design_document(
-            design_doc_name, DesignDocumentNamespace.DEVELOPMENT, *options, **kwargs)
-
-        yield self.upsert_design_document(
-            doc, DesignDocumentNamespace.PRODUCTION, *options, **kwargs)
+        op_type = ViewIndexMgmtOperationType.ViewIndexDrop
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            req = self._impl.request_builder.build_drop_design_document_request(self._bucket_name,
+                                                                                design_doc_name,
+                                                                                namespace,
+                                                                                obs_handler,
+                                                                                *options,
+                                                                                **kwargs)
+            d = self._impl.drop_design_document_deferred(req, obs_handler)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise
 
     def publish_design_document(self,
                                 design_doc_name,    # type: str
                                 *options,           # type: PublishDesignDocumentOptions
-                                **kwargs            # type: Dict[str, Any]
+                                **kwargs            # type: Any
                                 ) -> Deferred[None]:
-
-        d = Deferred()
-
-        def _on_ok(_):
-            d.callback(None)
-
-        def _on_err(exc):
-            d.errback(exc)
-
-        pub_ddod_d = self._publish_design_document(design_doc_name, *options, **kwargs)
-        pub_ddod_d.addCallback(_on_ok)
-        pub_ddod_d.addErrback(_on_err)
-
-        return d
+        op_type = MgmtOperationType.ViewIndexPublish
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        obs_handler.__enter__()
+        try:
+            d = self._impl.publish_design_document_deferred(
+                self._bucket_name, design_doc_name, obs_handler, *options, **kwargs)
+            d.addBoth(self._impl._finish_span, obs_handler)
+            return d
+        except Exception as e:
+            obs_handler.__exit__(type(e), e, e.__traceback__)
+            raise

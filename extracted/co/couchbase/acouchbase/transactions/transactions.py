@@ -13,6 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from __future__ import annotations
+
 import logging
 from functools import wraps
 from typing import (TYPE_CHECKING,
@@ -27,7 +29,7 @@ from typing import (TYPE_CHECKING,
                     Union)
 
 from couchbase.exceptions import ErrorMapper
-from couchbase.exceptions import exception as BaseCouchbaseException
+from couchbase.logic.pycbc_core import pycbc_exception as PycbcCoreException
 from couchbase.logic.supportability import Supportability
 from couchbase.options import (TransactionGetMultiOptions,
                                TransactionGetMultiReplicasFromPreferredServerGroupOptions,
@@ -48,10 +50,12 @@ from couchbase.transactions.logic import AttemptContextLogic, TransactionsLogic
 if TYPE_CHECKING:
     from asyncio import AbstractEventLoop
 
-    from acouchbase.cluster import AsyncCluster
     from acouchbase.collection import AsyncCollection
-    from couchbase._utils import JSONType, PyCapsuleType
-    from couchbase.options import TransactionConfig, TransactionOptions
+    from acouchbase.logic.cluster_impl import AsyncClusterImpl
+    from couchbase._utils import JSONType
+    from couchbase.logic.pycbc_core import transaction_options
+    from couchbase.logic.pycbc_core.pycbc_core_types import TransactionsCapsuleType
+    from couchbase.options import TransactionOptions
     from couchbase.transcoder import Transcoder
 
 log = logging.getLogger(__name__)
@@ -78,7 +82,7 @@ class AsyncWrapper:
                 def on_ok(res):
                     log.debug('%s completed, with %s', fn.__name__, res)
                     # BUG(PYCBC-1476): We might not need this once txn bug is fixed
-                    if isinstance(res, BaseCouchbaseException):
+                    if isinstance(res, PycbcCoreException):
                         self._loop.call_soon_threadsafe(ftr.set_exception, ErrorMapper.build_exception(res))
                     else:
                         try:
@@ -99,7 +103,7 @@ class AsyncWrapper:
                     try:
                         if not exc:
                             exc = RuntimeError(f'unknown error calling {fn.__name__}')
-                        if isinstance(exc, BaseCouchbaseException):
+                        if isinstance(exc, PycbcCoreException):
                             self._loop.call_soon_threadsafe(ftr.set_exception, ErrorMapper.build_exception(exc))
                         else:
                             self._loop.call_soon_threadsafe(ftr.set_exception, exc)
@@ -118,11 +122,11 @@ class AsyncWrapper:
 
 class Transactions(TransactionsLogic):
 
-    def __init__(self,
-                 cluster,  # type: AsyncCluster
-                 config    # type: TransactionConfig
-                 ):
-        super().__init__(cluster, config)
+    def __init__(self, cluster: AsyncClusterImpl) -> None:
+        self._loop = cluster.loop
+        super().__init__(cluster.connection,
+                         cluster.cluster_settings.transaction_config,
+                         cluster.cluster_settings.default_serializer)
 
     async def run(self,
                   txn_logic,  # type:  Callable[[AttemptContextLogic], Coroutine[Any, Any, None]]
@@ -155,10 +159,10 @@ class Transactions(TransactionsLogic):
 class AttemptContext(AttemptContextLogic):
 
     def __init__(self,
-                 ctx,         # type: PyCapsuleType
+                 ctx,         # type: TransactionsCapsuleType
                  loop,        # type: AbstractEventLoop
                  transcoder,  # type: Transcoder
-                 opts         # type: Optional[PyCapsuleType]
+                 opts         # type: Optional[transaction_options]
                  ):
         super().__init__(ctx, transcoder, loop, opts)
 

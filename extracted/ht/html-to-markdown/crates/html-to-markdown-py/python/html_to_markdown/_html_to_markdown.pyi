@@ -8,6 +8,7 @@ class PreprocessingOptions:
 
     def __init__(
         self,
+        *,
         enabled: bool = False,
         preset: Literal["minimal", "standard", "aggressive"] = "standard",
         remove_navigation: bool = True,
@@ -55,6 +56,7 @@ class ConversionOptions:
 
     def __init__(
         self,
+        *,
         heading_style: Literal["underlined", "atx", "atx_closed"] = "underlined",
         list_indent_type: Literal["spaces", "tabs"] = "spaces",
         list_indent_width: int = 4,
@@ -123,4 +125,8 @@ class ConversionResult(TypedDict):
     images: list[Any]
     warnings: list[ProcessingWarning]
 
-def convert(html: str, options: ConversionOptions | None = None) -> ConversionResult: ...
+def convert(
+    html: str,
+    options: ConversionOptions | None = None,
+    visitor: object | None = None,
+) -> ConversionResult: ...

@@ -301,7 +301,8 @@ def auto_train(
                 feature_combinations=n_features, n_jobs=-1, random_state=42
             )
         elif model_name == "tabpfn":
-            from tabpfn_extensions.post_hoc_ensembles.sklearn_interface import AutoTabPFNRegressor
+            # from tabpfn_extensions.post_hoc_ensembles.sklearn_interface import AutoTabPFNRegressor
+            from tabpfn import TabPFNRegressor
 
             # Identify the column indices for cat_features in X_train
             if cat_features is None:
@@ -310,13 +311,20 @@ def auto_train(
                 cat_feature_indices = [X_train.columns.get_loc(col) for col in cat_features if
                     col in X_train.columns]
 
-            model = AutoTabPFNRegressor(max_time=600,
-                                        #categorical_feature_indices=cat_feature_indices,
-                                        ignore_pretraining_limits=True)
+            model = TabPFNRegressor(device="auto")
+
+            # model = AutoTabPFNRegressor(max_time=600,
+            #                            #categorical_feature_indices=cat_feature_indices,
+            #                            ignore_pretraining_limits=True)
         elif model_name == "tabicl":
             from tabicl import TabICLRegressor
 
-            model = TabICLRegressor(n_estimators=12, random_state=seed)
+            model = TabICLRegressor(
+                n_estimators=16,
+                norm_methods=["none", "power", "quantile", "robust"],
+                outlier_threshold=5.0,
+                random_state=seed,
+            )
         elif model_name == "desreg":
             from desReg.des.DESRegression import DESRegression
             from tabpfn_extensions.post_hoc_ensembles.sklearn_interface import AutoTabPFNRegressor

@@ -15,7 +15,7 @@ class AsyncLambdaConfig:
 
     name: str = "async-lambda"
     runtime: str = "python3.10"
-    s3_payload_retention: Optional[int] = 30
+    s3_payload_retention: Optional[int] = 180
     default_task_memory: int = 128
     default_task_ephemeral_storage: int = 512
 
@@ -43,12 +43,12 @@ def config_set_runtime(runtime: str):
     config.runtime = runtime
 
 
-def config_set_s3_payload_retention(days: int = 30):
+def config_set_s3_payload_retention(days: int = 180):
     """
     Set the S3 payload retention policy in days.
 
     Args:
-        days (int, optional): Number of days to retain payloads in S3. Defaults to 30.
+        days (int, optional): Number of days to retain payloads in S3. Defaults to 180.
     """
     config.s3_payload_retention = days
 

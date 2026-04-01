@@ -1,6 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
+
 python-emails
 ~~~~~~~~~~~~~
 
@@ -31,8 +30,8 @@ and more:
 Links
 `````
 
-* `documentation <http://python-emails.readthedocs.org/>`_
-* `source code <http://github.com/lavr/python-emails>`_
+* `documentation <https://python-emails.readthedocs.io/>`_
+* `source code <https://github.com/lavr/python-emails>`_
 
 """
 
@@ -110,41 +109,39 @@ settings.update(
     version=find_version('emails/__init__.py'),
     description='Modern python library for emails.',
     long_description=__doc__,
-    long_description_content_type='text/markdown',
+    long_description_content_type='text/x-rst',
     author='Sergey Lavrinenko',
     author_email='s@lavr.me',
     url='https://github.com/lavr/python-emails',
     packages=['emails',
-              'emails.compat',
               'emails.django',
               'emails.loader',
               'emails.store',
               'emails.backend',
               'emails.backend.smtp',
+              'emails.backend.inmemory',
               'emails.template',
-              'emails.packages',
-              'emails.packages.dkim'
              ],
+    package_data={'emails': ['py.typed']},
     scripts=['scripts/make_rfc822.py'],
-    install_requires=['cssutils', 'lxml', 'chardet', 'python-dateutil', 'requests', 'premailer'],
-    # license=open('LICENSE').read(),
-    #test_suite = "emails.testsuite.test_all",
+    python_requires='>=3.10',
+    install_requires=['python-dateutil', 'puremagic', 'dkimpy'],
+    extras_require={
+        'html': ['cssutils', 'lxml', 'chardet', 'requests', 'premailer'],
+    },
     zip_safe=False,
     classifiers=(
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Natural Language :: English',
-        'License :: OSI Approved :: BSD License',
         "Operating System :: OS Independent",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.6",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.3",
-        "Programming Language :: Python :: 3.4",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Communications",
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Other/Nonlisted Topic",

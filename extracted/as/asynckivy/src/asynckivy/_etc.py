@@ -1,26 +1,105 @@
-__all__ = ("transform", "sync_attr", "sync_attrs", "stencil_mask", "stencil_widget_mask", )
 import typing as T
 from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 from functools import partial
+import math
 
+from kivy.metrics import dp
+from kivy.clock import Clock
 from kivy.event import EventDispatcher
+from kivy import properties as P
 from kivy.graphics import (
     PushMatrix, PopMatrix, InstructionGroup, StencilPush, StencilUse, StencilUnUse, StencilPop, Rectangle,
+    Canvas, Instruction,
 )
+CanvasLayer: T.TypeAlias = T.Literal["inner", "outer", "inner_outer"]
 
 
 @contextmanager
-def transform(widget, *, use_outer_canvas=False) -> Iterator[InstructionGroup]:
+def sandwich_canvas(target: Canvas, top_bun: Instruction, bottom_bun: Instruction,
+                    *, canvas_layer: CanvasLayer="inner"):
     '''
-    Returns a context manager that sandwiches the ``widget``'s existing canvas instructions between
-    a :class:`kivy.graphics.PushMatrix` and a :class:`kivy.graphics.PopMatrix`, and inserts an
-    :class:`kivy.graphics.InstructionGroup` right next to the ``PushMatrix``. Those three instructions will be removed
-    when the context manager exits.
+    Returns a context manager that sandwiches the ``target``'s graphics instructions between the
+    ``top_bun`` and ``bottom_bun``.
 
-    This may be useful when you want to animate a widget.
+    .. code-block::
 
-    **Usage**
+        # The text of this label is drawn 20 pixels to the right of its original position.
+        with sandwich_canvas(label.canvas, Translate(20, 0), Translate(-20, 0)):
+            ...
+
+    The ``canvas_layer`` parameter controls where ``top_bun`` and ``bottom_bun`` are inserted within the target
+    canvas. If set to "inner" (the default), they are inserted into the **outer side** of the **inner** canvas:
+
+    .. code-block:: yaml
+
+        # ... represents existing instructions
+
+        Widget:
+            canvas.before:
+                ...
+            canvas:
+                top_bun
+                ...
+                bottom_bun
+            canvas.after:
+                ...
+
+    If set to "outer", they are inserted into the **outer side** of the **outer** canvas:
+
+    .. code-block:: yaml
+
+        Widget:
+            canvas.before:
+                top_bun
+                ...
+            canvas:
+                ...
+            canvas.after:
+                ...
+                bottom_bun
+
+    If set to "inner_outer", they are inserted into the **inner side** of the **outer** canvas:
+
+    .. code-block:: yaml
+
+        Widget:
+            canvas.before:
+                ...
+                top_bun
+            canvas:
+                ...
+            canvas.after:
+                bottom_bun
+                ...
+
+    .. versionadded:: 0.10.0
+    '''
+    c = target
+    if canvas_layer == "inner":
+        c.insert(1 if c.has_before else 0, top_bun)
+        c.add(bottom_bun)
+        before = after = c
+    else:
+        before = c.before
+        after = c.after
+        if canvas_layer == "outer":
+            before.insert(0, top_bun)
+            after.add(bottom_bun)
+        else:  # inner_outer
+            before.add(top_bun)
+            after.insert(0, bottom_bun)
+    try:
+        yield
+    finally:
+        after.remove(bottom_bun)
+        before.remove(top_bun)
+
+
+@contextmanager
+def transform(widget, *, canvas_layer: CanvasLayer="inner") -> Iterator[InstructionGroup]:
+    '''
+    Returns a context manager that helps apply transformations to the given widget.
 
     .. code-block::
 
@@ -31,71 +110,19 @@ def transform(widget, *, use_outer_canvas=False) -> Iterator[InstructionGroup]:
                 ig.add(rotate := Rotate(origin=widget.center))
                 await anim_attrs(rotate, angle=angle)
 
-    If the position or size of the ``widget`` changes during the animation, you might need :class:`sync_attr`.
+    :param canvas_layer: Controls which part of the widget's canvas is affected by the transformation.
+        See :func:`sandwich_canvas` for details.
 
-    **The use_outer_canvas parameter**
-
-    While the context manager is active, the content of the widget's canvas would be:
-
-    .. code-block:: yaml
-
-        # ... represents existing instructions
-
-        Widget:
-            canvas.before:
-                ...
-            canvas:
-                PushMatrix
-                InstructionGroup
-                ...
-                PopMatrix
-            canvas.after:
-                ...
-
-    but if ``use_outer_canvas`` is True, it would be:
-
-    .. code-block:: yaml
-
-        Widget:
-            canvas.before:
-                PushMatrix
-                InstructionGroup
-                ...
-            canvas:
-                ...
-            canvas.after:
-                ...
-                PopMatrix
+    .. versionchanged:: 0.10.0
+        The ``use_outer_canvas`` parameter was replaced with the ``canvas_layer`` parameter.
     '''
 
-    c = widget.canvas
-    if use_outer_canvas:
-        before = c.before
-        after = c.after
-        push_mat_idx = 0
-        ig_idx = 1
-    else:
-        if c.has_before:
-            push_mat_idx = 1
-            ig_idx = 2
-        else:
-            push_mat_idx = 0
-            ig_idx = 1
-        before = after = c
-
-    push_mat = PushMatrix()
-    ig = InstructionGroup()
-    pop_mat = PopMatrix()
-
-    before.insert(push_mat_idx, push_mat)
-    before.insert(ig_idx, ig)
-    after.add(pop_mat)
-    try:
-        yield ig
-    finally:
-        after.remove(pop_mat)
-        before.remove(ig)
-        before.remove(push_mat)
+    top_bun = InstructionGroup()
+    top_bun.add(PushMatrix())
+    top_bun.add(user_space := InstructionGroup())
+    bottom_bun = PopMatrix()
+    with sandwich_canvas(widget.canvas, top_bun, bottom_bun, canvas_layer=canvas_layer):
+        yield user_space
 
 
 class sync_attr:
@@ -152,12 +179,12 @@ class sync_attr:
             with sync_attr((widget, 'x'), (obj, 'xx')):
                 assert widget.x == obj.xx
     '''
-    __slots__ = ("__exit__", )
+    __slots__ = ("_exit", )
 
     def __init__(self, from_: tuple[EventDispatcher, str], to_: tuple[T.Any, str]):
         setattr(*to_, getattr(*from_))
         bind_uid = from_[0].fbind(from_[1], partial(self._sync, setattr, *to_))
-        self.__exit__ = partial(self._unbind, *from_, bind_uid)
+        self._exit = partial(self._unbind, *from_, bind_uid)
 
     @staticmethod
     def _sync(setattr, obj, attr_name, event_dispatcher, new_value):
@@ -169,6 +196,9 @@ class sync_attr:
 
     def __enter__(self):
         pass
+
+    def __exit__(self, *__):
+        self._exit()
 
 
 class sync_attrs:
@@ -221,13 +251,13 @@ class sync_attrs:
             with sync_attrs((widget, 'x'), (obj, 'xx')):
                 assert widget.x is obj.xx
     '''
-    __slots__ = ("__exit__", )
+    __slots__ = ("_exit", )
 
     def __init__(self, from_: tuple[EventDispatcher, str], *to_):
         sync = partial(self._sync, setattr, to_)
         sync(None, getattr(*from_))
         bind_uid = from_[0].fbind(from_[1], sync)
-        self.__exit__ = partial(self._unbind, *from_, bind_uid)
+        self._exit = partial(self._unbind, *from_, bind_uid)
 
     @staticmethod
     def _sync(setattr, to_, event_dispatcher, new_value):
@@ -239,9 +269,118 @@ class sync_attrs:
     def __enter__(self):
         pass
 
+    def __exit__(self, *__):
+        self._exit()
+
+
+class smooth_attr:
+    '''
+    Makes an attribute smoothly follow another.
+
+    .. code-block::
+
+        import types
+
+        widget = Widget(x=0)
+        obj = types.SimpleNamespace(xx=100)
+
+        # 'obj.xx' will smoothly follow 'widget.x'.
+        smooth_attr(target=(widget, 'x'), follower=(obj, 'xx'))
+
+    To make its effect temporary, use it with a with-statement:
+
+    .. code-block::
+
+        # The effect lasts only within the with-block.
+        with smooth_attr(...):
+            ...
+
+    A key feature of this API is that if the target value changes while being followed,
+    the follower automatically adjusts to the new value.
+
+    :param target: Must be a numeric or numeric sequence type property, that is, one of the following:
+
+        * :class:`~kivy.properties.NumericProperty`
+        * :class:`~kivy.properties.BoundedNumericProperty`
+        * :class:`~kivy.properties.ReferenceListProperty`
+        * :class:`~kivy.properties.ListProperty`
+        * :class:`~kivy.properties.ColorProperty`
+
+    :param speed: The speed coefficient for following. A larger value results in faster following.
+    :param min_diff: If the difference between the target and the follower is less than this value,
+        the follower will instantly jump to the target's value. When the target is a ``ColorProperty``,
+        you most likely want to set this to a very small value, such as ``0.01``. Defaults to ``dp(2)``.
+
+    .. versionadded:: 0.8.0
+    '''
+    __slots__ = ("_exit", )
+    _NUMERIC_TYPES = (P.NumericProperty, P.BoundedNumericProperty, )
+    _SEQUENCE_TYPES = (P.ColorProperty, P.ReferenceListProperty, P.ListProperty, )
+
+    def __init__(self, target: tuple[EventDispatcher, str], follower: tuple[T.Any, str],
+                 *, speed=10.0, min_diff=dp(2)):
+        target_obj, target_attr = target
+        target_desc = target_obj.property(target_attr)
+        if isinstance(target_desc, self._NUMERIC_TYPES):
+            update = self._update_follower
+        elif isinstance(target_desc, self._SEQUENCE_TYPES):
+            update = self._update_follower_ver_seq
+        else:
+            raise ValueError(f"Unsupported target type: {target_desc}")
+        trigger = Clock.schedule_interval(
+            partial(update, *target, *follower, -speed, -min_diff, min_diff), 0
+        )
+        bind_uid = target_obj.fbind(target_attr, trigger)
+        self._exit = partial(self._cleanup, trigger, target_obj, target_attr, bind_uid)
+
+    @staticmethod
+    def _cleanup(trigger, target_obj, target_attr, bind_uid, *__):
+        trigger.cancel()
+        target_obj.unbind_uid(target_attr, bind_uid)
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *__):
+        self._exit()
+
+    def _update_follower(getattr, setattr, math_exp, target_obj, target_attr, follower_obj, follower_attr,
+                         negative_speed, min, max, dt):
+        t_value = getattr(target_obj, target_attr)
+        f_value = getattr(follower_obj, follower_attr)
+        diff = f_value - t_value
+
+        if min < diff < max:
+            setattr(follower_obj, follower_attr, t_value)
+            return False
+
+        new_value = t_value + math_exp(negative_speed * dt) * diff
+        setattr(follower_obj, follower_attr, new_value)
+
+    _update_follower = staticmethod(partial(_update_follower, getattr, setattr, math.exp))
+
+    def _update_follower_ver_seq(getattr, setattr, math_exp, zip, target_obj, target_attr,
+                                 follower_obj, follower_attr, negative_speed, min, max, dt):
+        t_value = getattr(target_obj, target_attr)
+        f_value = getattr(follower_obj, follower_attr)
+        p = math_exp(negative_speed * dt)
+        still_going = False
+        new_value = [
+            (t_elem + p * diff) if (
+                diff := f_elem - t_elem,
+                _still_going := (diff <= min or max <= diff),
+                still_going := (still_going or _still_going),
+            ) and _still_going else t_elem
+            for t_elem, f_elem in zip(t_value, f_value)
+        ]
+        setattr(follower_obj, follower_attr, new_value)
+        return still_going
+
+    _update_follower_ver_seq = staticmethod(partial(_update_follower_ver_seq, getattr, setattr, math.exp, zip))
+
 
 @contextmanager
-def stencil_mask(widget, *, use_outer_canvas=False) -> Iterator[InstructionGroup]:
+def stencil_mask(widget, *, canvas_layer: CanvasLayer="inner") -> Iterator[InstructionGroup]:
     '''
     Returns a context manager that allows restricting the drawing area of a specified widget to an arbitrary shape.
 
@@ -267,45 +406,33 @@ def stencil_mask(widget, *, use_outer_canvas=False) -> Iterator[InstructionGroup
             drawable_area.add(rect)
             ...
 
-    Note that if the ``widget`` is a relative-type widget and the ``use_outer_canvas`` parameter is
-    False (the default), line A above must be removed.
-
     Since this use case is so common, :func:`stencil_widget_mask` is provided as a shorthand.
+    Also, note that if the ``widget`` is a relative-type widget and the ``canvas_layer`` is not "outer",
+    line A above must be removed.
+
+    :param canvas_layer: Controls which part of the widget's canvas is affected by the restriction.
+        See :func:`sandwich_canvas` for details.
 
     .. versionadded:: 0.9.1
+    .. versionchanged:: 0.10.0
+        The ``use_outer_canvas`` parameter was replaced with the ``canvas_layer`` parameter.
     '''
     IG = InstructionGroup
     shared_part = IG()
-    first_group = IG()
-    first_group.add(StencilPush())
-    first_group.add(shared_part)
-    first_group.add(StencilUse())
-    last_group = IG()
-    last_group.add(StencilUnUse())
-    last_group.add(shared_part)
-    last_group.add(StencilPop())
-
-    c = widget.canvas
-    first_group_idx = 0
-    if use_outer_canvas:
-        before = c.before
-        after = c.after
-    else:
-        before = after = c
-        if c.has_before:
-            first_group_idx = 1
-
-    before.insert(first_group_idx, first_group)
-    after.add(last_group)
-    try:
+    top_bun = IG()
+    top_bun.add(StencilPush())
+    top_bun.add(shared_part)
+    top_bun.add(StencilUse())
+    bottom_bun = IG()
+    bottom_bun.add(StencilUnUse())
+    bottom_bun.add(shared_part)
+    bottom_bun.add(StencilPop())
+    with sandwich_canvas(widget.canvas, top_bun, bottom_bun, canvas_layer=canvas_layer):
         yield shared_part
-    finally:
-        before.remove(first_group)
-        after.remove(last_group)
 
 
 @contextmanager
-def stencil_widget_mask(widget, *, use_outer_canvas=False, relative=False) -> Iterator[InstructionGroup]:
+def stencil_widget_mask(widget, *, canvas_layer="inner", relative=False) -> Iterator[InstructionGroup]:
     '''
     Returns a context manager that restricts the drawing area to the widget's own area.
 
@@ -315,14 +442,18 @@ def stencil_widget_mask(widget, *, use_outer_canvas=False, relative=False) -> It
             ...
 
     :param relative: Must be set to True if the ``widget`` is a relative-type widget.
+    :param canvas_layer: Controls which part of the widget's canvas is affected by the restriction.
+        See :func:`sandwich_canvas` for details.
 
     .. versionadded:: 0.9.1
+    .. versionchanged:: 0.10.0
+        The ``use_outer_canvas`` parameter was replaced with the ``canvas_layer`` parameter.
     '''
     rect = Rectangle()
     with (
-        sync_attr((widget, 'pos'), (rect, 'pos')) if use_outer_canvas or (not relative) else nullcontext(),
+        sync_attr((widget, 'pos'), (rect, 'pos')) if (not relative) or canvas_layer == "outer" else nullcontext(),
         sync_attr((widget, 'size'), (rect, 'size')),
-        stencil_mask(widget, use_outer_canvas=use_outer_canvas) as drawable_area,
+        stencil_mask(widget, canvas_layer=canvas_layer) as drawable_area,
     ):
         drawable_area.add(rect)
         yield drawable_area

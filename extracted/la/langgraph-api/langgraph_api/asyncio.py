@@ -1,7 +1,7 @@
 import asyncio
 import concurrent.futures
 from collections.abc import AsyncIterator, Coroutine
-from contextlib import AbstractAsyncContextManager, suppress
+from contextlib import AbstractAsyncContextManager, asynccontextmanager, suppress
 from functools import partial
 from typing import Any, Generic, TypeVar
 
@@ -12,6 +12,25 @@ T = TypeVar("T")
 logger = structlog.stdlib.get_logger(__name__)
 
 _MAIN_LOOP: asyncio.AbstractEventLoop | None = None
+
+
+@asynccontextmanager
+async def as_asynccontextmanager(value: Any) -> AsyncIterator[Any]:
+    """Normalize an async CM, sync CM, or coroutine into a single async context manager.
+
+    Handles the three factory return styles used across graph, store, and checkpointer
+    loading without duplicating the dispatch logic.
+    """
+    if hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
+        async with value as result:
+            yield result
+    elif hasattr(value, "__enter__") and hasattr(value, "__exit__"):
+        with value as result:
+            yield result
+    elif asyncio.iscoroutine(value):
+        yield await value
+    else:
+        yield value
 
 
 def set_event_loop(loop: asyncio.AbstractEventLoop) -> None:

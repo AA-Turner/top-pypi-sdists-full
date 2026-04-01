@@ -20,6 +20,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from arthur_client.api_bindings.models.user import User
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -32,11 +33,11 @@ class AttestationRecord(BaseModel):
     policy_attestation_rule_id: StrictStr = Field(description="The ID of the attestation rule.")
     policy_model_assignment_id: StrictStr = Field(description="The ID of the policy assignment.")
     model_id: StrictStr = Field(description="The ID of the model.")
-    attested_by_user_id: Optional[StrictStr] = None
-    notes: Optional[StrictStr] = None
+    attested_by_user: Optional[User] = None
+    notes: StrictStr = Field(description="Notes from the reviewer.")
     attested_at: datetime = Field(description="When the attestation was submitted.")
     next_attestation_due: datetime = Field(description="When the next attestation is due.")
-    __properties: ClassVar[List[str]] = ["id", "created_at", "policy_attestation_rule_id", "policy_model_assignment_id", "model_id", "attested_by_user_id", "notes", "attested_at", "next_attestation_due"]
+    __properties: ClassVar[List[str]] = ["id", "created_at", "policy_attestation_rule_id", "policy_model_assignment_id", "model_id", "attested_by_user", "notes", "attested_at", "next_attestation_due"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -77,15 +78,13 @@ class AttestationRecord(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # set to None if attested_by_user_id (nullable) is None
+        # override the default output from pydantic by calling `to_dict()` of attested_by_user
+        if self.attested_by_user:
+            _dict['attested_by_user'] = self.attested_by_user.to_dict()
+        # set to None if attested_by_user (nullable) is None
         # and model_fields_set contains the field
-        if self.attested_by_user_id is None and "attested_by_user_id" in self.model_fields_set:
-            _dict['attested_by_user_id'] = None
-
-        # set to None if notes (nullable) is None
-        # and model_fields_set contains the field
-        if self.notes is None and "notes" in self.model_fields_set:
-            _dict['notes'] = None
+        if self.attested_by_user is None and "attested_by_user" in self.model_fields_set:
+            _dict['attested_by_user'] = None
 
         return _dict
 
@@ -104,7 +103,7 @@ class AttestationRecord(BaseModel):
             "policy_attestation_rule_id": obj.get("policy_attestation_rule_id"),
             "policy_model_assignment_id": obj.get("policy_model_assignment_id"),
             "model_id": obj.get("model_id"),
-            "attested_by_user_id": obj.get("attested_by_user_id"),
+            "attested_by_user": User.from_dict(obj["attested_by_user"]) if obj.get("attested_by_user") is not None else None,
             "notes": obj.get("notes"),
             "attested_at": obj.get("attested_at"),
             "next_attestation_due": obj.get("next_attestation_due")

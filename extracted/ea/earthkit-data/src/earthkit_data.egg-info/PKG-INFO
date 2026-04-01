@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthkit-data
-Version: 0.19.2
+Version: 0.19.3
 Summary: A format-agnostic Python interface for geospatial data
 Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software.support@ecmwf.int>
 License: Apache License Version 2.0
@@ -25,8 +25,7 @@ License-File: LICENCE
 Requires-Dist: cfgrib>=0.9.10.1
 Requires-Dist: dask
 Requires-Dist: deprecation
-Requires-Dist: earthkit-meteo>=0.6
-Requires-Dist: earthkit-utils>=0.2
+Requires-Dist: earthkit-utils<0.99,>=0.2
 Requires-Dist: eccodes>=1.7
 Requires-Dist: entrypoints
 Requires-Dist: filelock
@@ -63,9 +62,9 @@ Requires-Dist: sphinx-tabs; extra == "docs"
 Provides-Extra: ecmwf-opendata
 Requires-Dist: ecmwf-opendata>=0.3.3; extra == "ecmwf-opendata"
 Provides-Extra: fdb
-Requires-Dist: pyfdb>=0.1; extra == "fdb"
+Requires-Dist: pyfdb<1,>=0.1; extra == "fdb"
 Provides-Extra: geo
-Requires-Dist: earthkit-geo>=0.2; extra == "geo"
+Requires-Dist: earthkit-geo<0.99,>=0.2; extra == "geo"
 Provides-Extra: geopandas
 Requires-Dist: geopandas; extra == "geopandas"
 Provides-Extra: geotiff
@@ -73,7 +72,7 @@ Requires-Dist: pyproj; extra == "geotiff"
 Requires-Dist: rasterio; extra == "geotiff"
 Requires-Dist: rioxarray; extra == "geotiff"
 Provides-Extra: gribjump
-Requires-Dist: pyfdb>=0.1; extra == "gribjump"
+Requires-Dist: pyfdb<1,>=0.1; extra == "gribjump"
 Requires-Dist: pygribjump; extra == "gribjump"
 Provides-Extra: iris
 Requires-Dist: ncdata>=0.3.2; extra == "iris"

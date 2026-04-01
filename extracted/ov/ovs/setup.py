@@ -24,7 +24,7 @@ except ImportError:  # Needed for setuptools < 59.0
 
 import setuptools
 
-VERSION = "3.7.0"
+VERSION = "3.7.1"
 README_PATH = os.path.abspath(
     os.path.join(os.path.abspath(__file__), os.pardir, 'README.rst')
 )

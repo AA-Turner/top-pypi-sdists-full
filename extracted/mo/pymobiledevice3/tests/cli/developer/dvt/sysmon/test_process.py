@@ -8,7 +8,7 @@ from pymobiledevice3.cli.developer.dvt.sysmon.process import (
     ProcessSelectionMode,
     _process_sort_key,
     _select_process_from_snapshot,
-    iter_initialized_processes,
+    iter_processes,
     sysmon_process_monitor_threshold_task,
     sysmon_process_single_task,
 )
@@ -18,14 +18,14 @@ from pymobiledevice3.services.dvt.instruments.sysmontap import Sysmontap
 @pytest_asyncio.fixture
 async def process_snapshot(dvt) -> list[dict]:
     async with await Sysmontap.create(dvt) as sysmon:
-        async for process_snapshot in iter_initialized_processes(sysmon):
+        async for process_snapshot in iter_processes(sysmon):
             return process_snapshot
 
     pytest.fail("failed to collect an initialized process snapshot")
 
 
 @pytest.mark.asyncio
-async def test_iter_initialized_processes_yields_process_dicts(process_snapshot) -> None:
+async def test_iter_processes_yields_process_dicts(process_snapshot) -> None:
     assert len(process_snapshot) > 0
     assert isinstance(process_snapshot[0], dict)
     assert process_snapshot[0].get("pid")

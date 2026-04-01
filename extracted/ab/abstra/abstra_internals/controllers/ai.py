@@ -305,6 +305,7 @@ class AiController:
                     tool_calls_approval=body.tool_calls_approval,
                     browser_tools=body.browser_tools,
                     browser_tool_responses=body.browser_tool_responses,
+                    auto_approve_tool_calls=body.auto_approve_tool_calls,
                 ),
                 user_jwt=user_jwt,
             )

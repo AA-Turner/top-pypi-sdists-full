@@ -3,7 +3,7 @@ Type annotations for pinpoint-sms-voice-v2 service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -31,11 +31,15 @@ from .paginator import (
     DescribeAccountLimitsPaginator,
     DescribeConfigurationSetsPaginator,
     DescribeKeywordsPaginator,
+    DescribeNotifyConfigurationsPaginator,
+    DescribeNotifyTemplatesPaginator,
     DescribeOptedOutNumbersPaginator,
     DescribeOptOutListsPaginator,
     DescribePhoneNumbersPaginator,
     DescribePoolsPaginator,
     DescribeProtectConfigurationsPaginator,
+    DescribeRcsAgentCountryLaunchStatusPaginator,
+    DescribeRcsAgentsPaginator,
     DescribeRegistrationAttachmentsPaginator,
     DescribeRegistrationFieldDefinitionsPaginator,
     DescribeRegistrationFieldValuesPaginator,
@@ -46,6 +50,7 @@ from .paginator import (
     DescribeSenderIdsPaginator,
     DescribeSpendLimitsPaginator,
     DescribeVerifiedDestinationNumbersPaginator,
+    ListNotifyCountriesPaginator,
     ListPoolOriginationIdentitiesPaginator,
     ListProtectConfigurationRuleSetNumberOverridesPaginator,
     ListRegistrationAssociationsPaginator,
@@ -61,12 +66,16 @@ from .type_defs import (
     CreateConfigurationSetResultTypeDef,
     CreateEventDestinationRequestTypeDef,
     CreateEventDestinationResultTypeDef,
+    CreateNotifyConfigurationRequestTypeDef,
+    CreateNotifyConfigurationResultTypeDef,
     CreateOptOutListRequestTypeDef,
     CreateOptOutListResultTypeDef,
     CreatePoolRequestTypeDef,
     CreatePoolResultTypeDef,
     CreateProtectConfigurationRequestTypeDef,
     CreateProtectConfigurationResultTypeDef,
+    CreateRcsAgentRequestTypeDef,
+    CreateRcsAgentResultTypeDef,
     CreateRegistrationAssociationRequestTypeDef,
     CreateRegistrationAssociationResultTypeDef,
     CreateRegistrationAttachmentRequestTypeDef,
@@ -89,6 +98,9 @@ from .type_defs import (
     DeleteKeywordRequestTypeDef,
     DeleteKeywordResultTypeDef,
     DeleteMediaMessageSpendLimitOverrideResultTypeDef,
+    DeleteNotifyConfigurationRequestTypeDef,
+    DeleteNotifyConfigurationResultTypeDef,
+    DeleteNotifyMessageSpendLimitOverrideResultTypeDef,
     DeleteOptedOutNumberRequestTypeDef,
     DeleteOptedOutNumberResultTypeDef,
     DeleteOptOutListRequestTypeDef,
@@ -99,6 +111,8 @@ from .type_defs import (
     DeleteProtectConfigurationResultTypeDef,
     DeleteProtectConfigurationRuleSetNumberOverrideRequestTypeDef,
     DeleteProtectConfigurationRuleSetNumberOverrideResultTypeDef,
+    DeleteRcsAgentRequestTypeDef,
+    DeleteRcsAgentResultTypeDef,
     DeleteRegistrationAttachmentRequestTypeDef,
     DeleteRegistrationAttachmentResultTypeDef,
     DeleteRegistrationFieldValueRequestTypeDef,
@@ -119,6 +133,10 @@ from .type_defs import (
     DescribeConfigurationSetsResultTypeDef,
     DescribeKeywordsRequestTypeDef,
     DescribeKeywordsResultTypeDef,
+    DescribeNotifyConfigurationsRequestTypeDef,
+    DescribeNotifyConfigurationsResultTypeDef,
+    DescribeNotifyTemplatesRequestTypeDef,
+    DescribeNotifyTemplatesResultTypeDef,
     DescribeOptedOutNumbersRequestTypeDef,
     DescribeOptedOutNumbersResultTypeDef,
     DescribeOptOutListsRequestTypeDef,
@@ -129,6 +147,10 @@ from .type_defs import (
     DescribePoolsResultTypeDef,
     DescribeProtectConfigurationsRequestTypeDef,
     DescribeProtectConfigurationsResultTypeDef,
+    DescribeRcsAgentCountryLaunchStatusRequestTypeDef,
+    DescribeRcsAgentCountryLaunchStatusResultTypeDef,
+    DescribeRcsAgentsRequestTypeDef,
+    DescribeRcsAgentsResultTypeDef,
     DescribeRegistrationAttachmentsRequestTypeDef,
     DescribeRegistrationAttachmentsResultTypeDef,
     DescribeRegistrationFieldDefinitionsRequestTypeDef,
@@ -159,6 +181,8 @@ from .type_defs import (
     GetProtectConfigurationCountryRuleSetResultTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResultTypeDef,
+    ListNotifyCountriesRequestTypeDef,
+    ListNotifyCountriesResultTypeDef,
     ListPoolOriginationIdentitiesRequestTypeDef,
     ListPoolOriginationIdentitiesResultTypeDef,
     ListProtectConfigurationRuleSetNumberOverridesRequestTypeDef,
@@ -191,6 +215,10 @@ from .type_defs import (
     SendDestinationNumberVerificationCodeResultTypeDef,
     SendMediaMessageRequestTypeDef,
     SendMediaMessageResultTypeDef,
+    SendNotifyTextMessageRequestTypeDef,
+    SendNotifyTextMessageResultTypeDef,
+    SendNotifyVoiceMessageRequestTypeDef,
+    SendNotifyVoiceMessageResultTypeDef,
     SendTextMessageRequestTypeDef,
     SendTextMessageResultTypeDef,
     SendVoiceMessageRequestTypeDef,
@@ -205,6 +233,8 @@ from .type_defs import (
     SetDefaultSenderIdResultTypeDef,
     SetMediaMessageSpendLimitOverrideRequestTypeDef,
     SetMediaMessageSpendLimitOverrideResultTypeDef,
+    SetNotifyMessageSpendLimitOverrideRequestTypeDef,
+    SetNotifyMessageSpendLimitOverrideResultTypeDef,
     SetTextMessageSpendLimitOverrideRequestTypeDef,
     SetTextMessageSpendLimitOverrideResultTypeDef,
     SetVoiceMessageSpendLimitOverrideRequestTypeDef,
@@ -215,6 +245,8 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateEventDestinationRequestTypeDef,
     UpdateEventDestinationResultTypeDef,
+    UpdateNotifyConfigurationRequestTypeDef,
+    UpdateNotifyConfigurationResultTypeDef,
     UpdatePhoneNumberRequestTypeDef,
     UpdatePhoneNumberResultTypeDef,
     UpdatePoolRequestTypeDef,
@@ -223,6 +255,8 @@ from .type_defs import (
     UpdateProtectConfigurationCountryRuleSetResultTypeDef,
     UpdateProtectConfigurationRequestTypeDef,
     UpdateProtectConfigurationResultTypeDef,
+    UpdateRcsAgentRequestTypeDef,
+    UpdateRcsAgentResultTypeDef,
     UpdateSenderIdRequestTypeDef,
     UpdateSenderIdResultTypeDef,
     VerifyDestinationNumberRequestTypeDef,
@@ -332,6 +366,16 @@ class PinpointSMSVoiceV2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#create_event_destination)
         """
 
+    def create_notify_configuration(
+        self, **kwargs: Unpack[CreateNotifyConfigurationRequestTypeDef]
+    ) -> CreateNotifyConfigurationResultTypeDef:
+        """
+        Creates a new notify configuration for managed messaging.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/create_notify_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#create_notify_configuration)
+        """
+
     def create_opt_out_list(
         self, **kwargs: Unpack[CreateOptOutListRequestTypeDef]
     ) -> CreateOptOutListResultTypeDef:
@@ -359,6 +403,16 @@ class PinpointSMSVoiceV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/create_protect_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#create_protect_configuration)
+        """
+
+    def create_rcs_agent(
+        self, **kwargs: Unpack[CreateRcsAgentRequestTypeDef]
+    ) -> CreateRcsAgentResultTypeDef:
+        """
+        Creates a new RCS agent for sending rich messages through the RCS channel.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/create_rcs_agent.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#create_rcs_agent)
         """
 
     def create_registration(
@@ -485,6 +539,27 @@ class PinpointSMSVoiceV2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#delete_media_message_spend_limit_override)
         """
 
+    def delete_notify_configuration(
+        self, **kwargs: Unpack[DeleteNotifyConfigurationRequestTypeDef]
+    ) -> DeleteNotifyConfigurationResultTypeDef:
+        """
+        Deletes an existing notify configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/delete_notify_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#delete_notify_configuration)
+        """
+
+    def delete_notify_message_spend_limit_override(
+        self,
+    ) -> DeleteNotifyMessageSpendLimitOverrideResultTypeDef:
+        """
+        Deletes an account-level monthly spending limit override for sending notify
+        messages.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/delete_notify_message_spend_limit_override.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#delete_notify_message_spend_limit_override)
+        """
+
     def delete_opt_out_list(
         self, **kwargs: Unpack[DeleteOptOutListRequestTypeDef]
     ) -> DeleteOptOutListResultTypeDef:
@@ -532,6 +607,16 @@ class PinpointSMSVoiceV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/delete_protect_configuration_rule_set_number_override.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#delete_protect_configuration_rule_set_number_override)
+        """
+
+    def delete_rcs_agent(
+        self, **kwargs: Unpack[DeleteRcsAgentRequestTypeDef]
+    ) -> DeleteRcsAgentResultTypeDef:
+        """
+        Deletes an existing RCS agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/delete_rcs_agent.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#delete_rcs_agent)
         """
 
     def delete_registration(
@@ -649,6 +734,28 @@ class PinpointSMSVoiceV2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#describe_keywords)
         """
 
+    def describe_notify_configurations(
+        self, **kwargs: Unpack[DescribeNotifyConfigurationsRequestTypeDef]
+    ) -> DescribeNotifyConfigurationsResultTypeDef:
+        """
+        Describes the specified notify configurations or all notify configurations in
+        your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/describe_notify_configurations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#describe_notify_configurations)
+        """
+
+    def describe_notify_templates(
+        self, **kwargs: Unpack[DescribeNotifyTemplatesRequestTypeDef]
+    ) -> DescribeNotifyTemplatesResultTypeDef:
+        """
+        Describes the specified notify templates or all notify templates in your
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/describe_notify_templates.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#describe_notify_templates)
+        """
+
     def describe_opt_out_lists(
         self, **kwargs: Unpack[DescribeOptOutListsRequestTypeDef]
     ) -> DescribeOptOutListsResultTypeDef:
@@ -700,6 +807,28 @@ class PinpointSMSVoiceV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/describe_protect_configurations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#describe_protect_configurations)
+        """
+
+    def describe_rcs_agent_country_launch_status(
+        self, **kwargs: Unpack[DescribeRcsAgentCountryLaunchStatusRequestTypeDef]
+    ) -> DescribeRcsAgentCountryLaunchStatusResultTypeDef:
+        """
+        Retrieves the per-country launch status of an RCS agent, including
+        carrier-level details for each country.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/describe_rcs_agent_country_launch_status.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#describe_rcs_agent_country_launch_status)
+        """
+
+    def describe_rcs_agents(
+        self, **kwargs: Unpack[DescribeRcsAgentsRequestTypeDef]
+    ) -> DescribeRcsAgentsResultTypeDef:
+        """
+        Retrieves the specified RCS agents or all RCS agents associated with your
+        Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/describe_rcs_agents.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#describe_rcs_agents)
         """
 
     def describe_registration_attachments(
@@ -854,6 +983,16 @@ class PinpointSMSVoiceV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/get_resource_policy.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#get_resource_policy)
+        """
+
+    def list_notify_countries(
+        self, **kwargs: Unpack[ListNotifyCountriesRequestTypeDef]
+    ) -> ListNotifyCountriesResultTypeDef:
+        """
+        Lists countries that support notify messaging.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/list_notify_countries.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#list_notify_countries)
         """
 
     def list_pool_origination_identities(
@@ -1023,6 +1162,28 @@ class PinpointSMSVoiceV2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#send_media_message)
         """
 
+    def send_notify_text_message(
+        self, **kwargs: Unpack[SendNotifyTextMessageRequestTypeDef]
+    ) -> SendNotifyTextMessageResultTypeDef:
+        """
+        Sends a templated text message through a notify configuration to a recipient's
+        phone number.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/send_notify_text_message.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#send_notify_text_message)
+        """
+
+    def send_notify_voice_message(
+        self, **kwargs: Unpack[SendNotifyVoiceMessageRequestTypeDef]
+    ) -> SendNotifyVoiceMessageResultTypeDef:
+        """
+        Sends a templated voice message through a notify configuration to a recipient's
+        phone number.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/send_notify_voice_message.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#send_notify_voice_message)
+        """
+
     def send_text_message(
         self, **kwargs: Unpack[SendTextMessageRequestTypeDef]
     ) -> SendTextMessageResultTypeDef:
@@ -1093,6 +1254,16 @@ class PinpointSMSVoiceV2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#set_media_message_spend_limit_override)
         """
 
+    def set_notify_message_spend_limit_override(
+        self, **kwargs: Unpack[SetNotifyMessageSpendLimitOverrideRequestTypeDef]
+    ) -> SetNotifyMessageSpendLimitOverrideResultTypeDef:
+        """
+        Sets an account level monthly spend limit override for sending notify messages.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/set_notify_message_spend_limit_override.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#set_notify_message_spend_limit_override)
+        """
+
     def set_text_message_spend_limit_override(
         self, **kwargs: Unpack[SetTextMessageSpendLimitOverrideRequestTypeDef]
     ) -> SetTextMessageSpendLimitOverrideResultTypeDef:
@@ -1149,6 +1320,16 @@ class PinpointSMSVoiceV2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#update_event_destination)
         """
 
+    def update_notify_configuration(
+        self, **kwargs: Unpack[UpdateNotifyConfigurationRequestTypeDef]
+    ) -> UpdateNotifyConfigurationResultTypeDef:
+        """
+        Updates an existing notify configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/update_notify_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#update_notify_configuration)
+        """
+
     def update_phone_number(
         self, **kwargs: Unpack[UpdatePhoneNumberRequestTypeDef]
     ) -> UpdatePhoneNumberResultTypeDef:
@@ -1187,6 +1368,16 @@ class PinpointSMSVoiceV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/update_protect_configuration_country_rule_set.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#update_protect_configuration_country_rule_set)
+        """
+
+    def update_rcs_agent(
+        self, **kwargs: Unpack[UpdateRcsAgentRequestTypeDef]
+    ) -> UpdateRcsAgentResultTypeDef:
+        """
+        Updates the configuration of an existing RCS agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/update_rcs_agent.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#update_rcs_agent)
         """
 
     def update_sender_id(
@@ -1257,6 +1448,28 @@ class PinpointSMSVoiceV2Client(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_notify_configurations"]
+    ) -> DescribeNotifyConfigurationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_notify_templates"]
+    ) -> DescribeNotifyTemplatesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_opt_out_lists"]
     ) -> DescribeOptOutListsPaginator:
         """
@@ -1303,6 +1516,28 @@ class PinpointSMSVoiceV2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_protect_configurations"]
     ) -> DescribeProtectConfigurationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_rcs_agent_country_launch_status"]
+    ) -> DescribeRcsAgentCountryLaunchStatusPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_rcs_agents"]
+    ) -> DescribeRcsAgentsPaginator:
         """
         Create a paginator for an operation.
 
@@ -1413,6 +1648,17 @@ class PinpointSMSVoiceV2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_verified_destination_numbers"]
     ) -> DescribeVerifiedDestinationNumbersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_notify_countries"]
+    ) -> ListNotifyCountriesPaginator:
         """
         Create a paginator for an operation.
 

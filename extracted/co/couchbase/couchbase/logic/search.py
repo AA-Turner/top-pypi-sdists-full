@@ -29,18 +29,17 @@ from typing import (TYPE_CHECKING,
                     Tuple,
                     Union)
 
-from couchbase._utils import is_null_or_empty, to_microseconds
+from couchbase._utils import is_null_or_empty, to_milliseconds
 from couchbase.exceptions import ErrorMapper, InvalidArgumentException
-from couchbase.exceptions import exception as CouchbaseBaseException
+from couchbase.logic.observability import ObservableRequestHandler, SpanProtocol
 from couchbase.logic.options import SearchOptionsBase
+from couchbase.logic.pycbc_core import pycbc_exception as PycbcCoreException
 from couchbase.logic.supportability import Supportability
 from couchbase.logic.vector_search import VectorQueryCombination
 from couchbase.options import (SearchOptions,
                                UnsignedInt32,
                                UnsignedInt64)
-from couchbase.pycbc_core import search_query
 from couchbase.serializer import DefaultJsonSerializer, Serializer
-from couchbase.tracing import CouchbaseSpan
 
 if TYPE_CHECKING:
     from couchbase.logic.search_queries import SearchQuery
@@ -367,8 +366,9 @@ class SearchMetaData:
         return self._raw.get('errors', {})
 
     def metrics(self) -> Optional[SearchMetrics]:
-        if 'metrics' in self._raw:
-            return SearchMetrics(self._raw.get('metrics', {}))
+        raw_metrics = self._raw.get('metrics', None)
+        if raw_metrics:
+            return SearchMetrics(raw_metrics)
         return None
 
     def client_context_id(self) -> Optional[str]:
@@ -799,6 +799,15 @@ class SearchRowLocation:
     end: UnsignedInt32 = None
     array_positions: List[UnsignedInt32] = None
 
+    @classmethod
+    def from_server(cls, json_data: Dict[str, Any]) -> SearchRowLocation:
+        return cls(json_data.get('field'),
+                   json_data.get('term'),
+                   json_data.get('position'),
+                   json_data.get('start_offset'),
+                   json_data.get('end_offset'),
+                   json_data.get('array_positions'))
+
 
 class SearchRowLocations:
     def __init__(self, locations):
@@ -808,7 +817,7 @@ class SearchRowLocations:
         """list all locations (any field, any term)"""
         locations = []
         for location in self._raw_locations:
-            locations.append(SearchRowLocation(**location))
+            locations.append(SearchRowLocation.from_server(location))
 
         # TODO:  maybe needed when using couchbase++ streaming
         # for loc_field, terms in self._raw_locations.items():
@@ -830,8 +839,8 @@ class SearchRowLocations:
         locations = []
         for loc in self._raw_locations[field][term]:
             new_location = {'field': field, 'term': term, 'position': None}
-            new_location.update({k: v for k, v in loc.items() if k != 'pos'})
-            new_location['position'] = loc.get('pos', None)
+            new_location.update({k: v for k, v in loc.items() if k != 'position'})
+            new_location['position'] = loc.get('position', None)
             locations.append(new_location)
 
         return [SearchRowLocation(**loc) for loc in locations]
@@ -921,6 +930,7 @@ class SearchQueryBuilder:
         "sort": {},
         "show_request": {"show_request": lambda x: x},
         "span": {"span": lambda x: x},
+        "parent_span": {"parent_span": lambda x: x},
         "vector_query_combination": {"vector_query_combination": lambda x: x},
         "log_request": {"log_request": lambda x: x},
         "log_response": {"log_response": lambda x: x}
@@ -985,10 +995,10 @@ class SearchQueryBuilder:
             'index_name': self._index_name
         }
         query = json.dumps(self._query.encodable)
-        params['query'] = query
+        params['query'] = query.encode('utf-8')
         vector_search = self.encode_vector_search()
         if vector_search:
-            params['vector_search'] = json.dumps(vector_search)
+            params['vector_search'] = json.dumps(vector_search).encode('utf-8')
 
         # deprecate the scope_name option, no need to pass it to the C++ client
         # as the search API will not use
@@ -1033,8 +1043,8 @@ class SearchQueryBuilder:
         if not value:
             self._params.pop('timeout', 0)
         else:
-            total_us = to_microseconds(value)
-            self.set_option('timeout', total_us)
+            total_ms = to_milliseconds(value)
+            self.set_option('timeout', total_ms)
 
     @property
     def metrics(self) -> bool:
@@ -1257,7 +1267,7 @@ class SearchQueryBuilder:
         for k in value.keys():
             if not isinstance(k, str):
                 raise TypeError("key for raw value must be str")
-        raw_params = {f'{k}': json.dumps(v) for k, v in value.items()}
+        raw_params = {f'{k}': json.dumps(v).encode('utf-8') for k, v in value.items()}
         self.set_option('raw', raw_params)
 
     @property
@@ -1282,15 +1292,20 @@ class SearchQueryBuilder:
         self.set_option('show_request', value)
 
     @property
-    def span(self) -> Optional[CouchbaseSpan]:
+    def span(self) -> Optional[SpanProtocol]:
         return self._params.get('span', None)
 
     @span.setter
-    def span(self, value  # type: CouchbaseSpan
-             ):
-        if not issubclass(value.__class__, CouchbaseSpan):
-            raise InvalidArgumentException(message='Span should implement CouchbaseSpan interface')
+    def span(self, value: SpanProtocol) -> None:
         self.set_option('span', value)
+
+    @property
+    def parent_span(self) -> Optional[SpanProtocol]:
+        return self._params.get('parent_span', None)
+
+    @parent_span.setter
+    def parent_span(self, value: SpanProtocol) -> None:
+        self.set_option('parent_span', value)
 
     @property
     def vector_query_combination(self) -> Optional[VectorQueryCombination]:
@@ -1433,6 +1448,8 @@ class FullTextSearchRequestLogic:
         self._result_facets = None
         self._bucket_name = kwargs.pop('bucket_name', None)
         self._scope_name = kwargs.pop('scope_name', None)
+        self._obs_handler: Optional[ObservableRequestHandler] = kwargs.pop('obs_handler', None)
+        self._processed_core_span = False
 
     @property
     def encoded_query(self) -> Dict[str, Any]:
@@ -1468,6 +1485,20 @@ class FullTextSearchRequestLogic:
     def result_facets(self):
         return self._result_facets
 
+    def _process_core_span(self, exc_val: Optional[BaseException] = None) -> None:
+        if self._processed_core_span:
+            return
+        self._processed_core_span = True
+        if self._obs_handler and self._streaming_result:
+            self._obs_handler.process_meter_end(exc_val=exc_val)
+            # TODO(PYCBC-1746): Update once legacy tracing logic is removed
+            if self._obs_handler.is_legacy_tracer:
+                # the handler knows how to handle this legacy situation (essentially just ends the span)
+                self._obs_handler.process_core_span(None)
+            elif hasattr(self._streaming_result, 'core_span'):
+                self._obs_handler.process_core_span(self._streaming_result.core_span,
+                                                    with_error=(exc_val is not None))
+
     def _set_facets(self, facets  # type: List[Dict[str, Any]]
                     ) -> None:
         if not facets:
@@ -1498,13 +1529,15 @@ class FullTextSearchRequestLogic:
             self._result_facets[new_facet.name] = new_facet
 
     def _set_metadata(self, search_response):
-        if isinstance(search_response, CouchbaseBaseException):
+        if isinstance(search_response, PycbcCoreException):
             raise ErrorMapper.build_exception(search_response)
 
-        result = search_response.raw_result.get('value', None)
-        if result:
-            self._metadata = SearchMetaData(result.get('metadata', None))
-            self._set_facets(result.get('facets', None))
+        raw_metadata = search_response.raw_result.get('metadata', None)
+        if raw_metadata:
+            self._metadata = SearchMetaData(raw_metadata)
+        raw_facets = search_response.raw_result.get('facets', None)
+        if raw_facets:
+            self._set_facets(raw_facets)
 
     def _deserialize_row(self, row):
         # TODO:  until streaming, a dict is returned, no deserializing...
@@ -1516,6 +1549,8 @@ class FullTextSearchRequestLogic:
         locations = deserialized_row.get('locations', None)
         if locations:
             locations = SearchRowLocations(locations)
+        elif isinstance(locations, list):
+            locations = None
         deserialized_row['locations'] = locations
 
         fields = deserialized_row.get('fields', None)
@@ -1534,25 +1569,35 @@ class FullTextSearchRequestLogic:
 
         return self.row_factory(**deserialized_row)
 
-    def _submit_query(self, **kwargs):
+    def _submit_query(self, **kwargs):  # noqa: C901
         if self.done_streaming:
             return
 
         self._started_streaming = True
-        span = self.encoded_query.pop('span', None)
         op_args = self.encoded_query
         if self._bucket_name is not None and self._scope_name is not None:
             op_args['bucket_name'] = self._bucket_name
             op_args['scope_name'] = self._scope_name
 
-        search_kwargs = {
-            'conn': self._connection,
-            'op_args': op_args
-        }
-        if span:
-            search_kwargs['span'] = span
+        # we don't need the spans in the kwargs, tracing is handled by the ObservableRequestHandler
+        span = op_args.pop('span', None)
+        parent_span = op_args.pop('parent_span', None)
+        if self._obs_handler:
+            # since search is lazy executed, we wait until we submit the query to create the span
+            parent_span = ObservableRequestHandler.maybe_get_parent_span(span=span, parent_span=parent_span)
+            attr_opts = {
+                'parent_span': parent_span,
+                'use_now_as_start_time': True
+            }
+            if 'bucket_name' in op_args and 'scope_name' in op_args:
+                attr_opts['bucket_name'] = op_args['bucket_name']
+                attr_opts['scope_name'] = op_args['scope_name']
+            self._obs_handler.create_http_span(**attr_opts)
 
-        streaming_timeout = self.encoded_query.get('timeout', self._streaming_timeout)
+        search_kwargs = {}
+        search_kwargs.update(op_args)
+
+        streaming_timeout = op_args.get('timeout', self._streaming_timeout)
         if streaming_timeout:
             search_kwargs['streaming_timeout'] = streaming_timeout
 
@@ -1565,7 +1610,16 @@ class FullTextSearchRequestLogic:
         if errback:
             search_kwargs['errback'] = errback
 
-        self._streaming_result = search_query(**search_kwargs)
+        if self._obs_handler:
+            # TODO(PYCBC-1746): Update once legacy tracing logic is removed
+            if self._obs_handler.is_legacy_tracer:
+                legacy_request_span = self._obs_handler.legacy_request_span
+                if legacy_request_span:
+                    search_kwargs['parent_span'] = legacy_request_span
+            else:
+                search_kwargs['wrapper_span_name'] = self._obs_handler.wrapper_span_name
+
+        self._streaming_result = self._connection.pycbc_search_query(**search_kwargs)
 
     def __iter__(self):
         raise NotImplementedError(

@@ -2104,6 +2104,128 @@ def test_stream_guard_last_turn_only() -> None:
     }
 
 
+def test_generate_guard_last_turn_only_tool_continuation() -> None:
+    """Test that tool-continuation turns get a no-op guardContent block.
+
+    When the last user message contains only toolResult blocks (no text),
+    a no-op guardContent block must be appended so Bedrock doesn't fall back
+    to scanning the entire conversation.
+    """
+    llm, mocked_client = _create_mock_llm_guard_last_turn_only()
+    llm_with_tools = llm.bind_tools([GetWeather])
+
+    mocked_client.converse.return_value = {
+        "output": {"message": {"content": [{"text": "Tool result analysis"}]}},
+        "usage": {"inputTokens": 1, "outputTokens": 1, "totalTokens": 2},
+    }
+
+    messages = [
+        HumanMessage(content="What is the weather?"),
+        AIMessage(
+            content="Let me check.",
+            tool_calls=[
+                {"name": "GetWeather", "args": {"location": "NYC"}, "id": "call_1"}
+            ],
+        ),
+        ToolMessage(content="72°F and sunny", tool_call_id="call_1"),
+    ]
+
+    llm_with_tools.invoke(messages)
+    _, kwargs = mocked_client.converse.call_args
+    bedrock_msgs = kwargs["messages"]
+
+    # First user message should NOT be wrapped
+    assert bedrock_msgs[0]["content"][0] == {"text": "What is the weather?"}
+
+    # Last user message (tool result) should have toolResult + no-op guardContent
+    last_user_msg = bedrock_msgs[-1]
+    assert last_user_msg["role"] == "user"
+    tool_result_blocks = [b for b in last_user_msg["content"] if "toolResult" in b]
+    guard_blocks = [b for b in last_user_msg["content"] if "guardContent" in b]
+    assert len(tool_result_blocks) == 1
+    assert len(guard_blocks) == 1
+    assert guard_blocks[0] == {"guardContent": {"text": {"text": "."}}}
+
+
+def test_generate_guard_last_turn_only_mixed_content() -> None:
+    """Test that mixed user messages (text + toolResult) wrap text only.
+
+    When the last user message contains both text and toolResult blocks,
+    text blocks should be wrapped in guardContent and no extra empty
+    guardContent should be appended.
+    """
+    llm, mocked_client = _create_mock_llm_guard_last_turn_only()
+    llm_with_tools = llm.bind_tools([GetWeather])
+
+    mocked_client.converse.return_value = {
+        "output": {"message": {"content": [{"text": "ok"}]}},
+        "usage": {"inputTokens": 1, "outputTokens": 1, "totalTokens": 2},
+    }
+
+    messages = [
+        HumanMessage(content="Hello"),
+        AIMessage(
+            content="Checking.",
+            tool_calls=[
+                {"name": "GetWeather", "args": {"location": "NYC"}, "id": "call_2"}
+            ],
+        ),
+        ToolMessage(content="result data", tool_call_id="call_2"),
+        HumanMessage(content="Now summarize that"),
+    ]
+
+    llm_with_tools.invoke(messages)
+    _, kwargs = mocked_client.converse.call_args
+    bedrock_msgs = kwargs["messages"]
+
+    # Last user message merges toolResult + HumanMessage text into one
+    # user-role message (Bedrock format consolidates consecutive user turns)
+    last_user_msg = bedrock_msgs[-1]
+    assert last_user_msg["role"] == "user"
+    # toolResult block should be passed through unchanged
+    tool_result_blocks = [b for b in last_user_msg["content"] if "toolResult" in b]
+    assert len(tool_result_blocks) == 1
+    # Text block should be wrapped in guardContent
+    guard_blocks = [b for b in last_user_msg["content"] if "guardContent" in b]
+    assert len(guard_blocks) == 1
+    assert guard_blocks[0] == {"guardContent": {"text": {"text": "Now summarize that"}}}
+
+
+def test_stream_guard_last_turn_only_tool_continuation() -> None:
+    """Test that stream() also appends no-op guardContent for tool turns."""
+    llm, mocked_client = _create_mock_llm_guard_last_turn_only()
+    llm_with_tools = llm.bind_tools([GetWeather])
+
+    mocked_client.converse_stream.return_value = {
+        "stream": [{"messageStart": {"role": "assistant"}}]
+    }
+
+    messages = [
+        HumanMessage(content="What is the weather?"),
+        AIMessage(
+            content="Let me check.",
+            tool_calls=[
+                {"name": "GetWeather", "args": {"location": "NYC"}, "id": "call_1"}
+            ],
+        ),
+        ToolMessage(content="72°F and sunny", tool_call_id="call_1"),
+    ]
+    list(llm_with_tools.stream(messages))
+
+    _, kwargs = mocked_client.converse_stream.call_args
+    bedrock_msgs = kwargs["messages"]
+
+    # First user message should NOT be wrapped
+    assert bedrock_msgs[0]["content"][0] == {"text": "What is the weather?"}
+
+    # Last user message should have toolResult + no-op guardContent
+    last_user_msg = bedrock_msgs[-1]
+    assert last_user_msg["role"] == "user"
+    guard_blocks = [b for b in last_user_msg["content"] if "guardContent" in b]
+    assert len(guard_blocks) == 1
+    assert guard_blocks[0] == {"guardContent": {"text": {"text": "."}}}
+
+
 @mock.patch("langchain_aws.chat_models.bedrock_converse.create_aws_client")
 def test_bedrock_client_creation(mock_create_client: mock.Mock) -> None:
     """Test that bedrock_client is created during validation."""
@@ -2168,6 +2290,45 @@ def test_get_base_model_with_application_inference_profile(
     mock_bedrock_client.get_inference_profile.assert_called_once_with(
         inferenceProfileIdentifier="arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/test-profile"
     )
+
+
+@mock.patch("langchain_aws.chat_models.bedrock_converse.create_aws_client")
+def test_profile_with_application_inference_profile(
+    mock_create_client: mock.Mock,
+) -> None:
+    """Test _set_model_profile resolves profile correctly for AIP ARNs."""
+    mock_bedrock_client = mock.Mock()
+    mock_runtime_client = mock.Mock()
+
+    mock_bedrock_client.get_inference_profile.return_value = {
+        "models": [
+            {
+                "modelArn": (
+                    "arn:aws:bedrock:us-east-1::foundation-model/"
+                    "anthropic.claude-sonnet-4-5-20250929-v1:0"
+                )
+            }
+        ]
+    }
+
+    def side_effect(service_name: str, **kwargs: Any) -> mock.Mock:
+        if service_name == "bedrock":
+            return mock_bedrock_client
+        elif service_name == "bedrock-runtime":
+            return mock_runtime_client
+        return mock.Mock()
+
+    mock_create_client.side_effect = side_effect
+
+    chat_model = ChatBedrockConverse(
+        model="arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/test-profile",
+        region_name="us-west-2",
+        provider="anthropic",
+    )
+
+    # Profile should be resolved from the base model, not the ARN
+    assert chat_model.profile
+    assert chat_model.profile["reasoning_output"]
 
 
 @mock.patch("langchain_aws.chat_models.bedrock_converse.create_aws_client")
@@ -2772,12 +2933,52 @@ def test_bind_tools_with_mixed_system_and_custom_tools() -> None:
     tools = cast(RunnableBinding, chat_model_with_mixed).kwargs["toolConfig"]["tools"]
     assert len(tools) == 2
 
-    # First tool should be the custom tool (GetWeather)
-    assert "function" in tools[0]
-    assert tools[0]["function"]["name"] == "GetWeather"
+    # First tool: Bedrock Converse expects toolSpec
+    assert "toolSpec" in tools[0]
+    assert tools[0]["toolSpec"]["name"] == "GetWeather"
+    assert "inputSchema" in tools[0]["toolSpec"]
 
     # Second tool should be the system tool
     assert tools[1] == {"systemTool": {"name": "nova_grounding"}}
+
+
+def test_bind_tools_mixed_system_custom_no_openai_tool_keys() -> None:
+    """Test bind_tools with mixed system and custom tools."""
+    from langchain_core.tools import tool
+
+    from langchain_aws.tools import NovaGroundingTool
+
+    @tool
+    def dummy_add(a: int, b: int) -> int:
+        """Add two integers."""
+        return a + b
+
+    chat_model = ChatBedrockConverse(
+        model="us.amazon.nova-premier-v1:0", region_name="us-east-1"
+    )  # type: ignore[call-arg]
+
+    bound = chat_model.bind_tools([NovaGroundingTool(), dummy_add])
+    tools = cast(RunnableBinding, bound).kwargs["toolConfig"]["tools"]
+    assert len(tools) == 2
+    for entry in tools:
+        assert "type" not in entry
+        assert "function" not in entry
+    assert "toolSpec" in tools[0]
+    assert tools[0]["toolSpec"]["name"] == "dummy_add"
+    assert tools[1] == {"systemTool": {"name": "nova_grounding"}}
+
+
+def test_bind_tools_mixed_system_custom_strict_on_tool_spec() -> None:
+    """Test ``strict`` is applied to toolSpec when merging."""
+    from langchain_aws.tools import NovaGroundingTool
+
+    chat_model = ChatBedrockConverse(
+        model="amazon.nova-2-lite-v1:0", region_name="us-east-1"
+    )  # type: ignore[call-arg]
+
+    bound = chat_model.bind_tools([GetWeather, NovaGroundingTool()], strict=True)
+    tools = cast(RunnableBinding, bound).kwargs["toolConfig"]["tools"]
+    assert tools[0]["toolSpec"]["strict"] is True
 
 
 def test_bind_tools_system_tools_with_tool_choice() -> None:
@@ -2797,12 +2998,13 @@ def test_bind_tools_system_tools_with_tool_choice() -> None:
     ] == {"auto": {}}
 
     # Test with any tool choice
-    chat_model_with_tools = chat_model.bind_tools(
-        [NovaGroundingTool()], tool_choice="any"
-    )
+    with pytest.warns(UserWarning, match="tool_choice=any"):
+        chat_model_with_tools = chat_model.bind_tools(
+            [NovaGroundingTool()], tool_choice="any"
+        )
     assert cast(RunnableBinding, chat_model_with_tools).kwargs["toolConfig"][
         "toolChoice"
-    ] == {"any": {}}
+    ] == {"auto": {}}
 
 
 def test_bind_tools_toolconfig_structure_with_system_tools() -> None:
@@ -2830,9 +3032,9 @@ def test_bind_tools_toolconfig_structure_with_system_tools() -> None:
     tools = tool_config["tools"]
     assert len(tools) == 3
 
-    # Verify custom tool format
-    assert "function" in tools[0]
-    assert tools[0]["function"]["name"] == "GetWeather"
+    # Verify custom tool uses Bedrock toolSpec (not OpenAI type/function)
+    assert "toolSpec" in tools[0]
+    assert tools[0]["toolSpec"]["name"] == "GetWeather"
 
     # Verify system tools format
     assert tools[1] == {"systemTool": {"name": "nova_grounding"}}
@@ -4769,3 +4971,109 @@ def test_generate_without_cache_control() -> None:
     for msg in call_kwargs["messages"]:
         for block in msg["content"]:
             assert "cachePoint" not in block
+
+
+# ---------------------------------------------------------------------------
+# _get_effective_config tests
+# ---------------------------------------------------------------------------
+
+
+def test_get_effective_config_no_overrides() -> None:
+    """When timeout and max_retries are None, returns self.config as-is."""
+    llm = ChatBedrockConverse(
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        region_name="us-west-2",
+    )
+    assert llm._get_effective_config() is None
+
+    from botocore.config import Config
+
+    existing = Config(connect_timeout=10)
+    llm = ChatBedrockConverse(
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        region_name="us-west-2",
+        config=existing,
+    )
+    assert llm._get_effective_config() is existing
+
+
+def test_get_effective_config_timeout_only() -> None:
+    """timeout sets both connect_timeout and read_timeout."""
+    llm = ChatBedrockConverse(
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        region_name="us-west-2",
+        timeout=120,
+    )
+    cfg = llm._get_effective_config()
+    assert cfg.connect_timeout == 120
+    assert cfg.read_timeout == 120
+
+
+def test_get_effective_config_max_retries_only() -> None:
+    """max_retries sets retries.max_attempts."""
+    llm = ChatBedrockConverse(
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        region_name="us-west-2",
+        max_retries=5,
+    )
+    cfg = llm._get_effective_config()
+    assert cfg.retries["max_attempts"] == 5
+
+
+def test_get_effective_config_both() -> None:
+    """Both timeout and max_retries produce a combined Config."""
+    llm = ChatBedrockConverse(
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        region_name="us-west-2",
+        timeout=60,
+        max_retries=3,
+    )
+    cfg = llm._get_effective_config()
+    assert cfg.connect_timeout == 60
+    assert cfg.read_timeout == 60
+    assert cfg.retries["max_attempts"] == 3
+
+
+def test_get_effective_config_merges_with_existing() -> None:
+    """Overrides merge on top of an existing Config."""
+    from botocore.config import Config
+
+    existing = Config(
+        connect_timeout=10,
+        user_agent_extra="my-app",
+    )
+    llm = ChatBedrockConverse(
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        region_name="us-west-2",
+        config=existing,
+        timeout=120,
+        max_retries=2,
+    )
+    cfg = llm._get_effective_config()
+    # timeout overrides connect_timeout from existing config
+    assert cfg.connect_timeout == 120
+    assert cfg.read_timeout == 120
+    assert cfg.retries["max_attempts"] == 2
+    # user_agent_extra from existing config is preserved
+    assert cfg.user_agent_extra == "my-app"
+
+
+@mock.patch("langchain_aws.chat_models.bedrock_converse.create_aws_client")
+def test_timeout_retries_passed_to_client(mock_create_client: mock.Mock) -> None:
+    """Timeout/max_retries are reflected in the config passed to create_aws_client."""
+    mock_create_client.return_value = mock.Mock()
+
+    ChatBedrockConverse(
+        model="anthropic.claude-3-sonnet-20240229-v1:0",
+        region_name="us-west-2",
+        timeout=90,
+        max_retries=1,
+    )
+
+    # create_aws_client is called twice (runtime + control plane)
+    assert mock_create_client.call_count == 2
+    for call in mock_create_client.call_args_list:
+        cfg = call.kwargs["config"]
+        assert cfg.connect_timeout == 90
+        assert cfg.read_timeout == 90
+        assert cfg.retries["max_attempts"] == 1

@@ -414,8 +414,19 @@ async def run_js_process(paths_str: str | None, watch: bool = False):
                     **os.environ,
                 },
             )
-            logger.info("Started JS graphs process [%d]", process.pid)
+            logger.info(
+                "Started JS graphs process",
+                pid=process.pid,
+                attempt=attempt,
+                args=args,
+            )
             code = await process.wait()
+            logger.error(
+                "JS graphs process exited unexpectedly",
+                pid=process.pid,
+                exit_code=code,
+                attempt=attempt,
+            )
             raise Exception(f"JS process exited with code {code}")
         except asyncio.CancelledError:
             logger.info("Terminating JS graphs process")
@@ -462,9 +473,20 @@ async def run_js_http_process(
             )
 
             pid = process.pid
-            logger.info("Started JS HTTP process [%d]", pid)
+            logger.info(
+                "Started JS HTTP process",
+                pid=pid,
+                attempt=attempt,
+                args=args,
+            )
 
             code = await process.wait()
+            logger.error(
+                "JS HTTP process exited unexpectedly",
+                pid=pid,
+                exit_code=code,
+                attempt=attempt,
+            )
             raise Exception(f"JS HTTP process exited with code {code}")
 
         except asyncio.CancelledError:
@@ -806,7 +828,9 @@ class DisableHttpxLoggingContextManager(contextlib.AbstractContextManager):
         logging.getLogger("httpx").removeFilter(self.filter)
 
 
-async def wait_until_js_ready():
+async def wait_until_js_ready(
+    bg_tasks: set[asyncio.Task] | None = None,
+):
     with DisableHttpxLoggingContextManager():
         async with (
             httpx.AsyncClient(
@@ -821,19 +845,50 @@ async def wait_until_js_ready():
             ) as checkpointer_client,
         ):
             attempt = 0
+            graph_ready = False
             while (
                 current_task := asyncio.current_task()
             ) and not current_task.cancelled():
+                if bg_tasks:
+                    for task in bg_tasks:
+                        if task.done():
+                            exc = task.exception() if not task.cancelled() else None
+                            logger.error(
+                                "JS background task finished while waiting for"
+                                " JS ready",
+                                task_name=task.get_name(),
+                                task_cancelled=task.cancelled(),
+                                task_exception=repr(exc) if exc else None,
+                            )
+                            raise RuntimeError(
+                                f"JS background task '{task.get_name()}' died"
+                                " during startup"
+                            ) from exc
                 try:
-                    res = await graph_client.get("/ok")
-                    res.raise_for_status()
+                    if not graph_ready:
+                        res = await graph_client.get("/ok")
+                        res.raise_for_status()
+                        graph_ready = True
                     res = await checkpointer_client.get("/ok")
                     res.raise_for_status()
                     return
-                except httpx.HTTPError:
+                except httpx.HTTPError as exc:
                     if attempt > 240:
+                        logger.exception(
+                            "Timed out waiting for JS process to become ready",
+                            attempts=attempt,
+                            graph_ready=graph_ready,
+                        )
                         raise
                     else:
+                        if attempt % 20 == 0 and attempt > 0:
+                            logger.warning(
+                                "Still waiting for JS process to become ready",
+                                attempts=attempt,
+                                elapsed_seconds=attempt * 0.5,
+                                graph_ready=graph_ready,
+                                last_error=repr(exc),
+                            )
                         attempt += 1
                         await asyncio.sleep(0.5)
 

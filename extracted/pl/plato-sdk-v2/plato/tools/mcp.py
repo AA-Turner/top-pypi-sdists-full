@@ -22,9 +22,8 @@ from pathlib import Path
 
 def _get_schema(td):
     """Get JSON schema from a ToolDefinition."""
-    if td.input_model:
-        return td.input_model.model_json_schema()
-    return {"type": "object", "properties": {}}
+    from plato.tools.definition import get_tool_input_schema
+    return get_tool_input_schema(td)
 
 def _call_handler(td, arguments):
     """Call a tool handler, constructing a model instance if needed."""

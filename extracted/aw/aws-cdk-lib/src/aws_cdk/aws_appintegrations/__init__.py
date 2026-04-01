@@ -1219,19 +1219,6 @@ class CfnDataIntegration(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="objectConfiguration")
-    def object_configuration(self) -> typing.Any:
-        '''The configuration for what data should be pulled from the source.'''
-        return typing.cast(typing.Any, jsii.get(self, "objectConfiguration"))
-
-    @object_configuration.setter
-    def object_configuration(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__09c4d150a6b38a21718340d0e7596e6fe23c488efff8579d0b26f44d2d887f87)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "objectConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="sourceUri")
     def source_uri(self) -> builtins.str:
         '''The URI of the data source.'''
@@ -1274,6 +1261,19 @@ class CfnDataIntegration(
             type_hints = typing.get_type_hints(_typecheckingstub__fa142812d7a4300d1fdf79595aa40d4ec698ff46a0af150d168d97ee958e67e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "fileConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="objectConfiguration")
+    def object_configuration(self) -> typing.Any:
+        '''The configuration for what data should be pulled from the source.'''
+        return typing.cast(typing.Any, jsii.get(self, "objectConfiguration"))
+
+    @object_configuration.setter
+    def object_configuration(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__09c4d150a6b38a21718340d0e7596e6fe23c488efff8579d0b26f44d2d887f87)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "objectConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="scheduleConfig")
@@ -2359,12 +2359,6 @@ def _typecheckingstub__e51110622d3f4ff27df719656fd99fc526be5468469b3eea1ec762212
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__09c4d150a6b38a21718340d0e7596e6fe23c488efff8579d0b26f44d2d887f87(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c40d38376f274efd003c192558a948691aa19100c92ffcb8b59fa6c6f3ab8dcc(
     value: builtins.str,
 ) -> None:
@@ -2379,6 +2373,12 @@ def _typecheckingstub__ac6cbca81b19a3d28448d5b03b3556d234f451a65367c5aece805bf98
 
 def _typecheckingstub__fa142812d7a4300d1fdf79595aa40d4ec698ff46a0af150d168d97ee958e67e1(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDataIntegration.FileConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09c4d150a6b38a21718340d0e7596e6fe23c488efff8579d0b26f44d2d887f87(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

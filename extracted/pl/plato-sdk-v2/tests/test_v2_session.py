@@ -7,10 +7,13 @@ import pytest
 from plato.v2 import Env, Plato
 
 # Skip if no API key is available
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("PLATO_API_KEY"),
-    reason="PLATO_API_KEY environment variable not set",
-)
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        not os.environ.get("PLATO_API_KEY"),
+        reason="PLATO_API_KEY environment variable not set",
+    ),
+]
 
 
 def test_session_create_and_close():

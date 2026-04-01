@@ -207,20 +207,17 @@ def get_stage_information_dict(stage_str, method):
     stage_info["Stage_ID"] = stage_str
 
     parts = stage_str.split("_")
-    # AEF_N has a numeric band suffix that is part of the CEI name
-    if parts[0] == "AEF":
-        cei = "_".join(parts[:2])  # AEF_1, AEF_2, ...
-        start_stage = parts[2]
-        stage_parts = parts[2:]
-    elif parts[1].isdigit():
-        cei = parts[0]
-        start_stage = parts[1]
-        stage_parts = parts[1:]
-    else:
-        cei = "_".join(parts[:2])
-        start_stage = parts[2]
-        stage_parts = parts[2:]
-    end_stage = parts[-1]
+    # Find where numeric stage numbers begin.
+    # AEF_N has a numeric band suffix that is part of the CEI name, so skip it.
+    skip = 2 if parts[0] == "AEF" else 1
+    first_stage_idx = next(
+        (i for i in range(skip, len(parts)) if parts[i].isdigit()),
+        len(parts),
+    )
+    cei = "_".join(parts[:first_stage_idx])
+    stage_parts = parts[first_stage_idx:]
+    start_stage = stage_parts[0] if stage_parts else "0"
+    end_stage = stage_parts[-1] if stage_parts else "0"
 
     # Exclude cei from the stage_str string
     stage_info["Stage_ID"] = "_".join(stage_parts)

@@ -1,48 +1,50 @@
-# encoding: utf-8
-from __future__ import unicode_literals
-from os.path import splitext
+from __future__ import annotations
 
-from ..compat import OrderedDict, string_types
+from collections import OrderedDict
+from collections.abc import Generator, Iterator
+from os.path import splitext
+from typing import Any
+
 from .file import BaseFile
 
 
-class FileStore(object):
+class FileStore:
     pass
 
 
 class MemoryFileStore(FileStore):
 
-    file_cls = BaseFile
+    file_cls: type[BaseFile] = BaseFile
 
-    def __init__(self, file_cls=None):
+    def __init__(self, file_cls: type[BaseFile] | None = None) -> None:
         if file_cls:
             self.file_cls = file_cls
-        self._files = OrderedDict()
-        self._filenames = {}
+        self._files: OrderedDict[str, BaseFile] = OrderedDict()
+        self._filenames: dict[str, str | None] = {}
 
-    def __contains__(self, k):
+    def __contains__(self, k: BaseFile | str | Any) -> bool:
         if isinstance(k, self.file_cls):
             return k.uri in self._files
-        elif isinstance(k, string_types):
+        elif isinstance(k, str):
             return k in self._files
         else:
             return False
 
-    def keys(self):
+    def keys(self) -> list[str]:
         return list(self._files.keys())
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._files)
 
-    def as_dict(self):
+    def as_dict(self) -> Generator[dict[str, Any], None, None]:
         for d in self._files.values():
             yield d.as_dict()
 
-    def remove(self, uri):
+    def remove(self, uri: BaseFile | str) -> None:
         if isinstance(uri, self.file_cls):
             uri = uri.uri
 
-        assert isinstance(uri, string_types)
+        assert isinstance(uri, str)
 
         v = self[uri]
         if v:
@@ -51,7 +53,7 @@ class MemoryFileStore(FileStore):
                 del self._filenames[filename]
             del self._files[uri]
 
-    def unique_filename(self, filename, uri=None):
+    def unique_filename(self, filename: str | None, uri: str | None = None) -> str | None:
 
         if filename in self._filenames:
             n = 1
@@ -62,12 +64,13 @@ class MemoryFileStore(FileStore):
                 filename = "%s-%d%s" % (basefilename, n, ext)
                 if filename not in self._filenames:
                     break
-        else:
+
+        if filename is not None:
             self._filenames[filename] = uri
 
         return filename
 
-    def add(self, value, replace=False):
+    def add(self, value: BaseFile | dict[str, Any], replace: bool = False) -> BaseFile:
 
         if isinstance(value, self.file_cls):
             uri = value.uri
@@ -84,17 +87,18 @@ class MemoryFileStore(FileStore):
 
         return value
 
-    def by_uri(self, uri):
+    def by_uri(self, uri: str) -> BaseFile | None:
         return self._files.get(uri, None)
 
-    def by_filename(self, filename):
+    def by_filename(self, filename: str) -> BaseFile | None:
         uri = self._filenames.get(filename)
         if uri:
             return self.by_uri(uri)
+        return None
 
-    def __getitem__(self, uri):
+    def __getitem__(self, uri: str) -> BaseFile | None:
         return self.by_uri(uri) or self.by_filename(uri)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[BaseFile]:
         for k in self._files:
             yield self._files[k]

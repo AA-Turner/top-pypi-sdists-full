@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: indent
-Version: 0.1.59
+Version: 0.1.60
 Summary: Indent is an AI Pair Programmer
 Author-email: Sashank Thupukari <sashank@exponent.run>
 Requires-Python: <3.13,>=3.12

@@ -44,7 +44,7 @@ __all__ = (
 
 BuildingsType = Literal["Buildings3D"]
 ColorSchemeType = Literal["Dark", "Light"]
-ContourDensityType = Literal["Medium"]
+ContourDensityType = Literal["High", "Low", "Medium"]
 LabelSizeType = Literal["Large", "Small"]
 MapFeatureModeType = Literal["Disabled", "Enabled"]
 MapStyleType = Literal["Hybrid", "Monochrome", "Satellite", "Standard"]
@@ -52,7 +52,7 @@ ScaleBarUnitType = Literal["Kilometers", "KilometersMiles", "Miles", "MilesKilom
 StaticMapStyleType = Literal["Satellite", "Standard"]
 TerrainType = Literal["Hillshade", "Terrain3D"]
 TileAdditionalFeatureType = Literal["ContourLines", "Hillshade", "Logistics", "Transit"]
-TrafficType = Literal["All"]
+TrafficType = Literal["All", "Congestion"]
 TravelModeType = Literal["Transit", "Truck"]
 VariantType = Literal["Default"]
 LocationServiceMapsV2ServiceName = Literal["geo-maps"]
@@ -410,6 +410,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -445,6 +446,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",

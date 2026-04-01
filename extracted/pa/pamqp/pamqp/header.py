@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 """
 AMQP Header Class Definitions
 
@@ -6,22 +5,26 @@ For encoding AMQP Header frames into binary AMQP stream data and decoding AMQP
 binary data into AMQP Header frames.
 
 """
+
 import struct
 import typing
 
 from pamqp import commands, constants, decode
 
-BasicProperties = typing.Optional[commands.Basic.Properties]
+BasicProperties = commands.Basic.Properties | None
 
 
 class ProtocolHeader:
     """Class that represents the AMQP Protocol Header"""
-    name = 'ProtocolHeader'
 
-    def __init__(self,
-                 major_version: int = constants.VERSION[0],
-                 minor_version: int = constants.VERSION[1],
-                 revision: int = constants.VERSION[2]):
+    name: typing.ClassVar[str] = 'ProtocolHeader'
+
+    def __init__(
+        self,
+        major_version: int = constants.VERSION[0],
+        minor_version: int = constants.VERSION[1],
+        revision: int = constants.VERSION[2],
+    ) -> None:
         """Construct a Protocol Header frame object for the specified AMQP
         version.
 
@@ -39,8 +42,9 @@ class ProtocolHeader:
         ProtocolHeader frame.
 
         """
-        return constants.AMQP + struct.pack('BBBB', 0, self.major_version,
-                                            self.minor_version, self.revision)
+        return constants.AMQP + struct.pack(
+            'BBBB', 0, self.major_version, self.minor_version, self.revision
+        )
 
     def unmarshal(self, data: bytes) -> int:
         """Dynamically decode the frame data applying the values to the method
@@ -51,11 +55,13 @@ class ProtocolHeader:
 
         """
         try:
-            (self.major_version, self.minor_version,
-             self.revision) = struct.unpack('BBB', data[5:8])
-        except struct.error:
+            (self.major_version, self.minor_version, self.revision) = (
+                struct.unpack('BBB', data[5:8])
+            )
+        except struct.error as err:
             raise ValueError(
-                'Could not unpack protocol header from {!r}'.format(data))
+                f'Could not unpack protocol header from {data!r}'
+            ) from err
         return 8
 
 
@@ -67,12 +73,15 @@ class ContentHeader:
     follow.
 
     """
-    name = 'ContentHeader'
 
-    def __init__(self,
-                 weight: int = 0,
-                 body_size: int = 0,
-                 properties: typing.Optional[BasicProperties] = None):
+    name: typing.ClassVar[str] = 'ContentHeader'
+
+    def __init__(
+        self,
+        weight: int = 0,
+        body_size: int = 0,
+        properties: commands.Basic.Properties | None = None,
+    ) -> None:
         """Initialize the Exchange.DeleteOk class
 
         Weight is unused and must be `0`
@@ -89,8 +98,10 @@ class ContentHeader:
 
     def marshal(self) -> bytes:
         """Return the AMQP binary encoded value of the frame"""
-        return struct.pack('>HxxQ', commands.Basic.frame_id,
-                           self.body_size) + self.properties.marshal()
+        return (
+            struct.pack('>HxxQ', commands.Basic.frame_id, self.body_size)
+            + self.properties.marshal()
+        )
 
     def unmarshal(self, data: bytes) -> None:
         """Dynamically decode the frame data applying the values to the method
@@ -100,12 +111,13 @@ class ContentHeader:
 
         """
         self.class_id, self.weight, self.body_size = struct.unpack(
-            '>HHQ', data[0:12])
+            '>HHQ', data[0:12]
+        )
         offset, flags = self._get_flags(data[12:])
-        self.properties.unmarshal(flags, data[12 + offset:])
+        self.properties.unmarshal(flags, data[12 + offset :])
 
     @staticmethod
-    def _get_flags(data: bytes) -> typing.Tuple[int, int]:
+    def _get_flags(data: bytes) -> tuple[int, int]:
         """Decode the flags from the data returning the bytes consumed and
         flags.
 
@@ -114,7 +126,7 @@ class ContentHeader:
         while True:
             consumed, partial_flags = decode.short_int(data)
             bytes_consumed += consumed
-            flags |= (partial_flags << (flagword_index * 16))
+            flags |= partial_flags << (flagword_index * 16)
             if not partial_flags & 1:  # pragma: nocover
                 break
             flagword_index += 1  # pragma: nocover

@@ -24,8 +24,8 @@ max_python_version = "3.15"  # exclusive
 min_numpy_build_version = "2.0.0rc1"
 min_numpy_run_version = "1.22"
 max_numpy_run_version = "2.5"
-min_llvmlite_version = "0.46.0dev0"
-max_llvmlite_version = "0.47"
+min_llvmlite_version = "0.47.0dev0"
+max_llvmlite_version = "0.48"
 
 if sys.platform.startswith('linux'):
     # Patch for #2555 to make wheels without libpython
@@ -260,7 +260,7 @@ def get_ext_modules():
         # Apple clang requires -Xclang -fopenmp, conda clang uses -fopenmp
         try:
             is_apple_clang = b'Apple' in subprocess.check_output(['clang', '--version'])
-        except:
+        except Exception:
             is_apple_clang = False
 
         if is_apple_clang:
@@ -383,6 +383,7 @@ build_requires = ['numpy >={},<{}'.format(min_numpy_build_version,
                                           max_numpy_run_version)]
 install_requires = [
     'llvmlite >={},<{}'.format(min_llvmlite_version, max_llvmlite_version),
+    'numpy >={}'.format(min_numpy_run_version),
     'numpy >={},<{}'.format(min_numpy_run_version, max_numpy_run_version),
 ]
 

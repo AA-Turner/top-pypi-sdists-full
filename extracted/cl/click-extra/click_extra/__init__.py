@@ -52,6 +52,7 @@ from .config import (
     ConfigOption,
     NoConfigOption,
     ValidateConfigOption,
+    flatten_config_keys,
     get_tool_config,
     normalize_config_keys,
 )
@@ -193,6 +194,7 @@ __all__ = [
     "edit",
     "extraBasicConfig",
     "file_path",
+    "flatten_config_keys",
     "format_filename",
     "get_app_dir",
     "get_binary_stream",
@@ -243,7 +245,13 @@ __all__ = [
 """
 
 
-__version__ = "7.8.0"
+__version__ = "7.9.0"
+__git_branch__ = ""
+__git_date__ = ""
+__git_long_hash__ = ""
+__git_short_hash__ = ""
+__git_tag__ = ""
+__git_tag_sha__ = ""
 
 
 def __getattr__(name: str) -> object:

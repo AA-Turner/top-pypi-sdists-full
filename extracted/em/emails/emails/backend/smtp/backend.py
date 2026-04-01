@@ -1,8 +1,12 @@
-# encoding: utf-8
-from __future__ import unicode_literals
-import smtplib
+from __future__ import annotations
+
 import logging
+import smtplib
+from collections.abc import Callable
 from functools import wraps
+from types import TracebackType
+from typing import Any
+
 from ..response import SMTPResponse
 from .client import SMTPClientWithResponse, SMTPClientWithResponse_SSL
 from ...utils import DNS_NAME
@@ -14,7 +18,7 @@ __all__ = ['SMTPBackend']
 logger = logging.getLogger(__name__)
 
 
-class SMTPBackend(object):
+class SMTPBackend:
 
     """
     SMTPBackend manages a smtp connection.
@@ -26,9 +30,10 @@ class SMTPBackend(object):
     connection_ssl_cls = SMTPClientWithResponse_SSL
     response_cls = SMTPResponse
 
-    def __init__(self, ssl=False, fail_silently=True, **kwargs):
+    def __init__(self, ssl: bool = False, fail_silently: bool = True,
+                 mail_options: list[str] | None = None, **kwargs: Any) -> None:
 
-        self.smtp_cls = ssl and self.connection_ssl_cls or self.connection_cls
+        self.smtp_cls = self.connection_ssl_cls if ssl else self.connection_cls
 
         self.ssl = ssl
         self.tls = kwargs.get('tls')
@@ -43,18 +48,19 @@ class SMTPBackend(object):
 
         self.smtp_cls_kwargs = kwargs
 
-        self.host = kwargs.get('host')
-        self.port = kwargs.get('port')
+        self.host: str | None = kwargs.get('host')
+        self.port: int = kwargs['port']  # always set as int two lines above
         self.fail_silently = fail_silently
+        self.mail_options = mail_options or []
 
-        self._client = None
+        self._client: SMTPClientWithResponse | None = None
 
-    def get_client(self):
+    def get_client(self) -> SMTPClientWithResponse:
         if self._client is None:
             self._client = self.smtp_cls(parent=self, **self.smtp_cls_kwargs)
         return self._client
 
-    def close(self):
+    def close(self) -> None:
 
         """
         Closes the connection to the email server.
@@ -70,12 +76,12 @@ class SMTPBackend(object):
             finally:
                 self._client = None
 
-    def make_response(self, exception=None):
+    def make_response(self, exception: Exception | None = None) -> SMTPResponse:
         return self.response_cls(backend=self, exception=exception)
 
-    def retry_on_disconnect(self, func):
+    def retry_on_disconnect(self, func: Callable[..., SMTPResponse | None]) -> Callable[..., SMTPResponse | None]:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> SMTPResponse | None:
             try:
                 return func(*args, **kwargs)
             except smtplib.SMTPServerDisconnected:
@@ -85,15 +91,19 @@ class SMTPBackend(object):
                 return func(*args, **kwargs)
         return wrapper
 
-    def _send(self, **kwargs):
+    def _send(self, **kwargs: Any) -> SMTPResponse | None:
 
         response = None
         try:
             client = self.get_client()
-        except IOError as exc:
-            response = self.make_response(exception=SMTPConnectNetworkError.from_ioerror(exc))
         except smtplib.SMTPException as exc:
             response = self.make_response(exception=exc)
+            if not self.fail_silently:
+                raise
+        except IOError as exc:
+            response = self.make_response(exception=SMTPConnectNetworkError.from_ioerror(exc))
+            if not self.fail_silently:
+                raise
 
         if response:
             if not self.fail_silently:
@@ -102,7 +112,9 @@ class SMTPBackend(object):
         else:
             return client.sendmail(**kwargs)
 
-    def sendmail(self, from_addr, to_addrs, msg, mail_options=None, rcpt_options=None):
+    def sendmail(self, from_addr: str, to_addrs: str | list[str],
+                 msg: Any, mail_options: list[str] | None = None,
+                 rcpt_options: list[str] | None = None) -> SMTPResponse | None:
 
         if not to_addrs:
             return None
@@ -114,17 +126,19 @@ class SMTPBackend(object):
 
         response = send(from_addr=from_addr,
                         to_addrs=to_addrs,
-                        msg=msg.as_string(),
-                        mail_options=mail_options,
+                        msg=msg.as_bytes(),
+                        mail_options=mail_options or self.mail_options,
                         rcpt_options=rcpt_options)
 
-        if not self.fail_silently:
+        if response and not self.fail_silently:
             response.raise_if_needed()
 
         return response
 
-    def __enter__(self):
+    def __enter__(self) -> SMTPBackend:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: type[BaseException] | None,
+                 exc_value: BaseException | None,
+                 traceback: TracebackType | None) -> None:
         self.close()

@@ -12,6 +12,67 @@ from plato.cli.utils import console
 
 hillclimb_app = typer.Typer(help="Launch interactive hillclimb sessions.")
 
+HILLCLIMB_SYSTEM_PROMPT = """\
+You are running an interactive hillclimb session — an iterative improvement \
+loop for a Plato world. You have MCP tools for experiment management, \
+evaluation, and hypothesis tracking.
+
+## Core Workflow
+
+1. **Analyze** — Use `get_experiment_file`, `credit_assignment`, \
+`get_annotations` to understand baseline performance and find weak spots.
+2. **Hypothesize** — Use `record_hypothesis` to track what you think is \
+wrong and how to fix it. Be specific about the causal variable.
+3. **Implement** — Edit the world code directly. Run `uv run pytest` and \
+`uv run ruff check` for basic validation.
+4. **Test** — Run `plato chronos test <config>.json` to validate on a real \
+VM. This is critical — unit tests alone miss prompt quality issues.
+5. **Report test runs** — After each `plato chronos test`, note the \
+CHRONOS_SESSION_ID. Use `plato chronos traces <id>` or \
+`plato chronos analysis <id>` to inspect what happened.
+6. **Publish & launch** — Use `publish_dev_version`, \
+`create_experiment_version`, `launch_experiment` to run a full experiment.
+7. **Evaluate** — Use `run_target_reviews`, `compare_scores` to see if \
+your changes improved things.
+
+## When to Use Experiments vs Test Runs
+
+- **`run_test` MCP tool** = quick, isolated hypothesis validation. Runs \
+`plato chronos test` on a config, automatically registers the test run \
+with Chronos linked to the experiment, and returns session_id + results. \
+Fast feedback loop (~2-5 min). Always do this first.
+- **Full experiments** (`launch_experiment`) = comprehensive evaluation \
+against the baseline. Use this after test runs confirm your hypothesis. \
+Takes longer but gives authoritative scores.
+
+## Sub-Experiment Test Runs
+
+Use the `run_test` MCP tool instead of running `plato chronos test` \
+manually. It handles everything:
+1. Runs the test on a real VM
+2. Registers the test run with Chronos (linked to the experiment version, \
+commit SHA, and git link)
+3. Returns session_id, status, exit_code, and phase results
+
+After `run_test` completes:
+1. Analyze traces with `plato chronos traces <session_id>` or \
+`plato chronos analysis <session_id>`
+2. Use `update_test_run_evidence` to record whether the hypothesis was \
+validated or rejected, with a summary of what you observed
+3. Use `update_hypothesis` to update the hypothesis status
+
+## Key Principles
+
+- **Test before you publish** — always run `plato chronos test` before \
+`publish_dev_version`. Catching issues early saves hours.
+- **One hypothesis at a time** — don't change multiple things between \
+evaluations. You won't know what worked.
+- **Read the traces** — `plato chronos traces <id>` shows what agents \
+actually did. This is more valuable than test pass/fail.
+- **Track everything** — use `record_hypothesis` and `update_hypothesis` \
+so you build a knowledge base across iterations.
+"""
+
 
 @hillclimb_app.callback(invoke_without_command=True)
 def hillclimb(
@@ -113,8 +174,9 @@ def hillclimb(
     config["target_world_path"] = target_world
     config_file.write_text(json.dumps(config, indent=2) + "\n")
 
-    # Build claude command — interactive, no prompt flag
+    # Build claude command — interactive with hillclimb system prompt
     cmd = ["claude", "--worktree", session_name]
+    cmd.extend(["--append-system-prompt", HILLCLIMB_SYSTEM_PROMPT])
     if skip_permissions:
         cmd.append("--dangerously-skip-permissions")
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pybind11
-Version: 3.0.2
+Version: 3.0.3
 Summary: Seamless operability between C++11 and Python
 Keywords: C++11,Python bindings
 Author-Email: Wenzel Jakob <wenzel.jakob@epfl.ch>
@@ -31,7 +31,7 @@ Project-URL: Changelog, https://pybind11.readthedocs.io/en/latest/changelog.html
 Project-URL: Chat, https://gitter.im/pybind/Lobby
 Requires-Python: >=3.8
 Provides-Extra: global
-Requires-Dist: pybind11-global==3.0.2; extra == "global"
+Requires-Dist: pybind11-global==3.0.3; extra == "global"
 Description-Content-Type: text/x-rst
 
 .. figure:: https://github.com/pybind/pybind11/raw/master/docs/pybind11-logo.png

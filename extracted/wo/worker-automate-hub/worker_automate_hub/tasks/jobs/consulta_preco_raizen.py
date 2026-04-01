@@ -602,17 +602,21 @@ async def consulta_preco_raizen(task, config_entrada=None, fuel_itens=None):
                 raise Exception(f"Erro ao enviar JSON ao datalake: {e}")
 
             log_step(20, "Processo concluído com sucesso")
-            return config_entrada, {"status_code": 200, "error": "No errors"}
+            return RpaRetornoProcessoDTO(
+                sucesso=True,
+                retorno="Processo concluído com sucesso",
+                status=RpaHistoricoStatusEnum.Sucesso,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+            )
 
     except Exception as e:
-        try:
-            await capture_and_send_screenshot(task.historico_id, "Erro consulta preço Raizen")
-            log_info("Screenshot de erro enviada com sucesso")
-        except Exception as erro_screenshot:
-            log_warn(f"Não foi possível enviar screenshot de erro: {erro_screenshot}")
-
         log_error(f"Erro crítico no fluxo consulta_preco_raizen_service: {e}")
-        return config_entrada, {"status_code": 500, "error": f"An error occurred: {e}"}
+        return RpaRetornoProcessoDTO(
+            sucesso=False,
+            retorno=f"Erro ao performar o processo: {e}",
+            status=RpaHistoricoStatusEnum.Falha,
+            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+        )
 
     finally:
         log_step("FINAL", "Iniciando encerramento de recursos")

@@ -137,12 +137,22 @@ class AgentConfig(BaseModel):
             or provided directly for local/test runs).
         runtime: Runtime configuration (docker or vm with resources)
         config: Agent-specific configuration passed to the agent
+        max_parallel: Maximum number of concurrent agent VMs for this config.
+            When set, the world enforces a shared semaphore across all calls
+            to ``world.agent()`` with the same config.  Applies globally —
+            all pipeline stages sharing this agent config compete for the
+            same pool of slots.
     """
 
     package: str | None = None
     image: str = ""
     runtime: RuntimeConfig = Field(default_factory=VMRuntimeConfig)
     config: dict[str, Any] = Field(default_factory=dict)
+    max_parallel: int | None = Field(
+        default=None,
+        ge=1,
+        description="Max concurrent agent VMs for this config. None = unlimited.",
+    )
 
 
 # =============================================================================
@@ -276,6 +286,36 @@ class TailscaleConfig(BaseModel):
     api_key: str = ""
 
 
+class ChildWorldConfig(BaseModel):
+    """Pre-defined config for a child world, run inline or as a separate session.
+
+    Used in the top-level ``child_worlds`` block of a launch config JSON::
+
+        {
+          "world": { "package": "plato-world-foo:1.0", "config": { ... } },
+          "child_worlds": {
+            "my-reviewer": {
+              "mode": "inline",
+              "world_name": "foo-review",
+              "config": { "scoring_llm": { "model": "gemini/gemini-2.5-pro" } }
+            }
+          }
+        }
+
+    Modes:
+        - ``"inline"``: instantiate the world in-process on the same VM,
+          sharing the parent's workspaces, agents, and services.
+        - ``"session"``: launch as a new Chronos child session on a separate VM.
+    """
+
+    mode: Literal["inline", "session"] = "session"
+    package: str | None = None
+    world_name: str
+    config: dict[str, Any] = Field(default_factory=dict)
+    runtime: dict[str, Any] | None = None
+    tags: list[str] = Field(default_factory=list)
+
+
 class RunConfig(BaseModel):
     """Base configuration for running a world.
 
@@ -353,6 +393,11 @@ class RunConfig(BaseModel):
 
     model_config = {"extra": "allow"}
 
+    # Child world configs — populated by the runner from the top-level
+    # ``child_worlds`` block in the launch JSON.  Not intended to be set
+    # directly in world-specific config classes.
+    child_worlds: dict[str, ChildWorldConfig] = Field(default_factory=dict, exclude=True)
+
     @classmethod
     def get_field_annotations(cls) -> dict[str, FieldMarker | WorkspaceMarker | None]:
         """Get FieldMarker annotations for each field."""
@@ -385,13 +430,21 @@ class RunConfig(BaseModel):
         """Load config from a JSON file.
 
         Reads from world.config if present (Chronos config structure).
+        Also parses top-level ``child_worlds`` and attaches them to the config.
         """
         path = Path(path)
         with open(path) as f:
-            data = json.load(f)
+            full = json.load(f)
+
+        # Parse child_worlds from top-level before narrowing to world.config
+        child_worlds_raw = full.get("child_worlds", {})
+        child_worlds = {k: ChildWorldConfig.model_validate(v) for k, v in child_worlds_raw.items()}
 
         # Read from world.config if present
+        data = full
         if "world" in data and isinstance(data["world"], dict) and "config" in data["world"]:
             data = data["world"]["config"]
 
-        return cls.model_validate(data)
+        instance = cls.model_validate(data)
+        instance.child_worlds = child_worlds
+        return instance

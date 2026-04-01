@@ -1177,6 +1177,8 @@ class AlertsV1Api:
         bound: Annotated[Optional[AlertBound], Field(description="The bound to filter by.")] = None,
         time_from: Annotated[Optional[datetime], Field(description="The start timestamp to filter by.")] = None,
         time_to: Annotated[Optional[datetime], Field(description="The end timestamp to filter by.")] = None,
+        created_at_from: Annotated[Optional[datetime], Field(description="Filter alerts created at or after this timestamp.")] = None,
+        created_at_to: Annotated[Optional[datetime], Field(description="Filter alerts created at or before this timestamp.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -1210,6 +1212,10 @@ class AlertsV1Api:
         :type time_from: datetime
         :param time_to: The end timestamp to filter by.
         :type time_to: datetime
+        :param created_at_from: Filter alerts created at or after this timestamp.
+        :type created_at_from: datetime
+        :param created_at_to: Filter alerts created at or before this timestamp.
+        :type created_at_to: datetime
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -1244,6 +1250,8 @@ class AlertsV1Api:
             bound=bound,
             time_from=time_from,
             time_to=time_to,
+            created_at_from=created_at_from,
+            created_at_to=created_at_to,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -1279,6 +1287,8 @@ class AlertsV1Api:
         bound: Annotated[Optional[AlertBound], Field(description="The bound to filter by.")] = None,
         time_from: Annotated[Optional[datetime], Field(description="The start timestamp to filter by.")] = None,
         time_to: Annotated[Optional[datetime], Field(description="The end timestamp to filter by.")] = None,
+        created_at_from: Annotated[Optional[datetime], Field(description="Filter alerts created at or after this timestamp.")] = None,
+        created_at_to: Annotated[Optional[datetime], Field(description="Filter alerts created at or before this timestamp.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -1312,6 +1322,10 @@ class AlertsV1Api:
         :type time_from: datetime
         :param time_to: The end timestamp to filter by.
         :type time_to: datetime
+        :param created_at_from: Filter alerts created at or after this timestamp.
+        :type created_at_from: datetime
+        :param created_at_to: Filter alerts created at or before this timestamp.
+        :type created_at_to: datetime
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -1346,6 +1360,8 @@ class AlertsV1Api:
             bound=bound,
             time_from=time_from,
             time_to=time_to,
+            created_at_from=created_at_from,
+            created_at_to=created_at_to,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -1381,6 +1397,8 @@ class AlertsV1Api:
         bound: Annotated[Optional[AlertBound], Field(description="The bound to filter by.")] = None,
         time_from: Annotated[Optional[datetime], Field(description="The start timestamp to filter by.")] = None,
         time_to: Annotated[Optional[datetime], Field(description="The end timestamp to filter by.")] = None,
+        created_at_from: Annotated[Optional[datetime], Field(description="Filter alerts created at or after this timestamp.")] = None,
+        created_at_to: Annotated[Optional[datetime], Field(description="Filter alerts created at or before this timestamp.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         _request_timeout: Union[
@@ -1414,6 +1432,10 @@ class AlertsV1Api:
         :type time_from: datetime
         :param time_to: The end timestamp to filter by.
         :type time_to: datetime
+        :param created_at_from: Filter alerts created at or after this timestamp.
+        :type created_at_from: datetime
+        :param created_at_to: Filter alerts created at or before this timestamp.
+        :type created_at_to: datetime
         :param page: The page to return starting from 1 up to total_pages.
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
@@ -1448,6 +1470,8 @@ class AlertsV1Api:
             bound=bound,
             time_from=time_from,
             time_to=time_to,
+            created_at_from=created_at_from,
+            created_at_to=created_at_to,
             page=page,
             page_size=page_size,
             _request_auth=_request_auth,
@@ -1478,6 +1502,8 @@ class AlertsV1Api:
         bound,
         time_from,
         time_to,
+        created_at_from,
+        created_at_to,
         page,
         page_size,
         _request_auth,
@@ -1546,6 +1572,32 @@ class AlertsV1Api:
                 )
             else:
                 _query_params.append(('time_to', time_to))
+            
+        if created_at_from is not None:
+            if isinstance(created_at_from, datetime):
+                _query_params.append(
+                    (
+                        'created_at_from',
+                        created_at_from.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('created_at_from', created_at_from))
+            
+        if created_at_to is not None:
+            if isinstance(created_at_to, datetime):
+                _query_params.append(
+                    (
+                        'created_at_to',
+                        created_at_to.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('created_at_to', created_at_to))
             
         if page is not None:
             

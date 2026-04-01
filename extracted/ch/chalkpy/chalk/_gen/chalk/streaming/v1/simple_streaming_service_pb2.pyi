@@ -70,22 +70,40 @@ class StreamingError(_message.Message):
         row_index: _Optional[int] = ...,
     ) -> None: ...
 
+class StreamingLoggerConfig(_message.Message):
+    __slots__ = ("sample_pct", "sample_pct_failure", "sample_pct_skipped")
+    SAMPLE_PCT_FIELD_NUMBER: _ClassVar[int]
+    SAMPLE_PCT_FAILURE_FIELD_NUMBER: _ClassVar[int]
+    SAMPLE_PCT_SKIPPED_FIELD_NUMBER: _ClassVar[int]
+    sample_pct: float
+    sample_pct_failure: float
+    sample_pct_skipped: float
+    def __init__(
+        self,
+        sample_pct: _Optional[float] = ...,
+        sample_pct_failure: _Optional[float] = ...,
+        sample_pct_skipped: _Optional[float] = ...,
+    ) -> None: ...
+
 class SimpleStreamingUnaryInvokeRequest(_message.Message):
-    __slots__ = ("streaming_resolver_fqn", "input_data", "operation_id", "debug")
+    __slots__ = ("streaming_resolver_fqn", "input_data", "operation_id", "debug", "logger_config")
     STREAMING_RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
     INPUT_DATA_FIELD_NUMBER: _ClassVar[int]
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     DEBUG_FIELD_NUMBER: _ClassVar[int]
+    LOGGER_CONFIG_FIELD_NUMBER: _ClassVar[int]
     streaming_resolver_fqn: str
     input_data: bytes
     operation_id: str
     debug: bool
+    logger_config: StreamingLoggerConfig
     def __init__(
         self,
         streaming_resolver_fqn: _Optional[str] = ...,
         input_data: _Optional[bytes] = ...,
         operation_id: _Optional[str] = ...,
         debug: bool = ...,
+        logger_config: _Optional[_Union[StreamingLoggerConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class SimpleStreamingUnaryInvokeResponse(_message.Message):

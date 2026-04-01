@@ -54,15 +54,11 @@ from .type_defs import (
     DeregisterServiceInputTypeDef,
     DescribePrivateConnectionInputTypeDef,
     DescribePrivateConnectionOutputTypeDef,
-    DescribeSupportLevelRequestTypeDef,
-    DescribeSupportLevelResponseTypeDef,
     DisableOperatorAppInputTypeDef,
     DisassociateServiceInputTypeDef,
     EmptyResponseMetadataTypeDef,
     EnableOperatorAppInputTypeDef,
     EnableOperatorAppOutputTypeDef,
-    EndChatForCaseRequestTypeDef,
-    EndChatForCaseResponseTypeDef,
     GetAccountUsageOutputTypeDef,
     GetAgentSpaceInputTypeDef,
     GetAgentSpaceOutputTypeDef,
@@ -76,8 +72,6 @@ from .type_defs import (
     GetRecommendationResponseTypeDef,
     GetServiceInputTypeDef,
     GetServiceOutputTypeDef,
-    InitiateChatForCaseRequestTypeDef,
-    InitiateChatForCaseResponseTypeDef,
     ListAgentSpacesInputTypeDef,
     ListAgentSpacesOutputTypeDef,
     ListAssociationsInputTypeDef,
@@ -275,16 +269,6 @@ class DevOpsAgentServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#describe_private_connection)
         """
 
-    def describe_support_level(
-        self, **kwargs: Unpack[DescribeSupportLevelRequestTypeDef]
-    ) -> DescribeSupportLevelResponseTypeDef:
-        """
-        Describe the support level of a CloudSmith customer account.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/describe_support_level.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#describe_support_level)
-        """
-
     def disable_operator_app(
         self, **kwargs: Unpack[DisableOperatorAppInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -313,16 +297,6 @@ class DevOpsAgentServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/enable_operator_app.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#enable_operator_app)
-        """
-
-    def end_chat_for_case(
-        self, **kwargs: Unpack[EndChatForCaseRequestTypeDef]
-    ) -> EndChatForCaseResponseTypeDef:
-        """
-        End a chat session for a support case in the specified agent space.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/end_chat_for_case.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#end_chat_for_case)
         """
 
     def get_account_usage(self) -> GetAccountUsageOutputTypeDef:
@@ -389,16 +363,6 @@ class DevOpsAgentServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_service.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#get_service)
-        """
-
-    def initiate_chat_for_case(
-        self, **kwargs: Unpack[InitiateChatForCaseRequestTypeDef]
-    ) -> InitiateChatForCaseResponseTypeDef:
-        """
-        Initiate a chat for support case in the specified agent space.
-
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/initiate_chat_for_case.html)
-        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#initiate_chat_for_case)
         """
 
     def list_agent_spaces(

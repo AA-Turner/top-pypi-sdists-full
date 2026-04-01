@@ -988,6 +988,8 @@ class IbmDb2LuwDataProviderSettingsTypeDef(TypedDict):
     DatabaseName: NotRequired[str]
     SslMode: NotRequired[DmsSslModeValueType]
     CertificateArn: NotRequired[str]
+    EncryptionAlgorithm: NotRequired[int]
+    SecurityMechanism: NotRequired[int]
     S3Path: NotRequired[str]
     S3AccessRoleArn: NotRequired[str]
 

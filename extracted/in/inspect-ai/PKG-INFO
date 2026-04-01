@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.201
+Version: 0.3.202
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -64,7 +64,7 @@ Requires-Dist: anthropic>=0.80.0; extra == "dev"
 Requires-Dist: azure-identity; extra == "dev"
 Requires-Dist: azure-ai-inference; extra == "dev"
 Requires-Dist: fastapi; extra == "dev"
-Requires-Dist: google-genai>=1.62.0; extra == "dev"
+Requires-Dist: google-genai>=1.69.0; extra == "dev"
 Requires-Dist: griffe<=1.14.0; extra == "dev"
 Requires-Dist: groq>=0.28.0; extra == "dev"
 Requires-Dist: huggingface_hub>=1.0.0; extra == "dev"
@@ -83,7 +83,6 @@ Requires-Dist: panflute; extra == "dev"
 Requires-Dist: pip; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pyarrow>=10.0.1; extra == "dev"
-Requires-Dist: pylint; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-dotenv; extra == "dev"
@@ -163,7 +162,13 @@ make test
 
 If you use VS Code, you should be sure to have installed the recommended extensions (Python, Ruff, and MyPy). Note that you'll be prompted to install these when you open the project in VS Code.
 
-***
+### Frontend development (TypeScript)
+
+The web UI lives in a git submodule at `src/inspect_ai/_view/ts-mono/`. **These steps are only needed if you plan to work on the TypeScript/React frontend** — Python-only contributors can skip this entirely.
+
+Initialize the submodule and install dependencies — see the [one-time setup guide](src/inspect_ai/_view/ts-mono/docs/submodule-guide.md#one-time-setup).
+
+### Documentation
 
 To work on the Inspect documentation, install the optional `[doc]` dependencies with the `-e` flag and build the docs:
 

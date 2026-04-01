@@ -9257,7 +9257,7 @@ class LustreConfiguration:
 
         :default: - no import policy
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-autoimportpolicy
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-autoimportpolicy
         '''
         result = self._values.get("auto_import_policy")
         return typing.cast(typing.Optional["LustreAutoImportPolicy"], result)
@@ -9304,7 +9304,7 @@ class LustreConfiguration:
 
         :default: - no compression
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-datacompressiontype
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration.html#cfn-fsx-filesystem-lustreconfiguration-datacompressiontype
         '''
         result = self._values.get("data_compression_type")
         return typing.cast(typing.Optional["LustreDataCompressionType"], result)

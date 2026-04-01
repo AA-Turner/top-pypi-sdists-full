@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qemu.qmp
-Version: 0.0.5
+Version: 0.0.6
 Summary: QEMU Monitor Protocol library
 Home-page: https://gitlab.com/qemu-project/python-qemu-qmp
 Author: QEMU Project
@@ -239,6 +239,17 @@ backwards compatible feature changes.
 
 Changelog
 ---------
+
+0.0.6 (2026-03-31)
+^^^^^^^^^^^^^^^^^^
+
+- Remove deprecated usage of ``sendmsg`` in versions of Python where it
+  was still present, avoiding a Python deprecation warning message.
+
+- No longer dumps full stack traces when EOF is encounted in the bottom
+  half; this is an expected occurrence and we don't require that amount
+  of grizly detail in the debugging logs.
+
 
 0.0.5 (2025-10-02)
 ^^^^^^^^^^^^^^^^^^

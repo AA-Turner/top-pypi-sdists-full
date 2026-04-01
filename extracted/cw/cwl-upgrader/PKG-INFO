@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cwl-upgrader
-Version: 1.2.14
+Version: 1.2.15
 Summary: Upgrade a CWL tool or workflow document from one version to another
 Author-email: Common Workflow Language project contributors <common-workflow-language@googlegroups.com>
 License: Apache 2.0
@@ -29,7 +29,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: ruamel.yaml<0.19,>=0.16.0
+Requires-Dist: ruamel.yaml<0.20,>=0.16.0
 Requires-Dist: schema_salad
 Provides-Extra: testing
 Requires-Dist: pytest<10; extra == "testing"

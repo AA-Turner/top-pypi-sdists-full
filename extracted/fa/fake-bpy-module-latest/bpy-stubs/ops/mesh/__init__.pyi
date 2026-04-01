@@ -3017,6 +3017,28 @@ class _CLS_select_axis(bpy.ops._BPyOpsSubModOp):
         :return: Result of the operator call.
         """
 
+class _CLS_select_boundary_loop_multi(bpy.ops._BPyOpsSubModOp):
+    def __call__(
+        self,
+        execution_context: int | str | None = None,
+        undo: bool | None = None,
+        /,
+        *,
+        extend: bool | None = True,
+        delimit_edge_loop: set[
+            typing.Literal[bpy.stub_internal.rna_enums.MeshWalkDelimitEdgeLoopItems]
+        ]
+        | None = set(),
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+        """Select entire boundary loop of each selected boundary edge
+
+        :param execution_context:
+        :param undo:
+        :param extend: Extend, Extend the selection (optional)
+        :param delimit_edge_loop: Delimit, Delimit edge loop selection (optional)
+        :return: Result of the operator call.
+        """
+
 class _CLS_select_by_attribute(bpy.ops._BPyOpsSubModOp):
     def __call__(
         self,
@@ -4327,6 +4349,8 @@ screw: _CLS_screw
 select_all: _CLS_select_all
 
 select_axis: _CLS_select_axis
+
+select_boundary_loop_multi: _CLS_select_boundary_loop_multi
 
 select_by_attribute: _CLS_select_by_attribute
 

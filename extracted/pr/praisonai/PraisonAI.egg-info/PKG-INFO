@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.5.87
+Version: 4.5.109
 Summary: PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration.
 Author: Mervin Praison
 License: MIT
@@ -11,7 +11,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.5.87
+Requires-Dist: praisonaiagents>=1.5.109
 Requires-Dist: python-dotenv>=0.19.0
 Requires-Dist: litellm<=1.82.6,>=1.81.0
 Requires-Dist: PyYAML>=6.0
@@ -19,10 +19,7 @@ Requires-Dist: mcp>=1.20.0
 Requires-Dist: typer>=0.9.0
 Requires-Dist: textual>=0.47.0
 Provides-Extra: ui
-Requires-Dist: chainlit<=2.9.4,>=2.8.5; extra == "ui"
-Requires-Dist: sqlalchemy>=2.0.36; extra == "ui"
-Requires-Dist: aiosqlite>=0.20.0; extra == "ui"
-Requires-Dist: greenlet>=3.0.3; extra == "ui"
+Requires-Dist: aiui>=0.3.100; extra == "ui"
 Provides-Extra: gradio
 Requires-Dist: gradio>=4.26.0; extra == "gradio"
 Provides-Extra: api
@@ -125,7 +122,7 @@ Provides-Extra: bot-whatsapp-web
 Requires-Dist: neonize>=0.3.14; extra == "bot-whatsapp-web"
 Requires-Dist: qrcode>=7.0; extra == "bot-whatsapp-web"
 Provides-Extra: claw
-Requires-Dist: aiui[all]>=0.3.60; extra == "claw"
+Requires-Dist: aiui[all]>=0.3.100; extra == "claw"
 Requires-Dist: praisonaiagents[all]>=1.5.40; extra == "claw"
 Requires-Dist: chainlit<=2.9.4,>=2.8.5; extra == "claw"
 Requires-Dist: sqlalchemy>=2.0.36; extra == "claw"
@@ -154,9 +151,9 @@ Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="src/praisonai/praisonai/public/logo_dark.png" />
-    <source media="(prefers-color-scheme: light)" srcset="src/praisonai/praisonai/public/logo_light.png" />
-    <img alt="PraisonAI Logo" src="src/praisonai/praisonai/public/logo_light.png" width="250" />
+    <source media="(prefers-color-scheme: dark)" srcset=".github/images/logo_dark.png" />
+    <source media="(prefers-color-scheme: light)" srcset=".github/images/logo_light.png" />
+    <img alt="PraisonAI Logo" src=".github/images/logo_light.png" width="250" />
   </picture>
 </p>
 
@@ -180,8 +177,29 @@ Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
 PraisonAI 🦞 — Automate and solve complex challenges with AI agent teams that plan, research, code, and deliver results to Telegram, Discord, and WhatsApp — running 24/7. A low-code, production-ready multi-agent framework with handoffs, guardrails, memory, RAG, and 100+ LLM providers, built around simplicity, customisation, and effective human-agent collaboration.
 
 <p align="center">
-  <img src="src/praisonai/praisonai/public/dashboard.png" alt="PraisonAI Dashboard" width="800" />
+  <img src=".github/images/dashboard.png" alt="PraisonAI Dashboard" width="800" />
 </p>
+
+<p align="center">
+  <img src=".github/images/agentflow.gif" alt="PraisonAI AgentFlow" width="800" />
+</p>
+
+```
+ ██████╗ ██████╗  █████╗ ██╗███████╗ ██████╗ ███╗   ██╗     █████╗ ██╗
+ ██╔══██╗██╔══██╗██╔══██╗██║██╔════╝██╔═══██╗████╗  ██║    ██╔══██╗██║
+ ██████╔╝██████╔╝███████║██║███████╗██║   ██║██╔██╗ ██║    ███████║██║
+ ██╔═══╝ ██╔══██╗██╔══██║██║╚════██║██║   ██║██║╚██╗██║    ██╔══██║██║
+ ██║     ██║  ██║██║  ██║██║███████║╚██████╔╝██║ ╚████║    ██║  ██║██║
+ ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═══╝    ╚═╝  ╚═╝╚═╝
+
+ pip install praisonai
+```
+
+<p align="center">
+  <img src=".github/images/latest_ai_news_and_crawl_each_url_to_find_info.gif" alt="PraisonAI command execution" width="800" />
+</p>
+
+\* `export TAVILY_API_KEY=xxxxx`
 
 <div align="center">
   <a href="https://docs.praison.ai">
@@ -365,11 +383,25 @@ For the full framework with CLI support:
 pip install praisonai
 ```
 
-🦞 **AgentClaw** — full UI with bots, memory, knowledge, and gateway:
+🦞 **PraisonAI Claw** — full UI with bots, memory, knowledge, and gateway:
 
 ```bash
 pip install "praisonai[claw]"
 praisonai claw
+```
+
+🔗 **PraisonAI Flow** — Langflow Visual Flow Builder:
+
+```bash
+pip install "praisonai[flow]"
+praisonai flow
+```
+
+🤖 **PraisonAI UI** — Clean chat interface:
+
+```bash
+pip install "praisonai[ui]"
+praisonai ui
 ```
 
 ### JavaScript SDK
@@ -468,7 +500,7 @@ agent.chat("Hello!")  # Auto-persists messages, runs, traces
 
 > 📖 [Full persistence docs](https://docs.praison.ai/docs/databases/overview) — PostgreSQL, MySQL, SQLite, MongoDB, Redis, and 20+ more
 
-### 6. AgentClaw 🦞 (Dashboard UI)
+### 6. PraisonAI Claw 🦞 (Dashboard UI)
 
 Connect your AI agents to **Telegram, Discord, Slack, WhatsApp** and more — all from a single command.
 
@@ -480,6 +512,28 @@ praisonai claw
 Open **http://localhost:8082** — the dashboard comes with 13 built-in pages: Chat, Agents, Memory, Knowledge, Channels, Guardrails, Cron, and more. Add messaging channels directly from the UI.
 
 > 📖 [Full Claw docs](https://docs.praison.ai/docs/concepts/claw) — platform tokens, CLI options, Docker, and YAML agent mode
+
+### 7. Langflow Integration 🔗 (Visual Flow Builder)
+
+Build multi-agent workflows visually with **drag-and-drop** components in Langflow.
+
+```bash
+pip install "praisonai[flow]"
+praisonai flow
+```
+
+Open **http://localhost:7861** — use the **Agent** and **Agent Team** components to create sequential or parallel workflows. Connect Chat Input → Agent Team → Chat Output for instant multi-agent pipelines.
+
+> 📖 [Full Flow docs](https://docs.praison.ai/docs/concepts/flow) — visual agent building, component reference, and deployment
+
+### 8. PraisonAI UI 🤖 (Clean Chat)
+
+Lightweight chat interface for your AI agents.
+
+```bash
+pip install "praisonai[ui]"
+praisonai ui
+```
 
 ---
 

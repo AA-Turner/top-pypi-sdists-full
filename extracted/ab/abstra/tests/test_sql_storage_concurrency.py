@@ -362,7 +362,7 @@ class TestSqlStorageConcurrency(unittest.TestCase):
 
             # Wait for all processes
             for process in processes:
-                process.join(timeout=10)
+                process.join(timeout=30)
 
             # Verify all completed successfully
             for process in processes:

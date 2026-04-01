@@ -8,6 +8,7 @@ from dateutil.parser import isoparse
 from ..models.list_kafka_triggers_response_200_item_auto_offset_reset import (
     ListKafkaTriggersResponse200ItemAutoOffsetReset,
 )
+from ..models.list_kafka_triggers_response_200_item_filter_logic import ListKafkaTriggersResponse200ItemFilterLogic
 from ..models.list_kafka_triggers_response_200_item_mode import ListKafkaTriggersResponse200ItemMode
 from ..types import UNSET, Unset
 
@@ -40,6 +41,9 @@ class ListKafkaTriggersResponse200Item:
         edited_at (datetime.datetime): Timestamp of the last edit
         is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (ListKafkaTriggersResponse200ItemMode): job trigger mode
+        filter_logic (Union[Unset, ListKafkaTriggersResponse200ItemFilterLogic]): Logic to apply when evaluating
+            filters. 'and' requires all filters to match, 'or' requires any filter to match. Default:
+            ListKafkaTriggersResponse200ItemFilterLogic.AND.
         auto_offset_reset (Union[Unset, ListKafkaTriggersResponse200ItemAutoOffsetReset]): Initial offset behavior when
             consumer group has no committed offset. 'latest' starts from new messages only, 'earliest' starts from the
             beginning. Default: ListKafkaTriggersResponse200ItemAutoOffsetReset.LATEST.
@@ -67,6 +71,9 @@ class ListKafkaTriggersResponse200Item:
     edited_at: datetime.datetime
     is_flow: bool
     mode: ListKafkaTriggersResponse200ItemMode
+    filter_logic: Union[
+        Unset, ListKafkaTriggersResponse200ItemFilterLogic
+    ] = ListKafkaTriggersResponse200ItemFilterLogic.AND
     auto_offset_reset: Union[
         Unset, ListKafkaTriggersResponse200ItemAutoOffsetReset
     ] = ListKafkaTriggersResponse200ItemAutoOffsetReset.LATEST
@@ -101,6 +108,10 @@ class ListKafkaTriggersResponse200Item:
 
         is_flow = self.is_flow
         mode = self.mode.value
+
+        filter_logic: Union[Unset, str] = UNSET
+        if not isinstance(self.filter_logic, Unset):
+            filter_logic = self.filter_logic.value
 
         auto_offset_reset: Union[Unset, str] = UNSET
         if not isinstance(self.auto_offset_reset, Unset):
@@ -141,6 +152,8 @@ class ListKafkaTriggersResponse200Item:
                 "mode": mode,
             }
         )
+        if filter_logic is not UNSET:
+            field_dict["filter_logic"] = filter_logic
         if auto_offset_reset is not UNSET:
             field_dict["auto_offset_reset"] = auto_offset_reset
         if auto_commit is not UNSET:
@@ -205,6 +218,13 @@ class ListKafkaTriggersResponse200Item:
 
         mode = ListKafkaTriggersResponse200ItemMode(d.pop("mode"))
 
+        _filter_logic = d.pop("filter_logic", UNSET)
+        filter_logic: Union[Unset, ListKafkaTriggersResponse200ItemFilterLogic]
+        if isinstance(_filter_logic, Unset):
+            filter_logic = UNSET
+        else:
+            filter_logic = ListKafkaTriggersResponse200ItemFilterLogic(_filter_logic)
+
         _auto_offset_reset = d.pop("auto_offset_reset", UNSET)
         auto_offset_reset: Union[Unset, ListKafkaTriggersResponse200ItemAutoOffsetReset]
         if isinstance(_auto_offset_reset, Unset):
@@ -255,6 +275,7 @@ class ListKafkaTriggersResponse200Item:
             edited_at=edited_at,
             is_flow=is_flow,
             mode=mode,
+            filter_logic=filter_logic,
             auto_offset_reset=auto_offset_reset,
             auto_commit=auto_commit,
             server_id=server_id,

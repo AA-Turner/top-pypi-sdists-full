@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import marshmallow as ma
-from dotenv.main import _walk_to_root, load_dotenv
+from dotenv.main import _walk_to_root, dotenv_values
 
 from . import fields
 from .exceptions import (
@@ -48,11 +48,12 @@ if typing.TYPE_CHECKING:
 __all__ = ["Env", "EnvError", "FileAwareEnv", "ValidationError", "env"]
 
 _T = typing.TypeVar("_T")
-_StrType = str
-_BoolType = bool
-_IntType = int
-_ListType = list
-_DictType = dict
+# Aliases for built-in types that are shadowed by Env class attributes
+_StrType: typing.TypeAlias = str
+_BoolType: typing.TypeAlias = bool
+_IntType: typing.TypeAlias = int
+_ListType: typing.TypeAlias = list
+_DictType: typing.TypeAlias = dict
 
 _EXPANDED_VAR_PATTERN = re.compile(r"(?<!\\)\$\{([A-Za-z0-9_]+)(:-[^\}:]*)?\}")
 
@@ -199,7 +200,9 @@ def _make_subcast_field(
 
         class SubcastField(ma.fields.Field):
             def _deserialize(self, value, *args, **kwargs):
-                return subcast(value)
+                if not isinstance(value, str):
+                    return value
+                return subcast(value)  # type: ignore[operator]
 
         inner_field = SubcastField
     else:
@@ -255,7 +258,7 @@ def _preprocess_dict(
     }
 
 
-def _preprocess_json(value: str | typing.Mapping | list, **kwargs):
+def _preprocess_json(value: str | typing.Mapping | list, **kwargs) -> typing.Any:
     try:
         if isinstance(value, str):
             return pyjson.loads(value)
@@ -373,25 +376,30 @@ class Env:
         self._errors: ErrorMapping = collections.defaultdict(list)
         self._prefix: _StrType | None = prefix
         self.__custom_parsers__: dict[_StrType, ParserMethod] = {}
+        self._environ: dict[_StrType, _StrType] = {}
 
     def __repr__(self) -> _StrType:
         return f"<{self.__class__.__name__}(eager={self.eager}, expand_vars={self.expand_vars})>"
 
-    @staticmethod
     def read_env(
+        self,
         path: _StrType | Path | None = None,
         *,
         recurse: _BoolType = True,
-        verbose: _BoolType = False,
         override: _BoolType = False,
         return_path: _BoolType = False,
     ) -> _BoolType | _StrType | None:
-        """Read a .env file into os.environ.
+        """Read a .env file into this Env instance.
 
         If .env is not found in the directory from which this method is called,
         the default behavior is to recurse up the directory tree until a .env
-        file is found. If you do not wish to recurse up the tree, you may pass
-        False as a second positional argument.
+        file is found. To disable this behavior, pass ``recurse=False``.
+
+        Pass ``override=True`` to overwrite previously loaded values when
+        loading multiple .env files.
+
+        If ``return_path`` is ``True``, return the path to the loaded .env
+        file (or ``None`` if no file was found) instead of a boolean.
         """
         env_path = None
         is_env_loaded = False
@@ -415,21 +423,32 @@ class Env:
             for dirname in _walk_to_root(start_dir):
                 check_path = Path(dirname) / env_name
                 if check_path.exists():
-                    is_env_loaded = load_dotenv(
-                        check_path,
-                        verbose=verbose,
-                        override=override,
-                    )
+                    self._load_dotenv(check_path, override=override)
+                    is_env_loaded = True
                     env_path = str(check_path)
                     break
-
-        else:
-            is_env_loaded = load_dotenv(str(start), verbose=verbose, override=override)
+        elif start.exists():
+            self._load_dotenv(start, override=override)
+            is_env_loaded = True
             env_path = str(start)
 
         if return_path:
             return env_path
         return is_env_loaded
+
+    def _load_dotenv(
+        self,
+        path: _StrType | Path,
+        *,
+        override: _BoolType = False,
+    ) -> None:
+        """Load a .env file into self._environ."""
+        values = dotenv_values(path)
+        for key, value in values.items():
+            if value is None:
+                continue
+            if override or key not in self._environ:
+                self._environ[key] = value
 
     @contextlib.contextmanager
     def prefixed(self, prefix: _StrType) -> typing.Iterator[Env]:
@@ -446,7 +465,7 @@ class Env:
             self._prefix = None
         self._prefix = old_prefix
 
-    def seal(self):
+    def seal(self) -> None:
         """Validate parsed values and prevent new values from being added.
 
         :raises: environs.EnvValidationError
@@ -460,7 +479,7 @@ class Env:
                 error_messages,
             )
 
-    def __getattr__(self, name: _StrType):
+    def __getattr__(self, name: _StrType) -> typing.Any:
         try:
             return functools.partial(self.__custom_parsers__[name], self)
         except KeyError as error:
@@ -490,7 +509,9 @@ class Env:
 
         return decorator
 
-    def add_parser_from_field(self, name: _StrType, field_cls: type[ma.fields.Field]):
+    def add_parser_from_field(
+        self, name: _StrType, field_cls: type[ma.fields.Field]
+    ) -> None:
         """Register a new parser method with name ``name``,
         given a marshmallow ``Field``.
         """
@@ -548,7 +569,9 @@ class Env:
                 value = value.replace(r"\$", "$")
         return env_key, value, None
 
-    def _expand_vars(self, parsed_key, value):
+    def _expand_vars(
+        self, parsed_key: _StrType, value: _StrType
+    ) -> tuple[_StrType, typing.Any, _StrType | None]:
         ret = ""
         prev_start = 0
         for match in _EXPANDED_VAR_PATTERN.finditer(value):
@@ -571,7 +594,10 @@ class Env:
         return self._prefix + key if self._prefix and not omit_prefix else key
 
     def _get_value(self, env_key: _StrType, default: typing.Any) -> typing.Any:
-        return os.environ.get(env_key, default)
+        try:
+            return self._environ[env_key]
+        except KeyError:
+            return os.environ.get(env_key, default)
 
 
 class FileAwareEnv(Env):
@@ -593,7 +619,7 @@ class FileAwareEnv(Env):
     def _get_value(self, env_key: _StrType, default: typing.Any) -> typing.Any:
         """Return the contents of the file referenced in key <env_key>_FILE, if present."""
         file_key = f"{env_key}{self.file_suffix}"
-        if file_path := os.environ.get(file_key, None):
+        if file_path := self._environ.get(file_key) or os.environ.get(file_key):
             try:
                 value: _StrType = Path(file_path).read_text()
                 return value.strip() if self.strip_whitespace else value

@@ -42,7 +42,9 @@ from semgrep.simple_profiling import simple_profiling
 from semgrep.subproject import ClosestSubprojectFinder
 from semgrep.subproject import DependencyResolutionConfig
 from semgrep.subproject import from_resolved_dependencies
+from semgrep.subproject import generate_dependency_source_id
 from semgrep.subproject import get_all_source_files
+from semgrep.subproject import subproject_to_plan_output
 from semgrep.target_manager import SCA_PRODUCT
 from semgrep.target_manager import TargetManager
 from semgrep.types import fpaths_of_targets
@@ -90,7 +92,7 @@ class HashableSubproject:
 
 @simple_profiling
 @telemetry.trace(owner=telemetry.TraceOwner.SSC)
-def find_subprojects(
+def match_subprojects(
     dependency_source_files: FrozenSet[Target], matchers: List[SubprojectMatcher]
 ) -> List[out.Subproject]:
     """
@@ -118,6 +120,102 @@ def find_subprojects(
         )
         unresolved_subprojects.extend(new_subprojects)
     return unresolved_subprojects
+
+
+@telemetry.trace(telemetry.TraceOwner.SSC)
+def find_subprojects(
+    target_manager: TargetManager,
+    resolve_untargeted_subprojects: bool,
+    dependency_aware_rules: list[Rule],
+) -> tuple[list[out.Subproject], list[out.UnresolvedSubproject]]:
+    # First, find all subprojects. We ignore the baseline handler because we want
+    # to _identify_, but not necessarily resolve, even unchanged subprojects.
+    #
+    # Attention: we want to inspect even Gitignored untracked files because
+    # some of them may be lockfiles that are generated as part of a CI
+    # workflow or some other build process. Such lockfiles allow us
+    # to identify a subproject root. This is a legacy behavior which we
+    # may stop supporting in the future but for now, we have to support it.
+    #
+    # Here, we override targeting_conf.respect_gitignore and disable Gitignore
+    # filtering so as to find all possible manifests and lockfiles, including
+    # those that are not under Git control (possibly generated during a CI job).
+    #
+    # Passing 'extra_glob_patterns_to_include_git_untracked_files' is optional
+    # but by prefiltering the list of project files directly
+    # with 'git ls-files --others ...', it can result in much fewer files being
+    # listed by Git (but still very fast), allowing the subsequent Semgrepignore
+    # filter pass to be much faster. This is important to speed up subproject
+    # discovery especially when scanning just a few project files such as
+    # in a typical diff scan.
+    # TODO: This trick only applies to untracked files so Semgrepignore still has
+    #  to filter all the tracked paths (because Git's exclude options only work
+    #  on untracked files). If this is still not fast enough, we could add
+    #  an independent filtering pass after 'git ls-files' and
+    #  CLI includes/excludes and before Semgrepignore (suggestion: add
+    #  a pair of internal options include2/exclude2 to take place after
+    #  the CLI include/exclude but otherwise identical to include/exclude).
+    dependency_source_files = target_manager.get_all_dependency_source_files(
+        ignore_baseline_handler=True,
+        respect_gitignore=False,
+        extra_glob_patterns_to_include_git_untracked_files=get_all_subproject_identifying_glob_filters(),
+    )
+    found_subprojects = match_subprojects(dependency_source_files, MATCHERS)
+
+    # A subproject is relevant if one of its dependency source files is a target
+    # or there exist a code target for which find_closest_subproject is that
+    # subproject.
+    if resolve_untargeted_subprojects:
+        relevant_subprojects = found_subprojects
+        irrelevant_subprojects: List[out.UnresolvedSubproject] = []
+    else:
+        relevant_subprojects, irrelevant_subprojects = filter_changed_subprojects(
+            target_manager, dependency_aware_rules, found_subprojects
+        )
+
+    return relevant_subprojects, irrelevant_subprojects
+
+
+@telemetry.trace(owner=telemetry.TraceOwner.SSC)
+def attach_auxillary_sboms(
+    subprojects: list[out.Subproject],
+    dependency_resolution_config: DependencyResolutionConfig,
+) -> list[out.Subproject]:
+    """
+    For each subproject, look up a precomputed CycloneDX SBOM in the
+    precomputed dependencies directory and, if found, wrap the subproject's
+    dependency_source in an AuxillarySBOM variant.
+
+    Files are expected at ``<dir>/head/<subproject_id>.cdx.json`` or
+    ``<dir>/base/<subproject_id>.cdx.json`` depending on whether this is a
+    baseline scan.
+    """
+    precomputed_dir = dependency_resolution_config.precomputed_dependencies_dir
+    if precomputed_dir is None:
+        return subprojects
+
+    subdir = "base" if dependency_resolution_config.is_baseline_scan else "head"
+    result: list[out.Subproject] = []
+    for subproject in subprojects:
+        dep_source_id = generate_dependency_source_id(subproject.dependency_source)
+        sbom_path = precomputed_dir / subdir / (dep_source_id + ".cdx.json")
+        if sbom_path.exists():
+            sbom = out.Sbom(
+                kind=out.SbomKind(out.CycloneDXJson()),
+                is_ephemeral=True,
+                path=out.Fpath(str(sbom_path)),
+            )
+            new_dep_source = out.DependencySource(
+                out.AuxillarySBOM((sbom, subproject.dependency_source))
+            )
+            subproject = out.Subproject(
+                root_dir=subproject.root_dir,
+                dependency_source=new_dep_source,
+                ecosystem=subproject.ecosystem,
+            )
+            logger.verbose(f"Using precomputed SBOM for {subproject.root_dir}")
+        result.append(subproject)
+    return result
 
 
 @simple_profiling
@@ -265,54 +363,12 @@ def resolve_subprojects(
         2. Resolved subprojects, grouped by ecosystem
         4. Dependency source paths that were used in the resolution process
     """
-    # First, find all subprojects. We ignore the baseline handler because we want
-    # to _identify_, but not necessarily resolve, even unchanged subprojects.
-    #
-    # Attention: we want to inspect even Gitignored untracked files because
-    # some of them may be lockfiles that are generated as part of a CI
-    # workflow or some other build process. Such lockfiles allow us
-    # to identify a subproject root. This is a legacy behavior which we
-    # may stop supporting in the future but for now, we have to support it.
-    #
-    # Here, we override targeting_conf.respect_gitignore and disable Gitignore
-    # filtering so as to find all possible manifests and lockfiles, including
-    # those that are not under Git control (possibly generated during a CI job).
-    #
-    # Passing 'extra_glob_patterns_to_include_git_untracked_files' is optional
-    # but by prefiltering the list of project files directly
-    # with 'git ls-files --others ...', it can result in much fewer files being
-    # listed by Git (but still very fast), allowing the subsequent Semgrepignore
-    # filter pass to be much faster. This is important to speed up subproject
-    # discovery especially when scanning just a few project files such as
-    # in a typical diff scan.
-    # TODO: This trick only applies to untracked files so Semgrepignore still has
-    #  to filter all the tracked paths (because Git's exclude options only work
-    #  on untracked files). If this is still not fast enough, we could add
-    #  an independent filtering pass after 'git ls-files' and
-    #  CLI includes/excludes and before Semgrepignore (suggestion: add
-    #  a pair of internal options include2/exclude2 to take place after
-    #  the CLI include/exclude but otherwise identical to include/exclude).
-    dependency_source_files = target_manager.get_all_dependency_source_files(
-        ignore_baseline_handler=True,
-        respect_gitignore=False,
-        extra_glob_patterns_to_include_git_untracked_files=get_all_subproject_identifying_glob_filters(),
+    relevant_subprojects, irrelevant_subprojects = find_subprojects(
+        target_manager, config.resolve_untargeted_subprojects, dependency_aware_rules
     )
 
-    # To list all the subprojects discovered by the function, use
-    # 'semgrep show subprojects'
-    # TODO: implement 'semgrep show subprojects'
-    found_subprojects = find_subprojects(dependency_source_files, MATCHERS)
-
-    # A subproject is relevant if one of its dependency source files is a target
-    # or there exist a code target for which find_closest_subproject is that
-    # subproject.
-    if config.resolve_untargeted_subprojects:
-        relevant_subprojects = found_subprojects
-        irrelevant_subprojects: List[out.UnresolvedSubproject] = []
-    else:
-        relevant_subprojects, irrelevant_subprojects = filter_changed_subprojects(
-            target_manager, dependency_aware_rules, found_subprojects
-        )
+    # attach precomputed SBOMs to relevant subprojects
+    relevant_subprojects = attach_auxillary_sboms(relevant_subprojects, config)
 
     # targets that were considered in generating the dependency tree
     dependency_targets: List[Path] = []
@@ -394,3 +450,32 @@ def resolve_subprojects(
         dependency_aware_rules,
     )
     return unresolved, resolved, dependency_targets
+
+
+@telemetry.trace(telemetry.TraceOwner.SSC)
+def dump_subprojects_and_exit(
+    target_manager: TargetManager,
+    rules: list[Rule],
+    dump_subprojects_to_path: Path,
+    resolve_untargeted_subprojects: bool,
+) -> None:
+    dependency_aware_rules: List[Rule] = [r for r in rules if r.project_depends_on]
+
+    relevant_subprojects, irrelevant_subprojects = find_subprojects(
+        target_manager, resolve_untargeted_subprojects, dependency_aware_rules
+    )
+
+    output = out.SubprojectResolutionPlan(
+        subprojects=[
+            subproject_to_plan_output(sub, True) for sub in relevant_subprojects
+        ]
+        + [subproject_to_plan_output(sub.info, False) for sub in irrelevant_subprojects]
+    )
+
+    with open(dump_subprojects_to_path, "w") as f:
+        f.write(output.to_json_string())
+
+    logger.info(
+        f"Successfully dumped subproject resolution plan to {dump_subprojects_to_path}"
+    )
+    sys.exit(0)

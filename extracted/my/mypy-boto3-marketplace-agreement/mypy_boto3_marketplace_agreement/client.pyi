@@ -20,26 +20,47 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListAgreementPaymentRequestsPaginator
+from .paginator import (
+    ListAgreementCancellationRequestsPaginator,
+    ListAgreementInvoiceLineItemsPaginator,
+    ListAgreementPaymentRequestsPaginator,
+    ListBillingAdjustmentRequestsPaginator,
+)
 from .type_defs import (
+    BatchCreateBillingAdjustmentRequestInputTypeDef,
+    BatchCreateBillingAdjustmentRequestOutputTypeDef,
+    CancelAgreementCancellationRequestInputTypeDef,
+    CancelAgreementCancellationRequestOutputTypeDef,
     CancelAgreementPaymentRequestInputTypeDef,
     CancelAgreementPaymentRequestOutputTypeDef,
     DescribeAgreementInputTypeDef,
     DescribeAgreementOutputTypeDef,
+    GetAgreementCancellationRequestInputTypeDef,
+    GetAgreementCancellationRequestOutputTypeDef,
     GetAgreementPaymentRequestInputTypeDef,
     GetAgreementPaymentRequestOutputTypeDef,
     GetAgreementTermsInputTypeDef,
     GetAgreementTermsOutputTypeDef,
+    GetBillingAdjustmentRequestInputTypeDef,
+    GetBillingAdjustmentRequestOutputTypeDef,
+    ListAgreementCancellationRequestsInputTypeDef,
+    ListAgreementCancellationRequestsOutputTypeDef,
+    ListAgreementInvoiceLineItemsInputTypeDef,
+    ListAgreementInvoiceLineItemsOutputTypeDef,
     ListAgreementPaymentRequestsInputTypeDef,
     ListAgreementPaymentRequestsOutputTypeDef,
+    ListBillingAdjustmentRequestsInputTypeDef,
+    ListBillingAdjustmentRequestsOutputTypeDef,
     SearchAgreementsInputTypeDef,
     SearchAgreementsOutputTypeDef,
+    SendAgreementCancellationRequestInputTypeDef,
+    SendAgreementCancellationRequestOutputTypeDef,
     SendAgreementPaymentRequestInputTypeDef,
     SendAgreementPaymentRequestOutputTypeDef,
 )
@@ -95,6 +116,28 @@ class AgreementServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#generate_presigned_url)
         """
 
+    def batch_create_billing_adjustment_request(
+        self, **kwargs: Unpack[BatchCreateBillingAdjustmentRequestInputTypeDef]
+    ) -> BatchCreateBillingAdjustmentRequestOutputTypeDef:
+        """
+        Allows sellers (proposers) to submit billing adjustment requests for one or
+        more invoices within an agreement.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/batch_create_billing_adjustment_request.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#batch_create_billing_adjustment_request)
+        """
+
+    def cancel_agreement_cancellation_request(
+        self, **kwargs: Unpack[CancelAgreementCancellationRequestInputTypeDef]
+    ) -> CancelAgreementCancellationRequestOutputTypeDef:
+        """
+        Allows sellers (proposers) to withdraw an existing agreement cancellation
+        request that is in a pending state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/cancel_agreement_cancellation_request.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#cancel_agreement_cancellation_request)
+        """
+
     def cancel_agreement_payment_request(
         self, **kwargs: Unpack[CancelAgreementPaymentRequestInputTypeDef]
     ) -> CancelAgreementPaymentRequestOutputTypeDef:
@@ -115,6 +158,16 @@ class AgreementServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/describe_agreement.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#describe_agreement)
+        """
+
+    def get_agreement_cancellation_request(
+        self, **kwargs: Unpack[GetAgreementCancellationRequestInputTypeDef]
+    ) -> GetAgreementCancellationRequestOutputTypeDef:
+        """
+        Retrieves detailed information about a specific agreement cancellation request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_agreement_cancellation_request.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_agreement_cancellation_request)
         """
 
     def get_agreement_payment_request(
@@ -138,6 +191,37 @@ class AgreementServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_agreement_terms)
         """
 
+    def get_billing_adjustment_request(
+        self, **kwargs: Unpack[GetBillingAdjustmentRequestInputTypeDef]
+    ) -> GetBillingAdjustmentRequestOutputTypeDef:
+        """
+        Retrieves detailed information about a specific billing adjustment request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_billing_adjustment_request.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_billing_adjustment_request)
+        """
+
+    def list_agreement_cancellation_requests(
+        self, **kwargs: Unpack[ListAgreementCancellationRequestsInputTypeDef]
+    ) -> ListAgreementCancellationRequestsOutputTypeDef:
+        """
+        Lists agreement cancellation requests available to you as a seller or buyer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/list_agreement_cancellation_requests.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#list_agreement_cancellation_requests)
+        """
+
+    def list_agreement_invoice_line_items(
+        self, **kwargs: Unpack[ListAgreementInvoiceLineItemsInputTypeDef]
+    ) -> ListAgreementInvoiceLineItemsOutputTypeDef:
+        """
+        Allows sellers (proposers) to retrieve aggregated billing data from AWS
+        Marketplace agreements using flexible grouping.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/list_agreement_invoice_line_items.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#list_agreement_invoice_line_items)
+        """
+
     def list_agreement_payment_requests(
         self, **kwargs: Unpack[ListAgreementPaymentRequestsInputTypeDef]
     ) -> ListAgreementPaymentRequestsOutputTypeDef:
@@ -148,6 +232,16 @@ class AgreementServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#list_agreement_payment_requests)
         """
 
+    def list_billing_adjustment_requests(
+        self, **kwargs: Unpack[ListBillingAdjustmentRequestsInputTypeDef]
+    ) -> ListBillingAdjustmentRequestsOutputTypeDef:
+        """
+        Lists billing adjustment requests for a specific agreement.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/list_billing_adjustment_requests.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#list_billing_adjustment_requests)
+        """
+
     def search_agreements(
         self, **kwargs: Unpack[SearchAgreementsInputTypeDef]
     ) -> SearchAgreementsOutputTypeDef:
@@ -156,6 +250,17 @@ class AgreementServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/search_agreements.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#search_agreements)
+        """
+
+    def send_agreement_cancellation_request(
+        self, **kwargs: Unpack[SendAgreementCancellationRequestInputTypeDef]
+    ) -> SendAgreementCancellationRequestOutputTypeDef:
+        """
+        Allows sellers (proposers) to submit a cancellation request for an active
+        agreement.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/send_agreement_cancellation_request.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#send_agreement_cancellation_request)
         """
 
     def send_agreement_payment_request(
@@ -170,9 +275,43 @@ class AgreementServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#send_agreement_payment_request)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agreement_cancellation_requests"]
+    ) -> ListAgreementCancellationRequestsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agreement_invoice_line_items"]
+    ) -> ListAgreementInvoiceLineItemsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_agreement_payment_requests"]
     ) -> ListAgreementPaymentRequestsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_billing_adjustment_requests"]
+    ) -> ListBillingAdjustmentRequestsPaginator:
         """
         Create a paginator for an operation.
 

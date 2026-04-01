@@ -31,7 +31,6 @@ from semdep.parsers.gem import parse_gemfile
 from semdep.parsers.go_mod import parse_go_mod
 from semdep.parsers.gradle import parse_gradle
 from semdep.parsers.mix import parse_mix
-from semdep.parsers.package_lock import parse_package_lock
 from semdep.parsers.packages_lock_c_sharp import (
     parse_packages_lock as parse_packages_lock_c_sharp,
 )
@@ -72,7 +71,7 @@ PARSERS_BY_LOCKFILE_KIND: Dict[out.LockfileKind, Union[DependencyParser, None]] 
     out.LockfileKind(out.PipRequirementsTxt()): DependencyParser(parse_requirements),
     out.LockfileKind(out.PoetryLock()): DependencyParser(parse_poetry),
     out.LockfileKind(out.UvLock()): None,
-    out.LockfileKind(out.NpmPackageLockJson()): DependencyParser(parse_package_lock),
+    out.LockfileKind(out.NpmPackageLockJson()): None,
     out.LockfileKind(out.YarnLock()): DependencyParser(parse_yarn),
     out.LockfileKind(out.PnpmLock()): DependencyParser(parse_pnpm),
     out.LockfileKind(out.GemfileLock()): DependencyParser(parse_gemfile),
@@ -105,9 +104,7 @@ class DependencyResolutionResult:
 
 def manifest_path_unless_lockfile_only(
     ds: Union[
-        out.ManifestOnly,
-        out.ManifestLockfile,
-        out.LockfileOnly,
+        out.ManifestOnly, out.ManifestLockfile, out.LockfileOnly, out.AuxillarySBOM
     ],
 ) -> out.Fpath:
     if isinstance(ds, out.LockfileOnly):
@@ -116,15 +113,22 @@ def manifest_path_unless_lockfile_only(
         return ds.value.path
     elif isinstance(ds, out.ManifestLockfile):
         return ds.value[0].path
+    elif isinstance(ds, out.AuxillarySBOM):
+        wrapped_ds = ds.value[1].value
+        # if it's wrapping a multilockfile, just take the first contained dependency source. We don't expect this to happen.
+        # TODO: rework multilockfile type, it's gross and overly general when it doesn't need to be.
+        if isinstance(wrapped_ds, out.MultiLockfile):
+            # it is not allowed for a MultiLockfile to contain another MultiLockfile
+            assert not isinstance(wrapped_ds.value[0].value, out.MultiLockfile)
+            return manifest_path_unless_lockfile_only(wrapped_ds.value[0].value)
+        return manifest_path_unless_lockfile_only(wrapped_ds)
     else:
         raise TypeError(f"Unexpected dependency_source variant1: {type(ds)}")
 
 
 def lockfile_path_unless_manifest_only(
     ds: Union[
-        out.ManifestOnly,
-        out.ManifestLockfile,
-        out.LockfileOnly,
+        out.ManifestOnly, out.ManifestLockfile, out.LockfileOnly, out.AuxillarySBOM
     ],
 ) -> out.Fpath:
     if isinstance(ds, out.LockfileOnly):
@@ -133,6 +137,17 @@ def lockfile_path_unless_manifest_only(
         return ds.value.path
     elif isinstance(ds, out.ManifestLockfile):
         return ds.value[1].path
+    elif isinstance(ds, out.AuxillarySBOM):
+        wrapped_ds = ds.value[1].value
+        # if it's wrapping a multilockfile, just take the first contained dependency source. We don't expect this to happen.
+        if isinstance(wrapped_ds, out.MultiLockfile):
+            logger.warning(
+                "Found AuxillarySBOM wrapping Multilockfile, taking first lockfile path"
+            )
+            # it is not allowed for a MultiLockfile to contain another MultiLockfile
+            assert not isinstance(wrapped_ds.value[0].value, out.MultiLockfile)
+            return lockfile_path_unless_manifest_only(wrapped_ds.value[0].value)
+        return lockfile_path_unless_manifest_only(wrapped_ds)
     else:
         raise TypeError(f"Unexpected dependency_source variant2: {type(ds)}")
 
@@ -143,6 +158,7 @@ def get_lockfile_kind(
         out.ManifestLockfile,
         out.ManifestOnly,
         out.MultiLockfile,
+        out.AuxillarySBOM,
     ],
 ) -> Optional[out.LockfileKind]:
     if isinstance(ds, out.LockfileOnly):
@@ -155,6 +171,9 @@ def get_lockfile_kind(
         )
         # In practice, there should only be a single lockfile kind.
         return kinds[0] if kinds else None
+    elif isinstance(ds, out.AuxillarySBOM):
+        assert not isinstance(ds.value[1].value, out.AuxillarySBOM)
+        return get_lockfile_kind(ds.value[1].value)
     elif isinstance(ds, out.ManifestOnly):
         return None
 
@@ -171,9 +190,7 @@ class ResolveDependenciesRpcResult:
 def _resolve_dependencies_rpc(
     *,
     dep_src: Union[
-        out.ManifestOnly,
-        out.ManifestLockfile,
-        out.LockfileOnly,
+        out.ManifestOnly, out.ManifestLockfile, out.LockfileOnly, out.AuxillarySBOM
     ],
     download_dependency_source_code: bool,
     allow_local_builds: bool,
@@ -496,6 +513,52 @@ def _handle_lockfile_source(
     )
 
 
+def _handle_auxillary_sbom_source(
+    dep_source: out.AuxillarySBOM,
+    config: DependencyResolutionConfig,
+    rpc_session: Optional[RpcSession] = None,
+) -> DependencyResolutionResult:
+    resolved_deps = _resolve_dependencies_rpc(
+        dep_src=dep_source,
+        download_dependency_source_code=config.download_dependency_source_code,
+        allow_local_builds=config.allow_local_builds,
+        rpc_session=rpc_session,
+    )
+    new_deps = resolved_deps.new_deps
+    new_errors = resolved_deps.new_errors
+    new_targets = resolved_deps.new_targets
+
+    logger.verbose(
+        f"SBOM resolution: {len(new_deps) if new_deps else 0} deps, "
+        f"{len(new_errors)} errors"
+    )
+
+    if new_deps is None:
+        # SBOM parsing failed — fall back to resolving the underlying dep source
+        # but add a safety check that there is not somehow another auxillarysbom inside,
+        # since that could cause an infinite loop as we recurse (if it's the same auxillarysbom)
+        if not isinstance(dep_source.value[1].value, out.AuxillarySBOM):
+            logger.verbose(
+                "SBOM resolution failed, falling back to underlying dep source"
+            )
+            inner_dep_source = dep_source.value[1]
+            return resolve_dependency_source(
+                inner_dep_source, config, rpc_session=rpc_session
+            )
+        else:
+            return DependencyResolutionResult(
+                deps=out.UnresolvedReason(out.UnresolvedFailed()),
+                errors=new_errors,
+                targets=new_targets,
+            )
+
+    return DependencyResolutionResult(
+        deps=(out.ResolutionMethod(out.SbomParsing()), new_deps),
+        errors=new_errors,
+        targets=new_targets,
+    )
+
+
 @simple_profiling
 @telemetry.trace(telemetry.TraceOwner.SSC)
 def resolve_dependency_source(
@@ -515,6 +578,10 @@ def resolve_dependency_source(
         "dependency_sources", [str(x) for x in get_display_paths(dep_source)]
     )
 
+    if isinstance(dep_source_, out.AuxillarySBOM):
+        return _handle_auxillary_sbom_source(
+            dep_source_, config, rpc_session=rpc_session
+        )
     if isinstance(dep_source_, out.LockfileOnly) or isinstance(
         dep_source_, out.ManifestLockfile
     ):
@@ -658,31 +725,6 @@ def group_packages_by_name_version_and_line_number(
     return packages
 
 
-def find_root_package_heuristic(
-    resolved_deps: List[out.ResolvedDependency],
-) -> Optional[out.ResolvedDependency]:
-    """Heuristic to identify root package resolved by Python npm lockfile parser.
-
-    The Python parser for npm lockfile v3 includes the root package, which the
-    OCaml parser doesn't. We implement a heuristic to identify the root package
-    in the Python parser results, so that we can ignore it in comparisons.
-    """
-    resolved = sorted(resolved_deps, key=lambda r: get_line_number(r))
-    if resolved:
-        first, _ = resolved[0].value
-        transitive = out.DependencyKind(out.Transitive())
-        # NOTE: It's quite unlikely that the first package resolved by other
-        # parsers would be a transitive dependency. So, this shouldn't be a
-        # problem with other parsers too.
-        if (
-            not first.allowed_hashes
-            and first.resolved_url is None
-            and first.transitivity == transitive
-        ):
-            return resolved[0]
-    return None
-
-
 def dependency_resolution_is_at_least_as_accurate(
     py: DependencyResolutionResult,
     ml: DependencyResolutionResult,
@@ -704,27 +746,10 @@ def dependency_resolution_is_at_least_as_accurate(
     pr.check_eq(set(py.errors), set(ml.errors), "Parser errors")
     pr.check_eq(set(py.targets), set(ml.targets), "Parser targets")
     pr.check_eq(py_res_meth, ml_res_meth, "Parser resolution method")
-    pr.check_gte(len(py_resolved), len(ml_resolved), "Number of resolved dependencies")
+    pr.check_eq(len(py_resolved), len(ml_resolved), "Number of resolved dependencies")
 
     py_resolved_nvs = set(name_version_tuple(r) for r in py_resolved)
     ml_resolved_nvs = set(name_version_tuple(r) for r in ml_resolved)
-    py_extra_nvs = py_resolved_nvs - ml_resolved_nvs
-    # TODO: This if block exists only to handle the presence of the root
-    # package in the Python npm lockfile parser. We can get rid of this
-    # entirely once the Python npm lockfile parser is gone!
-    if py_extra_nvs:
-        pr.check_eq(
-            1,
-            len(py_extra_nvs),
-            "Number of extra name/version pairs in Python parser result",
-        )
-        # If Python parser has resolved extra name/versions, check if it's the
-        # root package (heuristically) and ignore it if so
-        root_py = find_root_package_heuristic(py_resolved)
-        if root_py:
-            nv = name_version_tuple(root_py)
-            py_resolved_nvs.remove(nv)
-
     pr.check_eq(
         py_resolved_nvs,
         ml_resolved_nvs,

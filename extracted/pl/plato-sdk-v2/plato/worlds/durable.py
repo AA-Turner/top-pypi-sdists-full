@@ -36,6 +36,7 @@ import json
 import logging
 import re
 import string
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, Generic, TypeVar, Union, cast, get_args, get_origin, get_type_hints
@@ -558,6 +559,28 @@ def _resolve_deps(
     return resolved
 
 
+async def _notify_stage(stage_name: str, output_type: str, elapsed: float, base_path: str) -> None:
+    """Send slack notification for stage completion. Imported lazily to avoid circular deps."""
+    try:
+        from plato.worlds.slack import notify_stage_complete
+
+        await notify_stage_complete(stage_name, output_type, elapsed, base_path)
+    except Exception:
+        logger.error("Slack notification failed for stage %s", stage_name, exc_info=True)
+
+
+def _notify_stage_sync(stage_name: str, output_type: str, elapsed: float, base_path: str) -> None:
+    """Sync version — uses existing loop if available, otherwise creates one with a 5s timeout."""
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(_notify_stage(stage_name, output_type, elapsed, base_path))
+    except RuntimeError:
+        try:
+            asyncio.run(asyncio.wait_for(_notify_stage(stage_name, output_type, elapsed, base_path), timeout=5.0))
+        except Exception:
+            logger.error("Slack notification failed for stage %s", stage_name, exc_info=True)
+
+
 def durable(
     fn: Any | None = None,
     *,
@@ -635,11 +658,19 @@ def durable(
                     kwargs.update(dep_values)
 
                 token = _durable_base_path.set(bp)
+                t0 = time.monotonic()
                 try:
                     result = await fn(*args, **kwargs)
                 finally:
                     _durable_base_path.reset(token)
+                elapsed = time.monotonic() - t0
                 _save_typed_outputs(result, bp)
+                try:
+                    asyncio.get_running_loop().create_task(
+                        _notify_stage(fn.__name__, return_type.__name__, elapsed, str(bp))
+                    )
+                except Exception:
+                    logger.error("Failed to schedule Slack notification for %s", fn.__name__, exc_info=True)
                 return result
 
             async_wrapper.__durable_path__ = resolved_path
@@ -673,11 +704,14 @@ def durable(
                     kwargs.update(dep_values)
 
                 token = _durable_base_path.set(bp)
+                t0 = time.monotonic()
                 try:
                     result = fn(*args, **kwargs)
                 finally:
                     _durable_base_path.reset(token)
+                elapsed = time.monotonic() - t0
                 _save_typed_outputs(result, bp)
+                _notify_stage_sync(fn.__name__, return_type.__name__, elapsed, str(bp))
                 return result
 
             sync_wrapper.__durable_path__ = resolved_path

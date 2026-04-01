@@ -31,6 +31,8 @@ __all__ = (
     "AutoTuneDesiredStateType",
     "AutoTuneStateType",
     "AutoTuneTypeType",
+    "CapabilityFailureReasonType",
+    "CapabilityStatusType",
     "ConfigChangeStatusType",
     "ConnectionModeType",
     "DataSourceStatusType",
@@ -121,6 +123,10 @@ AutoTuneStateType = Literal[
     "ERROR",
 ]
 AutoTuneTypeType = Literal["SCHEDULED_ACTION"]
+CapabilityFailureReasonType = Literal["KMS_KEY_INSUFFICIENT_PERMISSION"]
+CapabilityStatusType = Literal[
+    "active", "create_failed", "creating", "delete_failed", "deleting", "update_failed", "updating"
+]
 ConfigChangeStatusType = Literal[
     "ApplyingChanges",
     "Cancelled",
@@ -706,6 +712,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -741,6 +748,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",

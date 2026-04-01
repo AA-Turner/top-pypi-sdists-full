@@ -44445,7 +44445,7 @@ class ServiceManagedVolume(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
-        '''Name of the volume, referenced by taskdefintion and mount point.'''
+        '''Name of the volume, referenced by task definition and mount point.'''
         return typing.cast(builtins.str, jsii.get(self, "name"))
 
     @builtins.property

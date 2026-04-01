@@ -8,14 +8,22 @@ import logging
 import os
 import shlex
 import sys
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+from pydantic import BaseModel
 from rich.console import Console
 
-from plato.chronos.api.sessions import complete_session, create_session
-from plato.chronos.models import CompleteSessionRequest, CreateSessionRequest, CreateSessionResponse, Status1
+from plato.chronos.api.sessions import complete_session, create_session, link_plato_session
+from plato.chronos.models import (
+    CompleteSessionRequest,
+    CreateSessionRequest,
+    CreateSessionResponse,
+    LinkPlatoSessionRequest,
+    Status1,
+)
 from plato.cli.chronos.dev.paths import get_sdk_root
 from plato.cli.chronos.dev.runner import resolve_agent_images
 from plato.cli.chronos.dev.ssh import SSHKeyPair, build_ssh_command, build_ssh_command_string
@@ -29,11 +37,35 @@ from plato.otel import get_tracer, init_tracing, shutdown_tracing
 from plato.runtime import VMRuntimeConfig
 from plato.utils.pypi_index import plato_token_simple_index, redact_pypi_token_credential
 from plato.v2 import AsyncPlato, Env
+from plato.v2.async_.session import SerializedSession, Session
 from plato.v2.types import SimConfigCompute
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
 console = Console()
+
+
+class ReusableVM(BaseModel):
+    """Persisted VM state for reuse across test runs."""
+
+    job_id: str
+    session: SerializedSession
+    ssh_private_key: str
+    ssh_public_key: str
+
+    def save(self, path: Path) -> None:
+        path.write_text(self.model_dump_json(indent=2) + "\n")
+        path.chmod(0o600)
+
+    @classmethod
+    def load(cls, path: Path) -> ReusableVM:
+        return cls.model_validate_json(path.read_text())
+
+
+def _reuse_file_path(config_path: Path) -> Path:
+    """Return the reuse file path derived from the config file name."""
+    stem = config_path.stem
+    return config_path.parent / f".chronos-test-vm-{stem}.json"
 
 
 def _slug(value: str) -> str:
@@ -71,7 +103,9 @@ class TestRunner:
         phase_filter: str,
         pytest_args: str | None,
         artifacts_dir: Path | None,
-        keep_vm_on_fail: bool,
+        keep_vm: bool = False,
+        reuse_vm: bool = False,
+        clean: bool = False,
         verbose: bool,
     ):
         self.config = config
@@ -79,7 +113,9 @@ class TestRunner:
         self.api_key = api_key
         self.phase_filter = phase_filter
         self.pytest_args = (pytest_args or "").strip()
-        self.keep_vm_on_fail = keep_vm_on_fail
+        self.keep_vm = keep_vm
+        self.reuse_vm = reuse_vm
+        self.clean = clean
         self.verbose = verbose
 
         self.plato: AsyncPlato | None = None
@@ -132,7 +168,8 @@ class TestRunner:
 
             self._write_summary(exit_code=exit_code, status=status, error_message=error_message)
 
-            keep_vm = self.keep_vm_on_fail and exit_code != 0
+            vm_usable = self.world_env is not None
+            keep_vm = vm_usable and (self.keep_vm or self.reuse_vm)
             await self._cleanup(keep_vm=keep_vm)
 
             self._print(f"TEST_STATUS={status}")
@@ -142,7 +179,7 @@ class TestRunner:
                 self._print(f"CHRONOS_URL={settings.chronos_url}/sessions/{self.session_id}")
 
             if keep_vm and self.world_env:
-                self._print(f"VM kept alive for debugging: {self.world_env.job_id}")
+                self._print(f"VM kept alive for reuse: {self.world_env.job_id}")
 
             console.print(f"\n[dim]Artifacts:[/dim] {self.artifacts_dir}")
 
@@ -156,6 +193,10 @@ class TestRunner:
         return (self.config_path.parent / value).resolve()
 
     async def _setup_vm(self) -> None:
+        if self.reuse_vm:
+            await self._setup_vm_reuse()
+            return
+
         world_package, world_version = parse_package_string(self.config.world.package)
         world_image = self.config.world.image
         if not world_image:
@@ -222,6 +263,10 @@ class TestRunner:
         )
         await self.session.start_heartbeat()
 
+        # Link the Plato session to the Chronos session so the environments
+        # tab is populated in the UI.
+        await self._link_plato_session(self.session.session_id)
+
         # Build sync targets from config
         sync_targets = self._build_sync_targets()
 
@@ -239,9 +284,132 @@ class TestRunner:
 
         await self._install_editable_packages()
         self._print("[setup] Code synced and packages installed")
-        # Resolve ${VAR} placeholders in world config. First from Chronos
-        # analyzer-env (same as the backend launch flow), then from pass_env
-        # values so GitHub Actions secrets forwarded via pass_env also work.
+
+        await self._resolve_and_write_config()
+        self._print("[setup] VM ready for tests")
+
+    async def _setup_vm_reuse(self) -> None:
+        """Reuse an existing VM: restore session, rsync code, skip editable install."""
+        reuse_path = _reuse_file_path(self.config_path)
+        if not reuse_path.exists():
+            raise RuntimeError(f"No reuse file found at {reuse_path}. Run with --keep-vm first to create one.")
+
+        self._print(f"[reuse] Loading VM state from {reuse_path}")
+        vm_state = ReusableVM.load(reuse_path)
+
+        world_package, _ = parse_package_string(self.config.world.package)
+
+        # Resolve world_name from schema if needed
+        if not self.config.world.world_name:
+            _, world_version = parse_package_string(self.config.world.package)
+            world_schema = await get_world_schema(world_package, world_version, None)
+            self.config = self.config.model_copy(
+                update={"world": self.config.world.model_copy(update={"world_name": world_schema.get("name")})}
+            )
+
+        # Create a fresh Chronos session for telemetry
+        chronos = await self._create_chronos_session()
+        self.session_id = chronos.public_id
+        self._print(f"CHRONOS_SESSION_ID={self.session_id}")
+        self._print(f"CHRONOS_URL={settings.chronos_url}/sessions/{self.session_id}")
+        otel_url = chronos.otel_url or f"{settings.chronos_url}/api/otel"
+        self.config = self.config.model_copy(
+            update={
+                "session": self.config.session.model_copy(
+                    update={
+                        "session_id": chronos.public_id,
+                        "otel_url": otel_url,
+                        "chronos_url": settings.chronos_url,
+                    }
+                )
+            }
+        )
+
+        try:
+            init_tracing(
+                service_name=f"chronos-test.{world_package}",
+                session_id=self.session_id,
+                otlp_endpoint=otel_url,
+            )
+            self._tracing_initialized = True
+        except Exception:  # noqa: BLE001
+            logger.warning("Failed to initialize OTel tracing", exc_info=True)
+
+        # Restore the Plato session from serialized state, using the current API key
+        # in case credentials have rotated since the reuse file was saved.
+        self._print(f"[reuse] Reconnecting to VM {vm_state.job_id}...")
+        self.plato = AsyncPlato()
+        session_data = vm_state.session.model_copy(update={"api_key": self.api_key})
+        self.session = await Session.load(session_data, start_heartbeat=True)
+
+        # Restore SSH key from saved content
+        key_dir = Path(tempfile.mkdtemp(prefix="plato_ssh_reuse_"))
+        private_key_path = key_dir / "id_ed25519"
+        public_key_path = key_dir / "id_ed25519.pub"
+        private_key_path.write_text(vm_state.ssh_private_key)
+        private_key_path.chmod(0o600)
+        public_key_path.write_text(vm_state.ssh_public_key)
+        public_key_path.chmod(0o644)
+        self.ssh_key = SSHKeyPair(private_key_path=private_key_path, public_key=vm_state.ssh_public_key)
+
+        # Verify SSH connectivity before committing to this VM
+        from plato.cli.chronos.dev.ssh import wait_for_ssh_reachable
+
+        reachable = await wait_for_ssh_reachable(vm_state.job_id, private_key_path, retries=3, delay=2.0)
+        if not reachable:
+            reuse_path.unlink(missing_ok=True)
+            raise RuntimeError(
+                f"VM {vm_state.job_id} is no longer reachable. "
+                f"Removed stale reuse file. Run without --reuse-vm to provision a new VM."
+            )
+
+        # VM confirmed reachable — safe to assign world_env (controls reuse file saving)
+        self.world_env = self.session.envs[0]
+        await self._link_plato_session(self.session.session_id)
+        self._print("[reuse] SSH connected")
+
+        if self.clean:
+            await self._clean_vm_state()
+
+        # Rsync code to the existing VM (skip editable install)
+        sync_targets = self._build_sync_targets()
+        self.sync_manager = SyncManager(self.ssh_key.private_key_path, verbose=self.verbose)
+        for target in sync_targets:
+            self.sync_manager.add_target(
+                local_path=target.local_path,
+                remote_path=target.remote_path,
+                job_id=vm_state.job_id,
+            )
+
+        synced = await self.sync_manager.initial_sync()
+        if synced != len(self.sync_manager.targets):
+            failed = len(self.sync_manager.targets) - synced
+            raise RuntimeError(f"Sync failed for {failed} target(s)")
+        self._print("[reuse] Code synced (skipped editable install)")
+
+        await self._resolve_and_write_config()
+        self._print("[reuse] VM ready for tests")
+
+    async def _clean_vm_state(self) -> None:
+        """Fast-clean workspace and cache dirs on the VM using mv + background rm."""
+        if not self.world_env:
+            raise RuntimeError("world_env must be initialized")
+
+        # mv is instant (inode rename), rm runs in background
+        clean_script = (
+            "set -e; "
+            "for d in /state /tmp/plato-*; do "
+            '  [ -e "$d" ] && mv "$d" "${d}.cleanup.$$" && mkdir -p "$d"; '
+            "done; "
+            "rm -rf /state.cleanup.* /tmp/plato-*.cleanup.* &"
+        )
+        result = await self.world_env.execute(clean_script, timeout=30)
+        if result.exit_code != 0:
+            raise RuntimeError(f"VM clean failed (exit {result.exit_code}): {result.stderr}")
+        self._print("[reuse] Cleaned workspace state")
+
+    async def _resolve_and_write_config(self) -> None:
+        """Resolve ${VAR} placeholders in world config and write runtime files to the VM."""
         world_config = self.config.world.config or {}
         await resolve_config_env_vars(world_config, self.api_key)
         pass_env_values = {name: val for name in self.config.test.pass_env if (val := os.environ.get(name))}
@@ -252,11 +420,8 @@ class TestRunner:
             if isinstance(substituted, dict):
                 world_config.clear()
                 world_config.update(substituted)
-        # Resolve agent package → image URIs (same as dev runner / Chronos backend)
         await resolve_agent_images(world_config, self.api_key)
         await self._write_runtime_files()
-
-        self._print("[setup] VM ready for tests")
 
     def _build_sync_targets(self) -> list[SyncTarget]:
         """Build the list of sync targets from config."""
@@ -413,6 +578,12 @@ class TestRunner:
             raise RuntimeError("VM and SSH key must be initialized")
 
         env_map = {"PLATO_API_KEY": self.api_key, **self.config.test.env}
+        # Tell the world runner not to call /complete — the test runner
+        # handles session completion after collecting artifacts.  The
+        # Chronos /complete endpoint closes the Plato session (killing
+        # the VM), so calling it from within the VM is fatal.
+        # Set after merging test.env so it cannot be accidentally overridden.
+        env_map["PLATO_WORLD_TEST_MODE"] = "1"
 
         for env_name in self.config.test.pass_env:
             value = os.environ.get(env_name)
@@ -529,6 +700,26 @@ class TestRunner:
         ) as client:
             return await create_session.asyncio(client, body=body, x_api_key=self.api_key)
 
+    async def _link_plato_session(self, plato_session_id: str) -> None:
+        """Link the Plato session to the Chronos session so envs tab is populated."""
+        if not self.session_id:
+            return
+
+        body = LinkPlatoSessionRequest(plato_session_id=plato_session_id)
+        try:
+            async with httpx.AsyncClient(
+                base_url=settings.chronos_url.rstrip("/"),
+                timeout=30.0,
+            ) as client:
+                await link_plato_session.asyncio(
+                    client,
+                    public_id=self.session_id,
+                    body=body,
+                    x_api_key=self.api_key,
+                )
+        except Exception:  # noqa: BLE001
+            logger.warning("Failed to link Plato session to Chronos", exc_info=True)
+
     async def _complete_chronos_session(
         self,
         status: str,
@@ -570,6 +761,26 @@ class TestRunner:
         }
         self.summary_path.write_text(json.dumps(summary, indent=2) + "\n")
 
+    def _save_reuse_file(self) -> None:
+        """Save VM state to a reuse file for subsequent --reuse-vm runs."""
+        if not self.session or not self.ssh_key or not self.world_env:
+            logger.warning("Cannot save reuse file: session/SSH key/env not initialized")
+            return
+
+        try:
+            reuse_path = _reuse_file_path(self.config_path)
+            vm_state = ReusableVM(
+                job_id=self.world_env.job_id,
+                session=self.session.dump(),
+                ssh_private_key=self.ssh_key.private_key_path.read_text(),
+                ssh_public_key=self.ssh_key.public_key,
+            )
+            vm_state.save(reuse_path)
+            self._print(f"[reuse] VM state saved to {reuse_path}")
+            self._print(f"[reuse] Reuse with: plato chronos test {self.config_path} --reuse-vm")
+        except Exception:  # noqa: BLE001
+            logger.warning("Failed to save reuse file", exc_info=True)
+
     async def _cleanup(self, *, keep_vm: bool) -> None:
         if self._tracing_initialized:
             shutdown_tracing()
@@ -578,10 +789,12 @@ class TestRunner:
             self.sync_manager.stop()
 
         if keep_vm:
+            self._save_reuse_file()
             return
 
         logger.info("Cleaning up session and VM...")
-        if self.session:
+        if self.session and not self.reuse_vm:
+            # Don't close the underlying Plato session when reusing — we didn't create it
             await self.session.close()
             logger.info("Session closed: %s", self.session_id)
         if self.plato:

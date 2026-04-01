@@ -12,6 +12,13 @@ from pymobiledevice3.exceptions import PyMobileDevice3Exception, TSSError
 from pymobiledevice3.restore.img4 import COMPONENT_FOURCC
 from pymobiledevice3.utils import bytes_to_uint, plist_access_path
 
+# Use the following `defaults write` to easily sniff Apple Configurator:
+#
+# ```shell
+# defaults write com.apple.configurator.ui AuthInstallSigningServerURL http://gs.apple.com:80
+# defaults write com.apple.configurator.xpc.DeviceService AuthInstallSigningServerURL http://gs.apple.com:80
+# defaults write com.apple.AMPDevicesAgent AuthInstallSigningServerURL http://gs.apple.com:80
+# ```
 TSS_CONTROLLER_ACTION_URL = "http://gs.apple.com/TSS/controller?action=2"
 
 TSS_CLIENT_VERSION_STRING = "libauthinstall-1104.0.9"

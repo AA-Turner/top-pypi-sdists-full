@@ -1,16 +1,18 @@
 """Command line interface to schema-salad."""
 
 import argparse
+import importlib.metadata
 import logging
 import os
 import sys
 from collections.abc import Mapping, MutableSequence
-from typing import Any, Final, Optional, Union, cast
+from typing import Any, Final, cast
 from urllib.parse import urlparse
 
 from rdflib import __version__ as rdflib_version
 from rdflib.parser import Parser
 from rdflib.plugin import register
+from rich_argparse import HelpPreviewAction, RichHelpFormatter
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from . import codegen, jsonld_context, schema
@@ -23,14 +25,13 @@ from .utils import json_dump, stdout
 if int(rdflib_version.split(".", maxsplit=1)[0]) < 6:
     register("json-ld", Parser, "rdflib_jsonld.parser", "JsonLDParser")
 
-import importlib.metadata
 
 _logger: Final = logging.getLogger("salad")
 
 
 def printrdf(
     workflow: str,
-    wf: Union[CommentedMap, CommentedSeq],
+    wf: CommentedMap | CommentedSeq,
     ctx: dict[str, Any],
     sr: str,
 ) -> None:
@@ -40,19 +41,21 @@ def printrdf(
 
 def arg_parser() -> argparse.ArgumentParser:
     """Build the argument parser."""
-    parser: Final = argparse.ArgumentParser()
+    RichHelpFormatter.group_name_formatter = str
+    parser: Final = argparse.ArgumentParser(
+        formatter_class=RichHelpFormatter, description="Validate Salad schemas or documents."
+    )
     parser.add_argument(
         "--rdf-serializer",
-        help="Output RDF serialization format used by --print-rdf"
-        "(one of turtle (default), n3, nt, xml)",
+        help="Output RDF serialization format used by --print-rdf "
+        "(one of `turtle` (default), `n3`, `nt`, `xml`)",
         default="turtle",
     )
-
     parser.add_argument(
         "--skip-schemas",
         action="store_true",
         default=False,
-        help="If specified, ignore $schemas sections.",
+        help="If specified, ignore `$schemas` sections.",
     )
     parser.add_argument(
         "--strict-foreign-properties",
@@ -60,121 +63,133 @@ def arg_parser() -> argparse.ArgumentParser:
         help="Strict checking of foreign properties",
         default=False,
     )
+    parser.add_argument("schema", type=str, nargs="?", default=None)
+    parser.add_argument("document", type=str, nargs="*", default=None)
+    parser.add_argument("--version", "-v", action="store_true", help="Print version", default=None)
 
-    exgroup: Final = parser.add_mutually_exclusive_group()
-    exgroup.add_argument(
+    parser.add_argument(
+        "--generate-help-preview",
+        action=HelpPreviewAction,
+        path="help-preview.svg",  # (optional) or "help-preview.html" or "help-preview.txt"
+    )
+
+    exgroup: Final = parser.add_argument_group(title="Output type and format")
+    output_exclusive = exgroup.add_mutually_exclusive_group()
+    output_exclusive.add_argument(
         "--print-jsonld-context",
         action="store_true",
         help="Print JSON-LD context for schema",
     )
-    exgroup.add_argument("--print-rdfs", action="store_true", help="Print RDF schema")
-    exgroup.add_argument("--print-avro", action="store_true", help="Print Avro schema")
-
-    exgroup.add_argument(
+    output_exclusive.add_argument("--print-rdfs", action="store_true", help="Print RDF schema")
+    output_exclusive.add_argument("--print-avro", action="store_true", help="Print Avro schema")
+    output_exclusive.add_argument(
         "--print-rdf",
         action="store_true",
         help="Print corresponding RDF graph for document",
     )
-    exgroup.add_argument(
+    output_exclusive.add_argument(
         "--print-pre", action="store_true", help="Print document after preprocessing"
     )
-    exgroup.add_argument("--print-index", action="store_true", help="Print node index")
-    exgroup.add_argument("--print-metadata", action="store_true", help="Print document metadata")
-    exgroup.add_argument(
+    output_exclusive.add_argument("--print-index", action="store_true", help="Print node index")
+    output_exclusive.add_argument(
+        "--print-metadata", action="store_true", help="Print document metadata"
+    )
+    output_exclusive.add_argument(
         "--print-inheritance-dot",
         action="store_true",
         help="Print graphviz file of inheritance",
     )
-    exgroup.add_argument(
+    output_exclusive.add_argument(
         "--print-fieldrefs-dot",
         action="store_true",
         help="Print graphviz file of field refs",
     )
-
-    exgroup.add_argument(
+    output_exclusive.add_argument(
         "--codegen",
         type=str,
-        metavar="language",
+        metavar="LANGUAGE",
         help="Generate classes in target language, currently supported: "
-        "python, java, typescript, dotnet, cpp, dlang",
+        "`python`, `java`, `typescript`, `dotnet`, `cpp`, `dlang`",
+    )
+    output_exclusive.add_argument(
+        "--print-oneline",
+        action="store_true",
+        help="Print each error message in oneline",
+    )
+    output_exclusive.add_argument(
+        "--print-doc", action="store_true", help="Print HTML schema documentation page"
     )
 
-    parser.add_argument(
+    codegen_opts = parser.add_argument_group(
+        title="Code generation configuration", description="Requires --codegen LANGUAGE"
+    )
+    codegen_opts.add_argument(
         "--codegen-target",
         type=str,
         default=None,
-        help="Defaults to sys.stdout for Python/C++/Dlang and ./ for " "Java/TypeScript/.Net",
+        help="Defaults to `sys.stdout` for Python/C++/Dlang and `./` for Java/TypeScript/.Net",
     )
 
-    parser.add_argument(
+    codegen_opts.add_argument(
         "--codegen-examples",
         type=str,
-        metavar="directory",
+        metavar="DIRECTORY",
         default=None,
         help="Directory of example documents for test case generation (Java/TypeScript/.Net/Dlang only).",
     )
 
-    parser.add_argument(
+    codegen_opts.add_argument(
         "--codegen-package",
         type=str,
-        metavar="dotted.package",
+        metavar="DOTTED.PACKAGE",
         default=None,
-        help="Optional override of the package name which is other derived "
+        help="Optional override of the package name which is otherwise derived "
         "from the base URL (Java/TypeScript/.Net/Dlang only).",
     )
 
-    parser.add_argument(
+    codegen_opts.add_argument(
         "--codegen-copyright",
         type=str,
-        metavar="copyright_string",
+        metavar="COPYRIGHT_STRING",
         default=None,
         help="Optional copyright of the input schema.",
     )
 
-    parser.add_argument(
+    codegen_opts.add_argument(
         "--codegen-spdx-copyright-text",
         nargs="+",
-        metavar="spdx_copyright_text",
+        metavar="SPDX_COPYRIGHT_TEXT",
         default=[],
         help="List of copyright text. Each entry will show up as "
-        "'SPDX-FileCopyrightText: ...' (Currently c++ only)",
+        "`SPDX-FileCopyrightText: ...` (Currently C++ only)",
     )
 
-    parser.add_argument(
+    codegen_opts.add_argument(
         "--codegen-spdx-license-identifier",
         type=str,
-        metavar="spdx_license_identifier",
+        metavar="SPDX_LICENSE_IDENTIFIER",
         default=None,
-        help="Optional spdx license identifier, e.g.: GPL-3.0-only (Currently c++ only)",
+        help="Optional spdx license identifier, e.g.: GPL-3.0-only (Currently C++ only)",
     )
 
-    parser.add_argument(
+    codegen_opts.add_argument(
         "--codegen-parser-info",
-        metavar="parser_info",
+        metavar="PARSER_INFO",
         type=str,
         default=None,
         help="Optional parser name which is accessible via resulted parser API (Python and Dlang only)",
     )
 
-    exgroup.add_argument(
-        "--print-oneline",
-        action="store_true",
-        help="Print each error message in oneline",
-    )
-
-    exgroup.add_argument(
-        "--print-doc", action="store_true", help="Print HTML schema documentation page"
-    )
-
-    exgroup_strict: Final = parser.add_mutually_exclusive_group()
-    exgroup_strict.add_argument(
+    exgroup_strict: Final = parser.add_argument_group(title="Validation strictness")
+    strict_exclusive = exgroup_strict.add_mutually_exclusive_group()
+    strict_exclusive.add_argument(
         "--strict",
         action="store_true",
         help="Strict validation (unrecognized or out of place fields are error)",
         default=True,
         dest="strict",
     )
-    exgroup_strict.add_argument(
+    strict_exclusive.add_argument(
         "--non-strict",
         action="store_false",
         help="Lenient validation (ignore unrecognized fields)",
@@ -182,51 +197,52 @@ def arg_parser() -> argparse.ArgumentParser:
         dest="strict",
     )
 
-    exgroup_volume: Final = parser.add_mutually_exclusive_group()
-    exgroup_volume.add_argument("--verbose", action="store_true", help="Default logging")
-    exgroup_volume.add_argument(
+    exgroup_volume: Final = parser.add_argument_group(title="Logging detail level")
+    logging_exclusive = exgroup_volume.add_mutually_exclusive_group()
+    logging_exclusive.add_argument("--verbose", action="store_true", help="Default logging")
+    logging_exclusive.add_argument(
         "--quiet", action="store_true", help="Only print warnings and errors."
     )
-    exgroup_volume.add_argument("--debug", action="store_true", help="Print even more logging")
+    logging_exclusive.add_argument("--debug", action="store_true", help="Print even more logging")
 
-    parser.add_argument(
+    print_opts = parser.add_argument_group(
+        title="Documentation generation options", description="Requires --print-doc"
+    )
+    print_opts.add_argument(
         "--only",
         action="append",
-        help="Use with --print-doc, document only listed types",
+        help="Document only listed types",
     )
-    parser.add_argument(
+    print_opts.add_argument(
         "--redirect",
         action="append",
-        help="Use with --print-doc, override default link for type",
+        help="Override default link for type",
     )
-    parser.add_argument("--brand", help="Use with --print-doc, set the 'brand' text in nav bar")
-    parser.add_argument(
+    print_opts.add_argument("--brand", help="Set the 'brand' text in nav bar")
+    print_opts.add_argument(
         "--brandlink",
-        help="Use with --print-doc, set the link for 'brand' in nav bar",
+        help="Set the link for 'brand' in nav bar",
     )
-    parser.add_argument(
+    print_opts.add_argument(
         "--brandstyle",
-        help="Use with --print-doc, HTML code to link to an external style sheet",
+        help="HTML code to link to an external style sheet",
     )
-    parser.add_argument(
+    print_opts.add_argument(
         "--brandinverse",
         default=False,
         action="store_true",
-        help="Use with --print-doc",
+        help="Set to use the dark navigation bar style.",
     )
-    parser.add_argument(
+    print_opts.add_argument(
         "--primtype",
         default="#PrimitiveType",
-        help="Use with --print-doc, link to use for primitive types (string, int etc)",
+        help="Link to use for primitive types (string, int etc)",
     )
 
-    parser.add_argument("schema", type=str, nargs="?", default=None)
-    parser.add_argument("document", type=str, nargs="*", default=None)
-    parser.add_argument("--version", "-v", action="store_true", help="Print version", default=None)
     return parser
 
 
-def main(argsl: Optional[list[str]] = None) -> int:
+def main(argsl: list[str] | None = None) -> int:
     """Run the schema-salad-tool."""
     if argsl is None:
         argsl = sys.argv[1:]
@@ -234,7 +250,8 @@ def main(argsl: Optional[list[str]] = None) -> int:
     args: Final = arg_parser().parse_args(argsl)
 
     if args.version is None and args.schema is None:
-        print(f"{sys.argv[0]}: error: too few arguments.")
+        _logger.error("Error: too few arguments.")
+        arg_parser().print_help(sys.stderr)
         return 1
 
     if args.quiet:
@@ -314,7 +331,7 @@ def main(argsl: Optional[list[str]] = None) -> int:
     if "$base" in schema_metadata:
         metactx["@base"] = schema_metadata["$base"]
     if isinstance(schema_doc, CommentedSeq):
-        (schema_ctx, rdfs) = jsonld_context.salad_to_jsonld_context(schema_doc, metactx)
+        schema_ctx, rdfs = jsonld_context.salad_to_jsonld_context(schema_doc, metactx)
     else:
         raise ValidationException(f"Expected a CommentedSeq, got {type(schema_doc)}: {schema_doc}.")
 

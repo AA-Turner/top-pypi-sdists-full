@@ -382,6 +382,7 @@ from types_boto3_schemas.client import SchemasClient
 from types_boto3_sdb.client import SimpleDBClient
 from types_boto3_secretsmanager.client import SecretsManagerClient
 from types_boto3_security_ir.client import SecurityIncidentResponseClient
+from types_boto3_securityagent.client import SecurityAgentClient
 from types_boto3_securityhub.client import SecurityHubClient
 from types_boto3_securitylake.client import SecurityLakeClient
 from types_boto3_serverlessrepo.client import ServerlessApplicationRepositoryClient
@@ -419,6 +420,7 @@ from types_boto3_sts.client import STSClient
 from types_boto3_supplychain.client import SupplyChainClient
 from types_boto3_support.client import SupportClient
 from types_boto3_support_app.client import SupportAppClient
+from types_boto3_sustainability.client import SustainabilityClient
 from types_boto3_swf.client import SWFClient
 from types_boto3_synthetics.client import SyntheticsClient
 from types_boto3_taxsettings.client import TaxSettingsClient
@@ -6833,6 +6835,24 @@ def client(
 
 @overload
 def client(
+    service_name: Literal["securityagent"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> SecurityAgentClient:
+    """
+    Create client for SecurityAgent service.
+    """
+
+@overload
+def client(
     service_name: Literal["securityhub"],
     region_name: str | None = ...,
     api_version: str | None = ...,
@@ -7459,6 +7479,24 @@ def client(
 ) -> SupportAppClient:
     """
     Create client for SupportApp service.
+    """
+
+@overload
+def client(
+    service_name: Literal["sustainability"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> SustainabilityClient:
+    """
+    Create client for Sustainability service.
     """
 
 @overload

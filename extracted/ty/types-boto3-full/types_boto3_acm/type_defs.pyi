@@ -8,16 +8,16 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_acm.type_defs import TagTypeDef
+    from types_boto3_acm.type_defs import AcmCertificateMetadataFilterTypeDef
 
-    data: TagTypeDef = ...
+    data: AcmCertificateMetadataFilterTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -28,6 +28,7 @@ from .literals import (
     CertificateStatusType,
     CertificateTransparencyLoggingPreferenceType,
     CertificateTypeType,
+    ComparisonOperatorType,
     DomainStatusType,
     ExtendedKeyUsageNameType,
     FailureReasonType,
@@ -36,6 +37,8 @@ from .literals import (
     RenewalEligibilityType,
     RenewalStatusType,
     RevocationReasonType,
+    SearchCertificatesSortByType,
+    SearchCertificatesSortOrderType,
     SortOrderType,
     ValidationMethodType,
 )
@@ -46,15 +49,26 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AcmCertificateMetadataFilterTypeDef",
+    "AcmCertificateMetadataTypeDef",
     "AddTagsToCertificateRequestTypeDef",
     "BlobTypeDef",
     "CertificateDetailTypeDef",
+    "CertificateFilterStatementPaginatorTypeDef",
+    "CertificateFilterStatementTypeDef",
+    "CertificateFilterTypeDef",
+    "CertificateMetadataTypeDef",
     "CertificateOptionsTypeDef",
+    "CertificateSearchResultTypeDef",
     "CertificateSummaryTypeDef",
+    "CommonNameFilterTypeDef",
+    "CustomAttributeTypeDef",
     "DeleteCertificateRequestTypeDef",
     "DescribeCertificateRequestTypeDef",
     "DescribeCertificateRequestWaitTypeDef",
     "DescribeCertificateResponseTypeDef",
+    "DistinguishedNameTypeDef",
+    "DnsNameFilterTypeDef",
     "DomainValidationOptionTypeDef",
     "DomainValidationTypeDef",
     "EmptyResponseMetadataTypeDef",
@@ -63,6 +77,7 @@ __all__ = (
     "ExportCertificateResponseTypeDef",
     "ExtendedKeyUsageTypeDef",
     "FiltersTypeDef",
+    "GeneralNameTypeDef",
     "GetAccountConfigurationResponseTypeDef",
     "GetCertificateRequestTypeDef",
     "GetCertificateResponseTypeDef",
@@ -75,6 +90,7 @@ __all__ = (
     "ListCertificatesResponseTypeDef",
     "ListTagsForCertificateRequestTypeDef",
     "ListTagsForCertificateResponseTypeDef",
+    "OtherNameTypeDef",
     "PaginatorConfigTypeDef",
     "PutAccountConfigurationRequestTypeDef",
     "RemoveTagsFromCertificateRequestTypeDef",
@@ -87,9 +103,50 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "RevokeCertificateRequestTypeDef",
     "RevokeCertificateResponseTypeDef",
+    "SearchCertificatesRequestPaginateTypeDef",
+    "SearchCertificatesRequestTypeDef",
+    "SearchCertificatesResponseTypeDef",
+    "SubjectAlternativeNameFilterTypeDef",
+    "SubjectFilterTypeDef",
     "TagTypeDef",
+    "TimestampRangeTypeDef",
+    "TimestampTypeDef",
     "UpdateCertificateOptionsRequestTypeDef",
     "WaiterConfigTypeDef",
+    "X509AttributeFilterTypeDef",
+    "X509AttributesTypeDef",
+)
+
+AcmCertificateMetadataFilterTypeDef = TypedDict(
+    "AcmCertificateMetadataFilterTypeDef",
+    {
+        "Status": NotRequired[CertificateStatusType],
+        "RenewalStatus": NotRequired[RenewalStatusType],
+        "Type": NotRequired[CertificateTypeType],
+        "InUse": NotRequired[bool],
+        "Exported": NotRequired[bool],
+        "ExportOption": NotRequired[CertificateExportType],
+        "ManagedBy": NotRequired[Literal["CLOUDFRONT"]],
+        "ValidationMethod": NotRequired[ValidationMethodType],
+    },
+)
+AcmCertificateMetadataTypeDef = TypedDict(
+    "AcmCertificateMetadataTypeDef",
+    {
+        "CreatedAt": NotRequired[datetime],
+        "Exported": NotRequired[bool],
+        "ImportedAt": NotRequired[datetime],
+        "InUse": NotRequired[bool],
+        "IssuedAt": NotRequired[datetime],
+        "RenewalEligibility": NotRequired[RenewalEligibilityType],
+        "RevokedAt": NotRequired[datetime],
+        "Status": NotRequired[CertificateStatusType],
+        "RenewalStatus": NotRequired[RenewalStatusType],
+        "Type": NotRequired[CertificateTypeType],
+        "ExportOption": NotRequired[CertificateExportType],
+        "ManagedBy": NotRequired[Literal["CLOUDFRONT"]],
+        "ValidationMethod": NotRequired[ValidationMethodType],
+    },
 )
 
 class TagTypeDef(TypedDict):
@@ -137,6 +194,14 @@ CertificateSummaryTypeDef = TypedDict(
     },
 )
 
+class CommonNameFilterTypeDef(TypedDict):
+    Value: str
+    ComparisonOperator: ComparisonOperatorType
+
+class CustomAttributeTypeDef(TypedDict):
+    ObjectIdentifier: NotRequired[str]
+    Value: NotRequired[str]
+
 class DeleteCertificateRequestTypeDef(TypedDict):
     CertificateArn: str
 
@@ -153,6 +218,10 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class DnsNameFilterTypeDef(TypedDict):
+    Value: str
+    ComparisonOperator: ComparisonOperatorType
 
 class DomainValidationOptionTypeDef(TypedDict):
     DomainName: str
@@ -181,6 +250,10 @@ class FiltersTypeDef(TypedDict):
     exportOption: NotRequired[CertificateExportType]
     managedBy: NotRequired[Literal["CLOUDFRONT"]]
 
+class OtherNameTypeDef(TypedDict):
+    ObjectIdentifier: NotRequired[str]
+    Value: NotRequired[str]
+
 class GetCertificateRequestTypeDef(TypedDict):
     CertificateArn: str
 
@@ -204,6 +277,11 @@ class RevokeCertificateRequestTypeDef(TypedDict):
     CertificateArn: str
     RevocationReason: RevocationReasonType
 
+TimestampTypeDef = Union[datetime, str]
+
+class CertificateMetadataTypeDef(TypedDict):
+    AcmCertificateMetadata: NotRequired[AcmCertificateMetadataTypeDef]
+
 class AddTagsToCertificateRequestTypeDef(TypedDict):
     CertificateArn: str
     Tags: Sequence[TagTypeDef]
@@ -226,6 +304,27 @@ class ImportCertificateRequestTypeDef(TypedDict):
 class UpdateCertificateOptionsRequestTypeDef(TypedDict):
     CertificateArn: str
     Options: CertificateOptionsTypeDef
+
+class SubjectFilterTypeDef(TypedDict):
+    CommonName: NotRequired[CommonNameFilterTypeDef]
+
+class DistinguishedNameTypeDef(TypedDict):
+    CommonName: NotRequired[str]
+    DomainComponents: NotRequired[list[str]]
+    Country: NotRequired[str]
+    CustomAttributes: NotRequired[list[CustomAttributeTypeDef]]
+    DistinguishedNameQualifier: NotRequired[str]
+    GenerationQualifier: NotRequired[str]
+    GivenName: NotRequired[str]
+    Initials: NotRequired[str]
+    Locality: NotRequired[str]
+    Organization: NotRequired[str]
+    OrganizationalUnit: NotRequired[str]
+    Pseudonym: NotRequired[str]
+    SerialNumber: NotRequired[str]
+    State: NotRequired[str]
+    Surname: NotRequired[str]
+    Title: NotRequired[str]
 
 class DescribeCertificateRequestWaitTypeDef(TypedDict):
     CertificateArn: str
@@ -265,6 +364,9 @@ class RequestCertificateResponseTypeDef(TypedDict):
 class RevokeCertificateResponseTypeDef(TypedDict):
     CertificateArn: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+class SubjectAlternativeNameFilterTypeDef(TypedDict):
+    DnsName: NotRequired[DnsNameFilterTypeDef]
 
 class RequestCertificateRequestTypeDef(TypedDict):
     DomainName: str
@@ -310,11 +412,45 @@ class ListCertificatesRequestPaginateTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class TimestampRangeTypeDef(TypedDict):
+    Start: NotRequired[TimestampTypeDef]
+    End: NotRequired[TimestampTypeDef]
+
+class GeneralNameTypeDef(TypedDict):
+    DirectoryName: NotRequired[DistinguishedNameTypeDef]
+    DnsName: NotRequired[str]
+    IpAddress: NotRequired[str]
+    OtherName: NotRequired[OtherNameTypeDef]
+    RegisteredId: NotRequired[str]
+    Rfc822Name: NotRequired[str]
+    UniformResourceIdentifier: NotRequired[str]
+
 class RenewalSummaryTypeDef(TypedDict):
     RenewalStatus: RenewalStatusType
     DomainValidationOptions: list[DomainValidationTypeDef]
     UpdatedAt: datetime
     RenewalStatusReason: NotRequired[FailureReasonType]
+
+class X509AttributeFilterTypeDef(TypedDict):
+    Subject: NotRequired[SubjectFilterTypeDef]
+    SubjectAlternativeName: NotRequired[SubjectAlternativeNameFilterTypeDef]
+    ExtendedKeyUsage: NotRequired[ExtendedKeyUsageNameType]
+    KeyUsage: NotRequired[KeyUsageNameType]
+    KeyAlgorithm: NotRequired[KeyAlgorithmType]
+    SerialNumber: NotRequired[str]
+    NotAfter: NotRequired[TimestampRangeTypeDef]
+    NotBefore: NotRequired[TimestampRangeTypeDef]
+
+class X509AttributesTypeDef(TypedDict):
+    Issuer: NotRequired[DistinguishedNameTypeDef]
+    Subject: NotRequired[DistinguishedNameTypeDef]
+    SubjectAlternativeNames: NotRequired[list[GeneralNameTypeDef]]
+    ExtendedKeyUsages: NotRequired[list[ExtendedKeyUsageNameType]]
+    KeyAlgorithm: NotRequired[KeyAlgorithmType]
+    KeyUsages: NotRequired[list[KeyUsageNameType]]
+    SerialNumber: NotRequired[str]
+    NotAfter: NotRequired[datetime]
+    NotBefore: NotRequired[datetime]
 
 CertificateDetailTypeDef = TypedDict(
     "CertificateDetailTypeDef",
@@ -349,6 +485,46 @@ CertificateDetailTypeDef = TypedDict(
     },
 )
 
+class CertificateFilterTypeDef(TypedDict):
+    CertificateArn: NotRequired[str]
+    X509AttributeFilter: NotRequired[X509AttributeFilterTypeDef]
+    AcmCertificateMetadataFilter: NotRequired[AcmCertificateMetadataFilterTypeDef]
+
+class CertificateSearchResultTypeDef(TypedDict):
+    CertificateArn: NotRequired[str]
+    X509Attributes: NotRequired[X509AttributesTypeDef]
+    CertificateMetadata: NotRequired[CertificateMetadataTypeDef]
+
 class DescribeCertificateResponseTypeDef(TypedDict):
     Certificate: CertificateDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CertificateFilterStatementPaginatorTypeDef(TypedDict):
+    And: NotRequired[Sequence[Mapping[str, Any]]]
+    Or: NotRequired[Sequence[Mapping[str, Any]]]
+    Not: NotRequired[Mapping[str, Any]]
+    Filter: NotRequired[CertificateFilterTypeDef]
+
+class CertificateFilterStatementTypeDef(TypedDict):
+    And: NotRequired[Sequence[Mapping[str, Any]]]
+    Or: NotRequired[Sequence[Mapping[str, Any]]]
+    Not: NotRequired[Mapping[str, Any]]
+    Filter: NotRequired[CertificateFilterTypeDef]
+
+class SearchCertificatesResponseTypeDef(TypedDict):
+    Results: list[CertificateSearchResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class SearchCertificatesRequestPaginateTypeDef(TypedDict):
+    FilterStatement: NotRequired[CertificateFilterStatementPaginatorTypeDef]
+    SortBy: NotRequired[SearchCertificatesSortByType]
+    SortOrder: NotRequired[SearchCertificatesSortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class SearchCertificatesRequestTypeDef(TypedDict):
+    FilterStatement: NotRequired[CertificateFilterStatementTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    SortBy: NotRequired[SearchCertificatesSortByType]
+    SortOrder: NotRequired[SearchCertificatesSortOrderType]

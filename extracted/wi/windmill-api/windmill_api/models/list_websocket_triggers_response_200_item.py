@@ -5,6 +5,9 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.list_websocket_triggers_response_200_item_filter_logic import (
+    ListWebsocketTriggersResponse200ItemFilterLogic,
+)
 from ..models.list_websocket_triggers_response_200_item_mode import ListWebsocketTriggersResponse200ItemMode
 from ..types import UNSET, Unset
 
@@ -54,6 +57,9 @@ class ListWebsocketTriggersResponse200Item:
         server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
         last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal)
         error (Union[Unset, str]): Last error message if the trigger failed
+        filter_logic (Union[Unset, ListWebsocketTriggersResponse200ItemFilterLogic]): Logic to apply when evaluating
+            filters. 'and' requires all filters to match, 'or' requires any filter to match. Default:
+            ListWebsocketTriggersResponse200ItemFilterLogic.AND.
         initial_messages (Union[Unset, None, List[Union['ListWebsocketTriggersResponse200ItemInitialMessagesItemType0',
             'ListWebsocketTriggersResponse200ItemInitialMessagesItemType1']]]): Messages to send immediately after
             connecting (can be raw strings or computed by runnables)
@@ -82,6 +88,9 @@ class ListWebsocketTriggersResponse200Item:
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
     error: Union[Unset, str] = UNSET
+    filter_logic: Union[
+        Unset, ListWebsocketTriggersResponse200ItemFilterLogic
+    ] = ListWebsocketTriggersResponse200ItemFilterLogic.AND
     initial_messages: Union[
         Unset,
         None,
@@ -130,6 +139,10 @@ class ListWebsocketTriggersResponse200Item:
             last_server_ping = self.last_server_ping.isoformat()
 
         error = self.error
+        filter_logic: Union[Unset, str] = UNSET
+        if not isinstance(self.filter_logic, Unset):
+            filter_logic = self.filter_logic.value
+
         initial_messages: Union[Unset, None, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.initial_messages, Unset):
             if self.initial_messages is None:
@@ -187,6 +200,8 @@ class ListWebsocketTriggersResponse200Item:
             field_dict["last_server_ping"] = last_server_ping
         if error is not UNSET:
             field_dict["error"] = error
+        if filter_logic is not UNSET:
+            field_dict["filter_logic"] = filter_logic
         if initial_messages is not UNSET:
             field_dict["initial_messages"] = initial_messages
         if url_runnable_args is not UNSET:
@@ -265,6 +280,13 @@ class ListWebsocketTriggersResponse200Item:
 
         error = d.pop("error", UNSET)
 
+        _filter_logic = d.pop("filter_logic", UNSET)
+        filter_logic: Union[Unset, ListWebsocketTriggersResponse200ItemFilterLogic]
+        if isinstance(_filter_logic, Unset):
+            filter_logic = UNSET
+        else:
+            filter_logic = ListWebsocketTriggersResponse200ItemFilterLogic(_filter_logic)
+
         initial_messages = []
         _initial_messages = d.pop("initial_messages", UNSET)
         for initial_messages_item_data in _initial_messages or []:
@@ -339,6 +361,7 @@ class ListWebsocketTriggersResponse200Item:
             server_id=server_id,
             last_server_ping=last_server_ping,
             error=error,
+            filter_logic=filter_logic,
             initial_messages=initial_messages,
             url_runnable_args=url_runnable_args,
             error_handler_path=error_handler_path,

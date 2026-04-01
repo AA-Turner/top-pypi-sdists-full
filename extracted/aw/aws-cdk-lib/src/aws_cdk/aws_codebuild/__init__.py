@@ -10306,7 +10306,7 @@ class FileSystemConfig:
     def location(self) -> "CfnProject.ProjectFileSystemLocationProperty":
         '''File system location wrapper property.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-projectfilesystemlocation.html
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-projectfilesystemlocation.html
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -17604,7 +17604,7 @@ class SourceConfig:
 
         :default: the latest version
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codebuild-project.html#cfn-codebuild-project-sourceversion
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codebuild-project.html#cfn-codebuild-project-sourceversion
         '''
         result = self._values.get("source_version")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansible-creator
-Version: 26.3.2
+Version: 26.3.3
 Summary: A CLI tool for scaffolding Ansible Content.
 Author-email: Nilashish Chakarborty <nchakrab@redhat.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>

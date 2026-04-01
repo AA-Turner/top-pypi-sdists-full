@@ -46,6 +46,10 @@ class Config:
         ee_python_deps: List of Python dependencies for execution environment.
         ee_system_packages: List of system packages for execution environment.
         ee_name: Name/tag for the execution environment image.
+        ee_file_name: Name of the EE definition file.
+        registry_tls_verify: Whether to verify TLS for container registry operations
+            (login, pull, push, and image builds). None means the user did not
+            explicitly set this flag, so the EE config file value is preserved.
     """
 
     creator_version: str
@@ -74,6 +78,8 @@ class Config:
     ee_python_deps: Sequence[str] = field(default_factory=list)
     ee_system_packages: Sequence[str] = field(default_factory=list)
     ee_name: str = "ansible_sample_ee"
+    ee_file_name: str = "execution-environment.yml"
+    registry_tls_verify: bool | None = None
 
     def __post_init__(self) -> None:
         """Post process config values."""

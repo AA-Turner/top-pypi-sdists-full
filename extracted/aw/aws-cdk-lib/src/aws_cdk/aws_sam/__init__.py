@@ -334,42 +334,6 @@ class CfnApi(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="definitionBody")
-    def definition_body(self) -> typing.Any:
-        return typing.cast(typing.Any, jsii.get(self, "definitionBody"))
-
-    @definition_body.setter
-    def definition_body(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3cd38f5bcc3b8f3fac0bbdfb5d5e3af45744e24319a5d1d7e28038ee4bdfb281)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definitionBody", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="gatewayResponses")
-    def gateway_responses(self) -> typing.Any:
-        return typing.cast(typing.Any, jsii.get(self, "gatewayResponses"))
-
-    @gateway_responses.setter
-    def gateway_responses(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8484ea00d921c99afaacbd03cc62295f32910b5df7d96ca8db6a13dc54d28f6a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "gatewayResponses", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="models")
-    def models(self) -> typing.Any:
-        return typing.cast(typing.Any, jsii.get(self, "models"))
-
-    @models.setter
-    def models(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17c11bc94dea5aec21ef52c13c5f4551cc63138a4c4b4f582d2fb6ace3a82483)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "models", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="stageName")
     def stage_name(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "stageName"))
@@ -511,6 +475,18 @@ class CfnApi(
         jsii.set(self, "cors", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="definitionBody")
+    def definition_body(self) -> typing.Any:
+        return typing.cast(typing.Any, jsii.get(self, "definitionBody"))
+
+    @definition_body.setter
+    def definition_body(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3cd38f5bcc3b8f3fac0bbdfb5d5e3af45744e24319a5d1d7e28038ee4bdfb281)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "definitionBody", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="definitionUri")
     def definition_uri(
         self,
@@ -591,6 +567,18 @@ class CfnApi(
         jsii.set(self, "endpointConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="gatewayResponses")
+    def gateway_responses(self) -> typing.Any:
+        return typing.cast(typing.Any, jsii.get(self, "gatewayResponses"))
+
+    @gateway_responses.setter
+    def gateway_responses(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8484ea00d921c99afaacbd03cc62295f32910b5df7d96ca8db6a13dc54d28f6a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "gatewayResponses", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="methodSettings")
     def method_settings(
         self,
@@ -618,6 +606,18 @@ class CfnApi(
             type_hints = typing.get_type_hints(_typecheckingstub__1347fd00b71a6087fdb38700bc130ac87aa76321596ad0a55c2ce78a266a0942)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minimumCompressionSize", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="models")
+    def models(self) -> typing.Any:
+        return typing.cast(typing.Any, jsii.get(self, "models"))
+
+    @models.setter
+    def models(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__17c11bc94dea5aec21ef52c13c5f4551cc63138a4c4b4f582d2fb6ace3a82483)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "models", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2787,18 +2787,6 @@ class CfnFunction(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="assumeRolePolicyDocument")
-    def assume_role_policy_document(self) -> typing.Any:
-        return typing.cast(typing.Any, jsii.get(self, "assumeRolePolicyDocument"))
-
-    @assume_role_policy_document.setter
-    def assume_role_policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d24caacf917d9eb83fd84a13970be6e1524465e06595fa482fd7e7a9ec270bbf)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "assumeRolePolicyDocument", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="architectures")
     def architectures(self) -> typing.Optional[typing.List[builtins.str]]:
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "architectures"))
@@ -2809,6 +2797,18 @@ class CfnFunction(
             type_hints = typing.get_type_hints(_typecheckingstub__961f66d7c1974b43320280bf59275bb9f65d08936dd9d10f4bb6bd856765683b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "architectures", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="assumeRolePolicyDocument")
+    def assume_role_policy_document(self) -> typing.Any:
+        return typing.cast(typing.Any, jsii.get(self, "assumeRolePolicyDocument"))
+
+    @assume_role_policy_document.setter
+    def assume_role_policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d24caacf917d9eb83fd84a13970be6e1524465e06595fa482fd7e7a9ec270bbf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "assumeRolePolicyDocument", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="autoPublishAlias")
@@ -9334,18 +9334,6 @@ class CfnHttpApi(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="definitionBody")
-    def definition_body(self) -> typing.Any:
-        return typing.cast(typing.Any, jsii.get(self, "definitionBody"))
-
-    @definition_body.setter
-    def definition_body(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64a7cbe0232a4687fbe5d51da21fce7dd6fa5366be5dc78ecebd805606154fa9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definitionBody", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="accessLogSetting")
     def access_log_setting(
         self,
@@ -9412,6 +9400,18 @@ class CfnHttpApi(
             type_hints = typing.get_type_hints(_typecheckingstub__5c79a8422ac135ae14261211b8dbc3a6cff2c1cd4dfd873119c1ea5a819c7f35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "defaultRouteSettings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="definitionBody")
+    def definition_body(self) -> typing.Any:
+        return typing.cast(typing.Any, jsii.get(self, "definitionBody"))
+
+    @definition_body.setter
+    def definition_body(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64a7cbe0232a4687fbe5d51da21fce7dd6fa5366be5dc78ecebd805606154fa9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "definitionBody", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="definitionUri")
@@ -13388,24 +13388,6 @@ def _typecheckingstub__4c6e7bfcfbe140d0e280964b4302aeb918e0c0bef723f5038b4e83865
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3cd38f5bcc3b8f3fac0bbdfb5d5e3af45744e24319a5d1d7e28038ee4bdfb281(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8484ea00d921c99afaacbd03cc62295f32910b5df7d96ca8db6a13dc54d28f6a(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__17c11bc94dea5aec21ef52c13c5f4551cc63138a4c4b4f582d2fb6ace3a82483(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__7ed0b67619cb13cee60979ea07bab7433a9a3aac2c3381b9e76293bd8a4acbc0(
     value: builtins.str,
 ) -> None:
@@ -13460,6 +13442,12 @@ def _typecheckingstub__21dbab6598d5847bc72ec62c28426fe0408db8682d5127fe28a05b213
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3cd38f5bcc3b8f3fac0bbdfb5d5e3af45744e24319a5d1d7e28038ee4bdfb281(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4f2e92449b9c950f501c430abd84aa43a5df516a6602172d17f1558ebe2fea14(
     value: typing.Optional[typing.Union[builtins.str, _IResolvable_da3f097b, CfnApi.S3LocationProperty]],
 ) -> None:
@@ -13490,6 +13478,12 @@ def _typecheckingstub__966627515263d6c2176ac06d97124210d55dfafc260439f62393f93e4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8484ea00d921c99afaacbd03cc62295f32910b5df7d96ca8db6a13dc54d28f6a(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__89314956b349bc8e1c3bc352780728615074b16dbe9e899a681b4d3fe381dec7(
     value: typing.Optional[typing.Union[typing.List[typing.Any], _IResolvable_da3f097b]],
 ) -> None:
@@ -13498,6 +13492,12 @@ def _typecheckingstub__89314956b349bc8e1c3bc352780728615074b16dbe9e899a681b4d3fe
 
 def _typecheckingstub__1347fd00b71a6087fdb38700bc130ac87aa76321596ad0a55c2ce78a266a0942(
     value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17c11bc94dea5aec21ef52c13c5f4551cc63138a4c4b4f582d2fb6ace3a82483(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13791,14 +13791,14 @@ def _typecheckingstub__5d8539381db7c34f023921a302ec379417ffbf36402294f5eb3096b31
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d24caacf917d9eb83fd84a13970be6e1524465e06595fa482fd7e7a9ec270bbf(
-    value: typing.Any,
+def _typecheckingstub__961f66d7c1974b43320280bf59275bb9f65d08936dd9d10f4bb6bd856765683b(
+    value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__961f66d7c1974b43320280bf59275bb9f65d08936dd9d10f4bb6bd856765683b(
-    value: typing.Optional[typing.List[builtins.str]],
+def _typecheckingstub__d24caacf917d9eb83fd84a13970be6e1524465e06595fa482fd7e7a9ec270bbf(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14602,12 +14602,6 @@ def _typecheckingstub__e64eb42bd5b3ff30eb1371e2bbc5bf92a3972db3b40c6c801031d7f11
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__64a7cbe0232a4687fbe5d51da21fce7dd6fa5366be5dc78ecebd805606154fa9(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__1a42a2744dc641266e3d37b5f146f6af992595ec5ba766b45574ea243aa6fc44(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHttpApi.AccessLogSettingProperty]],
 ) -> None:
@@ -14628,6 +14622,12 @@ def _typecheckingstub__2d80d30c6061e0bc43c731aed2d30d2e16c6817cc38f17f6e31e265dc
 
 def _typecheckingstub__5c79a8422ac135ae14261211b8dbc3a6cff2c1cd4dfd873119c1ea5a819c7f35(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnHttpApi.RouteSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64a7cbe0232a4687fbe5d51da21fce7dd6fa5366be5dc78ecebd805606154fa9(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

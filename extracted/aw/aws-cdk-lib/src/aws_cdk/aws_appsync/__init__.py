@@ -19055,7 +19055,7 @@ class KeyCondition(
     @jsii.member(jsii_name="gt")
     @builtins.classmethod
     def gt(cls, key_name: builtins.str, arg: builtins.str) -> "KeyCondition":
-        '''Condition k > arg, true if the key attribute k is greater than the the Query argument.
+        '''Condition k > arg, true if the key attribute k is greater than the Query argument.
 
         :param key_name: -
         :param arg: -
@@ -20713,7 +20713,7 @@ class SchemaFile(
 
         :param file_path: the file path of the schema file.
 
-        :return: ``SchemaAsset`` with immutable schema defintion
+        :return: ``SchemaAsset`` with immutable schema definition
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40565593cb0b74633173faf6f073987b024d4b7af8c07e296173c630a61b972a)

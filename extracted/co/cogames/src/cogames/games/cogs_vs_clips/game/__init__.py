@@ -3,6 +3,7 @@ from __future__ import annotations
 from cogames.core import CoGameMissionVariant
 from cogames.games.cogs_vs_clips.game.cargo import CargoLimitVariant
 from cogames.games.cogs_vs_clips.game.clips import (
+    AdaptiveClipsVariant,
     AngryClipsVariant,
     ClipsVariant,
     GreedyClipsVariant,
@@ -23,7 +24,9 @@ from cogames.games.cogs_vs_clips.game.roles.miner import MinerVariant
 from cogames.games.cogs_vs_clips.game.roles.scout import ScoutVariant
 from cogames.games.cogs_vs_clips.game.roles.scrambler import ScramblerVariant
 from cogames.games.cogs_vs_clips.game.solar import SolarVariant
+from cogames.games.cogs_vs_clips.game.talk import TalkVariant
 from cogames.games.cogs_vs_clips.game.teams import TeamVariant
+from cogames.games.cogs_vs_clips.game.teams.four_corners import FourCornersVariant
 from cogames.games.cogs_vs_clips.game.teams.gear_stations import TeamGearStationsVariant
 from cogames.games.cogs_vs_clips.game.teams.hub import TeamHubVariant
 from cogames.games.cogs_vs_clips.game.teams.hub_observations import HubObservationsVariant
@@ -46,6 +49,7 @@ from cogames.games.cogs_vs_clips.game.territory import TerritoryVariant as Junct
 from cogames.games.cogs_vs_clips.game.vibes import VibesVariant
 
 __all__ = [
+    "AdaptiveClipsVariant",
     "AlignerVariant",
     "AngryClipsVariant",
     "BaseCompoundVariant",
@@ -64,6 +68,7 @@ __all__ = [
     "EnergyVariant",
     "ForcedRoleVibesVariant",
     "ForestVariant",
+    "FourCornersVariant",
     "GreedyClipsVariant",
     "GEAR",
     "GearStationsVariant",
@@ -87,6 +92,7 @@ __all__ = [
     "TeamJunctionVariant",
     "TeamVariant",
     "TerritoryVariant",
+    "TalkVariant",
     "VibesVariant",
     "WildGearStationsVariant",
 ]
@@ -121,6 +127,7 @@ VARIANTS: list[CoGameMissionVariant] = [
     ClipsVariant(),
     GreedyClipsVariant(),
     NoClipsVariant(),
+    AdaptiveClipsVariant(),
     DamageStrangersVariant(),
     DamageVariant(),
     DaysVariant(),
@@ -130,6 +137,7 @@ VARIANTS: list[CoGameMissionVariant] = [
     ExtractorsVariant(),
     ForcedRoleVibesVariant(),
     ForestVariant(),
+    FourCornersVariant(),
     GearStationsVariant(),
     HealTeamVariant(),
     HeartVariant(),
@@ -149,6 +157,7 @@ VARIANTS: list[CoGameMissionVariant] = [
     TeamJunctionVariant(),
     TeamVariant(),
     TerritoryVariant(),
+    TalkVariant(),
     VibesVariant(),
     WildGearStationsVariant(),
 ]

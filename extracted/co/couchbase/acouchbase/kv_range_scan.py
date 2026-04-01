@@ -12,11 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+
+from __future__ import annotations
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any
 
 from couchbase.exceptions import (PYCBC_ERROR_MAP,
                                   AlreadyQueriedException,
@@ -25,20 +26,20 @@ from couchbase.exceptions import (PYCBC_ERROR_MAP,
                                   RangeScanCompletedException)
 from couchbase.logic.kv_range_scan import RangeScanRequestLogic
 
+if TYPE_CHECKING:
+    from couchbase.logic.pycbc_core import pycbc_connection
+
 
 class AsyncRangeScanRequest(RangeScanRequestLogic):
-    def __init__(self,
-                 loop,
-                 **kwargs,  # type: Dict[str, Any]
-                 ):
+    def __init__(self, connection: pycbc_connection, loop: asyncio.AbstractEventLoop, **kwargs: Any) -> None:
         num_workers = kwargs.pop('num_workers', 2)
-        super().__init__(**kwargs)
+        super().__init__(connection, **kwargs)
         self._loop = loop
         self._result_ftr = None
         self._tp_executor = ThreadPoolExecutor(num_workers)
 
     @property
-    def loop(self):
+    def loop(self) -> asyncio.AbstractEventLoop:
         """
         **INTERNAL**
         """

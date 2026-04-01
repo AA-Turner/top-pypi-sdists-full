@@ -222,7 +222,7 @@ class _CLS_select_leftright(bpy.ops._BPyOpsSubModOp):
         undo: bool | None = None,
         /,
         *,
-        mode: typing.Literal["LEFT", "RIGHT"] | None = "LEFT",
+        mode: typing.Literal["LEFT", "RIGHT", "CLICK_SIDE"] | None = "LEFT",
         extend: bool | None = False,
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Select markers on and left/right of the current frame

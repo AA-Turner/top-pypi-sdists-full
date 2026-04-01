@@ -16,8 +16,12 @@ from chalk._gen.chalk.streaming.v1.debug_service_pb2 import (
     GetDebugMessagesResponse,
     GetDebugModeStatusRequest,
     GetDebugModeStatusResponse,
+    GetStreamingDebugConfigRequest,
+    GetStreamingDebugConfigResponse,
     PushTopicRequest,
     PushTopicResponse,
+    SetStreamingDebugConfigRequest,
+    SetStreamingDebugConfigResponse,
     WatchDebugStreamRequest,
     WatchDebugStreamResponse,
 )
@@ -34,25 +38,35 @@ from grpc import (
 
 class StreamingDebugServiceStub:
     """Streaming Debug Service
-    Provides APIs for managing and querying streaming resolver debug mode
+    Provides APIs for managing and querying streaming resolver debug configuration
     """
 
     def __init__(self, channel: Channel) -> None: ...
+    SetStreamingDebugConfig: UnaryUnaryMultiCallable[
+        SetStreamingDebugConfigRequest,
+        SetStreamingDebugConfigResponse,
+    ]
+    """Set streaming debug configuration (sample rates) for a resolver"""
+    GetStreamingDebugConfig: UnaryUnaryMultiCallable[
+        GetStreamingDebugConfigRequest,
+        GetStreamingDebugConfigResponse,
+    ]
+    """Get current streaming debug configuration for a resolver"""
     EnableDebugMode: UnaryUnaryMultiCallable[
         EnableDebugModeRequest,
         EnableDebugModeResponse,
     ]
-    """Enable debug mode for a streaming resolver"""
+    """Deprecated: use SetStreamingDebugConfig instead"""
     DisableDebugMode: UnaryUnaryMultiCallable[
         DisableDebugModeRequest,
         DisableDebugModeResponse,
     ]
-    """Disable debug mode for a streaming resolver"""
+    """Deprecated: use SetStreamingDebugConfig with logger_config=null instead"""
     GetDebugModeStatus: UnaryUnaryMultiCallable[
         GetDebugModeStatusRequest,
         GetDebugModeStatusResponse,
     ]
-    """Get the current debug mode status for a resolver"""
+    """Deprecated: use GetStreamingDebugConfig instead"""
     GetDebugMessages: UnaryUnaryMultiCallable[
         GetDebugMessagesRequest,
         GetDebugMessagesResponse,
@@ -71,30 +85,44 @@ class StreamingDebugServiceStub:
 
 class StreamingDebugServiceServicer(metaclass=ABCMeta):
     """Streaming Debug Service
-    Provides APIs for managing and querying streaming resolver debug mode
+    Provides APIs for managing and querying streaming resolver debug configuration
     """
 
+    @abstractmethod
+    def SetStreamingDebugConfig(
+        self,
+        request: SetStreamingDebugConfigRequest,
+        context: ServicerContext,
+    ) -> SetStreamingDebugConfigResponse:
+        """Set streaming debug configuration (sample rates) for a resolver"""
+    @abstractmethod
+    def GetStreamingDebugConfig(
+        self,
+        request: GetStreamingDebugConfigRequest,
+        context: ServicerContext,
+    ) -> GetStreamingDebugConfigResponse:
+        """Get current streaming debug configuration for a resolver"""
     @abstractmethod
     def EnableDebugMode(
         self,
         request: EnableDebugModeRequest,
         context: ServicerContext,
     ) -> EnableDebugModeResponse:
-        """Enable debug mode for a streaming resolver"""
+        """Deprecated: use SetStreamingDebugConfig instead"""
     @abstractmethod
     def DisableDebugMode(
         self,
         request: DisableDebugModeRequest,
         context: ServicerContext,
     ) -> DisableDebugModeResponse:
-        """Disable debug mode for a streaming resolver"""
+        """Deprecated: use SetStreamingDebugConfig with logger_config=null instead"""
     @abstractmethod
     def GetDebugModeStatus(
         self,
         request: GetDebugModeStatusRequest,
         context: ServicerContext,
     ) -> GetDebugModeStatusResponse:
-        """Get the current debug mode status for a resolver"""
+        """Deprecated: use GetStreamingDebugConfig instead"""
     @abstractmethod
     def GetDebugMessages(
         self,

@@ -686,19 +686,6 @@ class CfnLoggingConfiguration(
         jsii.set(self, "logDestinationConfigs", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="loggingFilter")
-    def logging_filter(self) -> typing.Any:
-        '''Filtering that specifies which web requests are kept in the logs and which are dropped.'''
-        return typing.cast(typing.Any, jsii.get(self, "loggingFilter"))
-
-    @logging_filter.setter
-    def logging_filter(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e432d8d1e0fc298c7c4d7f42acca7ba0c8edc61ee2795cd2454d866a80034faa)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggingFilter", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="resourceArn")
     def resource_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the web ACL that you want to associate with ``LogDestinationConfigs`` .'''
@@ -710,6 +697,19 @@ class CfnLoggingConfiguration(
             type_hints = typing.get_type_hints(_typecheckingstub__131460b145114748342bba71adbba5e0de220ac6ea445093e05959407b65bd2e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="loggingFilter")
+    def logging_filter(self) -> typing.Any:
+        '''Filtering that specifies which web requests are kept in the logs and which are dropped.'''
+        return typing.cast(typing.Any, jsii.get(self, "loggingFilter"))
+
+    @logging_filter.setter
+    def logging_filter(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e432d8d1e0fc298c7c4d7f42acca7ba0c8edc61ee2795cd2454d866a80034faa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "loggingFilter", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="redactedFields")
@@ -21935,14 +21935,14 @@ def _typecheckingstub__cea30baad623cdba4cda27c8a05e17294c73ce64e3c9306b0448944f2
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e432d8d1e0fc298c7c4d7f42acca7ba0c8edc61ee2795cd2454d866a80034faa(
-    value: typing.Any,
+def _typecheckingstub__131460b145114748342bba71adbba5e0de220ac6ea445093e05959407b65bd2e(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__131460b145114748342bba71adbba5e0de220ac6ea445093e05959407b65bd2e(
-    value: builtins.str,
+def _typecheckingstub__e432d8d1e0fc298c7c4d7f42acca7ba0c8edc61ee2795cd2454d866a80034faa(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

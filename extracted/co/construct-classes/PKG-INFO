@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: construct-classes
-Version: 0.2.2
+Version: 0.2.3
 Summary: Parse your binary structs into dataclasses
-Author: matejcik
 Author-email: matejcik <ja@matejcik.cz>
+Requires-Python: >=3.10,<4.0
+Description-Content-Type: text/x-rst
 License-Expression: MIT
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
@@ -15,11 +15,10 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+License-File: LICENSE
 Requires-Dist: construct~=2.10
-Requires-Python: >=3.10, <4.0
 Project-URL: Homepage, https://github.com/matejcik/construct-classes
 Project-URL: Repository, https://github.com/matejcik/construct-classes
-Description-Content-Type: text/x-rst
 
 =================
 construct-classes
@@ -145,3 +144,4 @@ Footer
 * Free software: MIT License
 
 .. * Documentation: https://construct-classes.readthedocs.io.
+

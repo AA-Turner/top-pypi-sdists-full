@@ -916,12 +916,12 @@ class AsyncProtocol(Generic[T]):
             # We have been cancelled by _bh_disconnect, exit gracefully.
             self.logger.debug("Task.%s: cancelled.", name)
             return
+        except EOFError:
+            self.logger.info("Task.%s: end-of-file", name)
+            self._schedule_disconnect()
+            raise
         except BaseException as err:
-            self.logger.log(
-                logging.INFO if isinstance(err, EOFError) else logging.ERROR,
-                "Task.%s: %s",
-                name, exception_summary(err)
-            )
+            self.logger.error("Task.%s: %s", name, exception_summary(err))
             self.logger.debug("Task.%s: failure:\n%s\n",
                               name, pretty_traceback())
             self._schedule_disconnect()

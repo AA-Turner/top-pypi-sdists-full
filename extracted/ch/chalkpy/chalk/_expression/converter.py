@@ -2,9 +2,8 @@ from typing import Union, cast
 
 import pyarrow as pa
 
-from chalk._gen.chalk.arrow.v1 import arrow_pb2 as arrow_pb
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
-from chalk.features._encoding.converter import PrimitiveFeatureConverter
+from chalk.features._encoding.converter import PrimitiveFeatureConverter, make_primitive_converter
 from chalk.features._encoding.primitive import TPrimitive
 
 
@@ -12,11 +11,16 @@ def convert_pa_dtype_to_proto_expr(dtype: pa.DataType) -> expr_pb.LogicalExprNod
     """
     This is kind of a hack - use the 'null' literal for a dtype to convey the dtype information.
     """
+    converter = make_primitive_converter(
+        name="convert_pa_dtype_to_proto_expr",
+        is_nullable=True,
+        pyarrow_dtype=dtype,
+    )
 
     return expr_pb.LogicalExprNode(
         literal_value=expr_pb.ExprLiteral(
             # HACK: Using this to store a dtype. This is not really a scalar value.
-            value=arrow_pb.ScalarValue(null_value=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(dtype)),
+            value=converter.from_pyarrow_to_protobuf(pa.nulls(1, type=dtype)[0]),
             is_arrow_scalar_object=True,
         )
     )
@@ -34,7 +38,7 @@ def convert_literal_to_proto_expr(value: Union[TPrimitive, pa.DataType]) -> expr
             pa_dtype = pa.scalar(value).type
         except Exception as e:
             raise ValueError(f"Could not infer literal type for value `{value}`") from e
-    converter = PrimitiveFeatureConverter(
+    converter = make_primitive_converter(
         name="convert_literal_to_proto_expr",
         is_nullable=False,
         pyarrow_dtype=pa_dtype,

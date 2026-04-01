@@ -646,6 +646,38 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
 
+        // When self/cls has an explicit TypeVar annotation, using Self anywhere in the signature
+        // (return type or other parameters) is invalid because the TypeVar and Self create
+        // conflicting type parameterization.
+        // For classmethods, the annotation is `type[TFoo]`, so we also unwrap `Type::Type(...)`.
+        if has_implicit_self_or_cls_param
+            && !def.metadata.flags.is_staticmethod
+            && let Some(first_param) = def.params.first()
+            && {
+                let ty = first_param.as_type();
+                ty.is_explicit_type_variable()
+                    || matches!(ty, Type::Type(inner) if inner.is_explicit_type_variable())
+            }
+        {
+            let signature_contains_self = contains_self_type(&ret)
+                || def
+                    .params
+                    .iter()
+                    .skip(1)
+                    .any(|p| contains_self_type(p.as_type()));
+            if signature_contains_self {
+                self.error(
+                    errors,
+                    stmt.name.range,
+                    ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                    format!(
+                        "`Self` cannot be used when `{}` has an explicit TypeVar annotation",
+                        first_param.name().map_or("self", |n| n.as_str())
+                    ),
+                );
+            }
+        }
+
         let callable = if let Some(q) = &def.paramspec {
             Callable::concatenate(
                 def.params
@@ -863,10 +895,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let (ty, mut required, is_unannotated) = match self.bindings().get_function_param(name) {
             FunctionParameter::Annotated(idx) => {
                 let param_ty = self.get_idx(*idx).annotation.get_type().clone();
+                let annot_range = self.annotation_range(*idx);
                 let make_context = || {
                     TypeCheckContext::of_kind(TypeCheckKind::FunctionParameterDefault(
                         name.id.clone(),
                     ))
+                    .with_annotation(annot_range, "declared type".to_owned())
                 };
                 // When the parameter type is Dim[S] where S is a TypeVar with a
                 // Size(Literal(n)) default, and the default expression is the same

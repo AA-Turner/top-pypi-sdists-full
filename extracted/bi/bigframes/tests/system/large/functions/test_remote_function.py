@@ -20,6 +20,7 @@ import os.path
 import shutil
 import tempfile
 import textwrap
+import uuid
 import warnings
 
 import google.api_core.exceptions
@@ -32,7 +33,6 @@ import bigframes
 import bigframes.dataframe
 import bigframes.dtypes
 import bigframes.exceptions
-import bigframes.functions._utils as bff_utils
 import bigframes.pandas as bpd
 import bigframes.series
 from bigframes.testing.utils import (
@@ -526,24 +526,6 @@ def test_remote_function_restore_with_bigframes_series(
         # Make a unique udf
         add_one_uniq, add_one_uniq_dir = make_uniq_udf(add_one)
 
-        # Expected cloud function name for the unique udf
-        package_requirements = bff_utils.get_updated_package_requirements()
-        add_one_uniq_hash = bff_utils.get_hash(add_one_uniq, package_requirements)
-        add_one_uniq_cf_name = bff_utils.get_cloud_function_name(
-            add_one_uniq_hash, session.session_id
-        )
-
-        # There should be no cloud function yet for the unique udf
-        cloud_functions = list(
-            get_cloud_functions(
-                session.cloudfunctionsclient,
-                session.bqclient.project,
-                session.bqclient.location,
-                name=add_one_uniq_cf_name,
-            )
-        )
-        assert len(cloud_functions) == 0
-
         # The first time both the cloud function and the bq remote function don't
         # exist and would be created
         remote_add_one = session.remote_function(
@@ -554,6 +536,9 @@ def test_remote_function_restore_with_bigframes_series(
             reuse=True,
             cloud_function_service_account="default",
         )(add_one_uniq)
+
+        assert remote_add_one.bigframes_cloud_function is not None
+        add_one_uniq_cf_name = remote_add_one.bigframes_cloud_function.split("/")[-1]
 
         # There should have been excactly one cloud function created at this point
         cloud_functions = list(
@@ -1230,7 +1215,7 @@ def test_remote_function_anonymous_dataset(session, scalars_dfs):
 
 
 @pytest.mark.flaky(retries=2, delay=120)
-def test_remote_function_via_session_custom_sa(scalars_dfs):
+def test_remote_function_via_session_custom_sa(scalars_pandas_df_index):
     # TODO(shobs): Automate the following set-up during testing in the test project.
     #
     # For upfront convenience, the following set up has been statically created
@@ -1249,14 +1234,13 @@ def test_remote_function_via_session_custom_sa(scalars_dfs):
     rf_session = bigframes.Session(context=bigframes.BigQueryOptions(project=project))
 
     try:
-        # TODO(shobs): Figure out why the default ingress setting
-        # (internal-only) does not work here
+
         @rf_session.remote_function(
             input_types=[int],
             output_type=int,
             reuse=False,
             cloud_function_service_account=gcf_service_account,
-            cloud_function_ingress_settings="all",
+            cloud_function_ingress_settings="internal-and-gclb",
         )
         def double_num(x):
             if x is None:
@@ -1270,13 +1254,12 @@ def test_remote_function_via_session_custom_sa(scalars_dfs):
         assert gcf.service_config.service_account_email == gcf_service_account
 
         # assert that the function works as expected on data
-        scalars_df, scalars_pandas_df = scalars_dfs
 
-        bf_int64_col = scalars_df["int64_col"]
+        bf_int64_col = rf_session.read_pandas(scalars_pandas_df_index.int64_col)
         bf_result_col = bf_int64_col.apply(double_num)
         bf_result = bf_int64_col.to_frame().assign(result=bf_result_col).to_pandas()
 
-        pd_int64_col = scalars_pandas_df["int64_col"]
+        pd_int64_col = scalars_pandas_df_index.int64_col
         pd_result_col = pd_int64_col.apply(lambda x: x if x is None else x + x)
         pd_result = pd_int64_col.to_frame().assign(result=pd_result_col)
 
@@ -1303,7 +1286,7 @@ def test_remote_function_via_session_custom_sa(scalars_dfs):
 )
 @pytest.mark.flaky(retries=2, delay=120)
 def test_remote_function_via_session_custom_build_sa(
-    scalars_dfs, set_build_service_account
+    set_build_service_account, scalars_pandas_df_index
 ):
     # TODO(shobs): Automate the following set-up during testing in the test project.
     #
@@ -1321,15 +1304,14 @@ def test_remote_function_via_session_custom_build_sa(
     rf_session = bigframes.Session(context=bigframes.BigQueryOptions(project=project))
 
     try:
-        # TODO(shobs): Figure out why the default ingress setting
-        # (internal-only) does not work here
+
         @rf_session.remote_function(
             input_types=[int],
             output_type=int,
             reuse=False,
             cloud_function_service_account="default",
             cloud_build_service_account=set_build_service_account,
-            cloud_function_ingress_settings="all",
+            cloud_function_ingress_settings="internal-and-gclb",
         )
         def double_num(x):
             if x is None:
@@ -1342,14 +1324,11 @@ def test_remote_function_via_session_custom_build_sa(
         )
         assert gcf.build_config.service_account == expected_build_service_account
 
-        # assert that the function works as expected on data
-        scalars_df, scalars_pandas_df = scalars_dfs
-
-        bf_int64_col = scalars_df["int64_col"]
+        bf_int64_col = rf_session.read_pandas(scalars_pandas_df_index.int64_col)
         bf_result_col = bf_int64_col.apply(double_num)
         bf_result = bf_int64_col.to_frame().assign(result=bf_result_col).to_pandas()
 
-        pd_int64_col = scalars_pandas_df["int64_col"]
+        pd_int64_col = scalars_pandas_df_index.int64_col
         pd_result_col = pd_int64_col.apply(lambda x: x if x is None else x + x)
         pd_result = pd_int64_col.to_frame().assign(result=pd_result_col)
 
@@ -1436,7 +1415,7 @@ def test_remote_function_with_gcf_cmek():
 
 
 @pytest.mark.flaky(retries=2, delay=120)
-def test_remote_function_via_session_vpc(scalars_dfs):
+def test_remote_function_via_session_vpc(scalars_pandas_df_index):
     # TODO(shobs): Automate the following set-up during testing in the test project.
     #
     # For upfront convenience, the following set up has been statically created
@@ -1466,8 +1445,6 @@ def test_remote_function_via_session_vpc(scalars_dfs):
                 return x
             return x + x
 
-        # TODO(shobs): See if the test vpc can be configured to make this flow
-        # work with the default ingress setting (internal-only)
         double_num_remote = rf_session.remote_function(
             input_types=[int],
             output_type=int,
@@ -1475,7 +1452,7 @@ def test_remote_function_via_session_vpc(scalars_dfs):
             cloud_function_service_account="default",
             cloud_function_vpc_connector=gcf_vpc_connector,
             cloud_function_vpc_connector_egress_settings="all",
-            cloud_function_ingress_settings="all",
+            cloud_function_ingress_settings="internal-and-gclb",
         )(double_num)
 
         gcf = rf_session.cloudfunctionsclient.get_function(
@@ -1489,15 +1466,12 @@ def test_remote_function_via_session_vpc(scalars_dfs):
         # cloud_function_vpc_connector_egress_settings="all" earlier.
         assert gcf.service_config.vpc_connector_egress_settings == 2
 
-        # assert that the function works as expected on data
-        scalars_df, scalars_pandas_df = scalars_dfs
-
-        bf_int64_col = scalars_df["int64_col"]
+        bf_int64_col = rf_session.read_pandas(scalars_pandas_df_index.int64_col)
         bf_result_col = bf_int64_col.apply(double_num_remote)
         bf_result = bf_int64_col.to_frame().assign(result=bf_result_col).to_pandas()
 
-        pd_int64_col = scalars_pandas_df["int64_col"]
-        pd_result_col = pd_int64_col.apply(double_num).astype("Int64")
+        pd_int64_col = scalars_pandas_df_index.int64_col
+        pd_result_col = pd_int64_col.apply(double_num)
         pd_result = pd_int64_col.to_frame().assign(result=pd_result_col)
 
         assert_frame_equal(bf_result, pd_result, check_dtype=False)
@@ -1573,7 +1547,9 @@ def test_remote_function_max_batching_rows(session, scalars_dfs, max_batching_ro
         bq_routine = session.bqclient.get_routine(
             square_remote.bigframes_bigquery_function
         )
-        assert bq_routine.remote_function_options.max_batching_rows == max_batching_rows
+        assert bq_routine.remote_function_options.max_batching_rows == (
+            max_batching_rows or 1000
+        )
 
         scalars_df, scalars_pandas_df = scalars_dfs
 
@@ -1691,6 +1667,51 @@ def test_remote_function_max_instances(
         cleanup_function_assets(
             square_remote, session.bqclient, session.cloudfunctionsclient
         )
+
+
+@pytest.mark.flaky(retries=2, delay=120)
+def test_remote_function_reflects_config_change_with_reuse(session):
+    square_remote = None
+    square_remote_2 = None
+    try:
+
+        def square(x):
+            return x * x
+
+        # random alphanumeric name starting with a letter
+        deploy_name = "a" + str(uuid.uuid4().hex)
+        square_remote = session.remote_function(
+            input_types=[int],
+            name=deploy_name,
+            output_type=int,
+            reuse=True,
+            cloud_function_service_account="default",
+            cloud_function_cpus=1,
+        )(square)
+        square_remote_2 = session.remote_function(
+            input_types=[int],
+            name=deploy_name,
+            output_type=int,
+            reuse=True,
+            cloud_function_service_account="default",
+            cloud_function_cpus=2,
+        )(square)
+
+        # Assert that the GCF is created with the intended max instance count
+        gcf = session.cloudfunctionsclient.get_function(
+            name=square_remote_2.bigframes_cloud_function
+        )
+        assert float(gcf.service_config.available_cpu) == 2.0
+    finally:
+        # clean up the gcp assets created for the remote function
+        if square_remote is not None:
+            cleanup_function_assets(
+                square_remote, session.bqclient, session.cloudfunctionsclient
+            )
+        if square_remote_2 is not None:
+            cleanup_function_assets(
+                square_remote_2, session.bqclient, session.cloudfunctionsclient
+            )
 
 
 @pytest.mark.flaky(retries=2, delay=120)
@@ -2691,25 +2712,6 @@ def test_remote_function_ingress_settings(
         cleanup_function_assets(
             square_remote, session.bqclient, session.cloudfunctionsclient
         )
-
-
-@pytest.mark.flaky(retries=2, delay=120)
-def test_remote_function_ingress_settings_w_all(session):
-    ingress_settings_args = {"cloud_function_ingress_settings": "all"}
-
-    with pytest.raises(
-        google.api_core.exceptions.FailedPrecondition,
-        match="400.*allowedIngress violated",
-    ):
-
-        def square(x: int) -> int:
-            return x * x
-
-        session.remote_function(
-            reuse=False,
-            cloud_function_service_account="default",
-            **ingress_settings_args,
-        )(square)
 
 
 @pytest.mark.flaky(retries=2, delay=120)

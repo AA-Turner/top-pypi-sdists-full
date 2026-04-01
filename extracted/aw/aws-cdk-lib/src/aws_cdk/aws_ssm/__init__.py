@@ -524,19 +524,6 @@ class CfnAssociation(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(self) -> typing.Any:
-        '''The parameters for the runtime configuration of the document.'''
-        return typing.cast(typing.Any, jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a7bc72c1573e12dfc32dfc15c4125adfa3aee907e4c231fb1dc195260483bca5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="applyOnlyAtCronInterval")
     def apply_only_at_cron_interval(
         self,
@@ -680,6 +667,19 @@ class CfnAssociation(
             type_hints = typing.get_type_hints(_typecheckingstub__b7f2d6bae4a2f47caddaa51675bf95100b06b460f639a924aec4c36f3e0dfe13)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "outputLocation", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(self) -> typing.Any:
+        '''The parameters for the runtime configuration of the document.'''
+        return typing.cast(typing.Any, jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7bc72c1573e12dfc32dfc15c4125adfa3aee907e4c231fb1dc195260483bca5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="scheduleExpression")
@@ -3377,21 +3377,6 @@ class CfnMaintenanceWindowTask(
         jsii.set(self, "taskArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="taskParameters")
-    def task_parameters(self) -> typing.Any:
-        '''.. epigraph::
-
-   ``TaskParameters`` has been deprecated.'''
-        return typing.cast(typing.Any, jsii.get(self, "taskParameters"))
-
-    @task_parameters.setter
-    def task_parameters(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__308ea737f8a21130dc4ef906e4efbdd26c268158e16c66982b9d8f555370f880)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "taskParameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="taskType")
     def task_type(self) -> builtins.str:
         '''The type of task.'''
@@ -3550,6 +3535,21 @@ class CfnMaintenanceWindowTask(
             type_hints = typing.get_type_hints(_typecheckingstub__e676346c741943a2f14e79e926c8b5230365f4924b6a9161db3fc3486bab0d22)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "taskInvocationParameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="taskParameters")
+    def task_parameters(self) -> typing.Any:
+        '''.. epigraph::
+
+   ``TaskParameters`` has been deprecated.'''
+        return typing.cast(typing.Any, jsii.get(self, "taskParameters"))
+
+    @task_parameters.setter
+    def task_parameters(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__308ea737f8a21130dc4ef906e4efbdd26c268158e16c66982b9d8f555370f880)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "taskParameters", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ssm.CfnMaintenanceWindowTask.CloudWatchOutputConfigProperty",
@@ -10027,12 +10027,6 @@ def _typecheckingstub__e92bf5492040a0299998b0a9b059a356249d33ec61a41eeee594e093a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a7bc72c1573e12dfc32dfc15c4125adfa3aee907e4c231fb1dc195260483bca5(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b9023084f7868b14116f97ca76b80fe2c8428bca0dc340c9e250534372a8882b(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
@@ -10089,6 +10083,12 @@ def _typecheckingstub__97c0c0ebc4e8f350ab107d93e7f4ebce7994eb4e9c23da3d470fbd5a5
 
 def _typecheckingstub__b7f2d6bae4a2f47caddaa51675bf95100b06b460f639a924aec4c36f3e0dfe13(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAssociation.InstanceAssociationOutputLocationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7bc72c1573e12dfc32dfc15c4125adfa3aee907e4c231fb1dc195260483bca5(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10585,12 +10585,6 @@ def _typecheckingstub__adccf6935c75e32f84ba21008278bed07a786695c2220217c969ece51
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__308ea737f8a21130dc4ef906e4efbdd26c268158e16c66982b9d8f555370f880(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e764d7191dd17ad7c6af4e9cf3288e2143c2b9bebf0395428c7823743dc7e4ea(
     value: builtins.str,
 ) -> None:
@@ -10653,6 +10647,12 @@ def _typecheckingstub__ba1a5fa6e80a94431946dcbb6c59475e65e96ae172de3aac908aa8b1f
 
 def _typecheckingstub__e676346c741943a2f14e79e926c8b5230365f4924b6a9161db3fc3486bab0d22(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMaintenanceWindowTask.TaskInvocationParametersProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__308ea737f8a21130dc4ef906e4efbdd26c268158e16c66982b9d8f555370f880(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

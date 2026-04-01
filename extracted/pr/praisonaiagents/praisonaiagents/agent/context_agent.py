@@ -14,6 +14,7 @@ This class implements proper Context Engineering principles following the PRD te
 import os
 import json
 import logging
+from praisonaiagents._logging import get_logger
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Any, Dict, Union, List, TYPE_CHECKING
@@ -93,7 +94,6 @@ async def _async_subprocess_run(cmd: list, timeout: int = 60) -> tuple:
 
 from ..agent.agent import Agent
 from ..task import Task
-
 
 class ContextAgent(Agent):
     """
@@ -207,7 +207,7 @@ class ContextAgent(Agent):
         """Setup comprehensive logging based on debug mode."""
         try:
             # Create logger
-            self.logger = logging.getLogger(f"ContextAgent_{id(self)}")
+            self.logger = get_logger(f"ContextAgent_{id(self)}")
             self.logger.setLevel(logging.DEBUG if self.debug_mode else logging.INFO)
             
             # Clear existing handlers
@@ -247,7 +247,7 @@ class ContextAgent(Agent):
         except Exception as e:
             print(f"⚠️ Warning: Could not setup logging: {e}")
             # Create a minimal logger as fallback
-            self.logger = logging.getLogger(f"ContextAgent_{id(self)}")
+            self.logger = get_logger(f"ContextAgent_{id(self)}")
             self.logger.setLevel(logging.INFO)
 
     def setup_output_directories(self):
@@ -2445,7 +2445,7 @@ This PRP provides:
         """
         asyncio = _get_asyncio()
         # Run sync method in executor for now (subprocess calls are blocking)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             self.analyze_codebase_with_gitingest,
@@ -2461,7 +2461,7 @@ This PRP provides:
         Async version of generate_prp.
         """
         asyncio = _get_asyncio()
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             lambda: self.generate_comprehensive_prp(feature_request, context_analysis)
@@ -2476,12 +2476,11 @@ This PRP provides:
         Async version of create_implementation_blueprint.
         """
         asyncio = _get_asyncio()
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
             lambda: self.build_implementation_blueprint(feature_request, context_analysis)
         )
-
 
 def create_context_agent(llm: Optional[Union[str, Any]] = None, **kwargs) -> ContextAgent:
     """

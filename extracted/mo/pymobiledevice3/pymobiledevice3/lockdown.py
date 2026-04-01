@@ -1689,6 +1689,7 @@ async def retry_create_using_usbmux(retry_timeout: Optional[float] = None, **kwa
             construct.core.StreamError,
             DeviceNotFoundError,
             IncompleteReadError,
+            ConnectionTerminatedError,
         ):
             pass
 

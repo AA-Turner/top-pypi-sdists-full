@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.5.12
+Version: 2.5.13
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -205,8 +205,9 @@ License:                                  Apache License
            See the License for the specific language governing permissions and
            limitations under the License.
         
-Project-URL: homepage, https://agno.com
-Project-URL: documentation, https://docs.agno.com
+Project-URL: Homepage, https://agno.com
+Project-URL: Documentation, https://docs.agno.com
+Project-URL: Repository, https://github.com/agno-agi/agno
 Keywords: agent
 Classifier: Intended Audience :: Developers
 Classifier: Development Status :: 5 - Production/Stable

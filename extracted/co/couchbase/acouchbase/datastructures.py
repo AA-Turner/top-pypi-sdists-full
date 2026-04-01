@@ -13,25 +13,36 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from __future__ import annotations
+
 import asyncio
 import time
 from datetime import timedelta
 from typing import (TYPE_CHECKING,
                     Any,
+                    Callable,
+                    Coroutine,
                     Dict,
                     Generator,
                     List,
-                    Optional)
+                    Optional,
+                    Union)
 
-from acouchbase.logic.wrappers import AsyncWrapper
 from couchbase.exceptions import (CasMismatchException,
+                                  DocumentExistsException,
                                   DocumentNotFoundException,
                                   InvalidArgumentException,
                                   PathExistsException,
                                   PathNotFoundException,
                                   QueueEmpty,
                                   UnAmbiguousTimeoutException)
+from couchbase.logic.collection_types import (GetRequest,
+                                              LookupInRequest,
+                                              MutateInRequest)
+from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import DatastructureOperationType, KeyValueOperationType
 from couchbase.options import MutateInOptions
+from couchbase.result import LookupInResult
 from couchbase.subdocument import (array_addunique,
                                    array_append,
                                    array_prepend,
@@ -43,37 +54,66 @@ from couchbase.subdocument import (remove,
                                    upsert)
 
 if TYPE_CHECKING:
-    from acouchbase.collection import Collection
+    from acouchbase.logic.collection_impl import AsyncCollectionImpl
     from couchbase._utils import JSONType
+    from couchbase.logic.observability import WrappedSpan
+
+DataStructureRequest = Union[GetRequest, LookupInRequest, MutateInRequest]
 
 
 class CouchbaseList:
-    def __init__(self, key,  # type: str
-                 collection  # type: Collection
-                 ) -> None:
+    def __init__(self, key: str, collection_impl: AsyncCollectionImpl) -> None:
         self._key = key
-        self._collection = collection
+        self._impl = collection_impl
         self._iter = False
         self._full_list = None
 
-    @AsyncWrapper.datastructure_op(create_type=list)
-    async def _get(self) -> List:
+    async def _execute_op(self,
+                          fn: Callable[[DataStructureRequest], Coroutine[Any, Any, Any]],
+                          req: DataStructureRequest,
+                          obs_handler: ObservableRequestHandler,
+                          parent_span: WrappedSpan,
+                          create_type: Optional[bool] = None) -> Any:
+        try:
+            return await fn(req, obs_handler)
+        except DocumentNotFoundException as ex:
+            if create_type is True:
+                orig_opt_type = obs_handler.op_type
+                obs_handler.reset(KeyValueOperationType.Insert, exc_val=ex)
+                try:
+                    ins_req = self._impl.request_builder.build_insert_request(self._key,
+                                                                              list(),
+                                                                              obs_handler,
+                                                                              parent_span=parent_span)
+                    await self._impl.insert(ins_req, obs_handler)
+                except DocumentExistsException:
+                    pass
+                obs_handler.reset(orig_opt_type)
+                obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict(),
+                                           parent_span=parent_span)
+                return await fn(req, obs_handler)
+            else:
+                raise
+
+    async def _get(self, parent_span: Optional[WrappedSpan] = None) -> List:
         """
         Get the entire list.
         """
+        op_type = KeyValueOperationType.Get
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_request(self._key, obs_handler, parent_span=parent_span)
+            return await self._execute_op(self._impl.get,
+                                          req,
+                                          obs_handler,
+                                          parent_span,
+                                          create_type=True)
 
-        return await self._collection.get(self._key)
-
-    @AsyncWrapper.datastructure_op(create_type=list)
-    async def append(self, value  # type: JSONType
-                     ) -> None:
+    async def append(self, value: JSONType) -> None:
         """
         Add an item to the end of a list.
 
         :param value: The value to append
         :return: None
-        :raise: :cb_exc:`DocumentNotFoundException` if the document does not exist.
-            and `create` was not specified.
 
         example::
 
@@ -82,31 +122,51 @@ class CouchbaseList:
 
         .. seealso:: :meth:`map_add`
         """
-        op = array_append('', value)
-        await self._collection.mutate_in(self._key, (op,))
+        op_type = DatastructureOperationType.ListAppend
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = array_append('', value)
+                req = self._impl.request_builder.build_mutate_in_request(self._key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         parent_span=ds_obs_handler.wrapped_span)
+                await self._execute_op(self._impl.mutate_in,
+                                       req,
+                                       obs_handler,
+                                       ds_obs_handler.wrapped_span,
+                                       create_type=True)
 
-    @AsyncWrapper.datastructure_op(create_type=list)
-    async def prepend(self, value  # type: JSONType
-                      ) -> None:
+    async def prepend(self, value: JSONType) -> None:
         """
         Add an item to the beginning of a list.
 
         :param value: Value to prepend
         :return: :class:`OperationResult`.
-        :raise: :cb_exc:`DocumentNotFoundException` if the document does not exist.
-            and `create` was not specified.
 
         This function is identical to :meth:`list_append`, except for prepending
         rather than appending the item
 
         .. seealso:: :meth:`list_append`, :meth:`map_add`
         """
-        op = array_prepend('', value)
-        await self._collection.mutate_in(self._key, (op,))
+        op_type = DatastructureOperationType.ListPrepend
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = array_prepend('', value)
+                req = self._impl.request_builder.build_mutate_in_request(self._key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         parent_span=ds_obs_handler.wrapped_span)
+                await self._execute_op(self._impl.mutate_in,
+                                       req,
+                                       obs_handler,
+                                       ds_obs_handler.wrapped_span,
+                                       create_type=True)
 
-    async def set_at(self, index,  # type: int
-                     value  # type: JSONType
-                     ) -> None:
+    async def set_at(self, index: int, value: JSONType) -> None:
         """
         Sets an item within a list at a given position.
 
@@ -123,32 +183,53 @@ class CouchbaseList:
 
         .. seealso:: :meth:`map_add`, :meth:`list_append`
         """
-        try:
-            op = replace(f'[{index}]', value)
-            await self._collection.mutate_in(self._key, (op,))
-        except PathNotFoundException:
-            raise InvalidArgumentException(message=f'Index: {index} is out of range.') from None
+        op_type = DatastructureOperationType.ListSetAt
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                try:
+                    op = replace(f'[{index}]', value)
+                    req = self._impl.request_builder.build_mutate_in_request(self._key,
+                                                                             (op,),
+                                                                             obs_handler,
+                                                                             parent_span=ds_obs_handler.wrapped_span)
+                    await self._execute_op(self._impl.mutate_in,
+                                           req,
+                                           obs_handler,
+                                           ds_obs_handler.wrapped_span)
+                except PathNotFoundException:
+                    raise InvalidArgumentException(message=f'Index: {index} is out of range.') from None
 
-    @AsyncWrapper.datastructure_op(create_type=list)
-    async def get_at(self, index  # type: int
-                     ) -> Any:
+    async def get_at(self, index: int) -> Any:
         """
         Get a specific element within a list.
 
         :param index: The index to retrieve
         :return: value for the element
         :raise: :exc:`IndexError` if the index does not exist
-        :raise: :cb_exc:`DocumentNotFoundException` if the list does not exist
         """
-        try:
-            op = subdoc_get(f'[{index}]')
-            sdres = await self._collection.lookup_in(self._key, (op,))
-            return sdres.value[0].get("value", None)
-        except PathNotFoundException:
-            raise InvalidArgumentException(message=f'Index: {index} is out of range.') from None
+        op_type = DatastructureOperationType.ListGetAt
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.LookupIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                try:
+                    op = subdoc_get(f'[{index}]')
+                    req = self._impl.request_builder.build_lookup_in_request(self._key,
+                                                                             (op,),
+                                                                             obs_handler,
+                                                                             parent_span=ds_obs_handler.wrapped_span)
+                    sdres: LookupInResult = await self._execute_op(self._impl.lookup_in,
+                                                                   req,
+                                                                   obs_handler,
+                                                                   ds_obs_handler.wrapped_span,
+                                                                   create_type=True)
+                    return sdres.value[0].get('value', None)
+                except PathNotFoundException:
+                    raise InvalidArgumentException(message=f'Index: {index} is out of range.') from None
 
-    async def remove_at(self, index  # type: int
-                        ) -> None:
+    async def remove_at(self, index: int) -> None:
         """
         Remove the element at a specific index from a list.
 
@@ -158,64 +239,94 @@ class CouchbaseList:
         :raise: :exc:`IndexError` if the index does not exist
         :raise: :cb_exc:`DocumentNotFoundException` if the list does not exist
         """
-        try:
-            op = remove(f'[{index}]')
-            await self._collection.mutate_in(self._key, (op,))
-        except PathNotFoundException:
-            raise InvalidArgumentException(message=f'Index: {index} is out of range.') from None
+        op_type = DatastructureOperationType.ListRemoveAt
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                try:
+                    op = remove(f'[{index}]')
+                    req = self._impl.request_builder.build_mutate_in_request(self._key,
+                                                                             (op,),
+                                                                             obs_handler,
+                                                                             parent_span=ds_obs_handler.wrapped_span)
+                    await self._execute_op(self._impl.mutate_in,
+                                           req,
+                                           obs_handler,
+                                           ds_obs_handler.wrapped_span)
+                except PathNotFoundException:
+                    raise InvalidArgumentException(message=f'Index: {index} is out of range.') from None
 
-    @AsyncWrapper.datastructure_op(create_type=list)
     async def size(self) -> int:
         """
         Retrieve the number of elements in the list.
 
         :return: The number of elements within the list
-        :raise: :cb_exc:`DocumentNotFoundException` if the list does not exist
         """
-        op = count('')
-        sdres = await self._collection.lookup_in(self._key, (op,))
-        return sdres.value[0].get("value", None)
+        op_type = DatastructureOperationType.ListSize
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.LookupIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = count('')
+                req = self._impl.request_builder.build_lookup_in_request(self._key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         parent_span=ds_obs_handler.wrapped_span)
+                sdres: LookupInResult = await self._execute_op(self._impl.lookup_in,
+                                                               req,
+                                                               obs_handler,
+                                                               ds_obs_handler.wrapped_span,
+                                                               create_type=True)
+                return sdres.value[0].get("value", None)
 
-    @AsyncWrapper.datastructure_op(create_type=list)
-    async def index_of(self, value  # type: Any
-                       ) -> int:
+    async def index_of(self, value: Any) -> int:
         """
         Retrieve the index of the specified value in the list.
 
         :param value: the value to look-up
         :return: The index of the specified value, -1 if not found
-        :raise: :cb_exc:`DocumentNotFoundException` if the list does not exist
         """
+        op_type = DatastructureOperationType.ListIndexOf
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            list_ = await self._get(parent_span=ds_obs_handler.wrapped_span)
+            for idx, val in enumerate(list_.content_as[list]):
+                if val == value:
+                    return idx
 
-        list_ = await self._get()
-        for idx, val in enumerate(list_.content_as[list]):
-            if val == value:
-                return idx
-
-        return -1
+            return -1
 
     async def get_all(self) -> List[Any]:
         """
         Retrieves the entire list.
 
         :return: The entire CouchbaseList
-        :raise: :cb_exc:`DocumentNotFoundException` if the list does not exist
         """
-
-        list_ = await self._get()
-        return list_.content_as[list]
+        op_type = DatastructureOperationType.ListGetAll
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            list_ = await self._get(parent_span=ds_obs_handler.wrapped_span)
+            return list_.content_as[list]
 
     async def clear(self) -> None:
         """
         Clears the list.
 
         :return: clears the CouchbaseList
-        :raise: :cb_exc:`DocumentNotFoundException` if the list does not exist
         """
-        try:
-            await self._collection.remove(self._key)
-        except DocumentNotFoundException:
-            pass
+        op_type = DatastructureOperationType.ListClear
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.Remove
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                try:
+                    req = self._impl.request_builder.build_remove_request(self._key,
+                                                                          obs_handler,
+                                                                          parent_span=ds_obs_handler.wrapped_span)
+                    await self._impl.remove(req, obs_handler)
+                except DocumentNotFoundException:
+                    pass
 
     def __aiter__(self):
         return self
@@ -237,24 +348,52 @@ class CouchbaseList:
 
 
 class CouchbaseMap:
-    def __init__(self, key,  # type: str
-                 collection  # type: Collection
-                 ) -> None:
+    def __init__(self, key: str, collection_impl: AsyncCollectionImpl) -> None:
         self._key = key
-        self._collection = collection
+        self._impl = collection_impl
         self._full_map = None
 
-    @AsyncWrapper.datastructure_op(create_type=dict)
-    async def _get(self) -> Dict:
+    async def _execute_op(self,
+                          fn: Callable[[DataStructureRequest], Coroutine[Any, Any, Any]],
+                          req: DataStructureRequest,
+                          obs_handler: ObservableRequestHandler,
+                          parent_span: WrappedSpan,
+                          create_type: Optional[bool] = None) -> Any:
+        try:
+            return await fn(req, obs_handler)
+        except DocumentNotFoundException as ex:
+            if create_type is True:
+                orig_opt_type = obs_handler.op_type
+                obs_handler.reset(KeyValueOperationType.Insert, exc_val=ex)
+                try:
+                    ins_req = self._impl.request_builder.build_insert_request(self._key,
+                                                                              dict(),
+                                                                              obs_handler,
+                                                                              parent_span=parent_span)
+                    await self._impl.insert(ins_req, obs_handler)
+                except DocumentExistsException:
+                    pass
+                obs_handler.reset(orig_opt_type)
+                obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict(),
+                                           parent_span=parent_span)
+                return await fn(req, obs_handler)
+            else:
+                raise
+
+    async def _get(self, parent_span: Optional[WrappedSpan] = None) -> Dict:
         """
         Get the entire map.
         """
-        return await self._collection.get(self._key)
+        op_type = KeyValueOperationType.Get
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_request(self._key, obs_handler, parent_span=parent_span)
+            return await self._execute_op(self._impl.get,
+                                          req,
+                                          obs_handler,
+                                          parent_span,
+                                          create_type=True)
 
-    @AsyncWrapper.datastructure_op(create_type=dict)
-    async def add(self, mapkey,  # type: str
-                  value  # type: Any
-                  ) -> None:
+    async def add(self, mapkey: str, value: Any) -> None:
         """
         Set a value for a key in a map.
 
@@ -263,8 +402,6 @@ class CouchbaseMap:
 
         :param mapkey: The key in the map to set
         :param value: The value to use (anything serializable to JSON)
-        :raise: :cb_exc:`Document.DocumentNotFoundException` if the document does not exist.
-            and `create` was not specified
 
         .. Initialize a map and add a value
 
@@ -274,29 +411,50 @@ class CouchbaseMap:
             cb.get('a_map').value  # => {'some_key': 'some_value'}
 
         """
-        op = upsert(mapkey, value)
-        await self._collection.mutate_in(self._key, (op,))
+        op_type = DatastructureOperationType.MapAdd
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = upsert(mapkey, value)
+                req = self._impl.request_builder.build_mutate_in_request(self._key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         parent_span=ds_obs_handler.wrapped_span)
+                return await self._execute_op(self._impl.mutate_in,
+                                              req,
+                                              obs_handler,
+                                              ds_obs_handler.wrapped_span,
+                                              create_type=True)
 
-    @AsyncWrapper.datastructure_op(create_type=dict)
-    async def get(self, mapkey,  # type: str
-                  ) -> Any:
+    async def get(self, mapkey: str) -> Any:
         """
         Retrieve a value from a map.
 
         :param key: The document ID
         :param mapkey: Key within the map to retrieve
         :return: :class:`~.ValueResult`
-        :raise: :exc:`IndexError` if the mapkey does not exist
-        :raise: :cb_exc:`DocumentNotFoundException` if the document does not exist.
 
         .. seealso:: :meth:`map_add` for an example
         """
-        op = subdoc_get(mapkey)
-        sd_res = await self._collection.lookup_in(self._key, (op,))
-        return sd_res.value[0].get("value", None)
+        op_type = DatastructureOperationType.MapGet
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.LookupIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = subdoc_get(mapkey)
+                req = self._impl.request_builder.build_lookup_in_request(self._key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         parent_span=ds_obs_handler.wrapped_span)
+                sd_res = await self._execute_op(self._impl.lookup_in,
+                                                req,
+                                                obs_handler,
+                                                ds_obs_handler.wrapped_span,
+                                                create_type=True)
+                return sd_res.value[0].get('value', None)
 
-    async def remove(self, mapkey  # type: str
-                     ) -> None:
+    async def remove(self, mapkey: str) -> None:
         """
         Remove an item from a map.
 
@@ -312,133 +470,214 @@ class CouchbaseMap:
 
         .. seealso:: :meth:`map_add`
         """
-        try:
-            op = remove(mapkey)
-            await self._collection.mutate_in(self._key, (op,))
-        except PathNotFoundException:
-            raise InvalidArgumentException(message=f'Key: {mapkey} is not in the map.') from None
+        op_type = DatastructureOperationType.MapRemove
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                try:
+                    op = remove(mapkey)
+                    req = self._impl.request_builder.build_mutate_in_request(self._key,
+                                                                             (op,),
+                                                                             obs_handler,
+                                                                             parent_span=ds_obs_handler.wrapped_span)
+                    await self._impl.mutate_in(req, obs_handler)
+                except PathNotFoundException:
+                    raise InvalidArgumentException(message=f'Key: {mapkey} is not in the map.') from None
 
-    @AsyncWrapper.datastructure_op(create_type=dict)
     async def size(self) -> int:
         """
         Get the number of items in the map.
 
         :param key: The document ID of the map
         :return int: The number of items in the map
-        :raise: :cb_exc:`DocumentNotFoundException` if the document does not exist.
 
         .. seealso:: :meth:`map_add`
         """
-        op = count('')
-        sd_res = await self._collection.lookup_in(self._key, (op,))
-        return sd_res.value[0].get("value", None)
+        op_type = DatastructureOperationType.MapSize
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.LookupIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = count('')
+                req = self._impl.request_builder.build_lookup_in_request(self._key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         parent_span=ds_obs_handler.wrapped_span)
+                sd_res: LookupInResult = await self._execute_op(self._impl.lookup_in,
+                                                                req,
+                                                                obs_handler,
+                                                                ds_obs_handler.wrapped_span,
+                                                                create_type=True)
+                return sd_res.value[0].get('value', None)
 
-    @AsyncWrapper.datastructure_op(create_type=dict)
-    async def exists(self, key  # type: Any
-                     ) -> bool:
+    async def exists(self, key: str) -> bool:
         """
-        hecks whether a specific key exists in the map.
+        Checks whether a specific key exists in the map.
 
         :param key: The key to check
         :return bool: If the key exists in the map or not
-        :raise: :cb_exc:`DocumentNotFoundException` if the document does not exist.
 
         .. seealso:: :meth:`map_add`
         """
-        op = subdoc_exists(key)
-        sd_res = await self._collection.lookup_in(self._key, (op,))
-        return sd_res.exists(0)
+        op_type = DatastructureOperationType.MapExists
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.LookupIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = subdoc_exists(key)
+                req = self._impl.request_builder.build_lookup_in_request(self._key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         parent_span=ds_obs_handler.wrapped_span)
+                sd_res: LookupInResult = await self._execute_op(self._impl.lookup_in,
+                                                                req,
+                                                                obs_handler,
+                                                                ds_obs_handler.wrapped_span,
+                                                                create_type=True)
+                return sd_res.exists(0)
 
     async def keys(self) -> List[str]:
         """
         Returns a list of all the keys which exist in the map.
 
         :return: The keys in CouchbaseMap
-        :raise: :cb_exc:`DocumentNotFoundException` if the map does not exist
         """
-
-        map_ = await self._get()
-        return list(map_.content_as[dict].keys())
+        op_type = DatastructureOperationType.MapKeys
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            map_ = await self._get(parent_span=ds_obs_handler.wrapped_span)
+            return list(map_.content_as[dict].keys())
 
     async def values(self) -> List[str]:
         """
         Returns a list of all the values which exist in the map.
 
         :return: The keys in CouchbaseMap
-        :raise: :cb_exc:`DocumentNotFoundException` if the map does not exist
         """
-
-        map_ = await self._get()
-        return list(map_.content_as[dict].values())
+        op_type = DatastructureOperationType.MapValues
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            map_ = await self._get(parent_span=ds_obs_handler.wrapped_span)
+            return list(map_.content_as[dict].values())
 
     async def get_all(self) -> List[Any]:
         """
         Retrieves the entire map.
 
         :return: The entire CouchbaseMap
-        :raise: :cb_exc:`DocumentNotFoundException` if the list does not exist
         """
-
-        map_ = await self._get()
-        return map_.content_as[dict]
+        op_type = DatastructureOperationType.MapGetAll
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            map_ = await self._get(parent_span=ds_obs_handler.wrapped_span)
+            return map_.content_as[dict]
 
     async def clear(self) -> None:
         """
         Clears the map.
 
         :return: clears the CouchbaseMap
-        :raise: :cb_exc:`DocumentNotFoundException` if the list does not exist
         """
-        try:
-            await self._collection.remove(self._key)
-        except DocumentNotFoundException:
-            pass
+        op_type = DatastructureOperationType.MapClear
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.Remove
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                try:
+                    req = self._impl.request_builder.build_remove_request(self._key,
+                                                                          obs_handler,
+                                                                          parent_span=ds_obs_handler.wrapped_span)
+                    await self._impl.remove(req, obs_handler)
+                except DocumentNotFoundException:
+                    pass
 
     async def items(self) -> Generator:
         """
         Provide mechanism to loop over the entire map.
 
         :return: Generator expression for CouchbaseMap
-        :raise: :cb_exc:`DocumentNotFoundException` if the list does not exist
         """
-
-        map_ = await self._get()
-        return ((k, v) for k, v in map_.content_as[dict].items())
+        op_type = DatastructureOperationType.MapItems
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            map_ = await self._get(parent_span=ds_obs_handler.wrapped_span)
+            return ((k, v) for k, v in map_.content_as[dict].items())
 
 
 class CouchbaseSet:
-    def __init__(self, key,  # type: str
-                 collection  # type: Collection
-                 ) -> None:
+    def __init__(self, key: str, collection_impl: AsyncCollectionImpl) -> None:
         self._key = key
-        self._collection = collection
+        self._impl = collection_impl
 
-    @AsyncWrapper.datastructure_op(create_type=list)
-    async def _get(self) -> List:
+    async def _execute_op(self,
+                          fn: Callable[[DataStructureRequest], Coroutine[Any, Any, Any]],
+                          req: DataStructureRequest,
+                          obs_handler: ObservableRequestHandler,
+                          parent_span: WrappedSpan,
+                          create_type: Optional[bool] = None) -> Any:
+        try:
+            return await fn(req, obs_handler)
+        except DocumentNotFoundException as ex:
+            if create_type is True:
+                orig_opt_type = obs_handler.op_type
+                obs_handler.reset(KeyValueOperationType.Insert, exc_val=ex)
+                try:
+                    ins_req = self._impl.request_builder.build_insert_request(self._key,
+                                                                              list(),
+                                                                              obs_handler,
+                                                                              parent_span=parent_span)
+                    await self._impl.insert(ins_req, obs_handler)
+                except DocumentExistsException:
+                    pass
+                obs_handler.reset(orig_opt_type)
+                obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict(),
+                                           parent_span=parent_span)
+                return await fn(req, obs_handler)
+            else:
+                raise
+
+    async def _get(self, parent_span: Optional[WrappedSpan] = None) -> List:
         """
         Get the entire set.
         """
-        return await self._collection.get(self._key)
+        op_type = KeyValueOperationType.Get
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_request(self._key, obs_handler, parent_span=parent_span)
+            return await self._execute_op(self._impl.get,
+                                          req,
+                                          obs_handler,
+                                          parent_span,
+                                          create_type=True)
 
-    @AsyncWrapper.datastructure_op(create_type=list)
-    async def add(self, value  # type: Any
-                  ) -> None:
+    async def add(self, value: Any) -> bool:
         """
         Add an item to a set if the item does not yet exist.
 
         :param value: Value to add
         .. seealso:: :meth:`map_add`
         """
-        try:
-            op = array_addunique('', value)
-            await self._collection.mutate_in(self._key, (op,))
-            return True
-        except PathExistsException:
-            return False
+        op_type = DatastructureOperationType.SetAdd
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                try:
+                    op = array_addunique('', value)
+                    req = self._impl.request_builder.build_mutate_in_request(self._key,
+                                                                             (op,),
+                                                                             obs_handler,
+                                                                             parent_span=ds_obs_handler.wrapped_span)
+                    await self._execute_op(self._impl.mutate_in,
+                                           req,
+                                           obs_handler,
+                                           ds_obs_handler.wrapped_span,
+                                           create_type=True)
+                    return True
+                except PathExistsException:
+                    return False
 
-    async def remove(self, value,  # type: Any  # noqa: C901
-                     timeout=None  # type: Optional[timedelta]
-                     ) -> None:
+    async def remove(self, value: Any, timeout: Optional[timedelta] = None) -> None:  # noqa: C901
         """
         Remove an item from a set.
 
@@ -448,159 +687,44 @@ class CouchbaseSet:
 
         .. seealso:: :meth:`set_add`, :meth:`map_add`
         """
+        op_type = DatastructureOperationType.SetRemove
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
 
-        if timeout is None:
-            timeout = timedelta(seconds=10)
+            if timeout is None:
+                timeout = timedelta(seconds=10)
 
-        timeout_millis = timeout.total_seconds() * 1000
+            timeout_millis = timeout.total_seconds() * 1000
 
-        interval_millis = float(50)
-        start = time.perf_counter()
-        time_left = timeout_millis
-        while True:
-            sd_res = await self._get()
-            list_ = sd_res.content_as[list]
-            val_idx = -1
-            for idx, v in enumerate(list_):
-                if v == value:
-                    val_idx = idx
+            interval_millis = float(50)
+            start = time.perf_counter()
+            time_left = timeout_millis
+            kv_op_type = KeyValueOperationType.MutateIn
+            while True:
+                sd_res = await self._get(parent_span=ds_obs_handler.wrapped_span)
+                list_ = sd_res.content_as[list]
+                val_idx = -1
+                for idx, v in enumerate(list_):
+                    if v == value:
+                        val_idx = idx
+                        break
+
+                if val_idx >= 0:
+                    async with ObservableRequestHandler(kv_op_type,
+                                                        self._impl.observability_instruments) as obs_handler:
+                        try:
+                            mut_opts = MutateInOptions(cas=sd_res.cas, parent_span=ds_obs_handler.wrapped_span)
+                            op = remove(f'[{val_idx}]')
+                            req = self._impl.request_builder.build_mutate_in_request(self._key,
+                                                                                     (op,),
+                                                                                     obs_handler,
+                                                                                     mut_opts)
+                            await self._impl.mutate_in(req, obs_handler)
+                            break
+                        except CasMismatchException:
+                            pass
+                else:
                     break
-
-            if val_idx >= 0:
-                try:
-                    op = remove(f'[{val_idx}]')
-                    await self._collection.mutate_in(self._key, (op,), MutateInOptions(cas=sd_res.cas))
-                    break
-                except CasMismatchException:
-                    pass
-            else:
-                break
-
-            interval_millis += 500
-            if interval_millis > 1000:
-                interval_millis = 1000
-
-            time_left = timeout_millis - ((time.perf_counter() - start) * 1000)
-            if interval_millis > time_left:
-                interval_millis = time_left
-
-            if time_left <= 0:
-                raise UnAmbiguousTimeoutException(message=f"Unable to remove {value} from the CouchbaseSet.")
-
-            await asyncio.sleep(interval_millis / 1000)
-
-    @AsyncWrapper.datastructure_op(create_type=list)
-    async def contains(self, value  # type: Any
-                       ) -> None:
-        """
-        Check whether or not the CouchbaseSet contains a value
-
-        :param value: Value to remove
-        :return: True if `value` exists in the set, False otherwise
-        :raise: :cb_exc:`DocumentNotFoundException` if the set does not exist.
-
-        .. seealso:: :meth:`set_add`, :meth:`map_add`
-        """
-        sd_res = await self._get()
-        list_ = sd_res.content_as[list]
-        return value in list_
-
-    @AsyncWrapper.datastructure_op(create_type=list)
-    async def size(self) -> int:
-        """
-        Get the number of items in the set.
-
-        :return int: The number of items in the map
-        :raise: :cb_exc:`DocumentNotFoundException` if the document does not exist.
-
-        .. seealso:: :meth:`map_add`
-        """
-        op = count('')
-        sd_res = await self._collection.lookup_in(self._key, (op,))
-        return sd_res.value[0].get("value", None)
-
-    async def clear(self) -> None:
-        """
-        Clears the set.
-
-        :return: clears the CouchbaseSet
-        """
-        try:
-            await self._collection.remove(self._key)
-        except DocumentNotFoundException:
-            pass
-
-    @AsyncWrapper.datastructure_op(create_type=list)
-    async def values(self) -> List[Any]:
-        """
-        Returns a list of all the values which exist in the set.
-
-        :return: The keys in CouchbaseSet
-        :raise: :cb_exc:`DocumentNotFoundException` if the map does not exist
-        """
-
-        list_ = await self._get()
-        return list_.content_as[list]
-
-
-class CouchbaseQueue:
-    def __init__(self, key,  # type: str
-                 collection  # type: Collection
-                 ) -> None:
-        self._key = key
-        self._collection = collection
-        self._full_queue = None
-        self._iter = False
-
-    @AsyncWrapper.datastructure_op(create_type=list)
-    async def _get(self) -> List:
-        """
-        Get the entire queuee.
-        """
-        return await self._collection.get(self._key)
-
-    @AsyncWrapper.datastructure_op(create_type=list)
-    async def push(self, value  # type: JSONType
-                   ) -> None:
-        """
-        Add an item to the queue.
-
-        :param value: Value to push onto queue
-        """
-        op = array_prepend('', value)
-        await self._collection.mutate_in(self._key, (op,))
-
-    async def pop(self, timeout=None  # type: Optional[timedelta]
-                  ) -> None:
-        """
-        Pop an item from the queue.
-
-        :param value: Value to remove
-        :raise: :cb_exc:`DocumentNotFoundException` if the set does not exist.
-
-        .. seealso:: :meth:`set_add`, :meth:`map_add`
-        """
-
-        if timeout is None:
-            timeout = timedelta(seconds=10)
-
-        timeout_millis = timeout.total_seconds() * 1000
-
-        interval_millis = float(50)
-        start = time.perf_counter()
-        time_left = timeout_millis
-        while True:
-            try:
-                op = subdoc_get('[-1]')
-                sd_res = await self._collection.lookup_in(self._key, (op,))
-                val = sd_res.value[0].get("value", None)
-
-                try:
-                    op = remove('[-1]')
-                    await self._collection.mutate_in(self._key, (op,), MutateInOptions(cas=sd_res.cas))
-                    return val
-                except CasMismatchException:
-                    pass
 
                 interval_millis += 500
                 if interval_millis > 1000:
@@ -611,25 +735,241 @@ class CouchbaseQueue:
                     interval_millis = time_left
 
                 if time_left <= 0:
-                    raise UnAmbiguousTimeoutException(message="Unable to pop from the CouchbaseQueue.")
+                    raise UnAmbiguousTimeoutException(message=f"Unable to remove {value} from the CouchbaseSet.")
 
                 await asyncio.sleep(interval_millis / 1000)
-            except PathNotFoundException:
-                raise QueueEmpty('No items to remove from the queue')
 
-    @AsyncWrapper.datastructure_op(create_type=list)
+    async def contains(self, value: Any) -> bool:
+        """
+        Check whether or not the CouchbaseSet contains a value
+
+        :param value: Value to remove
+        :return: True if `value` exists in the set, False otherwise
+
+        .. seealso:: :meth:`set_add`, :meth:`map_add`
+        """
+        op_type = DatastructureOperationType.SetContains
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            sd_res = await self._get(parent_span=ds_obs_handler.wrapped_span)
+            list_ = sd_res.content_as[list]
+            return value in list_
+
+    async def size(self) -> int:
+        """
+        Get the number of items in the set.
+
+        :return int: The number of items in the map
+
+        .. seealso:: :meth:`map_add`
+        """
+        op_type = DatastructureOperationType.SetSize
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.LookupIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = count('')
+                req = self._impl.request_builder.build_lookup_in_request(self._key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         parent_span=ds_obs_handler.wrapped_span)
+                sd_res: LookupInResult = await self._execute_op(self._impl.lookup_in,
+                                                                req,
+                                                                obs_handler,
+                                                                ds_obs_handler.wrapped_span,
+                                                                create_type=True)
+                return sd_res.value[0].get('value', None)
+
+    async def clear(self) -> None:
+        """
+        Clears the set.
+
+        :return: clears the CouchbaseSet
+        """
+        op_type = DatastructureOperationType.SetClear
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.Remove
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                try:
+                    req = self._impl.request_builder.build_remove_request(self._key,
+                                                                          obs_handler,
+                                                                          parent_span=ds_obs_handler.wrapped_span)
+                    await self._impl.remove(req, obs_handler)
+                except DocumentNotFoundException:
+                    pass
+
+    async def values(self) -> List[Any]:
+        """
+        Returns a list of all the values which exist in the set.
+
+        :return: The keys in CouchbaseSet
+        """
+        op_type = DatastructureOperationType.SetValues
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            list_ = await self._get(parent_span=ds_obs_handler.wrapped_span)
+            return list_.content_as[list]
+
+
+class CouchbaseQueue:
+    def __init__(self, key: str, collection_impl: AsyncCollectionImpl) -> None:
+        self._key = key
+        self._impl = collection_impl
+        self._full_queue = None
+        self._iter = False
+
+    async def _execute_op(self,
+                          fn: Callable[[DataStructureRequest], Coroutine[Any, Any, Any]],
+                          req: DataStructureRequest,
+                          obs_handler: ObservableRequestHandler,
+                          parent_span: WrappedSpan,
+                          create_type: Optional[bool] = None) -> Any:
+        try:
+            return await fn(req, obs_handler)
+        except DocumentNotFoundException as ex:
+            if create_type is True:
+                orig_opt_type = obs_handler.op_type
+                obs_handler.reset(KeyValueOperationType.Insert, exc_val=ex)
+                try:
+                    ins_req = self._impl.request_builder.build_insert_request(self._key,
+                                                                              list(),
+                                                                              obs_handler,
+                                                                              parent_span=parent_span)
+                    await self._impl.insert(ins_req, obs_handler)
+                except DocumentExistsException:
+                    pass
+                obs_handler.reset(orig_opt_type)
+                obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict(),
+                                           parent_span=parent_span)
+                return await fn(req, obs_handler)
+            else:
+                raise
+
+    async def _get(self, parent_span: Optional[WrappedSpan] = None) -> List:
+        """
+        Get the entire queuee.
+        """
+        op_type = KeyValueOperationType.Get
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_request(self._key, obs_handler, parent_span=parent_span)
+            return await self._execute_op(self._impl.get,
+                                          req,
+                                          obs_handler,
+                                          parent_span,
+                                          create_type=True)
+
+    async def push(self, value: JSONType) -> None:
+        """
+        Add an item to the queue.
+
+        :param value: Value to push onto queue
+        """
+        op_type = DatastructureOperationType.QueuePush
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = array_prepend('', value)
+                req = self._impl.request_builder.build_mutate_in_request(self._key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         parent_span=ds_obs_handler.wrapped_span)
+                await self._execute_op(self._impl.mutate_in,
+                                       req,
+                                       obs_handler,
+                                       ds_obs_handler.wrapped_span,
+                                       create_type=True)
+
+    async def pop(self, timeout: Optional[timedelta] = None) -> Any:
+        """
+        Pop an item from the queue.
+
+        :param value: Value to remove
+        :raise: :cb_exc:`DocumentNotFoundException` if the set does not exist.
+
+        .. seealso:: :meth:`set_add`, :meth:`map_add`
+        """
+        op_type = DatastructureOperationType.QueuePop
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            if timeout is None:
+                timeout = timedelta(seconds=10)
+
+            timeout_millis = timeout.total_seconds() * 1000
+
+            interval_millis = float(50)
+            start = time.perf_counter()
+            time_left = timeout_millis
+            parent_span = ds_obs_handler.wrapped_span
+            lookup_in_op_type = KeyValueOperationType.LookupIn
+            mutate_in_op_type = KeyValueOperationType.MutateIn
+            while True:
+                try:
+
+                    async with ObservableRequestHandler(lookup_in_op_type,
+                                                        self._impl.observability_instruments) as obs_handler:
+                        op = subdoc_get('[-1]')
+                        lookup_in_req = self._impl.request_builder.build_lookup_in_request(self._key,
+                                                                                           (op,),
+                                                                                           obs_handler,
+                                                                                           parent_span=parent_span)
+                        sd_res = await self._impl.lookup_in(lookup_in_req, obs_handler)
+                        val = sd_res.value[0].get('value', None)
+
+                    async with ObservableRequestHandler(mutate_in_op_type,
+                                                        self._impl.observability_instruments) as obs_handler:
+                        try:
+                            op = remove('[-1]')
+                            mutate_in_opts = MutateInOptions(cas=sd_res.cas, parent_span=parent_span)
+                            mutate_in_req = self._impl.request_builder.build_mutate_in_request(self._key,
+                                                                                               (op,),
+                                                                                               obs_handler,
+                                                                                               mutate_in_opts)
+                            await self._impl.mutate_in(mutate_in_req, obs_handler)
+                            return val
+                        except CasMismatchException:
+                            pass
+
+                    interval_millis += 500
+                    if interval_millis > 1000:
+                        interval_millis = 1000
+
+                    time_left = timeout_millis - ((time.perf_counter() - start) * 1000)
+                    if interval_millis > time_left:
+                        interval_millis = time_left
+
+                    if time_left <= 0:
+                        raise UnAmbiguousTimeoutException(message="Unable to pop from the CouchbaseQueue.")
+
+                    await asyncio.sleep(interval_millis / 1000)
+                except PathNotFoundException:
+                    raise QueueEmpty('No items to remove from the queue')
+
     async def size(self) -> int:
         """
         Get the number of items in the queue.
 
         :return int: The number of items in the queue
-        :raise: :cb_exc:`DocumentNotFoundException` if the document does not exist.
 
         .. seealso:: :meth:`map_add`
         """
-        op = count('')
-        sd_res = await self._collection.lookup_in(self._key, (op,))
-        return sd_res.value[0].get("value", None)
+        op_type = DatastructureOperationType.QueueSize
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.LookupIn
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = count('')
+                req = self._impl.request_builder.build_lookup_in_request(self._key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         parent_span=ds_obs_handler.wrapped_span)
+                sd_res: LookupInResult = await self._execute_op(self._impl.lookup_in,
+                                                                req,
+                                                                obs_handler,
+                                                                ds_obs_handler.wrapped_span,
+                                                                create_type=True)
+                return sd_res.value[0].get('value', None)
 
     async def clear(self) -> None:
         """
@@ -638,10 +978,18 @@ class CouchbaseQueue:
         :return: clears the CouchbaseQueue
         :raise: :cb_exc:`DocumentNotFoundException` if the list does not exist
         """
-        try:
-            await self._collection.remove(self._key)
-        except DocumentNotFoundException:
-            pass
+        op_type = DatastructureOperationType.QueueClear
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.Remove
+            async with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                try:
+                    req = self._impl.request_builder.build_remove_request(self._key,
+                                                                          obs_handler,
+                                                                          parent_span=ds_obs_handler.wrapped_span)
+                    await self._impl.remove(req, obs_handler)
+                except DocumentNotFoundException:
+                    pass
 
     def __iter__(self):
         raise TypeError('CouchbaseQueue is not iterable.  Try using `async for`.')

@@ -663,6 +663,16 @@ class Node:
             return dict(zip(self._outputs, result))
 
         if self._outputs is None:
+            if outputs is not None:
+                node_name = self._name or self._func_name
+                warnings.warn(
+                    f"Node '{node_name}' returned a value of type "
+                    f"'{type(outputs).__name__}', but the node is defined with outputs=None. "
+                    "Kedro ignores return values for nodes without declared outputs. "
+                    "If this return value is intentional, declare outputs in the node "
+                    "definition to include it in the pipeline.",
+                    UserWarning,
+                )
             return {}
         if isinstance(self._outputs, str):
             return {self._outputs: outputs}
@@ -734,6 +744,9 @@ def _node_error_message(msg: str) -> str:
     )
 
 
+_DOTTED_DATASET_NAME_WARNED = "__dotted_dataset_name_warned__"
+
+
 def _node_dataset_name_validation(name: str, namespace: str | None) -> None:
     """Validate the dataset name. The node inputs and outputs should not contain
     '.' characters. This is to ensure that the dot notation is reserved for Kedro's
@@ -753,12 +766,15 @@ def _node_dataset_name_validation(name: str, namespace: str | None) -> None:
         if not namespace or not name_namespace.startswith(
             namespace.split(".")[0]
         ):  # match with top level namespace
-            warnings.warn(
-                f"Dataset name '{name}' contains '.' characters, which is "
-                f"not recommended as the dot notation is reserved for automatic "
-                f"namespacing in Kedro. Consider using a different naming convention.",
-                UserWarning,
-            )
+            if not getattr(Node, _DOTTED_DATASET_NAME_WARNED, False):
+                setattr(Node, _DOTTED_DATASET_NAME_WARNED, True)
+                warnings.warn(
+                    "One or more dataset names contain '.' characters, which is "
+                    "not recommended as the dot notation is reserved for automatic "
+                    "namespacing in Kedro. Consider using a different naming convention.",
+                    UserWarning,
+                    stacklevel=3,
+                )
 
 
 def node(  # noqa: PLR0913

@@ -631,6 +631,13 @@ def test_to_gbq_if_exists_is_replace(scalars_dfs, dataset_id):
     assert len(gcs_df) == len(scalars_pandas_df)
     pd.testing.assert_index_equal(gcs_df.columns, scalars_pandas_df.columns)
 
+    # When replacing a table with same schema but different column order
+    reordered_df = scalars_df[scalars_df.columns[::-1]]
+    reordered_df.to_gbq(destination_table, if_exists="replace")
+    gcs_df = pandas_gbq.read_gbq(destination_table, index_col="rowindex")
+    assert len(gcs_df) == len(scalars_pandas_df)
+    pd.testing.assert_index_equal(gcs_df.columns, reordered_df.columns)
+
     # When replacing a table with different schema
     partitial_scalars_df = scalars_df.drop(columns=["string_col"])
     partitial_scalars_df.to_gbq(destination_table, if_exists="replace")
@@ -1000,6 +1007,28 @@ def test_to_gbq_timedelta_tag_ignored_when_appending(bigquery_client, dataset_id
     assert table.schema[0].name == "my_col"
     assert table.schema[0].field_type == "INTEGER"
     assert table.schema[0].description is None
+
+
+def test_to_gbq_obj_ref(session, dataset_id: str, bigquery_client):
+    destination_table = f"{dataset_id}.test_to_gbq_obj_ref"
+    sql = """
+        SELECT
+            'gs://cloud-samples-data/vision/ocr/sign.jpg' AS uri_col
+    """
+    df = session.read_gbq(sql)
+    df["obj_ref_col"] = df["uri_col"].str.to_blob()
+    df = df.drop(columns=["uri_col"])
+
+    df.to_gbq(destination_table)
+
+    table = bigquery_client.get_table(destination_table)
+    obj_ref_field = next(f for f in table.schema if f.name == "obj_ref_col")
+    assert obj_ref_field.field_type == "RECORD"
+    assert obj_ref_field.description == "bigframes_dtype: OBJ_REF_DTYPE"
+
+    reloaded_df = session.read_gbq(destination_table)
+    assert reloaded_df["obj_ref_col"].dtype == dtypes.OBJ_REF_DTYPE
+    assert len(reloaded_df) == 1
 
 
 @pytest.mark.parametrize(

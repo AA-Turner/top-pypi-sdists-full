@@ -1699,11 +1699,6 @@ class TrustedSignersTypeDef(TypedDict):
     Quantity: int
     Items: NotRequired[Sequence[str]]
 
-class UpdateAnycastIpListRequestTypeDef(TypedDict):
-    Id: str
-    IfMatch: str
-    IpAddressType: NotRequired[IpAddressTypeType]
-
 class UpdateConnectionGroupRequestTypeDef(TypedDict):
     Id: str
     IfMatch: str
@@ -1924,6 +1919,12 @@ class ContinuousDeploymentSingleWeightConfigTypeDef(TypedDict):
 class IpamConfigTypeDef(TypedDict):
     Quantity: int
     IpamCidrConfigs: list[IpamCidrConfigTypeDef]
+
+class UpdateAnycastIpListRequestTypeDef(TypedDict):
+    Id: str
+    IfMatch: str
+    IpAddressType: NotRequired[IpAddressTypeType]
+    IpamCidrConfigs: NotRequired[Sequence[IpamCidrConfigTypeDef]]
 
 class CreateKeyValueStoreRequestTypeDef(TypedDict):
     Name: str

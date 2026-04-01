@@ -1,0 +1,85 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+use crate::testcase;
+
+testcase!(
+    test_typeform_recognized,
+    r#"
+from typing_extensions import TypeForm
+
+x: TypeForm[int]
+y: TypeForm[str | None]
+    "#,
+);
+
+testcase!(
+    test_typeform_bad_specialization,
+    r#"
+from typing_extensions import TypeForm
+
+x: TypeForm[int, str]  # E: `TypeForm` requires exactly one argument but got 2
+    "#,
+);
+
+testcase!(
+    test_typeform_covariance,
+    r#"
+from typing_extensions import TypeForm
+
+def get_int_form() -> TypeForm[int]:
+    return int
+
+x: TypeForm[int | str] = get_int_form()
+y: TypeForm[str] = get_int_form()  # E: `TypeForm[int]` is not assignable
+    "#,
+);
+
+testcase!(
+    test_typeform_type_subtype,
+    r#"
+from typing_extensions import TypeForm
+
+def get_type() -> type[int]:
+    return int
+
+x: TypeForm[int | str] = get_type()
+y: TypeForm[str] = get_type()  # E: is not assignable
+    "#,
+);
+
+testcase!(
+    test_typeform_bare,
+    r#"
+from typing import Any, assert_type
+from typing_extensions import TypeForm
+
+def f(x: TypeForm) -> None:
+    assert_type(x, TypeForm[Any])
+
+f(int)
+f(str)
+    "#,
+);
+
+testcase!(
+    test_typeform_assignment,
+    r#"
+from typing import Any, Optional
+from typing_extensions import TypeForm
+
+ok1: TypeForm[str | None] = str | None
+ok2: TypeForm[str | None] = str
+ok3: TypeForm[str | None] = Optional[str]
+ok4: TypeForm[str | None] = None
+ok5: TypeForm[Any] = int
+ok6: TypeForm[str | None] = Any
+ok7: TypeForm[Any] = Any
+
+err1: TypeForm[str | None] = str | int  # E: is not assignable
+    "#,
+);

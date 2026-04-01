@@ -50,7 +50,23 @@ class TestResourceListPolicyAssignment(unittest.TestCase):
                         applied_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         applied_by_user_id = '', 
                         enforcement_starts_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        compliance_status = 'PENDING', 
+                        compliance_status = arthur_client.api_bindings.models.compliance_status_detail.ComplianceStatusDetail(
+                            status = 'PENDING', 
+                            alert_rules = arthur_client.api_bindings.models.compliance_alert_rule_results.ComplianceAlertRuleResults(
+                                compliant = [
+                                    arthur_client.api_bindings.models.compliant_alert_rule_status.CompliantAlertRuleStatus(
+                                        id = '', 
+                                        name = '', )
+                                    ], 
+                                non_compliant = [
+                                    arthur_client.api_bindings.models.non_compliant_alert_rule_status.NonCompliantAlertRuleStatus(
+                                        id = '', 
+                                        name = '', 
+                                        alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
+                                            description = '', 
+                                            id = '', ), )
+                                    ], ), 
+                            attestation_rules = arthur_client.api_bindings.models.compliance_attestation_rule_results.ComplianceAttestationRuleResults(), ), 
                         compliance_job_id = '', )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
@@ -76,7 +92,23 @@ class TestResourceListPolicyAssignment(unittest.TestCase):
                         applied_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         applied_by_user_id = '', 
                         enforcement_starts_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        compliance_status = 'PENDING', 
+                        compliance_status = arthur_client.api_bindings.models.compliance_status_detail.ComplianceStatusDetail(
+                            status = 'PENDING', 
+                            alert_rules = arthur_client.api_bindings.models.compliance_alert_rule_results.ComplianceAlertRuleResults(
+                                compliant = [
+                                    arthur_client.api_bindings.models.compliant_alert_rule_status.CompliantAlertRuleStatus(
+                                        id = '', 
+                                        name = '', )
+                                    ], 
+                                non_compliant = [
+                                    arthur_client.api_bindings.models.non_compliant_alert_rule_status.NonCompliantAlertRuleStatus(
+                                        id = '', 
+                                        name = '', 
+                                        alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
+                                            description = '', 
+                                            id = '', ), )
+                                    ], ), 
+                            attestation_rules = arthur_client.api_bindings.models.compliance_attestation_rule_results.ComplianceAttestationRuleResults(), ), 
                         compliance_job_id = '', )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(

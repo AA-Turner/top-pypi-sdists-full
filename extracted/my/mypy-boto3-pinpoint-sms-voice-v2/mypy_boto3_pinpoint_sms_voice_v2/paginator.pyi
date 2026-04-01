@@ -3,7 +3,7 @@ Type annotations for pinpoint-sms-voice-v2 service client paginators.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -16,11 +16,15 @@ Usage::
         DescribeAccountLimitsPaginator,
         DescribeConfigurationSetsPaginator,
         DescribeKeywordsPaginator,
+        DescribeNotifyConfigurationsPaginator,
+        DescribeNotifyTemplatesPaginator,
         DescribeOptOutListsPaginator,
         DescribeOptedOutNumbersPaginator,
         DescribePhoneNumbersPaginator,
         DescribePoolsPaginator,
         DescribeProtectConfigurationsPaginator,
+        DescribeRcsAgentCountryLaunchStatusPaginator,
+        DescribeRcsAgentsPaginator,
         DescribeRegistrationAttachmentsPaginator,
         DescribeRegistrationFieldDefinitionsPaginator,
         DescribeRegistrationFieldValuesPaginator,
@@ -31,6 +35,7 @@ Usage::
         DescribeSenderIdsPaginator,
         DescribeSpendLimitsPaginator,
         DescribeVerifiedDestinationNumbersPaginator,
+        ListNotifyCountriesPaginator,
         ListPoolOriginationIdentitiesPaginator,
         ListProtectConfigurationRuleSetNumberOverridesPaginator,
         ListRegistrationAssociationsPaginator,
@@ -43,11 +48,15 @@ Usage::
     describe_account_limits_paginator: DescribeAccountLimitsPaginator = client.get_paginator("describe_account_limits")
     describe_configuration_sets_paginator: DescribeConfigurationSetsPaginator = client.get_paginator("describe_configuration_sets")
     describe_keywords_paginator: DescribeKeywordsPaginator = client.get_paginator("describe_keywords")
+    describe_notify_configurations_paginator: DescribeNotifyConfigurationsPaginator = client.get_paginator("describe_notify_configurations")
+    describe_notify_templates_paginator: DescribeNotifyTemplatesPaginator = client.get_paginator("describe_notify_templates")
     describe_opt_out_lists_paginator: DescribeOptOutListsPaginator = client.get_paginator("describe_opt_out_lists")
     describe_opted_out_numbers_paginator: DescribeOptedOutNumbersPaginator = client.get_paginator("describe_opted_out_numbers")
     describe_phone_numbers_paginator: DescribePhoneNumbersPaginator = client.get_paginator("describe_phone_numbers")
     describe_pools_paginator: DescribePoolsPaginator = client.get_paginator("describe_pools")
     describe_protect_configurations_paginator: DescribeProtectConfigurationsPaginator = client.get_paginator("describe_protect_configurations")
+    describe_rcs_agent_country_launch_status_paginator: DescribeRcsAgentCountryLaunchStatusPaginator = client.get_paginator("describe_rcs_agent_country_launch_status")
+    describe_rcs_agents_paginator: DescribeRcsAgentsPaginator = client.get_paginator("describe_rcs_agents")
     describe_registration_attachments_paginator: DescribeRegistrationAttachmentsPaginator = client.get_paginator("describe_registration_attachments")
     describe_registration_field_definitions_paginator: DescribeRegistrationFieldDefinitionsPaginator = client.get_paginator("describe_registration_field_definitions")
     describe_registration_field_values_paginator: DescribeRegistrationFieldValuesPaginator = client.get_paginator("describe_registration_field_values")
@@ -58,6 +67,7 @@ Usage::
     describe_sender_ids_paginator: DescribeSenderIdsPaginator = client.get_paginator("describe_sender_ids")
     describe_spend_limits_paginator: DescribeSpendLimitsPaginator = client.get_paginator("describe_spend_limits")
     describe_verified_destination_numbers_paginator: DescribeVerifiedDestinationNumbersPaginator = client.get_paginator("describe_verified_destination_numbers")
+    list_notify_countries_paginator: ListNotifyCountriesPaginator = client.get_paginator("list_notify_countries")
     list_pool_origination_identities_paginator: ListPoolOriginationIdentitiesPaginator = client.get_paginator("list_pool_origination_identities")
     list_protect_configuration_rule_set_number_overrides_paginator: ListProtectConfigurationRuleSetNumberOverridesPaginator = client.get_paginator("list_protect_configuration_rule_set_number_overrides")
     list_registration_associations_paginator: ListRegistrationAssociationsPaginator = client.get_paginator("list_registration_associations")
@@ -80,6 +90,10 @@ from .type_defs import (
     DescribeConfigurationSetsResultTypeDef,
     DescribeKeywordsRequestPaginateTypeDef,
     DescribeKeywordsResultTypeDef,
+    DescribeNotifyConfigurationsRequestPaginateTypeDef,
+    DescribeNotifyConfigurationsResultTypeDef,
+    DescribeNotifyTemplatesRequestPaginateTypeDef,
+    DescribeNotifyTemplatesResultTypeDef,
     DescribeOptedOutNumbersRequestPaginateTypeDef,
     DescribeOptedOutNumbersResultTypeDef,
     DescribeOptOutListsRequestPaginateTypeDef,
@@ -90,6 +104,10 @@ from .type_defs import (
     DescribePoolsResultTypeDef,
     DescribeProtectConfigurationsRequestPaginateTypeDef,
     DescribeProtectConfigurationsResultTypeDef,
+    DescribeRcsAgentCountryLaunchStatusRequestPaginateTypeDef,
+    DescribeRcsAgentCountryLaunchStatusResultTypeDef,
+    DescribeRcsAgentsRequestPaginateTypeDef,
+    DescribeRcsAgentsResultTypeDef,
     DescribeRegistrationAttachmentsRequestPaginateTypeDef,
     DescribeRegistrationAttachmentsResultTypeDef,
     DescribeRegistrationFieldDefinitionsRequestPaginateTypeDef,
@@ -110,6 +128,8 @@ from .type_defs import (
     DescribeSpendLimitsResultTypeDef,
     DescribeVerifiedDestinationNumbersRequestPaginateTypeDef,
     DescribeVerifiedDestinationNumbersResultTypeDef,
+    ListNotifyCountriesRequestPaginateTypeDef,
+    ListNotifyCountriesResultTypeDef,
     ListPoolOriginationIdentitiesRequestPaginateTypeDef,
     ListPoolOriginationIdentitiesResultTypeDef,
     ListProtectConfigurationRuleSetNumberOverridesRequestPaginateTypeDef,
@@ -128,11 +148,15 @@ __all__ = (
     "DescribeAccountLimitsPaginator",
     "DescribeConfigurationSetsPaginator",
     "DescribeKeywordsPaginator",
+    "DescribeNotifyConfigurationsPaginator",
+    "DescribeNotifyTemplatesPaginator",
     "DescribeOptOutListsPaginator",
     "DescribeOptedOutNumbersPaginator",
     "DescribePhoneNumbersPaginator",
     "DescribePoolsPaginator",
     "DescribeProtectConfigurationsPaginator",
+    "DescribeRcsAgentCountryLaunchStatusPaginator",
+    "DescribeRcsAgentsPaginator",
     "DescribeRegistrationAttachmentsPaginator",
     "DescribeRegistrationFieldDefinitionsPaginator",
     "DescribeRegistrationFieldValuesPaginator",
@@ -143,6 +167,7 @@ __all__ = (
     "DescribeSenderIdsPaginator",
     "DescribeSpendLimitsPaginator",
     "DescribeVerifiedDestinationNumbersPaginator",
+    "ListNotifyCountriesPaginator",
     "ListPoolOriginationIdentitiesPaginator",
     "ListProtectConfigurationRuleSetNumberOverridesPaginator",
     "ListRegistrationAssociationsPaginator",
@@ -218,6 +243,44 @@ class DescribeKeywordsPaginator(_DescribeKeywordsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/DescribeKeywords.html#PinpointSMSVoiceV2.Paginator.DescribeKeywords.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#describekeywordspaginator)
+        """
+
+if TYPE_CHECKING:
+    _DescribeNotifyConfigurationsPaginatorBase = Paginator[
+        DescribeNotifyConfigurationsResultTypeDef
+    ]
+else:
+    _DescribeNotifyConfigurationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class DescribeNotifyConfigurationsPaginator(_DescribeNotifyConfigurationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/DescribeNotifyConfigurations.html#PinpointSMSVoiceV2.Paginator.DescribeNotifyConfigurations)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#describenotifyconfigurationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeNotifyConfigurationsRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeNotifyConfigurationsResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/DescribeNotifyConfigurations.html#PinpointSMSVoiceV2.Paginator.DescribeNotifyConfigurations.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#describenotifyconfigurationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _DescribeNotifyTemplatesPaginatorBase = Paginator[DescribeNotifyTemplatesResultTypeDef]
+else:
+    _DescribeNotifyTemplatesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class DescribeNotifyTemplatesPaginator(_DescribeNotifyTemplatesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/DescribeNotifyTemplates.html#PinpointSMSVoiceV2.Paginator.DescribeNotifyTemplates)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#describenotifytemplatespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeNotifyTemplatesRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeNotifyTemplatesResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/DescribeNotifyTemplates.html#PinpointSMSVoiceV2.Paginator.DescribeNotifyTemplates.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#describenotifytemplatespaginator)
         """
 
 if TYPE_CHECKING:
@@ -310,6 +373,46 @@ class DescribeProtectConfigurationsPaginator(_DescribeProtectConfigurationsPagin
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/DescribeProtectConfigurations.html#PinpointSMSVoiceV2.Paginator.DescribeProtectConfigurations.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#describeprotectconfigurationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _DescribeRcsAgentCountryLaunchStatusPaginatorBase = Paginator[
+        DescribeRcsAgentCountryLaunchStatusResultTypeDef
+    ]
+else:
+    _DescribeRcsAgentCountryLaunchStatusPaginatorBase = Paginator  # type: ignore[assignment]
+
+class DescribeRcsAgentCountryLaunchStatusPaginator(
+    _DescribeRcsAgentCountryLaunchStatusPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/DescribeRcsAgentCountryLaunchStatus.html#PinpointSMSVoiceV2.Paginator.DescribeRcsAgentCountryLaunchStatus)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#describercsagentcountrylaunchstatuspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeRcsAgentCountryLaunchStatusRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeRcsAgentCountryLaunchStatusResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/DescribeRcsAgentCountryLaunchStatus.html#PinpointSMSVoiceV2.Paginator.DescribeRcsAgentCountryLaunchStatus.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#describercsagentcountrylaunchstatuspaginator)
+        """
+
+if TYPE_CHECKING:
+    _DescribeRcsAgentsPaginatorBase = Paginator[DescribeRcsAgentsResultTypeDef]
+else:
+    _DescribeRcsAgentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class DescribeRcsAgentsPaginator(_DescribeRcsAgentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/DescribeRcsAgents.html#PinpointSMSVoiceV2.Paginator.DescribeRcsAgents)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#describercsagentspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeRcsAgentsRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeRcsAgentsResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/DescribeRcsAgents.html#PinpointSMSVoiceV2.Paginator.DescribeRcsAgents.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#describercsagentspaginator)
         """
 
 if TYPE_CHECKING:
@@ -510,6 +613,24 @@ class DescribeVerifiedDestinationNumbersPaginator(_DescribeVerifiedDestinationNu
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/DescribeVerifiedDestinationNumbers.html#PinpointSMSVoiceV2.Paginator.DescribeVerifiedDestinationNumbers.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#describeverifieddestinationnumberspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListNotifyCountriesPaginatorBase = Paginator[ListNotifyCountriesResultTypeDef]
+else:
+    _ListNotifyCountriesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListNotifyCountriesPaginator(_ListNotifyCountriesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/ListNotifyCountries.html#PinpointSMSVoiceV2.Paginator.ListNotifyCountries)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#listnotifycountriespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNotifyCountriesRequestPaginateTypeDef]
+    ) -> PageIterator[ListNotifyCountriesResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/paginator/ListNotifyCountries.html#PinpointSMSVoiceV2.Paginator.ListNotifyCountries.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_sms_voice_v2/paginators/#listnotifycountriespaginator)
         """
 
 if TYPE_CHECKING:

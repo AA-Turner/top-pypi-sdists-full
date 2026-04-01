@@ -24,7 +24,10 @@ DEFAULT_TOOLS_FILE = ".plato/tools.pkl"
 
 # Skip all tests if no API key available
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-pytestmark = pytest.mark.skipif(not ANTHROPIC_API_KEY, reason="ANTHROPIC_API_KEY not set")
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(not ANTHROPIC_API_KEY, reason="ANTHROPIC_API_KEY not set"),
+]
 
 
 def _run_claude(workspace: str, prompt: str, timeout: int = 60) -> str:

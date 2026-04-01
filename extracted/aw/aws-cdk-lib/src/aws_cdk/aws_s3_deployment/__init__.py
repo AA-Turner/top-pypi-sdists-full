@@ -799,7 +799,7 @@ class BucketDeployment(
         :param use_efs: Mount an EFS file system. Enable this if your assets are large and you encounter disk space errors. Enabling this option will require a VPC to be specified. Default: - No EFS. Lambda has access only to 512MB of disk space.
         :param vpc: The VPC network to place the deployment lambda handler in. This is required if ``useEfs`` is set. Default: None
         :param vpc_subnets: Where in the VPC to place the deployment lambda handler. Only used if 'vpc' is supplied. Default: - the Vpc default strategy if not specified
-        :param wait_for_distribution_invalidation: In case of using a cloudfront distribtuion, if this property is set to false then the custom resource will not wait and verify for Cloudfront invalidation to complete. This may speed up deployment and avoid intermittent Cloudfront issues. However, this is risky and not recommended as cache invalidation can silently fail. Default: true
+        :param wait_for_distribution_invalidation: In case of using a cloudfront distribution, if this property is set to false then the custom resource will not wait and verify for Cloudfront invalidation to complete. This may speed up deployment and avoid intermittent Cloudfront issues. However, this is risky and not recommended as cache invalidation can silently fail. Default: true
         :param website_redirect_location: System-defined x-amz-website-redirect-location metadata to be set on all objects in the deployment. Default: - No website redirection.
         '''
         if __debug__:
@@ -1028,7 +1028,7 @@ class BucketDeploymentProps:
         :param use_efs: Mount an EFS file system. Enable this if your assets are large and you encounter disk space errors. Enabling this option will require a VPC to be specified. Default: - No EFS. Lambda has access only to 512MB of disk space.
         :param vpc: The VPC network to place the deployment lambda handler in. This is required if ``useEfs`` is set. Default: None
         :param vpc_subnets: Where in the VPC to place the deployment lambda handler. Only used if 'vpc' is supplied. Default: - the Vpc default strategy if not specified
-        :param wait_for_distribution_invalidation: In case of using a cloudfront distribtuion, if this property is set to false then the custom resource will not wait and verify for Cloudfront invalidation to complete. This may speed up deployment and avoid intermittent Cloudfront issues. However, this is risky and not recommended as cache invalidation can silently fail. Default: true
+        :param wait_for_distribution_invalidation: In case of using a cloudfront distribution, if this property is set to false then the custom resource will not wait and verify for Cloudfront invalidation to complete. This may speed up deployment and avoid intermittent Cloudfront issues. However, this is risky and not recommended as cache invalidation can silently fail. Default: true
         :param website_redirect_location: System-defined x-amz-website-redirect-location metadata to be set on all objects in the deployment. Default: - No website redirection.
 
         :exampleMetadata: infused
@@ -1543,7 +1543,7 @@ class BucketDeploymentProps:
 
     @builtins.property
     def wait_for_distribution_invalidation(self) -> typing.Optional[builtins.bool]:
-        '''In case of using a cloudfront distribtuion, if this property is set to false then the custom resource will not wait and verify for Cloudfront invalidation to complete.
+        '''In case of using a cloudfront distribution, if this property is set to false then the custom resource will not wait and verify for Cloudfront invalidation to complete.
 
         This may speed up deployment and avoid
         intermittent Cloudfront issues. However, this is risky and not recommended as cache invalidation

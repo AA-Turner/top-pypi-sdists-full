@@ -917,6 +917,7 @@ class NexusPlugin(FilePlugin, version=(1, 9, 1), version_type="ADCore"):
         SignalWithRBV, "TemplateFilePath", string=True, kind="config"
     )
 
+
 @register_plugin
 class BadPixelPlugin(PluginBase, version=(3, 11), version_type="ADCore"):
     _default_suffix = "BadPix1:"
@@ -925,6 +926,7 @@ class BadPixelPlugin(PluginBase, version=(3, 11), version_type="ADCore"):
     _plugin_type = "NDBadPixel"
 
     badpixel_json_filename = Cpt(EpicsSignal, "FileName")
+
 
 @register_plugin
 class HDF5Plugin(FilePlugin, version=(1, 9, 1), version_type="ADCore"):
@@ -1933,7 +1935,7 @@ class ROIPlugin_V35(
 
 
 @register_plugin
-class ROIStatPlugin(Device, version_type="ADCore"):
+class ROIStatPlugin(PluginBase, version_type="ADCore"):
     "Serves as a base class for other versions"
     _default_suffix = "ROIStat1:"
     _suffix_re = r"ROIStat\d:"

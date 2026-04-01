@@ -50,7 +50,6 @@ class TestWorkspaceVM:
             phase_filter="all",
             pytest_args=None,
             artifacts_dir=None,
-            keep_vm_on_fail=False,
             verbose=True,
         )
         exit_code = asyncio.run(runner.run())

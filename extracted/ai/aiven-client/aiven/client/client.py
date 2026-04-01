@@ -7,17 +7,16 @@ from __future__ import annotations
 from ._typing import assert_never
 from .common import UNDEFINED
 from .session import get_requests_session
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from http import HTTPStatus
 from requests import Response
 from requests_toolbelt import MultipartEncoder  # type: ignore
-from typing import Any, BinaryIO, Callable, Final, Literal, NamedTuple, TYPE_CHECKING, TypedDict
+from typing import Any, BinaryIO, Final, Literal, NamedTuple, TYPE_CHECKING, TypedDict
 from urllib.parse import quote
 
 import datetime
 import json
 import logging
-import re
 import requests
 import time
 import warnings
@@ -28,7 +27,7 @@ except ImportError:
     __version__ = "UNKNOWN"
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
 UNCHANGED = object()  # used as a sentinel value
 
@@ -545,139 +544,6 @@ class AivenClient(AivenClientBase):
         path = self.build_path("project", project, "service", service, "topic", topic)
         return self.verify(self.get, path, result_key="topic")
 
-    def _set_namespace_options(
-        self,
-        ns: dict[str, Any],
-        ns_ret: str | None = None,
-        ns_res: str | None = None,
-        ns_blocksize_dur: str | None = None,
-        ns_block_data_expiry_dur: str | None = None,
-        ns_buffer_future_dur: str | None = None,
-        ns_buffer_past_dur: str | None = None,
-        ns_writes_to_commitlog: bool | None = None,
-    ) -> None:
-        re_ns_duration = re.compile(r"\d+[smhd]")
-
-        def _validate_ns_dur(val: str) -> None:
-            if not re_ns_duration.match(val):
-                raise ValueError(f"Invalid namespace duration value '{val}'")
-
-        ns["options"] = ns.get("options", {})
-        ns["options"]["retention_options"] = ns["options"].get("retention_options", {})
-        if ns_ret:
-            _validate_ns_dur(ns_ret)
-            ns["options"]["retention_options"]["retention_period_duration"] = ns_ret
-        if ns_res:
-            _validate_ns_dur(ns_res)
-            ns["resolution"] = ns_res
-        if ns_blocksize_dur:
-            _validate_ns_dur(ns_blocksize_dur)
-            ns["options"]["retention_options"]["blocksize_duration"] = ns_blocksize_dur
-        if ns_block_data_expiry_dur:
-            _validate_ns_dur(ns_block_data_expiry_dur)
-            ns["options"]["retention_options"]["block_data_expiry_duration"] = ns_block_data_expiry_dur
-        if ns_buffer_future_dur:
-            _validate_ns_dur(ns_buffer_future_dur)
-            ns["options"]["retention_options"]["buffer_future_duration"] = ns_buffer_future_dur
-        if ns_buffer_past_dur:
-            _validate_ns_dur(ns_buffer_past_dur)
-            ns["options"]["retention_options"]["buffer_past_duration"] = ns_buffer_past_dur
-        if ns_writes_to_commitlog is not None:
-            ns["options"]["writes_to_commitlog"] = bool(ns_writes_to_commitlog)
-
-    def list_m3_namespaces(self, project: str, service: str) -> Sequence[dict[str, Any]]:
-        service_res = self.get_service(project=project, service=service)
-        return service_res.get("user_config", {}).get("namespaces", [])
-
-    def delete_m3_namespace(self, project: str, service: str, ns_name: str) -> Mapping:
-        service_res = self.get_service(project=project, service=service)
-        old_namespaces = service_res.get("user_config", {}).get("namespaces", [])
-        new_namespaces = [ns for ns in old_namespaces if ns["name"] != ns_name]
-        if len(old_namespaces) == len(new_namespaces):
-            raise KeyError(f"Namespace '{ns_name}' does not exist")
-        return self.verify(
-            self.put,
-            self.build_path("project", project, "service", service),
-            body={"user_config": {"namespaces": new_namespaces}},
-        )
-
-    def add_m3_namespace(
-        self,
-        project: str,
-        service: str,
-        ns_name: str,
-        ns_type: str,
-        ns_ret: str,
-        ns_res: str | None = None,
-        ns_blocksize_dur: str | None = None,
-        ns_block_data_expiry_dur: str | None = None,
-        ns_buffer_future_dur: str | None = None,
-        ns_buffer_past_dur: str | None = None,
-        ns_writes_to_commitlog: bool | None = None,
-    ) -> Mapping:
-        service_res = self.get_service(project=project, service=service)
-        namespaces = service_res.get("user_config", {}).get("namespaces", [])
-        valid_namespace_types = {"unaggregated", "aggregated"}
-        if ns_type not in valid_namespace_types:
-            raise ValueError(f"Invalid namespace type {ns_type}, valid types {valid_namespace_types}")
-        new_namespace = {
-            "name": ns_name,
-            "type": ns_type,
-        }
-        self._set_namespace_options(
-            ns=new_namespace,
-            ns_ret=ns_ret,
-            ns_res=ns_res,
-            ns_blocksize_dur=ns_blocksize_dur,
-            ns_block_data_expiry_dur=ns_block_data_expiry_dur,
-            ns_buffer_future_dur=ns_buffer_future_dur,
-            ns_buffer_past_dur=ns_buffer_past_dur,
-            ns_writes_to_commitlog=ns_writes_to_commitlog,
-        )
-        namespaces.append(new_namespace)
-        return self.verify(
-            self.put,
-            self.build_path("project", project, "service", service),
-            body={"user_config": {"namespaces": namespaces}},
-        )
-
-    def update_m3_namespace(
-        self,
-        project: str,
-        service: str,
-        ns_name: str,
-        ns_ret: str | None = None,
-        ns_res: str | None = None,
-        ns_blocksize_dur: str | None = None,
-        ns_block_data_expiry_dur: str | None = None,
-        ns_buffer_future_dur: str | None = None,
-        ns_buffer_past_dur: str | None = None,
-        ns_writes_to_commitlog: bool | None = None,
-    ) -> Mapping:
-        service_res = self.get_service(project=project, service=service)
-        namespaces = service_res.get("user_config", {}).get("namespaces", [])
-        namespace = None
-        for ns in namespaces:
-            if ns["name"] == ns_name:
-                namespace = ns
-        if not namespace:
-            raise KeyError(f"Namespace '{ns_name}' does not exist")
-        self._set_namespace_options(
-            ns=namespace,
-            ns_ret=ns_ret,
-            ns_res=ns_res,
-            ns_blocksize_dur=ns_blocksize_dur,
-            ns_block_data_expiry_dur=ns_block_data_expiry_dur,
-            ns_buffer_future_dur=ns_buffer_future_dur,
-            ns_buffer_past_dur=ns_buffer_past_dur,
-            ns_writes_to_commitlog=ns_writes_to_commitlog,
-        )
-        return self.verify(
-            self.put,
-            self.build_path("project", project, "service", service),
-            body={"user_config": {"namespaces": namespaces}},
-        )
-
     def list_service_topics(self, project: str, service: str) -> Sequence[dict[str, Any]]:
         return self.verify(
             self.get,
@@ -936,6 +802,75 @@ class AivenClient(AivenClientBase):
         return self.verify(
             self.delete,
             self.build_path("project", project, "service", service, "kafka", "schema-registry", "acl", acl_id),
+        )
+
+    def create_service_kafka_quota(
+        self,
+        project: str,
+        service: str,
+        client_id: str | None = None,
+        user: str | None = None,
+        consumer_byte_rate: float | None = None,
+        producer_byte_rate: float | None = None,
+        request_percentage: float | None = None,
+    ) -> Mapping:
+        body: dict[str, Any] = {}
+        if client_id is not None:
+            body["client-id"] = client_id
+        if user is not None:
+            body["user"] = user
+        if consumer_byte_rate is not None:
+            body["consumer_byte_rate"] = consumer_byte_rate
+        if producer_byte_rate is not None:
+            body["producer_byte_rate"] = producer_byte_rate
+        if request_percentage is not None:
+            body["request_percentage"] = request_percentage
+        return self.verify(
+            self.post,
+            self.build_path("project", project, "service", service, "quota"),
+            body=body,
+        )
+
+    def delete_service_kafka_quota(
+        self,
+        project: str,
+        service: str,
+        client_id: str | None = None,
+        user: str | None = None,
+    ) -> Mapping:
+        params: dict[str, str] = {}
+        if client_id is not None:
+            params["client-id"] = client_id
+        if user is not None:
+            params["user"] = user
+        return self.verify(
+            self.delete,
+            self.build_path("project", project, "service", service, "quota"),
+            params=params if params else None,
+        )
+
+    def list_service_kafka_quotas(self, project: str, service: str) -> Mapping:
+        return self.verify(
+            self.get,
+            self.build_path("project", project, "service", service, "quota"),
+        )
+
+    def describe_service_kafka_quota(
+        self,
+        project: str,
+        service: str,
+        client_id: str | None = None,
+        user: str | None = None,
+    ) -> Mapping:
+        params: dict[str, str] = {}
+        if client_id is not None:
+            params["client-id"] = client_id
+        if user is not None:
+            params["user"] = user
+        return self.verify(
+            self.get,
+            self.build_path("project", project, "service", service, "quota", "describe"),
+            params=params if params else None,
         )
 
     def get_available_kafka_connectors(self, project: str, service: str) -> Mapping:
@@ -1278,6 +1213,12 @@ class AivenClient(AivenClientBase):
 
     def get_project_vpc(self, project: str, project_vpc_id: str) -> Mapping:
         return self.verify(self.get, self.build_path("project", project, "vpcs", project_vpc_id))
+
+    def refresh_project_vpc_peering_connections(self, project: str, project_vpc_id: str) -> Mapping:
+        return self.verify(
+            self.post,
+            self.build_path("project", project, "vpcs", project_vpc_id, "peering-connections", "refresh"),
+        )
 
     def delete_project_vpc(self, project: str, project_vpc_id: str) -> Mapping:
         return self.verify(self.delete, self.build_path("project", project, "vpcs", project_vpc_id))
@@ -2035,7 +1976,7 @@ class AivenClient(AivenClientBase):
         vat_id: str | None = None,
         billing_currency: str | None = None,
         billing_extra_text: str | None = None,
-        billing_emails: str | None = None,
+        billing_emails: Sequence[str] | None = None,
         company: str | None = None,
         address_lines: Sequence[str] | None = None,
         country_code: str | None = None,
@@ -2090,7 +2031,7 @@ class AivenClient(AivenClientBase):
         vat_id: str | None = None,
         billing_currency: str | None = None,
         billing_extra_text: str | None = None,
-        billing_emails: str | None = None,
+        billing_emails: Sequence[str] | None = None,
         company: str | None = None,
         address_lines: Sequence[str] | None = None,
         country_code: str | None = None,
@@ -2202,73 +2143,6 @@ class AivenClient(AivenClientBase):
         return self.verify(
             self.get,
             self.build_path("project", project, "service", service, "migration"),
-        )
-
-    def list_teams(self, account_id: str) -> Sequence[dict[str, Any]]:
-        return self.verify(
-            self.get,
-            self.build_path("account", account_id, "teams"),
-            result_key="teams",
-        )
-
-    def create_team(self, account_id: str, team_name: str) -> Mapping:
-        return self.verify(
-            self.post,
-            self.build_path("account", account_id, "teams"),
-            body={"team_name": team_name},
-        )
-
-    def delete_team(self, account_id: str, team_id: str) -> Mapping:
-        return self.verify(self.delete, self.build_path("account", account_id, "team", team_id))
-
-    def list_team_members(self, account_id: str, team_id: str) -> Sequence[dict[str, Any]]:
-        return self.verify(
-            self.get,
-            self.build_path("account", account_id, "team", team_id, "members"),
-            result_key="members",
-        )
-
-    def add_team_member(self, account_id: str, team_id: str, email: str) -> Mapping:
-        return self.verify(
-            self.post,
-            self.build_path("account", account_id, "team", team_id, "members"),
-            body={"email": email},
-        )
-
-    def list_team_invites(self, account_id: str, team_id: str) -> Sequence[dict[str, Any]]:
-        return self.verify(
-            self.get,
-            self.build_path("account", account_id, "team", team_id, "invites"),
-            result_key="account_invites",
-        )
-
-    def delete_team_invite(self, account_id: str, team_id: str, email: str) -> Mapping:
-        return self.verify(self.delete, self.build_path("account", account_id, "team", team_id, "invites", email))
-
-    def delete_team_member(self, account_id: str, team_id: str, user_id: str) -> Mapping:
-        return self.verify(
-            self.delete,
-            self.build_path("account", account_id, "team", team_id, "member", user_id),
-        )
-
-    def list_team_projects(self, account_id: str, team_id: str) -> Sequence[dict[str, Any]]:
-        return self.verify(
-            self.get,
-            self.build_path("account", account_id, "team", team_id, "projects"),
-            result_key="projects",
-        )
-
-    def attach_team_to_project(self, account_id: str, team_id: str, project: str, team_type: str) -> Mapping:
-        return self.verify(
-            self.post,
-            self.build_path("account", account_id, "team", team_id, "project", project),
-            body={"team_type": team_type},
-        )
-
-    def detach_team_from_project(self, account_id: str, team_id: str, project: str) -> Mapping:
-        return self.verify(
-            self.delete,
-            self.build_path("account", account_id, "team", team_id, "project", project),
         )
 
     def create_oauth2_client(self, account_id: str, name: str, description: str | None = None) -> dict:
@@ -3214,6 +3088,20 @@ class AivenClient(AivenClientBase):
                 vpc_id,
                 "peering-connections",
                 peering_connection_id,
+            ),
+        )
+
+    def organization_vpc_peering_connections_refresh(self, *, organization_id: str, vpc_id: str) -> Mapping[Any, Any]:
+        return self.verify(
+            self.post,
+            self.build_path(
+                "organization",
+                organization_id,
+                "vpcs",
+                vpc_id,
+                "peering-connections",
+                "actions",
+                "refresh",
             ),
         )
 

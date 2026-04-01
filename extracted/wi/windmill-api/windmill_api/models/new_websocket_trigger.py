@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.new_websocket_trigger_filter_logic import NewWebsocketTriggerFilterLogic
 from ..models.new_websocket_trigger_mode import NewWebsocketTriggerMode
 from ..types import UNSET, Unset
 
@@ -31,6 +32,8 @@ class NewWebsocketTrigger:
         can_return_message (bool): If true, the script can return a message to send back through the WebSocket
         can_return_error_result (bool): If true, error results are sent back through the WebSocket
         mode (Union[Unset, NewWebsocketTriggerMode]): job trigger mode
+        filter_logic (Union[Unset, NewWebsocketTriggerFilterLogic]): Logic to apply when evaluating filters. 'and'
+            requires all filters to match, 'or' requires any filter to match. Default: NewWebsocketTriggerFilterLogic.AND.
         initial_messages (Union[Unset, None, List[Union['NewWebsocketTriggerInitialMessagesItemType0',
             'NewWebsocketTriggerInitialMessagesItemType1']]]): Messages to send immediately after connecting (can be raw
             strings or computed by runnables)
@@ -54,6 +57,7 @@ class NewWebsocketTrigger:
     can_return_message: bool
     can_return_error_result: bool
     mode: Union[Unset, NewWebsocketTriggerMode] = UNSET
+    filter_logic: Union[Unset, NewWebsocketTriggerFilterLogic] = NewWebsocketTriggerFilterLogic.AND
     initial_messages: Union[
         Unset,
         None,
@@ -87,6 +91,10 @@ class NewWebsocketTrigger:
         mode: Union[Unset, str] = UNSET
         if not isinstance(self.mode, Unset):
             mode = self.mode.value
+
+        filter_logic: Union[Unset, str] = UNSET
+        if not isinstance(self.filter_logic, Unset):
+            filter_logic = self.filter_logic.value
 
         initial_messages: Union[Unset, None, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.initial_messages, Unset):
@@ -136,6 +144,8 @@ class NewWebsocketTrigger:
         )
         if mode is not UNSET:
             field_dict["mode"] = mode
+        if filter_logic is not UNSET:
+            field_dict["filter_logic"] = filter_logic
         if initial_messages is not UNSET:
             field_dict["initial_messages"] = initial_messages
         if url_runnable_args is not UNSET:
@@ -192,6 +202,13 @@ class NewWebsocketTrigger:
             mode = UNSET
         else:
             mode = NewWebsocketTriggerMode(_mode)
+
+        _filter_logic = d.pop("filter_logic", UNSET)
+        filter_logic: Union[Unset, NewWebsocketTriggerFilterLogic]
+        if isinstance(_filter_logic, Unset):
+            filter_logic = UNSET
+        else:
+            filter_logic = NewWebsocketTriggerFilterLogic(_filter_logic)
 
         initial_messages = []
         _initial_messages = d.pop("initial_messages", UNSET)
@@ -256,6 +273,7 @@ class NewWebsocketTrigger:
             can_return_message=can_return_message,
             can_return_error_result=can_return_error_result,
             mode=mode,
+            filter_logic=filter_logic,
             initial_messages=initial_messages,
             url_runnable_args=url_runnable_args,
             error_handler_path=error_handler_path,

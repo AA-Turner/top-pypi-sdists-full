@@ -410,7 +410,9 @@ def create_server(address: str) -> aio.Server:
     # Local server credentials allow us to ensure that the
     # connection is established by a local process.
     server_credentials = local_server_credentials()
-    server.add_secure_port(address, server_credentials)
+    bound_port = server.add_secure_port(address, server_credentials)
+    if not bound_port:
+        raise RuntimeError(f"Failed to bind gRPC server to {address}")
     return server
 
 
@@ -430,7 +432,17 @@ async def run_agent(
         sys.stderr = JsonStdoutProxy(sys.__stderr__)  # type: ignore[assignment]
         log_file = JsonStdoutProxy(log_file)  # type: ignore[assignment]
 
-    server = create_server(address)
+    def log(msg: str) -> None:
+        log_file.write(msg + "\n")
+        log_file.flush()
+
+    log(f"Binding agent to {address}")
+    try:
+        server = create_server(address)
+    except Exception as e:
+        log(f"Failed to bind agent to {address}: {e}")
+        return 1
+
     servicer = AgentServicer(log_file=log_file)
 
     # This function just calls some methods on the server
@@ -438,7 +450,13 @@ async def run_agent(
     # not have any global side effects.
     definitions.register_agent(servicer, server)
 
-    await server.start()
+    log("Starting agent")
+    try:
+        await server.start()
+    except Exception as e:
+        log(f"Failed to start agent server: {e}")
+        return 1
+    log("Agent is ready")
 
     _, pending = await asyncio.wait(
         [

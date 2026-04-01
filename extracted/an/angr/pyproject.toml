@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77.0.0", "setuptools-rust", "pyvex==9.2.207"]
+requires = ["setuptools>=77.0.0", "setuptools-rust", "pyvex==9.2.208"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -14,19 +14,20 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 requires-python = ">=3.10"
 dependencies = [
     "cxxheaderparser",
     "GitPython",
-    "archinfo==9.2.207",
+    "archinfo==9.2.208",
     "cachetools",
     "capstone==5.0.6",
     "cffi>=1.14.0",
-    "claripy==9.2.207",
-    "cle==9.2.207",
+    "claripy==9.2.208",
+    "cle==9.2.208",
     "lmdb==2.1.1",
-    "msgspec",
+    "msgspec; implementation_name == 'cpython'",
     "mulpyplexer",
     "networkx!=2.8.1,>=2.0",
     "protobuf>=6.33.0",
@@ -34,7 +35,7 @@ dependencies = [
     "pycparser~=3.0",
     "pydemumble",
     "pypcode>=3.2.1,<4.0",
-    "pyvex==9.2.207",
+    "pyvex==9.2.208",
     "rich>=13.1.0",
     "sortedcontainers",
     "sympy",
@@ -55,11 +56,12 @@ Repository = "https://github.com/angr/angr"
 angrdb = ["sqlalchemy"]
 keystone = ["keystone-engine"]
 telemetry = ["opentelemetry-api"]
-llm = ["pydantic-ai"]
+llm = ["pydantic-ai", "mcp>=1.0.0", "fastmcp"]
 unicorn = ["unicorn==2.1.4"]
 
 [project.scripts]
 angr = "angr.__main__:main"
+angr-mcp = "angr.mcp.__main__:main"
 
 [dependency-groups]
 dev = [

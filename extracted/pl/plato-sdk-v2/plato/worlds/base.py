@@ -23,24 +23,36 @@ from typing_extensions import TypeVar
 
 from plato.agents.runner import AgentRunner, create_runtime
 from plato.agents.runtime.transport import NFSTransport, Transport
+from plato.cli.chronos.env import resolve_config_env_vars, substitute_env_vars
+from plato.cli.chronos.registry import get_agent_schema, parse_package_string
 from plato.llm import LLMClient
-from plato.markers import WorkspaceMarker
+from plato.markers import FieldMarker, WorkspaceMarker
 from plato.otel import get_tracer, init_tracing, shutdown_tracing
 from plato.runtime import RuntimeConfig, VMRuntimeConfig
 from plato.v2.async_.session import Session
 from plato.vm_metrics import instrument_system_metrics, shutdown_metrics
-from plato.worlds.config import AgentConfig, DevConfig, LLMConfig, RunConfig, SessionConfig, WorkspaceSourceSpec
+from plato.worlds.config import (
+    AgentConfig,
+    ChildWorldConfig,
+    DevConfig,
+    LLMConfig,
+    RunConfig,
+    SessionConfig,
+    WorkspaceSourceSpec,
+)
 from plato.worlds.human_annotation import RequiresHumanAnnotation
 from plato.worlds.models import Observation, StateHistoryEntry, StepResult, WorkspaceSnapshot
 from plato.worlds.schema import get_world_schema
 from plato.worlds.workspace import Workspace
 
 if TYPE_CHECKING:
+    from plato.agents.runtime.warmpool import WarmPool
     from plato.v2.async_.environment import Environment
     from plato.worlds.result_store import ResultStore
 
 logger = logging.getLogger(__name__)
 _WORLD_DEV_MODE_ENV = "PLATO_WORLD_DEV_MODE"
+_WORLD_TEST_MODE_ENV = "PLATO_WORLD_TEST_MODE"
 
 
 @dataclass
@@ -103,6 +115,63 @@ def _get_plato_version() -> str:
         return importlib.metadata.version("plato-sdk-v2")
     except Exception:
         return "unknown"
+
+
+def _iter_marked_agent_configs(value: Any, prefix: str = "") -> list[tuple[str, AgentConfig]]:
+    """Walk a validated config object and return Agent-marked AgentConfig fields."""
+    found: list[tuple[str, AgentConfig]] = []
+    if isinstance(value, PydanticBaseModel):
+        for field_name, field_info in value.__class__.model_fields.items():
+            child = getattr(value, field_name)
+            child_prefix = f"{prefix}.{field_name}" if prefix else field_name
+            marker = None
+            for meta in field_info.metadata:
+                if isinstance(meta, FieldMarker) and meta.kind == "agent":
+                    marker = meta
+                    break
+            if marker is not None:
+                if not isinstance(child, AgentConfig):
+                    raise TypeError(f"Marked agent field '{child_prefix}' is not an AgentConfig")
+                found.append((child_prefix, child))
+                continue
+            found.extend(_iter_marked_agent_configs(child, child_prefix))
+        return found
+    if isinstance(value, list):
+        for idx, item in enumerate(value):
+            found.extend(_iter_marked_agent_configs(item, f"{prefix}[{idx}]"))
+        return found
+    if isinstance(value, dict):
+        for key, item in value.items():
+            child_prefix = f"{prefix}.{key}" if prefix else str(key)
+            found.extend(_iter_marked_agent_configs(item, child_prefix))
+    return found
+
+
+async def _resolve_inline_agent_images(config: PydanticBaseModel) -> None:
+    """Resolve package-only AgentConfig fields on a validated inline child config."""
+    for name, agent in _iter_marked_agent_configs(config):
+        if not agent.package or agent.image:
+            continue
+
+        package_name, version = parse_package_string(agent.package)
+        schema = await get_agent_schema(package_name, version)
+        resolved_image = schema.get("image")
+        if not resolved_image:
+            raise ValueError(f"Could not resolve image for inline child agent '{name}' (package={package_name})")
+        agent.image = resolved_image
+
+
+async def _resolve_inline_child_launch_config(
+    config: dict[str, Any],
+    api_key: str | None,
+) -> dict[str, Any]:
+    """Apply the same config placeholder resolution flow used for top-level worlds."""
+    resolved = dict(config)
+    await resolve_config_env_vars(resolved, api_key)
+    substituted = substitute_env_vars(resolved, dict(os.environ))
+    if isinstance(substituted, dict):
+        resolved = substituted
+    return resolved
 
 
 def register_world(name: str):
@@ -193,6 +262,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         self._ssh_key_path: Path | None = None
         self._workspaces: dict[str, Workspace] = {}  # declared workspaces
         self._tailscaled_proc: asyncio.subprocess.Process | None = None
+        self._agent_semaphores: dict[int, asyncio.Semaphore] = {}  # keyed by id(AgentConfig)
 
     @property
     def state(self) -> StateT:
@@ -343,6 +413,8 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         config: AgentConfig,
         display_name: str | None = None,
         workspaces: list[Workspace] | None = None,
+        warm_pool: WarmPool | None = None,
+        agent_code_path: Path | None = None,
     ) -> AgentRunner:
         """Get an agent runner for the given config.
 
@@ -370,15 +442,28 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             config,
             session=self.plato_session,
             ssh_key_path=self._ssh_key_path,
+            warm_pool=warm_pool,
         )
-        return AgentRunner(
+        runner = AgentRunner(
             config,
             runtime,
             display_name=display_name,
             workspace=primary,
             workspaces=extra,
             agent_containers=self._agent_containers,
+            agent_code_path=agent_code_path,
         )
+
+        # Enforce max_parallel from agent config via shared semaphore.
+        # Keyed by object identity — the same AgentConfig instance used across
+        # multiple world.agent() calls shares one semaphore automatically.
+        if config.max_parallel is not None:
+            obj_id = id(config)
+            if obj_id not in self._agent_semaphores:
+                self._agent_semaphores[obj_id] = asyncio.Semaphore(config.max_parallel)
+            runner._concurrency_semaphore = self._agent_semaphores[obj_id]
+
+        return runner
 
     async def _connect_plato_session(self) -> None:
         """Connect to Plato session from config."""
@@ -544,6 +629,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             payload["result"] = result
 
         try:
+            self.logger.info("Completing Chronos session %s as %s", self.session.session_id, status)
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
                     url,
@@ -1072,6 +1158,102 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         return self.plato_session.envs
 
     # ------------------------------------------------------------------
+    # Child worlds
+    # ------------------------------------------------------------------
+
+    def get_child_world(self, name: str) -> ChildWorldConfig | None:
+        """Get a child world config by name from the launch config's ``child_worlds`` block."""
+        return self.config.child_worlds.get(name) if self.config else None
+
+    async def launch_child(
+        self,
+        name: str,
+        config_overrides: dict[str, Any] | None = None,
+    ) -> StepResult | Any:
+        """Launch a child world by name from the ``child_worlds`` config.
+
+        Args:
+            name: Key in the ``child_worlds`` config block.
+            config_overrides: Optional dict merged on top of the child's pre-defined config.
+
+        Returns:
+            For inline mode: the :class:`StepResult` from the child world.
+            For session mode: the :class:`LaunchJobResponse` from the Chronos API.
+
+        Raises:
+            ValueError: If the child config is not found or is misconfigured.
+        """
+        child = self.get_child_world(name)
+        if child is None:
+            raise ValueError(f"No child_world '{name}' found in launch config")
+
+        merged_config = {**child.config, **(config_overrides or {})}
+
+        if child.mode == "inline":
+            return await self._launch_child_inline(child, merged_config)
+        else:
+            return await self._launch_child_session(child, merged_config)
+
+    async def _launch_child_inline(self, child: ChildWorldConfig, config: dict[str, Any]) -> StepResult:
+        """Instantiate and run a child world in-process, sharing this world's resources."""
+        from plato.worlds.review.world import BaseReviewWorld
+
+        world_cls = get_world(child.world_name)
+        if world_cls is None:
+            raise ValueError(
+                f"World '{child.world_name}' not found in registry. "
+                "Ensure the package is installed and the world is registered."
+            )
+
+        child_instance = world_cls()
+
+        resolved_config = await _resolve_inline_child_launch_config(config, os.environ.get("PLATO_API_KEY"))
+        config_class = world_cls.get_config_class()
+        child_config = config_class.model_validate(resolved_config)
+        await _resolve_inline_agent_images(child_config)
+
+        if isinstance(child_instance, BaseReviewWorld):
+            # Review worlds have run_inline() with resource delegation
+            child_instance.config = child_config
+            return await child_instance.run_inline(self)
+        else:
+            # Generic inline execution for non-review worlds
+            return await child_instance.run_as_child(self, child_config)
+
+    async def _launch_child_session(self, child: ChildWorldConfig, config: dict[str, Any]) -> Any:
+        """Launch a child world as a separate Chronos session."""
+        if not child.package:
+            raise ValueError(f"Child world '{child.world_name}' has mode='session' but no package specified")
+
+        from plato.chronos.sdk import AsyncChronos
+
+        api_key = os.environ.get("PLATO_API_KEY", "")
+        async with AsyncChronos(api_key=api_key) as client:
+            return await client.launch(
+                package=child.package,
+                config=config,
+                tags=child.tags or None,
+                runtime=child.runtime,
+                world_name=child.world_name,
+                parent_session_id=self._session_id,
+            )
+
+    async def run_as_child(self, host_world: BaseWorld, config: ConfigT) -> StepResult:
+        """Run this world inline within a host world, sharing its resources.
+
+        This is the generic version of :meth:`BaseReviewWorld.run_inline`.
+        The child world shares the host's session, workspaces, and services.
+        """
+        self._host = host_world
+        self._session_id = host_world._session_id
+        self.plato_session = host_world.plato_session
+        self.logger = host_world.logger.getChild(self.name)
+        self.config = config
+        self._workspaces = host_world._workspaces
+        await self.reset()
+        return await self.step()
+
+    # ------------------------------------------------------------------
     # run() and helpers
     # ------------------------------------------------------------------
 
@@ -1088,6 +1270,12 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         self.dev = dev or DevConfig()
         self.runtime = runtime or VMRuntimeConfig()
         self._step_count = 0
+        self._slack_notify_token = None
+
+        if self.config.slack_notifications_enabled:
+            from plato.worlds.slack import enable_slack_notifications
+
+            self._slack_notify_token = enable_slack_notifications()
 
         self.logger.info(f"Starting world '{self.name}'")
 
@@ -1150,6 +1338,10 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                         err_span.set_attribute("error.traceback", traceback.format_exc())
                         err_span.record_exception(e)
             finally:
+                if self._slack_notify_token is not None:
+                    from plato.worlds.slack import disable_slack_notifications
+
+                    disable_slack_notifications(self._slack_notify_token)
                 await self.close()
                 await self._disconnect_plato_session()
 
@@ -1586,7 +1778,10 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         await shutdown_metrics()
 
         is_dev = os.environ.get(_WORLD_DEV_MODE_ENV) == "1"
+        is_test = os.environ.get(_WORLD_TEST_MODE_ENV) == "1"
         final_result = getattr(self, "_final_result", None)
+        # RequiresHumanAnnotation must always be reported, even in dev/test
+        # mode, so the session gets the correct status in Chronos.
         if run_error and isinstance(run_error, RequiresHumanAnnotation):
             payload: dict[str, Any] = {}
             if isinstance(final_result, dict):
@@ -1603,7 +1798,18 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 error_message=str(run_error),
                 result=payload,
             )
-        elif not is_dev:
+        elif is_dev or is_test:
+            # In dev/test mode the caller (chronos dev/test runner) handles
+            # session completion.  The /complete endpoint closes the Plato
+            # session which kills the VM we're running on, so we must not
+            # call it from within the world runner process.
+            mode = "dev" if is_dev else "test"
+            self.logger.info(
+                "Skipping Chronos completion in %s mode (run_error=%s)",
+                mode,
+                type(run_error).__name__ if run_error else "None",
+            )
+        else:
             if run_error:
                 error_msg = f"{type(run_error).__name__}: {run_error}"
                 await self._complete_chronos_session(
@@ -1614,11 +1820,6 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 )
             else:
                 await self._complete_chronos_session("completed", exit_code=0, result=final_result)
-        else:
-            self.logger.info(
-                "Skipping Chronos completion in dev-world mode (run_error=%s)",
-                type(run_error).__name__ if run_error else "None",
-            )
 
         self._chronos_completed = True
 

@@ -1,27 +1,43 @@
 # SPDX-License-Identifier: Apache-2.0
 """CWL Expression parsing."""
+
 import asyncio
-import copy
 import inspect
 import json
-from collections.abc import Awaitable, MutableMapping
-from typing import Any, Optional, Union, cast
+from collections.abc import Awaitable, Container
+from enum import Enum
+from typing import Any, Final, cast
 
 from schema_salad.utils import json_dumps
 
 from cwl_utils.errors import JavascriptException, SubstitutionError, WorkflowException
 from cwl_utils.loghandler import _logger
 from cwl_utils.sandboxjs import JSEngine, default_timeout, get_js_engine, param_re
-from cwl_utils.types import CWLObjectType, CWLOutputType
+from cwl_utils.types import (
+    CWLObjectType,
+    CWLOutputType,
+    CWLParameterContext,
+    is_cwl_parameter_context_key,
+)
 from cwl_utils.utils import bytes2str_in_dicts
+
+OLD_ESCAPE_CWL_VERSIONS: Final[Container[str]] = (
+    "v1.0",
+    "v1.1.0-dev1",
+    "v1.1",
+    "v1.2.0-dev1",
+    "v1.2.0-dev2",
+    "v1.2.0-dev3",
+)
 
 
 def _convert_dumper(string: str) -> str:
     return f"{json.dumps(string)} + "
 
 
-def scanner(scan: str) -> Optional[tuple[int, int]]:
-    """Find JS relevant punctuation in a string."""
+class t(Enum):
+    """Tokens."""
+
     DEFAULT = 0
     DOLLAR = 1
     PAREN = 2
@@ -30,67 +46,71 @@ def scanner(scan: str) -> Optional[tuple[int, int]]:
     DOUBLE_QUOTE = 5
     BACKSLASH = 6
 
+
+def scanner(scan: str) -> tuple[int, int] | None:
+    """Find JS relevant punctuation in a string."""
     i = 0
-    stack = [DEFAULT]
+    stack: list[t] = [t.DEFAULT]
     start = 0
     while i < len(scan):
-        state = stack[-1]
         c = scan[i]
 
-        if state == DEFAULT:
-            if c == "$":
-                stack.append(DOLLAR)
-            elif c == "\\":
-                stack.append(BACKSLASH)
-        elif state == BACKSLASH:
-            stack.pop()
-            if stack[-1] == DEFAULT:
-                return i - 1, i + 1
-        elif state == DOLLAR:
-            if c == "(":
-                start = i - 1
-                stack.append(PAREN)
-            elif c == "{":
-                start = i - 1
-                stack.append(BRACE)
-            else:
+        state = stack[-1]
+        match state:
+            case t.DEFAULT:
+                if c == "$":
+                    stack.append(t.DOLLAR)
+                elif c == "\\":
+                    stack.append(t.BACKSLASH)
+            case t.BACKSLASH:
                 stack.pop()
-                i -= 1
-        elif state == PAREN:
-            if c == "(":
-                stack.append(PAREN)
-            elif c == ")":
-                stack.pop()
-                if stack[-1] == DOLLAR:
-                    return start, i + 1
-            elif c == "'":
-                stack.append(SINGLE_QUOTE)
-            elif c == '"':
-                stack.append(DOUBLE_QUOTE)
-        elif state == BRACE:
-            if c == "{":
-                stack.append(BRACE)
-            elif c == "}":
-                stack.pop()
-                if stack[-1] == DOLLAR:
-                    return start, i + 1
-            elif c == "'":
-                stack.append(SINGLE_QUOTE)
-            elif c == '"':
-                stack.append(DOUBLE_QUOTE)
-        elif state == SINGLE_QUOTE:
-            if c == "'":
-                stack.pop()
-            elif c == "\\":
-                stack.append(BACKSLASH)
-        elif state == DOUBLE_QUOTE:
-            if c == '"':
-                stack.pop()
-            elif c == "\\":
-                stack.append(BACKSLASH)
+                if stack[-1] == t.DEFAULT:
+                    return i - 1, i + 1
+            case t.DOLLAR:
+                if c == "(":
+                    start = i - 1
+                    stack.append(t.PAREN)
+                elif c == "{":
+                    start = i - 1
+                    stack.append(t.BRACE)
+                else:
+                    stack.pop()
+                    i -= 1
+            case t.PAREN:
+                if c == "(":
+                    stack.append(t.PAREN)
+                elif c == ")":
+                    stack.pop()
+                    if stack[-1] == t.DOLLAR:
+                        return start, i + 1
+                elif c == "'":
+                    stack.append(t.SINGLE_QUOTE)
+                elif c == '"':
+                    stack.append(t.DOUBLE_QUOTE)
+            case t.BRACE:
+                if c == "{":
+                    stack.append(t.BRACE)
+                elif c == "}":
+                    stack.pop()
+                    if stack[-1] == t.DOLLAR:
+                        return start, i + 1
+                elif c == "'":
+                    stack.append(t.SINGLE_QUOTE)
+                elif c == '"':
+                    stack.append(t.DOUBLE_QUOTE)
+            case t.SINGLE_QUOTE:
+                if c == "'":
+                    stack.pop()
+                elif c == "\\":
+                    stack.append(t.BACKSLASH)
+            case t.DOUBLE_QUOTE:
+                if c == '"':
+                    stack.pop()
+                elif c == "\\":
+                    stack.append(t.BACKSLASH)
         i += 1
 
-    if len(stack) > 1 and not (len(stack) == 2 and stack[1] in (BACKSLASH, DOLLAR)):
+    if len(stack) > 1 and not (len(stack) == 2 and stack[1] in (t.BACKSLASH, t.DOLLAR)):
         raise SubstitutionError(
             "Substitution error, unfinished block starting at position {}: '{}' stack was {}".format(
                 start, scan[start:], stack
@@ -102,11 +122,11 @@ def scanner(scan: str) -> Optional[tuple[int, int]]:
 def evaluator(
     js_engine: JSEngine,
     ex: str,
-    obj: CWLObjectType,
+    obj: CWLParameterContext,
     jslib: str,
     fullJS: bool,
     **kwargs: Any,
-) -> Optional[CWLOutputType]:
+) -> CWLOutputType | None:
     js_engine = js_engine or get_js_engine()
     expression_parse_exception = None
 
@@ -117,13 +137,22 @@ def evaluator(
         if first_symbol_end + 1 == len(ex) and first_symbol == "null":
             return None
         try:
-            if first_symbol not in obj:
-                raise WorkflowException("%s is not defined" % first_symbol)
-
-            if inspect.iscoroutinefunction(js_engine.regex_eval):
-                return asyncio.get_event_loop().run_until_complete(
-                    cast(
-                        Awaitable[CWLOutputType],
+            if is_cwl_parameter_context_key(first_symbol):
+                if inspect.iscoroutinefunction(js_engine.regex_eval):
+                    return asyncio.get_event_loop().run_until_complete(
+                        cast(
+                            Awaitable[CWLOutputType],
+                            js_engine.regex_eval(
+                                first_symbol,
+                                ex[first_symbol_end:-1],
+                                cast(CWLOutputType, obj[first_symbol]),
+                                **kwargs,
+                            ),
+                        )
+                    )
+                else:
+                    return cast(
+                        CWLOutputType,
                         js_engine.regex_eval(
                             first_symbol,
                             ex[first_symbol_end:-1],
@@ -131,17 +160,8 @@ def evaluator(
                             **kwargs,
                         ),
                     )
-                )
             else:
-                return cast(
-                    CWLOutputType,
-                    js_engine.regex_eval(
-                        first_symbol,
-                        ex[first_symbol_end:-1],
-                        cast(CWLOutputType, obj[first_symbol]),
-                        **kwargs,
-                    ),
-                )
+                raise WorkflowException(f"{first_symbol} is unexpected.")
         except WorkflowException as werr:
             expression_parse_exception = werr
     if fullJS:
@@ -168,15 +188,15 @@ def evaluator(
 
 def interpolate(
     scan: str,
-    rootvars: CWLObjectType,
+    rootvars: CWLParameterContext,
     jslib: str = "",
     fullJS: bool = False,
     strip_whitespace: bool = True,
     escaping_behavior: int = 2,
     convert_to_expression: bool = False,
-    js_engine: Optional[JSEngine] = None,
+    js_engine: JSEngine | None = None,
     **kwargs: Any,
-) -> Optional[CWLOutputType]:
+) -> CWLOutputType | None:
     """
     Interpolate and evaluate.
 
@@ -246,14 +266,13 @@ def interpolate(
         scan = scan[w[1] :]
         w = scanner(scan)
     if convert_to_expression:
-        parts.append(f'"{scan}"')  # noqa: B907
-        parts.append(";}")
+        parts.extend((f'"{scan}"', ";}"))  # noqa: B907
     else:
         parts.append(scan)
     return "".join(parts)
 
 
-def jshead(engine_config: list[str], rootvars: CWLObjectType) -> str:
+def jshead(engine_config: list[str], rootvars: CWLParameterContext) -> str:
     """Make sure all the byte strings are converted to str in `rootvars` dict."""
     return "\n".join(
         engine_config
@@ -266,29 +285,27 @@ def needs_parsing(snippet: Any) -> bool:
 
 
 def do_eval(
-    ex: Optional[CWLOutputType],
+    ex: CWLOutputType | None,
     jobinput: CWLObjectType,
     requirements: list[CWLObjectType],
-    outdir: Optional[str],
-    tmpdir: Optional[str],
-    resources: dict[str, Union[float, int]],
-    context: Optional[CWLOutputType] = None,
+    outdir: str | None,
+    tmpdir: str | None,
+    resources: dict[str, float | int],
+    context: CWLOutputType | None = None,
     timeout: float = default_timeout,
     strip_whitespace: bool = True,
     cwlVersion: str = "",
     **kwargs: Any,
-) -> Optional[CWLOutputType]:
+) -> CWLOutputType | None:
     """
     Evaluate the given CWL expression, in context.
 
     :param timeout: The maximum number of seconds to wait while executing.
     """
-    runtime = cast(MutableMapping[str, Union[int, str, None]], copy.deepcopy(resources))
-    runtime["tmpdir"] = tmpdir if tmpdir else None
-    runtime["outdir"] = outdir if outdir else None
+    runtime = resources | {"tmpdir": tmpdir or None, "outdir": outdir or None}
 
     rootvars = cast(
-        CWLObjectType,
+        CWLParameterContext,
         bytes2str_in_dicts({"inputs": jobinput, "self": context, "runtime": runtime}),
     )
 
@@ -309,19 +326,7 @@ def do_eval(
                 fullJS=fullJS,
                 jslib=jslib,
                 strip_whitespace=strip_whitespace,
-                escaping_behavior=(
-                    1
-                    if cwlVersion
-                    in (
-                        "v1.0",
-                        "v1.1.0-dev1",
-                        "v1.1",
-                        "v1.2.0-dev1",
-                        "v1.2.0-dev2",
-                        "v1.2.0-dev3",
-                    )
-                    else 2
-                ),
+                escaping_behavior=1 if cwlVersion in OLD_ESCAPE_CWL_VERSIONS else 2,
                 **kwargs,
             )
 

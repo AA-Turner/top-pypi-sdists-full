@@ -47,9 +47,11 @@ Chat = "https://gitter.im/pybind/Lobby"
 test = [
   "pytest",
   "build",
-  "tomlkit",
 ]
-dev = [{ include-group = "test" }]
+dev = [
+  "tomlkit",
+  { include-group = "test" }
+]
 
 
 [tool.scikit-build]

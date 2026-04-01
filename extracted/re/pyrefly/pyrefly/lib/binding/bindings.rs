@@ -16,6 +16,7 @@ use pyrefly_graph::index::Idx;
 use pyrefly_graph::index::Index;
 use pyrefly_graph::index_map::IndexMap;
 use pyrefly_python::ast::Ast;
+use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
@@ -77,6 +78,7 @@ use crate::binding::binding::TypeAliasRefBinding;
 use crate::binding::binding::TypeParameter;
 use crate::binding::expr::Usage;
 use crate::binding::metadata::BindingsMetadata;
+use crate::binding::narrow::NarrowOp;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Exportable;
 use crate::binding::scope::FlowStyle;
@@ -263,6 +265,9 @@ pub struct BindingsBuilder<'a> {
     next_lambda_param_id: u32,
     /// See `BindingsInner::subsequently_initialized`.
     subsequently_initialized: SmallSet<Idx<KeyAnnotation>>,
+    /// Defaults extracted from an adjacent `__new__.__defaults__` assignment,
+    /// set by `stmts()` and consumed by namedtuple synthesis in `stmt()`.
+    pub adjacent_namedtuple_defaults: Option<Vec<Expr>>,
 }
 
 /// An enum tracking whether we are in a generator expression
@@ -533,6 +538,7 @@ impl Bindings {
             lambda_yield_keys: Vec::new(),
             next_lambda_param_id: 0,
             subsequently_initialized: SmallSet::new(),
+            adjacent_namedtuple_defaults: None,
         };
         builder.init_static_scope(&x.body, true);
         if module_info.name() != ModuleName::builtins() {
@@ -617,6 +623,7 @@ impl Bindings {
         // can appear in both exportables and invalid_dunder_all_entries).
         for (name, key) in invalid_all_exports {
             if !exported_names.contains(&name) {
+                exported_names.insert(name.clone());
                 builder
                     .table
                     .insert(KeyExport(name), BindingExport::Forward(key));
@@ -780,6 +787,25 @@ impl CurrentIdx {
 
     pub fn into_idx(self) -> Idx<Key> {
         self.idx()
+    }
+}
+
+fn extract_new_defaults(stmt: &Stmt, name: &str) -> Option<Vec<Expr>> {
+    if let Stmt::Assign(assign) = stmt
+        && let [Expr::Attribute(outer)] = assign.targets.as_slice()
+        && outer.attr.id == dunder::DEFAULTS
+        && let Expr::Attribute(inner) = outer.value.as_ref()
+        && inner.attr.id == dunder::NEW
+        && let Expr::Name(target_name) = inner.value.as_ref()
+        && target_name.id == name
+    {
+        match assign.value.as_ref() {
+            Expr::Tuple(tuple) => Some(tuple.elts.clone()),
+            Expr::NoneLiteral(_) => Some(vec![]),
+            _ => None,
+        }
+    } else {
+        None
     }
 }
 
@@ -985,8 +1011,25 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn stmts(&mut self, xs: Vec<Stmt>, parent: &NestingContext) {
-        for x in xs {
+        let mut iter = xs.into_iter().peekable();
+        while let Some(x) = iter.next() {
+            if let Stmt::Assign(assign) = &x
+                && let [Expr::Name(name)] = assign.targets.as_slice()
+                && let Expr::Call(call) = assign.value.as_ref()
+                && let Some(defaults) = iter
+                    .peek()
+                    .and_then(|next| extract_new_defaults(next, &name.id))
+                && let Some(special) = self.as_special_export(&call.func)
+                && matches!(
+                    special,
+                    SpecialExport::TypingNamedTuple | SpecialExport::CollectionsNamedTuple
+                )
+            {
+                iter.next();
+                self.adjacent_namedtuple_defaults = Some(defaults);
+            }
             self.stmt(x, parent);
+            self.adjacent_namedtuple_defaults = None;
         }
     }
 
@@ -1251,6 +1294,30 @@ impl<'a> BindingsBuilder<'a> {
             }
             NameReadInfo::NotFound => NameLookupResult::NotFound,
         }
+    }
+
+    /// Build narrow entries for exhaustiveness checking by resolving each
+    /// narrowed name to its variable binding at the fork base. Using the
+    /// fork base preserves narrowing from enclosing scopes; a regular
+    /// lookup would fall back to the un-narrowed static binding.
+    pub fn build_narrow_entries(
+        &mut self,
+        negated_prev_ops: &NarrowOps,
+    ) -> Vec<(Idx<Key>, Box<NarrowOp>, TextRange)> {
+        let mut narrow_entries = Vec::new();
+        for (name, (op, range)) in negated_prev_ops.0.iter() {
+            let idx = if let Some(idx) = self.scopes.current_fork_base_idx(name) {
+                idx
+            } else if let NameLookupResult::Found { idx, .. } =
+                self.lookup_name(Hashed::new(name), &mut Usage::Narrowing(None))
+            {
+                idx
+            } else {
+                continue;
+            };
+            narrow_entries.push((idx, Box::new(op.clone()), *range));
+        }
+        narrow_entries
     }
 
     /// Defer creation of a BoundName binding until after AST traversal.
@@ -1807,6 +1874,21 @@ impl<'a> BindingsBuilder<'a> {
             .entry(id.tvar_name())
             .or_insert_with(|| self.lookup_legacy_tparam(id, legacy_tparams.has_scoped_tparams));
         result.as_name_lookup_result()
+    }
+
+    /// Like `intercept_lookup`, but only resolves via an *existing* entry in the
+    /// legacy tparam collector. Does NOT add a new entry if one doesn't exist.
+    /// Used for `P.args`/`P.kwargs` so that `P` is resolved if already in scope
+    /// (e.g. from `Callable[P, ...]`) but not introduced as a new type parameter.
+    pub fn try_intercept_lookup(
+        &mut self,
+        legacy_tparams: &mut LegacyTParamCollector,
+        id: &LegacyTParamId,
+    ) -> Option<NameLookupResult> {
+        legacy_tparams
+            .legacy_tparams
+            .get(id.tvar_name().as_str())
+            .map(|result| result.as_name_lookup_result())
     }
 
     /// Look up a name that might refer to a legacy tparam. This is used by `intercept_lookup`

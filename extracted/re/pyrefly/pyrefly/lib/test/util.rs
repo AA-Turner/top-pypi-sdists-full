@@ -6,7 +6,6 @@
  */
 
 use std::collections::HashMap;
-use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -30,8 +29,7 @@ use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::prelude::SliceExt;
-use pyrefly_util::thread_pool::ThreadCount;
-use pyrefly_util::thread_pool::init_thread_pool;
+pub use pyrefly_util::thread_pool::TEST_THREAD_COUNT;
 use pyrefly_util::trace::init_tracing;
 use ruff_python_ast::name::Name;
 use ruff_source_file::LineIndex;
@@ -117,7 +115,9 @@ pub struct TestEnv {
     missing_override_decorator_error: bool,
     not_required_key_access_error: bool,
     strict_callable_subtyping: bool,
+    spec_compliant_overloads: bool,
     default_require_level: Require,
+    extra_file_extensions: Vec<String>,
 }
 
 impl TestEnv {
@@ -142,7 +142,9 @@ impl TestEnv {
             missing_override_decorator_error: false,
             not_required_key_access_error: false,
             strict_callable_subtyping: false,
+            spec_compliant_overloads: false,
             default_require_level: Require::Exports,
+            extra_file_extensions: Vec::new(),
         }
     }
 
@@ -271,8 +273,18 @@ impl TestEnv {
         self
     }
 
+    pub fn enable_spec_compliant_overloads(mut self) -> Self {
+        self.spec_compliant_overloads = true;
+        self
+    }
+
     pub fn with_default_require_level(mut self, level: Require) -> Self {
         self.default_require_level = level;
+        self
+    }
+
+    pub fn with_extra_file_extensions(mut self, extensions: Vec<String>) -> Self {
+        self.extra_file_extensions = extensions;
         self
     }
 
@@ -282,8 +294,15 @@ impl TestEnv {
     }
 
     pub fn add_with_path(&mut self, name: &str, path: &str, code: &str) {
+        let has_extra_ext = self
+            .extra_file_extensions
+            .iter()
+            .any(|ext| path.ends_with(&format!(".{ext}")));
         assert!(
-            path.ends_with(".py") || path.ends_with(".pyi") || path.ends_with(".rs"),
+            path.ends_with(".py")
+                || path.ends_with(".pyi")
+                || path.ends_with(".rs")
+                || has_extra_ext,
             "{path} doesn't look like a reasonable path"
         );
         self.modules.push((
@@ -344,6 +363,7 @@ impl TestEnv {
         config.root.infer_return_types = Some(self.infer_return_types);
         config.root.infer_with_first_use = Some(self.infer_with_first_use);
         config.root.strict_callable_subtyping = Some(self.strict_callable_subtyping);
+        config.root.spec_compliant_overloads = Some(self.spec_compliant_overloads);
         if config.root.errors.is_none() {
             config.root.errors = Some(ErrorDisplayConfig::new(HashMap::new()));
         };
@@ -375,6 +395,7 @@ impl TestEnv {
         if self.not_required_key_access_error {
             errors.set_error_severity(ErrorKind::NotRequiredKeyAccess, Severity::Error);
         }
+        config.extra_file_extensions = self.extra_file_extensions.clone();
         let mut sourcedb = MapDatabase::new(config.get_sys_info());
         for (name, path, _) in self.modules.iter() {
             sourcedb.insert(*name, path.dupe());
@@ -400,7 +421,7 @@ impl TestEnv {
             .rev()
             .map(|(x, path, _)| Handle::new(*x, path.dupe(), config.dupe()))
             .collect::<Vec<_>>();
-        let state = State::new(self.config_finder());
+        let state = State::new(self.config_finder(), TEST_THREAD_COUNT);
         let subscriber = TestSubscriber::new();
         let mut transaction = state.new_committable_transaction(
             self.default_require_level,
@@ -631,8 +652,6 @@ fn get_batched_lsp_operations_report_no_cursor_helper(
 pub fn init_test() {
     ColorChoice::write_global(ColorChoice::Always);
     init_tracing(true, true);
-    // Enough threads to see parallelism bugs, but not too many to debug through.
-    init_thread_pool(ThreadCount::NumThreads(NonZeroUsize::new(3).unwrap()));
 }
 
 /// Shared state with all the builtins already initialized (by a dummy module).

@@ -2,7 +2,7 @@
 # pylint: disable=wrong-import-position
 from __future__ import annotations
 
-__version__ = "9.2.207"
+__version__ = "9.2.208"
 
 if bytes is str:
     raise Exception("""
@@ -160,6 +160,7 @@ from .errors import (
     SimConcreteBreakpointError,
     AngrDecompilationError,
     UnsupportedNodeTypeError,
+    AngrAIError,
 )
 from .blade import Blade
 from .simos import SimOS
@@ -214,6 +215,7 @@ __all__ = (
     "SIM_TYPE_COLLECTIONS",
     "SYSCALL_CC",
     "Analysis",
+    "AngrAIError",
     "AngrAnalysisError",
     "AngrAnnotatedCFGError",
     "AngrAssemblyError",

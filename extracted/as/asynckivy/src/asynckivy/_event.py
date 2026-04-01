@@ -1,5 +1,3 @@
-__all__ = ("event", "event_freq", "suppress_event", "rest_of_touch_events", "rest_of_touch_events_cm", )
-
 from collections.abc import AsyncIterator
 import types
 from functools import partial
@@ -162,10 +160,52 @@ class suppress_event:
         self._dispatcher.unbind_uid(self._name, self._bind_uid)
 
 
+class block_touch_events:
+    '''
+    .. code-block::
+
+        with block_touch_events(widget):
+            ...
+
+    Returns a context manager that blocks all touch events that meet **both** of the following criteria:
+
+    * The touch is not currently grabbed by any widget. (i.e. ``touch.grab_current is None``)
+    * The touch is inside the widget's bounding box. (i.e. ``widget.collide_point(*touch.pos)``)
+
+    Basically equivalent to the following:
+
+    .. code-block::
+
+        def f(w, t):
+            return t.grab_current is None and w.collide_point(*t.pos)
+        with (
+            suppress_event(widget, 'on_touch_down', filter=f),
+            suppress_event(widget, 'on_touch_move', filter=f),
+            suppress_event(widget, 'on_touch_up', filter=f),
+        ):
+            ...
+
+    .. versionadded:: 0.10.0
+    '''
+    __slots__ = ('_dispatcher', '_filter', )
+
+    def __init__(self, event_dispatcher, *, filter=lambda w, t: t.grab_current is None and w.collide_point(*t.pos)):
+        self._dispatcher = event_dispatcher
+        self._filter = filter
+
+    def __enter__(self):
+        f = self._filter
+        self._dispatcher.bind(on_touch_down=f, on_touch_move=f, on_touch_up=f)
+
+    def __exit__(self, *__):
+        f = self._filter
+        self._dispatcher.unbind(on_touch_down=f, on_touch_move=f, on_touch_up=f)
+
+
 async def rest_of_touch_events(widget, touch, *, stop_dispatching=False, grab=True) -> AsyncIterator[None]:
     '''
     Returns an async iterator that yields None on each ``on_touch_move`` event
-    and stops when an ``on_touch_up`` event occurs.
+    and stops when the corresponding ``on_touch_up`` event occurs.
 
     .. code-block::
 
@@ -174,10 +214,10 @@ async def rest_of_touch_events(widget, touch, *, stop_dispatching=False, grab=Tr
         print('on_touch_up')
 
     :param grab: If set to ``False``, this API will not rely on ``touch.grab()``, which means there is no guarantee
-                 that all events from the given touch will be delivered to the widget, `as documented <grab_>`_.
-                 If the ``on_touch_up`` event is not delivered, the iterator will wait indefinitely for it—an event
-                 that never comes. Do not set this to ``False`` unless you know what you are doing.
-    :param stop_dispatching: Whether to stop dispatching non-grabbed touch events.
+        that all events from the given touch will be delivered to the widget, as documented in
+        `grabbing-touch-events`_. If the corresponding ``on_touch_up`` event is not delivered, the iterator will wait
+        indefinitely for it. Do not set this to ``False`` unless you know what you are doing.
+    :param stop_dispatching: Whether to stop dispatching non-grabbed touch events corresponding to the given touch.
                              (Grabbed events are always stopped if the ``grab`` is ``True``.)
                              For details, see `event-bubbling`_.
 
@@ -190,7 +230,7 @@ async def rest_of_touch_events(widget, touch, *, stop_dispatching=False, grab=Tr
     .. versionchanged:: 0.9.1
         The ``grab`` parameter was added.
 
-    .. _grab: https://kivy.org/doc/master/guide/inputs.html#grabbing-touch-events
+    .. _grabbing-touch-events: https://kivy.org/doc/master/guide/inputs.html#grabbing-touch-events
     .. _event-bubbling: https://kivy.org/doc/master/api-kivy.uix.widget.html#widget-touch-event-bubbling
     '''
     async with rest_of_touch_events_cm(widget, touch, stop_dispatching=stop_dispatching, grab=grab) as on_touch_move:

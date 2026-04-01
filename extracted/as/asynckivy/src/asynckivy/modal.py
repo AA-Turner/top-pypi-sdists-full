@@ -97,7 +97,7 @@ class SlideTransition:
             with bg_canvas:
                 bg_color = Color(*self.background_color[:3], 0.)
                 Rectangle(size=parent.size)
-            with ak.transform(dialog, use_outer_canvas=True) as ig:
+            with ak.transform(dialog, canvas_layer="outer") as ig:
                 x_dist = y_dist = 0.
                 match self.in_direction:
                     case 'down':
@@ -202,8 +202,8 @@ async def open(
 
     :param dialog: The widget to display as a dialog.
     :param window: The window in which to display the dialog.
-    :param auto_dismiss: Whether to dismiss the dialog when the user touches outside it or presses
-                         the escape key or the Android back button.
+    :param auto_dismiss: Whether to dismiss the dialog when the user touches outside of it, presses
+        the Escape key or presses the Android back button.
     :param transition: The transition effect to use when opening and dismissing the dialog.
 
     You can check whether the dialog was auto-dismissed and determine the cause as follows:

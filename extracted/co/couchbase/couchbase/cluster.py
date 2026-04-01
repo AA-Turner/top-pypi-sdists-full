@@ -15,19 +15,19 @@
 
 from __future__ import annotations
 
-import time
 from datetime import timedelta
 from typing import (TYPE_CHECKING,
                     Any,
-                    Dict)
+                    Dict,
+                    Union)
 
-from couchbase.analytics import AnalyticsQuery, AnalyticsRequest
+from couchbase.auth import (CertificateAuthenticator,
+                            JwtAuthenticator,
+                            PasswordAuthenticator)
 from couchbase.bucket import Bucket
-from couchbase.diagnostics import ClusterState, ServiceType
-from couchbase.exceptions import ErrorMapper, UnAmbiguousTimeoutException
-from couchbase.exceptions import exception as BaseCouchbaseException
-from couchbase.logic import BlockingWrapper
-from couchbase.logic.cluster import ClusterLogic
+from couchbase.logic.cluster_impl import ClusterImpl
+from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import StreamingOperationType
 from couchbase.logic.supportability import Supportability
 from couchbase.management.analytics import AnalyticsIndexManager
 from couchbase.management.buckets import BucketManager
@@ -35,30 +35,26 @@ from couchbase.management.eventing import EventingFunctionManager
 from couchbase.management.queries import QueryIndexManager
 from couchbase.management.search import SearchIndexManager
 from couchbase.management.users import UserManager
-from couchbase.n1ql import N1QLQuery, N1QLRequest
-from couchbase.options import PingOptions, forward_args
 from couchbase.result import (AnalyticsResult,
                               ClusterInfoResult,
                               DiagnosticsResult,
                               PingResult,
                               QueryResult,
                               SearchResult)
-from couchbase.search import (FullTextSearchRequest,
-                              SearchQueryBuilder,
-                              SearchRequest)
 from couchbase.transactions import Transactions
 
 if TYPE_CHECKING:
     from couchbase.options import (AnalyticsOptions,
                                    ClusterOptions,
                                    DiagnosticsOptions,
+                                   PingOptions,
                                    QueryOptions,
                                    SearchOptions,
                                    WaitUntilReadyOptions)
-    from couchbase.search import SearchQuery
+    from couchbase.search import SearchQuery, SearchRequest
 
 
-class Cluster(ClusterLogic):
+class Cluster:
     """Create a Couchbase Cluster instance.
 
     The cluster instance exposes the operations which are available to be performed against a cluster.
@@ -95,22 +91,8 @@ class Cluster(ClusterLogic):
                  connstr,  # type: str
                  *options,  # type: ClusterOptions
                  **kwargs,  # type: Dict[str, Any]
-                 ) -> Cluster:
-
-        super().__init__(connstr, *options, **kwargs)
-        self._connect()
-
-    @BlockingWrapper.block(True)
-    def _connect(self, **kwargs):
-        ret = super()._connect_cluster(**kwargs)
-        if isinstance(ret, BaseCouchbaseException):
-            raise ErrorMapper.build_exception(ret)
-        self._set_connection(ret)
-
-    @BlockingWrapper.block(True)
-    def _close_cluster(self):
-        super()._close_cluster()
-        super()._destroy_connection()
+                 ) -> None:
+        self._impl = ClusterImpl(connstr, *options, **kwargs)
 
     @property
     def transactions(self) -> Transactions:
@@ -118,11 +100,9 @@ class Cluster(ClusterLogic):
             :class:`~couchbase.transactions.Transactions`: A Transactions instance which can be used to
                 perform transactions on this cluster.
         """
-        if not self._transactions:
-            self._transactions = Transactions(self, self._transaction_config)
-        return self._transactions
+        return self._impl.transactions
 
-    def close(self):
+    def close(self) -> None:
         """Shuts down this cluster instance. Cleaning up all resources associated with it.
 
         .. warning::
@@ -131,10 +111,9 @@ class Cluster(ClusterLogic):
             is necessary and in those types of applications, this method might be beneficial.
 
         """
-        if self.connected:
-            self._close_cluster()
+        self._impl.close_connection()
 
-    def bucket(self, bucket_name) -> Bucket:
+    def bucket(self, bucket_name: str) -> Bucket:
         """Creates a Bucket instance to a specific bucket.
 
         .. seealso::
@@ -152,9 +131,6 @@ class Cluster(ClusterLogic):
                 be found.
 
         """
-        if not self.connected:
-            raise RuntimeError("Cluster not yet connected.")
-
         return Bucket(self, bucket_name)
 
     def cluster_info(self) -> ClusterInfoResult:
@@ -175,19 +151,9 @@ class Cluster(ClusterLogic):
                 to a bucket if using server version < 6.6.
 
         """
-        if not self.connected:
-            raise RuntimeError(
-                "Cluster is not connected, cannot get cluster info.")
-        cluster_info = None
-        cluster_info = self._get_cluster_info()
-        self._cluster_info = cluster_info
-        return cluster_info
+        req = self._impl.request_builder.build_cluster_info_request()
+        return self._impl.get_cluster_info(req)
 
-    @BlockingWrapper.block(ClusterInfoResult)
-    def _get_cluster_info(self):
-        return super()._get_cluster_info()
-
-    @BlockingWrapper.block(PingResult)
     def ping(self,
              *opts,  # type: PingOptions
              **kwargs  # type: Any
@@ -206,9 +172,9 @@ class Cluster(ClusterLogic):
             which were performed.
 
         """
-        return super().ping(*opts, **kwargs)
+        req = self._impl.request_builder.build_ping_request(*opts, **kwargs)
+        return self._impl.ping(req)
 
-    @BlockingWrapper.block(DiagnosticsResult)
     def diagnostics(self,
                     *opts,  # type: DiagnosticsOptions
                     **kwargs  # type: Dict[str, Any]
@@ -226,8 +192,33 @@ class Cluster(ClusterLogic):
             with the cluster.
 
         """
+        req = self._impl.request_builder.build_diagnostics_request(*opts, **kwargs)
+        return self._impl.diagnostics(req)
 
-        return super().diagnostics(*opts, **kwargs)
+    def set_authenticator(
+            self, authenticator: Union[CertificateAuthenticator, JwtAuthenticator, PasswordAuthenticator]
+    ) -> None:
+        """Replace the authenticator used by this Cluster.
+
+        Allows updating credentials without restarting the application.
+        The effect on existing connections depends on the authenticator type:
+
+        - JwtAuthenticator: Live re-auth on existing KV connections via OAUTHBEARER SASL.
+          HTTP requests use the new Bearer token immediately.
+        - PasswordAuthenticator: No effect on existing KV connections (they keep old
+          credentials). New HTTP requests use the new Basic auth header.
+        - CertificateAuthenticator: No effect on existing connections (TLS handshake
+          already completed). Only new connections use the new certificate.
+
+        Args:
+            authenticator: New authenticator to use. Must be the same type as the
+                current authenticator.
+
+        Raises:
+            RuntimeError: If cluster is not connected.
+        """
+        req = self._impl.request_builder.build_update_credential_request(authenticator)
+        self._impl.update_credentials(req)
 
     def wait_until_ready(self,
                          timeout,  # type: timedelta
@@ -272,44 +263,8 @@ class Cluster(ClusterLogic):
                          WaitUntilReadyOptions(service_types=[ServiceType.KeyValue, ServiceType.Query]))
 
         """
-
-        final_args = forward_args(kwargs, *opts)
-        service_types = final_args.get("service_types", None)
-        if not service_types:
-            service_types = [ServiceType(st.value) for st in ServiceType]
-
-        desired_state = final_args.get("desired_state", ClusterState.Online)
-        service_types_set = set(map(lambda st: st.value if isinstance(st, ServiceType) else st, service_types))
-
-        # @TODO: handle units
-        timeout_millis = timeout.total_seconds() * 1000
-
-        interval_millis = float(50)
-        start = time.perf_counter()
-        time_left = timeout_millis
-        while True:
-
-            diag_res = self.diagnostics()
-            endpoint_svc_types = set(map(lambda st: st.value, diag_res.endpoints.keys()))
-            if not endpoint_svc_types.issuperset(service_types_set):
-                self.ping(PingOptions(service_types=service_types))
-                diag_res = self.diagnostics()
-
-            if diag_res.state == desired_state:
-                break
-
-            interval_millis += 500
-            if interval_millis > 1000:
-                interval_millis = 1000
-
-            time_left = timeout_millis - ((time.perf_counter() - start) * 1000)
-            if interval_millis > time_left:
-                interval_millis = time_left
-
-            if time_left <= 0:
-                raise UnAmbiguousTimeoutException(message="Desired state not found.")
-
-            time.sleep(interval_millis / 1000)
+        req = self._impl.request_builder.build_wait_until_ready_request(timeout, *opts, **kwargs)
+        self._impl.wait_until_ready(req)
 
     def query(self,
               statement,  # type: str
@@ -380,20 +335,12 @@ class Cluster(ClusterLogic):
                 print(f'Query metrics: {q_res.metadata().metrics()}')
 
         """
+        op_type = StreamingOperationType.Query
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        req = self._impl.request_builder.build_query_request(statement, obs_handler, *options, **kwargs)
+        return self._impl.query(req)
 
-        # If the n1ql_query was provided a timeout we will use that value for the streaming timeout
-        # when the streaming object is created in the bindings.  If the n1ql_query does not specify a
-        # timeout, the streaming_timeout defaults to cluster's query_timeout (set here). If the cluster
-        # also does not specify a query_timeout we set the streaming_timeout to
-        # couchbase::core::timeout_defaults::query_timeout when the streaming object is created in the bindings.
-        streaming_timeout = self.streaming_timeouts.get('query_timeout', None)
-        query = N1QLQuery.create_query_object(statement, *options, **kwargs)
-        return QueryResult(N1QLRequest.generate_n1ql_request(self.connection,
-                                                             query.params,
-                                                             default_serializer=self.default_serializer,
-                                                             streaming_timeout=streaming_timeout))
-
-    def analytics_query(self,  # type: Cluster
+    def analytics_query(self,
                         statement,  # type: str
                         *options,  # type: AnalyticsOptions
                         **kwargs   # type: Dict[str, Any]
@@ -467,17 +414,10 @@ class Cluster(ClusterLogic):
                 print(f'Analytics query metrics: {q_res.metadata().metrics()}')
 
         """  # noqa: E501
-        # If the analytics_query was provided a timeout we will use that value for the streaming timeout
-        # when the streaming object is created in the bindings.  If the analytics_query does not specify a
-        # timeout, the streaming_timeout defaults to cluster's analytics_timeout (set here). If the cluster
-        # also does not specify an analytics_timeout we set the streaming_timeout to
-        # couchbase::core::timeout_defaults::analytics_timeout when the streaming object is created in the bindings.
-        streaming_timeout = self.streaming_timeouts.get('analytics_timeout', None)
-        query = AnalyticsQuery.create_query_object(statement, *options, **kwargs)
-        return AnalyticsResult(AnalyticsRequest.generate_analytics_request(self.connection,
-                                                                           query.params,
-                                                                           default_serializer=self.default_serializer,
-                                                                           streaming_timeout=streaming_timeout))
+        op_type = StreamingOperationType.AnalyticsQuery
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        req = self._impl.request_builder.build_analytics_query_request(statement, obs_handler, *options, **kwargs)
+        return self._impl.analytics_query(req)
 
     def search_query(self,
                      index,  # type: str
@@ -571,17 +511,10 @@ class Cluster(ClusterLogic):
                     print(f'Locations: {row.locations}')
 
         """
-        # If the search_query was provided a timeout we will use that value for the streaming timeout
-        # when the streaming object is created in the bindings.  If the search_query does not specify a
-        # timeout, the streaming_timeout defaults to cluster's search_timeout (set here). If the cluster
-        # also does not specify a search_timeout we set the streaming_timeout to
-        # couchbase::core::timeout_defaults::search_timeout when the streaming object is created in the bindings.
-        streaming_timeout = self.streaming_timeouts.get('search_timeout', None)
-        query = SearchQueryBuilder.create_search_query_object(index, query, *options, **kwargs)
-        return SearchResult(FullTextSearchRequest.generate_search_request(self.connection,
-                                                                          query.as_encodable(),
-                                                                          default_serializer=self.default_serializer,
-                                                                          streaming_timeout=streaming_timeout))
+        op_type = StreamingOperationType.SearchQuery
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        req = self._impl.request_builder.build_search_request(index, query, obs_handler, *options, **kwargs)
+        return self._impl.search(req)
 
     def search(self,
                index,  # type: str
@@ -672,18 +605,10 @@ class Cluster(ClusterLogic):
                 for row in q_res.rows():
                     print(f'Found row: {row}')
         """  # noqa: E501
-
-        # If the search_query was provided a timeout we will use that value for the streaming timeout
-        # when the streaming object is created in the bindings.  If the search_query does not specify a
-        # timeout, the streaming_timeout defaults to cluster's search_timeout (set here). If the cluster
-        # also does not specify a search_timeout we set the streaming_timeout to
-        # couchbase::core::timeout_defaults::search_timeout when the streaming object is created in the bindings.
-        streaming_timeout = self.streaming_timeouts.get('search_timeout', None)
-        query = SearchQueryBuilder.create_search_query_from_request(index, request, *options, **kwargs)
-        return SearchResult(FullTextSearchRequest.generate_search_request(self.connection,
-                                                                          query.as_encodable(),
-                                                                          default_serializer=self.default_serializer,
-                                                                          streaming_timeout=streaming_timeout))
+        op_type = StreamingOperationType.SearchQuery
+        obs_handler = ObservableRequestHandler(op_type, self._impl.observability_instruments)
+        req = self._impl.request_builder.build_search_request(index, request, obs_handler, *options, **kwargs)
+        return self._impl.search(req)
 
     def buckets(self) -> BucketManager:
         """
@@ -693,8 +618,7 @@ class Cluster(ClusterLogic):
         Returns:
             :class:`~couchbase.management.buckets.BucketManager`: A :class:`~couchbase.management.buckets.BucketManager` instance.
         """  # noqa: E501
-        # TODO:  AlreadyShutdownException?
-        return BucketManager(self.connection)
+        return BucketManager(self._impl._client_adapter, self._impl.observability_instruments)
 
     def users(self) -> UserManager:
         """
@@ -704,8 +628,7 @@ class Cluster(ClusterLogic):
         Returns:
             :class:`~couchbase.management.users.UserManager`: A :class:`~couchbase.management.users.UserManager` instance.
         """  # noqa: E501
-        # TODO:  AlreadyShutdownException?
-        return UserManager(self.connection)
+        return UserManager(self._impl._client_adapter, self._impl.observability_instruments)
 
     def query_indexes(self) -> QueryIndexManager:
         """
@@ -715,8 +638,7 @@ class Cluster(ClusterLogic):
         Returns:
             :class:`~couchbase.management.queries.QueryIndexManager`: A :class:`~couchbase.management.queries.QueryIndexManager` instance.
         """  # noqa: E501
-        # TODO:  AlreadyShutdownException?
-        return QueryIndexManager(self.connection)
+        return QueryIndexManager(self._impl._client_adapter, self._impl.observability_instruments)
 
     def analytics_indexes(self) -> AnalyticsIndexManager:
         """
@@ -726,8 +648,7 @@ class Cluster(ClusterLogic):
         Returns:
             :class:`~couchbase.management.analytics.AnalyticsIndexManager`: An :class:`~couchbase.management.analytics.AnalyticsIndexManager` instance.
         """  # noqa: E501
-        # TODO:  AlreadyShutdownException?
-        return AnalyticsIndexManager(self.connection)
+        return AnalyticsIndexManager(self._impl._client_adapter, self._impl.observability_instruments)
 
     def search_indexes(self) -> SearchIndexManager:
         """
@@ -738,8 +659,7 @@ class Cluster(ClusterLogic):
             :class:`~couchbase.management.search.SearchIndexManager`: A :class:`~couchbase.management.search.SearchIndexManager` instance.
 
         """  # noqa: E501
-        # TODO:  AlreadyShutdownException?
-        return SearchIndexManager(self.connection)
+        return SearchIndexManager(self._impl._client_adapter, self._impl.observability_instruments)
 
     def eventing_functions(self) -> EventingFunctionManager:
         """
@@ -754,8 +674,7 @@ class Cluster(ClusterLogic):
             :class:`~couchbase.management.eventing.EventingFunctionManager`: An :class:`~couchbase.management.eventing.EventingFunctionManager` instance.
 
         """  # noqa: E501
-        # TODO:  AlreadyShutdownException?
-        return EventingFunctionManager(self.connection)
+        return EventingFunctionManager(self._impl._client_adapter, self._impl.observability_instruments)
 
     @staticmethod
     def connect(connstr,  # type: str

@@ -7,6 +7,7 @@ import importlib.metadata
 import json
 import logging
 import os
+import shlex
 from abc import ABC, abstractmethod
 from typing import ClassVar, Generic, TypeVar, get_args, get_origin
 
@@ -122,6 +123,23 @@ class BaseAgent(ABC, Generic[ConfigT]):
     def get_schema(cls) -> dict:
         """Get full schema for the agent including config and build schemas."""
         return get_agent_schema(cls)
+
+    @classmethod
+    def reset_commands(cls, workspace_paths: list[str]) -> list[str]:
+        """Return shell commands to reset VM state before the next pooled task."""
+        commands = [
+            # -x matches exact process name only, not the full command line,
+            # so it cannot accidentally kill the shell running the reset commands.
+            "pkill -x plato-agent-runner 2>/dev/null; true",
+            "rm -rf /tmp/plato-* /var/tmp/* 2>/dev/null; true",
+            ": > /etc/environment",
+            # Remove stale /etc/hosts entries so _prepare_env_setup writes fresh values.
+            "sed -i '/runtime\\.plato\\.internal/d' /etc/hosts 2>/dev/null; true",
+        ]
+        for workspace_path in workspace_paths:
+            p = shlex.quote(workspace_path)
+            commands.append(f"umount -l {p} 2>/dev/null; rm -rf {p} 2>/dev/null; mkdir -p {p}")
+        return commands
 
     @abstractmethod
     async def run(self, instruction: str, tools_path: str | None = None) -> None:

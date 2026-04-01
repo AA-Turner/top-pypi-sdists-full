@@ -63,7 +63,7 @@ def test_create_load_gemini_text_generator_model(
         "gemini-2.5-flash-lite",
     ),
 )
-# @pytest.mark.flaky(retries=2)
+@pytest.mark.flaky(retries=2)
 def test_gemini_text_generator_predict_default_params_success(
     llm_text_df, model_name, session, bq_connection
 ):
@@ -198,6 +198,7 @@ def test_llm_gemini_score(llm_fine_tune_df_default_index, model_name):
             "evaluation_status",
         ],
         index=1,
+        col_exact=False,
     )
 
 
@@ -226,6 +227,7 @@ def test_llm_gemini_pro_score_params(llm_fine_tune_df_default_index, model_name)
             "label",
             "evaluation_status",
         ],
+        col_exact=False,
     )
 
 

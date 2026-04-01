@@ -14,6 +14,10 @@ class AnnotationResult(TypedDict):
     explanation: NotRequired[str]
 
 
+class AnonymousUser(TypedDict):
+    auth_method: Literal["ANONYMOUS"]
+
+
 class CategoricalAnnotationValue(TypedDict):
     label: str
     score: NotRequired[float]
@@ -466,6 +470,11 @@ class PromptXAIInvocationParametersContent(TypedDict):
     reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
 
 
+class SecretKeyValue(TypedDict):
+    key: str
+    value: Optional[str]
+
+
 class SessionAnnotation(TypedDict):
     id: str
     created_at: str
@@ -594,6 +603,17 @@ class TraceAnnotationsResponseBody(TypedDict):
     next_cursor: Optional[str]
 
 
+class TraceSpanData(TypedDict):
+    id: str
+    span_id: str
+    parent_id: Optional[str]
+    name: str
+    span_kind: str
+    status_code: str
+    start_time: str
+    end_time: str
+
+
 class UpdateProjectRequestBody(TypedDict):
     description: NotRequired[str]
 
@@ -625,6 +645,15 @@ class UpsertExperimentEvaluationRequestBody(TypedDict):
 
 class UpsertExperimentEvaluationResponseBodyData(TypedDict):
     id: str
+
+
+class UpsertOrDeleteSecretsRequest(TypedDict):
+    secrets: Sequence[SecretKeyValue]
+
+
+class UpsertOrDeleteSecretsResult(TypedDict):
+    upserted_keys: Sequence[str]
+    deleted_keys: Sequence[str]
 
 
 class ValidationError(TypedDict):
@@ -785,6 +814,10 @@ class GetUsersResponseBody(TypedDict):
     next_cursor: Optional[str]
 
 
+class GetViewerResponseBody(TypedDict):
+    data: Union[LocalUser, OAuth2User, LDAPUser, AnonymousUser]
+
+
 class HTTPValidationError(TypedDict):
     detail: NotRequired[Sequence[ValidationError]]
 
@@ -888,6 +921,10 @@ class PromptXAIInvocationParameters(TypedDict):
     xai: PromptXAIInvocationParametersContent
 
 
+class ResponseBodyUpsertOrDeleteSecretsResult(TypedDict):
+    data: UpsertOrDeleteSecretsResult
+
+
 class SessionData(TypedDict):
     id: str
     session_id: str
@@ -922,6 +959,15 @@ class ToolCallContentPart(TypedDict):
     tool_call: ToolCallFunction
 
 
+class TraceData(TypedDict):
+    id: str
+    trace_id: str
+    project_id: str
+    start_time: str
+    end_time: str
+    spans: NotRequired[Sequence[TraceSpanData]]
+
+
 class UpdateAnnotationConfigResponseBody(TypedDict):
     data: Union[CategoricalAnnotationConfig, ContinuousAnnotationConfig, FreeformAnnotationConfig]
 
@@ -940,6 +986,11 @@ class GetSessionResponseBody(TypedDict):
 
 class GetSessionsResponseBody(TypedDict):
     data: Sequence[SessionData]
+    next_cursor: Optional[str]
+
+
+class GetTracesResponseBody(TypedDict):
+    data: Sequence[TraceData]
     next_cursor: Optional[str]
 
 

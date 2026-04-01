@@ -10,11 +10,9 @@ import types
 
 import pytest
 
-
 import biothings_client
 from biothings_client.client.definitions import AsyncMyChemInfo
 from biothings_client.utils.score import descore
-
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -310,10 +308,10 @@ async def test_query_pharmgkb(async_chem_client: AsyncMyChemInfo):
 
 @pytest.mark.asyncio
 async def test_query_ndc(async_chem_client: AsyncMyChemInfo):
-    qres = await async_chem_client.query('ndc.productndc:"27437-051"')
+    qres = await async_chem_client.query('ndc.productndc:"69751-400"')
     assert "hits" in qres
     assert len(qres["hits"]) == 1
-    assert qres["hits"][0]["_id"] == "KPQZUUQMTUIKBP-UHFFFAOYSA-N"
+    assert qres["hits"][0]["_id"] == "69751-400"
 
 
 @pytest.mark.asyncio
@@ -354,7 +352,7 @@ async def test_query_fetch_all(async_chem_client: AsyncMyChemInfo):
     assert isinstance(qres_generator, types.AsyncGeneratorType)
 
     async_count = 0
-    async for async_res in qres_generator:
+    async for _ in qres_generator:
         async_count += 1
     assert total == async_count
 

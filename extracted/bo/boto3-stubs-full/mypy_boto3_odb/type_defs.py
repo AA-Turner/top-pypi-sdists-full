@@ -1309,6 +1309,7 @@ class OdbNetworkSummaryTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     percentProgress: NotRequired[float]
     managedServices: NotRequired[ManagedServicesTypeDef]
+    ec2PlacementGroupIds: NotRequired[list[str]]
 
 
 class OdbNetworkTypeDef(TypedDict):
@@ -1333,6 +1334,7 @@ class OdbNetworkTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     percentProgress: NotRequired[float]
     managedServices: NotRequired[ManagedServicesTypeDef]
+    ec2PlacementGroupIds: NotRequired[list[str]]
 
 
 class ListCloudVmClustersOutputTypeDef(TypedDict):

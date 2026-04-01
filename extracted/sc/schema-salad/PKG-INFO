@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schema-salad
-Version: 8.9.20251102115403
+Version: 8.9.20260327095315
 Summary: Schema Annotations for Linked Avro Data (SALAD)
 Home-page: https://schema-salad.readthedocs.io/
 Download-URL: https://github.com/common-workflow-language/schema_salad/releases
@@ -13,25 +13,26 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.9,<3.15
+Requires-Python: >=3.10,<3.15
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: requests>=1.0
-Requires-Dist: ruamel.yaml<0.19,>=0.17.6
+Requires-Dist: ruamel.yaml<0.20,>=0.17.6
 Requires-Dist: rdflib<8.0.0,>=4.2.2
-Requires-Dist: mistune<3.2,>=3
+Requires-Dist: mistune<3.3,>=3
 Requires-Dist: CacheControl[filecache]<0.15,>=0.13.1
 Requires-Dist: mypy_extensions
+Requires-Dist: rich-argparse
 Provides-Extra: docs
 Requires-Dist: sphinx>=2.2; extra == "docs"
 Requires-Dist: sphinx-rtd-theme>=1; extra == "docs"
-Requires-Dist: pytest<9; extra == "docs"
+Requires-Dist: pytest<10; extra == "docs"
 Requires-Dist: sphinx-autoapi; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
 Requires-Dist: sphinxcontrib-autoprogram; extra == "docs"
@@ -76,7 +77,7 @@ generation, and transformation to RDF_. Salad provides a bridge
 between document and record oriented data modeling and the Semantic
 Web.
 
-The Schema Salad library is Python 3.9+ only.
+The Schema Salad library is Python 3.10+ only.
 
 Installation
 ------------

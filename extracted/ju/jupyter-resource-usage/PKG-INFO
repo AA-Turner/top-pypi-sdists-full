@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter-resource-usage
-Version: 1.2.0
+Version: 1.2.1
 Summary: Jupyter Extension to show resource usage
 Project-URL: Homepage, https://github.com/jupyter-server/jupyter-resource-usage
 Author: Jupyter Development Team

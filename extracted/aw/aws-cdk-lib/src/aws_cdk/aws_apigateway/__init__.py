@@ -9528,19 +9528,6 @@ class CfnDomainNameV2(
         return typing.cast("_DomainNameV2Reference_ca1122a1", jsii.get(self, "domainNameV2Ref"))
 
     @builtins.property
-    @jsii.member(jsii_name="policy")
-    def policy(self) -> typing.Any:
-        '''A stringified JSON policy document that applies to the ``execute-api`` service for this DomainName regardless of the caller and Method configuration.'''
-        return typing.cast(typing.Any, jsii.get(self, "policy"))
-
-    @policy.setter
-    def policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0c6989179a94e32b700994895064456ee57af9eb39330638ade9b7801085b38)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="certificateArn")
     def certificate_arn(self) -> typing.Optional[builtins.str]:
         '''The reference to an AWS -managed certificate that will be used by the private endpoint for this domain name.'''
@@ -9596,6 +9583,19 @@ class CfnDomainNameV2(
             type_hints = typing.get_type_hints(_typecheckingstub__a1f648b520c9d40bb72a9028880e48540125da8ba68522e25c483400d79142dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endpointConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> typing.Any:
+        '''A stringified JSON policy document that applies to the ``execute-api`` service for this DomainName regardless of the caller and Method configuration.'''
+        return typing.cast(typing.Any, jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a0c6989179a94e32b700994895064456ee57af9eb39330638ade9b7801085b38)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="routingMode")
@@ -11705,19 +11705,6 @@ class CfnModel(
         jsii.set(self, "restApiId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="schema")
-    def schema(self) -> typing.Any:
-        '''The schema for the model.'''
-        return typing.cast(typing.Any, jsii.get(self, "schema"))
-
-    @schema.setter
-    def schema(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__189ff15874544c903e011bd25d8e6463925d43c41be7532a43378df709f954e5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schema", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="contentType")
     def content_type(self) -> typing.Optional[builtins.str]:
         '''The content-type for the model.'''
@@ -11755,6 +11742,19 @@ class CfnModel(
             type_hints = typing.get_type_hints(_typecheckingstub__7970ef90ab7e30e7216cfcd425ee6821d9f9f51870d49472d5510bba9479cc61)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="schema")
+    def schema(self) -> typing.Any:
+        '''The schema for the model.'''
+        return typing.cast(typing.Any, jsii.get(self, "schema"))
+
+    @schema.setter
+    def schema(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__189ff15874544c903e011bd25d8e6463925d43c41be7532a43378df709f954e5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "schema", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -12683,32 +12683,6 @@ class CfnRestApi(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="body")
-    def body(self) -> typing.Any:
-        '''An OpenAPI specification that defines a set of RESTful APIs in JSON format.'''
-        return typing.cast(typing.Any, jsii.get(self, "body"))
-
-    @body.setter
-    def body(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__531f017906edab784c1a550cefadd535f6de66c5fb156fb602b44dbb6ddf59c5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "body", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policy")
-    def policy(self) -> typing.Any:
-        '''A policy document that contains the permissions for the ``RestApi`` resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "policy"))
-
-    @policy.setter
-    def policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7c411e289712e4a9bfc8e944902e0103f628540a4cf7e48a8c9167888e17d8f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="apiKeySourceType")
     def api_key_source_type(self) -> typing.Optional[builtins.str]:
         '''The source of the API key for metering requests according to a usage plan.'''
@@ -12736,6 +12710,19 @@ class CfnRestApi(
             type_hints = typing.get_type_hints(_typecheckingstub__e5382629090fca37327ab38dbd9d2807d25d11bdd4aa29ea10df0383a905ff97)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "binaryMediaTypes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="body")
+    def body(self) -> typing.Any:
+        '''An OpenAPI specification that defines a set of RESTful APIs in JSON format.'''
+        return typing.cast(typing.Any, jsii.get(self, "body"))
+
+    @body.setter
+    def body(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__531f017906edab784c1a550cefadd535f6de66c5fb156fb602b44dbb6ddf59c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "body", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="bodyS3Location")
@@ -12904,6 +12891,19 @@ class CfnRestApi(
             type_hints = typing.get_type_hints(_typecheckingstub__ccaf03012418784e0b764088769b0e23937e2028288348151f0ccfbfd74daa7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> typing.Any:
+        '''A policy document that contains the permissions for the ``RestApi`` resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7c411e289712e4a9bfc8e944902e0103f628540a4cf7e48a8c9167888e17d8f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="securityPolicy")
@@ -17854,7 +17854,7 @@ class IResource(
         '''The rest API that this resource is part of.
 
         The reason we need the RestApi object itself and not just the ID is because the model
-        is being tracked by the top-level RestApi object for the purpose of calculating it's
+        is being tracked by the top-level RestApi object for the purpose of calculating its
         hash to determine the ID of the deployment. This allows us to automatically update
         the deployment when the model of the REST API changes.
         '''
@@ -18046,7 +18046,7 @@ class _IResourceProxy(
         '''The rest API that this resource is part of.
 
         The reason we need the RestApi object itself and not just the ID is because the model
-        is being tracked by the top-level RestApi object for the purpose of calculating it's
+        is being tracked by the top-level RestApi object for the purpose of calculating its
         hash to determine the ID of the deployment. This allows us to automatically update
         the deployment when the model of the REST API changes.
         '''
@@ -19083,7 +19083,7 @@ class IntegrationOptions:
         :param request_parameters: The request parameters that API Gateway sends with the backend request. Specify request parameters as key-value pairs (string-to-string mappings), with a destination as the key and a source as the value. Specify the destination by using the following pattern integration.request.location.name, where location is querystring, path, or header, and name is a valid, unique parameter name. The source must be an existing method request parameter or a static value. You must enclose static values in single quotation marks and pre-encode these values based on their destination in the request.
         :param request_templates: A map of Apache Velocity templates that are applied on the request payload. The template that API Gateway uses is based on the value of the Content-Type header that's sent by the client. The content type value is the key, and the template is the value (specified as a string), such as the following snippet:: { "application/json": "{ \\"statusCode\\": 200 }" }
         :param response_transfer_mode: The response transfer mode for the integration. To enable response streaming, set this value to ``ResponseTransferMode.STREAM``. Default: ResponseTransferMode.BUFFERED
-        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your acccount. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
+        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your account. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
         :param vpc_link: The VpcLink used for the integration. Required if connectionType is VPC_LINK
 
         :exampleMetadata: lit=aws-apigateway/test/authorizers/integ.request-authorizer.lit.ts infused
@@ -19307,7 +19307,7 @@ class IntegrationOptions:
 
              { "application/json": "{ \\"statusCode\\": 200 }" }
 
-        :see: http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
+        :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
         '''
         result = self._values.get("request_templates")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -19329,7 +19329,7 @@ class IntegrationOptions:
 
         By default, the value must be between 50 milliseconds and 29 seconds.
         The upper bound can be increased for regional and private Rest APIs only,
-        via a quota increase request for your acccount.
+        via a quota increase request for your account.
         This increase might require a reduction in your account-level throttle quota limit.
 
         See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details.
@@ -19581,7 +19581,7 @@ class IntegrationResponse:
           pre-encode these values based on the destination specified in the
           request.
 
-        :see: http://docs.aws.amazon.com/apigateway/latest/developerguide/request-response-data-mappings.html
+        :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/request-response-data-mappings.html
         '''
         result = self._values.get("response_parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -19595,7 +19595,7 @@ class IntegrationResponse:
         Specify templates as key-value pairs, with a content type as the key and
         a template as the value.
 
-        :see: http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
+        :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
         '''
         result = self._values.get("response_templates")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -20645,7 +20645,7 @@ class LambdaIntegrationOptions(IntegrationOptions):
         :param request_parameters: The request parameters that API Gateway sends with the backend request. Specify request parameters as key-value pairs (string-to-string mappings), with a destination as the key and a source as the value. Specify the destination by using the following pattern integration.request.location.name, where location is querystring, path, or header, and name is a valid, unique parameter name. The source must be an existing method request parameter or a static value. You must enclose static values in single quotation marks and pre-encode these values based on their destination in the request.
         :param request_templates: A map of Apache Velocity templates that are applied on the request payload. The template that API Gateway uses is based on the value of the Content-Type header that's sent by the client. The content type value is the key, and the template is the value (specified as a string), such as the following snippet:: { "application/json": "{ \\"statusCode\\": 200 }" }
         :param response_transfer_mode: The response transfer mode for the integration. To enable response streaming, set this value to ``ResponseTransferMode.STREAM``. Default: ResponseTransferMode.BUFFERED
-        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your acccount. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
+        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your account. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
         :param vpc_link: The VpcLink used for the integration. Required if connectionType is VPC_LINK
         :param allow_test_invoke: Allow invoking method from AWS Console UI (for testing purposes). This will add another permission to the AWS Lambda resource policy which will allow the ``test-invoke-stage`` stage to invoke this handler. If this is set to ``false``, the function will only be usable from the deployment endpoint. Note that this property is ignored when ``scopePermissionToMethod`` is ``false``. Default: true
         :param proxy: Use proxy integration or normal (request/response mapping) integration. Default: true
@@ -20834,7 +20834,7 @@ class LambdaIntegrationOptions(IntegrationOptions):
 
              { "application/json": "{ \\"statusCode\\": 200 }" }
 
-        :see: http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
+        :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
         '''
         result = self._values.get("request_templates")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -20856,7 +20856,7 @@ class LambdaIntegrationOptions(IntegrationOptions):
 
         By default, the value must be between 50 milliseconds and 29 seconds.
         The upper bound can be increased for regional and private Rest APIs only,
-        via a quota increase request for your acccount.
+        via a quota increase request for your account.
         This increase might require a reduction in your account-level throttle quota limit.
 
         See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details.
@@ -22506,7 +22506,7 @@ class MockIntegration(
         :param request_parameters: The request parameters that API Gateway sends with the backend request. Specify request parameters as key-value pairs (string-to-string mappings), with a destination as the key and a source as the value. Specify the destination by using the following pattern integration.request.location.name, where location is querystring, path, or header, and name is a valid, unique parameter name. The source must be an existing method request parameter or a static value. You must enclose static values in single quotation marks and pre-encode these values based on their destination in the request.
         :param request_templates: A map of Apache Velocity templates that are applied on the request payload. The template that API Gateway uses is based on the value of the Content-Type header that's sent by the client. The content type value is the key, and the template is the value (specified as a string), such as the following snippet:: { "application/json": "{ \\"statusCode\\": 200 }" }
         :param response_transfer_mode: The response transfer mode for the integration. To enable response streaming, set this value to ``ResponseTransferMode.STREAM``. Default: ResponseTransferMode.BUFFERED
-        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your acccount. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
+        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your account. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
         :param vpc_link: The VpcLink used for the integration. Required if connectionType is VPC_LINK
         '''
         options = IntegrationOptions(
@@ -22587,7 +22587,7 @@ class Model(
         '''
         :param scope: -
         :param id: -
-        :param rest_api: The rest API that this model is part of. The reason we need the RestApi object itself and not just the ID is because the model is being tracked by the top-level RestApi object for the purpose of calculating it's hash to determine the ID of the deployment. This allows us to automatically update the deployment when the model of the REST API changes.
+        :param rest_api: The rest API that this model is part of. The reason we need the RestApi object itself and not just the ID is because the model is being tracked by the top-level RestApi object for the purpose of calculating its hash to determine the ID of the deployment. This allows us to automatically update the deployment when the model of the REST API changes.
         :param schema: The schema to use to transform data to one or more output formats. Specify null ({}) if you don't want to specify a schema.
         :param content_type: The content type for the model. You can also force a content type in the request or response model mapping. Default: 'application/json'
         :param description: A description that identifies this model. Default: None
@@ -22855,7 +22855,7 @@ class ModelProps(ModelOptions):
         :param content_type: The content type for the model. You can also force a content type in the request or response model mapping. Default: 'application/json'
         :param description: A description that identifies this model. Default: None
         :param model_name: A name for the model. Important If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. Default: If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the model name. For more information, see Name Type.
-        :param rest_api: The rest API that this model is part of. The reason we need the RestApi object itself and not just the ID is because the model is being tracked by the top-level RestApi object for the purpose of calculating it's hash to determine the ID of the deployment. This allows us to automatically update the deployment when the model of the REST API changes.
+        :param rest_api: The rest API that this model is part of. The reason we need the RestApi object itself and not just the ID is because the model is being tracked by the top-level RestApi object for the purpose of calculating its hash to determine the ID of the deployment. This allows us to automatically update the deployment when the model of the REST API changes.
 
         :exampleMetadata: fixture=_generated
 
@@ -23001,7 +23001,7 @@ class ModelProps(ModelOptions):
         '''The rest API that this model is part of.
 
         The reason we need the RestApi object itself and not just the ID is because the model
-        is being tracked by the top-level RestApi object for the purpose of calculating it's
+        is being tracked by the top-level RestApi object for the purpose of calculating its
         hash to determine the ID of the deployment. This allows us to automatically update
         the deployment when the model of the REST API changes.
         '''
@@ -23923,7 +23923,7 @@ class RequestValidator(
         '''
         :param scope: -
         :param id: -
-        :param rest_api: The rest API that this model is part of. The reason we need the RestApi object itself and not just the ID is because the model is being tracked by the top-level RestApi object for the purpose of calculating it's hash to determine the ID of the deployment. This allows us to automatically update the deployment when the model of the REST API changes.
+        :param rest_api: The rest API that this model is part of. The reason we need the RestApi object itself and not just the ID is because the model is being tracked by the top-level RestApi object for the purpose of calculating its hash to determine the ID of the deployment. This allows us to automatically update the deployment when the model of the REST API changes.
         :param request_validator_name: The name of this request validator. Default: None
         :param validate_request_body: Indicates whether to validate the request body according to the configured schema for the targeted API and method. Default: false
         :param validate_request_parameters: Indicates whether to validate request parameters. Default: false
@@ -24129,7 +24129,7 @@ class RequestValidatorProps(RequestValidatorOptions):
         :param request_validator_name: The name of this request validator. Default: None
         :param validate_request_body: Indicates whether to validate the request body according to the configured schema for the targeted API and method. Default: false
         :param validate_request_parameters: Indicates whether to validate request parameters. Default: false
-        :param rest_api: The rest API that this model is part of. The reason we need the RestApi object itself and not just the ID is because the model is being tracked by the top-level RestApi object for the purpose of calculating it's hash to determine the ID of the deployment. This allows us to automatically update the deployment when the model of the REST API changes.
+        :param rest_api: The rest API that this model is part of. The reason we need the RestApi object itself and not just the ID is because the model is being tracked by the top-level RestApi object for the purpose of calculating its hash to determine the ID of the deployment. This allows us to automatically update the deployment when the model of the REST API changes.
 
         :exampleMetadata: fixture=_generated
 
@@ -24198,7 +24198,7 @@ class RequestValidatorProps(RequestValidatorOptions):
         '''The rest API that this model is part of.
 
         The reason we need the RestApi object itself and not just the ID is because the model
-        is being tracked by the top-level RestApi object for the purpose of calculating it's
+        is being tracked by the top-level RestApi object for the purpose of calculating its
         hash to determine the ID of the deployment. This allows us to automatically update
         the deployment when the model of the REST API changes.
         '''
@@ -24497,7 +24497,7 @@ class ResourceBase(
         '''The rest API that this resource is part of.
 
         The reason we need the RestApi object itself and not just the ID is because the model
-        is being tracked by the top-level RestApi object for the purpose of calculating it's
+        is being tracked by the top-level RestApi object for the purpose of calculating its
         hash to determine the ID of the deployment. This allows us to automatically update
         the deployment when the model of the REST API changes.
         '''
@@ -24562,7 +24562,7 @@ class _ResourceBaseProxy(
         '''The rest API that this resource is part of.
 
         The reason we need the RestApi object itself and not just the ID is because the model
-        is being tracked by the top-level RestApi object for the purpose of calculating it's
+        is being tracked by the top-level RestApi object for the purpose of calculating its
         hash to determine the ID of the deployment. This allows us to automatically update
         the deployment when the model of the REST API changes.
         '''
@@ -27084,7 +27084,7 @@ class SagemakerIntegrationOptions(IntegrationOptions):
         :param request_parameters: The request parameters that API Gateway sends with the backend request. Specify request parameters as key-value pairs (string-to-string mappings), with a destination as the key and a source as the value. Specify the destination by using the following pattern integration.request.location.name, where location is querystring, path, or header, and name is a valid, unique parameter name. The source must be an existing method request parameter or a static value. You must enclose static values in single quotation marks and pre-encode these values based on their destination in the request.
         :param request_templates: A map of Apache Velocity templates that are applied on the request payload. The template that API Gateway uses is based on the value of the Content-Type header that's sent by the client. The content type value is the key, and the template is the value (specified as a string), such as the following snippet:: { "application/json": "{ \\"statusCode\\": 200 }" }
         :param response_transfer_mode: The response transfer mode for the integration. To enable response streaming, set this value to ``ResponseTransferMode.STREAM``. Default: ResponseTransferMode.BUFFERED
-        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your acccount. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
+        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your account. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
         :param vpc_link: The VpcLink used for the integration. Required if connectionType is VPC_LINK
 
         :exampleMetadata: fixture=_generated
@@ -27291,7 +27291,7 @@ class SagemakerIntegrationOptions(IntegrationOptions):
 
              { "application/json": "{ \\"statusCode\\": 200 }" }
 
-        :see: http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
+        :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
         '''
         result = self._values.get("request_templates")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -27313,7 +27313,7 @@ class SagemakerIntegrationOptions(IntegrationOptions):
 
         By default, the value must be between 50 milliseconds and 29 seconds.
         The upper bound can be increased for regional and private Rest APIs only,
-        via a quota increase request for your acccount.
+        via a quota increase request for your account.
         This increase might require a reduction in your account-level throttle quota limit.
 
         See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details.
@@ -29375,7 +29375,7 @@ class StepFunctionsExecutionIntegrationOptions(IntegrationOptions):
         :param request_parameters: The request parameters that API Gateway sends with the backend request. Specify request parameters as key-value pairs (string-to-string mappings), with a destination as the key and a source as the value. Specify the destination by using the following pattern integration.request.location.name, where location is querystring, path, or header, and name is a valid, unique parameter name. The source must be an existing method request parameter or a static value. You must enclose static values in single quotation marks and pre-encode these values based on their destination in the request.
         :param request_templates: A map of Apache Velocity templates that are applied on the request payload. The template that API Gateway uses is based on the value of the Content-Type header that's sent by the client. The content type value is the key, and the template is the value (specified as a string), such as the following snippet:: { "application/json": "{ \\"statusCode\\": 200 }" }
         :param response_transfer_mode: The response transfer mode for the integration. To enable response streaming, set this value to ``ResponseTransferMode.STREAM``. Default: ResponseTransferMode.BUFFERED
-        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your acccount. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
+        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your account. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
         :param vpc_link: The VpcLink used for the integration. Required if connectionType is VPC_LINK
         :param authorizer: If the whole authorizer object, including custom context values should be in the execution input. The execution input will include a new key ``authorizer``: { "body": {}, "authorizer": { "key": "value" } } Default: false
         :param headers: Check if header is to be included inside the execution input. The execution input will include a new key ``headers``: { "body": {}, "headers": { "header1": "value", "header2": "value" } } Default: false
@@ -29633,7 +29633,7 @@ class StepFunctionsExecutionIntegrationOptions(IntegrationOptions):
 
              { "application/json": "{ \\"statusCode\\": 200 }" }
 
-        :see: http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
+        :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html
         '''
         result = self._values.get("request_templates")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -29655,7 +29655,7 @@ class StepFunctionsExecutionIntegrationOptions(IntegrationOptions):
 
         By default, the value must be between 50 milliseconds and 29 seconds.
         The upper bound can be increased for regional and private Rest APIs only,
-        via a quota increase request for your acccount.
+        via a quota increase request for your account.
         This increase might require a reduction in your account-level throttle quota limit.
 
         See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details.
@@ -29856,7 +29856,7 @@ class StepFunctionsIntegration(
         :param request_parameters: The request parameters that API Gateway sends with the backend request. Specify request parameters as key-value pairs (string-to-string mappings), with a destination as the key and a source as the value. Specify the destination by using the following pattern integration.request.location.name, where location is querystring, path, or header, and name is a valid, unique parameter name. The source must be an existing method request parameter or a static value. You must enclose static values in single quotation marks and pre-encode these values based on their destination in the request.
         :param request_templates: A map of Apache Velocity templates that are applied on the request payload. The template that API Gateway uses is based on the value of the Content-Type header that's sent by the client. The content type value is the key, and the template is the value (specified as a string), such as the following snippet:: { "application/json": "{ \\"statusCode\\": 200 }" }
         :param response_transfer_mode: The response transfer mode for the integration. To enable response streaming, set this value to ``ResponseTransferMode.STREAM``. Default: ResponseTransferMode.BUFFERED
-        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your acccount. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
+        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your account. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
         :param vpc_link: The VpcLink used for the integration. Required if connectionType is VPC_LINK
 
         Example::
@@ -31693,7 +31693,7 @@ class ApiKeyOptions(ResourceOptions):
 
         :default: automically generated name
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-name
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-name
         '''
         result = self._values.get("api_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -31704,7 +31704,7 @@ class ApiKeyOptions(ResourceOptions):
 
         :default: none
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-description
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-description
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -31868,7 +31868,7 @@ class ApiKeyProps(ApiKeyOptions):
 
         :default: automically generated name
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-name
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-name
         '''
         result = self._values.get("api_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -31879,7 +31879,7 @@ class ApiKeyProps(ApiKeyOptions):
 
         :default: none
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-description
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-description
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -31903,7 +31903,7 @@ class ApiKeyProps(ApiKeyOptions):
 
         :default: none
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-customerid
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-customerid
         '''
         result = self._values.get("customer_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -31914,7 +31914,7 @@ class ApiKeyProps(ApiKeyOptions):
 
         :default: true
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-enabled
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-enabled
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -31925,7 +31925,7 @@ class ApiKeyProps(ApiKeyOptions):
 
         :default: false
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-generatedistinctid
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-generatedistinctid
         '''
         result = self._values.get("generate_distinct_id")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -32656,7 +32656,7 @@ class LambdaIntegration(
         :param request_parameters: The request parameters that API Gateway sends with the backend request. Specify request parameters as key-value pairs (string-to-string mappings), with a destination as the key and a source as the value. Specify the destination by using the following pattern integration.request.location.name, where location is querystring, path, or header, and name is a valid, unique parameter name. The source must be an existing method request parameter or a static value. You must enclose static values in single quotation marks and pre-encode these values based on their destination in the request.
         :param request_templates: A map of Apache Velocity templates that are applied on the request payload. The template that API Gateway uses is based on the value of the Content-Type header that's sent by the client. The content type value is the key, and the template is the value (specified as a string), such as the following snippet:: { "application/json": "{ \\"statusCode\\": 200 }" }
         :param response_transfer_mode: The response transfer mode for the integration. To enable response streaming, set this value to ``ResponseTransferMode.STREAM``. Default: ResponseTransferMode.BUFFERED
-        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your acccount. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
+        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your account. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
         :param vpc_link: The VpcLink used for the integration. Required if connectionType is VPC_LINK
         '''
         if __debug__:
@@ -33661,7 +33661,7 @@ class RateLimitedApiKeyProps(ApiKeyProps):
 
         :default: automically generated name
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-name
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-name
         '''
         result = self._values.get("api_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -33672,7 +33672,7 @@ class RateLimitedApiKeyProps(ApiKeyProps):
 
         :default: none
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-description
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-description
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -33696,7 +33696,7 @@ class RateLimitedApiKeyProps(ApiKeyProps):
 
         :default: none
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-customerid
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-customerid
         '''
         result = self._values.get("customer_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -33707,7 +33707,7 @@ class RateLimitedApiKeyProps(ApiKeyProps):
 
         :default: true
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-enabled
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-enabled
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -33718,7 +33718,7 @@ class RateLimitedApiKeyProps(ApiKeyProps):
 
         :default: false
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-generatedistinctid
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-apikey.html#cfn-apigateway-apikey-generatedistinctid
         '''
         result = self._values.get("generate_distinct_id")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -34011,7 +34011,7 @@ class Resource(
         '''The rest API that this resource is part of.
 
         The reason we need the RestApi object itself and not just the ID is because the model
-        is being tracked by the top-level RestApi object for the purpose of calculating it's
+        is being tracked by the top-level RestApi object for the purpose of calculating its
         hash to determine the ID of the deployment. This allows us to automatically update
         the deployment when the model of the REST API changes.
         '''
@@ -34398,7 +34398,7 @@ class SagemakerIntegration(
         :param request_parameters: The request parameters that API Gateway sends with the backend request. Specify request parameters as key-value pairs (string-to-string mappings), with a destination as the key and a source as the value. Specify the destination by using the following pattern integration.request.location.name, where location is querystring, path, or header, and name is a valid, unique parameter name. The source must be an existing method request parameter or a static value. You must enclose static values in single quotation marks and pre-encode these values based on their destination in the request.
         :param request_templates: A map of Apache Velocity templates that are applied on the request payload. The template that API Gateway uses is based on the value of the Content-Type header that's sent by the client. The content type value is the key, and the template is the value (specified as a string), such as the following snippet:: { "application/json": "{ \\"statusCode\\": 200 }" }
         :param response_transfer_mode: The response transfer mode for the integration. To enable response streaming, set this value to ``ResponseTransferMode.STREAM``. Default: ResponseTransferMode.BUFFERED
-        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your acccount. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
+        :param timeout: The maximum amount of time an integration will run before it returns without a response. By default, the value must be between 50 milliseconds and 29 seconds. The upper bound can be increased for regional and private Rest APIs only, via a quota increase request for your account. This increase might require a reduction in your account-level throttle quota limit. See {@link https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html Amazon API Gateway quotas} for more details. Default: Duration.seconds(29)
         :param vpc_link: The VpcLink used for the integration. Required if connectionType is VPC_LINK
         '''
         if __debug__:
@@ -36528,12 +36528,6 @@ def _typecheckingstub__84c84802ec05ba723e240d805b21796f43a8f3cf08c5ef8677460e77d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a0c6989179a94e32b700994895064456ee57af9eb39330638ade9b7801085b38(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__02e36a521e1f2c0c18cff2c52c016e6370b767eb2b459e2c294bb4288285a448(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -36554,6 +36548,12 @@ def _typecheckingstub__e259ce12277488ce391f0eb54686afe0ca24479695df161a2825a54da
 
 def _typecheckingstub__a1f648b520c9d40bb72a9028880e48540125da8ba68522e25c483400d79142dc(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomainNameV2.EndpointConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0c6989179a94e32b700994895064456ee57af9eb39330638ade9b7801085b38(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36885,12 +36885,6 @@ def _typecheckingstub__4a3c5b423cee3a8c0b9103f5d4563c6257372b12489d27543585737ab
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__189ff15874544c903e011bd25d8e6463925d43c41be7532a43378df709f954e5(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__7e9538583fde25d5a4bfbf9ad18d6b8e965c725934d293324f3ddd0a2b541cff(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -36905,6 +36899,12 @@ def _typecheckingstub__e14bcaa67c5515b8d1e714c0cd74ace7e6734c83e3b4142cb061c1050
 
 def _typecheckingstub__7970ef90ab7e30e7216cfcd425ee6821d9f9f51870d49472d5510bba9479cc61(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__189ff15874544c903e011bd25d8e6463925d43c41be7532a43378df709f954e5(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37097,18 +37097,6 @@ def _typecheckingstub__9846c0a8b4800d5a296f9aea67a49cdaf59a24f4ab25ea67ad14c7a44
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__531f017906edab784c1a550cefadd535f6de66c5fb156fb602b44dbb6ddf59c5(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b7c411e289712e4a9bfc8e944902e0103f628540a4cf7e48a8c9167888e17d8f(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__885692d26cf256ea028d4888289ae060ae3d89b80470c8ff0f82559c7623a155(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -37117,6 +37105,12 @@ def _typecheckingstub__885692d26cf256ea028d4888289ae060ae3d89b80470c8ff0f82559c7
 
 def _typecheckingstub__e5382629090fca37327ab38dbd9d2807d25d11bdd4aa29ea10df0383a905ff97(
     value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__531f017906edab784c1a550cefadd535f6de66c5fb156fb602b44dbb6ddf59c5(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37183,6 +37177,12 @@ def _typecheckingstub__3b2f687ba486b97daef3efdc148372d3d51144ffda7dc8bf1ef44bc77
 
 def _typecheckingstub__ccaf03012418784e0b764088769b0e23937e2028288348151f0ccfbfd74daa7b(
     value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7c411e289712e4a9bfc8e944902e0103f628540a4cf7e48a8c9167888e17d8f(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

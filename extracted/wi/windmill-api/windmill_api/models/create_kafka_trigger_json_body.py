@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.create_kafka_trigger_json_body_auto_offset_reset import CreateKafkaTriggerJsonBodyAutoOffsetReset
+from ..models.create_kafka_trigger_json_body_filter_logic import CreateKafkaTriggerJsonBodyFilterLogic
 from ..models.create_kafka_trigger_json_body_mode import CreateKafkaTriggerJsonBodyMode
 from ..types import UNSET, Unset
 
@@ -27,6 +28,9 @@ class CreateKafkaTriggerJsonBody:
         group_id (str): Kafka consumer group ID for this trigger
         topics (List[str]): Array of Kafka topic names to subscribe to
         filters (List['CreateKafkaTriggerJsonBodyFiltersItem']):
+        filter_logic (Union[Unset, CreateKafkaTriggerJsonBodyFilterLogic]): Logic to apply when evaluating filters.
+            'and' requires all filters to match, 'or' requires any filter to match. Default:
+            CreateKafkaTriggerJsonBodyFilterLogic.AND.
         auto_offset_reset (Union[Unset, CreateKafkaTriggerJsonBodyAutoOffsetReset]): Initial offset behavior when
             consumer group has no committed offset. Default: CreateKafkaTriggerJsonBodyAutoOffsetReset.LATEST.
         auto_commit (Union[Unset, bool]): When true (default), offsets are committed automatically after receiving each
@@ -49,6 +53,7 @@ class CreateKafkaTriggerJsonBody:
     group_id: str
     topics: List[str]
     filters: List["CreateKafkaTriggerJsonBodyFiltersItem"]
+    filter_logic: Union[Unset, CreateKafkaTriggerJsonBodyFilterLogic] = CreateKafkaTriggerJsonBodyFilterLogic.AND
     auto_offset_reset: Union[
         Unset, CreateKafkaTriggerJsonBodyAutoOffsetReset
     ] = CreateKafkaTriggerJsonBodyAutoOffsetReset.LATEST
@@ -74,6 +79,10 @@ class CreateKafkaTriggerJsonBody:
             filters_item = filters_item_data.to_dict()
 
             filters.append(filters_item)
+
+        filter_logic: Union[Unset, str] = UNSET
+        if not isinstance(self.filter_logic, Unset):
+            filter_logic = self.filter_logic.value
 
         auto_offset_reset: Union[Unset, str] = UNSET
         if not isinstance(self.auto_offset_reset, Unset):
@@ -109,6 +118,8 @@ class CreateKafkaTriggerJsonBody:
                 "filters": filters,
             }
         )
+        if filter_logic is not UNSET:
+            field_dict["filter_logic"] = filter_logic
         if auto_offset_reset is not UNSET:
             field_dict["auto_offset_reset"] = auto_offset_reset
         if auto_commit is not UNSET:
@@ -156,6 +167,13 @@ class CreateKafkaTriggerJsonBody:
 
             filters.append(filters_item)
 
+        _filter_logic = d.pop("filter_logic", UNSET)
+        filter_logic: Union[Unset, CreateKafkaTriggerJsonBodyFilterLogic]
+        if isinstance(_filter_logic, Unset):
+            filter_logic = UNSET
+        else:
+            filter_logic = CreateKafkaTriggerJsonBodyFilterLogic(_filter_logic)
+
         _auto_offset_reset = d.pop("auto_offset_reset", UNSET)
         auto_offset_reset: Union[Unset, CreateKafkaTriggerJsonBodyAutoOffsetReset]
         if isinstance(_auto_offset_reset, Unset):
@@ -200,6 +218,7 @@ class CreateKafkaTriggerJsonBody:
             group_id=group_id,
             topics=topics,
             filters=filters,
+            filter_logic=filter_logic,
             auto_offset_reset=auto_offset_reset,
             auto_commit=auto_commit,
             mode=mode,

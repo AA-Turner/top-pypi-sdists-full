@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edalize
-Version: 0.6.5
+Version: 0.6.6
 Summary: Library for interfacing EDA tools such as simulators, linters or synthesis tools, using a common interface
 Author-email: Olof Kindgren <olof@award-winning.me>
 Maintainer-email: Olof Kindgren <olof@award-winning.me>
@@ -19,6 +19,9 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: Jinja2>=3
 Requires-Dist: importlib_metadata>=1.4; python_version < "3.10"
+Provides-Extra: reporting
+Requires-Dist: pandas; extra == "reporting"
+Requires-Dist: pyparsing; extra == "reporting"
 Dynamic: license-file
 
 .. image:: https://img.shields.io/readthedocs/edalize?longCache=true&style=flat-square&label=edalize.rtfd.io&logo=ReadTheDocs&logoColor=e8ecef

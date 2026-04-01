@@ -1,10 +1,9 @@
 Metadata-Version: 2.4
 Name: migrate-to-uv
-Version: 0.11.0
+Version: 0.11.1
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.8

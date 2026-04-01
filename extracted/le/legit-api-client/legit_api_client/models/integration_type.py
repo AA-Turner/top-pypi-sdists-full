@@ -34,6 +34,7 @@ class IntegrationType(str, Enum):
     PRIVATEREPOSITORIES = 'PrivateRepositories'
     PLUGIN = 'Plugin'
     TOKENANDSSHKEY = 'TokenAndSshKey'
+    ROLESANYWHERE = 'RolesAnywhere'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

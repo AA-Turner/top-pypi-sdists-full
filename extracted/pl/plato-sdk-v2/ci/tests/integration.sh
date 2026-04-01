@@ -18,4 +18,4 @@ else
   echo "No workspace-related changes, skipping workspace tests"
 fi
 
-uv run --frozen pytest $TEST_FILES -q -ra
+uv run --frozen pytest $TEST_FILES -q -ra --timeout=600

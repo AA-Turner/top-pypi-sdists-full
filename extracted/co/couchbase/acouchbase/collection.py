@@ -17,23 +17,19 @@ from __future__ import annotations
 
 from typing import (TYPE_CHECKING,
                     Any,
-                    Awaitable,
                     Dict,
-                    Iterable,
-                    Union)
+                    Iterable)
 
 from acouchbase.binary_collection import BinaryCollection
 from acouchbase.datastructures import (CouchbaseList,
                                        CouchbaseMap,
                                        CouchbaseQueue,
                                        CouchbaseSet)
-from acouchbase.kv_range_scan import AsyncRangeScanRequest
-from acouchbase.logic import AsyncWrapper
+from acouchbase.logic.collection_impl import AsyncCollectionImpl
 from acouchbase.management.queries import CollectionQueryIndexManager
-from couchbase.logic.collection import CollectionLogic
-from couchbase.options import forward_args
-from couchbase.result import (CounterResult,
-                              ExistsResult,
+from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import KeyValueOperationType
+from couchbase.result import (ExistsResult,
                               GetReplicaResult,
                               GetResult,
                               LookupInReplicaResult,
@@ -45,23 +41,20 @@ from couchbase.result import (CounterResult,
 if TYPE_CHECKING:
     from datetime import timedelta
 
+    from acouchbase.scope import AsyncScope
     from couchbase._utils import JSONType
     from couchbase.kv_range_scan import ScanType
-    from couchbase.options import (AppendOptions,
-                                   DecrementOptions,
-                                   ExistsOptions,
+    from couchbase.options import (ExistsOptions,
                                    GetAllReplicasOptions,
                                    GetAndLockOptions,
                                    GetAndTouchOptions,
                                    GetAnyReplicaOptions,
                                    GetOptions,
-                                   IncrementOptions,
                                    InsertOptions,
                                    LookupInAllReplicasOptions,
                                    LookupInAnyReplicaOptions,
                                    LookupInOptions,
                                    MutateInOptions,
-                                   PrependOptions,
                                    RemoveOptions,
                                    ReplaceOptions,
                                    ScanOptions,
@@ -71,24 +64,23 @@ if TYPE_CHECKING:
     from couchbase.subdocument import Spec
 
 
-class AsyncCollection(CollectionLogic):
+class AsyncCollection:
 
-    def __init__(self, scope, name):
-        super().__init__(scope, name)
-        self._loop = scope.loop
+    def __init__(self, scope: AsyncScope, name: str) -> None:
+        self._impl = AsyncCollectionImpl(name, scope)
 
     @property
-    def loop(self):
+    def name(self) -> str:
         """
-        **INTERNAL**
+            str: The name of this :class:`~.Collection` instance.
         """
-        return self._loop
+        return self._impl.name
 
-    def get(self,
-            key,  # type: str
-            *opts,  # type: GetOptions
-            **kwargs,  # type: Any
-            ) -> Awaitable[GetResult]:
+    async def get(self,
+                  key,  # type: str
+                  *opts,  # type: GetOptions
+                  **kwargs,  # type: Any
+                  ) -> GetResult:
         """Retrieves the value of a document from the collection.
 
         Args:
@@ -127,31 +119,16 @@ class AsyncCollection(CollectionLogic):
                 print(f'Document value: {res.content_as[dict]}')
 
         """
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
+        op_type = KeyValueOperationType.Get
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_request(key, obs_handler, *opts, **kwargs)
+            return await self._impl.get(req, obs_handler)
 
-        return self._get_internal(key, **final_args)
-
-    @AsyncWrapper.inject_callbacks_and_decode(GetResult)
-    def _get_internal(
-        self,
-        key,  # type: str
-        **kwargs,  # type: Dict[str, Any]
-    ) -> Awaitable[GetResult]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`AsyncCollection.get` instead.
-        """
-        super().get(key, **kwargs)
-
-    def get_any_replica(self,
-                        key,  # type: str
-                        *opts,  # type: GetAnyReplicaOptions
-                        **kwargs,  # type: Dict[str, Any]
-                        ) -> Awaitable[GetReplicaResult]:
+    async def get_any_replica(self,
+                              key,  # type: str
+                              *opts,  # type: GetAnyReplicaOptions
+                              **kwargs,  # type: Dict[str, Any]
+                              ) -> GetReplicaResult:
         """Retrieves the value of a document from the collection leveraging both active and all available replicas returning
         the first available.
 
@@ -193,32 +170,16 @@ class AsyncCollection(CollectionLogic):
                 print(f'Document value: {res.content_as[dict]}')
 
         """  # noqa: E501
+        op_type = KeyValueOperationType.GetAnyReplica
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_any_replica_request(key, obs_handler, *opts, **kwargs)
+            return await self._impl.get_any_replica(req, obs_handler)
 
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
-
-        return self._get_any_replica_internal(key, **final_args)
-
-    @AsyncWrapper.inject_callbacks_and_decode(GetReplicaResult)
-    def _get_any_replica_internal(
-        self,
-        key,  # type: str
-        **kwargs,  # type: Dict[str, Any]
-    ) -> Awaitable[GetReplicaResult]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`AsyncCollection.get_any_replica` instead.
-        """
-        super().get_any_replica(key, **kwargs)
-
-    def get_all_replicas(self,
-                         key,  # type: str
-                         *opts,  # type: GetAllReplicasOptions
-                         **kwargs,  # type: Dict[str, Any]
-                         ) -> Awaitable[Iterable[GetReplicaResult]]:
+    async def get_all_replicas(self,
+                               key,  # type: str
+                               *opts,  # type: GetAllReplicasOptions
+                               **kwargs,  # type: Dict[str, Any]
+                               ) -> Iterable[GetReplicaResult]:
         """Retrieves the value of a document from the collection returning both active and all available replicas.
 
         Args:
@@ -280,35 +241,16 @@ class AsyncCollection(CollectionLogic):
                         break
 
         """
+        op_type = KeyValueOperationType.GetAllReplicas
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_replicas_request(key, obs_handler, *opts, **kwargs)
+            return await self._impl.get_all_replicas(req, obs_handler)
 
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
-
-        return self._get_all_replicas_internal(key, **final_args)
-
-    @AsyncWrapper.inject_callbacks_and_decode(GetReplicaResult)
-    def _get_all_replicas_internal(
-        self,
-        key,  # type: str
-        **kwargs,  # type: Dict[str, Any]
-    ) -> Awaitable[Iterable[GetReplicaResult]]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`AsyncCollection.get_all_replicas` instead.
-        """
-        # return super().get_all_replicas(key, **kwargs)
-        super().get_all_replicas(key, **kwargs)
-
-    @AsyncWrapper.inject_callbacks(ExistsResult)
-    def exists(
-        self,
-        key,  # type: str
-        *opts,  # type: ExistsOptions
-        **kwargs,  # type: Any
-    ) -> Awaitable[ExistsResult]:
+    async def exists(self,
+                     key,  # type: str
+                     *opts,  # type: ExistsOptions
+                     **kwargs,  # type: Any
+                     ) -> ExistsResult:
         """Checks whether a specific document exists or not.
 
         Args:
@@ -345,16 +287,17 @@ class AsyncCollection(CollectionLogic):
                 print(f'Document w/ key - {key} {"exists" if res.exists else "does not exist"}')
 
         """
-        super().exists(key, *opts, **kwargs)
+        op_type = KeyValueOperationType.Exists
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_exists_request(key, obs_handler, *opts, **kwargs)
+            return await self._impl.exists(req, obs_handler)
 
-    @AsyncWrapper.inject_callbacks(MutationResult)
-    def insert(
-        self,  # type: "Collection"
-        key,  # type: str
-        value,  # type: JSONType
-        *opts,  # type: InsertOptions
-        **kwargs,  # type: Any
-    ) -> Awaitable[MutationResult]:
+    async def insert(self,
+                     key,  # type: str
+                     value,  # type: JSONType
+                     *opts,  # type: InsertOptions
+                     **kwargs,  # type: Any
+                     ) -> MutationResult:
         """Inserts a new document to the collection, failing if the document already exists.
 
         Args:
@@ -411,16 +354,17 @@ class AsyncCollection(CollectionLogic):
                 res = await collection.insert(key, doc, InsertOptions(durability=durability))
 
         """
-        super().insert(key, value, *opts, **kwargs)
+        op_type = KeyValueOperationType.Insert
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_insert_request(key, value, obs_handler, *opts, **kwargs)
+            return await self._impl.insert(req, obs_handler)
 
-    @AsyncWrapper.inject_callbacks(MutationResult)
-    def upsert(
-        self,
-        key,  # type: str
-        value,  # type: JSONType
-        *opts,  # type: UpsertOptions
-        **kwargs,  # type: Any
-    ) -> Awaitable[MutationResult]:
+    async def upsert(self,
+                     key,  # type: str
+                     value,  # type: JSONType
+                     *opts,  # type: UpsertOptions
+                     **kwargs,  # type: Any
+                     ) -> MutationResult:
         """Upserts a document to the collection. This operation succeeds whether or not the document already exists.
 
         Args:
@@ -473,15 +417,17 @@ class AsyncCollection(CollectionLogic):
                 res = await collection.upsert(key, doc, InsertOptions(durability=durability))
 
         """
-        super().upsert(key, value, *opts, **kwargs)
+        op_type = KeyValueOperationType.Upsert
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_upsert_request(key, value, obs_handler, *opts, **kwargs)
+            return await self._impl.upsert(req, obs_handler)
 
-    @AsyncWrapper.inject_callbacks(MutationResult)
-    def replace(self,
-                key,  # type: str
-                value,  # type: JSONType
-                *opts,  # type: ReplaceOptions
-                **kwargs,  # type: Any
-                ) -> Awaitable[MutationResult]:
+    async def replace(self,
+                      key,  # type: str
+                      value,  # type: JSONType
+                      *opts,  # type: ReplaceOptions
+                      **kwargs,  # type: Any
+                      ) -> MutationResult:
         """Replaces the value of an existing document. Failing if the document does not exist.
 
         Args:
@@ -528,14 +474,16 @@ class AsyncCollection(CollectionLogic):
                 res = await collection.replace(key, doc, InsertOptions(durability=durability))
 
         """
-        super().replace(key, value, *opts, **kwargs)
+        op_type = KeyValueOperationType.Replace
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_replace_request(key, value, obs_handler, *opts, **kwargs)
+            return await self._impl.replace(req, obs_handler)
 
-    @AsyncWrapper.inject_callbacks(MutationResult)
-    def remove(self,
-               key,  # type: str
-               *opts,  # type: RemoveOptions
-               **kwargs,  # type: Any
-               ) -> Awaitable[MutationResult]:
+    async def remove(self,
+                     key,  # type: str
+                     *opts,  # type: RemoveOptions
+                     **kwargs,  # type: Any
+                     ) -> MutationResult:
         """Removes an existing document. Failing if the document does not exist.
 
         Args:
@@ -573,15 +521,17 @@ class AsyncCollection(CollectionLogic):
                 res = collection.remove('airline_10', RemoveOptions(durability=durability))
 
         """
-        super().remove(key, *opts, **kwargs)
+        op_type = KeyValueOperationType.Remove
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_remove_request(key, obs_handler, *opts, **kwargs)
+            return await self._impl.remove(req, obs_handler)
 
-    @AsyncWrapper.inject_callbacks(MutationResult)
-    def touch(self,
-              key,  # type: str
-              expiry,  # type: timedelta
-              *opts,  # type: TouchOptions
-              **kwargs,  # type: Any
-              ) -> Awaitable[MutationResult]:
+    async def touch(self,
+                    key,  # type: str
+                    expiry,  # type: timedelta
+                    *opts,  # type: TouchOptions
+                    **kwargs,  # type: Any
+                    ) -> MutationResult:
         """Updates the expiry on an existing document.
 
         Args:
@@ -626,14 +576,17 @@ class AsyncCollection(CollectionLogic):
                                         TouchOptions(timeout=timedelta(seconds=2)))
 
         """
-        super().touch(key, expiry, *opts, **kwargs)
+        op_type = KeyValueOperationType.Touch
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_touch_request(key, expiry, obs_handler, *opts, **kwargs)
+            return await self._impl.touch(req, obs_handler)
 
-    def get_and_touch(self,
-                      key,  # type: str
-                      expiry,  # type: timedelta
-                      *opts,  # type: GetAndTouchOptions
-                      **kwargs,  # type: Any
-                      ) -> Awaitable[GetResult]:
+    async def get_and_touch(self,
+                            key,  # type: str
+                            expiry,  # type: timedelta
+                            *opts,  # type: GetAndTouchOptions
+                            **kwargs,  # type: Any
+                            ) -> GetResult:
         """Retrieves the value of the document and simultanously updates the expiry time for the same document.
 
         Args:
@@ -681,34 +634,17 @@ class AsyncCollection(CollectionLogic):
                 print(f'Document w/ updated expiry: {res.content_as[dict]}')
 
         """
-        # add to kwargs for conversion to int
-        kwargs["expiry"] = expiry
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
+        op_type = KeyValueOperationType.GetAndTouch
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_and_touch_request(key, expiry, obs_handler, *opts, **kwargs)
+            return await self._impl.get_and_touch(req, obs_handler)
 
-        return self._get_and_touch_internal(key, **final_args)
-
-    @AsyncWrapper.inject_callbacks_and_decode(GetResult)
-    def _get_and_touch_internal(self,
-                                key,  # type: str
-                                **kwargs,  # type: Any
-                                ) -> Awaitable[GetResult]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`AsyncCollection.get_and_touch` instead.
-        """
-        super().get_and_touch(key, **kwargs)
-
-    def get_and_lock(
-        self,
-        key,  # type: str
-        lock_time,  # type: timedelta
-        *opts,  # type: GetAndLockOptions
-        **kwargs,  # type: Any
-    ) -> Awaitable[GetResult]:
+    async def get_and_lock(self,
+                           key,  # type: str
+                           lock_time,  # type: timedelta
+                           *opts,  # type: GetAndLockOptions
+                           **kwargs,  # type: Any
+                           ) -> GetResult:
         """Locks a document and retrieves the value of that document at the time it is locked.
 
         Args:
@@ -756,34 +692,17 @@ class AsyncCollection(CollectionLogic):
                 print(f'Locked document: {res.content_as[dict]}')
 
         """
-        # add to kwargs for conversion to int
-        kwargs["lock_time"] = lock_time
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
+        op_type = KeyValueOperationType.GetAndLock
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_and_lock_request(key, lock_time, obs_handler, *opts, **kwargs)
+            return await self._impl.get_and_lock(req, obs_handler)
 
-        return self._get_and_lock_internal(key, **final_args)
-
-    @AsyncWrapper.inject_callbacks_and_decode(GetResult)
-    def _get_and_lock_internal(self,
-                               key,  # type: str
-                               **kwargs,  # type: Any
-                               ) -> Awaitable[GetResult]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`AsyncCollection.get_and_lock` instead.
-        """
-        super().get_and_lock(key, **kwargs)
-
-    @AsyncWrapper.inject_callbacks(None)
-    def unlock(self,
-               key,  # type: str
-               cas,  # type: int
-               *opts,  # type: UnlockOptions
-               **kwargs,  # type: Any
-               ) -> Awaitable[None]:
+    async def unlock(self,
+                     key,  # type: str
+                     cas,  # type: int
+                     *opts,  # type: UnlockOptions
+                     **kwargs,  # type: Any
+                     ) -> None:
         """Unlocks a previously locked document.
 
         Args:
@@ -820,15 +739,17 @@ class AsyncCollection(CollectionLogic):
                 await collection.upsert(key, res.content_as[dict])
 
         """
-        super().unlock(key, cas, *opts, **kwargs)
+        op_type = KeyValueOperationType.Unlock
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_unlock_request(key, cas, obs_handler, *opts, **kwargs)
+            await self._impl.unlock(req, obs_handler)
 
-    def lookup_in(
-        self,
-        key,  # type: str
-        spec,  # type: Iterable[Spec]
-        *opts,  # type: LookupInOptions
-        **kwargs,  # type: Any
-    ) -> Awaitable[LookupInResult]:
+    async def lookup_in(self,
+                        key,  # type: str
+                        spec,  # type: Iterable[Spec]
+                        *opts,  # type: LookupInOptions
+                        **kwargs,  # type: Any
+                        ) -> LookupInResult:
         """Performs a lookup-in operation against a document, fetching individual fields or information
         about specific fields inside the document value.
 
@@ -880,34 +801,17 @@ class AsyncCollection(CollectionLogic):
                 print(f'Hotel {key} coordinates: {res.content_as[dict](0)}')
 
         """
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
-        return self._lookup_in_internal(key, spec, **final_args)
+        op_type = KeyValueOperationType.LookupIn
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_lookup_in_request(key, spec, obs_handler, *opts, **kwargs)
+            return await self._impl.lookup_in(req, obs_handler)
 
-    @AsyncWrapper.inject_callbacks_and_decode(LookupInResult)
-    def _lookup_in_internal(
-        self,
-        key,  # type: str
-        spec,  # type: Iterable[Spec]
-        **kwargs,  # type: Any
-    ) -> Awaitable[LookupInResult]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`AsyncCollection.lookup_in` instead.
-
-        """
-        super().lookup_in(key, spec, **kwargs)
-
-    def lookup_in_any_replica(
-        self,
-        key,  # type: str
-        spec,  # type: Iterable[Spec]
-        *opts,  # type: LookupInAnyReplicaOptions
-        **kwargs,  # type: Any
-    ) -> Awaitable[LookupInReplicaResult]:
+    async def lookup_in_any_replica(self,
+                                    key,  # type: str
+                                    spec,  # type: Iterable[Spec]
+                                    *opts,  # type: LookupInAnyReplicaOptions
+                                    **kwargs,  # type: Any
+                                    ) -> LookupInReplicaResult:
         """Performs a lookup-in operation against a document, fetching individual fields or information
         about specific fields inside the document value. It leverages both active and all available replicas
         returning the first available
@@ -961,34 +865,18 @@ class AsyncCollection(CollectionLogic):
                 print(f'Hotel {key} coordinates: {res.content_as[dict](0)}')
 
         """
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
-        return self._lookup_in_any_replica_internal(key, spec, **final_args)
+        op_type = KeyValueOperationType.LookupInAnyReplica
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_lookup_in_any_replica_request(
+                key, spec, obs_handler, *opts, **kwargs)
+            return await self._impl.lookup_in_any_replica(req, obs_handler)
 
-    @AsyncWrapper.inject_callbacks_and_decode(LookupInReplicaResult)
-    def _lookup_in_any_replica_internal(
-        self,
-        key,  # type: str
-        spec,  # type: Iterable[Spec]
-        **kwargs,  # type: Any
-    ) -> Awaitable[LookupInReplicaResult]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`AsyncCollection.lookup_in` instead.
-
-        """
-        super().lookup_in_any_replica(key, spec, **kwargs)
-
-    def lookup_in_all_replicas(
-        self,
-        key,  # type: str
-        spec,  # type: Iterable[Spec]
-        *opts,  # type: LookupInAllReplicasOptions
-        **kwargs,  # type: Any
-    ) -> Awaitable[Iterable[LookupInReplicaResult]]:
+    async def lookup_in_all_replicas(self,
+                                     key,  # type: str
+                                     spec,  # type: Iterable[Spec]
+                                     *opts,  # type: LookupInAllReplicasOptions
+                                     **kwargs,  # type: Any
+                                     ) -> Iterable[LookupInReplicaResult]:
         """Performs a lookup-in operation against a document, fetching individual fields or information
         about specific fields inside the document value, returning results from both active and all available replicas
 
@@ -1065,35 +953,18 @@ class AsyncCollection(CollectionLogic):
                         break
 
         """  # noqa: E501
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
-        return self._lookup_in_all_replicas_internal(key, spec, **final_args)
+        op_type = KeyValueOperationType.LookupInAllReplicas
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_lookup_in_all_replicas_request(
+                key, spec, obs_handler, *opts, **kwargs)
+            return await self._impl.lookup_in_all_replicas(req, obs_handler)
 
-    @AsyncWrapper.inject_callbacks_and_decode(LookupInReplicaResult)
-    def _lookup_in_all_replicas_internal(
-        self,
-        key,  # type: str
-        spec,  # type: Iterable[Spec]
-        **kwargs,  # type: Any
-    ) -> Awaitable[Iterable[LookupInReplicaResult]]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`AsyncCollection.lookup_in_all_replicas` instead.
-
-        """
-        super().lookup_in_all_replicas(key, spec, **kwargs)
-
-    @AsyncWrapper.inject_callbacks(MutateInResult)
-    def mutate_in(
-        self,
-        key,  # type: str
-        spec,  # type: Iterable[Spec]
-        *opts,  # type: MutateInOptions
-        **kwargs,  # type: Any
-    ) -> Awaitable[MutateInResult]:
+    async def mutate_in(self,
+                        key,  # type: str
+                        spec,  # type: Iterable[Spec]
+                        *opts,  # type: MutateInOptions
+                        **kwargs,  # type: Any
+                        ) -> MutateInResult:
         """Performs a mutate-in operation against a document. Allowing atomic modification of specific fields
         within a document. Also enables access to document extended-attributes (i.e. xattrs).
 
@@ -1143,9 +1014,13 @@ class AsyncCollection(CollectionLogic):
                                             MutateInOptions(timeout=timedelta(seconds=2)))
 
         """
-        super().mutate_in(key, spec, *opts, **kwargs)
+        op_type = KeyValueOperationType.MutateIn
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_mutate_in_request(key, spec, obs_handler, *opts, **kwargs)
+            return await self._impl.mutate_in(req, obs_handler)
 
-    def scan(self, scan_type,  # type: ScanType
+    def scan(self,
+             scan_type,  # type: ScanType
              *opts,  # type: ScanOptions
              **kwargs,  # type: Dict[str, Any]
              ) -> ScanResultIterable:
@@ -1191,13 +1066,9 @@ class AsyncCollection(CollectionLogic):
 
 
         """  # noqa: E501
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            final_args['transcoder'] = self.default_transcoder
-        scan_args = super().build_scan_args(scan_type, **final_args)
-        range_scan_request = AsyncRangeScanRequest(self.loop, **scan_args)
-        return ScanResultIterable(range_scan_request)
+        req = self._impl.request_builder.build_range_scan_async_request(
+            self._impl.connection, scan_type, *opts, **kwargs)
+        return self._impl.range_scan(req)
 
     def binary(self) -> BinaryCollection:
         """Creates a BinaryCollection instance, allowing access to various binary operations
@@ -1210,68 +1081,9 @@ class AsyncCollection(CollectionLogic):
             :class:`~acouchbase.binary_collection.BinaryCollection`: A BinaryCollection instance.
 
         """
-        return BinaryCollection(self)
+        return BinaryCollection(self._impl)
 
-    @AsyncWrapper.inject_callbacks(MutationResult)
-    def _append(
-        self,
-        key,  # type: str
-        value,  # type: Union[str,bytes,bytearray]
-        *opts,  # type: AppendOptions
-        **kwargs,  # type: Any
-    ) -> Awaitable[MutationResult]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`acouchbase.BinaryCollection.append` instead.
-
-        """
-        super().append(key, value, *opts, **kwargs)
-
-    @AsyncWrapper.inject_callbacks(MutationResult)
-    def _prepend(
-        self,
-        key,  # type: str
-        value,  # type: Union[str,bytes,bytearray]
-        *opts,  # type: PrependOptions
-        **kwargs,  # type: Any
-    ) -> Awaitable[MutationResult]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`acouchbase.BinaryCollection.prepend` instead.
-
-        """
-        super().prepend(key, value, *opts, **kwargs)
-
-    @AsyncWrapper.inject_callbacks(CounterResult)
-    def _increment(
-        self,
-        key,  # type: str
-        *opts,  # type: IncrementOptions
-        **kwargs,  # type: Any
-    ) -> Awaitable[CounterResult]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`acouchbase.BinaryCollection.increment` instead.
-
-        """
-        super().increment(key, *opts, **kwargs)
-
-    @AsyncWrapper.inject_callbacks(CounterResult)
-    def _decrement(
-        self,
-        key,  # type: str
-        *opts,  # type: DecrementOptions
-        **kwargs,  # type: Any
-    ) -> Awaitable[CounterResult]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`acouchbase.BinaryCollection.decrement` instead.
-
-        """
-        super().decrement(key, *opts, **kwargs)
-
-    def couchbase_list(self, key  # type: str
-                       ) -> CouchbaseList:
+    def couchbase_list(self, key: str) -> CouchbaseList:
         """Returns a CouchbaseList permitting simple list storage in a document.
 
         .. seealso::
@@ -1281,10 +1093,9 @@ class AsyncCollection(CollectionLogic):
             :class:`~acouchbase.datastructures.CouchbaseList`: A CouchbaseList instance.
 
         """
-        return CouchbaseList(key, self)
+        return CouchbaseList(key, self._impl)
 
-    def couchbase_map(self, key  # type: str
-                      ) -> CouchbaseMap:
+    def couchbase_map(self, key: str) -> CouchbaseMap:
         """Returns a CouchbaseMap permitting simple map storage in a document.
 
         .. seealso::
@@ -1294,10 +1105,9 @@ class AsyncCollection(CollectionLogic):
             :class:`~acouchbase.datastructures.CouchbaseMap`: A CouchbaseMap instance.
 
         """
-        return CouchbaseMap(key, self)
+        return CouchbaseMap(key, self._impl)
 
-    def couchbase_set(self, key  # type: str
-                      ) -> CouchbaseSet:
+    def couchbase_set(self, key: str) -> CouchbaseSet:
         """Returns a CouchbaseSet permitting simple map storage in a document.
 
         .. seealso::
@@ -1307,10 +1117,9 @@ class AsyncCollection(CollectionLogic):
             :class:`~acouchbase.datastructures.CouchbaseSet`: A CouchbaseSet instance.
 
         """
-        return CouchbaseSet(key, self)
+        return CouchbaseSet(key, self._impl)
 
-    def couchbase_queue(self, key  # type: str
-                        ) -> CouchbaseQueue:
+    def couchbase_queue(self, key: str) -> CouchbaseQueue:
         """Returns a CouchbaseQueue permitting simple map storage in a document.
 
         .. seealso::
@@ -1320,7 +1129,7 @@ class AsyncCollection(CollectionLogic):
             :class:`~acouchbase.datastructures.CouchbaseQueue`: A CouchbaseQueue instance.
 
         """
-        return CouchbaseQueue(key, self)
+        return CouchbaseQueue(key, self._impl)
 
     def query_indexes(self) -> CollectionQueryIndexManager:
         """
@@ -1330,14 +1139,14 @@ class AsyncCollection(CollectionLogic):
         Returns:
             :class:`~acouchbase.management.queries.CollectionQueryIndexManager`: A :class:`~acouchbase.management.queries.CollectionQueryIndexManager` instance.
         """  # noqa: E501
-        return CollectionQueryIndexManager(self.connection,
-                                           self.loop,
-                                           self._scope.bucket_name,
-                                           self._scope.name,
-                                           self.name)
+        return CollectionQueryIndexManager(self._impl._client_adapter,
+                                           self._impl.bucket_name,
+                                           self._impl.scope_name,
+                                           self.name,
+                                           self._impl.observability_instruments)
 
     @staticmethod
-    def default_name():
+    def default_name() -> str:
         return "_default"
 
 

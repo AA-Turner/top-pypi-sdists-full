@@ -2599,17 +2599,17 @@ class CommonAbstraJsonV17Home:
         )
 
 
+CommonAbstraJsonV17DefinitionsJobStageTitle = str
+
 CommonAbstraJsonV17DefinitionsJobStageWorkflowPositionItem = float
 
 CommonAbstraJsonV17DefinitionsJobStageWorkflowPosition = typing.List[
     CommonAbstraJsonV17DefinitionsJobStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV17DefinitionsJobStageTitle = str
+CommonAbstraJsonV17DefinitionsJobStageId = str
 
-CommonAbstraJsonV17DefinitionsJobStageOutput = bool
-
-CommonAbstraJsonV17DefinitionsJobStageTaskSchema = typing.Dict[str, typing.Any]
+CommonAbstraJsonV17DefinitionsJobStageInput = bool
 
 CommonAbstraJsonV17DefinitionsTransitionId = str
 
@@ -2686,24 +2686,24 @@ CommonAbstraJsonV17DefinitionsJobStageTransitions = typing.List[
     CommonAbstraJsonV17DefinitionsJobStageTransitionsItem
 ]
 
+CommonAbstraJsonV17DefinitionsJobStageOutput = bool
+
 CommonAbstraJsonV17DefinitionsJobStageFile = str
 
-CommonAbstraJsonV17DefinitionsJobStageInput = bool
-
-CommonAbstraJsonV17DefinitionsJobStageId = str
+CommonAbstraJsonV17DefinitionsJobStageTaskSchema = typing.Dict[str, typing.Any]
 
 CommonAbstraJsonV17DefinitionsJobStageSchedule = str
 
 
 @dataclass
 class CommonAbstraJsonV17DefinitionsJobStage:
-    workflow_position: CommonAbstraJsonV17DefinitionsJobStageWorkflowPosition
     title: CommonAbstraJsonV17DefinitionsJobStageTitle
-    output: CommonAbstraJsonV17DefinitionsJobStageOutput
-    transitions: CommonAbstraJsonV17DefinitionsJobStageTransitions
-    file: CommonAbstraJsonV17DefinitionsJobStageFile
-    input: CommonAbstraJsonV17DefinitionsJobStageInput
+    workflow_position: CommonAbstraJsonV17DefinitionsJobStageWorkflowPosition
     id: CommonAbstraJsonV17DefinitionsJobStageId
+    input: CommonAbstraJsonV17DefinitionsJobStageInput
+    transitions: CommonAbstraJsonV17DefinitionsJobStageTransitions
+    output: CommonAbstraJsonV17DefinitionsJobStageOutput
+    file: CommonAbstraJsonV17DefinitionsJobStageFile
     schedule: CommonAbstraJsonV17DefinitionsJobStageSchedule
     task_schema: typing.Optional[CommonAbstraJsonV17DefinitionsJobStageTaskSchema] = (
         field(default_factory=lambda: None)
@@ -2711,13 +2711,13 @@ class CommonAbstraJsonV17DefinitionsJobStage:
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["output"] = self.output
-        data["transitions"] = [item.to_dict() for item in self.transitions]
-        data["file"] = self.file
-        data["input"] = self.input
+        data["workflow_position"] = self.workflow_position
         data["id"] = self.id
+        data["input"] = self.input
+        data["transitions"] = [item.to_dict() for item in self.transitions]
+        data["output"] = self.output
+        data["file"] = self.file
         data["schedule"] = self.schedule
         if self.task_schema is not None:
             data["task_schema"] = self.task_schema
@@ -2728,16 +2728,16 @@ class CommonAbstraJsonV17DefinitionsJobStage:
         cls, data: typing.Dict[str, typing.Any]
     ) -> "CommonAbstraJsonV17DefinitionsJobStage":
         return cls(
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            output=bool(data["output"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
+            input=bool(data["input"]),
             transitions=[
                 CommonAbstraJsonV17DefinitionsTransition.from_dict(item)
                 for item in data["transitions"]
             ],
+            output=bool(data["output"]),
             file=str(data["file"]),
-            input=bool(data["input"]),
-            id=str(data["id"]),
             schedule=str(data["schedule"]),
             task_schema=None
             if data.get("task_schema") is None
@@ -2749,17 +2749,17 @@ CommonAbstraJsonV17JobsItem = CommonAbstraJsonV17DefinitionsJobStage
 
 CommonAbstraJsonV17Jobs = typing.List[CommonAbstraJsonV17JobsItem]
 
+CommonAbstraJsonV17DefinitionsHookStageTitle = str
+
 CommonAbstraJsonV17DefinitionsHookStageWorkflowPositionItem = float
 
 CommonAbstraJsonV17DefinitionsHookStageWorkflowPosition = typing.List[
     CommonAbstraJsonV17DefinitionsHookStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV17DefinitionsHookStageTitle = str
+CommonAbstraJsonV17DefinitionsHookStageId = str
 
-CommonAbstraJsonV17DefinitionsHookStageOutput = bool
-
-CommonAbstraJsonV17DefinitionsHookStageTaskSchema = typing.Dict[str, typing.Any]
+CommonAbstraJsonV17DefinitionsHookStageInput = bool
 
 CommonAbstraJsonV17DefinitionsHookStageTransitionsItem = (
     CommonAbstraJsonV17DefinitionsTransition
@@ -2769,47 +2769,47 @@ CommonAbstraJsonV17DefinitionsHookStageTransitions = typing.List[
     CommonAbstraJsonV17DefinitionsHookStageTransitionsItem
 ]
 
+CommonAbstraJsonV17DefinitionsHookStageOutput = bool
+
 CommonAbstraJsonV17DefinitionsHookStageFile = str
 
-CommonAbstraJsonV17DefinitionsHookStageInput = bool
-
-CommonAbstraJsonV17DefinitionsHookStageId = str
-
-CommonAbstraJsonV17DefinitionsHookStageEnabled = bool
+CommonAbstraJsonV17DefinitionsHookStageTaskSchema = typing.Dict[str, typing.Any]
 
 CommonAbstraJsonV17DefinitionsHookStageIsInitial = bool
 
 CommonAbstraJsonV17DefinitionsHookStagePath = str
 
+CommonAbstraJsonV17DefinitionsHookStageEnabled = bool
+
 
 @dataclass
 class CommonAbstraJsonV17DefinitionsHookStage:
-    workflow_position: CommonAbstraJsonV17DefinitionsHookStageWorkflowPosition
     title: CommonAbstraJsonV17DefinitionsHookStageTitle
-    output: CommonAbstraJsonV17DefinitionsHookStageOutput
-    transitions: CommonAbstraJsonV17DefinitionsHookStageTransitions
-    file: CommonAbstraJsonV17DefinitionsHookStageFile
-    input: CommonAbstraJsonV17DefinitionsHookStageInput
+    workflow_position: CommonAbstraJsonV17DefinitionsHookStageWorkflowPosition
     id: CommonAbstraJsonV17DefinitionsHookStageId
-    enabled: CommonAbstraJsonV17DefinitionsHookStageEnabled
+    input: CommonAbstraJsonV17DefinitionsHookStageInput
+    transitions: CommonAbstraJsonV17DefinitionsHookStageTransitions
+    output: CommonAbstraJsonV17DefinitionsHookStageOutput
+    file: CommonAbstraJsonV17DefinitionsHookStageFile
     is_initial: CommonAbstraJsonV17DefinitionsHookStageIsInitial
     path: CommonAbstraJsonV17DefinitionsHookStagePath
+    enabled: CommonAbstraJsonV17DefinitionsHookStageEnabled
     task_schema: typing.Optional[CommonAbstraJsonV17DefinitionsHookStageTaskSchema] = (
         field(default_factory=lambda: None)
     )
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["output"] = self.output
-        data["transitions"] = [item.to_dict() for item in self.transitions]
-        data["file"] = self.file
-        data["input"] = self.input
+        data["workflow_position"] = self.workflow_position
         data["id"] = self.id
-        data["enabled"] = self.enabled
+        data["input"] = self.input
+        data["transitions"] = [item.to_dict() for item in self.transitions]
+        data["output"] = self.output
+        data["file"] = self.file
         data["is_initial"] = self.is_initial
         data["path"] = self.path
+        data["enabled"] = self.enabled
         if self.task_schema is not None:
             data["task_schema"] = self.task_schema
         return data
@@ -2819,19 +2819,19 @@ class CommonAbstraJsonV17DefinitionsHookStage:
         cls, data: typing.Dict[str, typing.Any]
     ) -> "CommonAbstraJsonV17DefinitionsHookStage":
         return cls(
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            output=bool(data["output"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
+            input=bool(data["input"]),
             transitions=[
                 CommonAbstraJsonV17DefinitionsTransition.from_dict(item)
                 for item in data["transitions"]
             ],
+            output=bool(data["output"]),
             file=str(data["file"]),
-            input=bool(data["input"]),
-            id=str(data["id"]),
-            enabled=bool(data["enabled"]),
             is_initial=bool(data["is_initial"]),
             path=str(data["path"]),
+            enabled=bool(data["enabled"]),
             task_schema=None
             if data.get("task_schema") is None
             else dict(**data["task_schema"]),
@@ -2842,17 +2842,17 @@ CommonAbstraJsonV17HooksItem = CommonAbstraJsonV17DefinitionsHookStage
 
 CommonAbstraJsonV17Hooks = typing.List[CommonAbstraJsonV17HooksItem]
 
+CommonAbstraJsonV17DefinitionsFormStageTitle = str
+
 CommonAbstraJsonV17DefinitionsFormStageWorkflowPositionItem = float
 
 CommonAbstraJsonV17DefinitionsFormStageWorkflowPosition = typing.List[
     CommonAbstraJsonV17DefinitionsFormStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV17DefinitionsFormStageTitle = str
+CommonAbstraJsonV17DefinitionsFormStageId = str
 
-CommonAbstraJsonV17DefinitionsFormStageOutput = bool
-
-CommonAbstraJsonV17DefinitionsFormStageTaskSchema = typing.Dict[str, typing.Any]
+CommonAbstraJsonV17DefinitionsFormStageInput = bool
 
 CommonAbstraJsonV17DefinitionsFormStageTransitionsItem = (
     CommonAbstraJsonV17DefinitionsTransition
@@ -2862,63 +2862,11 @@ CommonAbstraJsonV17DefinitionsFormStageTransitions = typing.List[
     CommonAbstraJsonV17DefinitionsFormStageTransitionsItem
 ]
 
+CommonAbstraJsonV17DefinitionsFormStageOutput = bool
+
 CommonAbstraJsonV17DefinitionsFormStageFile = str
 
-CommonAbstraJsonV17DefinitionsFormStageInput = bool
-
-CommonAbstraJsonV17DefinitionsFormStageId = str
-
-CommonAbstraJsonV17DefinitionsFormStageStartMessageString = str
-
-CommonAbstraJsonV17DefinitionsFormStageStartMessageNull = type(None)
-
-CommonAbstraJsonV17DefinitionsFormStageStartMessage = typing.Union[
-    CommonAbstraJsonV17DefinitionsFormStageStartMessageString,
-    CommonAbstraJsonV17DefinitionsFormStageStartMessageNull,
-]
-
-
-def common_abstra_json_v17_definitions_form_stage_start_message_from_dict(
-    data: typing.Any,
-) -> "CommonAbstraJsonV17DefinitionsFormStageStartMessage":
-    if isinstance(data, str):
-        return str(data)
-    if data is None:
-        return None
-    raise ValueError(
-        f"Could not parse CommonAbstraJsonV17DefinitionsFormStageStartMessage from dict: {data}"
-    )
-
-
-CommonAbstraJsonV17DefinitionsFormStageAutoStart = bool
-
-CommonAbstraJsonV17DefinitionsFormStageNotificationTriggerVariableName = str
-
-CommonAbstraJsonV17DefinitionsFormStageNotificationTriggerEnabled = bool
-
-
-@dataclass
-class CommonAbstraJsonV17DefinitionsFormStageNotificationTrigger:
-    variable_name: (
-        CommonAbstraJsonV17DefinitionsFormStageNotificationTriggerVariableName
-    )
-    enabled: CommonAbstraJsonV17DefinitionsFormStageNotificationTriggerEnabled
-
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        data = {}
-        data["variable_name"] = self.variable_name
-        data["enabled"] = self.enabled
-        return data
-
-    @classmethod
-    def from_dict(
-        cls, data: typing.Dict[str, typing.Any]
-    ) -> "CommonAbstraJsonV17DefinitionsFormStageNotificationTrigger":
-        return cls(
-            variable_name=str(data["variable_name"]),
-            enabled=bool(data["enabled"]),
-        )
-
+CommonAbstraJsonV17DefinitionsFormStageTaskSchema = typing.Dict[str, typing.Any]
 
 CommonAbstraJsonV17DefinitionsFormStageStartButtonTextString = str
 
@@ -2942,47 +2890,47 @@ def common_abstra_json_v17_definitions_form_stage_start_button_text_from_dict(
     )
 
 
-CommonAbstraJsonV17DefinitionsFormStageErrorMessageString = str
+CommonAbstraJsonV17DefinitionsFormStageEndMessageString = str
 
-CommonAbstraJsonV17DefinitionsFormStageErrorMessageNull = type(None)
+CommonAbstraJsonV17DefinitionsFormStageEndMessageNull = type(None)
 
-CommonAbstraJsonV17DefinitionsFormStageErrorMessage = typing.Union[
-    CommonAbstraJsonV17DefinitionsFormStageErrorMessageString,
-    CommonAbstraJsonV17DefinitionsFormStageErrorMessageNull,
+CommonAbstraJsonV17DefinitionsFormStageEndMessage = typing.Union[
+    CommonAbstraJsonV17DefinitionsFormStageEndMessageString,
+    CommonAbstraJsonV17DefinitionsFormStageEndMessageNull,
 ]
 
 
-def common_abstra_json_v17_definitions_form_stage_error_message_from_dict(
+def common_abstra_json_v17_definitions_form_stage_end_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV17DefinitionsFormStageErrorMessage":
+) -> "CommonAbstraJsonV17DefinitionsFormStageEndMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV17DefinitionsFormStageErrorMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV17DefinitionsFormStageEndMessage from dict: {data}"
     )
 
 
-CommonAbstraJsonV17DefinitionsFormStageTimeoutMessageString = str
+CommonAbstraJsonV17DefinitionsFormStageStartMessageString = str
 
-CommonAbstraJsonV17DefinitionsFormStageTimeoutMessageNull = type(None)
+CommonAbstraJsonV17DefinitionsFormStageStartMessageNull = type(None)
 
-CommonAbstraJsonV17DefinitionsFormStageTimeoutMessage = typing.Union[
-    CommonAbstraJsonV17DefinitionsFormStageTimeoutMessageString,
-    CommonAbstraJsonV17DefinitionsFormStageTimeoutMessageNull,
+CommonAbstraJsonV17DefinitionsFormStageStartMessage = typing.Union[
+    CommonAbstraJsonV17DefinitionsFormStageStartMessageString,
+    CommonAbstraJsonV17DefinitionsFormStageStartMessageNull,
 ]
 
 
-def common_abstra_json_v17_definitions_form_stage_timeout_message_from_dict(
+def common_abstra_json_v17_definitions_form_stage_start_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV17DefinitionsFormStageTimeoutMessage":
+) -> "CommonAbstraJsonV17DefinitionsFormStageStartMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV17DefinitionsFormStageTimeoutMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV17DefinitionsFormStageStartMessage from dict: {data}"
     )
 
 
@@ -3018,49 +2966,101 @@ class CommonAbstraJsonV17DefinitionsFormStageAccessControl:
         )
 
 
-CommonAbstraJsonV17DefinitionsFormStageEndMessageString = str
+CommonAbstraJsonV17DefinitionsFormStageTimeoutMessageString = str
 
-CommonAbstraJsonV17DefinitionsFormStageEndMessageNull = type(None)
+CommonAbstraJsonV17DefinitionsFormStageTimeoutMessageNull = type(None)
 
-CommonAbstraJsonV17DefinitionsFormStageEndMessage = typing.Union[
-    CommonAbstraJsonV17DefinitionsFormStageEndMessageString,
-    CommonAbstraJsonV17DefinitionsFormStageEndMessageNull,
+CommonAbstraJsonV17DefinitionsFormStageTimeoutMessage = typing.Union[
+    CommonAbstraJsonV17DefinitionsFormStageTimeoutMessageString,
+    CommonAbstraJsonV17DefinitionsFormStageTimeoutMessageNull,
 ]
 
 
-def common_abstra_json_v17_definitions_form_stage_end_message_from_dict(
+def common_abstra_json_v17_definitions_form_stage_timeout_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV17DefinitionsFormStageEndMessage":
+) -> "CommonAbstraJsonV17DefinitionsFormStageTimeoutMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV17DefinitionsFormStageEndMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV17DefinitionsFormStageTimeoutMessage from dict: {data}"
     )
 
+
+CommonAbstraJsonV17DefinitionsFormStageErrorMessageString = str
+
+CommonAbstraJsonV17DefinitionsFormStageErrorMessageNull = type(None)
+
+CommonAbstraJsonV17DefinitionsFormStageErrorMessage = typing.Union[
+    CommonAbstraJsonV17DefinitionsFormStageErrorMessageString,
+    CommonAbstraJsonV17DefinitionsFormStageErrorMessageNull,
+]
+
+
+def common_abstra_json_v17_definitions_form_stage_error_message_from_dict(
+    data: typing.Any,
+) -> "CommonAbstraJsonV17DefinitionsFormStageErrorMessage":
+    if isinstance(data, str):
+        return str(data)
+    if data is None:
+        return None
+    raise ValueError(
+        f"Could not parse CommonAbstraJsonV17DefinitionsFormStageErrorMessage from dict: {data}"
+    )
+
+
+CommonAbstraJsonV17DefinitionsFormStageNotificationTriggerVariableName = str
+
+CommonAbstraJsonV17DefinitionsFormStageNotificationTriggerEnabled = bool
+
+
+@dataclass
+class CommonAbstraJsonV17DefinitionsFormStageNotificationTrigger:
+    variable_name: (
+        CommonAbstraJsonV17DefinitionsFormStageNotificationTriggerVariableName
+    )
+    enabled: CommonAbstraJsonV17DefinitionsFormStageNotificationTriggerEnabled
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data["variable_name"] = self.variable_name
+        data["enabled"] = self.enabled
+        return data
+
+    @classmethod
+    def from_dict(
+        cls, data: typing.Dict[str, typing.Any]
+    ) -> "CommonAbstraJsonV17DefinitionsFormStageNotificationTrigger":
+        return cls(
+            variable_name=str(data["variable_name"]),
+            enabled=bool(data["enabled"]),
+        )
+
+
+CommonAbstraJsonV17DefinitionsFormStageAutoStart = bool
 
 CommonAbstraJsonV17DefinitionsFormStagePath = str
 
 
 @dataclass
 class CommonAbstraJsonV17DefinitionsFormStage:
-    workflow_position: CommonAbstraJsonV17DefinitionsFormStageWorkflowPosition
     title: CommonAbstraJsonV17DefinitionsFormStageTitle
-    output: CommonAbstraJsonV17DefinitionsFormStageOutput
-    transitions: CommonAbstraJsonV17DefinitionsFormStageTransitions
-    file: CommonAbstraJsonV17DefinitionsFormStageFile
-    input: CommonAbstraJsonV17DefinitionsFormStageInput
+    workflow_position: CommonAbstraJsonV17DefinitionsFormStageWorkflowPosition
     id: CommonAbstraJsonV17DefinitionsFormStageId
-    start_message: CommonAbstraJsonV17DefinitionsFormStageStartMessage
-    auto_start: CommonAbstraJsonV17DefinitionsFormStageAutoStart
-    notification_trigger: CommonAbstraJsonV17DefinitionsFormStageNotificationTrigger
+    input: CommonAbstraJsonV17DefinitionsFormStageInput
+    transitions: CommonAbstraJsonV17DefinitionsFormStageTransitions
+    output: CommonAbstraJsonV17DefinitionsFormStageOutput
+    file: CommonAbstraJsonV17DefinitionsFormStageFile
     start_button_text: CommonAbstraJsonV17DefinitionsFormStageStartButtonText
-    error_message: CommonAbstraJsonV17DefinitionsFormStageErrorMessage
-    timeout_message: CommonAbstraJsonV17DefinitionsFormStageTimeoutMessage
+    end_message: CommonAbstraJsonV17DefinitionsFormStageEndMessage
+    start_message: CommonAbstraJsonV17DefinitionsFormStageStartMessage
     is_initial: CommonAbstraJsonV17DefinitionsFormStageIsInitial
     access_control: CommonAbstraJsonV17DefinitionsFormStageAccessControl
-    end_message: CommonAbstraJsonV17DefinitionsFormStageEndMessage
+    timeout_message: CommonAbstraJsonV17DefinitionsFormStageTimeoutMessage
+    error_message: CommonAbstraJsonV17DefinitionsFormStageErrorMessage
+    notification_trigger: CommonAbstraJsonV17DefinitionsFormStageNotificationTrigger
+    auto_start: CommonAbstraJsonV17DefinitionsFormStageAutoStart
     path: CommonAbstraJsonV17DefinitionsFormStagePath
     task_schema: typing.Optional[CommonAbstraJsonV17DefinitionsFormStageTaskSchema] = (
         field(default_factory=lambda: None)
@@ -3068,22 +3068,22 @@ class CommonAbstraJsonV17DefinitionsFormStage:
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["output"] = self.output
-        data["transitions"] = [item.to_dict() for item in self.transitions]
-        data["file"] = self.file
-        data["input"] = self.input
+        data["workflow_position"] = self.workflow_position
         data["id"] = self.id
-        data["start_message"] = self.start_message
-        data["auto_start"] = self.auto_start
-        data["notification_trigger"] = self.notification_trigger.to_dict()
+        data["input"] = self.input
+        data["transitions"] = [item.to_dict() for item in self.transitions]
+        data["output"] = self.output
+        data["file"] = self.file
         data["start_button_text"] = self.start_button_text
-        data["error_message"] = self.error_message
-        data["timeout_message"] = self.timeout_message
+        data["end_message"] = self.end_message
+        data["start_message"] = self.start_message
         data["is_initial"] = self.is_initial
         data["access_control"] = self.access_control.to_dict()
-        data["end_message"] = self.end_message
+        data["timeout_message"] = self.timeout_message
+        data["error_message"] = self.error_message
+        data["notification_trigger"] = self.notification_trigger.to_dict()
+        data["auto_start"] = self.auto_start
         data["path"] = self.path
         if self.task_schema is not None:
             data["task_schema"] = self.task_schema
@@ -3094,28 +3094,38 @@ class CommonAbstraJsonV17DefinitionsFormStage:
         cls, data: typing.Dict[str, typing.Any]
     ) -> "CommonAbstraJsonV17DefinitionsFormStage":
         return cls(
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            output=bool(data["output"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
+            input=bool(data["input"]),
             transitions=[
                 CommonAbstraJsonV17DefinitionsTransition.from_dict(item)
                 for item in data["transitions"]
             ],
+            output=bool(data["output"]),
             file=str(data["file"]),
-            input=bool(data["input"]),
-            id=str(data["id"]),
+            start_button_text=(
+                str(data["start_button_text"])
+                if isinstance(data["start_button_text"], str)
+                else None
+            ),
+            end_message=(
+                str(data["end_message"])
+                if isinstance(data["end_message"], str)
+                else None
+            ),
             start_message=(
                 str(data["start_message"])
                 if isinstance(data["start_message"], str)
                 else None
             ),
-            auto_start=bool(data["auto_start"]),
-            notification_trigger=CommonAbstraJsonV17DefinitionsFormStageNotificationTrigger.from_dict(
-                data["notification_trigger"]
+            is_initial=bool(data["is_initial"]),
+            access_control=CommonAbstraJsonV17DefinitionsFormStageAccessControl.from_dict(
+                data["access_control"]
             ),
-            start_button_text=(
-                str(data["start_button_text"])
-                if isinstance(data["start_button_text"], str)
+            timeout_message=(
+                str(data["timeout_message"])
+                if isinstance(data["timeout_message"], str)
                 else None
             ),
             error_message=(
@@ -3123,20 +3133,10 @@ class CommonAbstraJsonV17DefinitionsFormStage:
                 if isinstance(data["error_message"], str)
                 else None
             ),
-            timeout_message=(
-                str(data["timeout_message"])
-                if isinstance(data["timeout_message"], str)
-                else None
+            notification_trigger=CommonAbstraJsonV17DefinitionsFormStageNotificationTrigger.from_dict(
+                data["notification_trigger"]
             ),
-            is_initial=bool(data["is_initial"]),
-            access_control=CommonAbstraJsonV17DefinitionsFormStageAccessControl.from_dict(
-                data["access_control"]
-            ),
-            end_message=(
-                str(data["end_message"])
-                if isinstance(data["end_message"], str)
-                else None
-            ),
+            auto_start=bool(data["auto_start"]),
             path=str(data["path"]),
             task_schema=None
             if data.get("task_schema") is None
@@ -3148,17 +3148,17 @@ CommonAbstraJsonV17FormsItem = CommonAbstraJsonV17DefinitionsFormStage
 
 CommonAbstraJsonV17Forms = typing.List[CommonAbstraJsonV17FormsItem]
 
+CommonAbstraJsonV17DefinitionsScriptStageTitle = str
+
 CommonAbstraJsonV17DefinitionsScriptStageWorkflowPositionItem = float
 
 CommonAbstraJsonV17DefinitionsScriptStageWorkflowPosition = typing.List[
     CommonAbstraJsonV17DefinitionsScriptStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV17DefinitionsScriptStageTitle = str
+CommonAbstraJsonV17DefinitionsScriptStageId = str
 
-CommonAbstraJsonV17DefinitionsScriptStageOutput = bool
-
-CommonAbstraJsonV17DefinitionsScriptStageTaskSchema = typing.Dict[str, typing.Any]
+CommonAbstraJsonV17DefinitionsScriptStageInput = bool
 
 CommonAbstraJsonV17DefinitionsScriptStageTransitionsItem = (
     CommonAbstraJsonV17DefinitionsTransition
@@ -3168,24 +3168,24 @@ CommonAbstraJsonV17DefinitionsScriptStageTransitions = typing.List[
     CommonAbstraJsonV17DefinitionsScriptStageTransitionsItem
 ]
 
+CommonAbstraJsonV17DefinitionsScriptStageOutput = bool
+
 CommonAbstraJsonV17DefinitionsScriptStageFile = str
 
-CommonAbstraJsonV17DefinitionsScriptStageInput = bool
-
-CommonAbstraJsonV17DefinitionsScriptStageId = str
+CommonAbstraJsonV17DefinitionsScriptStageTaskSchema = typing.Dict[str, typing.Any]
 
 CommonAbstraJsonV17DefinitionsScriptStageIsInitial = bool
 
 
 @dataclass
 class CommonAbstraJsonV17DefinitionsScriptStage:
-    workflow_position: CommonAbstraJsonV17DefinitionsScriptStageWorkflowPosition
     title: CommonAbstraJsonV17DefinitionsScriptStageTitle
-    output: CommonAbstraJsonV17DefinitionsScriptStageOutput
-    transitions: CommonAbstraJsonV17DefinitionsScriptStageTransitions
-    file: CommonAbstraJsonV17DefinitionsScriptStageFile
-    input: CommonAbstraJsonV17DefinitionsScriptStageInput
+    workflow_position: CommonAbstraJsonV17DefinitionsScriptStageWorkflowPosition
     id: CommonAbstraJsonV17DefinitionsScriptStageId
+    input: CommonAbstraJsonV17DefinitionsScriptStageInput
+    transitions: CommonAbstraJsonV17DefinitionsScriptStageTransitions
+    output: CommonAbstraJsonV17DefinitionsScriptStageOutput
+    file: CommonAbstraJsonV17DefinitionsScriptStageFile
     is_initial: CommonAbstraJsonV17DefinitionsScriptStageIsInitial
     task_schema: typing.Optional[
         CommonAbstraJsonV17DefinitionsScriptStageTaskSchema
@@ -3193,13 +3193,13 @@ class CommonAbstraJsonV17DefinitionsScriptStage:
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["output"] = self.output
-        data["transitions"] = [item.to_dict() for item in self.transitions]
-        data["file"] = self.file
-        data["input"] = self.input
+        data["workflow_position"] = self.workflow_position
         data["id"] = self.id
+        data["input"] = self.input
+        data["transitions"] = [item.to_dict() for item in self.transitions]
+        data["output"] = self.output
+        data["file"] = self.file
         data["is_initial"] = self.is_initial
         if self.task_schema is not None:
             data["task_schema"] = self.task_schema
@@ -3210,16 +3210,16 @@ class CommonAbstraJsonV17DefinitionsScriptStage:
         cls, data: typing.Dict[str, typing.Any]
     ) -> "CommonAbstraJsonV17DefinitionsScriptStage":
         return cls(
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            output=bool(data["output"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
+            input=bool(data["input"]),
             transitions=[
                 CommonAbstraJsonV17DefinitionsTransition.from_dict(item)
                 for item in data["transitions"]
             ],
+            output=bool(data["output"]),
             file=str(data["file"]),
-            input=bool(data["input"]),
-            id=str(data["id"]),
             is_initial=bool(data["is_initial"]),
             task_schema=None
             if data.get("task_schema") is None
@@ -3322,17 +3322,17 @@ CommonAbstraJsonV17ComponentsItem = CommonAbstraJsonV17DefinitionsComponentStage
 
 CommonAbstraJsonV17Components = typing.List[CommonAbstraJsonV17ComponentsItem]
 
+CommonAbstraJsonV17DefinitionsAgentStageTitle = str
+
 CommonAbstraJsonV17DefinitionsAgentStageWorkflowPositionItem = float
 
 CommonAbstraJsonV17DefinitionsAgentStageWorkflowPosition = typing.List[
     CommonAbstraJsonV17DefinitionsAgentStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV17DefinitionsAgentStageTitle = str
+CommonAbstraJsonV17DefinitionsAgentStageId = str
 
-CommonAbstraJsonV17DefinitionsAgentStageOutput = bool
-
-CommonAbstraJsonV17DefinitionsAgentStageTaskSchema = typing.Dict[str, typing.Any]
+CommonAbstraJsonV17DefinitionsAgentStageInput = bool
 
 CommonAbstraJsonV17DefinitionsAgentStageTransitionsItem = (
     CommonAbstraJsonV17DefinitionsTransition
@@ -3342,13 +3342,13 @@ CommonAbstraJsonV17DefinitionsAgentStageTransitions = typing.List[
     CommonAbstraJsonV17DefinitionsAgentStageTransitionsItem
 ]
 
+CommonAbstraJsonV17DefinitionsAgentStageOutput = bool
+
 CommonAbstraJsonV17DefinitionsAgentStageFile = str
 
-CommonAbstraJsonV17DefinitionsAgentStageInput = bool
+CommonAbstraJsonV17DefinitionsAgentStageTaskSchema = typing.Dict[str, typing.Any]
 
-CommonAbstraJsonV17DefinitionsAgentStageId = str
-
-CommonAbstraJsonV17DefinitionsAgentStageMaxSteps = int
+CommonAbstraJsonV17DefinitionsAgentStageIsInitial = bool
 
 CommonAbstraJsonV17DefinitionsAgentPermissionType = typing.Union[
     typing.Literal["tables"], typing.Literal["files"], typing.Literal["connections"]
@@ -3464,20 +3464,20 @@ CommonAbstraJsonV17DefinitionsAgentStagePermissions = typing.List[
     CommonAbstraJsonV17DefinitionsAgentStagePermissionsItem
 ]
 
-CommonAbstraJsonV17DefinitionsAgentStageIsInitial = bool
+CommonAbstraJsonV17DefinitionsAgentStageMaxSteps = int
 
 
 @dataclass
 class CommonAbstraJsonV17DefinitionsAgentStage:
-    workflow_position: CommonAbstraJsonV17DefinitionsAgentStageWorkflowPosition
     title: CommonAbstraJsonV17DefinitionsAgentStageTitle
-    output: CommonAbstraJsonV17DefinitionsAgentStageOutput
-    transitions: CommonAbstraJsonV17DefinitionsAgentStageTransitions
-    file: CommonAbstraJsonV17DefinitionsAgentStageFile
-    input: CommonAbstraJsonV17DefinitionsAgentStageInput
+    workflow_position: CommonAbstraJsonV17DefinitionsAgentStageWorkflowPosition
     id: CommonAbstraJsonV17DefinitionsAgentStageId
-    permissions: CommonAbstraJsonV17DefinitionsAgentStagePermissions
+    input: CommonAbstraJsonV17DefinitionsAgentStageInput
+    transitions: CommonAbstraJsonV17DefinitionsAgentStageTransitions
+    output: CommonAbstraJsonV17DefinitionsAgentStageOutput
+    file: CommonAbstraJsonV17DefinitionsAgentStageFile
     is_initial: CommonAbstraJsonV17DefinitionsAgentStageIsInitial
+    permissions: CommonAbstraJsonV17DefinitionsAgentStagePermissions
     task_schema: typing.Optional[CommonAbstraJsonV17DefinitionsAgentStageTaskSchema] = (
         field(default_factory=lambda: None)
     )
@@ -3487,15 +3487,15 @@ class CommonAbstraJsonV17DefinitionsAgentStage:
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["output"] = self.output
-        data["transitions"] = [item.to_dict() for item in self.transitions]
-        data["file"] = self.file
-        data["input"] = self.input
+        data["workflow_position"] = self.workflow_position
         data["id"] = self.id
-        data["permissions"] = [item.to_dict() for item in self.permissions]
+        data["input"] = self.input
+        data["transitions"] = [item.to_dict() for item in self.transitions]
+        data["output"] = self.output
+        data["file"] = self.file
         data["is_initial"] = self.is_initial
+        data["permissions"] = [item.to_dict() for item in self.permissions]
         if self.task_schema is not None:
             data["task_schema"] = self.task_schema
         if self.max_steps is not None:
@@ -3507,21 +3507,21 @@ class CommonAbstraJsonV17DefinitionsAgentStage:
         cls, data: typing.Dict[str, typing.Any]
     ) -> "CommonAbstraJsonV17DefinitionsAgentStage":
         return cls(
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            output=bool(data["output"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
+            input=bool(data["input"]),
             transitions=[
                 CommonAbstraJsonV17DefinitionsTransition.from_dict(item)
                 for item in data["transitions"]
             ],
+            output=bool(data["output"]),
             file=str(data["file"]),
-            input=bool(data["input"]),
-            id=str(data["id"]),
+            is_initial=bool(data["is_initial"]),
             permissions=[
                 CommonAbstraJsonV17DefinitionsAgentPermission.from_dict(item)
                 for item in data["permissions"]
             ],
-            is_initial=bool(data["is_initial"]),
             task_schema=None
             if data.get("task_schema") is None
             else dict(**data["task_schema"]),
@@ -3964,7 +3964,7 @@ CommonAbstraJsonV16DefinitionsJobStageTransitions = typing.List[
 
 CommonAbstraJsonV16DefinitionsJobStageFile = str
 
-CommonAbstraJsonV16DefinitionsJobStageId = str
+CommonAbstraJsonV16DefinitionsJobStageTitle = str
 
 CommonAbstraJsonV16DefinitionsJobStageWorkflowPositionItem = float
 
@@ -3972,7 +3972,7 @@ CommonAbstraJsonV16DefinitionsJobStageWorkflowPosition = typing.List[
     CommonAbstraJsonV16DefinitionsJobStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV16DefinitionsJobStageTitle = str
+CommonAbstraJsonV16DefinitionsJobStageId = str
 
 CommonAbstraJsonV16DefinitionsJobStageSchedule = str
 
@@ -3981,18 +3981,18 @@ CommonAbstraJsonV16DefinitionsJobStageSchedule = str
 class CommonAbstraJsonV16DefinitionsJobStage:
     transitions: CommonAbstraJsonV16DefinitionsJobStageTransitions
     file: CommonAbstraJsonV16DefinitionsJobStageFile
-    id: CommonAbstraJsonV16DefinitionsJobStageId
-    workflow_position: CommonAbstraJsonV16DefinitionsJobStageWorkflowPosition
     title: CommonAbstraJsonV16DefinitionsJobStageTitle
+    workflow_position: CommonAbstraJsonV16DefinitionsJobStageWorkflowPosition
+    id: CommonAbstraJsonV16DefinitionsJobStageId
     schedule: CommonAbstraJsonV16DefinitionsJobStageSchedule
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["schedule"] = self.schedule
         return data
 
@@ -4006,9 +4006,9 @@ class CommonAbstraJsonV16DefinitionsJobStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             schedule=str(data["schedule"]),
         )
 
@@ -4027,7 +4027,7 @@ CommonAbstraJsonV16DefinitionsHookStageTransitions = typing.List[
 
 CommonAbstraJsonV16DefinitionsHookStageFile = str
 
-CommonAbstraJsonV16DefinitionsHookStageId = str
+CommonAbstraJsonV16DefinitionsHookStageTitle = str
 
 CommonAbstraJsonV16DefinitionsHookStageWorkflowPositionItem = float
 
@@ -4035,36 +4035,36 @@ CommonAbstraJsonV16DefinitionsHookStageWorkflowPosition = typing.List[
     CommonAbstraJsonV16DefinitionsHookStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV16DefinitionsHookStageTitle = str
-
-CommonAbstraJsonV16DefinitionsHookStageEnabled = bool
+CommonAbstraJsonV16DefinitionsHookStageId = str
 
 CommonAbstraJsonV16DefinitionsHookStageIsInitial = bool
 
 CommonAbstraJsonV16DefinitionsHookStagePath = str
+
+CommonAbstraJsonV16DefinitionsHookStageEnabled = bool
 
 
 @dataclass
 class CommonAbstraJsonV16DefinitionsHookStage:
     transitions: CommonAbstraJsonV16DefinitionsHookStageTransitions
     file: CommonAbstraJsonV16DefinitionsHookStageFile
-    id: CommonAbstraJsonV16DefinitionsHookStageId
-    workflow_position: CommonAbstraJsonV16DefinitionsHookStageWorkflowPosition
     title: CommonAbstraJsonV16DefinitionsHookStageTitle
-    enabled: CommonAbstraJsonV16DefinitionsHookStageEnabled
+    workflow_position: CommonAbstraJsonV16DefinitionsHookStageWorkflowPosition
+    id: CommonAbstraJsonV16DefinitionsHookStageId
     is_initial: CommonAbstraJsonV16DefinitionsHookStageIsInitial
     path: CommonAbstraJsonV16DefinitionsHookStagePath
+    enabled: CommonAbstraJsonV16DefinitionsHookStageEnabled
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["enabled"] = self.enabled
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["is_initial"] = self.is_initial
         data["path"] = self.path
+        data["enabled"] = self.enabled
         return data
 
     @classmethod
@@ -4077,12 +4077,12 @@ class CommonAbstraJsonV16DefinitionsHookStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            enabled=bool(data["enabled"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             is_initial=bool(data["is_initial"]),
             path=str(data["path"]),
+            enabled=bool(data["enabled"]),
         )
 
 
@@ -4100,7 +4100,7 @@ CommonAbstraJsonV16DefinitionsFormStageTransitions = typing.List[
 
 CommonAbstraJsonV16DefinitionsFormStageFile = str
 
-CommonAbstraJsonV16DefinitionsFormStageId = str
+CommonAbstraJsonV16DefinitionsFormStageTitle = str
 
 CommonAbstraJsonV16DefinitionsFormStageWorkflowPositionItem = float
 
@@ -4108,59 +4108,7 @@ CommonAbstraJsonV16DefinitionsFormStageWorkflowPosition = typing.List[
     CommonAbstraJsonV16DefinitionsFormStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV16DefinitionsFormStageTitle = str
-
-CommonAbstraJsonV16DefinitionsFormStageStartMessageString = str
-
-CommonAbstraJsonV16DefinitionsFormStageStartMessageNull = type(None)
-
-CommonAbstraJsonV16DefinitionsFormStageStartMessage = typing.Union[
-    CommonAbstraJsonV16DefinitionsFormStageStartMessageString,
-    CommonAbstraJsonV16DefinitionsFormStageStartMessageNull,
-]
-
-
-def common_abstra_json_v16_definitions_form_stage_start_message_from_dict(
-    data: typing.Any,
-) -> "CommonAbstraJsonV16DefinitionsFormStageStartMessage":
-    if isinstance(data, str):
-        return str(data)
-    if data is None:
-        return None
-    raise ValueError(
-        f"Could not parse CommonAbstraJsonV16DefinitionsFormStageStartMessage from dict: {data}"
-    )
-
-
-CommonAbstraJsonV16DefinitionsFormStageAutoStart = bool
-
-CommonAbstraJsonV16DefinitionsFormStageNotificationTriggerVariableName = str
-
-CommonAbstraJsonV16DefinitionsFormStageNotificationTriggerEnabled = bool
-
-
-@dataclass
-class CommonAbstraJsonV16DefinitionsFormStageNotificationTrigger:
-    variable_name: (
-        CommonAbstraJsonV16DefinitionsFormStageNotificationTriggerVariableName
-    )
-    enabled: CommonAbstraJsonV16DefinitionsFormStageNotificationTriggerEnabled
-
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        data = {}
-        data["variable_name"] = self.variable_name
-        data["enabled"] = self.enabled
-        return data
-
-    @classmethod
-    def from_dict(
-        cls, data: typing.Dict[str, typing.Any]
-    ) -> "CommonAbstraJsonV16DefinitionsFormStageNotificationTrigger":
-        return cls(
-            variable_name=str(data["variable_name"]),
-            enabled=bool(data["enabled"]),
-        )
-
+CommonAbstraJsonV16DefinitionsFormStageId = str
 
 CommonAbstraJsonV16DefinitionsFormStageStartButtonTextString = str
 
@@ -4184,47 +4132,47 @@ def common_abstra_json_v16_definitions_form_stage_start_button_text_from_dict(
     )
 
 
-CommonAbstraJsonV16DefinitionsFormStageErrorMessageString = str
+CommonAbstraJsonV16DefinitionsFormStageEndMessageString = str
 
-CommonAbstraJsonV16DefinitionsFormStageErrorMessageNull = type(None)
+CommonAbstraJsonV16DefinitionsFormStageEndMessageNull = type(None)
 
-CommonAbstraJsonV16DefinitionsFormStageErrorMessage = typing.Union[
-    CommonAbstraJsonV16DefinitionsFormStageErrorMessageString,
-    CommonAbstraJsonV16DefinitionsFormStageErrorMessageNull,
+CommonAbstraJsonV16DefinitionsFormStageEndMessage = typing.Union[
+    CommonAbstraJsonV16DefinitionsFormStageEndMessageString,
+    CommonAbstraJsonV16DefinitionsFormStageEndMessageNull,
 ]
 
 
-def common_abstra_json_v16_definitions_form_stage_error_message_from_dict(
+def common_abstra_json_v16_definitions_form_stage_end_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV16DefinitionsFormStageErrorMessage":
+) -> "CommonAbstraJsonV16DefinitionsFormStageEndMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV16DefinitionsFormStageErrorMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV16DefinitionsFormStageEndMessage from dict: {data}"
     )
 
 
-CommonAbstraJsonV16DefinitionsFormStageTimeoutMessageString = str
+CommonAbstraJsonV16DefinitionsFormStageStartMessageString = str
 
-CommonAbstraJsonV16DefinitionsFormStageTimeoutMessageNull = type(None)
+CommonAbstraJsonV16DefinitionsFormStageStartMessageNull = type(None)
 
-CommonAbstraJsonV16DefinitionsFormStageTimeoutMessage = typing.Union[
-    CommonAbstraJsonV16DefinitionsFormStageTimeoutMessageString,
-    CommonAbstraJsonV16DefinitionsFormStageTimeoutMessageNull,
+CommonAbstraJsonV16DefinitionsFormStageStartMessage = typing.Union[
+    CommonAbstraJsonV16DefinitionsFormStageStartMessageString,
+    CommonAbstraJsonV16DefinitionsFormStageStartMessageNull,
 ]
 
 
-def common_abstra_json_v16_definitions_form_stage_timeout_message_from_dict(
+def common_abstra_json_v16_definitions_form_stage_start_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV16DefinitionsFormStageTimeoutMessage":
+) -> "CommonAbstraJsonV16DefinitionsFormStageStartMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV16DefinitionsFormStageTimeoutMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV16DefinitionsFormStageStartMessage from dict: {data}"
     )
 
 
@@ -4260,27 +4208,79 @@ class CommonAbstraJsonV16DefinitionsFormStageAccessControl:
         )
 
 
-CommonAbstraJsonV16DefinitionsFormStageEndMessageString = str
+CommonAbstraJsonV16DefinitionsFormStageTimeoutMessageString = str
 
-CommonAbstraJsonV16DefinitionsFormStageEndMessageNull = type(None)
+CommonAbstraJsonV16DefinitionsFormStageTimeoutMessageNull = type(None)
 
-CommonAbstraJsonV16DefinitionsFormStageEndMessage = typing.Union[
-    CommonAbstraJsonV16DefinitionsFormStageEndMessageString,
-    CommonAbstraJsonV16DefinitionsFormStageEndMessageNull,
+CommonAbstraJsonV16DefinitionsFormStageTimeoutMessage = typing.Union[
+    CommonAbstraJsonV16DefinitionsFormStageTimeoutMessageString,
+    CommonAbstraJsonV16DefinitionsFormStageTimeoutMessageNull,
 ]
 
 
-def common_abstra_json_v16_definitions_form_stage_end_message_from_dict(
+def common_abstra_json_v16_definitions_form_stage_timeout_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV16DefinitionsFormStageEndMessage":
+) -> "CommonAbstraJsonV16DefinitionsFormStageTimeoutMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV16DefinitionsFormStageEndMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV16DefinitionsFormStageTimeoutMessage from dict: {data}"
     )
 
+
+CommonAbstraJsonV16DefinitionsFormStageErrorMessageString = str
+
+CommonAbstraJsonV16DefinitionsFormStageErrorMessageNull = type(None)
+
+CommonAbstraJsonV16DefinitionsFormStageErrorMessage = typing.Union[
+    CommonAbstraJsonV16DefinitionsFormStageErrorMessageString,
+    CommonAbstraJsonV16DefinitionsFormStageErrorMessageNull,
+]
+
+
+def common_abstra_json_v16_definitions_form_stage_error_message_from_dict(
+    data: typing.Any,
+) -> "CommonAbstraJsonV16DefinitionsFormStageErrorMessage":
+    if isinstance(data, str):
+        return str(data)
+    if data is None:
+        return None
+    raise ValueError(
+        f"Could not parse CommonAbstraJsonV16DefinitionsFormStageErrorMessage from dict: {data}"
+    )
+
+
+CommonAbstraJsonV16DefinitionsFormStageNotificationTriggerVariableName = str
+
+CommonAbstraJsonV16DefinitionsFormStageNotificationTriggerEnabled = bool
+
+
+@dataclass
+class CommonAbstraJsonV16DefinitionsFormStageNotificationTrigger:
+    variable_name: (
+        CommonAbstraJsonV16DefinitionsFormStageNotificationTriggerVariableName
+    )
+    enabled: CommonAbstraJsonV16DefinitionsFormStageNotificationTriggerEnabled
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data["variable_name"] = self.variable_name
+        data["enabled"] = self.enabled
+        return data
+
+    @classmethod
+    def from_dict(
+        cls, data: typing.Dict[str, typing.Any]
+    ) -> "CommonAbstraJsonV16DefinitionsFormStageNotificationTrigger":
+        return cls(
+            variable_name=str(data["variable_name"]),
+            enabled=bool(data["enabled"]),
+        )
+
+
+CommonAbstraJsonV16DefinitionsFormStageAutoStart = bool
 
 CommonAbstraJsonV16DefinitionsFormStagePath = str
 
@@ -4289,36 +4289,36 @@ CommonAbstraJsonV16DefinitionsFormStagePath = str
 class CommonAbstraJsonV16DefinitionsFormStage:
     transitions: CommonAbstraJsonV16DefinitionsFormStageTransitions
     file: CommonAbstraJsonV16DefinitionsFormStageFile
-    id: CommonAbstraJsonV16DefinitionsFormStageId
-    workflow_position: CommonAbstraJsonV16DefinitionsFormStageWorkflowPosition
     title: CommonAbstraJsonV16DefinitionsFormStageTitle
-    start_message: CommonAbstraJsonV16DefinitionsFormStageStartMessage
-    auto_start: CommonAbstraJsonV16DefinitionsFormStageAutoStart
-    notification_trigger: CommonAbstraJsonV16DefinitionsFormStageNotificationTrigger
+    workflow_position: CommonAbstraJsonV16DefinitionsFormStageWorkflowPosition
+    id: CommonAbstraJsonV16DefinitionsFormStageId
     start_button_text: CommonAbstraJsonV16DefinitionsFormStageStartButtonText
-    error_message: CommonAbstraJsonV16DefinitionsFormStageErrorMessage
-    timeout_message: CommonAbstraJsonV16DefinitionsFormStageTimeoutMessage
+    end_message: CommonAbstraJsonV16DefinitionsFormStageEndMessage
+    start_message: CommonAbstraJsonV16DefinitionsFormStageStartMessage
     is_initial: CommonAbstraJsonV16DefinitionsFormStageIsInitial
     access_control: CommonAbstraJsonV16DefinitionsFormStageAccessControl
-    end_message: CommonAbstraJsonV16DefinitionsFormStageEndMessage
+    timeout_message: CommonAbstraJsonV16DefinitionsFormStageTimeoutMessage
+    error_message: CommonAbstraJsonV16DefinitionsFormStageErrorMessage
+    notification_trigger: CommonAbstraJsonV16DefinitionsFormStageNotificationTrigger
+    auto_start: CommonAbstraJsonV16DefinitionsFormStageAutoStart
     path: CommonAbstraJsonV16DefinitionsFormStagePath
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["start_message"] = self.start_message
-        data["auto_start"] = self.auto_start
-        data["notification_trigger"] = self.notification_trigger.to_dict()
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["start_button_text"] = self.start_button_text
-        data["error_message"] = self.error_message
-        data["timeout_message"] = self.timeout_message
+        data["end_message"] = self.end_message
+        data["start_message"] = self.start_message
         data["is_initial"] = self.is_initial
         data["access_control"] = self.access_control.to_dict()
-        data["end_message"] = self.end_message
+        data["timeout_message"] = self.timeout_message
+        data["error_message"] = self.error_message
+        data["notification_trigger"] = self.notification_trigger.to_dict()
+        data["auto_start"] = self.auto_start
         data["path"] = self.path
         return data
 
@@ -4332,21 +4332,31 @@ class CommonAbstraJsonV16DefinitionsFormStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
+            start_button_text=(
+                str(data["start_button_text"])
+                if isinstance(data["start_button_text"], str)
+                else None
+            ),
+            end_message=(
+                str(data["end_message"])
+                if isinstance(data["end_message"], str)
+                else None
+            ),
             start_message=(
                 str(data["start_message"])
                 if isinstance(data["start_message"], str)
                 else None
             ),
-            auto_start=bool(data["auto_start"]),
-            notification_trigger=CommonAbstraJsonV16DefinitionsFormStageNotificationTrigger.from_dict(
-                data["notification_trigger"]
+            is_initial=bool(data["is_initial"]),
+            access_control=CommonAbstraJsonV16DefinitionsFormStageAccessControl.from_dict(
+                data["access_control"]
             ),
-            start_button_text=(
-                str(data["start_button_text"])
-                if isinstance(data["start_button_text"], str)
+            timeout_message=(
+                str(data["timeout_message"])
+                if isinstance(data["timeout_message"], str)
                 else None
             ),
             error_message=(
@@ -4354,20 +4364,10 @@ class CommonAbstraJsonV16DefinitionsFormStage:
                 if isinstance(data["error_message"], str)
                 else None
             ),
-            timeout_message=(
-                str(data["timeout_message"])
-                if isinstance(data["timeout_message"], str)
-                else None
+            notification_trigger=CommonAbstraJsonV16DefinitionsFormStageNotificationTrigger.from_dict(
+                data["notification_trigger"]
             ),
-            is_initial=bool(data["is_initial"]),
-            access_control=CommonAbstraJsonV16DefinitionsFormStageAccessControl.from_dict(
-                data["access_control"]
-            ),
-            end_message=(
-                str(data["end_message"])
-                if isinstance(data["end_message"], str)
-                else None
-            ),
+            auto_start=bool(data["auto_start"]),
             path=str(data["path"]),
         )
 
@@ -4386,7 +4386,7 @@ CommonAbstraJsonV16DefinitionsScriptStageTransitions = typing.List[
 
 CommonAbstraJsonV16DefinitionsScriptStageFile = str
 
-CommonAbstraJsonV16DefinitionsScriptStageId = str
+CommonAbstraJsonV16DefinitionsScriptStageTitle = str
 
 CommonAbstraJsonV16DefinitionsScriptStageWorkflowPositionItem = float
 
@@ -4394,7 +4394,7 @@ CommonAbstraJsonV16DefinitionsScriptStageWorkflowPosition = typing.List[
     CommonAbstraJsonV16DefinitionsScriptStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV16DefinitionsScriptStageTitle = str
+CommonAbstraJsonV16DefinitionsScriptStageId = str
 
 CommonAbstraJsonV16DefinitionsScriptStageIsInitial = bool
 
@@ -4403,18 +4403,18 @@ CommonAbstraJsonV16DefinitionsScriptStageIsInitial = bool
 class CommonAbstraJsonV16DefinitionsScriptStage:
     transitions: CommonAbstraJsonV16DefinitionsScriptStageTransitions
     file: CommonAbstraJsonV16DefinitionsScriptStageFile
-    id: CommonAbstraJsonV16DefinitionsScriptStageId
-    workflow_position: CommonAbstraJsonV16DefinitionsScriptStageWorkflowPosition
     title: CommonAbstraJsonV16DefinitionsScriptStageTitle
+    workflow_position: CommonAbstraJsonV16DefinitionsScriptStageWorkflowPosition
+    id: CommonAbstraJsonV16DefinitionsScriptStageId
     is_initial: CommonAbstraJsonV16DefinitionsScriptStageIsInitial
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["is_initial"] = self.is_initial
         return data
 
@@ -4428,9 +4428,9 @@ class CommonAbstraJsonV16DefinitionsScriptStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             is_initial=bool(data["is_initial"]),
         )
 
@@ -4829,7 +4829,7 @@ CommonAbstraJsonV15DefinitionsJobStageTransitions = typing.List[
 
 CommonAbstraJsonV15DefinitionsJobStageFile = str
 
-CommonAbstraJsonV15DefinitionsJobStageId = str
+CommonAbstraJsonV15DefinitionsJobStageTitle = str
 
 CommonAbstraJsonV15DefinitionsJobStageWorkflowPositionItem = float
 
@@ -4837,7 +4837,7 @@ CommonAbstraJsonV15DefinitionsJobStageWorkflowPosition = typing.List[
     CommonAbstraJsonV15DefinitionsJobStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV15DefinitionsJobStageTitle = str
+CommonAbstraJsonV15DefinitionsJobStageId = str
 
 CommonAbstraJsonV15DefinitionsJobStageSchedule = str
 
@@ -4846,18 +4846,18 @@ CommonAbstraJsonV15DefinitionsJobStageSchedule = str
 class CommonAbstraJsonV15DefinitionsJobStage:
     transitions: CommonAbstraJsonV15DefinitionsJobStageTransitions
     file: CommonAbstraJsonV15DefinitionsJobStageFile
-    id: CommonAbstraJsonV15DefinitionsJobStageId
-    workflow_position: CommonAbstraJsonV15DefinitionsJobStageWorkflowPosition
     title: CommonAbstraJsonV15DefinitionsJobStageTitle
+    workflow_position: CommonAbstraJsonV15DefinitionsJobStageWorkflowPosition
+    id: CommonAbstraJsonV15DefinitionsJobStageId
     schedule: CommonAbstraJsonV15DefinitionsJobStageSchedule
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["schedule"] = self.schedule
         return data
 
@@ -4871,9 +4871,9 @@ class CommonAbstraJsonV15DefinitionsJobStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             schedule=str(data["schedule"]),
         )
 
@@ -4892,7 +4892,7 @@ CommonAbstraJsonV15DefinitionsHookStageTransitions = typing.List[
 
 CommonAbstraJsonV15DefinitionsHookStageFile = str
 
-CommonAbstraJsonV15DefinitionsHookStageId = str
+CommonAbstraJsonV15DefinitionsHookStageTitle = str
 
 CommonAbstraJsonV15DefinitionsHookStageWorkflowPositionItem = float
 
@@ -4900,36 +4900,36 @@ CommonAbstraJsonV15DefinitionsHookStageWorkflowPosition = typing.List[
     CommonAbstraJsonV15DefinitionsHookStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV15DefinitionsHookStageTitle = str
-
-CommonAbstraJsonV15DefinitionsHookStageEnabled = bool
+CommonAbstraJsonV15DefinitionsHookStageId = str
 
 CommonAbstraJsonV15DefinitionsHookStageIsInitial = bool
 
 CommonAbstraJsonV15DefinitionsHookStagePath = str
+
+CommonAbstraJsonV15DefinitionsHookStageEnabled = bool
 
 
 @dataclass
 class CommonAbstraJsonV15DefinitionsHookStage:
     transitions: CommonAbstraJsonV15DefinitionsHookStageTransitions
     file: CommonAbstraJsonV15DefinitionsHookStageFile
-    id: CommonAbstraJsonV15DefinitionsHookStageId
-    workflow_position: CommonAbstraJsonV15DefinitionsHookStageWorkflowPosition
     title: CommonAbstraJsonV15DefinitionsHookStageTitle
-    enabled: CommonAbstraJsonV15DefinitionsHookStageEnabled
+    workflow_position: CommonAbstraJsonV15DefinitionsHookStageWorkflowPosition
+    id: CommonAbstraJsonV15DefinitionsHookStageId
     is_initial: CommonAbstraJsonV15DefinitionsHookStageIsInitial
     path: CommonAbstraJsonV15DefinitionsHookStagePath
+    enabled: CommonAbstraJsonV15DefinitionsHookStageEnabled
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["enabled"] = self.enabled
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["is_initial"] = self.is_initial
         data["path"] = self.path
+        data["enabled"] = self.enabled
         return data
 
     @classmethod
@@ -4942,12 +4942,12 @@ class CommonAbstraJsonV15DefinitionsHookStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            enabled=bool(data["enabled"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             is_initial=bool(data["is_initial"]),
             path=str(data["path"]),
+            enabled=bool(data["enabled"]),
         )
 
 
@@ -4965,7 +4965,7 @@ CommonAbstraJsonV15DefinitionsFormStageTransitions = typing.List[
 
 CommonAbstraJsonV15DefinitionsFormStageFile = str
 
-CommonAbstraJsonV15DefinitionsFormStageId = str
+CommonAbstraJsonV15DefinitionsFormStageTitle = str
 
 CommonAbstraJsonV15DefinitionsFormStageWorkflowPositionItem = float
 
@@ -4973,59 +4973,7 @@ CommonAbstraJsonV15DefinitionsFormStageWorkflowPosition = typing.List[
     CommonAbstraJsonV15DefinitionsFormStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV15DefinitionsFormStageTitle = str
-
-CommonAbstraJsonV15DefinitionsFormStageStartMessageString = str
-
-CommonAbstraJsonV15DefinitionsFormStageStartMessageNull = type(None)
-
-CommonAbstraJsonV15DefinitionsFormStageStartMessage = typing.Union[
-    CommonAbstraJsonV15DefinitionsFormStageStartMessageString,
-    CommonAbstraJsonV15DefinitionsFormStageStartMessageNull,
-]
-
-
-def common_abstra_json_v15_definitions_form_stage_start_message_from_dict(
-    data: typing.Any,
-) -> "CommonAbstraJsonV15DefinitionsFormStageStartMessage":
-    if isinstance(data, str):
-        return str(data)
-    if data is None:
-        return None
-    raise ValueError(
-        f"Could not parse CommonAbstraJsonV15DefinitionsFormStageStartMessage from dict: {data}"
-    )
-
-
-CommonAbstraJsonV15DefinitionsFormStageAutoStart = bool
-
-CommonAbstraJsonV15DefinitionsFormStageNotificationTriggerVariableName = str
-
-CommonAbstraJsonV15DefinitionsFormStageNotificationTriggerEnabled = bool
-
-
-@dataclass
-class CommonAbstraJsonV15DefinitionsFormStageNotificationTrigger:
-    variable_name: (
-        CommonAbstraJsonV15DefinitionsFormStageNotificationTriggerVariableName
-    )
-    enabled: CommonAbstraJsonV15DefinitionsFormStageNotificationTriggerEnabled
-
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        data = {}
-        data["variable_name"] = self.variable_name
-        data["enabled"] = self.enabled
-        return data
-
-    @classmethod
-    def from_dict(
-        cls, data: typing.Dict[str, typing.Any]
-    ) -> "CommonAbstraJsonV15DefinitionsFormStageNotificationTrigger":
-        return cls(
-            variable_name=str(data["variable_name"]),
-            enabled=bool(data["enabled"]),
-        )
-
+CommonAbstraJsonV15DefinitionsFormStageId = str
 
 CommonAbstraJsonV15DefinitionsFormStageStartButtonTextString = str
 
@@ -5049,47 +4997,47 @@ def common_abstra_json_v15_definitions_form_stage_start_button_text_from_dict(
     )
 
 
-CommonAbstraJsonV15DefinitionsFormStageErrorMessageString = str
+CommonAbstraJsonV15DefinitionsFormStageEndMessageString = str
 
-CommonAbstraJsonV15DefinitionsFormStageErrorMessageNull = type(None)
+CommonAbstraJsonV15DefinitionsFormStageEndMessageNull = type(None)
 
-CommonAbstraJsonV15DefinitionsFormStageErrorMessage = typing.Union[
-    CommonAbstraJsonV15DefinitionsFormStageErrorMessageString,
-    CommonAbstraJsonV15DefinitionsFormStageErrorMessageNull,
+CommonAbstraJsonV15DefinitionsFormStageEndMessage = typing.Union[
+    CommonAbstraJsonV15DefinitionsFormStageEndMessageString,
+    CommonAbstraJsonV15DefinitionsFormStageEndMessageNull,
 ]
 
 
-def common_abstra_json_v15_definitions_form_stage_error_message_from_dict(
+def common_abstra_json_v15_definitions_form_stage_end_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV15DefinitionsFormStageErrorMessage":
+) -> "CommonAbstraJsonV15DefinitionsFormStageEndMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV15DefinitionsFormStageErrorMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV15DefinitionsFormStageEndMessage from dict: {data}"
     )
 
 
-CommonAbstraJsonV15DefinitionsFormStageTimeoutMessageString = str
+CommonAbstraJsonV15DefinitionsFormStageStartMessageString = str
 
-CommonAbstraJsonV15DefinitionsFormStageTimeoutMessageNull = type(None)
+CommonAbstraJsonV15DefinitionsFormStageStartMessageNull = type(None)
 
-CommonAbstraJsonV15DefinitionsFormStageTimeoutMessage = typing.Union[
-    CommonAbstraJsonV15DefinitionsFormStageTimeoutMessageString,
-    CommonAbstraJsonV15DefinitionsFormStageTimeoutMessageNull,
+CommonAbstraJsonV15DefinitionsFormStageStartMessage = typing.Union[
+    CommonAbstraJsonV15DefinitionsFormStageStartMessageString,
+    CommonAbstraJsonV15DefinitionsFormStageStartMessageNull,
 ]
 
 
-def common_abstra_json_v15_definitions_form_stage_timeout_message_from_dict(
+def common_abstra_json_v15_definitions_form_stage_start_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV15DefinitionsFormStageTimeoutMessage":
+) -> "CommonAbstraJsonV15DefinitionsFormStageStartMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV15DefinitionsFormStageTimeoutMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV15DefinitionsFormStageStartMessage from dict: {data}"
     )
 
 
@@ -5125,27 +5073,79 @@ class CommonAbstraJsonV15DefinitionsFormStageAccessControl:
         )
 
 
-CommonAbstraJsonV15DefinitionsFormStageEndMessageString = str
+CommonAbstraJsonV15DefinitionsFormStageTimeoutMessageString = str
 
-CommonAbstraJsonV15DefinitionsFormStageEndMessageNull = type(None)
+CommonAbstraJsonV15DefinitionsFormStageTimeoutMessageNull = type(None)
 
-CommonAbstraJsonV15DefinitionsFormStageEndMessage = typing.Union[
-    CommonAbstraJsonV15DefinitionsFormStageEndMessageString,
-    CommonAbstraJsonV15DefinitionsFormStageEndMessageNull,
+CommonAbstraJsonV15DefinitionsFormStageTimeoutMessage = typing.Union[
+    CommonAbstraJsonV15DefinitionsFormStageTimeoutMessageString,
+    CommonAbstraJsonV15DefinitionsFormStageTimeoutMessageNull,
 ]
 
 
-def common_abstra_json_v15_definitions_form_stage_end_message_from_dict(
+def common_abstra_json_v15_definitions_form_stage_timeout_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV15DefinitionsFormStageEndMessage":
+) -> "CommonAbstraJsonV15DefinitionsFormStageTimeoutMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV15DefinitionsFormStageEndMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV15DefinitionsFormStageTimeoutMessage from dict: {data}"
     )
 
+
+CommonAbstraJsonV15DefinitionsFormStageErrorMessageString = str
+
+CommonAbstraJsonV15DefinitionsFormStageErrorMessageNull = type(None)
+
+CommonAbstraJsonV15DefinitionsFormStageErrorMessage = typing.Union[
+    CommonAbstraJsonV15DefinitionsFormStageErrorMessageString,
+    CommonAbstraJsonV15DefinitionsFormStageErrorMessageNull,
+]
+
+
+def common_abstra_json_v15_definitions_form_stage_error_message_from_dict(
+    data: typing.Any,
+) -> "CommonAbstraJsonV15DefinitionsFormStageErrorMessage":
+    if isinstance(data, str):
+        return str(data)
+    if data is None:
+        return None
+    raise ValueError(
+        f"Could not parse CommonAbstraJsonV15DefinitionsFormStageErrorMessage from dict: {data}"
+    )
+
+
+CommonAbstraJsonV15DefinitionsFormStageNotificationTriggerVariableName = str
+
+CommonAbstraJsonV15DefinitionsFormStageNotificationTriggerEnabled = bool
+
+
+@dataclass
+class CommonAbstraJsonV15DefinitionsFormStageNotificationTrigger:
+    variable_name: (
+        CommonAbstraJsonV15DefinitionsFormStageNotificationTriggerVariableName
+    )
+    enabled: CommonAbstraJsonV15DefinitionsFormStageNotificationTriggerEnabled
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data["variable_name"] = self.variable_name
+        data["enabled"] = self.enabled
+        return data
+
+    @classmethod
+    def from_dict(
+        cls, data: typing.Dict[str, typing.Any]
+    ) -> "CommonAbstraJsonV15DefinitionsFormStageNotificationTrigger":
+        return cls(
+            variable_name=str(data["variable_name"]),
+            enabled=bool(data["enabled"]),
+        )
+
+
+CommonAbstraJsonV15DefinitionsFormStageAutoStart = bool
 
 CommonAbstraJsonV15DefinitionsFormStagePath = str
 
@@ -5154,36 +5154,36 @@ CommonAbstraJsonV15DefinitionsFormStagePath = str
 class CommonAbstraJsonV15DefinitionsFormStage:
     transitions: CommonAbstraJsonV15DefinitionsFormStageTransitions
     file: CommonAbstraJsonV15DefinitionsFormStageFile
-    id: CommonAbstraJsonV15DefinitionsFormStageId
-    workflow_position: CommonAbstraJsonV15DefinitionsFormStageWorkflowPosition
     title: CommonAbstraJsonV15DefinitionsFormStageTitle
-    start_message: CommonAbstraJsonV15DefinitionsFormStageStartMessage
-    auto_start: CommonAbstraJsonV15DefinitionsFormStageAutoStart
-    notification_trigger: CommonAbstraJsonV15DefinitionsFormStageNotificationTrigger
+    workflow_position: CommonAbstraJsonV15DefinitionsFormStageWorkflowPosition
+    id: CommonAbstraJsonV15DefinitionsFormStageId
     start_button_text: CommonAbstraJsonV15DefinitionsFormStageStartButtonText
-    error_message: CommonAbstraJsonV15DefinitionsFormStageErrorMessage
-    timeout_message: CommonAbstraJsonV15DefinitionsFormStageTimeoutMessage
+    end_message: CommonAbstraJsonV15DefinitionsFormStageEndMessage
+    start_message: CommonAbstraJsonV15DefinitionsFormStageStartMessage
     is_initial: CommonAbstraJsonV15DefinitionsFormStageIsInitial
     access_control: CommonAbstraJsonV15DefinitionsFormStageAccessControl
-    end_message: CommonAbstraJsonV15DefinitionsFormStageEndMessage
+    timeout_message: CommonAbstraJsonV15DefinitionsFormStageTimeoutMessage
+    error_message: CommonAbstraJsonV15DefinitionsFormStageErrorMessage
+    notification_trigger: CommonAbstraJsonV15DefinitionsFormStageNotificationTrigger
+    auto_start: CommonAbstraJsonV15DefinitionsFormStageAutoStart
     path: CommonAbstraJsonV15DefinitionsFormStagePath
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["start_message"] = self.start_message
-        data["auto_start"] = self.auto_start
-        data["notification_trigger"] = self.notification_trigger.to_dict()
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["start_button_text"] = self.start_button_text
-        data["error_message"] = self.error_message
-        data["timeout_message"] = self.timeout_message
+        data["end_message"] = self.end_message
+        data["start_message"] = self.start_message
         data["is_initial"] = self.is_initial
         data["access_control"] = self.access_control.to_dict()
-        data["end_message"] = self.end_message
+        data["timeout_message"] = self.timeout_message
+        data["error_message"] = self.error_message
+        data["notification_trigger"] = self.notification_trigger.to_dict()
+        data["auto_start"] = self.auto_start
         data["path"] = self.path
         return data
 
@@ -5197,21 +5197,31 @@ class CommonAbstraJsonV15DefinitionsFormStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
+            start_button_text=(
+                str(data["start_button_text"])
+                if isinstance(data["start_button_text"], str)
+                else None
+            ),
+            end_message=(
+                str(data["end_message"])
+                if isinstance(data["end_message"], str)
+                else None
+            ),
             start_message=(
                 str(data["start_message"])
                 if isinstance(data["start_message"], str)
                 else None
             ),
-            auto_start=bool(data["auto_start"]),
-            notification_trigger=CommonAbstraJsonV15DefinitionsFormStageNotificationTrigger.from_dict(
-                data["notification_trigger"]
+            is_initial=bool(data["is_initial"]),
+            access_control=CommonAbstraJsonV15DefinitionsFormStageAccessControl.from_dict(
+                data["access_control"]
             ),
-            start_button_text=(
-                str(data["start_button_text"])
-                if isinstance(data["start_button_text"], str)
+            timeout_message=(
+                str(data["timeout_message"])
+                if isinstance(data["timeout_message"], str)
                 else None
             ),
             error_message=(
@@ -5219,20 +5229,10 @@ class CommonAbstraJsonV15DefinitionsFormStage:
                 if isinstance(data["error_message"], str)
                 else None
             ),
-            timeout_message=(
-                str(data["timeout_message"])
-                if isinstance(data["timeout_message"], str)
-                else None
+            notification_trigger=CommonAbstraJsonV15DefinitionsFormStageNotificationTrigger.from_dict(
+                data["notification_trigger"]
             ),
-            is_initial=bool(data["is_initial"]),
-            access_control=CommonAbstraJsonV15DefinitionsFormStageAccessControl.from_dict(
-                data["access_control"]
-            ),
-            end_message=(
-                str(data["end_message"])
-                if isinstance(data["end_message"], str)
-                else None
-            ),
+            auto_start=bool(data["auto_start"]),
             path=str(data["path"]),
         )
 
@@ -5251,7 +5251,7 @@ CommonAbstraJsonV15DefinitionsScriptStageTransitions = typing.List[
 
 CommonAbstraJsonV15DefinitionsScriptStageFile = str
 
-CommonAbstraJsonV15DefinitionsScriptStageId = str
+CommonAbstraJsonV15DefinitionsScriptStageTitle = str
 
 CommonAbstraJsonV15DefinitionsScriptStageWorkflowPositionItem = float
 
@@ -5259,7 +5259,7 @@ CommonAbstraJsonV15DefinitionsScriptStageWorkflowPosition = typing.List[
     CommonAbstraJsonV15DefinitionsScriptStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV15DefinitionsScriptStageTitle = str
+CommonAbstraJsonV15DefinitionsScriptStageId = str
 
 CommonAbstraJsonV15DefinitionsScriptStageIsInitial = bool
 
@@ -5268,18 +5268,18 @@ CommonAbstraJsonV15DefinitionsScriptStageIsInitial = bool
 class CommonAbstraJsonV15DefinitionsScriptStage:
     transitions: CommonAbstraJsonV15DefinitionsScriptStageTransitions
     file: CommonAbstraJsonV15DefinitionsScriptStageFile
-    id: CommonAbstraJsonV15DefinitionsScriptStageId
-    workflow_position: CommonAbstraJsonV15DefinitionsScriptStageWorkflowPosition
     title: CommonAbstraJsonV15DefinitionsScriptStageTitle
+    workflow_position: CommonAbstraJsonV15DefinitionsScriptStageWorkflowPosition
+    id: CommonAbstraJsonV15DefinitionsScriptStageId
     is_initial: CommonAbstraJsonV15DefinitionsScriptStageIsInitial
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["is_initial"] = self.is_initial
         return data
 
@@ -5293,9 +5293,9 @@ class CommonAbstraJsonV15DefinitionsScriptStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             is_initial=bool(data["is_initial"]),
         )
 
@@ -5617,17 +5617,17 @@ class CommonAbstraJsonV18Home:
         )
 
 
+CommonAbstraJsonV18DefinitionsJobStageTitle = str
+
 CommonAbstraJsonV18DefinitionsJobStageWorkflowPositionItem = float
 
 CommonAbstraJsonV18DefinitionsJobStageWorkflowPosition = typing.List[
     CommonAbstraJsonV18DefinitionsJobStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV18DefinitionsJobStageTitle = str
+CommonAbstraJsonV18DefinitionsJobStageId = str
 
-CommonAbstraJsonV18DefinitionsJobStageOutput = bool
-
-CommonAbstraJsonV18DefinitionsJobStageTaskSchema = typing.Dict[str, typing.Any]
+CommonAbstraJsonV18DefinitionsJobStageInput = bool
 
 CommonAbstraJsonV18DefinitionsTransitionId = str
 
@@ -5704,24 +5704,24 @@ CommonAbstraJsonV18DefinitionsJobStageTransitions = typing.List[
     CommonAbstraJsonV18DefinitionsJobStageTransitionsItem
 ]
 
+CommonAbstraJsonV18DefinitionsJobStageOutput = bool
+
 CommonAbstraJsonV18DefinitionsJobStageFile = str
 
-CommonAbstraJsonV18DefinitionsJobStageInput = bool
-
-CommonAbstraJsonV18DefinitionsJobStageId = str
+CommonAbstraJsonV18DefinitionsJobStageTaskSchema = typing.Dict[str, typing.Any]
 
 CommonAbstraJsonV18DefinitionsJobStageSchedule = str
 
 
 @dataclass
 class CommonAbstraJsonV18DefinitionsJobStage:
-    workflow_position: CommonAbstraJsonV18DefinitionsJobStageWorkflowPosition
     title: CommonAbstraJsonV18DefinitionsJobStageTitle
-    output: CommonAbstraJsonV18DefinitionsJobStageOutput
-    transitions: CommonAbstraJsonV18DefinitionsJobStageTransitions
-    file: CommonAbstraJsonV18DefinitionsJobStageFile
-    input: CommonAbstraJsonV18DefinitionsJobStageInput
+    workflow_position: CommonAbstraJsonV18DefinitionsJobStageWorkflowPosition
     id: CommonAbstraJsonV18DefinitionsJobStageId
+    input: CommonAbstraJsonV18DefinitionsJobStageInput
+    transitions: CommonAbstraJsonV18DefinitionsJobStageTransitions
+    output: CommonAbstraJsonV18DefinitionsJobStageOutput
+    file: CommonAbstraJsonV18DefinitionsJobStageFile
     schedule: CommonAbstraJsonV18DefinitionsJobStageSchedule
     task_schema: typing.Optional[CommonAbstraJsonV18DefinitionsJobStageTaskSchema] = (
         field(default_factory=lambda: None)
@@ -5729,13 +5729,13 @@ class CommonAbstraJsonV18DefinitionsJobStage:
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["output"] = self.output
-        data["transitions"] = [item.to_dict() for item in self.transitions]
-        data["file"] = self.file
-        data["input"] = self.input
+        data["workflow_position"] = self.workflow_position
         data["id"] = self.id
+        data["input"] = self.input
+        data["transitions"] = [item.to_dict() for item in self.transitions]
+        data["output"] = self.output
+        data["file"] = self.file
         data["schedule"] = self.schedule
         if self.task_schema is not None:
             data["task_schema"] = self.task_schema
@@ -5746,16 +5746,16 @@ class CommonAbstraJsonV18DefinitionsJobStage:
         cls, data: typing.Dict[str, typing.Any]
     ) -> "CommonAbstraJsonV18DefinitionsJobStage":
         return cls(
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            output=bool(data["output"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
+            input=bool(data["input"]),
             transitions=[
                 CommonAbstraJsonV18DefinitionsTransition.from_dict(item)
                 for item in data["transitions"]
             ],
+            output=bool(data["output"]),
             file=str(data["file"]),
-            input=bool(data["input"]),
-            id=str(data["id"]),
             schedule=str(data["schedule"]),
             task_schema=None
             if data.get("task_schema") is None
@@ -5767,17 +5767,17 @@ CommonAbstraJsonV18JobsItem = CommonAbstraJsonV18DefinitionsJobStage
 
 CommonAbstraJsonV18Jobs = typing.List[CommonAbstraJsonV18JobsItem]
 
+CommonAbstraJsonV18DefinitionsHookStageTitle = str
+
 CommonAbstraJsonV18DefinitionsHookStageWorkflowPositionItem = float
 
 CommonAbstraJsonV18DefinitionsHookStageWorkflowPosition = typing.List[
     CommonAbstraJsonV18DefinitionsHookStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV18DefinitionsHookStageTitle = str
+CommonAbstraJsonV18DefinitionsHookStageId = str
 
-CommonAbstraJsonV18DefinitionsHookStageOutput = bool
-
-CommonAbstraJsonV18DefinitionsHookStageTaskSchema = typing.Dict[str, typing.Any]
+CommonAbstraJsonV18DefinitionsHookStageInput = bool
 
 CommonAbstraJsonV18DefinitionsHookStageTransitionsItem = (
     CommonAbstraJsonV18DefinitionsTransition
@@ -5787,47 +5787,47 @@ CommonAbstraJsonV18DefinitionsHookStageTransitions = typing.List[
     CommonAbstraJsonV18DefinitionsHookStageTransitionsItem
 ]
 
+CommonAbstraJsonV18DefinitionsHookStageOutput = bool
+
 CommonAbstraJsonV18DefinitionsHookStageFile = str
 
-CommonAbstraJsonV18DefinitionsHookStageInput = bool
-
-CommonAbstraJsonV18DefinitionsHookStageId = str
-
-CommonAbstraJsonV18DefinitionsHookStageEnabled = bool
+CommonAbstraJsonV18DefinitionsHookStageTaskSchema = typing.Dict[str, typing.Any]
 
 CommonAbstraJsonV18DefinitionsHookStageIsInitial = bool
 
 CommonAbstraJsonV18DefinitionsHookStagePath = str
 
+CommonAbstraJsonV18DefinitionsHookStageEnabled = bool
+
 
 @dataclass
 class CommonAbstraJsonV18DefinitionsHookStage:
-    workflow_position: CommonAbstraJsonV18DefinitionsHookStageWorkflowPosition
     title: CommonAbstraJsonV18DefinitionsHookStageTitle
-    output: CommonAbstraJsonV18DefinitionsHookStageOutput
-    transitions: CommonAbstraJsonV18DefinitionsHookStageTransitions
-    file: CommonAbstraJsonV18DefinitionsHookStageFile
-    input: CommonAbstraJsonV18DefinitionsHookStageInput
+    workflow_position: CommonAbstraJsonV18DefinitionsHookStageWorkflowPosition
     id: CommonAbstraJsonV18DefinitionsHookStageId
-    enabled: CommonAbstraJsonV18DefinitionsHookStageEnabled
+    input: CommonAbstraJsonV18DefinitionsHookStageInput
+    transitions: CommonAbstraJsonV18DefinitionsHookStageTransitions
+    output: CommonAbstraJsonV18DefinitionsHookStageOutput
+    file: CommonAbstraJsonV18DefinitionsHookStageFile
     is_initial: CommonAbstraJsonV18DefinitionsHookStageIsInitial
     path: CommonAbstraJsonV18DefinitionsHookStagePath
+    enabled: CommonAbstraJsonV18DefinitionsHookStageEnabled
     task_schema: typing.Optional[CommonAbstraJsonV18DefinitionsHookStageTaskSchema] = (
         field(default_factory=lambda: None)
     )
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["output"] = self.output
-        data["transitions"] = [item.to_dict() for item in self.transitions]
-        data["file"] = self.file
-        data["input"] = self.input
+        data["workflow_position"] = self.workflow_position
         data["id"] = self.id
-        data["enabled"] = self.enabled
+        data["input"] = self.input
+        data["transitions"] = [item.to_dict() for item in self.transitions]
+        data["output"] = self.output
+        data["file"] = self.file
         data["is_initial"] = self.is_initial
         data["path"] = self.path
+        data["enabled"] = self.enabled
         if self.task_schema is not None:
             data["task_schema"] = self.task_schema
         return data
@@ -5837,19 +5837,19 @@ class CommonAbstraJsonV18DefinitionsHookStage:
         cls, data: typing.Dict[str, typing.Any]
     ) -> "CommonAbstraJsonV18DefinitionsHookStage":
         return cls(
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            output=bool(data["output"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
+            input=bool(data["input"]),
             transitions=[
                 CommonAbstraJsonV18DefinitionsTransition.from_dict(item)
                 for item in data["transitions"]
             ],
+            output=bool(data["output"]),
             file=str(data["file"]),
-            input=bool(data["input"]),
-            id=str(data["id"]),
-            enabled=bool(data["enabled"]),
             is_initial=bool(data["is_initial"]),
             path=str(data["path"]),
+            enabled=bool(data["enabled"]),
             task_schema=None
             if data.get("task_schema") is None
             else dict(**data["task_schema"]),
@@ -5860,17 +5860,17 @@ CommonAbstraJsonV18HooksItem = CommonAbstraJsonV18DefinitionsHookStage
 
 CommonAbstraJsonV18Hooks = typing.List[CommonAbstraJsonV18HooksItem]
 
+CommonAbstraJsonV18DefinitionsFormStageTitle = str
+
 CommonAbstraJsonV18DefinitionsFormStageWorkflowPositionItem = float
 
 CommonAbstraJsonV18DefinitionsFormStageWorkflowPosition = typing.List[
     CommonAbstraJsonV18DefinitionsFormStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV18DefinitionsFormStageTitle = str
+CommonAbstraJsonV18DefinitionsFormStageId = str
 
-CommonAbstraJsonV18DefinitionsFormStageOutput = bool
-
-CommonAbstraJsonV18DefinitionsFormStageTaskSchema = typing.Dict[str, typing.Any]
+CommonAbstraJsonV18DefinitionsFormStageInput = bool
 
 CommonAbstraJsonV18DefinitionsFormStageTransitionsItem = (
     CommonAbstraJsonV18DefinitionsTransition
@@ -5880,63 +5880,11 @@ CommonAbstraJsonV18DefinitionsFormStageTransitions = typing.List[
     CommonAbstraJsonV18DefinitionsFormStageTransitionsItem
 ]
 
+CommonAbstraJsonV18DefinitionsFormStageOutput = bool
+
 CommonAbstraJsonV18DefinitionsFormStageFile = str
 
-CommonAbstraJsonV18DefinitionsFormStageInput = bool
-
-CommonAbstraJsonV18DefinitionsFormStageId = str
-
-CommonAbstraJsonV18DefinitionsFormStageStartMessageString = str
-
-CommonAbstraJsonV18DefinitionsFormStageStartMessageNull = type(None)
-
-CommonAbstraJsonV18DefinitionsFormStageStartMessage = typing.Union[
-    CommonAbstraJsonV18DefinitionsFormStageStartMessageString,
-    CommonAbstraJsonV18DefinitionsFormStageStartMessageNull,
-]
-
-
-def common_abstra_json_v18_definitions_form_stage_start_message_from_dict(
-    data: typing.Any,
-) -> "CommonAbstraJsonV18DefinitionsFormStageStartMessage":
-    if isinstance(data, str):
-        return str(data)
-    if data is None:
-        return None
-    raise ValueError(
-        f"Could not parse CommonAbstraJsonV18DefinitionsFormStageStartMessage from dict: {data}"
-    )
-
-
-CommonAbstraJsonV18DefinitionsFormStageAutoStart = bool
-
-CommonAbstraJsonV18DefinitionsFormStageNotificationTriggerVariableName = str
-
-CommonAbstraJsonV18DefinitionsFormStageNotificationTriggerEnabled = bool
-
-
-@dataclass
-class CommonAbstraJsonV18DefinitionsFormStageNotificationTrigger:
-    variable_name: (
-        CommonAbstraJsonV18DefinitionsFormStageNotificationTriggerVariableName
-    )
-    enabled: CommonAbstraJsonV18DefinitionsFormStageNotificationTriggerEnabled
-
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        data = {}
-        data["variable_name"] = self.variable_name
-        data["enabled"] = self.enabled
-        return data
-
-    @classmethod
-    def from_dict(
-        cls, data: typing.Dict[str, typing.Any]
-    ) -> "CommonAbstraJsonV18DefinitionsFormStageNotificationTrigger":
-        return cls(
-            variable_name=str(data["variable_name"]),
-            enabled=bool(data["enabled"]),
-        )
-
+CommonAbstraJsonV18DefinitionsFormStageTaskSchema = typing.Dict[str, typing.Any]
 
 CommonAbstraJsonV18DefinitionsFormStageStartButtonTextString = str
 
@@ -5960,47 +5908,47 @@ def common_abstra_json_v18_definitions_form_stage_start_button_text_from_dict(
     )
 
 
-CommonAbstraJsonV18DefinitionsFormStageErrorMessageString = str
+CommonAbstraJsonV18DefinitionsFormStageEndMessageString = str
 
-CommonAbstraJsonV18DefinitionsFormStageErrorMessageNull = type(None)
+CommonAbstraJsonV18DefinitionsFormStageEndMessageNull = type(None)
 
-CommonAbstraJsonV18DefinitionsFormStageErrorMessage = typing.Union[
-    CommonAbstraJsonV18DefinitionsFormStageErrorMessageString,
-    CommonAbstraJsonV18DefinitionsFormStageErrorMessageNull,
+CommonAbstraJsonV18DefinitionsFormStageEndMessage = typing.Union[
+    CommonAbstraJsonV18DefinitionsFormStageEndMessageString,
+    CommonAbstraJsonV18DefinitionsFormStageEndMessageNull,
 ]
 
 
-def common_abstra_json_v18_definitions_form_stage_error_message_from_dict(
+def common_abstra_json_v18_definitions_form_stage_end_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV18DefinitionsFormStageErrorMessage":
+) -> "CommonAbstraJsonV18DefinitionsFormStageEndMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV18DefinitionsFormStageErrorMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV18DefinitionsFormStageEndMessage from dict: {data}"
     )
 
 
-CommonAbstraJsonV18DefinitionsFormStageTimeoutMessageString = str
+CommonAbstraJsonV18DefinitionsFormStageStartMessageString = str
 
-CommonAbstraJsonV18DefinitionsFormStageTimeoutMessageNull = type(None)
+CommonAbstraJsonV18DefinitionsFormStageStartMessageNull = type(None)
 
-CommonAbstraJsonV18DefinitionsFormStageTimeoutMessage = typing.Union[
-    CommonAbstraJsonV18DefinitionsFormStageTimeoutMessageString,
-    CommonAbstraJsonV18DefinitionsFormStageTimeoutMessageNull,
+CommonAbstraJsonV18DefinitionsFormStageStartMessage = typing.Union[
+    CommonAbstraJsonV18DefinitionsFormStageStartMessageString,
+    CommonAbstraJsonV18DefinitionsFormStageStartMessageNull,
 ]
 
 
-def common_abstra_json_v18_definitions_form_stage_timeout_message_from_dict(
+def common_abstra_json_v18_definitions_form_stage_start_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV18DefinitionsFormStageTimeoutMessage":
+) -> "CommonAbstraJsonV18DefinitionsFormStageStartMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV18DefinitionsFormStageTimeoutMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV18DefinitionsFormStageStartMessage from dict: {data}"
     )
 
 
@@ -6036,49 +5984,101 @@ class CommonAbstraJsonV18DefinitionsFormStageAccessControl:
         )
 
 
-CommonAbstraJsonV18DefinitionsFormStageEndMessageString = str
+CommonAbstraJsonV18DefinitionsFormStageTimeoutMessageString = str
 
-CommonAbstraJsonV18DefinitionsFormStageEndMessageNull = type(None)
+CommonAbstraJsonV18DefinitionsFormStageTimeoutMessageNull = type(None)
 
-CommonAbstraJsonV18DefinitionsFormStageEndMessage = typing.Union[
-    CommonAbstraJsonV18DefinitionsFormStageEndMessageString,
-    CommonAbstraJsonV18DefinitionsFormStageEndMessageNull,
+CommonAbstraJsonV18DefinitionsFormStageTimeoutMessage = typing.Union[
+    CommonAbstraJsonV18DefinitionsFormStageTimeoutMessageString,
+    CommonAbstraJsonV18DefinitionsFormStageTimeoutMessageNull,
 ]
 
 
-def common_abstra_json_v18_definitions_form_stage_end_message_from_dict(
+def common_abstra_json_v18_definitions_form_stage_timeout_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV18DefinitionsFormStageEndMessage":
+) -> "CommonAbstraJsonV18DefinitionsFormStageTimeoutMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV18DefinitionsFormStageEndMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV18DefinitionsFormStageTimeoutMessage from dict: {data}"
     )
 
+
+CommonAbstraJsonV18DefinitionsFormStageErrorMessageString = str
+
+CommonAbstraJsonV18DefinitionsFormStageErrorMessageNull = type(None)
+
+CommonAbstraJsonV18DefinitionsFormStageErrorMessage = typing.Union[
+    CommonAbstraJsonV18DefinitionsFormStageErrorMessageString,
+    CommonAbstraJsonV18DefinitionsFormStageErrorMessageNull,
+]
+
+
+def common_abstra_json_v18_definitions_form_stage_error_message_from_dict(
+    data: typing.Any,
+) -> "CommonAbstraJsonV18DefinitionsFormStageErrorMessage":
+    if isinstance(data, str):
+        return str(data)
+    if data is None:
+        return None
+    raise ValueError(
+        f"Could not parse CommonAbstraJsonV18DefinitionsFormStageErrorMessage from dict: {data}"
+    )
+
+
+CommonAbstraJsonV18DefinitionsFormStageNotificationTriggerVariableName = str
+
+CommonAbstraJsonV18DefinitionsFormStageNotificationTriggerEnabled = bool
+
+
+@dataclass
+class CommonAbstraJsonV18DefinitionsFormStageNotificationTrigger:
+    variable_name: (
+        CommonAbstraJsonV18DefinitionsFormStageNotificationTriggerVariableName
+    )
+    enabled: CommonAbstraJsonV18DefinitionsFormStageNotificationTriggerEnabled
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data["variable_name"] = self.variable_name
+        data["enabled"] = self.enabled
+        return data
+
+    @classmethod
+    def from_dict(
+        cls, data: typing.Dict[str, typing.Any]
+    ) -> "CommonAbstraJsonV18DefinitionsFormStageNotificationTrigger":
+        return cls(
+            variable_name=str(data["variable_name"]),
+            enabled=bool(data["enabled"]),
+        )
+
+
+CommonAbstraJsonV18DefinitionsFormStageAutoStart = bool
 
 CommonAbstraJsonV18DefinitionsFormStagePath = str
 
 
 @dataclass
 class CommonAbstraJsonV18DefinitionsFormStage:
-    workflow_position: CommonAbstraJsonV18DefinitionsFormStageWorkflowPosition
     title: CommonAbstraJsonV18DefinitionsFormStageTitle
-    output: CommonAbstraJsonV18DefinitionsFormStageOutput
-    transitions: CommonAbstraJsonV18DefinitionsFormStageTransitions
-    file: CommonAbstraJsonV18DefinitionsFormStageFile
-    input: CommonAbstraJsonV18DefinitionsFormStageInput
+    workflow_position: CommonAbstraJsonV18DefinitionsFormStageWorkflowPosition
     id: CommonAbstraJsonV18DefinitionsFormStageId
-    start_message: CommonAbstraJsonV18DefinitionsFormStageStartMessage
-    auto_start: CommonAbstraJsonV18DefinitionsFormStageAutoStart
-    notification_trigger: CommonAbstraJsonV18DefinitionsFormStageNotificationTrigger
+    input: CommonAbstraJsonV18DefinitionsFormStageInput
+    transitions: CommonAbstraJsonV18DefinitionsFormStageTransitions
+    output: CommonAbstraJsonV18DefinitionsFormStageOutput
+    file: CommonAbstraJsonV18DefinitionsFormStageFile
     start_button_text: CommonAbstraJsonV18DefinitionsFormStageStartButtonText
-    error_message: CommonAbstraJsonV18DefinitionsFormStageErrorMessage
-    timeout_message: CommonAbstraJsonV18DefinitionsFormStageTimeoutMessage
+    end_message: CommonAbstraJsonV18DefinitionsFormStageEndMessage
+    start_message: CommonAbstraJsonV18DefinitionsFormStageStartMessage
     is_initial: CommonAbstraJsonV18DefinitionsFormStageIsInitial
     access_control: CommonAbstraJsonV18DefinitionsFormStageAccessControl
-    end_message: CommonAbstraJsonV18DefinitionsFormStageEndMessage
+    timeout_message: CommonAbstraJsonV18DefinitionsFormStageTimeoutMessage
+    error_message: CommonAbstraJsonV18DefinitionsFormStageErrorMessage
+    notification_trigger: CommonAbstraJsonV18DefinitionsFormStageNotificationTrigger
+    auto_start: CommonAbstraJsonV18DefinitionsFormStageAutoStart
     path: CommonAbstraJsonV18DefinitionsFormStagePath
     task_schema: typing.Optional[CommonAbstraJsonV18DefinitionsFormStageTaskSchema] = (
         field(default_factory=lambda: None)
@@ -6086,22 +6086,22 @@ class CommonAbstraJsonV18DefinitionsFormStage:
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["output"] = self.output
-        data["transitions"] = [item.to_dict() for item in self.transitions]
-        data["file"] = self.file
-        data["input"] = self.input
+        data["workflow_position"] = self.workflow_position
         data["id"] = self.id
-        data["start_message"] = self.start_message
-        data["auto_start"] = self.auto_start
-        data["notification_trigger"] = self.notification_trigger.to_dict()
+        data["input"] = self.input
+        data["transitions"] = [item.to_dict() for item in self.transitions]
+        data["output"] = self.output
+        data["file"] = self.file
         data["start_button_text"] = self.start_button_text
-        data["error_message"] = self.error_message
-        data["timeout_message"] = self.timeout_message
+        data["end_message"] = self.end_message
+        data["start_message"] = self.start_message
         data["is_initial"] = self.is_initial
         data["access_control"] = self.access_control.to_dict()
-        data["end_message"] = self.end_message
+        data["timeout_message"] = self.timeout_message
+        data["error_message"] = self.error_message
+        data["notification_trigger"] = self.notification_trigger.to_dict()
+        data["auto_start"] = self.auto_start
         data["path"] = self.path
         if self.task_schema is not None:
             data["task_schema"] = self.task_schema
@@ -6112,28 +6112,38 @@ class CommonAbstraJsonV18DefinitionsFormStage:
         cls, data: typing.Dict[str, typing.Any]
     ) -> "CommonAbstraJsonV18DefinitionsFormStage":
         return cls(
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            output=bool(data["output"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
+            input=bool(data["input"]),
             transitions=[
                 CommonAbstraJsonV18DefinitionsTransition.from_dict(item)
                 for item in data["transitions"]
             ],
+            output=bool(data["output"]),
             file=str(data["file"]),
-            input=bool(data["input"]),
-            id=str(data["id"]),
+            start_button_text=(
+                str(data["start_button_text"])
+                if isinstance(data["start_button_text"], str)
+                else None
+            ),
+            end_message=(
+                str(data["end_message"])
+                if isinstance(data["end_message"], str)
+                else None
+            ),
             start_message=(
                 str(data["start_message"])
                 if isinstance(data["start_message"], str)
                 else None
             ),
-            auto_start=bool(data["auto_start"]),
-            notification_trigger=CommonAbstraJsonV18DefinitionsFormStageNotificationTrigger.from_dict(
-                data["notification_trigger"]
+            is_initial=bool(data["is_initial"]),
+            access_control=CommonAbstraJsonV18DefinitionsFormStageAccessControl.from_dict(
+                data["access_control"]
             ),
-            start_button_text=(
-                str(data["start_button_text"])
-                if isinstance(data["start_button_text"], str)
+            timeout_message=(
+                str(data["timeout_message"])
+                if isinstance(data["timeout_message"], str)
                 else None
             ),
             error_message=(
@@ -6141,20 +6151,10 @@ class CommonAbstraJsonV18DefinitionsFormStage:
                 if isinstance(data["error_message"], str)
                 else None
             ),
-            timeout_message=(
-                str(data["timeout_message"])
-                if isinstance(data["timeout_message"], str)
-                else None
+            notification_trigger=CommonAbstraJsonV18DefinitionsFormStageNotificationTrigger.from_dict(
+                data["notification_trigger"]
             ),
-            is_initial=bool(data["is_initial"]),
-            access_control=CommonAbstraJsonV18DefinitionsFormStageAccessControl.from_dict(
-                data["access_control"]
-            ),
-            end_message=(
-                str(data["end_message"])
-                if isinstance(data["end_message"], str)
-                else None
-            ),
+            auto_start=bool(data["auto_start"]),
             path=str(data["path"]),
             task_schema=None
             if data.get("task_schema") is None
@@ -6166,17 +6166,17 @@ CommonAbstraJsonV18FormsItem = CommonAbstraJsonV18DefinitionsFormStage
 
 CommonAbstraJsonV18Forms = typing.List[CommonAbstraJsonV18FormsItem]
 
+CommonAbstraJsonV18DefinitionsScriptStageTitle = str
+
 CommonAbstraJsonV18DefinitionsScriptStageWorkflowPositionItem = float
 
 CommonAbstraJsonV18DefinitionsScriptStageWorkflowPosition = typing.List[
     CommonAbstraJsonV18DefinitionsScriptStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV18DefinitionsScriptStageTitle = str
+CommonAbstraJsonV18DefinitionsScriptStageId = str
 
-CommonAbstraJsonV18DefinitionsScriptStageOutput = bool
-
-CommonAbstraJsonV18DefinitionsScriptStageTaskSchema = typing.Dict[str, typing.Any]
+CommonAbstraJsonV18DefinitionsScriptStageInput = bool
 
 CommonAbstraJsonV18DefinitionsScriptStageTransitionsItem = (
     CommonAbstraJsonV18DefinitionsTransition
@@ -6186,24 +6186,24 @@ CommonAbstraJsonV18DefinitionsScriptStageTransitions = typing.List[
     CommonAbstraJsonV18DefinitionsScriptStageTransitionsItem
 ]
 
+CommonAbstraJsonV18DefinitionsScriptStageOutput = bool
+
 CommonAbstraJsonV18DefinitionsScriptStageFile = str
 
-CommonAbstraJsonV18DefinitionsScriptStageInput = bool
-
-CommonAbstraJsonV18DefinitionsScriptStageId = str
+CommonAbstraJsonV18DefinitionsScriptStageTaskSchema = typing.Dict[str, typing.Any]
 
 CommonAbstraJsonV18DefinitionsScriptStageIsInitial = bool
 
 
 @dataclass
 class CommonAbstraJsonV18DefinitionsScriptStage:
-    workflow_position: CommonAbstraJsonV18DefinitionsScriptStageWorkflowPosition
     title: CommonAbstraJsonV18DefinitionsScriptStageTitle
-    output: CommonAbstraJsonV18DefinitionsScriptStageOutput
-    transitions: CommonAbstraJsonV18DefinitionsScriptStageTransitions
-    file: CommonAbstraJsonV18DefinitionsScriptStageFile
-    input: CommonAbstraJsonV18DefinitionsScriptStageInput
+    workflow_position: CommonAbstraJsonV18DefinitionsScriptStageWorkflowPosition
     id: CommonAbstraJsonV18DefinitionsScriptStageId
+    input: CommonAbstraJsonV18DefinitionsScriptStageInput
+    transitions: CommonAbstraJsonV18DefinitionsScriptStageTransitions
+    output: CommonAbstraJsonV18DefinitionsScriptStageOutput
+    file: CommonAbstraJsonV18DefinitionsScriptStageFile
     is_initial: CommonAbstraJsonV18DefinitionsScriptStageIsInitial
     task_schema: typing.Optional[
         CommonAbstraJsonV18DefinitionsScriptStageTaskSchema
@@ -6211,13 +6211,13 @@ class CommonAbstraJsonV18DefinitionsScriptStage:
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["output"] = self.output
-        data["transitions"] = [item.to_dict() for item in self.transitions]
-        data["file"] = self.file
-        data["input"] = self.input
+        data["workflow_position"] = self.workflow_position
         data["id"] = self.id
+        data["input"] = self.input
+        data["transitions"] = [item.to_dict() for item in self.transitions]
+        data["output"] = self.output
+        data["file"] = self.file
         data["is_initial"] = self.is_initial
         if self.task_schema is not None:
             data["task_schema"] = self.task_schema
@@ -6228,16 +6228,16 @@ class CommonAbstraJsonV18DefinitionsScriptStage:
         cls, data: typing.Dict[str, typing.Any]
     ) -> "CommonAbstraJsonV18DefinitionsScriptStage":
         return cls(
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            output=bool(data["output"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
+            input=bool(data["input"]),
             transitions=[
                 CommonAbstraJsonV18DefinitionsTransition.from_dict(item)
                 for item in data["transitions"]
             ],
+            output=bool(data["output"]),
             file=str(data["file"]),
-            input=bool(data["input"]),
-            id=str(data["id"]),
             is_initial=bool(data["is_initial"]),
             task_schema=None
             if data.get("task_schema") is None
@@ -6769,7 +6769,7 @@ CommonAbstraJsonV14DefinitionsJobStageTransitions = typing.List[
 
 CommonAbstraJsonV14DefinitionsJobStageFile = str
 
-CommonAbstraJsonV14DefinitionsJobStageId = str
+CommonAbstraJsonV14DefinitionsJobStageTitle = str
 
 CommonAbstraJsonV14DefinitionsJobStageWorkflowPositionItem = float
 
@@ -6777,7 +6777,7 @@ CommonAbstraJsonV14DefinitionsJobStageWorkflowPosition = typing.List[
     CommonAbstraJsonV14DefinitionsJobStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV14DefinitionsJobStageTitle = str
+CommonAbstraJsonV14DefinitionsJobStageId = str
 
 CommonAbstraJsonV14DefinitionsJobStageSchedule = str
 
@@ -6786,18 +6786,18 @@ CommonAbstraJsonV14DefinitionsJobStageSchedule = str
 class CommonAbstraJsonV14DefinitionsJobStage:
     transitions: CommonAbstraJsonV14DefinitionsJobStageTransitions
     file: CommonAbstraJsonV14DefinitionsJobStageFile
-    id: CommonAbstraJsonV14DefinitionsJobStageId
-    workflow_position: CommonAbstraJsonV14DefinitionsJobStageWorkflowPosition
     title: CommonAbstraJsonV14DefinitionsJobStageTitle
+    workflow_position: CommonAbstraJsonV14DefinitionsJobStageWorkflowPosition
+    id: CommonAbstraJsonV14DefinitionsJobStageId
     schedule: CommonAbstraJsonV14DefinitionsJobStageSchedule
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["schedule"] = self.schedule
         return data
 
@@ -6811,9 +6811,9 @@ class CommonAbstraJsonV14DefinitionsJobStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             schedule=str(data["schedule"]),
         )
 
@@ -6832,7 +6832,7 @@ CommonAbstraJsonV14DefinitionsHookStageTransitions = typing.List[
 
 CommonAbstraJsonV14DefinitionsHookStageFile = str
 
-CommonAbstraJsonV14DefinitionsHookStageId = str
+CommonAbstraJsonV14DefinitionsHookStageTitle = str
 
 CommonAbstraJsonV14DefinitionsHookStageWorkflowPositionItem = float
 
@@ -6840,36 +6840,36 @@ CommonAbstraJsonV14DefinitionsHookStageWorkflowPosition = typing.List[
     CommonAbstraJsonV14DefinitionsHookStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV14DefinitionsHookStageTitle = str
-
-CommonAbstraJsonV14DefinitionsHookStageEnabled = bool
+CommonAbstraJsonV14DefinitionsHookStageId = str
 
 CommonAbstraJsonV14DefinitionsHookStageIsInitial = bool
 
 CommonAbstraJsonV14DefinitionsHookStagePath = str
+
+CommonAbstraJsonV14DefinitionsHookStageEnabled = bool
 
 
 @dataclass
 class CommonAbstraJsonV14DefinitionsHookStage:
     transitions: CommonAbstraJsonV14DefinitionsHookStageTransitions
     file: CommonAbstraJsonV14DefinitionsHookStageFile
-    id: CommonAbstraJsonV14DefinitionsHookStageId
-    workflow_position: CommonAbstraJsonV14DefinitionsHookStageWorkflowPosition
     title: CommonAbstraJsonV14DefinitionsHookStageTitle
-    enabled: CommonAbstraJsonV14DefinitionsHookStageEnabled
+    workflow_position: CommonAbstraJsonV14DefinitionsHookStageWorkflowPosition
+    id: CommonAbstraJsonV14DefinitionsHookStageId
     is_initial: CommonAbstraJsonV14DefinitionsHookStageIsInitial
     path: CommonAbstraJsonV14DefinitionsHookStagePath
+    enabled: CommonAbstraJsonV14DefinitionsHookStageEnabled
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["enabled"] = self.enabled
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["is_initial"] = self.is_initial
         data["path"] = self.path
+        data["enabled"] = self.enabled
         return data
 
     @classmethod
@@ -6882,12 +6882,12 @@ class CommonAbstraJsonV14DefinitionsHookStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            enabled=bool(data["enabled"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             is_initial=bool(data["is_initial"]),
             path=str(data["path"]),
+            enabled=bool(data["enabled"]),
         )
 
 
@@ -6905,7 +6905,7 @@ CommonAbstraJsonV14DefinitionsFormStageTransitions = typing.List[
 
 CommonAbstraJsonV14DefinitionsFormStageFile = str
 
-CommonAbstraJsonV14DefinitionsFormStageId = str
+CommonAbstraJsonV14DefinitionsFormStageTitle = str
 
 CommonAbstraJsonV14DefinitionsFormStageWorkflowPositionItem = float
 
@@ -6913,29 +6913,7 @@ CommonAbstraJsonV14DefinitionsFormStageWorkflowPosition = typing.List[
     CommonAbstraJsonV14DefinitionsFormStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV14DefinitionsFormStageTitle = str
-
-CommonAbstraJsonV14DefinitionsFormStageStartMessageString = str
-
-CommonAbstraJsonV14DefinitionsFormStageStartMessageNull = type(None)
-
-CommonAbstraJsonV14DefinitionsFormStageStartMessage = typing.Union[
-    CommonAbstraJsonV14DefinitionsFormStageStartMessageString,
-    CommonAbstraJsonV14DefinitionsFormStageStartMessageNull,
-]
-
-
-def common_abstra_json_v14_definitions_form_stage_start_message_from_dict(
-    data: typing.Any,
-) -> "CommonAbstraJsonV14DefinitionsFormStageStartMessage":
-    if isinstance(data, str):
-        return str(data)
-    if data is None:
-        return None
-    raise ValueError(
-        f"Could not parse CommonAbstraJsonV14DefinitionsFormStageStartMessage from dict: {data}"
-    )
-
+CommonAbstraJsonV14DefinitionsFormStageId = str
 
 CommonAbstraJsonV14DefinitionsFormStageRestartButtonTextString = str
 
@@ -6957,36 +6935,6 @@ def common_abstra_json_v14_definitions_form_stage_restart_button_text_from_dict(
     raise ValueError(
         f"Could not parse CommonAbstraJsonV14DefinitionsFormStageRestartButtonText from dict: {data}"
     )
-
-
-CommonAbstraJsonV14DefinitionsFormStageAutoStart = bool
-
-CommonAbstraJsonV14DefinitionsFormStageNotificationTriggerVariableName = str
-
-CommonAbstraJsonV14DefinitionsFormStageNotificationTriggerEnabled = bool
-
-
-@dataclass
-class CommonAbstraJsonV14DefinitionsFormStageNotificationTrigger:
-    variable_name: (
-        CommonAbstraJsonV14DefinitionsFormStageNotificationTriggerVariableName
-    )
-    enabled: CommonAbstraJsonV14DefinitionsFormStageNotificationTriggerEnabled
-
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        data = {}
-        data["variable_name"] = self.variable_name
-        data["enabled"] = self.enabled
-        return data
-
-    @classmethod
-    def from_dict(
-        cls, data: typing.Dict[str, typing.Any]
-    ) -> "CommonAbstraJsonV14DefinitionsFormStageNotificationTrigger":
-        return cls(
-            variable_name=str(data["variable_name"]),
-            enabled=bool(data["enabled"]),
-        )
 
 
 CommonAbstraJsonV14DefinitionsFormStageStartButtonTextString = str
@@ -7011,47 +6959,47 @@ def common_abstra_json_v14_definitions_form_stage_start_button_text_from_dict(
     )
 
 
-CommonAbstraJsonV14DefinitionsFormStageErrorMessageString = str
+CommonAbstraJsonV14DefinitionsFormStageEndMessageString = str
 
-CommonAbstraJsonV14DefinitionsFormStageErrorMessageNull = type(None)
+CommonAbstraJsonV14DefinitionsFormStageEndMessageNull = type(None)
 
-CommonAbstraJsonV14DefinitionsFormStageErrorMessage = typing.Union[
-    CommonAbstraJsonV14DefinitionsFormStageErrorMessageString,
-    CommonAbstraJsonV14DefinitionsFormStageErrorMessageNull,
+CommonAbstraJsonV14DefinitionsFormStageEndMessage = typing.Union[
+    CommonAbstraJsonV14DefinitionsFormStageEndMessageString,
+    CommonAbstraJsonV14DefinitionsFormStageEndMessageNull,
 ]
 
 
-def common_abstra_json_v14_definitions_form_stage_error_message_from_dict(
+def common_abstra_json_v14_definitions_form_stage_end_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV14DefinitionsFormStageErrorMessage":
+) -> "CommonAbstraJsonV14DefinitionsFormStageEndMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV14DefinitionsFormStageErrorMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV14DefinitionsFormStageEndMessage from dict: {data}"
     )
 
 
-CommonAbstraJsonV14DefinitionsFormStageTimeoutMessageString = str
+CommonAbstraJsonV14DefinitionsFormStageStartMessageString = str
 
-CommonAbstraJsonV14DefinitionsFormStageTimeoutMessageNull = type(None)
+CommonAbstraJsonV14DefinitionsFormStageStartMessageNull = type(None)
 
-CommonAbstraJsonV14DefinitionsFormStageTimeoutMessage = typing.Union[
-    CommonAbstraJsonV14DefinitionsFormStageTimeoutMessageString,
-    CommonAbstraJsonV14DefinitionsFormStageTimeoutMessageNull,
+CommonAbstraJsonV14DefinitionsFormStageStartMessage = typing.Union[
+    CommonAbstraJsonV14DefinitionsFormStageStartMessageString,
+    CommonAbstraJsonV14DefinitionsFormStageStartMessageNull,
 ]
 
 
-def common_abstra_json_v14_definitions_form_stage_timeout_message_from_dict(
+def common_abstra_json_v14_definitions_form_stage_start_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV14DefinitionsFormStageTimeoutMessage":
+) -> "CommonAbstraJsonV14DefinitionsFormStageStartMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV14DefinitionsFormStageTimeoutMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV14DefinitionsFormStageStartMessage from dict: {data}"
     )
 
 
@@ -7087,27 +7035,47 @@ class CommonAbstraJsonV14DefinitionsFormStageAccessControl:
         )
 
 
-CommonAbstraJsonV14DefinitionsFormStageAllowRestart = bool
+CommonAbstraJsonV14DefinitionsFormStageTimeoutMessageString = str
 
-CommonAbstraJsonV14DefinitionsFormStageEndMessageString = str
+CommonAbstraJsonV14DefinitionsFormStageTimeoutMessageNull = type(None)
 
-CommonAbstraJsonV14DefinitionsFormStageEndMessageNull = type(None)
-
-CommonAbstraJsonV14DefinitionsFormStageEndMessage = typing.Union[
-    CommonAbstraJsonV14DefinitionsFormStageEndMessageString,
-    CommonAbstraJsonV14DefinitionsFormStageEndMessageNull,
+CommonAbstraJsonV14DefinitionsFormStageTimeoutMessage = typing.Union[
+    CommonAbstraJsonV14DefinitionsFormStageTimeoutMessageString,
+    CommonAbstraJsonV14DefinitionsFormStageTimeoutMessageNull,
 ]
 
 
-def common_abstra_json_v14_definitions_form_stage_end_message_from_dict(
+def common_abstra_json_v14_definitions_form_stage_timeout_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV14DefinitionsFormStageEndMessage":
+) -> "CommonAbstraJsonV14DefinitionsFormStageTimeoutMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV14DefinitionsFormStageEndMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV14DefinitionsFormStageTimeoutMessage from dict: {data}"
+    )
+
+
+CommonAbstraJsonV14DefinitionsFormStageErrorMessageString = str
+
+CommonAbstraJsonV14DefinitionsFormStageErrorMessageNull = type(None)
+
+CommonAbstraJsonV14DefinitionsFormStageErrorMessage = typing.Union[
+    CommonAbstraJsonV14DefinitionsFormStageErrorMessageString,
+    CommonAbstraJsonV14DefinitionsFormStageErrorMessageNull,
+]
+
+
+def common_abstra_json_v14_definitions_form_stage_error_message_from_dict(
+    data: typing.Any,
+) -> "CommonAbstraJsonV14DefinitionsFormStageErrorMessage":
+    if isinstance(data, str):
+        return str(data)
+    if data is None:
+        return None
+    raise ValueError(
+        f"Could not parse CommonAbstraJsonV14DefinitionsFormStageErrorMessage from dict: {data}"
     )
 
 
@@ -7133,6 +7101,38 @@ def common_abstra_json_v14_definitions_form_stage_welcome_title_from_dict(
     )
 
 
+CommonAbstraJsonV14DefinitionsFormStageNotificationTriggerVariableName = str
+
+CommonAbstraJsonV14DefinitionsFormStageNotificationTriggerEnabled = bool
+
+
+@dataclass
+class CommonAbstraJsonV14DefinitionsFormStageNotificationTrigger:
+    variable_name: (
+        CommonAbstraJsonV14DefinitionsFormStageNotificationTriggerVariableName
+    )
+    enabled: CommonAbstraJsonV14DefinitionsFormStageNotificationTriggerEnabled
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data["variable_name"] = self.variable_name
+        data["enabled"] = self.enabled
+        return data
+
+    @classmethod
+    def from_dict(
+        cls, data: typing.Dict[str, typing.Any]
+    ) -> "CommonAbstraJsonV14DefinitionsFormStageNotificationTrigger":
+        return cls(
+            variable_name=str(data["variable_name"]),
+            enabled=bool(data["enabled"]),
+        )
+
+
+CommonAbstraJsonV14DefinitionsFormStageAutoStart = bool
+
+CommonAbstraJsonV14DefinitionsFormStageAllowRestart = bool
+
 CommonAbstraJsonV14DefinitionsFormStagePath = str
 
 
@@ -7140,42 +7140,42 @@ CommonAbstraJsonV14DefinitionsFormStagePath = str
 class CommonAbstraJsonV14DefinitionsFormStage:
     transitions: CommonAbstraJsonV14DefinitionsFormStageTransitions
     file: CommonAbstraJsonV14DefinitionsFormStageFile
-    id: CommonAbstraJsonV14DefinitionsFormStageId
-    workflow_position: CommonAbstraJsonV14DefinitionsFormStageWorkflowPosition
     title: CommonAbstraJsonV14DefinitionsFormStageTitle
-    start_message: CommonAbstraJsonV14DefinitionsFormStageStartMessage
+    workflow_position: CommonAbstraJsonV14DefinitionsFormStageWorkflowPosition
+    id: CommonAbstraJsonV14DefinitionsFormStageId
     restart_button_text: CommonAbstraJsonV14DefinitionsFormStageRestartButtonText
-    auto_start: CommonAbstraJsonV14DefinitionsFormStageAutoStart
-    notification_trigger: CommonAbstraJsonV14DefinitionsFormStageNotificationTrigger
     start_button_text: CommonAbstraJsonV14DefinitionsFormStageStartButtonText
-    error_message: CommonAbstraJsonV14DefinitionsFormStageErrorMessage
-    timeout_message: CommonAbstraJsonV14DefinitionsFormStageTimeoutMessage
+    end_message: CommonAbstraJsonV14DefinitionsFormStageEndMessage
+    start_message: CommonAbstraJsonV14DefinitionsFormStageStartMessage
     is_initial: CommonAbstraJsonV14DefinitionsFormStageIsInitial
     access_control: CommonAbstraJsonV14DefinitionsFormStageAccessControl
-    allow_restart: CommonAbstraJsonV14DefinitionsFormStageAllowRestart
-    end_message: CommonAbstraJsonV14DefinitionsFormStageEndMessage
+    timeout_message: CommonAbstraJsonV14DefinitionsFormStageTimeoutMessage
+    error_message: CommonAbstraJsonV14DefinitionsFormStageErrorMessage
     welcome_title: CommonAbstraJsonV14DefinitionsFormStageWelcomeTitle
+    notification_trigger: CommonAbstraJsonV14DefinitionsFormStageNotificationTrigger
+    auto_start: CommonAbstraJsonV14DefinitionsFormStageAutoStart
+    allow_restart: CommonAbstraJsonV14DefinitionsFormStageAllowRestart
     path: CommonAbstraJsonV14DefinitionsFormStagePath
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["start_message"] = self.start_message
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["restart_button_text"] = self.restart_button_text
-        data["auto_start"] = self.auto_start
-        data["notification_trigger"] = self.notification_trigger.to_dict()
         data["start_button_text"] = self.start_button_text
-        data["error_message"] = self.error_message
-        data["timeout_message"] = self.timeout_message
+        data["end_message"] = self.end_message
+        data["start_message"] = self.start_message
         data["is_initial"] = self.is_initial
         data["access_control"] = self.access_control.to_dict()
-        data["allow_restart"] = self.allow_restart
-        data["end_message"] = self.end_message
+        data["timeout_message"] = self.timeout_message
+        data["error_message"] = self.error_message
         data["welcome_title"] = self.welcome_title
+        data["notification_trigger"] = self.notification_trigger.to_dict()
+        data["auto_start"] = self.auto_start
+        data["allow_restart"] = self.allow_restart
         data["path"] = self.path
         return data
 
@@ -7189,26 +7189,36 @@ class CommonAbstraJsonV14DefinitionsFormStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            start_message=(
-                str(data["start_message"])
-                if isinstance(data["start_message"], str)
-                else None
-            ),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             restart_button_text=(
                 str(data["restart_button_text"])
                 if isinstance(data["restart_button_text"], str)
                 else None
             ),
-            auto_start=bool(data["auto_start"]),
-            notification_trigger=CommonAbstraJsonV14DefinitionsFormStageNotificationTrigger.from_dict(
-                data["notification_trigger"]
-            ),
             start_button_text=(
                 str(data["start_button_text"])
                 if isinstance(data["start_button_text"], str)
+                else None
+            ),
+            end_message=(
+                str(data["end_message"])
+                if isinstance(data["end_message"], str)
+                else None
+            ),
+            start_message=(
+                str(data["start_message"])
+                if isinstance(data["start_message"], str)
+                else None
+            ),
+            is_initial=bool(data["is_initial"]),
+            access_control=CommonAbstraJsonV14DefinitionsFormStageAccessControl.from_dict(
+                data["access_control"]
+            ),
+            timeout_message=(
+                str(data["timeout_message"])
+                if isinstance(data["timeout_message"], str)
                 else None
             ),
             error_message=(
@@ -7216,26 +7226,16 @@ class CommonAbstraJsonV14DefinitionsFormStage:
                 if isinstance(data["error_message"], str)
                 else None
             ),
-            timeout_message=(
-                str(data["timeout_message"])
-                if isinstance(data["timeout_message"], str)
-                else None
-            ),
-            is_initial=bool(data["is_initial"]),
-            access_control=CommonAbstraJsonV14DefinitionsFormStageAccessControl.from_dict(
-                data["access_control"]
-            ),
-            allow_restart=bool(data["allow_restart"]),
-            end_message=(
-                str(data["end_message"])
-                if isinstance(data["end_message"], str)
-                else None
-            ),
             welcome_title=(
                 str(data["welcome_title"])
                 if isinstance(data["welcome_title"], str)
                 else None
             ),
+            notification_trigger=CommonAbstraJsonV14DefinitionsFormStageNotificationTrigger.from_dict(
+                data["notification_trigger"]
+            ),
+            auto_start=bool(data["auto_start"]),
+            allow_restart=bool(data["allow_restart"]),
             path=str(data["path"]),
         )
 
@@ -7254,7 +7254,7 @@ CommonAbstraJsonV14DefinitionsScriptStageTransitions = typing.List[
 
 CommonAbstraJsonV14DefinitionsScriptStageFile = str
 
-CommonAbstraJsonV14DefinitionsScriptStageId = str
+CommonAbstraJsonV14DefinitionsScriptStageTitle = str
 
 CommonAbstraJsonV14DefinitionsScriptStageWorkflowPositionItem = float
 
@@ -7262,7 +7262,7 @@ CommonAbstraJsonV14DefinitionsScriptStageWorkflowPosition = typing.List[
     CommonAbstraJsonV14DefinitionsScriptStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV14DefinitionsScriptStageTitle = str
+CommonAbstraJsonV14DefinitionsScriptStageId = str
 
 CommonAbstraJsonV14DefinitionsScriptStageIsInitial = bool
 
@@ -7271,18 +7271,18 @@ CommonAbstraJsonV14DefinitionsScriptStageIsInitial = bool
 class CommonAbstraJsonV14DefinitionsScriptStage:
     transitions: CommonAbstraJsonV14DefinitionsScriptStageTransitions
     file: CommonAbstraJsonV14DefinitionsScriptStageFile
-    id: CommonAbstraJsonV14DefinitionsScriptStageId
-    workflow_position: CommonAbstraJsonV14DefinitionsScriptStageWorkflowPosition
     title: CommonAbstraJsonV14DefinitionsScriptStageTitle
+    workflow_position: CommonAbstraJsonV14DefinitionsScriptStageWorkflowPosition
+    id: CommonAbstraJsonV14DefinitionsScriptStageId
     is_initial: CommonAbstraJsonV14DefinitionsScriptStageIsInitial
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["is_initial"] = self.is_initial
         return data
 
@@ -7296,9 +7296,9 @@ class CommonAbstraJsonV14DefinitionsScriptStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             is_initial=bool(data["is_initial"]),
         )
 
@@ -7697,7 +7697,7 @@ CommonAbstraJsonV13DefinitionsJobStageTransitions = typing.List[
 
 CommonAbstraJsonV13DefinitionsJobStageFile = str
 
-CommonAbstraJsonV13DefinitionsJobStageId = str
+CommonAbstraJsonV13DefinitionsJobStageTitle = str
 
 CommonAbstraJsonV13DefinitionsJobStageWorkflowPositionItem = float
 
@@ -7705,7 +7705,7 @@ CommonAbstraJsonV13DefinitionsJobStageWorkflowPosition = typing.List[
     CommonAbstraJsonV13DefinitionsJobStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV13DefinitionsJobStageTitle = str
+CommonAbstraJsonV13DefinitionsJobStageId = str
 
 CommonAbstraJsonV13DefinitionsJobStageSchedule = str
 
@@ -7714,18 +7714,18 @@ CommonAbstraJsonV13DefinitionsJobStageSchedule = str
 class CommonAbstraJsonV13DefinitionsJobStage:
     transitions: CommonAbstraJsonV13DefinitionsJobStageTransitions
     file: CommonAbstraJsonV13DefinitionsJobStageFile
-    id: CommonAbstraJsonV13DefinitionsJobStageId
-    workflow_position: CommonAbstraJsonV13DefinitionsJobStageWorkflowPosition
     title: CommonAbstraJsonV13DefinitionsJobStageTitle
+    workflow_position: CommonAbstraJsonV13DefinitionsJobStageWorkflowPosition
+    id: CommonAbstraJsonV13DefinitionsJobStageId
     schedule: CommonAbstraJsonV13DefinitionsJobStageSchedule
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["schedule"] = self.schedule
         return data
 
@@ -7739,9 +7739,9 @@ class CommonAbstraJsonV13DefinitionsJobStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             schedule=str(data["schedule"]),
         )
 
@@ -7760,7 +7760,7 @@ CommonAbstraJsonV13DefinitionsHookStageTransitions = typing.List[
 
 CommonAbstraJsonV13DefinitionsHookStageFile = str
 
-CommonAbstraJsonV13DefinitionsHookStageId = str
+CommonAbstraJsonV13DefinitionsHookStageTitle = str
 
 CommonAbstraJsonV13DefinitionsHookStageWorkflowPositionItem = float
 
@@ -7768,36 +7768,36 @@ CommonAbstraJsonV13DefinitionsHookStageWorkflowPosition = typing.List[
     CommonAbstraJsonV13DefinitionsHookStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV13DefinitionsHookStageTitle = str
-
-CommonAbstraJsonV13DefinitionsHookStageEnabled = bool
+CommonAbstraJsonV13DefinitionsHookStageId = str
 
 CommonAbstraJsonV13DefinitionsHookStageIsInitial = bool
 
 CommonAbstraJsonV13DefinitionsHookStagePath = str
+
+CommonAbstraJsonV13DefinitionsHookStageEnabled = bool
 
 
 @dataclass
 class CommonAbstraJsonV13DefinitionsHookStage:
     transitions: CommonAbstraJsonV13DefinitionsHookStageTransitions
     file: CommonAbstraJsonV13DefinitionsHookStageFile
-    id: CommonAbstraJsonV13DefinitionsHookStageId
-    workflow_position: CommonAbstraJsonV13DefinitionsHookStageWorkflowPosition
     title: CommonAbstraJsonV13DefinitionsHookStageTitle
-    enabled: CommonAbstraJsonV13DefinitionsHookStageEnabled
+    workflow_position: CommonAbstraJsonV13DefinitionsHookStageWorkflowPosition
+    id: CommonAbstraJsonV13DefinitionsHookStageId
     is_initial: CommonAbstraJsonV13DefinitionsHookStageIsInitial
     path: CommonAbstraJsonV13DefinitionsHookStagePath
+    enabled: CommonAbstraJsonV13DefinitionsHookStageEnabled
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["enabled"] = self.enabled
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["is_initial"] = self.is_initial
         data["path"] = self.path
+        data["enabled"] = self.enabled
         return data
 
     @classmethod
@@ -7810,12 +7810,12 @@ class CommonAbstraJsonV13DefinitionsHookStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            enabled=bool(data["enabled"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             is_initial=bool(data["is_initial"]),
             path=str(data["path"]),
+            enabled=bool(data["enabled"]),
         )
 
 
@@ -7833,7 +7833,7 @@ CommonAbstraJsonV13DefinitionsFormStageTransitions = typing.List[
 
 CommonAbstraJsonV13DefinitionsFormStageFile = str
 
-CommonAbstraJsonV13DefinitionsFormStageId = str
+CommonAbstraJsonV13DefinitionsFormStageTitle = str
 
 CommonAbstraJsonV13DefinitionsFormStageWorkflowPositionItem = float
 
@@ -7841,29 +7841,7 @@ CommonAbstraJsonV13DefinitionsFormStageWorkflowPosition = typing.List[
     CommonAbstraJsonV13DefinitionsFormStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV13DefinitionsFormStageTitle = str
-
-CommonAbstraJsonV13DefinitionsFormStageStartMessageString = str
-
-CommonAbstraJsonV13DefinitionsFormStageStartMessageNull = type(None)
-
-CommonAbstraJsonV13DefinitionsFormStageStartMessage = typing.Union[
-    CommonAbstraJsonV13DefinitionsFormStageStartMessageString,
-    CommonAbstraJsonV13DefinitionsFormStageStartMessageNull,
-]
-
-
-def common_abstra_json_v13_definitions_form_stage_start_message_from_dict(
-    data: typing.Any,
-) -> "CommonAbstraJsonV13DefinitionsFormStageStartMessage":
-    if isinstance(data, str):
-        return str(data)
-    if data is None:
-        return None
-    raise ValueError(
-        f"Could not parse CommonAbstraJsonV13DefinitionsFormStageStartMessage from dict: {data}"
-    )
-
+CommonAbstraJsonV13DefinitionsFormStageId = str
 
 CommonAbstraJsonV13DefinitionsFormStageRestartButtonTextString = str
 
@@ -7885,36 +7863,6 @@ def common_abstra_json_v13_definitions_form_stage_restart_button_text_from_dict(
     raise ValueError(
         f"Could not parse CommonAbstraJsonV13DefinitionsFormStageRestartButtonText from dict: {data}"
     )
-
-
-CommonAbstraJsonV13DefinitionsFormStageAutoStart = bool
-
-CommonAbstraJsonV13DefinitionsFormStageNotificationTriggerVariableName = str
-
-CommonAbstraJsonV13DefinitionsFormStageNotificationTriggerEnabled = bool
-
-
-@dataclass
-class CommonAbstraJsonV13DefinitionsFormStageNotificationTrigger:
-    variable_name: (
-        CommonAbstraJsonV13DefinitionsFormStageNotificationTriggerVariableName
-    )
-    enabled: CommonAbstraJsonV13DefinitionsFormStageNotificationTriggerEnabled
-
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        data = {}
-        data["variable_name"] = self.variable_name
-        data["enabled"] = self.enabled
-        return data
-
-    @classmethod
-    def from_dict(
-        cls, data: typing.Dict[str, typing.Any]
-    ) -> "CommonAbstraJsonV13DefinitionsFormStageNotificationTrigger":
-        return cls(
-            variable_name=str(data["variable_name"]),
-            enabled=bool(data["enabled"]),
-        )
 
 
 CommonAbstraJsonV13DefinitionsFormStageStartButtonTextString = str
@@ -7939,47 +7887,47 @@ def common_abstra_json_v13_definitions_form_stage_start_button_text_from_dict(
     )
 
 
-CommonAbstraJsonV13DefinitionsFormStageErrorMessageString = str
+CommonAbstraJsonV13DefinitionsFormStageEndMessageString = str
 
-CommonAbstraJsonV13DefinitionsFormStageErrorMessageNull = type(None)
+CommonAbstraJsonV13DefinitionsFormStageEndMessageNull = type(None)
 
-CommonAbstraJsonV13DefinitionsFormStageErrorMessage = typing.Union[
-    CommonAbstraJsonV13DefinitionsFormStageErrorMessageString,
-    CommonAbstraJsonV13DefinitionsFormStageErrorMessageNull,
+CommonAbstraJsonV13DefinitionsFormStageEndMessage = typing.Union[
+    CommonAbstraJsonV13DefinitionsFormStageEndMessageString,
+    CommonAbstraJsonV13DefinitionsFormStageEndMessageNull,
 ]
 
 
-def common_abstra_json_v13_definitions_form_stage_error_message_from_dict(
+def common_abstra_json_v13_definitions_form_stage_end_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV13DefinitionsFormStageErrorMessage":
+) -> "CommonAbstraJsonV13DefinitionsFormStageEndMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV13DefinitionsFormStageErrorMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV13DefinitionsFormStageEndMessage from dict: {data}"
     )
 
 
-CommonAbstraJsonV13DefinitionsFormStageTimeoutMessageString = str
+CommonAbstraJsonV13DefinitionsFormStageStartMessageString = str
 
-CommonAbstraJsonV13DefinitionsFormStageTimeoutMessageNull = type(None)
+CommonAbstraJsonV13DefinitionsFormStageStartMessageNull = type(None)
 
-CommonAbstraJsonV13DefinitionsFormStageTimeoutMessage = typing.Union[
-    CommonAbstraJsonV13DefinitionsFormStageTimeoutMessageString,
-    CommonAbstraJsonV13DefinitionsFormStageTimeoutMessageNull,
+CommonAbstraJsonV13DefinitionsFormStageStartMessage = typing.Union[
+    CommonAbstraJsonV13DefinitionsFormStageStartMessageString,
+    CommonAbstraJsonV13DefinitionsFormStageStartMessageNull,
 ]
 
 
-def common_abstra_json_v13_definitions_form_stage_timeout_message_from_dict(
+def common_abstra_json_v13_definitions_form_stage_start_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV13DefinitionsFormStageTimeoutMessage":
+) -> "CommonAbstraJsonV13DefinitionsFormStageStartMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV13DefinitionsFormStageTimeoutMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV13DefinitionsFormStageStartMessage from dict: {data}"
     )
 
 
@@ -8015,27 +7963,47 @@ class CommonAbstraJsonV13DefinitionsFormStageAccessControl:
         )
 
 
-CommonAbstraJsonV13DefinitionsFormStageAllowRestart = bool
+CommonAbstraJsonV13DefinitionsFormStageTimeoutMessageString = str
 
-CommonAbstraJsonV13DefinitionsFormStageEndMessageString = str
+CommonAbstraJsonV13DefinitionsFormStageTimeoutMessageNull = type(None)
 
-CommonAbstraJsonV13DefinitionsFormStageEndMessageNull = type(None)
-
-CommonAbstraJsonV13DefinitionsFormStageEndMessage = typing.Union[
-    CommonAbstraJsonV13DefinitionsFormStageEndMessageString,
-    CommonAbstraJsonV13DefinitionsFormStageEndMessageNull,
+CommonAbstraJsonV13DefinitionsFormStageTimeoutMessage = typing.Union[
+    CommonAbstraJsonV13DefinitionsFormStageTimeoutMessageString,
+    CommonAbstraJsonV13DefinitionsFormStageTimeoutMessageNull,
 ]
 
 
-def common_abstra_json_v13_definitions_form_stage_end_message_from_dict(
+def common_abstra_json_v13_definitions_form_stage_timeout_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV13DefinitionsFormStageEndMessage":
+) -> "CommonAbstraJsonV13DefinitionsFormStageTimeoutMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV13DefinitionsFormStageEndMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV13DefinitionsFormStageTimeoutMessage from dict: {data}"
+    )
+
+
+CommonAbstraJsonV13DefinitionsFormStageErrorMessageString = str
+
+CommonAbstraJsonV13DefinitionsFormStageErrorMessageNull = type(None)
+
+CommonAbstraJsonV13DefinitionsFormStageErrorMessage = typing.Union[
+    CommonAbstraJsonV13DefinitionsFormStageErrorMessageString,
+    CommonAbstraJsonV13DefinitionsFormStageErrorMessageNull,
+]
+
+
+def common_abstra_json_v13_definitions_form_stage_error_message_from_dict(
+    data: typing.Any,
+) -> "CommonAbstraJsonV13DefinitionsFormStageErrorMessage":
+    if isinstance(data, str):
+        return str(data)
+    if data is None:
+        return None
+    raise ValueError(
+        f"Could not parse CommonAbstraJsonV13DefinitionsFormStageErrorMessage from dict: {data}"
     )
 
 
@@ -8061,6 +8029,38 @@ def common_abstra_json_v13_definitions_form_stage_welcome_title_from_dict(
     )
 
 
+CommonAbstraJsonV13DefinitionsFormStageNotificationTriggerVariableName = str
+
+CommonAbstraJsonV13DefinitionsFormStageNotificationTriggerEnabled = bool
+
+
+@dataclass
+class CommonAbstraJsonV13DefinitionsFormStageNotificationTrigger:
+    variable_name: (
+        CommonAbstraJsonV13DefinitionsFormStageNotificationTriggerVariableName
+    )
+    enabled: CommonAbstraJsonV13DefinitionsFormStageNotificationTriggerEnabled
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data["variable_name"] = self.variable_name
+        data["enabled"] = self.enabled
+        return data
+
+    @classmethod
+    def from_dict(
+        cls, data: typing.Dict[str, typing.Any]
+    ) -> "CommonAbstraJsonV13DefinitionsFormStageNotificationTrigger":
+        return cls(
+            variable_name=str(data["variable_name"]),
+            enabled=bool(data["enabled"]),
+        )
+
+
+CommonAbstraJsonV13DefinitionsFormStageAutoStart = bool
+
+CommonAbstraJsonV13DefinitionsFormStageAllowRestart = bool
+
 CommonAbstraJsonV13DefinitionsFormStagePath = str
 
 
@@ -8068,42 +8068,42 @@ CommonAbstraJsonV13DefinitionsFormStagePath = str
 class CommonAbstraJsonV13DefinitionsFormStage:
     transitions: CommonAbstraJsonV13DefinitionsFormStageTransitions
     file: CommonAbstraJsonV13DefinitionsFormStageFile
-    id: CommonAbstraJsonV13DefinitionsFormStageId
-    workflow_position: CommonAbstraJsonV13DefinitionsFormStageWorkflowPosition
     title: CommonAbstraJsonV13DefinitionsFormStageTitle
-    start_message: CommonAbstraJsonV13DefinitionsFormStageStartMessage
+    workflow_position: CommonAbstraJsonV13DefinitionsFormStageWorkflowPosition
+    id: CommonAbstraJsonV13DefinitionsFormStageId
     restart_button_text: CommonAbstraJsonV13DefinitionsFormStageRestartButtonText
-    auto_start: CommonAbstraJsonV13DefinitionsFormStageAutoStart
-    notification_trigger: CommonAbstraJsonV13DefinitionsFormStageNotificationTrigger
     start_button_text: CommonAbstraJsonV13DefinitionsFormStageStartButtonText
-    error_message: CommonAbstraJsonV13DefinitionsFormStageErrorMessage
-    timeout_message: CommonAbstraJsonV13DefinitionsFormStageTimeoutMessage
+    end_message: CommonAbstraJsonV13DefinitionsFormStageEndMessage
+    start_message: CommonAbstraJsonV13DefinitionsFormStageStartMessage
     is_initial: CommonAbstraJsonV13DefinitionsFormStageIsInitial
     access_control: CommonAbstraJsonV13DefinitionsFormStageAccessControl
-    allow_restart: CommonAbstraJsonV13DefinitionsFormStageAllowRestart
-    end_message: CommonAbstraJsonV13DefinitionsFormStageEndMessage
+    timeout_message: CommonAbstraJsonV13DefinitionsFormStageTimeoutMessage
+    error_message: CommonAbstraJsonV13DefinitionsFormStageErrorMessage
     welcome_title: CommonAbstraJsonV13DefinitionsFormStageWelcomeTitle
+    notification_trigger: CommonAbstraJsonV13DefinitionsFormStageNotificationTrigger
+    auto_start: CommonAbstraJsonV13DefinitionsFormStageAutoStart
+    allow_restart: CommonAbstraJsonV13DefinitionsFormStageAllowRestart
     path: CommonAbstraJsonV13DefinitionsFormStagePath
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["start_message"] = self.start_message
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["restart_button_text"] = self.restart_button_text
-        data["auto_start"] = self.auto_start
-        data["notification_trigger"] = self.notification_trigger.to_dict()
         data["start_button_text"] = self.start_button_text
-        data["error_message"] = self.error_message
-        data["timeout_message"] = self.timeout_message
+        data["end_message"] = self.end_message
+        data["start_message"] = self.start_message
         data["is_initial"] = self.is_initial
         data["access_control"] = self.access_control.to_dict()
-        data["allow_restart"] = self.allow_restart
-        data["end_message"] = self.end_message
+        data["timeout_message"] = self.timeout_message
+        data["error_message"] = self.error_message
         data["welcome_title"] = self.welcome_title
+        data["notification_trigger"] = self.notification_trigger.to_dict()
+        data["auto_start"] = self.auto_start
+        data["allow_restart"] = self.allow_restart
         data["path"] = self.path
         return data
 
@@ -8117,26 +8117,36 @@ class CommonAbstraJsonV13DefinitionsFormStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            start_message=(
-                str(data["start_message"])
-                if isinstance(data["start_message"], str)
-                else None
-            ),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             restart_button_text=(
                 str(data["restart_button_text"])
                 if isinstance(data["restart_button_text"], str)
                 else None
             ),
-            auto_start=bool(data["auto_start"]),
-            notification_trigger=CommonAbstraJsonV13DefinitionsFormStageNotificationTrigger.from_dict(
-                data["notification_trigger"]
-            ),
             start_button_text=(
                 str(data["start_button_text"])
                 if isinstance(data["start_button_text"], str)
+                else None
+            ),
+            end_message=(
+                str(data["end_message"])
+                if isinstance(data["end_message"], str)
+                else None
+            ),
+            start_message=(
+                str(data["start_message"])
+                if isinstance(data["start_message"], str)
+                else None
+            ),
+            is_initial=bool(data["is_initial"]),
+            access_control=CommonAbstraJsonV13DefinitionsFormStageAccessControl.from_dict(
+                data["access_control"]
+            ),
+            timeout_message=(
+                str(data["timeout_message"])
+                if isinstance(data["timeout_message"], str)
                 else None
             ),
             error_message=(
@@ -8144,26 +8154,16 @@ class CommonAbstraJsonV13DefinitionsFormStage:
                 if isinstance(data["error_message"], str)
                 else None
             ),
-            timeout_message=(
-                str(data["timeout_message"])
-                if isinstance(data["timeout_message"], str)
-                else None
-            ),
-            is_initial=bool(data["is_initial"]),
-            access_control=CommonAbstraJsonV13DefinitionsFormStageAccessControl.from_dict(
-                data["access_control"]
-            ),
-            allow_restart=bool(data["allow_restart"]),
-            end_message=(
-                str(data["end_message"])
-                if isinstance(data["end_message"], str)
-                else None
-            ),
             welcome_title=(
                 str(data["welcome_title"])
                 if isinstance(data["welcome_title"], str)
                 else None
             ),
+            notification_trigger=CommonAbstraJsonV13DefinitionsFormStageNotificationTrigger.from_dict(
+                data["notification_trigger"]
+            ),
+            auto_start=bool(data["auto_start"]),
+            allow_restart=bool(data["allow_restart"]),
             path=str(data["path"]),
         )
 
@@ -8182,7 +8182,7 @@ CommonAbstraJsonV13DefinitionsScriptStageTransitions = typing.List[
 
 CommonAbstraJsonV13DefinitionsScriptStageFile = str
 
-CommonAbstraJsonV13DefinitionsScriptStageId = str
+CommonAbstraJsonV13DefinitionsScriptStageTitle = str
 
 CommonAbstraJsonV13DefinitionsScriptStageWorkflowPositionItem = float
 
@@ -8190,7 +8190,7 @@ CommonAbstraJsonV13DefinitionsScriptStageWorkflowPosition = typing.List[
     CommonAbstraJsonV13DefinitionsScriptStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV13DefinitionsScriptStageTitle = str
+CommonAbstraJsonV13DefinitionsScriptStageId = str
 
 CommonAbstraJsonV13DefinitionsScriptStageIsInitial = bool
 
@@ -8199,18 +8199,18 @@ CommonAbstraJsonV13DefinitionsScriptStageIsInitial = bool
 class CommonAbstraJsonV13DefinitionsScriptStage:
     transitions: CommonAbstraJsonV13DefinitionsScriptStageTransitions
     file: CommonAbstraJsonV13DefinitionsScriptStageFile
-    id: CommonAbstraJsonV13DefinitionsScriptStageId
-    workflow_position: CommonAbstraJsonV13DefinitionsScriptStageWorkflowPosition
     title: CommonAbstraJsonV13DefinitionsScriptStageTitle
+    workflow_position: CommonAbstraJsonV13DefinitionsScriptStageWorkflowPosition
+    id: CommonAbstraJsonV13DefinitionsScriptStageId
     is_initial: CommonAbstraJsonV13DefinitionsScriptStageIsInitial
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["is_initial"] = self.is_initial
         return data
 
@@ -8224,9 +8224,9 @@ class CommonAbstraJsonV13DefinitionsScriptStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             is_initial=bool(data["is_initial"]),
         )
 
@@ -8789,7 +8789,7 @@ CommonAbstraJsonV12DefinitionsJobStageTransitions = typing.List[
 
 CommonAbstraJsonV12DefinitionsJobStageFile = str
 
-CommonAbstraJsonV12DefinitionsJobStageId = str
+CommonAbstraJsonV12DefinitionsJobStageTitle = str
 
 CommonAbstraJsonV12DefinitionsJobStageWorkflowPositionItem = float
 
@@ -8797,7 +8797,7 @@ CommonAbstraJsonV12DefinitionsJobStageWorkflowPosition = typing.List[
     CommonAbstraJsonV12DefinitionsJobStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV12DefinitionsJobStageTitle = str
+CommonAbstraJsonV12DefinitionsJobStageId = str
 
 CommonAbstraJsonV12DefinitionsJobStageSchedule = str
 
@@ -8806,18 +8806,18 @@ CommonAbstraJsonV12DefinitionsJobStageSchedule = str
 class CommonAbstraJsonV12DefinitionsJobStage:
     transitions: CommonAbstraJsonV12DefinitionsJobStageTransitions
     file: CommonAbstraJsonV12DefinitionsJobStageFile
-    id: CommonAbstraJsonV12DefinitionsJobStageId
-    workflow_position: CommonAbstraJsonV12DefinitionsJobStageWorkflowPosition
     title: CommonAbstraJsonV12DefinitionsJobStageTitle
+    workflow_position: CommonAbstraJsonV12DefinitionsJobStageWorkflowPosition
+    id: CommonAbstraJsonV12DefinitionsJobStageId
     schedule: CommonAbstraJsonV12DefinitionsJobStageSchedule
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["schedule"] = self.schedule
         return data
 
@@ -8831,9 +8831,9 @@ class CommonAbstraJsonV12DefinitionsJobStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             schedule=str(data["schedule"]),
         )
 
@@ -8852,7 +8852,7 @@ CommonAbstraJsonV12DefinitionsHookStageTransitions = typing.List[
 
 CommonAbstraJsonV12DefinitionsHookStageFile = str
 
-CommonAbstraJsonV12DefinitionsHookStageId = str
+CommonAbstraJsonV12DefinitionsHookStageTitle = str
 
 CommonAbstraJsonV12DefinitionsHookStageWorkflowPositionItem = float
 
@@ -8860,36 +8860,36 @@ CommonAbstraJsonV12DefinitionsHookStageWorkflowPosition = typing.List[
     CommonAbstraJsonV12DefinitionsHookStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV12DefinitionsHookStageTitle = str
-
-CommonAbstraJsonV12DefinitionsHookStageEnabled = bool
+CommonAbstraJsonV12DefinitionsHookStageId = str
 
 CommonAbstraJsonV12DefinitionsHookStageIsInitial = bool
 
 CommonAbstraJsonV12DefinitionsHookStagePath = str
+
+CommonAbstraJsonV12DefinitionsHookStageEnabled = bool
 
 
 @dataclass
 class CommonAbstraJsonV12DefinitionsHookStage:
     transitions: CommonAbstraJsonV12DefinitionsHookStageTransitions
     file: CommonAbstraJsonV12DefinitionsHookStageFile
-    id: CommonAbstraJsonV12DefinitionsHookStageId
-    workflow_position: CommonAbstraJsonV12DefinitionsHookStageWorkflowPosition
     title: CommonAbstraJsonV12DefinitionsHookStageTitle
-    enabled: CommonAbstraJsonV12DefinitionsHookStageEnabled
+    workflow_position: CommonAbstraJsonV12DefinitionsHookStageWorkflowPosition
+    id: CommonAbstraJsonV12DefinitionsHookStageId
     is_initial: CommonAbstraJsonV12DefinitionsHookStageIsInitial
     path: CommonAbstraJsonV12DefinitionsHookStagePath
+    enabled: CommonAbstraJsonV12DefinitionsHookStageEnabled
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["enabled"] = self.enabled
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["is_initial"] = self.is_initial
         data["path"] = self.path
+        data["enabled"] = self.enabled
         return data
 
     @classmethod
@@ -8902,12 +8902,12 @@ class CommonAbstraJsonV12DefinitionsHookStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            enabled=bool(data["enabled"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             is_initial=bool(data["is_initial"]),
             path=str(data["path"]),
+            enabled=bool(data["enabled"]),
         )
 
 
@@ -8925,7 +8925,7 @@ CommonAbstraJsonV12DefinitionsFormStageTransitions = typing.List[
 
 CommonAbstraJsonV12DefinitionsFormStageFile = str
 
-CommonAbstraJsonV12DefinitionsFormStageId = str
+CommonAbstraJsonV12DefinitionsFormStageTitle = str
 
 CommonAbstraJsonV12DefinitionsFormStageWorkflowPositionItem = float
 
@@ -8933,29 +8933,7 @@ CommonAbstraJsonV12DefinitionsFormStageWorkflowPosition = typing.List[
     CommonAbstraJsonV12DefinitionsFormStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV12DefinitionsFormStageTitle = str
-
-CommonAbstraJsonV12DefinitionsFormStageStartMessageString = str
-
-CommonAbstraJsonV12DefinitionsFormStageStartMessageNull = type(None)
-
-CommonAbstraJsonV12DefinitionsFormStageStartMessage = typing.Union[
-    CommonAbstraJsonV12DefinitionsFormStageStartMessageString,
-    CommonAbstraJsonV12DefinitionsFormStageStartMessageNull,
-]
-
-
-def common_abstra_json_v12_definitions_form_stage_start_message_from_dict(
-    data: typing.Any,
-) -> "CommonAbstraJsonV12DefinitionsFormStageStartMessage":
-    if isinstance(data, str):
-        return str(data)
-    if data is None:
-        return None
-    raise ValueError(
-        f"Could not parse CommonAbstraJsonV12DefinitionsFormStageStartMessage from dict: {data}"
-    )
-
+CommonAbstraJsonV12DefinitionsFormStageId = str
 
 CommonAbstraJsonV12DefinitionsFormStageRestartButtonTextString = str
 
@@ -8977,36 +8955,6 @@ def common_abstra_json_v12_definitions_form_stage_restart_button_text_from_dict(
     raise ValueError(
         f"Could not parse CommonAbstraJsonV12DefinitionsFormStageRestartButtonText from dict: {data}"
     )
-
-
-CommonAbstraJsonV12DefinitionsFormStageAutoStart = bool
-
-CommonAbstraJsonV12DefinitionsFormStageNotificationTriggerVariableName = str
-
-CommonAbstraJsonV12DefinitionsFormStageNotificationTriggerEnabled = bool
-
-
-@dataclass
-class CommonAbstraJsonV12DefinitionsFormStageNotificationTrigger:
-    variable_name: (
-        CommonAbstraJsonV12DefinitionsFormStageNotificationTriggerVariableName
-    )
-    enabled: CommonAbstraJsonV12DefinitionsFormStageNotificationTriggerEnabled
-
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        data = {}
-        data["variable_name"] = self.variable_name
-        data["enabled"] = self.enabled
-        return data
-
-    @classmethod
-    def from_dict(
-        cls, data: typing.Dict[str, typing.Any]
-    ) -> "CommonAbstraJsonV12DefinitionsFormStageNotificationTrigger":
-        return cls(
-            variable_name=str(data["variable_name"]),
-            enabled=bool(data["enabled"]),
-        )
 
 
 CommonAbstraJsonV12DefinitionsFormStageStartButtonTextString = str
@@ -9031,47 +8979,47 @@ def common_abstra_json_v12_definitions_form_stage_start_button_text_from_dict(
     )
 
 
-CommonAbstraJsonV12DefinitionsFormStageErrorMessageString = str
+CommonAbstraJsonV12DefinitionsFormStageEndMessageString = str
 
-CommonAbstraJsonV12DefinitionsFormStageErrorMessageNull = type(None)
+CommonAbstraJsonV12DefinitionsFormStageEndMessageNull = type(None)
 
-CommonAbstraJsonV12DefinitionsFormStageErrorMessage = typing.Union[
-    CommonAbstraJsonV12DefinitionsFormStageErrorMessageString,
-    CommonAbstraJsonV12DefinitionsFormStageErrorMessageNull,
+CommonAbstraJsonV12DefinitionsFormStageEndMessage = typing.Union[
+    CommonAbstraJsonV12DefinitionsFormStageEndMessageString,
+    CommonAbstraJsonV12DefinitionsFormStageEndMessageNull,
 ]
 
 
-def common_abstra_json_v12_definitions_form_stage_error_message_from_dict(
+def common_abstra_json_v12_definitions_form_stage_end_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV12DefinitionsFormStageErrorMessage":
+) -> "CommonAbstraJsonV12DefinitionsFormStageEndMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV12DefinitionsFormStageErrorMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV12DefinitionsFormStageEndMessage from dict: {data}"
     )
 
 
-CommonAbstraJsonV12DefinitionsFormStageTimeoutMessageString = str
+CommonAbstraJsonV12DefinitionsFormStageStartMessageString = str
 
-CommonAbstraJsonV12DefinitionsFormStageTimeoutMessageNull = type(None)
+CommonAbstraJsonV12DefinitionsFormStageStartMessageNull = type(None)
 
-CommonAbstraJsonV12DefinitionsFormStageTimeoutMessage = typing.Union[
-    CommonAbstraJsonV12DefinitionsFormStageTimeoutMessageString,
-    CommonAbstraJsonV12DefinitionsFormStageTimeoutMessageNull,
+CommonAbstraJsonV12DefinitionsFormStageStartMessage = typing.Union[
+    CommonAbstraJsonV12DefinitionsFormStageStartMessageString,
+    CommonAbstraJsonV12DefinitionsFormStageStartMessageNull,
 ]
 
 
-def common_abstra_json_v12_definitions_form_stage_timeout_message_from_dict(
+def common_abstra_json_v12_definitions_form_stage_start_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV12DefinitionsFormStageTimeoutMessage":
+) -> "CommonAbstraJsonV12DefinitionsFormStageStartMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV12DefinitionsFormStageTimeoutMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV12DefinitionsFormStageStartMessage from dict: {data}"
     )
 
 
@@ -9107,27 +9055,47 @@ class CommonAbstraJsonV12DefinitionsFormStageAccessControl:
         )
 
 
-CommonAbstraJsonV12DefinitionsFormStageAllowRestart = bool
+CommonAbstraJsonV12DefinitionsFormStageTimeoutMessageString = str
 
-CommonAbstraJsonV12DefinitionsFormStageEndMessageString = str
+CommonAbstraJsonV12DefinitionsFormStageTimeoutMessageNull = type(None)
 
-CommonAbstraJsonV12DefinitionsFormStageEndMessageNull = type(None)
-
-CommonAbstraJsonV12DefinitionsFormStageEndMessage = typing.Union[
-    CommonAbstraJsonV12DefinitionsFormStageEndMessageString,
-    CommonAbstraJsonV12DefinitionsFormStageEndMessageNull,
+CommonAbstraJsonV12DefinitionsFormStageTimeoutMessage = typing.Union[
+    CommonAbstraJsonV12DefinitionsFormStageTimeoutMessageString,
+    CommonAbstraJsonV12DefinitionsFormStageTimeoutMessageNull,
 ]
 
 
-def common_abstra_json_v12_definitions_form_stage_end_message_from_dict(
+def common_abstra_json_v12_definitions_form_stage_timeout_message_from_dict(
     data: typing.Any,
-) -> "CommonAbstraJsonV12DefinitionsFormStageEndMessage":
+) -> "CommonAbstraJsonV12DefinitionsFormStageTimeoutMessage":
     if isinstance(data, str):
         return str(data)
     if data is None:
         return None
     raise ValueError(
-        f"Could not parse CommonAbstraJsonV12DefinitionsFormStageEndMessage from dict: {data}"
+        f"Could not parse CommonAbstraJsonV12DefinitionsFormStageTimeoutMessage from dict: {data}"
+    )
+
+
+CommonAbstraJsonV12DefinitionsFormStageErrorMessageString = str
+
+CommonAbstraJsonV12DefinitionsFormStageErrorMessageNull = type(None)
+
+CommonAbstraJsonV12DefinitionsFormStageErrorMessage = typing.Union[
+    CommonAbstraJsonV12DefinitionsFormStageErrorMessageString,
+    CommonAbstraJsonV12DefinitionsFormStageErrorMessageNull,
+]
+
+
+def common_abstra_json_v12_definitions_form_stage_error_message_from_dict(
+    data: typing.Any,
+) -> "CommonAbstraJsonV12DefinitionsFormStageErrorMessage":
+    if isinstance(data, str):
+        return str(data)
+    if data is None:
+        return None
+    raise ValueError(
+        f"Could not parse CommonAbstraJsonV12DefinitionsFormStageErrorMessage from dict: {data}"
     )
 
 
@@ -9153,6 +9121,38 @@ def common_abstra_json_v12_definitions_form_stage_welcome_title_from_dict(
     )
 
 
+CommonAbstraJsonV12DefinitionsFormStageNotificationTriggerVariableName = str
+
+CommonAbstraJsonV12DefinitionsFormStageNotificationTriggerEnabled = bool
+
+
+@dataclass
+class CommonAbstraJsonV12DefinitionsFormStageNotificationTrigger:
+    variable_name: (
+        CommonAbstraJsonV12DefinitionsFormStageNotificationTriggerVariableName
+    )
+    enabled: CommonAbstraJsonV12DefinitionsFormStageNotificationTriggerEnabled
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        data = {}
+        data["variable_name"] = self.variable_name
+        data["enabled"] = self.enabled
+        return data
+
+    @classmethod
+    def from_dict(
+        cls, data: typing.Dict[str, typing.Any]
+    ) -> "CommonAbstraJsonV12DefinitionsFormStageNotificationTrigger":
+        return cls(
+            variable_name=str(data["variable_name"]),
+            enabled=bool(data["enabled"]),
+        )
+
+
+CommonAbstraJsonV12DefinitionsFormStageAutoStart = bool
+
+CommonAbstraJsonV12DefinitionsFormStageAllowRestart = bool
+
 CommonAbstraJsonV12DefinitionsFormStagePath = str
 
 
@@ -9160,42 +9160,42 @@ CommonAbstraJsonV12DefinitionsFormStagePath = str
 class CommonAbstraJsonV12DefinitionsFormStage:
     transitions: CommonAbstraJsonV12DefinitionsFormStageTransitions
     file: CommonAbstraJsonV12DefinitionsFormStageFile
-    id: CommonAbstraJsonV12DefinitionsFormStageId
-    workflow_position: CommonAbstraJsonV12DefinitionsFormStageWorkflowPosition
     title: CommonAbstraJsonV12DefinitionsFormStageTitle
-    start_message: CommonAbstraJsonV12DefinitionsFormStageStartMessage
+    workflow_position: CommonAbstraJsonV12DefinitionsFormStageWorkflowPosition
+    id: CommonAbstraJsonV12DefinitionsFormStageId
     restart_button_text: CommonAbstraJsonV12DefinitionsFormStageRestartButtonText
-    auto_start: CommonAbstraJsonV12DefinitionsFormStageAutoStart
-    notification_trigger: CommonAbstraJsonV12DefinitionsFormStageNotificationTrigger
     start_button_text: CommonAbstraJsonV12DefinitionsFormStageStartButtonText
-    error_message: CommonAbstraJsonV12DefinitionsFormStageErrorMessage
-    timeout_message: CommonAbstraJsonV12DefinitionsFormStageTimeoutMessage
+    end_message: CommonAbstraJsonV12DefinitionsFormStageEndMessage
+    start_message: CommonAbstraJsonV12DefinitionsFormStageStartMessage
     is_initial: CommonAbstraJsonV12DefinitionsFormStageIsInitial
     access_control: CommonAbstraJsonV12DefinitionsFormStageAccessControl
-    allow_restart: CommonAbstraJsonV12DefinitionsFormStageAllowRestart
-    end_message: CommonAbstraJsonV12DefinitionsFormStageEndMessage
+    timeout_message: CommonAbstraJsonV12DefinitionsFormStageTimeoutMessage
+    error_message: CommonAbstraJsonV12DefinitionsFormStageErrorMessage
     welcome_title: CommonAbstraJsonV12DefinitionsFormStageWelcomeTitle
+    notification_trigger: CommonAbstraJsonV12DefinitionsFormStageNotificationTrigger
+    auto_start: CommonAbstraJsonV12DefinitionsFormStageAutoStart
+    allow_restart: CommonAbstraJsonV12DefinitionsFormStageAllowRestart
     path: CommonAbstraJsonV12DefinitionsFormStagePath
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
-        data["start_message"] = self.start_message
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["restart_button_text"] = self.restart_button_text
-        data["auto_start"] = self.auto_start
-        data["notification_trigger"] = self.notification_trigger.to_dict()
         data["start_button_text"] = self.start_button_text
-        data["error_message"] = self.error_message
-        data["timeout_message"] = self.timeout_message
+        data["end_message"] = self.end_message
+        data["start_message"] = self.start_message
         data["is_initial"] = self.is_initial
         data["access_control"] = self.access_control.to_dict()
-        data["allow_restart"] = self.allow_restart
-        data["end_message"] = self.end_message
+        data["timeout_message"] = self.timeout_message
+        data["error_message"] = self.error_message
         data["welcome_title"] = self.welcome_title
+        data["notification_trigger"] = self.notification_trigger.to_dict()
+        data["auto_start"] = self.auto_start
+        data["allow_restart"] = self.allow_restart
         data["path"] = self.path
         return data
 
@@ -9209,26 +9209,36 @@ class CommonAbstraJsonV12DefinitionsFormStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
-            start_message=(
-                str(data["start_message"])
-                if isinstance(data["start_message"], str)
-                else None
-            ),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             restart_button_text=(
                 str(data["restart_button_text"])
                 if isinstance(data["restart_button_text"], str)
                 else None
             ),
-            auto_start=bool(data["auto_start"]),
-            notification_trigger=CommonAbstraJsonV12DefinitionsFormStageNotificationTrigger.from_dict(
-                data["notification_trigger"]
-            ),
             start_button_text=(
                 str(data["start_button_text"])
                 if isinstance(data["start_button_text"], str)
+                else None
+            ),
+            end_message=(
+                str(data["end_message"])
+                if isinstance(data["end_message"], str)
+                else None
+            ),
+            start_message=(
+                str(data["start_message"])
+                if isinstance(data["start_message"], str)
+                else None
+            ),
+            is_initial=bool(data["is_initial"]),
+            access_control=CommonAbstraJsonV12DefinitionsFormStageAccessControl.from_dict(
+                data["access_control"]
+            ),
+            timeout_message=(
+                str(data["timeout_message"])
+                if isinstance(data["timeout_message"], str)
                 else None
             ),
             error_message=(
@@ -9236,26 +9246,16 @@ class CommonAbstraJsonV12DefinitionsFormStage:
                 if isinstance(data["error_message"], str)
                 else None
             ),
-            timeout_message=(
-                str(data["timeout_message"])
-                if isinstance(data["timeout_message"], str)
-                else None
-            ),
-            is_initial=bool(data["is_initial"]),
-            access_control=CommonAbstraJsonV12DefinitionsFormStageAccessControl.from_dict(
-                data["access_control"]
-            ),
-            allow_restart=bool(data["allow_restart"]),
-            end_message=(
-                str(data["end_message"])
-                if isinstance(data["end_message"], str)
-                else None
-            ),
             welcome_title=(
                 str(data["welcome_title"])
                 if isinstance(data["welcome_title"], str)
                 else None
             ),
+            notification_trigger=CommonAbstraJsonV12DefinitionsFormStageNotificationTrigger.from_dict(
+                data["notification_trigger"]
+            ),
+            auto_start=bool(data["auto_start"]),
+            allow_restart=bool(data["allow_restart"]),
             path=str(data["path"]),
         )
 
@@ -9274,7 +9274,7 @@ CommonAbstraJsonV12DefinitionsScriptStageTransitions = typing.List[
 
 CommonAbstraJsonV12DefinitionsScriptStageFile = str
 
-CommonAbstraJsonV12DefinitionsScriptStageId = str
+CommonAbstraJsonV12DefinitionsScriptStageTitle = str
 
 CommonAbstraJsonV12DefinitionsScriptStageWorkflowPositionItem = float
 
@@ -9282,7 +9282,7 @@ CommonAbstraJsonV12DefinitionsScriptStageWorkflowPosition = typing.List[
     CommonAbstraJsonV12DefinitionsScriptStageWorkflowPositionItem
 ]
 
-CommonAbstraJsonV12DefinitionsScriptStageTitle = str
+CommonAbstraJsonV12DefinitionsScriptStageId = str
 
 CommonAbstraJsonV12DefinitionsScriptStageIsInitial = bool
 
@@ -9291,18 +9291,18 @@ CommonAbstraJsonV12DefinitionsScriptStageIsInitial = bool
 class CommonAbstraJsonV12DefinitionsScriptStage:
     transitions: CommonAbstraJsonV12DefinitionsScriptStageTransitions
     file: CommonAbstraJsonV12DefinitionsScriptStageFile
-    id: CommonAbstraJsonV12DefinitionsScriptStageId
-    workflow_position: CommonAbstraJsonV12DefinitionsScriptStageWorkflowPosition
     title: CommonAbstraJsonV12DefinitionsScriptStageTitle
+    workflow_position: CommonAbstraJsonV12DefinitionsScriptStageWorkflowPosition
+    id: CommonAbstraJsonV12DefinitionsScriptStageId
     is_initial: CommonAbstraJsonV12DefinitionsScriptStageIsInitial
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data["transitions"] = [item.to_dict() for item in self.transitions]
         data["file"] = self.file
-        data["id"] = self.id
-        data["workflow_position"] = self.workflow_position
         data["title"] = self.title
+        data["workflow_position"] = self.workflow_position
+        data["id"] = self.id
         data["is_initial"] = self.is_initial
         return data
 
@@ -9316,9 +9316,9 @@ class CommonAbstraJsonV12DefinitionsScriptStage:
                 for item in data["transitions"]
             ],
             file=str(data["file"]),
-            id=str(data["id"]),
-            workflow_position=[float(item) for item in data["workflow_position"]],
             title=str(data["title"]),
+            workflow_position=[float(item) for item in data["workflow_position"]],
+            id=str(data["id"]),
             is_initial=bool(data["is_initial"]),
         )
 
@@ -9377,6 +9377,24 @@ class CommonAbstraJsonV12:
             version=data["version"],
         )
 
+
+CommonAiDestructiveTool = typing.Union[
+    typing.Literal["delete_table"],
+    typing.Literal["delete_column_by_id"],
+    typing.Literal["delete_table_rows"],
+    typing.Literal["delete_stage"],
+    typing.Literal["remove_role"],
+    typing.Literal["execute_connection_action"],
+]
+
+CommonAiDestructiveToolValues: typing.List[CommonAiDestructiveTool] = [
+    "delete_table",
+    "delete_column_by_id",
+    "delete_table_rows",
+    "delete_stage",
+    "remove_role",
+    "execute_connection_action",
+]
 
 CommonDeploymentResourcesOrganizationDeploymentResourcesWatermarkEnabled = typing.Union[
     typing.Literal["true"], typing.Literal["false"]
@@ -14462,6 +14480,8 @@ CloudApiCliAiV2StreamRequestBrowserToolResponses = typing.List[
     CloudApiCliAiV2StreamRequestBrowserToolResponsesItem
 ]
 
+CloudApiCliAiV2StreamRequestAutoApproveToolCalls = bool
+
 
 @dataclass
 class CloudApiCliAiV2StreamRequest:
@@ -14494,6 +14514,9 @@ class CloudApiCliAiV2StreamRequest:
     browser_tool_responses: typing.Optional[
         CloudApiCliAiV2StreamRequestBrowserToolResponses
     ] = field(default_factory=lambda: None)
+    auto_approve_tool_calls: typing.Optional[
+        CloudApiCliAiV2StreamRequestAutoApproveToolCalls
+    ] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
@@ -14519,6 +14542,8 @@ class CloudApiCliAiV2StreamRequest:
             data["browserToolResponses"] = [
                 item.to_dict() for item in self.browser_tool_responses
             ]
+        if self.auto_approve_tool_calls is not None:
+            data["autoApproveToolCalls"] = self.auto_approve_tool_calls
         return data
 
     @classmethod
@@ -14568,6 +14593,9 @@ class CloudApiCliAiV2StreamRequest:
                 CloudApiConsoleBrowserToolsResponse.from_dict(item)
                 for item in data["browserToolResponses"]
             ],
+            auto_approve_tool_calls=None
+            if data.get("autoApproveToolCalls") is None
+            else bool(data["autoApproveToolCalls"]),
         )
 
 
@@ -17373,6 +17401,10 @@ AbstraLibApiAiStreamRequestBrowserToolResponses = typing.List[
     AbstraLibApiAiStreamRequestBrowserToolResponsesItem
 ]
 
+AbstraLibApiAiStreamRequestAutoApproveToolCalls = (
+    CloudApiCliAiV2StreamRequestAutoApproveToolCalls
+)
+
 
 @dataclass
 class AbstraLibApiAiStreamRequest:
@@ -17391,6 +17423,9 @@ class AbstraLibApiAiStreamRequest:
     browser_tool_responses: typing.Optional[
         AbstraLibApiAiStreamRequestBrowserToolResponses
     ] = field(default_factory=lambda: None)
+    auto_approve_tool_calls: typing.Optional[
+        AbstraLibApiAiStreamRequestAutoApproveToolCalls
+    ] = field(default_factory=lambda: None)
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
@@ -17407,6 +17442,8 @@ class AbstraLibApiAiStreamRequest:
             data["browserToolResponses"] = [
                 item.to_dict() for item in self.browser_tool_responses
             ]
+        if self.auto_approve_tool_calls is not None:
+            data["autoApproveToolCalls"] = self.auto_approve_tool_calls
         return data
 
     @classmethod
@@ -17448,6 +17485,9 @@ class AbstraLibApiAiStreamRequest:
                 CloudApiConsoleBrowserToolsResponse.from_dict(item)
                 for item in data["browserToolResponses"]
             ],
+            auto_approve_tool_calls=None
+            if data.get("autoApproveToolCalls") is None
+            else bool(data["autoApproveToolCalls"]),
         )
 
 

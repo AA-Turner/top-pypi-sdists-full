@@ -71,14 +71,42 @@ class TestPolicyAssignmentDetail(unittest.TestCase):
                             description = '', 
                             validity_period_days = 56, )
                         ], 
-                    last_updated_by_user_id = '', ),
+                    last_updated_by_user = arthur_client.api_bindings.models.user.User(
+                        created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        organization_id = '', 
+                        id = '', 
+                        first_name = '', 
+                        last_name = '', 
+                        email = '', 
+                        picture = '', 
+                        user_type = 'user', 
+                        data_plane_id = '', 
+                        client_id = '', 
+                        organization_name = '', ), ),
                 model = arthur_client.api_bindings.models.model_summary.ModelSummary(
                     id = '', 
                     name = '', ),
                 applied_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 applied_by_user_id = '',
                 enforcement_starts_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                compliance_status = 'PENDING',
+                compliance_status = arthur_client.api_bindings.models.compliance_status_detail.ComplianceStatusDetail(
+                    status = 'PENDING', 
+                    alert_rules = arthur_client.api_bindings.models.compliance_alert_rule_results.ComplianceAlertRuleResults(
+                        compliant = [
+                            arthur_client.api_bindings.models.compliant_alert_rule_status.CompliantAlertRuleStatus(
+                                id = '', 
+                                name = '', )
+                            ], 
+                        non_compliant = [
+                            arthur_client.api_bindings.models.non_compliant_alert_rule_status.NonCompliantAlertRuleStatus(
+                                id = '', 
+                                name = '', 
+                                alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
+                                    description = '', 
+                                    id = '', ), )
+                            ], ), 
+                    attestation_rules = arthur_client.api_bindings.models.compliance_attestation_rule_results.ComplianceAttestationRuleResults(), ),
                 compliance_job_id = ''
             )
         else:
@@ -119,13 +147,41 @@ class TestPolicyAssignmentDetail(unittest.TestCase):
                             description = '', 
                             validity_period_days = 56, )
                         ], 
-                    last_updated_by_user_id = '', ),
+                    last_updated_by_user = arthur_client.api_bindings.models.user.User(
+                        created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        organization_id = '', 
+                        id = '', 
+                        first_name = '', 
+                        last_name = '', 
+                        email = '', 
+                        picture = '', 
+                        user_type = 'user', 
+                        data_plane_id = '', 
+                        client_id = '', 
+                        organization_name = '', ), ),
                 model = arthur_client.api_bindings.models.model_summary.ModelSummary(
                     id = '', 
                     name = '', ),
                 applied_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 enforcement_starts_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                compliance_status = 'PENDING',
+                compliance_status = arthur_client.api_bindings.models.compliance_status_detail.ComplianceStatusDetail(
+                    status = 'PENDING', 
+                    alert_rules = arthur_client.api_bindings.models.compliance_alert_rule_results.ComplianceAlertRuleResults(
+                        compliant = [
+                            arthur_client.api_bindings.models.compliant_alert_rule_status.CompliantAlertRuleStatus(
+                                id = '', 
+                                name = '', )
+                            ], 
+                        non_compliant = [
+                            arthur_client.api_bindings.models.non_compliant_alert_rule_status.NonCompliantAlertRuleStatus(
+                                id = '', 
+                                name = '', 
+                                alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
+                                    description = '', 
+                                    id = '', ), )
+                            ], ), 
+                    attestation_rules = arthur_client.api_bindings.models.compliance_attestation_rule_results.ComplianceAttestationRuleResults(), ),
         )
         """
 

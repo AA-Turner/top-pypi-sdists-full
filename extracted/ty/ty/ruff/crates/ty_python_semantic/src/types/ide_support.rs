@@ -2,8 +2,7 @@ use std::collections::HashMap;
 
 use crate::FxIndexSet;
 use crate::place::builtins_module_scope;
-use crate::semantic_index::definition::Definition;
-use crate::semantic_index::definition::DefinitionKind;
+use crate::semantic_index::definition::{Definition, DefinitionKind};
 use crate::semantic_index::{attribute_scopes, global_scope, semantic_index, use_def_map};
 use crate::types::call::{CallArguments, CallError, MatchedArgument};
 use crate::types::class::{DynamicClassAnchor, DynamicNamedTupleAnchor};
@@ -18,13 +17,16 @@ use itertools::Either;
 use ruff_db::files::FileRange;
 use ruff_db::parsed::parsed_module;
 use ruff_db::source::source_text;
-use ruff_python_ast::name::Name;
-use ruff_python_ast::{self as ast, AnyNodeRef};
+use ruff_python_ast::{self as ast, AnyNodeRef, name::Name};
 use ruff_text_size::{Ranged, TextRange};
 use rustc_hash::FxHashSet;
 
+#[path = "ide_support/unused_bindings.rs"]
+mod unused_binding_support;
+
 pub use resolve_definition::{ImportAliasResolution, ResolvedDefinition, map_stub_definition};
 use resolve_definition::{find_symbol_in_scope, resolve_definition};
+pub use unused_binding_support::{UnusedBinding, unused_bindings};
 
 /// Get the primary definition kind for a name expression within a specific file.
 /// Returns the first definition kind that is reachable for this name in its scope.
@@ -325,6 +327,18 @@ pub fn definitions_for_attribute<'db>(
     }
 
     resolved
+}
+
+/// Returns the descriptor object type for an attribute expression `x.y`, without invoking the
+/// descriptor protocol. This corresponds to `inspect.getattr_static(x, "y")` at the type level.
+pub fn static_member_type_for_attribute<'db>(
+    model: &SemanticModel<'db>,
+    attribute: &ast::ExprAttribute,
+) -> Option<Type<'db>> {
+    let lhs_ty = attribute.value.inferred_type(model)?;
+    lhs_ty
+        .static_member(model.db(), attribute.attr.as_str())
+        .ignore_possibly_undefined()
 }
 
 fn definitions_for_attribute_in_class_hierarchy<'db>(
@@ -1805,6 +1819,10 @@ fn class_literal_to_hierarchy_info(
                 let header_range = namedtuple.header_range(db);
                 (header_range, header_range)
             }
+        }
+        ClassLiteral::DynamicTypedDict(typeddict) => {
+            let header_range = typeddict.header_range(db);
+            (header_range, header_range)
         }
     };
 

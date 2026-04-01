@@ -4,16 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "RESTinstance"
-version = "1.6.2"
+version = "1.7.0"
 description = "Robot Framework library for RESTful JSON APIs"
 authors = [{ name = "Anssi Syrjäsalo", email = "opensource@syrjasalo.com" }]
 dependencies = [
     "docutils",
     "flex",
     "GenSON",
-    "jsonpath-ng",
+    "jsonpath-ng>=1.8.0",
     "jsonschema",
-    "openapi-core",
+    "openapi-core>=0.23.0",
     "pygments",
     "pytz",
     "requests",
@@ -21,7 +21,7 @@ dependencies = [
     "tzlocal",
     "setuptools<80",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 readme = "README.md"
 license = { text = "LGPLv3" }
 keywords = ["robotframework", "library", "http", "json", "api"]
@@ -29,11 +29,10 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Framework :: Robot Framework",
     "Framework :: Robot Framework :: Library",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -52,7 +51,6 @@ distribution = true
 dev = ["ruff"]
 test = [
     "pytest",
-    "pytest-clarity",
     "pytest-instafail",
     "pytest-spec",
 ]
@@ -67,9 +65,9 @@ lint = "ruff check --fix ."
 docs = "python -m robot.libdoc -P src REST docs/index.html"
 clean = { shell = "rm -rf .pdm-build/ .pytest_cache/ .ruff_cache/ dist/ node_modules/ results/ src/*.egg-info mb.pid *.log" }
 
-[tool.pytest]
-testpaths = "test"
-addopts = "--cov --spec --instafail --diff-type=auto"
+[tool.pytest.ini_options]
+testpaths = ["test"]
+addopts = ["--spec", "--instafail"]
 
 [tool.ruff]
 line-length = 80

@@ -16,10 +16,10 @@ class Report:
         self.stop_time = None
 
     def start(self) -> None:
-        self.start_time = time.time()
+        self.start_time = int(time.time() * 1000)
 
     def stop(self) -> None:
-        self.stop_time = time.time()
+        self.stop_time = int(time.time() * 1000)
 
     @staticmethod
     def _get_tool() -> dict:
@@ -41,6 +41,14 @@ class Report:
             'other': 0,
             'start': self.start_time,
             'stop': self.stop_time
+        }
+
+    @staticmethod
+    def _get_environment() -> dict:
+        return {
+            "buildName": os.getenv("CTRF_BUILD_NAME", "Pytest JSON CTRF Report"),
+            "buildNumber": os.getenv("CTRF_BUILD_NUMBER", "000"),
+            "buildUrl": os.getenv("CTRF_BUILD_URL", "https://ctrf.io"),
         }
 
     def collect(self, report: TestReport) -> None:
@@ -73,6 +81,7 @@ class Report:
         return {'results': {
             "tool": self._get_tool(),
             "summary": self._get_summary(),
+            "environment": self._get_environment(),
             "tests": [test.serialize() for test in self.prepared_tests.values()]
         }
         }

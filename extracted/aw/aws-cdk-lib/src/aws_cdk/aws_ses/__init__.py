@@ -518,7 +518,7 @@ class AddHeaderActionConfig:
     def header_name(self) -> builtins.str:
         '''The name of the header that you want to add to the incoming message.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-addheaderaction.html#cfn-ses-receiptrule-addheaderaction-headername
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-addheaderaction.html#cfn-ses-receiptrule-addheaderaction-headername
         '''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
@@ -528,7 +528,7 @@ class AddHeaderActionConfig:
     def header_value(self) -> builtins.str:
         '''The content that you want to include in the header.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-addheaderaction.html#cfn-ses-receiptrule-addheaderaction-headervalue
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-addheaderaction.html#cfn-ses-receiptrule-addheaderaction-headervalue
         '''
         result = self._values.get("header_value")
         assert result is not None, "Required property 'header_value' is missing"
@@ -698,7 +698,7 @@ class BounceActionConfig:
     def message(self) -> builtins.str:
         '''Human-readable text to include in the bounce message.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-bounceaction.html#cfn-ses-receiptrule-bounceaction-message
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-bounceaction.html#cfn-ses-receiptrule-bounceaction-message
         '''
         result = self._values.get("message")
         assert result is not None, "Required property 'message' is missing"
@@ -710,7 +710,7 @@ class BounceActionConfig:
 
         This is the address that the bounce message is sent from.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-bounceaction.html#cfn-ses-receiptrule-bounceaction-sender
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-bounceaction.html#cfn-ses-receiptrule-bounceaction-sender
         '''
         result = self._values.get("sender")
         assert result is not None, "Required property 'sender' is missing"
@@ -720,7 +720,7 @@ class BounceActionConfig:
     def smtp_reply_code(self) -> builtins.str:
         '''The SMTP reply code, as defined by RFC 5321.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-bounceaction.html#cfn-ses-receiptrule-bounceaction-smtpreplycode
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-bounceaction.html#cfn-ses-receiptrule-bounceaction-smtpreplycode
         '''
         result = self._values.get("smtp_reply_code")
         assert result is not None, "Required property 'smtp_reply_code' is missing"
@@ -732,7 +732,7 @@ class BounceActionConfig:
 
         :default: - No status code.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-bounceaction.html#cfn-ses-receiptrule-bounceaction-statuscode
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-bounceaction.html#cfn-ses-receiptrule-bounceaction-statuscode
         '''
         result = self._values.get("status_code")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -743,7 +743,7 @@ class BounceActionConfig:
 
         :default: - No notification is sent to SNS.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-bounceaction.html#cfn-ses-receiptrule-bounceaction-topicarn
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-bounceaction.html#cfn-ses-receiptrule-bounceaction-topicarn
         '''
         result = self._values.get("topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -18625,7 +18625,7 @@ class LambdaActionConfig:
     def function_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the AWS Lambda function.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-lambdaaction.html#cfn-ses-receiptrule-lambdaaction-functionarn
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-lambdaaction.html#cfn-ses-receiptrule-lambdaaction-functionarn
         '''
         result = self._values.get("function_arn")
         assert result is not None, "Required property 'function_arn' is missing"
@@ -18637,7 +18637,7 @@ class LambdaActionConfig:
 
         :default: 'Event'
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-lambdaaction.html#cfn-ses-receiptrule-lambdaaction-invocationtype
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-lambdaaction.html#cfn-ses-receiptrule-lambdaaction-invocationtype
         '''
         result = self._values.get("invocation_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -18648,7 +18648,7 @@ class LambdaActionConfig:
 
         :default: - No notification is sent to SNS.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-lambdaaction.html#cfn-ses-receiptrule-lambdaaction-topicarn
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-lambdaaction.html#cfn-ses-receiptrule-lambdaaction-topicarn
         '''
         result = self._values.get("topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -19727,7 +19727,7 @@ class S3ActionConfig:
     def bucket_name(self) -> builtins.str:
         '''The name of the Amazon S3 bucket that you want to send incoming mail to.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-bucketname
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-bucketname
         '''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
@@ -19739,7 +19739,7 @@ class S3ActionConfig:
 
         :default: - Emails are not encrypted.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-kmskeyarn
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-kmskeyarn
         '''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -19750,7 +19750,7 @@ class S3ActionConfig:
 
         :default: - No prefix.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-objectkeyprefix
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-objectkeyprefix
         '''
         result = self._values.get("object_key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -19761,7 +19761,7 @@ class S3ActionConfig:
 
         :default: - No notification is sent to SNS.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-topicarn
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-s3action.html#cfn-ses-receiptrule-s3action-topicarn
         '''
         result = self._values.get("topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -19824,7 +19824,7 @@ class SNSActionConfig:
 
         :default: 'UTF-8'
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-snsaction.html#cfn-ses-receiptrule-snsaction-encoding
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-snsaction.html#cfn-ses-receiptrule-snsaction-encoding
         '''
         result = self._values.get("encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -19835,7 +19835,7 @@ class SNSActionConfig:
 
         :default: - No notification is sent to SNS.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-snsaction.html#cfn-ses-receiptrule-snsaction-topicarn
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-snsaction.html#cfn-ses-receiptrule-snsaction-topicarn
         '''
         result = self._values.get("topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -19921,7 +19921,7 @@ class StopActionConfig:
 
         The only acceptable value is RuleSet.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-stopaction.html#cfn-ses-receiptrule-stopaction-scope
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-stopaction.html#cfn-ses-receiptrule-stopaction-scope
         '''
         result = self._values.get("scope")
         assert result is not None, "Required property 'scope' is missing"
@@ -19933,7 +19933,7 @@ class StopActionConfig:
 
         :default: - No notification is sent to SNS.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-stopaction.html#cfn-ses-receiptrule-stopaction-topicarn
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-stopaction.html#cfn-ses-receiptrule-stopaction-topicarn
         '''
         result = self._values.get("topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -20272,7 +20272,7 @@ class WorkmailActionConfig:
     def organization_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the Amazon WorkMail organization.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-workmailaction.html#cfn-ses-receiptrule-workmailaction-organizationarn
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-workmailaction.html#cfn-ses-receiptrule-workmailaction-organizationarn
         '''
         result = self._values.get("organization_arn")
         assert result is not None, "Required property 'organization_arn' is missing"
@@ -20284,7 +20284,7 @@ class WorkmailActionConfig:
 
         :default: - No notification is sent to SNS.
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-workmailaction.html#cfn-ses-receiptrule-workmailaction-topicarn
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-receiptrule-workmailaction.html#cfn-ses-receiptrule-workmailaction-topicarn
         '''
         result = self._values.get("topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -1,6 +1,6 @@
 [project]
 name = "imbox"
-version = "0.10.0"
+version = "0.10.1"
 description = "Library for reading IMAP mailboxes and converting email content to machine readable data"
 authors = [
     {"name"= "Martin Rusev", "email"= "martin@amon.cx"}
@@ -22,6 +22,9 @@ dev = [
     "ruff>=0.1.0",
     "pre-commit>=4.5.0",
 ]
+
+[project.scripts]
+imbox = "imbox.cli:cli"
 
 
 # Black configuration
@@ -146,7 +149,8 @@ select = [
 
 
 [tool.setuptools.packages.find]
-where = ["imbox"]
+where = ["."]
+include = ["imbox*"]
 
 [build-system]
 requires = ["setuptools"]

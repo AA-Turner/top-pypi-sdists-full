@@ -18,7 +18,6 @@ import json
 import tempfile
 from io import StringIO
 from pathlib import Path
-from typing import Optional
 
 import pytest
 
@@ -37,7 +36,7 @@ def test_schema_salad_inherit_docs() -> None:
     assert 1 == stdout.getvalue().count("Parent ID")
 
 
-def generate_doc(schema_data: Optional[str] = None) -> str:
+def generate_doc(schema_data: str | None = None) -> str:
     """Avoid error when calling fixture directly."""
     stdout = StringIO()
     if schema_data:
@@ -67,8 +66,7 @@ def test_doc_fenced_code_contents_preserved() -> None:
     However, special characters (e.g.: ``<``, ``>``) must still be escaped,
     otherwise they will not be correctly rendered within an HTML ``<pre><code>`` block.
     """
-    data = inspect.cleandoc(
-        """
+    data = inspect.cleandoc("""
         Option one generic example:
         ```
         some_cwl_field:
@@ -97,8 +95,7 @@ def test_doc_fenced_code_contents_preserved() -> None:
           - test: value 1 < 2 is true
           - test: value 2 > 1 is false
         ```
-        """
-    )
+        """)
     schema_data = json.dumps(
         [
             {

@@ -29,7 +29,6 @@ def test_parallel_agents_orchestrator_e2e() -> None:
         phase_filter="all",
         pytest_args=None,
         artifacts_dir=None,
-        keep_vm_on_fail=False,
         verbose=True,
     )
 

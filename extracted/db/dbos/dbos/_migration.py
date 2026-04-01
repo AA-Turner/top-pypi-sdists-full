@@ -45,23 +45,23 @@ def run_dbos_migrations(
     engine: sa.Engine, schema: str, use_listen_notify: bool
 ) -> None:
     """Run DBOS-managed migrations by executing each SQL command in dbos_migrations."""
+    # Get current migration version
     with engine.begin() as conn:
-        # Get current migration version
         result = conn.execute(
             sa.text(f'SELECT version FROM "{schema}".dbos_migrations')
         )
         current_version = result.fetchone()
         last_applied = current_version[0] if current_version else 0
 
-        # Apply migrations starting from the next version
-        migrations = get_dbos_migrations(schema, use_listen_notify)
-        for i, migration_sql in enumerate(migrations, 1):
-            if i <= last_applied:
-                continue
+    # Apply each migration in its own transaction
+    migrations = get_dbos_migrations(schema, use_listen_notify)
+    for i, migration_sql in enumerate(migrations, 1):
+        if i <= last_applied:
+            continue
 
-            # Execute the migration
-            dbos_logger.info(f"Applying DBOS system database schema migration {i}")
+        dbos_logger.info(f"Applying DBOS system database schema migration {i}")
 
+        with engine.begin() as conn:
             # Migration 10 adds a primary key to the notifications table.
             # Skip it if the table already has one.
             if (
@@ -460,6 +460,12 @@ ALTER TABLE "{schema}"."workflow_status" ADD COLUMN "was_forked_from" BOOLEAN NO
 """
 
 
+def get_dbos_migration_nineteen(schema: str) -> str:
+    return f"""
+CREATE INDEX "idx_operation_outputs_completed_at_function_name" ON "{schema}"."operation_outputs" ("completed_at_epoch_ms", "function_name");
+"""
+
+
 def get_dbos_migrations(schema: str, use_listen_notify: bool) -> list[str]:
     return [
         get_dbos_migration_one(schema, use_listen_notify),
@@ -480,6 +486,7 @@ def get_dbos_migrations(schema: str, use_listen_notify: bool) -> list[str]:
         get_dbos_migration_sixteen(schema),
         get_dbos_migration_seventeen(schema),
         get_dbos_migration_eighteen(schema),
+        get_dbos_migration_nineteen(schema),
     ]
 
 
@@ -665,6 +672,10 @@ sqlite_migration_eighteen = """
 ALTER TABLE workflow_status ADD COLUMN "was_forked_from" BOOLEAN NOT NULL DEFAULT FALSE;
 """
 
+sqlite_migration_nineteen = """
+CREATE INDEX "idx_operation_outputs_completed_at_function_name" ON "operation_outputs" ("completed_at_epoch_ms", "function_name");
+"""
+
 sqlite_migrations = [
     sqlite_migration_one,
     sqlite_migration_two,
@@ -683,4 +694,5 @@ sqlite_migrations = [
     sqlite_migration_sixteen,
     sqlite_migration_seventeen,
     sqlite_migration_eighteen,
+    sqlite_migration_nineteen,
 ]

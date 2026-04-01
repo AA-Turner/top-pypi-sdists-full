@@ -29,7 +29,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
-from pymammotion.account.registry import AccountRegistry
+from pymammotion.account.registry import BLE_ONLY_ACCOUNT, AccountRegistry, AccountSession
 from pymammotion.aliyun.cloud_gateway import CloudIOTGateway
 from pymammotion.auth.token_manager import TokenManager
 from pymammotion.bluetooth.manager import BLETransportManager
@@ -37,20 +37,29 @@ from pymammotion.device.handle import DeviceHandle, DeviceRegistry
 from pymammotion.device.readiness import get_readiness_checker
 from pymammotion.http.http import MammotionHTTP
 from pymammotion.http.model.http import DeviceRecord, DeviceRecords, Response
-from pymammotion.mammotion.commands.mammotion_command import MammotionCommand
 from pymammotion.messaging.command_queue import Priority
 from pymammotion.transport.aliyun_mqtt import AliyunMQTTConfig, AliyunMQTTTransport
-from pymammotion.transport.base import TransportType
+from pymammotion.transport.base import (
+    AuthError,
+    LoginFailedError,
+    ReLoginRequiredError,
+    SessionExpiredError,
+    Subscription,
+    TransportType,
+)
 from pymammotion.transport.ble import BLETransport, BLETransportConfig
 from pymammotion.transport.mqtt import MQTTTransport, MQTTTransportConfig
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from aiohttp import ClientSession
     from bleak import BLEDevice
 
     from pymammotion.data.model import GenerateRouteInformation
     from pymammotion.data.model.device import MowingDevice
     from pymammotion.http.model.http import MQTTConnection
+    from pymammotion.state.device_state import DeviceSnapshot
 
 _logger = logging.getLogger(__name__)
 
@@ -92,6 +101,33 @@ def _apply_mow_path_geojson(device: MowingDevice) -> None:
     )
 
 
+def _apply_dynamics_line_geojson(device: MowingDevice) -> None:
+    """Generate and store the dynamics-line GeoJSON on *device*.
+
+    Converts ``device.map.dynamics_line`` (raw x/y metre offsets from the RTK
+    base) to a GeoJSON LineString in WGS-84 and stores the result in
+    ``device.map.generated_dynamics_line_geojson``.
+
+    A no-op when the RTK location is unknown (latitude == 0) or the dynamics
+    line has fewer than two points.
+    """
+    from shapely.geometry import Point
+
+    from pymammotion.data.model.generate_geojson import GeojsonGenerator
+    from pymammotion.utility.map import CoordinateConverter
+
+    rtk = device.location.RTK
+    if rtk.latitude == 0 or len(device.map.dynamics_line) < 2:
+        return
+
+    conv = CoordinateConverter(rtk.latitude, rtk.longitude)
+    rtk_ll = conv.enu_to_lla(0, 0)
+    device.map.generated_dynamics_line_geojson = GeojsonGenerator.generate_dynamics_line_geojson(
+        device.map.dynamics_line,
+        Point(rtk_ll.latitude, rtk_ll.longitude),
+    )
+
+
 class MammotionClient:
     """Top-level client — stable HA-facing API for the new architecture."""
 
@@ -103,12 +139,8 @@ class MammotionClient:
         self._stopped: bool = False
         self._lock: asyncio.Lock = asyncio.Lock()
         self._iot_id_to_device_id: dict[str, str] = {}
-        self._aliyun_transport: AliyunMQTTTransport | None = None
-        self._mammotion_transport: MQTTTransport | None = None
-        self._user_account: int = 0
-        self._cloud_client: CloudIOTGateway | None = None
-        self._mammotion_http: MammotionHTTP | None = None
-        self._token_manager: TokenManager | None = None
+        # RAII subscriptions for state-change watchers (keyed by device_name)
+        self._watcher_subscriptions: dict[str, Subscription] = {}
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -134,6 +166,166 @@ class MammotionClient:
         if handle is not None:
             task = loop.create_task(self._device_registry.unregister(handle.device_id))
             del task  # RUF006: reference held briefly to satisfy linter, task is fire-and-forget
+
+    # ------------------------------------------------------------------
+    # Device state watchers
+    # ------------------------------------------------------------------
+
+    def setup_device_watchers(self, device_name: str) -> Subscription | None:
+        """Subscribe to state changes for a device.
+
+        Automatically triggers MowPathSaga (fetch-only, no re-planning) when the
+        device is found to be actively working (non-empty work_tasks_event.ids and
+        a non-zero report_data.work.path_hash) but the cover path has not yet been
+        collected.  Call teardown_device_watchers() when the device is removed.
+
+        Returns the Subscription handle, or None if the device is not yet registered.
+        """
+        handle = self._device_registry.get_by_name(device_name)
+        if handle is None:
+            return None
+
+        async def _on_state_changed(snapshot: DeviceSnapshot) -> None:
+            device = snapshot.raw
+            task_ids = device.events.work_tasks_event.ids
+            work = device.report_data.work
+            actively_working = bool(task_ids) and work.path_hash != 0
+            path_missing = not device.map.current_mow_path and actively_working
+
+            if path_missing:
+                if handle.queue.is_saga_active:
+                    return
+                _logger.debug(
+                    "Device %s is actively working — auto-fetching cover path for %d zone(s)",
+                    device_name,
+                    len(task_ids),
+                )
+                try:
+                    await self.start_mow_path_saga(
+                        device_name,
+                        zone_hashs=list(task_ids),
+                        skip_planning=True,
+                    )
+                except Exception:  # noqa: BLE001
+                    _logger.warning("Auto-trigger MowPathSaga failed for %s", device_name, exc_info=True)
+
+        sub = handle.subscribe_state_changed(_on_state_changed)
+        self._watcher_subscriptions[device_name] = sub
+        return sub
+
+    def teardown_device_watchers(self, device_name: str) -> None:
+        """Cancel state-change subscriptions for the named device."""
+        sub = self._watcher_subscriptions.pop(device_name, None)
+        if sub is not None:
+            sub.cancel()
+
+    def setup_all_mower_watchers(self) -> None:
+        """Set up state-change watchers for all registered mower devices.
+
+        Skips RTK base stations and swimming-pool (Spino/S1/E1) devices.
+        """
+        from pymammotion.utility.device_type import DeviceType
+
+        for handle in self._device_registry.all_devices:
+            name = handle.device_name
+            if DeviceType.is_rtk(name) or DeviceType.is_swimming_pool(name):
+                continue
+            self.setup_device_watchers(name)
+
+    # ------------------------------------------------------------------
+    # Account session helpers
+    # ------------------------------------------------------------------
+
+    def _get_session_for_device(self, device_name: str) -> AccountSession | None:
+        """Return the AccountSession that owns *device_name*, or None."""
+        return self._account_registry.find_by_device(device_name)
+
+    def _get_default_session(self) -> AccountSession | None:
+        """Return the first registered session (convenience for single-account setups)."""
+        sessions = self._account_registry.all_sessions
+        return sessions[0] if sessions else None
+
+    # ------------------------------------------------------------------
+    # Auth-retry helper
+    # ------------------------------------------------------------------
+
+    async def _refresh_for_transport(self, transport_type: TransportType, session: AccountSession | None) -> None:
+        """Refresh credentials for a specific transport type."""
+        if session is None or session.token_manager is None:
+            return
+        if transport_type == TransportType.CLOUD_ALIYUN:
+            await session.token_manager.refresh_aliyun_credentials()
+        elif transport_type == TransportType.CLOUD_MAMMOTION:
+            await session.token_manager.refresh_mqtt_credentials()
+
+    async def _full_relogin(self, session: AccountSession | None) -> None:
+        """Re-login with stored credentials and refresh all tokens.
+
+        Called when token refresh fails (ReLoginRequiredError).
+        Raises LoginFailedError if the re-login itself fails.
+        """
+        if session is None or not session.email or not session.password:
+            raise LoginFailedError("", "No stored credentials available for re-login")
+        if session.mammotion_http is None:
+            raise LoginFailedError(session.email, "No HTTP client available for re-login")
+        try:
+            login_resp = await session.mammotion_http.login_v2(session.email, session.password)
+            if login_resp.code != 0:
+                raise LoginFailedError(session.email, login_resp.msg)
+            if session.token_manager is not None:
+                await session.token_manager.force_refresh()
+        except LoginFailedError:
+            raise
+        except Exception as exc:
+            raise LoginFailedError(session.email, str(exc)) from exc
+
+    async def _send_with_auth_retry(
+        self, send_fn: Callable[[], Awaitable[None]], session: AccountSession | None = None
+    ) -> None:
+        """Call *send_fn*; on auth failure, refresh credentials and retry.
+
+        Cascade:
+          1. SessionExpiredError → targeted refresh for the failing transport → retry.
+          2. Still fails → force_refresh (all credentials) → retry.
+          3. force_refresh raises ReLoginRequiredError → full re-login with stored credentials → retry.
+          4. Re-login fails → LoginFailedError propagates to the caller.
+        """
+        tm = session.token_manager if session else None
+        try:
+            await send_fn()
+        except SessionExpiredError as exc:
+            _logger.debug("Session expired on %s — refreshing targeted credentials", exc.transport_type.value)
+            try:
+                await self._refresh_for_transport(exc.transport_type, session)
+                await send_fn()
+            except ReLoginRequiredError:
+                _logger.debug("Targeted refresh requires re-login — attempting full re-login")
+                await self._full_relogin(session)
+                await send_fn()
+            except (SessionExpiredError, AuthError):
+                _logger.debug("Targeted refresh failed — attempting full credential refresh")
+                try:
+                    if tm is not None:
+                        await tm.force_refresh()
+                    await send_fn()
+                except ReLoginRequiredError:
+                    _logger.debug("Full refresh requires re-login — attempting full re-login")
+                    await self._full_relogin(session)
+                    await send_fn()
+        except ReLoginRequiredError:
+            _logger.debug("Auth requires re-login — attempting full re-login")
+            await self._full_relogin(session)
+            await send_fn()
+        except AuthError:
+            _logger.debug("Auth error — attempting full credential refresh")
+            try:
+                if tm is not None:
+                    await tm.force_refresh()
+                await send_fn()
+            except ReLoginRequiredError:
+                _logger.debug("Full refresh requires re-login — attempting full re-login")
+                await self._full_relogin(session)
+                await send_fn()
 
     # ------------------------------------------------------------------
     # Device access
@@ -196,6 +388,12 @@ class MammotionClient:
             prefer_ble=True,
         )
         await self._device_registry.register(handle)
+        # Add to BLE-only account session
+        ble_session = self._account_registry.get(BLE_ONLY_ACCOUNT)
+        if ble_session is None:
+            ble_session = AccountSession(account_id=BLE_ONLY_ACCOUNT)
+            await self._account_registry.register(ble_session)
+        ble_session.device_ids.add(device_name)
         _logger.info("BLE-only device registered: %s (%s)", device_name, device_id)
         return handle
 
@@ -203,27 +401,46 @@ class MammotionClient:
     # Cloud / MQTT — public entry points
     # ------------------------------------------------------------------
 
-    async def _sign_out_existing_session(self) -> None:
-        """Disconnect active transports and sign out of any existing cloud session."""
-        if self._aliyun_transport is not None:
-            await self._aliyun_transport.disconnect()
-            self._aliyun_transport = None
-        if self._mammotion_transport is not None:
-            await self._mammotion_transport.disconnect()
-            self._mammotion_transport = None
-        if self._mammotion_http is not None:
+    async def _sign_out_session(self, session: AccountSession) -> None:
+        """Disconnect transports and sign out a single account session."""
+        if session.aliyun_transport is not None:
+            await session.aliyun_transport.disconnect()
+            session.aliyun_transport = None
+        if session.mammotion_transport is not None:
+            await session.mammotion_transport.disconnect()
+            session.mammotion_transport = None
+        if session.mammotion_http is not None:
             try:
-                await self._mammotion_http.logout()
-            except Exception:
+                await session.mammotion_http.logout()
+            except Exception:  # noqa: BLE001
                 _logger.warning("HTTP logout failed — proceeding with login anyway", exc_info=True)
-            self._mammotion_http = None
-        if self._cloud_client is not None:
+            session.mammotion_http = None
+        if session.cloud_client is not None:
             try:
-                await self._cloud_client.sign_out()
-            except Exception:
+                await session.cloud_client.sign_out()
+            except Exception:  # noqa: BLE001
                 _logger.warning("cloud sign_out failed — proceeding with login anyway", exc_info=True)
-            self._cloud_client = None
-        self._token_manager = None
+            session.cloud_client = None
+        session.token_manager = None
+        await self._account_registry.unregister(session.account_id)
+
+    async def _sign_out_existing_session(self, account_id: str | None = None) -> None:
+        """Disconnect active transports and sign out cloud session(s).
+
+        Args:
+            account_id: Sign out only this account.  When ``None``, sign out
+                        all cloud sessions (BLE-only sessions are preserved).
+
+        """
+        if account_id is not None:
+            session = self._account_registry.get(account_id)
+            if session is not None:
+                await self._sign_out_session(session)
+        else:
+            for session in self._account_registry.all_sessions:
+                if session.account_id == BLE_ONLY_ACCOUNT:
+                    continue
+                await self._sign_out_session(session)
         self._stopped = False
 
     async def login_and_initiate_cloud(
@@ -244,19 +461,24 @@ class MammotionClient:
             session:  Optional :class:`aiohttp.ClientSession` to reuse.
 
         """
-        await self._sign_out_existing_session()
+        await self._sign_out_existing_session(account)
         mammotion_http = MammotionHTTP(session=session)
-        self._mammotion_http = mammotion_http
         login_resp = await mammotion_http.login_v2(account, password)
         if login_resp.code != 0:
-            raise Exception(login_resp.msg)
+            raise LoginFailedError(account, login_resp.msg)
 
         device_list_resp = await mammotion_http.get_user_shared_device_page()
         device_page_resp = await mammotion_http.get_user_device_page()
         aliyun_devices: DeviceRecords = device_list_resp.data or []
         mammotion_records = (device_page_resp.data.records if device_page_resp.data else []) or []
 
-        self._set_user_account(mammotion_http)
+        acct_session = AccountSession(
+            account_id=account,
+            email=account,
+            password=password,
+            mammotion_http=mammotion_http,
+        )
+        acct_session.user_account = self._extract_user_account(mammotion_http)
 
         if aliyun_devices:
             cloud_client = CloudIOTGateway(mammotion_http)
@@ -274,26 +496,34 @@ class MammotionClient:
                 msg = "Aliyun setup incomplete — session_by_authcode_response.data missing"
                 raise RuntimeError(msg)
 
-            self._cloud_client = cloud_client
-            self._token_manager = TokenManager(account, mammotion_http, cloud_client)
-            transport = self._setup_aliyun_transport(cloud_client)
+            acct_session.cloud_client = cloud_client
+            acct_session.token_manager = TokenManager(account, mammotion_http, cloud_client)
+            al_transport = self._setup_aliyun_transport(cloud_client)
+            acct_session.aliyun_transport = al_transport
+            ua = acct_session.user_account
             for device in cloud_client.devices_by_account_response.data.data:
                 if device.device_name:
-                    await self._register_aliyun_device(device.device_name, device.iot_id, transport)
-            await transport.connect()
+                    await self._register_aliyun_device(device.device_name, device.iot_id, al_transport, ua)
+                    acct_session.device_ids.add(device.device_name)
+            await al_transport.connect()
 
         if mammotion_records:
             await mammotion_http.get_mqtt_credentials()
             if mammotion_http.mqtt_credentials is None:
                 _logger.error("Could not obtain Mammotion MQTT credentials — skipping post-2025 devices")
             else:
-                if self._token_manager is None:
-                    self._token_manager = TokenManager(account, mammotion_http)
+                if acct_session.token_manager is None:
+                    acct_session.token_manager = TokenManager(account, mammotion_http)
                 transport = self._setup_mammotion_transport(mammotion_http.mqtt_credentials, mammotion_http)
+                acct_session.mammotion_transport = transport
+                ua = acct_session.user_account
                 for record in mammotion_records:
                     if record.device_name:
-                        await self._register_mammotion_device(record, transport)
+                        await self._register_mammotion_device(record, transport, ua)
+                        acct_session.device_ids.add(record.device_name)
                 await transport.connect()
+
+        await self._account_registry.register(acct_session)
 
     def to_cache(self) -> dict[str, Any]:
         """Serialize current cloud credentials to a cache dictionary.
@@ -305,19 +535,20 @@ class MammotionClient:
 
         Returns an empty dict when no cloud session has been established yet.
         """
-        if self._cloud_client is not None:
-            return self._cloud_client.to_cache()
-
-        if self._mammotion_http is not None:
+        session = self._get_default_session()
+        if session is None:
+            return {}
+        if session.cloud_client is not None:
+            return session.cloud_client.to_cache()
+        if session.mammotion_http is not None:
             raw: dict[str, Any] = {}
-            if self._mammotion_http.response is not None:
-                raw["mammotion_data"] = self._mammotion_http.response
-            if self._mammotion_http.mqtt_credentials is not None:
-                raw["mammotion_mqtt"] = self._mammotion_http.mqtt_credentials
-            if self._mammotion_http.device_records.records:
-                raw["mammotion_device_records"] = self._mammotion_http.device_records
+            if session.mammotion_http.response is not None:
+                raw["mammotion_data"] = session.mammotion_http.response
+            if session.mammotion_http.mqtt_credentials is not None:
+                raw["mammotion_mqtt"] = session.mammotion_http.mqtt_credentials
+            if session.mammotion_http.device_records.records:
+                raw["mammotion_device_records"] = session.mammotion_http.device_records
             return raw
-
         return {}
 
     async def restore_credentials(
@@ -352,27 +583,35 @@ class MammotionClient:
                                    restoring known devices to register any new ones.
 
         """
+        # Get or create the session for this account
+        acct_session = self._account_registry.get(account)
+        if acct_session is None:
+            acct_session = AccountSession(account_id=account, email=account, password=password)
+            await self._account_registry.register(acct_session)
+        else:
+            acct_session.password = password
+
         if "aep_data" in cached_data:
-            await self._restore_aliyun(account, password, cached_data, check_for_new_devices=check_for_new_devices)
+            await self._restore_aliyun(
+                account, password, cached_data, acct_session, check_for_new_devices=check_for_new_devices
+            )
 
         if "mammotion_mqtt" in cached_data and "mammotion_device_records" in cached_data:
             await self._restore_mammotion_mqtt(
-                account, password, cached_data, session, check_for_new_devices=check_for_new_devices
+                account, password, cached_data, session, acct_session, check_for_new_devices=check_for_new_devices
             )
 
     @property
     def token_manager(self) -> TokenManager | None:
         """Return the active TokenManager, or None if no cloud session."""
-        return self._token_manager
+        session = self._get_default_session()
+        return session.token_manager if session else None
 
     async def refresh_login(self, account: str) -> None:
-        """Refresh authentication credentials for the given account.
-
-        Delegates to TokenManager.force_refresh() which refreshes HTTP,
-        MQTT, and Aliyun credentials as needed.
-        """
-        if self._token_manager is not None:
-            await self._token_manager.force_refresh()
+        """Refresh authentication credentials for the given account."""
+        session = self._account_registry.get(account) or self._get_default_session()
+        if session is not None and session.token_manager is not None:
+            await session.token_manager.refresh_aliyun_credentials()
             _logger.info("refresh_login: credentials refreshed for account=%s", account)
         else:
             _logger.warning("refresh_login: no token manager available for account=%s", account)
@@ -381,13 +620,15 @@ class MammotionClient:
     # Cloud — private helpers
     # ------------------------------------------------------------------
 
-    def _set_user_account(self, mammotion_http: MammotionHTTP) -> None:
-        """Extract and store the user account number from login_info."""
+    @staticmethod
+    def _extract_user_account(mammotion_http: MammotionHTTP) -> int:
+        """Extract the numeric user account from login_info, or 0."""
         if mammotion_http.login_info is not None:
-            self._user_account = int(mammotion_http.login_info.userInformation.userAccount)
+            return int(mammotion_http.login_info.userInformation.userAccount)
+        return 0
 
     def _setup_aliyun_transport(self, cloud_client: CloudIOTGateway) -> AliyunMQTTTransport:
-        """Build an AliyunMQTTTransport from a ready CloudIOTGateway and store it."""
+        """Build an AliyunMQTTTransport from a ready CloudIOTGateway."""
         aep = cloud_client.aep_response.data
         region_id = cloud_client.region_response.data.regionId
         session_data = cloud_client.session_by_authcode_response.data
@@ -403,11 +644,10 @@ class MammotionClient:
         transport = AliyunMQTTTransport(config, cloud_client)
         transport.on_device_message = self._route_device_message
         transport.on_device_status = self._route_device_status
-        self._aliyun_transport = transport
         return transport
 
     def _setup_mammotion_transport(self, mqtt_creds: MQTTConnection, mammotion_http: MammotionHTTP) -> MQTTTransport:
-        """Build a MQTTTransport from MQTTConnection credentials and store it."""
+        """Build a MQTTTransport from MQTTConnection credentials."""
         from urllib.parse import urlparse
 
         parsed = urlparse(mqtt_creds.host if "://" in mqtt_creds.host else "tcp://" + mqtt_creds.host)
@@ -423,10 +663,11 @@ class MammotionClient:
         transport = MQTTTransport(config, mammotion_http)
         transport.on_device_message = self._route_device_message
         transport.on_device_status = self._route_device_status
-        self._mammotion_transport = transport
         return transport
 
-    async def _register_aliyun_device(self, device_name: str, iot_id: str, transport: AliyunMQTTTransport) -> None:
+    async def _register_aliyun_device(
+        self, device_name: str, iot_id: str, transport: AliyunMQTTTransport, user_account: int = 0
+    ) -> None:
         """Register a single Aliyun device in the device registry."""
         from pymammotion.data.model.device import MowingDevice
 
@@ -435,6 +676,7 @@ class MammotionClient:
             device_name=device_name,
             initial_device=MowingDevice(name=device_name),
             iot_id=iot_id,
+            user_account=user_account,
             mqtt_transport=transport,
             readiness_checker=get_readiness_checker(device_name),
         )
@@ -444,7 +686,9 @@ class MammotionClient:
         self._iot_id_to_device_id[iot_id] = device_name
         _logger.info("Aliyun device registered: %s (iot_id=%s)", device_name, iot_id)
 
-    async def _register_mammotion_device(self, record: DeviceRecord, transport: MQTTTransport) -> None:
+    async def _register_mammotion_device(
+        self, record: DeviceRecord, transport: MQTTTransport, user_account: int = 0
+    ) -> None:
         """Add MQTT topics and register a single Mammotion device in the device registry."""
         from pymammotion.data.model.device import MowingDevice
 
@@ -461,6 +705,7 @@ class MammotionClient:
             device_name=record.device_name,
             initial_device=MowingDevice(name=record.device_name),
             iot_id=record.iot_id,
+            user_account=user_account,
             mqtt_transport=transport,
             readiness_checker=get_readiness_checker(record.device_name),
         )
@@ -482,6 +727,7 @@ class MammotionClient:
         account: str,
         password: str,
         cached_data: dict[str, Any],
+        acct_session: AccountSession,
         *,
         check_for_new_devices: bool,
     ) -> None:
@@ -492,17 +738,19 @@ class MammotionClient:
             await self.login_and_initiate_cloud(account, password)
             return
 
-        self._mammotion_http = cloud_client.mammotion_http
-        self._cloud_client = cloud_client
-        self._set_user_account(cloud_client.mammotion_http)
+        acct_session.mammotion_http = cloud_client.mammotion_http
+        acct_session.cloud_client = cloud_client
+        acct_session.user_account = self._extract_user_account(cloud_client.mammotion_http)
 
         transport = self._setup_aliyun_transport(cloud_client)
+        acct_session.aliyun_transport = transport
 
         known_ids: set[str] = set()
+        ua = acct_session.user_account
         if cloud_client.devices_by_account_response is not None and cloud_client.devices_by_account_response.data:
             for device in cloud_client.devices_by_account_response.data.data:
                 if device.device_name:
-                    await self._register_aliyun_device(device.device_name, device.iot_id, transport)
+                    await self._register_aliyun_device(device.device_name, device.iot_id, transport, ua)
                     known_ids.add(device.device_name)
 
         if check_for_new_devices:
@@ -511,16 +759,17 @@ class MammotionClient:
                 if fresh.data:
                     for device in fresh.data.data:
                         if device.device_name and device.device_name not in known_ids:
-                            await self._register_aliyun_device(device.device_name, device.iot_id, transport)
+                            await self._register_aliyun_device(device.device_name, device.iot_id, transport, ua)
                             known_ids.add(device.device_name)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 _logger.warning("restore_credentials: new-device discovery failed (Aliyun)", exc_info=True)
 
         if not known_ids:
             _logger.info("No Aliyun devices found — skipping Aliyun MQTT connection")
-            self._aliyun_transport = None
+            acct_session.aliyun_transport = None
             return
 
+        acct_session.device_ids.update(known_ids)
         await transport.connect()
 
     async def _restore_mammotion_mqtt(
@@ -529,6 +778,7 @@ class MammotionClient:
         password: str,
         cached_data: dict[str, Any],
         session: ClientSession | None,
+        acct_session: AccountSession,
         *,
         check_for_new_devices: bool,
     ) -> None:
@@ -537,7 +787,7 @@ class MammotionClient:
         from pymammotion.http.model.response_factory import response_factory
 
         mammotion_http = MammotionHTTP(account, password, session=session)
-        self._mammotion_http = mammotion_http
+        acct_session.mammotion_http = mammotion_http
 
         mammotion_data = cached_data.get("mammotion_data")
         if mammotion_data is not None:
@@ -552,7 +802,7 @@ class MammotionClient:
                 if isinstance(response_data.data, dict)
                 else response_data.data
             )
-            self._set_user_account(mammotion_http)
+            acct_session.user_account = self._extract_user_account(mammotion_http)
 
         mqtt_raw = cached_data["mammotion_mqtt"]
 
@@ -566,9 +816,11 @@ class MammotionClient:
         if mqtt_creds := MQTTConnection.from_dict(mqtt_raw) if isinstance(mqtt_raw, dict) else mqtt_raw:
             mammotion_http.mqtt_credentials = mqtt_creds
             transport = self._setup_mammotion_transport(mqtt_creds, mammotion_http)
+            acct_session.mammotion_transport = transport
+            ua = acct_session.user_account
             for record in cached_records.records:
                 if record.device_name:
-                    await self._register_mammotion_device(record, transport)
+                    await self._register_mammotion_device(record, transport, ua)
                     known_ids.add(record.device_name)
 
             await transport.connect()
@@ -578,9 +830,12 @@ class MammotionClient:
                     page_resp = await mammotion_http.get_user_device_page()
                     for record in (page_resp.data.records if page_resp.data else []) or []:
                         if record.device_name and record.device_name not in known_ids:
-                            await self._register_mammotion_device(record, transport)
-                except Exception:
+                            await self._register_mammotion_device(record, transport, ua)
+                            known_ids.add(record.device_name)
+                except Exception:  # noqa: BLE001
                     _logger.warning("restore_credentials: new-device discovery failed (Mammotion)", exc_info=True)
+
+        acct_session.device_ids.update(known_ids)
 
     @staticmethod
     async def _connect_iot(cloud_client: CloudIOTGateway) -> None:
@@ -655,7 +910,7 @@ class MammotionClient:
         if handle is None:
             _logger.warning("start_map_sync: device '%s' not registered", device_name)
             return
-        commands = MammotionCommand(device_name, self._user_account)
+        commands = handle.commands
         transport = handle.active_transport()
         _iot_id = handle.iot_id
         saga = MapFetchSaga(
@@ -697,7 +952,7 @@ class MammotionClient:
             return
         if DeviceType.is_luba1(device_name):
             return  # Luba 1 has no area names
-        commands = MammotionCommand(device_name, self._user_account)
+        commands = handle.commands
         transport = handle.active_transport()
         _iot_id = handle.iot_id
         device = self.get_device_by_name(device_name)
@@ -726,7 +981,7 @@ class MammotionClient:
         if handle is None:
             _logger.warning("start_plan_sync: device '%s' not registered", device_name)
             return
-        commands = MammotionCommand(device_name, self._user_account)
+        commands = handle.commands
         _iot_id = handle.iot_id
 
         async def _send(cmd: bytes) -> None:
@@ -760,7 +1015,7 @@ class MammotionClient:
         if handle is None:
             _logger.warning("start_mow_path_saga: device '%s' not registered", device_name)
             return
-        commands = MammotionCommand(device_name, self._user_account)
+        commands = handle.commands
         _iot_id = handle.iot_id
 
         async def _send(cmd: bytes) -> None:
@@ -780,6 +1035,52 @@ class MammotionClient:
                 _apply_mow_path_geojson(device)
 
         await handle.enqueue_saga(saga, on_complete=_on_mow_path_complete)
+
+    async def get_dynamics_line(self, device_name: str) -> None:
+        """Fetch the live mow-progress path for *device_name* via a CommonDataSaga.
+
+        Sends ``NavGetCommData(action=8, type=18)`` to the device and collects
+        the multi-frame ``toapp_get_commondata_ack`` response.  On completion the
+        assembled ``list[CommDataCouple]`` is stored in
+        ``device.map.dynamics_line``, replacing any previous value.
+
+        The saga is enqueued on the device's command queue, so it will not
+        interrupt other in-progress commands.  Callers should rate-limit
+        invocations to avoid flooding the device — the APK uses a 1-second
+        minimum gap between requests and calls this every ~10 seconds while
+        mowing is active.
+
+        Args:
+            device_name: Registered device name.
+
+        """
+        from pymammotion.data.model.hash_list import PathType
+        from pymammotion.messaging.common_data_saga import CommonDataSaga
+
+        handle = self._device_registry.get_by_name(device_name)
+        if handle is None:
+            _logger.warning("get_dynamics_line: device '%s' not registered", device_name)
+            return
+
+        _iot_id = handle.iot_id
+
+        async def _send(cmd: bytes) -> None:
+            await handle.active_transport().send(cmd, iot_id=_iot_id)
+
+        saga = CommonDataSaga(
+            command_builder=handle.commands,
+            send_command=_send,
+            action=8,
+            type=PathType.DYNAMICS_LINE,
+        )
+
+        async def _on_complete() -> None:
+            device = self.get_device_by_name(device_name)
+            if device is not None and saga.result:
+                device.map.update_dynamics_line(saga.result)
+                _apply_dynamics_line_geojson(device)
+
+        await handle.enqueue_saga(saga, on_complete=_on_complete)
 
     async def start_edge_mapping(
         self,
@@ -805,7 +1106,7 @@ class MammotionClient:
         if handle is None:
             _logger.warning("start_edge_mapping: device '%s' not registered", device_name)
             return
-        commands = MammotionCommand(device_name, self._user_account)
+        commands = handle.commands
         _iot_id = handle.iot_id
 
         async def _send(cmd: bytes) -> None:
@@ -839,9 +1140,12 @@ class MammotionClient:
     @property
     def mammotion_http(self) -> MammotionHTTP | None:
         """Return the active MammotionHTTP client (Aliyun or direct)."""
-        if self._cloud_client is not None:
-            return self._cloud_client.mammotion_http
-        return self._mammotion_http
+        session = self._get_default_session()
+        if session is None:
+            return None
+        if session.cloud_client is not None:
+            return session.cloud_client.mammotion_http
+        return session.mammotion_http
 
     @property
     def cloud_http(self) -> MammotionHTTP | None:
@@ -851,33 +1155,27 @@ class MammotionClient:
     @property
     def cloud_gateway(self) -> CloudIOTGateway | None:
         """Return the Aliyun CloudIOTGateway, or None if no Aliyun session was established."""
-        return self._cloud_client
+        session = self._get_default_session()
+        return session.cloud_client if session else None
 
     @property
     def aliyun_device_list(self) -> list[Any]:
-        """Return the list of Device objects from the Aliyun cloud registry.
-
-        Returns an empty list when there are no Aliyun devices or the cloud
-        client has not yet been initialised.
-        """
-        if self._cloud_client is None:
+        """Return the list of Device objects from the Aliyun cloud registry."""
+        session = self._get_default_session()
+        if session is None or session.cloud_client is None:
             return []
         try:
-            return self._cloud_client.devices_by_account_response.data.data  # type: ignore[no-any-return]
+            return session.cloud_client.devices_by_account_response.data.data  # type: ignore[no-any-return]
         except (AttributeError, TypeError):
             return []
 
     @property
     def mammotion_device_list(self) -> list[Any]:
-        """Return Mammotion-direct devices as shimmed Device objects.
-
-        Converts each :class:`DeviceRecord` from the Mammotion HTTP client into
-        a :class:`~pymammotion.aliyun.model.dev_by_account_response.Device` so
-        callers can treat both cloud paths uniformly.
-        """
-        if self._mammotion_http is None:
+        """Return Mammotion-direct devices as shimmed Device objects."""
+        session = self._get_default_session()
+        if session is None or session.mammotion_http is None:
             return []
-        return self.shim_devices_from_records(self._mammotion_http.device_records.records)
+        return self.shim_devices_from_records(session.mammotion_http.device_records.records)
 
     @staticmethod
     def shim_devices_from_records(records: list[DeviceRecord]) -> list[Any]:
@@ -968,7 +1266,7 @@ class MammotionClient:
 
         handle = self._device_registry.get_by_name(device_name)
         if handle is not None:
-            commands = MammotionCommand(device_name, self._user_account)
+            commands = handle.commands
             await handle.send_command(commands.device_agora_join_channel_with_position(0), "set_video_ack")
             await handle.send_command(commands.device_agora_join_channel_with_position(1), "set_video_ack")
 
@@ -1008,7 +1306,7 @@ class MammotionClient:
         if handle is None:
             msg = f"Device '{name}' not registered"
             raise KeyError(msg)
-        commands = MammotionCommand(name, self._user_account)
+        commands = handle.commands
         command_bytes: bytes = getattr(commands, key)(**kwargs)
         _logger.debug(
             "send_command_with_args: device=%s key=%s prefer_ble=%s kwargs=%s",
@@ -1017,25 +1315,14 @@ class MammotionClient:
             prefer_ble,
             kwargs,
         )
-        iot_id = handle.iot_id
         _prefer_ble = prefer_ble
+        _session = self._get_session_for_device(name)
 
         async def _do_send() -> None:
-            from pymammotion.aliyun.exceptions import CheckSessionException
-            from pymammotion.transport.base import AuthError
-
-            try:
-                await handle.send_raw(command_bytes, prefer_ble=_prefer_ble)
-            except CheckSessionException:
-                _logger.debug("Aliyun session expired — refreshing Aliyun credentials and retrying")
-                if self._token_manager is not None:
-                    await self._token_manager.refresh_aliyun_credentials()
-                await handle.send_raw(command_bytes, prefer_ble=_prefer_ble)
-            except AuthError:
-                _logger.debug("MQTT auth error — refreshing MQTT credentials and retrying")
-                if self._token_manager is not None:
-                    await self._token_manager.refresh_mqtt_credentials()
-                await handle.send_raw(command_bytes, prefer_ble=_prefer_ble)
+            await self._send_with_auth_retry(
+                lambda: handle.send_raw(command_bytes, prefer_ble=_prefer_ble),
+                _session,
+            )
 
         await handle.queue.enqueue(_do_send, priority=Priority.NORMAL)
 
@@ -1069,11 +1356,15 @@ class MammotionClient:
         if handle is None:
             msg = f"Device '{name}' not registered"
             raise KeyError(msg)
-        commands = MammotionCommand(name, self._user_account)
+        commands = handle.commands
         command_bytes: bytes = getattr(commands, key)(**kwargs)
+        _session = self._get_session_for_device(name)
 
         async def _send() -> None:
-            await handle.send_raw(payload=command_bytes)
+            await self._send_with_auth_retry(
+                lambda: handle.send_raw(payload=command_bytes),
+                _session,
+            )
 
         return await handle.broker.send_and_wait(
             send_fn=_send,

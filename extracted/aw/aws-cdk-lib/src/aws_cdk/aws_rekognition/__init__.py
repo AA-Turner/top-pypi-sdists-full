@@ -857,19 +857,6 @@ class CfnStreamProcessor(
         jsii.set(self, "kinesisVideoStream", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="polygonRegionsOfInterest")
-    def polygon_regions_of_interest(self) -> typing.Any:
-        '''A set of ordered lists of `Point <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_Point>`_ objects. Each entry of the set contains a polygon denoting a region of interest on the screen. Each polygon is an ordered list of `Point <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_Point>`_ objects. For more information, see the Polygon field of `RegionOfInterest <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_RegionOfInterest>`_ .'''
-        return typing.cast(typing.Any, jsii.get(self, "polygonRegionsOfInterest"))
-
-    @polygon_regions_of_interest.setter
-    def polygon_regions_of_interest(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32adcb2805477bf062e3a38ebed38564ceb277accb2b42fac998c1b5ce354c54)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "polygonRegionsOfInterest", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="roleArn")
     def role_arn(self) -> builtins.str:
         '''The ARN of the IAM role that allows access to the stream processor.'''
@@ -1015,6 +1002,19 @@ class CfnStreamProcessor(
             type_hints = typing.get_type_hints(_typecheckingstub__8781502f6d929597da76936c53e5a7d0df2ea7201c636dff5961d377bee07178)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "notificationChannel", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="polygonRegionsOfInterest")
+    def polygon_regions_of_interest(self) -> typing.Any:
+        '''A set of ordered lists of `Point <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_Point>`_ objects. Each entry of the set contains a polygon denoting a region of interest on the screen. Each polygon is an ordered list of `Point <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_Point>`_ objects. For more information, see the Polygon field of `RegionOfInterest <https://docs.aws.amazon.com/rekognition/latest/APIReference/API_RegionOfInterest>`_ .'''
+        return typing.cast(typing.Any, jsii.get(self, "polygonRegionsOfInterest"))
+
+    @polygon_regions_of_interest.setter
+    def polygon_regions_of_interest(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__32adcb2805477bf062e3a38ebed38564ceb277accb2b42fac998c1b5ce354c54)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "polygonRegionsOfInterest", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="s3Destination")
@@ -2201,12 +2201,6 @@ def _typecheckingstub__544bd519e8f2f595255e1dda00353bdad3a1f366808872e2a020ab7ac
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__32adcb2805477bf062e3a38ebed38564ceb277accb2b42fac998c1b5ce354c54(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__6ceb033b416a9b50d7e1f7b205e95dc9fc9eeaa5ebe8b01d77b8db945e1617e5(
     value: builtins.str,
 ) -> None:
@@ -2257,6 +2251,12 @@ def _typecheckingstub__eea2935c2a6e509f6f9b8bac8defe6d3a7c700401c6d0e1fed5c595cc
 
 def _typecheckingstub__8781502f6d929597da76936c53e5a7d0df2ea7201c636dff5961d377bee07178(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStreamProcessor.NotificationChannelProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32adcb2805477bf062e3a38ebed38564ceb277accb2b42fac998c1b5ce354c54(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

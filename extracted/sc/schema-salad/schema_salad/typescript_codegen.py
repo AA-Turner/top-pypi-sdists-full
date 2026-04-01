@@ -7,7 +7,7 @@ from collections.abc import MutableMapping, MutableSequence
 from importlib.resources import files
 from io import StringIO
 from pathlib import Path
-from typing import Any, Final, Optional, Union
+from typing import Any, Final
 
 from . import _logger, schema
 from .codegen_base import CodeGenBase, LazyInitDef, TypeDef
@@ -17,7 +17,7 @@ from .schema import shortname
 from .utils import Traversable
 
 
-def doc_to_doc_string(doc: Optional[str], indent_level: int = 0) -> str:
+def doc_to_doc_string(doc: str | None, indent_level: int = 0) -> str:
     """Generate a documentation string from a schema salad doc field."""
     lead: Final = " " + "  " * indent_level + "* "
     if doc:
@@ -79,9 +79,7 @@ prims: Final = {
 class TypeScriptCodeGen(CodeGenBase):
     """Generation of TypeScript code for a given Schema Salad definition."""
 
-    def __init__(
-        self, base: str, examples: Optional[str], target: Optional[str], package: str
-    ) -> None:
+    def __init__(self, base: str, examples: str | None, target: str | None, package: str) -> None:
         """Initialize the TypeScript codegen."""
         super().__init__()
         self.target_dir: Final = Path(target or ".").resolve()
@@ -186,11 +184,9 @@ export interface {cls} {ext} {{
         self.record_types.add(cls)
         self.modules.add(class_module_name)
         with open(self.current_interface_target_file, "a") as f:
-            f.write(
-                """
+            f.write("""
   extensionFields?: Internal.Dictionary<any>
-"""
-            )
+""")
         doc_string = f"""
 /**
  * Auto-generated class implementation for {classname}
@@ -231,14 +227,11 @@ export class {cls} extends Saveable implements Internal.{current_interface} {{
         self.current_constructor_signature.write(
             "\n" + "\n" + "  constructor ({loadingOptions, extensionFields"
         )
-        self.current_constructor_body.write(
-            """
+        self.current_constructor_body.write("""
     super(loadingOptions)
     this.extensionFields = extensionFields ?? {}
-"""
-        )
-        self.current_loader.write(
-            """
+""")
+        self.current_loader.write("""
   /**
    * Used to construct instances of {{@link {cls} }}.
    *
@@ -254,21 +247,16 @@ export class {cls} extends Saveable implements Internal.{current_interface} {{
     docRoot?: string): Promise<Saveable> {{
     const _doc = Object.assign({{}}, __doc)
     const __errors: ValidationException[] = []
-            """.format(
-                cls=cls
-            )
-        )
+            """.format(cls=cls))
 
-        self.current_serializer.write(
-            """
+        self.current_serializer.write("""
   save (top: boolean = false, baseUrl: string = '', relativeUris: boolean = true)
   : Dictionary<any> {
     const r: Dictionary<any> = {}
     for (const ef in this.extensionFields) {
       r[prefixUrl(ef, this.loadingOptions.vocab)] = this.extensionFields.ef
     }
-"""
-        )
+""")
 
     def end_class(self, classname: str, field_names: list[str]) -> None:
         """Signal that we are done with this class."""
@@ -315,14 +303,11 @@ export class {cls} extends Saveable implements Internal.{current_interface} {{
             ",\n      ".join(self.safe_name(f) + ": " + self.safe_name(f) for f in field_names)
             + "\n    })"
         )
-        self.current_loader.write(
-            """
+        self.current_loader.write("""
     return schema
   }
-        """
-        )
-        self.current_serializer.write(
-            """
+        """)
+        self.current_serializer.write("""
     if (top) {
       if (this.loadingOptions.namespaces != null) {
         r.$namespaces = this.loadingOptions.namespaces
@@ -333,8 +318,7 @@ export class {cls} extends Saveable implements Internal.{current_interface} {{
     }
     return r
   }
-            """
-        )
+            """)
         with open(
             self.current_class_target_file,
             "a",
@@ -349,38 +333,35 @@ export class {cls} extends Saveable implements Internal.{current_interface} {{
                 + ",".join(["'" + shortname(f) + "'" for f in field_names])
                 + "])"
             )
-            f.write(
-                """
+            f.write("""
 }
-"""
-            )
+""")
 
     def type_loader(
         self,
-        type_declaration: Union[list[Any], dict[str, Any], str],
-        container: Optional[str] = None,
-        no_link_check: Optional[bool] = None,
+        type_declaration: list[Any] | dict[str, Any] | str,
+        container: str | None = None,
+        no_link_check: bool | None = None,
     ) -> TypeDef:
         """Parse the given type declaration and declare its components."""
-        if isinstance(type_declaration, MutableSequence):
-            sub_types1: Final = [self.type_loader(i) for i in type_declaration]
-            sub_names: Final[list[str]] = list(dict.fromkeys([i.name for i in sub_types1]))
-            sub_instance_types: Final[list[str]] = list(
-                dict.fromkeys([i.instance_type for i in sub_types1 if i.instance_type is not None])
-            )
-            return self.declare_type(
-                TypeDef(
-                    "unionOf{}".format("Or".join(sub_names)),
-                    "new _UnionLoader([{}])".format(", ".join(sub_names)),
-                    instance_type=" | ".join(sub_instance_types),
+        match type_declaration:
+            case MutableSequence():
+                sub_types1: Final = [self.type_loader(i) for i in type_declaration]
+                sub_names: Final[list[str]] = list(dict.fromkeys([i.name for i in sub_types1]))
+                sub_instance_types: Final[list[str]] = list(
+                    dict.fromkeys(
+                        [i.instance_type for i in sub_types1 if i.instance_type is not None]
+                    )
                 )
-            )
-        if isinstance(type_declaration, MutableMapping):
-            if type_declaration["type"] in (
-                "array",
-                "https://w3id.org/cwl/salad#array",
-            ):
-                i1: Final = self.type_loader(type_declaration["items"])
+                return self.declare_type(
+                    TypeDef(
+                        "unionOf{}".format("Or".join(sub_names)),
+                        "new _UnionLoader([{}])".format(", ".join(sub_names)),
+                        instance_type=" | ".join(sub_instance_types),
+                    )
+                )
+            case {"type": "array" | "https://w3id.org/cwl/salad#array", "items": items}:
+                i1: Final = self.type_loader(items)
                 return self.declare_type(
                     TypeDef(
                         f"arrayOf{i1.name}",
@@ -388,11 +369,8 @@ export class {cls} extends Saveable implements Internal.{current_interface} {{
                         instance_type=f"Array<{i1.instance_type}>",
                     )
                 )
-            if type_declaration["type"] in (
-                "map",
-                "https://w3id.org/cwl/salad#map",
-            ):
-                i2: Final = self.type_loader(type_declaration["values"])
+            case {"type": "map" | "https://w3id.org/cwl/salad#map", "values": values}:
+                i2: Final = self.type_loader(values)
                 return self.declare_type(
                     TypeDef(
                         f"mapOf{i2.name}",
@@ -408,18 +386,17 @@ export class {cls} extends Saveable implements Internal.{current_interface} {{
                         instance_type=f"Dictionary<{i2.instance_type}>",
                     )
                 )
-            if type_declaration["type"] in ("enum", "https://w3id.org/cwl/salad#enum"):
-                return self.type_loader_enum(type_declaration)
+            case {
+                "type": "enum" | "https://w3id.org/cwl/salad#enum",
+            }:
+                return self.type_loader_enum(type_declaration)  # type: ignore[arg-type]
 
-            if type_declaration["type"] in (
-                "record",
-                "https://w3id.org/cwl/salad#record",
-            ):
+            case {"type": "record" | "https://w3id.org/cwl/salad#record", "name": name, **rest}:
                 return self.declare_type(
                     TypeDef(
-                        self.safe_name(type_declaration["name"]) + "Loader",
+                        self.safe_name(name) + "Loader",
                         "new _RecordLoader({}.fromDoc, {}, {})".format(
-                            self.safe_name(type_declaration["name"]),
+                            self.safe_name(name),
                             (
                                 f"'{container}'"
                                 if container is not None
@@ -427,16 +404,17 @@ export class {cls} extends Saveable implements Internal.{current_interface} {{
                             ),  # noqa: B907
                             self.to_typescript(no_link_check),
                         ),
-                        instance_type="Internal." + self.safe_name(type_declaration["name"]),
-                        abstract=type_declaration.get("abstract", False),
+                        instance_type="Internal." + self.safe_name(name),
+                        abstract=rest.get("abstract", False),  # type: ignore[arg-type]
                     )
                 )
-            if type_declaration["type"] in (
-                "union",
-                "https://w3id.org/cwl/salad#union",
-            ):
+            case {
+                "type": "union" | "https://w3id.org/cwl/salad#union",
+                "name": name,
+                "names": names,
+            }:
                 # Declare the named loader to handle recursive union definitions
-                loader_name: Final = self.safe_name(type_declaration["name"]) + "Loader"
+                loader_name: Final = self.safe_name(name) + "Loader"
                 loader_type: Final = TypeDef(
                     loader_name,
                     "new _UnionLoader([])",
@@ -444,7 +422,7 @@ export class {cls} extends Saveable implements Internal.{current_interface} {{
                 )
                 self.declare_type(loader_type)
                 # Parse inner types
-                sub_types2: Final = [self.type_loader(i) for i in type_declaration["names"]]
+                sub_types2: Final = [self.type_loader(i) for i in names]
 
                 # Register lazy initialization for the loader
                 self.add_lazy_init(
@@ -456,20 +434,22 @@ export class {cls} extends Saveable implements Internal.{current_interface} {{
                     )
                 )
                 return loader_type
-            raise SchemaException("wft {}".format(type_declaration["type"]))
-
-        if type_declaration in prims:
-            return prims[type_declaration]
-
-        if type_declaration in ("Expression", "https://w3id.org/cwl/cwl#Expression"):
-            return self.declare_type(
-                TypeDef(
-                    self.safe_name(type_declaration) + "Loader",
-                    "new _ExpressionLoader()",
-                    instance_type="string",
+            case {"type": decl}:
+                raise SchemaException(f"wtf {decl}")
+            case str(decl) if decl in prims:
+                return prims[decl]
+            case "Expression" | "https://w3id.org/cwl/cwl#Expression" as decl:
+                return self.declare_type(
+                    TypeDef(
+                        self.safe_name(decl) + "Loader",
+                        "new _ExpressionLoader()",
+                        instance_type="string",
+                    )
                 )
-            )
-        return self.collected_types[self.safe_name(type_declaration) + "Loader"]
+            case str(decl):
+                return self.collected_types[self.safe_name(decl) + "Loader"]
+            case _ as decl:
+                raise SchemaException(f"wtf {decl}")
 
     def type_loader_enum(self, type_declaration: dict[str, Any]) -> TypeDef:
         """Build an enum type loader for the given declaration."""
@@ -482,21 +462,15 @@ export class {cls} extends Saveable implements Internal.{current_interface} {{
         self.record_types.add(enum_name)
         with open(enum_path, "w") as f:
             _logger.info("Writing file: %s", enum_path)
-            f.write(
-                """
+            f.write("""
 export enum {enum_name} {{
-""".format(
-                    enum_name=enum_name
-                )
-            )
+""".format(enum_name=enum_name))
             for sym in type_declaration["symbols"]:
                 val = self.safe_name(sym)
                 const = self.safe_name(sym).replace("-", "_").replace(".", "_").upper()
                 f.write(f"""  {const}='{val}',\n""")  # noqa: B907
-            f.write(
-                """}
-"""
-            )
+            f.write("""}
+""")
         return self.declare_type(
             TypeDef(
                 instance_type="Internal." + enum_name,
@@ -510,9 +484,9 @@ export enum {enum_name} {{
         self,
         name: str,
         fieldtype: TypeDef,
-        doc: Optional[str],
+        doc: str | None,
         optional: bool,
-        subscope: Optional[str],
+        subscope: str | None,
     ) -> None:
         """Output the code to load the given field."""
         safename: Final = self.safe_name(name)
@@ -525,15 +499,11 @@ export enum {enum_name} {{
 
         with open(self.current_interface_target_file, "a") as f:
             if doc:
-                f.write(
-                    """
+                f.write("""
   /**
 {doc_str}
    */
-""".format(
-                        doc_str=doc_to_doc_string(doc, indent_level=1)
-                    )
-                )
+""".format(doc_str=doc_to_doc_string(doc, indent_level=1)))
             if fieldname == "class":
                 f.write(
                     "  {safename}{optionalstring}: {type}\n".format(
@@ -555,15 +525,11 @@ export enum {enum_name} {{
 
         with open(self.current_class_target_file, "a") as f:
             if doc:
-                f.write(
-                    """
+                f.write("""
   /**
 {doc_str}
    */
-""".format(
-                        doc_str=doc_to_doc_string(doc, indent_level=1)
-                    )
-                )
+""".format(doc_str=doc_to_doc_string(doc, indent_level=1)))
             f.write(
                 "  {safename}{optionalstring}: {type}\n".format(
                     safename=safename,
@@ -594,19 +560,11 @@ export enum {enum_name} {{
             "    this.{safeName} = {safeName}\n".format(safeName=safename)
         )
 
-        self.current_loader.write(
-            """
-    let {safename}""".format(
-                safename=safename
-            )
-        )
+        self.current_loader.write("""
+    let {safename}""".format(safename=safename))
         if optional:
-            self.current_loader.write(
-                """
-    if ('{fieldname}' in _doc) {{""".format(
-                    fieldname=fieldname
-                )
-            )
+            self.current_loader.write("""
+    if ('{fieldname}' in _doc) {{""".format(fieldname=fieldname))
             spc = "  "
         else:
             spc = ""
@@ -675,7 +633,7 @@ export enum {enum_name} {{
         self,
         name: str,
         fieldtype: TypeDef,
-        doc: Optional[str],
+        doc: str | None,
         optional: bool,
     ) -> None:
         """Output the code to handle the given ID field."""
@@ -687,8 +645,7 @@ export enum {enum_name} {{
                 fieldname=shortname(name)
             )
 
-        self.current_loader.write(
-            """
+        self.current_loader.write("""
     const original{safename}IsUndefined = ({safename} === undefined)
     if (original{safename}IsUndefined ) {{
       if (docRoot != null) {{
@@ -699,10 +656,7 @@ export enum {enum_name} {{
     }} else {{
       baseuri = {safename} as string
     }}
-            """.format(
-                safename=self.safe_name(name), opt=opt
-            )
-        )
+            """.format(safename=self.safe_name(name), opt=opt))
 
     def to_typescript(self, val: Any) -> Any:
         """Convert a Python keyword to a TypeScript keyword."""
@@ -719,8 +673,8 @@ export enum {enum_name} {{
         inner: TypeDef,
         scoped_id: bool,
         vocab_term: bool,
-        ref_scope: Optional[int],
-        no_link_check: Optional[bool] = None,
+        ref_scope: int | None,
+        no_link_check: bool | None = None,
     ) -> TypeDef:
         """Construct the TypeDef for the given URI loader."""
         instance_type = inner.instance_type or "any"
@@ -742,7 +696,7 @@ export enum {enum_name} {{
         )
 
     def idmap_loader(
-        self, field: str, inner: TypeDef, map_subject: str, map_predicate: Optional[str]
+        self, field: str, inner: TypeDef, map_subject: str, map_predicate: str | None
     ) -> TypeDef:
         """Construct the TypeDef for the given mapped ID loader."""
         instance_type = inner.instance_type or "any"
@@ -754,7 +708,7 @@ export enum {enum_name} {{
             )
         )
 
-    def typedsl_loader(self, inner: TypeDef, ref_scope: Optional[int]) -> TypeDef:
+    def typedsl_loader(self, inner: TypeDef, ref_scope: int | None) -> TypeDef:
         """Construct the TypeDef for the given DSL loader."""
         instance_type = inner.instance_type or "any"
         return self.declare_type(

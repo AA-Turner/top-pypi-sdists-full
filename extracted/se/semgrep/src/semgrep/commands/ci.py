@@ -224,6 +224,38 @@ def fix_head_if_github_action(metadata: GitMeta) -> None:
     help="Enable malicious dependency rules for this scan.",
 )
 @click.option(
+    # for internal use, provides a path to dump subproject info to then exit
+    # subproject info includes subproject IDs that can be used to construct computed-dependency information
+    # for use with --x-computed-dependencies-dir.
+    "--x-dump-subprojects-and-exit",
+    "x_dump_subprojects_and_exit",
+    type=click.Path(allow_dash=True, path_type=Path),
+    hidden=True,
+)
+@click.option(
+    # for internal use, holds files with precomputed dependency information per subproject.
+    # Dependency information is keyed by subproject ID, which can be produced using
+    # --x-dump-subprojects-and-exit
+    "--x-computed-dependencies-dir",
+    "x_computed_dependencies_dir",
+    type=click.Path(allow_dash=True, path_type=Path),
+    hidden=True,
+)
+@click.option(
+    # for internal use, save the scan config (ScanResponse) to a file for reuse
+    "--x-dump-scan-config-path",
+    "x_dump_scan_config_path",
+    type=click.Path(allow_dash=True, path_type=Path),
+    hidden=True,
+)
+@click.option(
+    # for internal use, load a previously saved scan config instead of calling start_scan()
+    "--x-use-saved-scan-config-path",
+    "x_use_saved_scan_config_path",
+    type=click.Path(allow_dash=True, path_type=Path),
+    hidden=True,
+)
+@click.option(
     "--x-use-scan-v2/--x-no-scan-v2",
     "use_scan_v2",
     default=True,
@@ -316,7 +348,16 @@ def ci(
     enable_mal_deps: bool,
     use_scan_v2: bool,
     x_mem_policy: Optional[MemoryPolicy],
+    x_dump_subprojects_and_exit: Optional[Path],
+    x_computed_dependencies_dir: Optional[Path],
+    x_dump_scan_config_path: Optional[Path],
+    x_use_saved_scan_config_path: Optional[Path],
 ) -> None:
+    if x_dump_scan_config_path and x_use_saved_scan_config_path:
+        raise click.UsageError(
+            "--x-dump-scan-config-path and --x-use-saved-scan-config-path are mutually exclusive"
+        )
+
     if x_simple_profiling:
         simple_profiling_module.enabled_simple_profiling = True
 
@@ -435,6 +476,8 @@ def ci(
                 dump_scan_id_path=dump_scan_id_path,
                 enable_mal_deps=enable_mal_deps,
                 use_scan_v2=use_scan_v2,
+                dump_scan_config_path=x_dump_scan_config_path,
+                load_saved_scan_config_path=x_use_saved_scan_config_path,
             )
         else:  # impossible state… until we break the code above
             raise RuntimeError("The token and/or config are misconfigured")
@@ -796,6 +839,8 @@ def ci(
             "x_group_taint_rules": x_group_taint_rules,
             "x_dump_symbol_analysis": x_dump_symbol_analysis,
             **({"x_mem_policy": x_mem_policy} if x_mem_policy else {}),
+            "x_dump_subprojects_and_exit": x_dump_subprojects_and_exit,
+            "x_computed_dependencies_dir": x_computed_dependencies_dir,
         }
 
         try:

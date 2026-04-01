@@ -22,11 +22,39 @@ from pymobiledevice3.cli.developer.dvt.sysmon.process import (
     _select_process_from_sysmon,
     _select_process_output_keys,
     _serialize_process,
+    _should_skip_first_snapshot,
     _validate_process_keys,
     _write_json,
     _write_process,
-    iter_initialized_processes,
+    iter_processes,
+    sysmon_process_monitor_threshold_task,
 )
+
+
+class _FakeSysmontap:
+    def __init__(self, snapshots):
+        self._snapshots = snapshots
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    async def iter_processes(self):
+        for snapshot in self._snapshots:
+            yield snapshot
+
+
+class _FakeDvtProvider:
+    def __init__(self, service_provider):
+        self.service_provider = service_provider
+
+    async def __aenter__(self):
+        return object()
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
 
 
 def test_parse_process_filters_groups_values_by_key():
@@ -180,44 +208,73 @@ def test_duration_elapsed(monkeypatch, start_time, duration_ms, current_time, ex
     assert _duration_elapsed(start_time, duration_ms) is expected
 
 
-class _FakeSysmontap:
-    def __init__(self, snapshots):
-        self._snapshots = snapshots
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return None
-
-    async def iter_processes(self):
-        for snapshot in self._snapshots:
-            yield snapshot
+@pytest.mark.parametrize(
+    ("keys", "expected"),
+    [
+        (None, True),
+        (["pid"], False),
+        (["pid", "cpuUsage"], True),
+    ],
+)
+def test_should_skip_first_snapshot(keys, expected):
+    assert _should_skip_first_snapshot(keys) is expected
 
 
 @pytest.mark.asyncio
-async def test_iter_initialized_processes_skips_first_snapshot():
-    sysmon = _FakeSysmontap([
+async def test_iter_processes_skips_first_snapshot_when_requested():
+    snapshots = [
         [{"pid": 10, "ppid": 1, "name": "first-snapshot"}],
         [{"pid": 20, "ppid": 2, "name": "second-snapshot"}],
         [{"pid": 30, "ppid": 3, "name": "third-snapshot"}],
-    ])
-
-    snapshots = [snapshot async for snapshot in iter_initialized_processes(sysmon)]
-
-    assert snapshots == [
-        [{"pid": 20, "ppid": 2, "name": "second-snapshot"}],
-        [{"pid": 30, "ppid": 3, "name": "third-snapshot"}],
     ]
+    sysmon = _FakeSysmontap(snapshots)
+
+    iterated_snapshots = [snapshot async for snapshot in iter_processes(sysmon, skip_first_snapshot=True)]
+
+    assert iterated_snapshots == snapshots[1:]
 
 
 @pytest.mark.asyncio
-async def test_iter_initialized_processes_empty_when_only_warmup_snapshot_exists():
+async def test_iter_processes_empty_when_only_warmup_snapshot_exists():
     sysmon = _FakeSysmontap([[{"pid": 10, "ppid": 1, "name": "first-snapshot"}]])
 
-    snapshots = [snapshot async for snapshot in iter_initialized_processes(sysmon)]
+    snapshots = [snapshot async for snapshot in iter_processes(sysmon, skip_first_snapshot=True)]
 
     assert snapshots == []
+
+
+@pytest.mark.asyncio
+async def test_iter_processes_keeps_first_snapshot_when_cpu_usage_not_required():
+    snapshots = [
+        [{"pid": 10, "ppid": 1, "name": "first-snapshot"}],
+        [{"pid": 20, "ppid": 2, "name": "second-snapshot"}],
+    ]
+
+    sysmon = _FakeSysmontap(snapshots)
+
+    iterated_snapshots = [snapshot async for snapshot in iter_processes(sysmon, skip_first_snapshot=False)]
+
+    assert iterated_snapshots == snapshots
+
+
+@pytest.mark.asyncio
+async def test_sysmon_process_monitor_threshold_task_skips_first_snapshot(monkeypatch):
+    async def fake_create(_dvt):
+        return _FakeSysmontap([
+            [{"pid": 10, "cpuUsage": 99.0}],
+            [{"pid": 20, "cpuUsage": 1.5}],
+        ])
+
+    monkeypatch.setattr(process_module, "DvtProvider", _FakeDvtProvider)
+    monkeypatch.setattr(process_module.Sysmontap, "create", fake_create)
+
+    out = StringIO()
+
+    await sysmon_process_monitor_threshold_task(object(), threshold=0.0, keys=["pid"], out=out, duration=1)
+
+    lines = [json.loads(line) for line in out.getvalue().splitlines() if line.strip()]
+    assert len(lines) == 1
+    assert lines[0]["pid"] == 20
 
 
 def test_process_sort_key_normalizes_missing_values():
@@ -335,6 +392,23 @@ async def test_select_process_from_sysmon_skips_first_snapshot(monkeypatch):
     )
 
     assert selected == {"pid": 20, "ppid": 2, "name": "second-snapshot"}
+
+
+@pytest.mark.asyncio
+async def test_select_process_from_sysmon_doesnt_skip_first_snapshot_when_cpu_usage_not_requested(monkeypatch):
+    async def fake_create(_dvt):
+        return _FakeSysmontap([
+            [{"pid": 10, "ppid": 1, "name": "first-snapshot"}],
+            [{"pid": 20, "ppid": 2, "name": "second-snapshot"}],
+        ])
+
+    monkeypatch.setattr(process_module.Sysmontap, "create", fake_create)
+
+    selected = await _select_process_from_sysmon(
+        object(), {"name": ["first-snapshot"]}, ["pid", "name"], ProcessSelectionMode.FIRST
+    )
+
+    assert selected == {"pid": 10, "ppid": 1, "name": "first-snapshot"}
 
 
 @pytest.mark.asyncio

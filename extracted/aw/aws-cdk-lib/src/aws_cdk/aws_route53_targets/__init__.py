@@ -225,7 +225,7 @@ route53.ARecord(self, "AliasRecord",
 )
 ```
 
-If Elastic Beanstalk environment URL is not avaiable at synth time, you can specify Hosted Zone ID of the target
+If Elastic Beanstalk environment URL is not available at synth time, you can specify Hosted Zone ID of the target
 
 ```python
 from aws_cdk.region_info import RegionInfo

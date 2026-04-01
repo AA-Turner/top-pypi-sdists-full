@@ -41,6 +41,7 @@ class TestPostAttestationRecord(unittest.TestCase):
         else:
             return PostAttestationRecord(
                 attestation_rule_id = '',
+                notes = '',
         )
         """
 

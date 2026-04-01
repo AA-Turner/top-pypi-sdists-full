@@ -873,6 +873,8 @@ from agilicus_api.model.time_of_day_condition import TimeOfDayCondition
 from agilicus_api.model.time_period_condition import TimePeriodCondition
 from agilicus_api.model.time_validity import TimeValidity
 from agilicus_api.model.timeframe_condition import TimeframeCondition
+from agilicus_api.model.timeframe_policy_template import TimeframePolicyTemplate
+from agilicus_api.model.timeperiod_policy_template import TimeperiodPolicyTemplate
 from agilicus_api.model.token import Token
 from agilicus_api.model.token_introspect import TokenIntrospect
 from agilicus_api.model.token_introspect_options import TokenIntrospectOptions

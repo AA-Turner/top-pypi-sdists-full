@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 """
 The :py:mod:`pamqp.body` module contains the :py:class:`Body` class which is
 used when unmarshalling body frames. When dealing with content frames, the
@@ -7,6 +6,8 @@ class.
 
 """
 
+import typing
+
 
 class ContentBody:
     """ContentBody carries the value for an AMQP message body frame
@@ -14,9 +15,10 @@ class ContentBody:
     :param value: The value for the ContentBody frame
 
     """
-    name = 'ContentBody'
 
-    def __init__(self, value: bytes):
+    name: typing.ClassVar[str] = 'ContentBody'
+
+    def __init__(self, value: bytes) -> None:
         """Create a new instance of a ContentBody object"""
         self.value = value
 

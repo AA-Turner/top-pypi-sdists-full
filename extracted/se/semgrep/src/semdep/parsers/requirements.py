@@ -21,10 +21,10 @@ from typing import Set
 from typing import Tuple
 
 import semgrep.semgrep_interfaces.semgrep_output_v1 as out
+from semdep.external.parsy import regex
 from semdep.external.parsy import string
 from semdep.external.parsy import string_from
 from semdep.external.parsy import success
-from semdep.external.parsy import whitespace
 from semdep.parsers import preprocessors
 from semdep.parsers.util import consume_line
 from semdep.parsers.util import DependencyFileToParse
@@ -40,7 +40,9 @@ from semgrep.semgrep_interfaces.semgrep_output_v1 import Fpath
 from semgrep.semgrep_interfaces.semgrep_output_v1 import Pypi
 from semgrep.semgrep_interfaces.semgrep_output_v1 import ScaParserName
 
-whitespace = whitespace | string("\\\n")
+# Horizontal whitespace only (not \n) to avoid crossing line boundaries,
+# plus line continuations (backslash + newline) per pip spec.
+whitespace = regex(r"[ \t]+") | string("\\\n")
 
 # We define a package by its possible delimiters instead of trying to define a grammar for package names
 package = upto("=", "<", ">", " ", "[", "\n")
@@ -143,10 +145,26 @@ def parse_requirements(
     for line_number, (package, constraints) in parsed_lockfile:
         # A package with no pinned version, skip it
         if len(constraints) != 1:
+            errors.append(
+                DependencyParserError(
+                    path=Fpath(str(lockfile_path)),
+                    parser=ScaParserName(out.PRequirements()),
+                    reason=f"Skipping dependency '{package}' because it is not pinned to an exact version",
+                    line=line_number,
+                )
+            )
             continue
         operator, version = constraints[0]
         # This should already be enforced by the parser but we'll be careful
         if operator != "==":
+            errors.append(
+                DependencyParserError(
+                    path=Fpath(str(lockfile_path)),
+                    parser=ScaParserName(out.PRequirements()),
+                    reason=f"Skipping dependency '{package}' because it uses '{operator}' instead of '=='",
+                    line=line_number,
+                )
+            )
             continue
         output.append(
             FoundDependency(

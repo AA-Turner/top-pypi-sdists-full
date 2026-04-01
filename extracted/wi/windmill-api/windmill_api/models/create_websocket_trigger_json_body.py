@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.create_websocket_trigger_json_body_filter_logic import CreateWebsocketTriggerJsonBodyFilterLogic
 from ..models.create_websocket_trigger_json_body_mode import CreateWebsocketTriggerJsonBodyMode
 from ..types import UNSET, Unset
 
@@ -39,6 +40,9 @@ class CreateWebsocketTriggerJsonBody:
         can_return_message (bool): If true, the script can return a message to send back through the WebSocket
         can_return_error_result (bool): If true, error results are sent back through the WebSocket
         mode (Union[Unset, CreateWebsocketTriggerJsonBodyMode]): job trigger mode
+        filter_logic (Union[Unset, CreateWebsocketTriggerJsonBodyFilterLogic]): Logic to apply when evaluating filters.
+            'and' requires all filters to match, 'or' requires any filter to match. Default:
+            CreateWebsocketTriggerJsonBodyFilterLogic.AND.
         initial_messages (Union[Unset, None, List[Union['CreateWebsocketTriggerJsonBodyInitialMessagesItemType0',
             'CreateWebsocketTriggerJsonBodyInitialMessagesItemType1']]]): Messages to send immediately after connecting (can
             be raw strings or computed by runnables)
@@ -62,6 +66,9 @@ class CreateWebsocketTriggerJsonBody:
     can_return_message: bool
     can_return_error_result: bool
     mode: Union[Unset, CreateWebsocketTriggerJsonBodyMode] = UNSET
+    filter_logic: Union[
+        Unset, CreateWebsocketTriggerJsonBodyFilterLogic
+    ] = CreateWebsocketTriggerJsonBodyFilterLogic.AND
     initial_messages: Union[
         Unset,
         None,
@@ -100,6 +107,10 @@ class CreateWebsocketTriggerJsonBody:
         mode: Union[Unset, str] = UNSET
         if not isinstance(self.mode, Unset):
             mode = self.mode.value
+
+        filter_logic: Union[Unset, str] = UNSET
+        if not isinstance(self.filter_logic, Unset):
+            filter_logic = self.filter_logic.value
 
         initial_messages: Union[Unset, None, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.initial_messages, Unset):
@@ -149,6 +160,8 @@ class CreateWebsocketTriggerJsonBody:
         )
         if mode is not UNSET:
             field_dict["mode"] = mode
+        if filter_logic is not UNSET:
+            field_dict["filter_logic"] = filter_logic
         if initial_messages is not UNSET:
             field_dict["initial_messages"] = initial_messages
         if url_runnable_args is not UNSET:
@@ -209,6 +222,13 @@ class CreateWebsocketTriggerJsonBody:
             mode = UNSET
         else:
             mode = CreateWebsocketTriggerJsonBodyMode(_mode)
+
+        _filter_logic = d.pop("filter_logic", UNSET)
+        filter_logic: Union[Unset, CreateWebsocketTriggerJsonBodyFilterLogic]
+        if isinstance(_filter_logic, Unset):
+            filter_logic = UNSET
+        else:
+            filter_logic = CreateWebsocketTriggerJsonBodyFilterLogic(_filter_logic)
 
         initial_messages = []
         _initial_messages = d.pop("initial_messages", UNSET)
@@ -278,6 +298,7 @@ class CreateWebsocketTriggerJsonBody:
             can_return_message=can_return_message,
             can_return_error_result=can_return_error_result,
             mode=mode,
+            filter_logic=filter_logic,
             initial_messages=initial_messages,
             url_runnable_args=url_runnable_args,
             error_handler_path=error_handler_path,

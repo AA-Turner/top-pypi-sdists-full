@@ -15,26 +15,25 @@ from __future__ import annotations
 
 from bigframes.core.compile.sqlglot.sql.base import (
     cast,
-    escape_chars,
     identifier,
     is_null_literal,
     literal,
     table,
     to_sql,
 )
-from bigframes.core.compile.sqlglot.sql.ddl import load_data
+from bigframes.core.compile.sqlglot.sql.ddl import create_external_table, load_data
 from bigframes.core.compile.sqlglot.sql.dml import insert, replace
 
 __all__ = [
     # From base.py
     "cast",
-    "escape_chars",
     "identifier",
     "is_null_literal",
     "literal",
     "table",
     "to_sql",
     # From ddl.py
+    "create_external_table",
     "load_data",
     # From dml.py
     "insert",

@@ -4,7 +4,7 @@ import datetime
 import functools
 import json
 import textwrap
-from typing import IO, Any, Optional, Union, cast
+from typing import IO, Any, cast
 
 from . import _logger, schema
 from .codegen_base import CodeGenBase, TypeDef
@@ -27,10 +27,10 @@ class DlangCodeGen(CodeGenBase):
         self,
         base: str,
         target: IO[str],
-        examples: Optional[str],
+        examples: str | None,
         package: str,
-        copyright_: Optional[str],
-        parser_info: Optional[str],
+        copyright_: str | None,
+        parser_info: str | None,
         salad_version: str,
     ) -> None:
         """Initialize the D codegen."""
@@ -67,8 +67,7 @@ class DlangCodeGen(CodeGenBase):
         ]
 
         self.target.write(self.to_doc_comment(module_comment))
-        self.target.write(
-            f"""module {self.package};
+        self.target.write(f"""module {self.package};
 
 import salad.meta.impl : genBody_;
 import salad.meta.parser : import_ = importFromURI;
@@ -76,42 +75,34 @@ import salad.meta.uda : defaultValue, documentRoot, id, idMap, link, LinkResolve
 import salad.primitives : EnumSchemaBase, MapSchemaBase, RecordSchemaBase, UnionSchemaBase;
 import salad.type : None, Union;
 
-"""
-        )
+""")
         if self.parser_info:
-            self.target.write(
-                f"""/// parser information
+            self.target.write(f"""/// parser information
 enum parserInfo = "{self.parser_info}";
-"""  # noqa: B907
-            )
+""")  # noqa: B907
 
-        self.target.write(
-            f"""
+        self.target.write(f"""
 enum saladVersion = "{self.salad_version}";
 
 mixin template genBody()
 {{
     mixin genBody_!saladVersion;
 }}
-"""  # noqa: B907
-        )
+""")  # noqa: B907
 
     def epilogue(self, root_loader: TypeDef) -> None:
         """Trigger to generate the epilouge code."""
         doc_root_type_str = ", ".join(self.doc_root_types)
         doc_root_type = f"Union!({doc_root_type_str})"
-        self.target.write(
-            f"""
+        self.target.write(f"""
 ///
 alias DocumentRootType = {doc_root_type};
 
 ///
 alias importFromURI = import_!DocumentRootType;
-"""
-        )
+""")
         if self.examples:
-            self.target.write(
-                f"""
+            self.target.write(f"""
 @("Test for generated parser")
 unittest
 {{
@@ -134,8 +125,7 @@ unittest
         importFromURI(file.absoluteURI).assertNotThrown(format!"Failed to load %s"(file));
     }}
 }}
-"""  # noqa: B907
-            )
+""")  # noqa: B907
 
     @staticmethod
     def safe_name(name: str) -> str:
@@ -148,7 +138,7 @@ unittest
             avn = avn[5:]
         return avn
 
-    def to_doc_comment(self, doc: Union[None, str, list[str]]) -> str:
+    def to_doc_comment(self, doc: None | str | list[str]) -> str:
         """Return an embedded documentation comments for a given string."""
         if doc is None:
             return "///\n"
@@ -172,7 +162,7 @@ unittest
     def parse_record_field_type(
         self,
         type_: Any,
-        jsonld_pred: Union[None, str, dict[str, Any]],
+        jsonld_pred: None | str | dict[str, Any],
         parent_has_idmap: bool = False,
         has_default: bool = False,
     ) -> tuple[str, str]:
@@ -205,44 +195,48 @@ unittest
         else:
             annotate_str = ""
 
-        if isinstance(type_, str):
-            stype = shortname(type_)
-            if stype == "boolean":
-                type_str = "bool"
-            elif stype == "null":
-                type_str = "None"
-            else:
-                type_str = stype
-        elif isinstance(type_, list):
-            t_str = [
-                self.parse_record_field_type(t, None, parent_has_idmap=has_idmap)[1] for t in type_
-            ]
-            if has_default:
-                t_str = [t for t in t_str if t != "None"]
-            if len(t_str) == 1:
-                type_str = t_str[0]
-            else:
-                if are_dispatchable(type_, has_idmap):
-                    t_str += ["Any"]
-                union_types = ", ".join(t_str)
-                type_str = f"Union!({union_types})"
-        elif shortname(type_["type"]) == "array":
-            item_type = self.parse_record_field_type(
-                type_["items"], None, parent_has_idmap=has_idmap
-            )[1]
-            type_str = f"{item_type}[]"
-        elif shortname(type_["type"]) == "record":
-            return annotate_str, shortname(type_.get("name", "record"))
-        elif shortname(type_["type"]) == "enum":
-            return annotate_str, "'not yet implemented'"
-        elif shortname(type_["type"]) == "map":
-            value_type = self.parse_record_field_type(
-                type_["values"], None, parent_has_idmap=has_idmap, has_default=True
-            )[1]
-            type_str = f"{value_type}[string]"
+        match type_:
+            case str():
+                match shortname(type_):
+                    case "boolean":
+                        type_str = "bool"
+                    case "null":
+                        type_str = "None"
+                    case str(stype):
+                        type_str = stype
+            case list():
+                t_str = [
+                    self.parse_record_field_type(t, None, parent_has_idmap=has_idmap)[1]
+                    for t in type_
+                ]
+                if has_default:
+                    t_str = [t for t in t_str if t != "None"]
+                if len(t_str) == 1:
+                    type_str = t_str[0]
+                else:
+                    if are_dispatchable(type_, has_idmap):
+                        t_str += ["Any"]
+                    union_types = ", ".join(t_str)
+                    type_str = f"Union!({union_types})"
+            case dict():
+                match shortname(type_["type"]):
+                    case "array":
+                        item_type = self.parse_record_field_type(
+                            type_["items"], None, parent_has_idmap=has_idmap
+                        )[1]
+                        type_str = f"{item_type}[]"
+                    case "record":
+                        return annotate_str, shortname(type_.get("name", "record"))
+                    case "enum":
+                        return annotate_str, "'not yet implemented'"
+                    case "map":
+                        value_type = self.parse_record_field_type(
+                            type_["values"], None, parent_has_idmap=has_idmap, has_default=True
+                        )[1]
+                        type_str = f"{value_type}[string]"
         return annotate_str, type_str
 
-    def parse_record_field(self, field: dict[str, Any], parent_name: Optional[str] = None) -> str:
+    def parse_record_field(self, field: dict[str, Any], parent_name: str | None = None) -> str:
         """Return a declaration string for a given record field."""
         fname = shortname(field["name"]) + "_"
         jsonld_pred = field.get("jsonldPredicate", None)

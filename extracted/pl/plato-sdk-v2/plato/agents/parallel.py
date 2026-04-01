@@ -12,9 +12,13 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
+from plato.agents.runtime.base import AgentContext
 from plato.agents.runtime.transport import GitPublishedRef, GitTransport, RsyncTransport
+from plato.agents.runtime.vm import VMConfig
+from plato.agents.runtime.warmpool import WarmPool
+from plato.runtime import VMRuntimeConfig
 from plato.utils.subprocess import run_local
 from plato.worlds.workspace import Workspace
 
@@ -34,6 +38,7 @@ class ParallelAgentResult:
     agent_id: str | None = None
     error: str | None = None
     merged: bool = False
+    branch_name: str | None = None
 
 
 @dataclass(slots=True)
@@ -64,7 +69,24 @@ class ParallelAgentOrchestrator:
         max_parallel: int = 4,
         merge_agent_config: AgentConfig | None = None,
         extra_workspaces: list[Workspace] | None = None,
+        warm_pool: bool = False,
+        use_named_branches: bool = False,
+        agent_prepare: Callable[..., Any] | None = None,
+        pre_integrate: Callable[..., Any] | None = None,
     ) -> None:
+        """
+        Args:
+            use_named_branches: When True, each task publishes to a named branch
+                ``pr/<slug>`` instead of a hidden ref.  This makes the branch
+                visible for code review (e.g. ``git diff main...pr/<slug>``).
+            agent_prepare: Optional async callback ``(runner, task_name) -> None``
+                called after the agent runner is created but before ``runner.run()``.
+                Use this to add ``on_prepare`` hooks (e.g. starting dev servers).
+            pre_integrate: Optional async callback
+                ``(task_name, branch_name, published_ref) -> bool`` called before
+                the integration worker merges a task's ref into main.  Return
+                ``True`` to proceed with the merge, ``False`` to skip it.
+        """
         if not isinstance(workspace.transport, GitTransport):
             raise ValueError("ParallelAgentOrchestrator requires a git-transported workspace")
         if max_parallel < 1:
@@ -75,9 +97,26 @@ class ParallelAgentOrchestrator:
         self._git_transport = workspace.transport
         self._agent_config = agent_config
         self._merge_agent_config = merge_agent_config or agent_config
-        self._semaphore = asyncio.Semaphore(max_parallel)
+        self._warm_pool_enabled = warm_pool
+        self._warm_pool: WarmPool | None = None
+        self._max_parallel = max_parallel
         self._extra_workspaces: list[Workspace] = extra_workspaces or []
+
+        if warm_pool:
+            self._semaphore = None  # pool.acquire() provides backpressure
+        else:
+            self._semaphore = asyncio.Semaphore(max_parallel)
+
         self._tasks: list[_SubmittedTask] = []
+        self._use_named_branches = use_named_branches
+        self._agent_prepare = agent_prepare
+        self._pre_integrate = pre_integrate
+        self._resolved_base_ref: str | None = None
+
+    @property
+    def resolved_base_ref(self) -> str | None:
+        """Pinned base SHA resolved for the current orchestrator run."""
+        return self._resolved_base_ref
 
     async def submit(
         self,
@@ -111,14 +150,72 @@ class ParallelAgentOrchestrator:
         if not self._tasks:
             return []
 
+        self._resolved_base_ref = await self._resolve_base_ref()
+
+        if self._warm_pool_enabled:
+            self._warm_pool = self._create_warm_pool(num_tasks=len(self._tasks))
+
         integration_queue: asyncio.Queue[_QueuedIntegration | None] = asyncio.Queue()
         integration_worker = asyncio.create_task(self._integration_worker(integration_queue))
         try:
+            if self._warm_pool is not None:
+                await self._warm_pool.pre_warm()
             pending = [asyncio.create_task(self._run_task(task, integration_queue)) for task in self._tasks]
             return await asyncio.gather(*pending)
         finally:
             await integration_queue.put(None)
             await integration_worker
+            if self._warm_pool is not None:
+                await self._warm_pool.shutdown()
+
+    def _create_warm_pool(self, *, num_tasks: int) -> WarmPool:
+        """Build a WarmPool from the world's session and agent config."""
+        world = self._world
+        session = world.plato_session
+        ssh_key_path = world._ssh_key_path  # noqa: SLF001
+        if session is None or ssh_key_path is None:
+            raise RuntimeError("Warm pool requires a live Plato session with SSH key")
+
+        runtime_cfg = self._agent_config.runtime
+        if not isinstance(runtime_cfg, VMRuntimeConfig):
+            raise RuntimeError("Warm pool requires a VM runtime config")
+
+        # Scale timeout: each pooled VM may run ceil(num_tasks / max_parallel) sequential tasks
+        waves = -(-num_tasks // self._max_parallel)  # ceiling division
+        base_timeout = runtime_cfg.vm.timeout or 7200
+        pool_timeout = base_timeout * waves
+
+        vm_config = VMConfig(
+            cpus=runtime_cfg.vm.cpus or 2,
+            memory=runtime_cfg.vm.memory or 4096,
+            disk=runtime_cfg.vm.disk or 10240,
+            timeout=pool_timeout,
+        )
+
+        prototype_ctx = AgentContext(
+            image=self._agent_config.image,
+            config={},
+            instruction="",
+            display_name="warm-pool",
+        )
+
+        pool = WarmPool(
+            session=session,
+            ssh_key_path=ssh_key_path,
+            vm_config=vm_config,
+            prototype_ctx=prototype_ctx,
+            max_size=self._max_parallel,
+            pre_warm=self._max_parallel,
+        )
+        logger.info(
+            "Created warm pool: max_size=%d, pre_warm=%d, vm_timeout=%ds (%d tasks, %d waves)",
+            self._max_parallel,
+            self._max_parallel,
+            pool_timeout,
+            num_tasks,
+            waves,
+        )
+        return pool
 
     async def _run_task(
         self,
@@ -134,7 +231,7 @@ class ParallelAgentOrchestrator:
             return ParallelAgentResult(name=task.name, status="failed", error=str(exc))
 
         try:
-            async with self._semaphore:
+            async with _optional_semaphore(self._semaphore):
                 task_workspace, task_transport = self._make_task_workspace(task)
                 logger.info(
                     "Starting parallel task '%s' with publish_ref_prefix=%s transport_id=%s",
@@ -146,7 +243,10 @@ class ParallelAgentOrchestrator:
                     self._agent_config,
                     display_name=task.display_name or task.name,
                     workspaces=[task_workspace, *self._extra_workspaces],
+                    warm_pool=self._warm_pool,
                 )
+                if self._agent_prepare is not None:
+                    await self._agent_prepare(runner, task.name)
                 agent_id = await runner.run(task.instruction)
         except Exception as exc:
             return ParallelAgentResult(
@@ -155,6 +255,7 @@ class ParallelAgentOrchestrator:
                 error=str(exc),
             )
 
+        branch = f"pr/{_slug(task.name)}" if self._use_named_branches else None
         published_ref = task_transport.published_ref
         if published_ref is None:
             logger.info(
@@ -165,6 +266,7 @@ class ParallelAgentOrchestrator:
                 status="success",
                 agent_id=agent_id,
                 merged=True,
+                branch_name=branch,
             )
             self._fire_on_completed(task, result)
             return result
@@ -194,6 +296,7 @@ class ParallelAgentOrchestrator:
             status="success",
             agent_id=agent_id,
             merged=merged,
+            branch_name=branch,
         )
         self._fire_on_completed(task, result)
         return result
@@ -207,14 +310,38 @@ class ParallelAgentOrchestrator:
                 logger.exception("on_completed callback failed for task '%s'", task.name)
 
     def _make_task_workspace(self, task: _SubmittedTask) -> tuple[Workspace, GitTransport]:
-        publish_prefix = f"refs/plato/tasks/{_slug(task.name)}-{uuid.uuid4().hex}"
+        if self._use_named_branches:
+            publish_prefix = f"refs/heads/pr/{_slug(task.name)}"
+            exact = True
+        else:
+            publish_prefix = f"refs/plato/tasks/{_slug(task.name)}-{uuid.uuid4().hex}"
+            exact = False
+
         task_transport = self._git_transport.with_path(self._git_transport.path)
         task_transport.mount_path = self._workspace.mount_path
-        task_transport.set_publish_ref_prefix(publish_prefix)
+        task_transport.set_publish_ref_prefix(publish_prefix, exact=exact)
+        if self._resolved_base_ref is not None:
+            task_transport.set_checkout_base_ref(
+                self._resolved_base_ref,
+                branch_name=f"plato-task/{_slug(task.name)}",
+            )
 
         task_workspace = self._workspace.clone()
         task_workspace.transport = task_transport
         return task_workspace, task_transport
+
+    async def _resolve_base_ref(self) -> str:
+        bare_repo = shlex.quote(self._git_transport.bare_repo_path)
+        exit_code, stdout, stderr = await run_local(
+            f"git --git-dir {bare_repo} rev-parse main",
+            timeout=10,
+        )
+        if exit_code != 0 or not stdout.strip():
+            raise RuntimeError(
+                f"Failed to resolve orchestrator base ref from {self._git_transport.bare_repo_path}: "
+                f"{stderr.strip() or stdout.strip() or 'missing main ref'}"
+            )
+        return stdout.strip()
 
     async def _integration_worker(self, integration_queue: asyncio.Queue[_QueuedIntegration | None]) -> None:
         merge_cfg = self._git_transport.merge_config.merge_agent
@@ -235,6 +362,18 @@ class ParallelAgentOrchestrator:
     async def _integrate_published_ref(
         self, task: _SubmittedTask, published_ref: GitPublishedRef, max_retries: int
     ) -> bool:
+        if self._pre_integrate is not None:
+            branch = f"pr/{_slug(task.name)}" if self._use_named_branches else published_ref.ref
+            try:
+                should_merge = await self._pre_integrate(task.name, branch, published_ref)
+                if not should_merge:
+                    logger.info("pre_integrate rejected task '%s' — skipping merge", task.name)
+                    await self._delete_ref_direct(published_ref.ref)
+                    return False
+            except Exception:
+                logger.exception("pre_integrate hook failed for task '%s'", task.name)
+                raise
+
         merge_cfg = self._git_transport.merge_config.merge_agent
         async with _optional_lock(self._git_transport.sync_lock):
             for attempt in range(1, max_retries + 1):
@@ -360,7 +499,17 @@ class ParallelAgentOrchestrator:
             timeout=30,
         )
         if exit_code != 0:
-            logger.warning("Failed to delete hidden ref %s", ref)
+            logger.warning("Failed to delete ref %s", ref)
+
+    async def _delete_ref_direct(self, ref: str) -> None:
+        """Delete a ref from the bare repo without needing a temp clone."""
+        bare = shlex.quote(self._git_transport.bare_repo_path)
+        exit_code, _, _ = await run_local(
+            f"git -C {bare} update-ref -d {shlex.quote(ref)}",
+            timeout=10,
+        )
+        if exit_code != 0:
+            logger.warning("Failed to delete ref %s directly", ref)
 
 
 @asynccontextmanager
@@ -369,6 +518,15 @@ async def _optional_lock(lock: asyncio.Lock | None):
         yield
         return
     async with lock:
+        yield
+
+
+@asynccontextmanager
+async def _optional_semaphore(semaphore: asyncio.Semaphore | None):
+    if semaphore is None:
+        yield
+        return
+    async with semaphore:
         yield
 
 

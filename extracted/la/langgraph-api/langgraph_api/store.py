@@ -13,6 +13,7 @@ from langgraph.pregel import Pregel
 from langgraph.store.base import BaseStore
 
 from langgraph_api import config, timing
+from langgraph_api.asyncio import as_asynccontextmanager
 from langgraph_api.timing import profiled_import
 from langgraph_api.utils.config import run_in_executor
 
@@ -50,14 +51,13 @@ async def exit_store():
 async def _yield_store(value: Any):
     if isinstance(value, BaseStore):
         yield value
-    elif hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
-        async with value as ctx_value:
+    elif (
+        hasattr(value, "__aenter__")
+        or hasattr(value, "__enter__")
+        or asyncio.iscoroutine(value)
+    ):
+        async with as_asynccontextmanager(value) as ctx_value:
             yield ctx_value
-    elif hasattr(value, "__enter__") and hasattr(value, "__exit__"):
-        with value as ctx_value:
-            yield ctx_value
-    elif asyncio.iscoroutine(value):
-        yield await value
     elif callable(value):
         async with _yield_store(value()) as ctx_value:
             yield ctx_value

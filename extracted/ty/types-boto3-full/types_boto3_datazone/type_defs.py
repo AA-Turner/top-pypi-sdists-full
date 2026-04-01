@@ -1719,6 +1719,7 @@ EnvironmentSummaryTypeDef = TypedDict(
         "awsAccountRegion": NotRequired[str],
         "status": NotRequired[EnvironmentStatusType],
         "environmentConfigurationId": NotRequired[str],
+        "environmentConfigurationName": NotRequired[str],
     },
 )
 
@@ -3443,6 +3444,7 @@ class CreateEnvironmentInputTypeDef(TypedDict):
     environmentBlueprintIdentifier: NotRequired[str]
     deploymentOrder: NotRequired[int]
     environmentConfigurationId: NotRequired[str]
+    environmentConfigurationName: NotRequired[str]
 
 
 class CreateEnvironmentProfileInputTypeDef(TypedDict):
@@ -3464,6 +3466,7 @@ class UpdateEnvironmentInputTypeDef(TypedDict):
     glossaryTerms: NotRequired[Sequence[str]]
     blueprintVersion: NotRequired[str]
     userParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
+    environmentConfigurationName: NotRequired[str]
 
 
 class UpdateEnvironmentProfileInputTypeDef(TypedDict):
@@ -5110,6 +5113,7 @@ CreateEnvironmentOutputTypeDef = TypedDict(
         "deploymentProperties": DeploymentPropertiesTypeDef,
         "environmentBlueprintId": str,
         "environmentConfigurationId": str,
+        "environmentConfigurationName": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -5138,6 +5142,7 @@ GetEnvironmentOutputTypeDef = TypedDict(
         "deploymentProperties": DeploymentPropertiesTypeDef,
         "environmentBlueprintId": str,
         "environmentConfigurationId": str,
+        "environmentConfigurationName": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -5166,6 +5171,7 @@ UpdateEnvironmentOutputTypeDef = TypedDict(
         "deploymentProperties": DeploymentPropertiesTypeDef,
         "environmentBlueprintId": str,
         "environmentConfigurationId": str,
+        "environmentConfigurationName": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

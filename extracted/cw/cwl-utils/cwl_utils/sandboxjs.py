@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Safe execution of CWL Expressions in a NodeJS sandbox."""
+
 import collections
 import errno
 import glob
@@ -11,18 +12,26 @@ import subprocess  # nosec
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Mapping, MutableMapping, MutableSequence
+from contextlib import suppress
 from importlib.resources import files
 from io import BytesIO
-from typing import Any, Deque, Optional, Union, cast
+from pathlib import Path
+from typing import Any, Deque, cast
 
 from schema_salad.utils import json_dumps
 
 from cwl_utils.errors import JavascriptException, WorkflowException
 from cwl_utils.loghandler import _logger
-from cwl_utils.types import CWLOutputType
+from cwl_utils.types import (
+    CWLOutputType,
+    is_directory,
+    is_directory_key,
+    is_file,
+    is_file_key,
+)
 from cwl_utils.utils import singularity_supports_userns
 
-default_timeout = 20
+default_timeout: float = 20
 """Default number of seconds to wait while running a javascript engine."""
 
 seg_symbol = r"""\w+"""
@@ -63,8 +72,16 @@ def stdfmt(data: str) -> str:
 class JSEngine(ABC):
     @abstractmethod
     def eval(
-        self, scan: str, jslib: str = "", **kwargs: Any
-    ) -> Union[CWLOutputType, Awaitable[CWLOutputType]]: ...
+        self,
+        scan: str,
+        jslib: str = "",
+        timeout: float = default_timeout,
+        force_docker_pull: bool = False,
+        debug: bool = False,
+        js_console: bool = False,
+        container_engine: str = "docker",
+        **kwargs: Any,
+    ) -> CWLOutputType | Awaitable[CWLOutputType]: ...
 
     @abstractmethod
     def regex_eval(
@@ -73,7 +90,7 @@ class JSEngine(ABC):
         remaining_string: str,
         current_value: CWLOutputType,
         **kwargs: Any,
-    ) -> Union[CWLOutputType, Awaitable[CWLOutputType]]: ...
+    ) -> CWLOutputType | Awaitable[CWLOutputType]: ...
 
 
 class NodeJSEngine(JSEngine):
@@ -91,7 +108,7 @@ class NodeJSEngine(JSEngine):
         self.processes_to_kill: Deque[subprocess.Popen[str]] = collections.deque()
 
     def __del__(self) -> None:
-        try:
+        with suppress(TypeError):
             while self.processes_to_kill:
                 process = self.processes_to_kill.popleft()
                 if isinstance(process.args, MutableSequence):
@@ -102,7 +119,7 @@ class NodeJSEngine(JSEngine):
                     str(arg).split("=")[1] for arg in args if "--cidfile" in str(arg)
                 ]
                 if cidfile:  # Try to be nice
-                    try:
+                    with suppress(FileNotFoundError):
                         with open(cidfile[0]) as inp_stream:
                             p = subprocess.Popen(  # nosec
                                 [args[0], "kill", inp_stream.read()],
@@ -112,17 +129,11 @@ class NodeJSEngine(JSEngine):
                                 p.wait(timeout=10)
                             except subprocess.TimeoutExpired:
                                 p.kill()
-                    except FileNotFoundError:
-                        pass
                 if process.stdin:
                     process.stdin.close()
-                try:
+                with suppress(subprocess.TimeoutExpired):
                     process.wait(10)
-                except subprocess.TimeoutExpired:
-                    pass
                 process.kill()
-        except TypeError:
-            pass
 
     def check_js_threshold_version(self, working_alias: str) -> bool:
         """
@@ -148,7 +159,7 @@ class NodeJSEngine(JSEngine):
         js_text: str,
         timeout: float = default_timeout,
         js_console: bool = False,
-        context: Optional[str] = None,
+        context: str | None = None,
         force_docker_pull: bool = False,
         container_engine: str = "docker",
     ) -> tuple[int, str, str]:
@@ -204,11 +215,9 @@ class NodeJSEngine(JSEngine):
 
         def terminate() -> None:
             """Kill the node process if it exceeds timeout limit."""
-            try:
+            with suppress(OSError):
                 killed.append(True)
                 nodejs.kill()
-            except OSError:
-                pass
 
         timer = threading.Timer(timeout, terminate)
         timer.daemon = True
@@ -273,7 +282,7 @@ class NodeJSEngine(JSEngine):
     ) -> "subprocess.Popen[str]":
         """Return a subprocess ready to submit javascript to."""
         required_node_version, docker = (False,) * 2
-        nodejs = None  # type: Optional[subprocess.Popen[str]]
+        nodejs: subprocess.Popen[str] | None = None
         trynodes = ("nodejs", "node")
         for n in trynodes:
             try:
@@ -299,7 +308,7 @@ class NodeJSEngine(JSEngine):
             except (subprocess.CalledProcessError, OSError):
                 pass
 
-        if nodejs is None or nodejs is not None and required_node_version is False:
+        if nodejs is None or nodejs is not None and not required_node_version:
             try:
                 nodeimg = "node:alpine"
                 if container_engine == "singularity":
@@ -308,40 +317,41 @@ class NodeJSEngine(JSEngine):
                     nodeimg = f"docker.io/library/{nodeimg}"
 
                 if not self.have_node_slim:
-                    singularity_cache: Optional[str] = None
-                    if container_engine in ("docker", "podman"):
-                        dockerimgs = subprocess.check_output(  # nosec
-                            [container_engine, "images", "-q", nodeimg],
-                            text=True,
-                        )
-                    elif container_engine == "singularity":
-                        singularity_cache = os.environ.get("CWL_SINGULARITY_CACHE")
-                        if singularity_cache:
-                            singularityimgs = glob.glob(
-                                singularity_cache + "/node_alpine.sif"
-                            )
-                        else:
-                            singularityimgs = glob.glob(
-                                os.getcwd() + "/node_alpine.sif"
-                            )
-                        if singularityimgs:
-                            nodeimg = singularityimgs[0]
-                    elif container_engine == "udocker":
-                        matches = re.search(
-                            re.escape(nodeimg),
-                            subprocess.check_output(  # nosec
-                                [container_engine, "images"],
+                    singularity_cache: str | None = None
+                    match container_engine:
+                        case "docker" | "podman":
+                            dockerimgs = subprocess.check_output(  # nosec
+                                [container_engine, "images", "-q", nodeimg],
                                 text=True,
-                            ),
-                        )
-                        if matches:
-                            dockerimgs = matches[0]
-                        else:
-                            dockerimgs = ""
-                    else:
-                        raise Exception(
-                            f"Unknown container_engine: {container_engine}."
-                        )
+                            )
+                        case "singularity":
+                            singularity_cache = os.environ.get("CWL_SINGULARITY_CACHE")
+                            if singularity_cache:
+                                singularityimgs = glob.glob(
+                                    singularity_cache + "/node_alpine.sif"
+                                )
+                            else:
+                                singularityimgs = glob.glob(
+                                    str(Path.cwd() / "node_alpine.sif")
+                                )
+                            if singularityimgs:
+                                nodeimg = singularityimgs[0]
+                        case "udocker":
+                            matches = re.search(
+                                re.escape(nodeimg),
+                                subprocess.check_output(  # nosec
+                                    [container_engine, "images"],
+                                    text=True,
+                                ),
+                            )
+                            if matches:
+                                dockerimgs = matches[0]
+                            else:
+                                dockerimgs = ""
+                        case _:
+                            raise Exception(
+                                f"Unknown container_engine: {container_engine}."
+                            )
                     # if output is an empty string
                     need_singularity = (
                         container_engine == "singularity" and not singularityimgs
@@ -355,9 +365,9 @@ class NodeJSEngine(JSEngine):
                         if force_docker_pull:
                             nodejs_pull_commands.append("--force")
                         nodejs_pull_commands.append(nodeimg)
-                        cwd = singularity_cache if singularity_cache else os.getcwd()
+                        cwd = singularity_cache or Path.cwd()
                         nodejsimg = subprocess.check_output(  # nosec
-                            nodejs_pull_commands, text=True, cwd=cwd
+                            nodejs_pull_commands, text=True, cwd=str(cwd)
                         )
                         _logger.debug(
                             "Pulled Docker image %s %s using %s",
@@ -438,7 +448,7 @@ class NodeJSEngine(JSEngine):
             )
 
         # docker failed, but nodejs is installed on system but the version is below the required version
-        if docker is False and required_node_version is False:
+        if not docker and not required_node_version:
             raise JavascriptException(
                 "NodeJSEngine requires minimum v{} version of Node.js engine.".format(
                     self.minimum_node_version_str
@@ -515,7 +525,7 @@ class NodeJSEngine(JSEngine):
             if not m:
                 return current_value
             next_segment_str = m.group(1)
-            key: Optional[Union[str, int]] = None
+            key: str | int | None = None
             if next_segment_str[0] == ".":
                 key = next_segment_str[1:]
             elif next_segment_str[1] in ("'", '"'):
@@ -553,11 +563,35 @@ class NodeJSEngine(JSEngine):
 
             if isinstance(current_value, Mapping):
                 try:
-                    return self.regex_eval(
-                        parsed_string + remaining_string,
-                        remaining_string[m.end(1) :],
-                        cast(CWLOutputType, current_value[cast(str, key)]),
-                    )
+                    if is_directory(current_value) and is_directory_key(key):
+                        return self.regex_eval(
+                            parsed_string + remaining_string,
+                            remaining_string[m.end(1) :],
+                            cast(
+                                CWLOutputType,
+                                current_value[key],
+                            ),
+                        )
+                    elif is_file(current_value) and is_file_key(key):
+                        return self.regex_eval(
+                            parsed_string + remaining_string,
+                            remaining_string[m.end(1) :],
+                            cast(
+                                CWLOutputType,
+                                current_value[key],
+                            ),
+                        )
+                    else:
+                        return self.regex_eval(
+                            parsed_string + remaining_string,
+                            remaining_string[m.end(1) :],
+                            cast(
+                                CWLOutputType,
+                                cast(MutableMapping[str, Any], current_value)[
+                                    cast(str, key)
+                                ],
+                            ),
+                        )
                 except KeyError as exc:
                     raise WorkflowException(
                         f"{parsed_string!r} doesn't have property {key!r}."

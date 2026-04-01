@@ -63046,6 +63046,9 @@ class MaskLayer(bpy_struct):
     ]
     """ Falloff type of the feather (default 'SMOOTH')"""
 
+    fill_solver: typing.Literal["SWEEP_LINE", "CDT"]
+    """ Triangulation solver for filling 2D curves (default 'CDT')"""
+
     hide: bool
     """ Restrict visibility in the viewport (default False)"""
 
@@ -63071,7 +63074,7 @@ class MaskLayer(bpy_struct):
     """ Calculate holes when filling overlapping curves (default True)"""
 
     use_fill_overlap: bool
-    """ Calculate self intersections and overlap before filling (default False)"""
+    """ Calculate self intersections and overlap before filling (only for the sweep-line solver) (default False)"""
 
     @classmethod
     def bl_rna_get_subclass(

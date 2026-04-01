@@ -15,63 +15,53 @@
 
 from __future__ import annotations
 
-from copy import copy
 from typing import (TYPE_CHECKING,
                     Any,
+                    Callable,
                     Dict,
                     Iterable,
                     List,
                     Optional,
-                    Tuple,
+                    Type,
                     Union)
 
 from couchbase.binary_collection import BinaryCollection
 from couchbase.datastructures import (CouchbaseList,
                                       CouchbaseMap,
                                       CouchbaseQueue,
-                                      CouchbaseSet)
+                                      CouchbaseSet,
+                                      DataStructureRequest)
 from couchbase.exceptions import (DocumentExistsException,
-                                  ErrorMapper,
-                                  InvalidArgumentException,
+                                  DocumentNotFoundException,
                                   PathExistsException,
+                                  PathNotFoundException,
                                   QueueEmpty)
-from couchbase.exceptions import exception as CouchbaseBaseException
-from couchbase.kv_range_scan import RangeScanRequest
-from couchbase.logic import (BlockingWrapper,
-                             decode_replicas,
-                             decode_value)
-from couchbase.logic.collection import CollectionLogic
+from couchbase.logic.collection_impl import CollectionImpl
+from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import (DatastructureOperationType,
+                                             KeyValueMultiOperationType,
+                                             KeyValueOperationType)
+from couchbase.logic.pycbc_core import pycbc_exception as PycbcCoreException
 from couchbase.logic.supportability import Supportability
 from couchbase.management.queries import CollectionQueryIndexManager
-from couchbase.options import (AppendMultiOptions,
-                               DecrementMultiOptions,
-                               ExistsMultiOptions,
+from couchbase.options import (ExistsMultiOptions,
                                GetAllReplicasMultiOptions,
                                GetAndLockMultiOptions,
                                GetAnyReplicaMultiOptions,
                                GetMultiOptions,
-                               IncrementMultiOptions,
                                InsertMultiOptions,
                                LockMultiOptions,
-                               PrependMultiOptions,
                                RemoveMultiOptions,
                                ReplaceMultiOptions,
                                ScanOptions,
                                TouchMultiOptions,
                                UnlockMultiOptions,
-                               UpsertMultiOptions,
-                               forward_args,
-                               get_valid_multi_args)
-from couchbase.pycbc_core import (binary_multi_operation,
-                                  kv_multi_operation,
-                                  operations)
-from couchbase.result import (CounterResult,
-                              ExistsResult,
+                               UpsertMultiOptions)
+from couchbase.result import (ExistsResult,
                               GetReplicaResult,
                               GetResult,
                               LookupInReplicaResult,
                               LookupInResult,
-                              MultiCounterResult,
                               MultiExistsResult,
                               MultiGetReplicaResult,
                               MultiGetResult,
@@ -88,42 +78,44 @@ from couchbase.subdocument import get as subdoc_get
 from couchbase.subdocument import remove as subdoc_remove
 from couchbase.subdocument import replace
 from couchbase.subdocument import upsert as subdoc_upsert
-from couchbase.transcoder import Transcoder
 
 if TYPE_CHECKING:
     from datetime import timedelta
 
     from couchbase._utils import JSONType
     from couchbase.kv_range_scan import ScanType
-    from couchbase.options import (AppendOptions,
-                                   DecrementOptions,
-                                   ExistsOptions,
+    from couchbase.logic.observability import WrappedSpan
+    from couchbase.options import (ExistsOptions,
                                    GetAndLockOptions,
                                    GetAndTouchOptions,
                                    GetAnyReplicaOptions,
                                    GetOptions,
-                                   IncrementOptions,
                                    InsertOptions,
                                    LookupInAllReplicasOptions,
                                    LookupInAnyReplicaOptions,
                                    LookupInOptions,
                                    MutateInOptions,
-                                   MutationMultiOptions,
-                                   NoValueMultiOptions,
-                                   PrependOptions,
                                    RemoveOptions,
                                    ReplaceOptions,
                                    TouchOptions,
                                    UnlockOptions,
                                    UpsertOptions)
     from couchbase.result import MultiResultType
+    from couchbase.scope import Scope
     from couchbase.subdocument import Spec
 
 
-class Collection(CollectionLogic):
+class Collection:
 
-    def __init__(self, scope, name):
-        super().__init__(scope, name)
+    def __init__(self, scope: Scope, name: str) -> None:
+        self._impl = CollectionImpl(name, scope)
+
+    @property
+    def name(self) -> str:
+        """
+            str: The name of this :class:`~.Collection` instance.
+        """
+        return self._impl.name
 
     def get(self,
             key,  # type: str
@@ -167,26 +159,10 @@ class Collection(CollectionLogic):
                 print(f'Document value: {res.content_as[dict]}')
 
         """
-
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
-
-        return self._get_internal(key, **final_args)
-
-    @BlockingWrapper.block_and_decode(GetResult)
-    def _get_internal(
-        self,
-        key,  # type: str
-        **kwargs,  # type: Dict[str, Any]
-    ) -> GetResult:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`Collection.get` instead.
-        """
-        return super().get(key, **kwargs)
+        op_type = KeyValueOperationType.Get
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_request(key, obs_handler, *opts, **kwargs)
+            return self._impl.get(req, obs_handler)
 
     def get_any_replica(self,
                         key,  # type: str
@@ -233,26 +209,10 @@ class Collection(CollectionLogic):
                 print(f'Document value: {res.content_as[dict]}')
 
         """  # noqa: E501
-
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
-
-        return self._get_any_replica_internal(key, **final_args)
-
-    @BlockingWrapper.block_and_decode(GetReplicaResult)
-    def _get_any_replica_internal(
-        self,
-        key,  # type: str
-        **kwargs,  # type: Dict[str, Any]
-    ) -> GetReplicaResult:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`Collection.get_any_replica` instead.
-        """
-        return super().get_any_replica(key, **kwargs)
+        op_type = KeyValueOperationType.GetAnyReplica
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_any_replica_request(key, obs_handler, *opts, **kwargs)
+            return self._impl.get_any_replica(req, obs_handler)
 
     def get_all_replicas(self,
                          key,  # type: str
@@ -318,28 +278,11 @@ class Collection(CollectionLogic):
                         break
 
         """
+        op_type = KeyValueOperationType.GetAllReplicas
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_replicas_request(key, obs_handler, *opts, **kwargs)
+            return self._impl.get_all_replicas(req, obs_handler)
 
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
-
-        return self._get_all_replicas_internal(key, **final_args)
-
-    @BlockingWrapper.block_and_decode(GetReplicaResult)
-    def _get_all_replicas_internal(
-        self,
-        key,  # type: str
-        **kwargs,  # type: Dict[str, Any]
-    ) -> Iterable[GetReplicaResult]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`Collection.get_all_replicas` instead.
-        """
-        return super().get_all_replicas(key, **kwargs)
-
-    @BlockingWrapper.block(ExistsResult)
     def exists(
         self,
         key,  # type: str
@@ -381,9 +324,11 @@ class Collection(CollectionLogic):
                 print(f'Document w/ key - {key} {"exists" if res.exists else "does not exist"}')
 
         """
-        return super().exists(key, *opts, **kwargs)
+        op_type = KeyValueOperationType.Exists
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_exists_request(key, obs_handler, *opts, **kwargs)
+            return self._impl.exists(req, obs_handler)
 
-    @BlockingWrapper.block(MutationResult)
     def insert(
         self,  # type: "Collection"
         key,  # type: str
@@ -446,9 +391,11 @@ class Collection(CollectionLogic):
                 res = collection.insert(key, doc, InsertOptions(durability=durability))
 
         """
-        return super().insert(key, value, *opts, **kwargs)
+        op_type = KeyValueOperationType.Insert
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_insert_request(key, value, obs_handler, *opts, **kwargs)
+            return self._impl.insert(req, obs_handler)
 
-    @BlockingWrapper.block(MutationResult)
     def upsert(
         self,
         key,  # type: str
@@ -507,9 +454,11 @@ class Collection(CollectionLogic):
                 res = collection.upsert(key, doc, InsertOptions(durability=durability))
 
         """
-        return super().upsert(key, value, *opts, **kwargs)
+        op_type = KeyValueOperationType.Upsert
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_upsert_request(key, value, obs_handler, *opts, **kwargs)
+            return self._impl.upsert(req, obs_handler)
 
-    @BlockingWrapper.block(MutationResult)
     def replace(self,
                 key,  # type: str
                 value,  # type: JSONType
@@ -561,9 +510,11 @@ class Collection(CollectionLogic):
                 res = collection.replace(key, doc, InsertOptions(durability=durability))
 
         """
-        return super().replace(key, value, *opts, **kwargs)
+        op_type = KeyValueOperationType.Replace
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_replace_request(key, value, obs_handler, *opts, **kwargs)
+            return self._impl.replace(req, obs_handler)
 
-    @BlockingWrapper.block(MutationResult)
     def remove(self,
                key,  # type: str
                *opts,  # type: RemoveOptions
@@ -605,9 +556,11 @@ class Collection(CollectionLogic):
                 res = collection.remove('airline_10', RemoveOptions(durability=durability))
 
         """
-        return super().remove(key, *opts, **kwargs)
+        op_type = KeyValueOperationType.Remove
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_remove_request(key, obs_handler, *opts, **kwargs)
+            return self._impl.remove(req, obs_handler)
 
-    @BlockingWrapper.block(MutationResult)
     def touch(self,
               key,  # type: str
               expiry,  # type: timedelta
@@ -657,7 +610,10 @@ class Collection(CollectionLogic):
                                         TouchOptions(timeout=timedelta(seconds=2)))
 
         """
-        return super().touch(key, expiry, *opts, **kwargs)
+        op_type = KeyValueOperationType.Touch
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_touch_request(key, expiry, obs_handler, *opts, **kwargs)
+            return self._impl.touch(req, obs_handler)
 
     def get_and_touch(self,
                       key,  # type: str
@@ -711,27 +667,10 @@ class Collection(CollectionLogic):
                 print(f'Document w/ updated expiry: {res.content_as[dict]}')
 
         """
-        # add to kwargs for conversion to int
-        kwargs["expiry"] = expiry
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
-
-        return self._get_and_touch_internal(key, **final_args)
-
-    @BlockingWrapper.block_and_decode(GetResult)
-    def _get_and_touch_internal(self,
-                                key,  # type: str
-                                **kwargs,  # type: Dict[str, Any]
-                                ) -> GetResult:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`Collection.get_and_touch` instead.
-
-        """
-        return super().get_and_touch(key, **kwargs)
+        op_type = KeyValueOperationType.GetAndTouch
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_and_touch_request(key, expiry, obs_handler, *opts, **kwargs)
+            return self._impl.get_and_touch(req, obs_handler)
 
     def get_and_lock(
         self,
@@ -786,29 +725,11 @@ class Collection(CollectionLogic):
                 print(f'Locked document: {res.content_as[dict]}')
 
         """
-        # add to kwargs for conversion to int
-        kwargs["lock_time"] = lock_time
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
+        op_type = KeyValueOperationType.GetAndLock
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_and_lock_request(key, lock_time, obs_handler, *opts, **kwargs)
+            return self._impl.get_and_lock(req, obs_handler)
 
-        return self._get_and_lock_internal(key, **final_args)
-
-    @BlockingWrapper.block_and_decode(GetResult)
-    def _get_and_lock_internal(self,
-                               key,  # type: str
-                               **kwargs,  # type: Dict[str, Any]
-                               ) -> GetResult:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`Collection.get_and_lock` instead.
-
-        """
-        return super().get_and_lock(key, **kwargs)
-
-    @BlockingWrapper.block(None)
     def unlock(self,
                key,  # type: str
                cas,  # type: int
@@ -848,7 +769,10 @@ class Collection(CollectionLogic):
                 collection.upsert(key, res.content_as[dict])
 
         """
-        return super().unlock(key, cas, *opts, **kwargs)
+        op_type = KeyValueOperationType.Unlock
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_unlock_request(key, cas, obs_handler, *opts, **kwargs)
+            return self._impl.unlock(req, obs_handler)
 
     def lookup_in(
         self,
@@ -907,26 +831,10 @@ class Collection(CollectionLogic):
                 print(f'Hotel {key} coordinates: {res.content_as[dict](0)}')
 
         """
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
-        return self._lookup_in_internal(key, spec, **final_args)
-
-    @BlockingWrapper.block_and_decode(LookupInResult)
-    def _lookup_in_internal(
-        self,
-        key,  # type: str
-        spec,  # type: Iterable[Spec]
-        **kwargs,  # type: Dict[str, Any]
-    ) -> LookupInResult:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`Collection.lookup_in` instead.
-
-        """
-        return super().lookup_in(key, spec, **kwargs)
+        op_type = KeyValueOperationType.LookupIn
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_lookup_in_request(key, spec, obs_handler, *opts, **kwargs)
+            return self._impl.lookup_in(req, obs_handler)
 
     def lookup_in_any_replica(
         self,
@@ -987,26 +895,14 @@ class Collection(CollectionLogic):
                 print(f'Hotel {key} coordinates: {res.content_as[dict](0)}')
 
         """  # noqa: E501
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
-        return self._lookup_in_any_replica_internal(key, spec, **final_args)
-
-    @BlockingWrapper.block_and_decode(LookupInReplicaResult)
-    def _lookup_in_any_replica_internal(
-        self,
-        key,  # type: str
-        spec,  # type: Iterable[Spec]
-        **kwargs,  # type: Dict[str, Any]
-    ) -> LookupInReplicaResult:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`Collection.lookup_in` instead.
-
-        """
-        return super().lookup_in_any_replica(key, spec, **kwargs)
+        op_type = KeyValueOperationType.LookupInAnyReplica
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_lookup_in_any_replica_request(key,
+                                                                                 spec,
+                                                                                 obs_handler,
+                                                                                 *opts,
+                                                                                 **kwargs)
+            return self._impl.lookup_in_any_replica(req, obs_handler)
 
     def lookup_in_all_replicas(
         self,
@@ -1091,28 +987,15 @@ class Collection(CollectionLogic):
                         break
 
         """
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            transcoder = self.default_transcoder
-        final_args['transcoder'] = transcoder
-        return self._lookup_in_all_replicas_internal(key, spec, **final_args)
+        op_type = KeyValueOperationType.LookupInAllReplicas
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_lookup_in_all_replicas_request(key,
+                                                                                  spec,
+                                                                                  obs_handler,
+                                                                                  *opts,
+                                                                                  **kwargs)
+            return self._impl.lookup_in_all_replicas(req, obs_handler)
 
-    @BlockingWrapper.block_and_decode(LookupInReplicaResult)
-    def _lookup_in_all_replicas_internal(
-            self,
-            key,  # type: str
-            spec,  # type: Iterable[Spec]
-            **kwargs,  # type: Dict[str, Any]
-    ) -> Iterable[LookupInReplicaResult]:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`Collection.lookup_in` instead.
-
-        """
-        return super().lookup_in_all_replicas(key, spec, **kwargs)
-
-    @BlockingWrapper.block(MutateInResult)
     def mutate_in(
         self,
         key,  # type: str
@@ -1168,9 +1051,13 @@ class Collection(CollectionLogic):
                                             MutateInOptions(timeout=timedelta(seconds=2)))
 
         """
-        return super().mutate_in(key, spec, *opts, **kwargs)
+        op_type = KeyValueOperationType.MutateIn
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_mutate_in_request(key, spec, obs_handler, *opts, **kwargs)
+            return self._impl.mutate_in(req, obs_handler)
 
-    def scan(self, scan_type,  # type: ScanType
+    def scan(self,
+             scan_type,  # type: ScanType
              *opts,  # type: ScanOptions
              **kwargs,  # type: Dict[str, Any]
              ) -> ScanResultIterable:
@@ -1216,13 +1103,8 @@ class Collection(CollectionLogic):
 
 
         """  # noqa: E501
-        final_args = forward_args(kwargs, *opts)
-        transcoder = final_args.get('transcoder', None)
-        if not transcoder:
-            final_args['transcoder'] = self.default_transcoder
-        scan_args = super().build_scan_args(scan_type, **final_args)
-        range_scan_request = RangeScanRequest(**scan_args)
-        return ScanResultIterable(range_scan_request)
+        req = self._impl.request_builder.build_range_scan_request(self._impl.connection, scan_type, *opts, **kwargs)
+        return self._impl.range_scan(req)
 
     def binary(self) -> BinaryCollection:
         """Creates a BinaryCollection instance, allowing access to various binary operations
@@ -1235,68 +1117,9 @@ class Collection(CollectionLogic):
             :class:`~couchbase.binary_collection.BinaryCollection`: A BinaryCollection instance.
 
         """
-        return BinaryCollection(self)
+        return BinaryCollection(self._impl)
 
-    @BlockingWrapper.block(MutationResult)
-    def _append(
-        self,
-        key,  # type: str
-        value,  # type: Union[str,bytes,bytearray]
-        *opts,  # type: AppendOptions
-        **kwargs,  # type: Dict[str, Any]
-    ) -> MutationResult:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`.BinaryCollection.append` instead.
-
-        """
-        return super().append(key, value, *opts, **kwargs)
-
-    @BlockingWrapper.block(MutationResult)
-    def _prepend(
-        self,
-        key,  # type: str
-        value,  # type: Union[str,bytes,bytearray]
-        *opts,  # type: PrependOptions
-        **kwargs,  # type: Dict[str, Any]
-    ) -> MutationResult:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`.BinaryCollection.prepend` instead.
-
-        """
-        return super().prepend(key, value, *opts, **kwargs)
-
-    @BlockingWrapper.block(CounterResult)
-    def _increment(
-        self,
-        key,  # type: str
-        *opts,  # type: IncrementOptions
-        **kwargs,  # type: Dict[str, Any]
-    ) -> CounterResult:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`.BinaryCollection.increment` instead.
-
-        """
-        return super().increment(key, *opts, **kwargs)
-
-    @BlockingWrapper.block(CounterResult)
-    def _decrement(
-        self,
-        key,  # type: str
-        *opts,  # type: DecrementOptions
-        **kwargs,  # type: Dict[str, Any]
-    ) -> CounterResult:
-        """ **Internal Operation**
-
-        Internal use only.  Use :meth:`.BinaryCollection.decrement` instead.
-
-        """
-        return super().decrement(key, *opts, **kwargs)
-
-    def couchbase_list(self, key  # type: str
-                       ) -> CouchbaseList:
+    def couchbase_list(self, key: str) -> CouchbaseList:
         """Returns a CouchbaseList permitting simple list storage in a document.
 
         .. seealso::
@@ -1306,18 +1129,51 @@ class Collection(CollectionLogic):
             :class:`~couchbase.datastructures.CouchbaseList`: A CouchbaseList instance.
 
         """
-        return CouchbaseList(key, self)
+        return CouchbaseList(key, self._impl)
 
-    @BlockingWrapper._dsop(create_type='list')
-    def list_append(self, key,  # type: str
-                    value,  # type: JSONType
-                    create=False,  # type: Optional[bool]
-                    **kwargs,  # type: Dict[str, Any]
-                    ) -> OperationResult:
+    # @TODO(PYCBC-1732) - remove in 4.7 dot-minor
+    def _execute_deprecated_ds_func(self,
+                                    fn: Callable[[DataStructureRequest], Any],
+                                    req: DataStructureRequest,
+                                    obs_handler: ObservableRequestHandler,
+                                    parent_span: WrappedSpan,
+                                    create: Optional[bool] = False,
+                                    create_type: Optional[Union[Type[dict], Type[list]]] = None,
+                                    wrap_missing_path: Optional[bool] = True,
+                                    path_value: Optional[Any] = None) -> Any:
+        try:
+            return fn(req, obs_handler)
+        except DocumentNotFoundException as ex:
+            if create:
+                orig_opt_type = obs_handler.op_type
+                obs_handler.reset(KeyValueOperationType.Insert, exc_val=ex)
+                try:
+                    ins_req = self._impl.request_builder.build_insert_request(req.key,
+                                                                              create_type(),
+                                                                              obs_handler,
+                                                                              span=parent_span)
+                    self._impl.insert(ins_req, obs_handler)
+                except DocumentExistsException:
+                    pass
+                obs_handler.reset(orig_opt_type)
+                obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict(),
+                                           parent_span=parent_span)
+                return fn(req, obs_handler)
+            else:
+                raise
+        except PathNotFoundException:
+            if wrap_missing_path and path_value:
+                raise IndexError(path_value)
+
+    def list_append(self,
+                    key: str,
+                    value: JSONType,
+                    create: Optional[bool] = False,
+                    **kwargs: object) -> OperationResult:
         """Add an item to the end of a list.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseList.append`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseList.append`
             instead.
 
         Args:
@@ -1335,20 +1191,35 @@ class Collection(CollectionLogic):
                 on the server.
 
         """
-        op = array_append('', value)
-        sd_res = self.mutate_in(key, (op,), **kwargs)
-        return OperationResult(sd_res.cas, sd_res.mutation_token())
+        op_type = DatastructureOperationType.ListAppend
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = array_append('', value)
+                req = self._impl.request_builder.build_mutate_in_request(key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         **kwargs)
+                sd_res = self._execute_deprecated_ds_func(self._impl.mutate_in,
+                                                          req,
+                                                          obs_handler,
+                                                          ds_obs_handler.wrapped_span,
+                                                          create=create,
+                                                          create_type=list,
+                                                          path_value=value)
+                return OperationResult(sd_res.cas, sd_res.mutation_token())
 
-    @BlockingWrapper._dsop(create_type='list')
-    def list_prepend(self, key,  # type: str
-                     value,  # type: JSONType
-                     create=False,  # type: Optional[bool]
-                     **kwargs,  # type: Dict[str, Any]
+    def list_prepend(self,
+                     key: str,
+                     value: JSONType,
+                     create: Optional[bool] = False,
+                     **kwargs: object
                      ) -> OperationResult:
         """ Add an item to the beginning of a list.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseList.prepend`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseList.prepend`
             instead.
 
         Args:
@@ -1366,20 +1237,35 @@ class Collection(CollectionLogic):
                 on the server.
 
         """
-        op = array_prepend('', value)
-        sd_res = self.mutate_in(key, (op,), **kwargs)
-        return OperationResult(sd_res.cas, sd_res.mutation_token())
+        op_type = DatastructureOperationType.ListPrepend
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = array_prepend('', value)
+                req = self._impl.request_builder.build_mutate_in_request(key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         **kwargs)
+                sd_res = self._execute_deprecated_ds_func(self._impl.mutate_in,
+                                                          req,
+                                                          obs_handler,
+                                                          ds_obs_handler.wrapped_span,
+                                                          create=create,
+                                                          create_type=list,
+                                                          path_value=value)
+                return OperationResult(sd_res.cas, sd_res.mutation_token())
 
-    @BlockingWrapper._dsop()
-    def list_set(self, key,  # type: str
-                 index,  # type: int
-                 value,  # type: JSONType
-                 **kwargs  # type: Dict[str, Any]
+    def list_set(self,
+                 key: str,
+                 index: int,
+                 value: JSONType,
+                 **kwargs: object
                  ) -> OperationResult:
         """Sets an item within a list at a given position.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseList.set_at`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseList.set_at`
             instead.
 
         Args:
@@ -1398,20 +1284,28 @@ class Collection(CollectionLogic):
             IndexError: If the index is out of bounds.
 
         """
+        op_type = DatastructureOperationType.ListSetAt
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = replace(f'[{index}]', value)
+                req = self._impl.request_builder.build_mutate_in_request(key,
+                                                                         (op,),
+                                                                         obs_handler,
+                                                                         **kwargs)
+                sd_res = self._execute_deprecated_ds_func(self._impl.mutate_in,
+                                                          req,
+                                                          obs_handler,
+                                                          ds_obs_handler.wrapped_span,
+                                                          path_value=index)
+                return OperationResult(sd_res.cas, sd_res.mutation_token())
 
-        op = replace(f'[{index}]', value)
-        sd_res = self.mutate_in(key, (op,), **kwargs)
-        return OperationResult(sd_res.cas, sd_res.mutation_token())
-
-    @BlockingWrapper._dsop()
-    def list_get(self, key,  # type: str
-                 index,  # type: int
-                 **kwargs  # type: Dict[str, Any]
-                 ) -> Any:
+    def list_get(self, key: str, index: int, **kwargs: object) -> Any:
         """Get a specific element within a list.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseList.get_at`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseList.get_at`
             instead.
 
         Args:
@@ -1429,19 +1323,25 @@ class Collection(CollectionLogic):
             IndexError: If the index is out of bounds.
 
         """
-        op = subdoc_get(f'[{index}]')
-        sd_res = self.lookup_in(key, (op,), **kwargs)
-        return sd_res.value[0].get("value", None)
+        op_type = DatastructureOperationType.ListGetAt
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.LookupIn
+            with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = subdoc_get(f'[{index}]')
+                req = self._impl.request_builder.build_lookup_in_request(key, (op,), obs_handler, **kwargs)
+                sd_res = self._execute_deprecated_ds_func(self._impl.lookup_in,
+                                                          req,
+                                                          obs_handler,
+                                                          ds_obs_handler.wrapped_span,
+                                                          path_value=index)
+                return sd_res.value[0].get('value', None)
 
-    @BlockingWrapper._dsop()
-    def list_remove(self, key,  # type: str
-                    index,  # type: int
-                    **kwargs  # type: Dict[str, Any]
-                    ) -> OperationResult:
+    def list_remove(self, key: str, index: int, **kwargs: object) -> OperationResult:
         """Remove the element at a specific index from a list.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseList.remove_at`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseList.remove_at`
             instead.
 
         Args:
@@ -1459,19 +1359,25 @@ class Collection(CollectionLogic):
             IndexError: If the index is out of bounds.
 
         """
+        op_type = DatastructureOperationType.ListRemoveAt
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = subdoc_remove(f'[{index}]')
+                req = self._impl.request_builder.build_mutate_in_request(key, (op,), obs_handler, **kwargs)
+                sd_res = self._execute_deprecated_ds_func(self._impl.mutate_in,
+                                                          req,
+                                                          obs_handler,
+                                                          ds_obs_handler.wrapped_span,
+                                                          path_value=index)
+                return OperationResult(sd_res.cas, sd_res.mutation_token())
 
-        op = subdoc_remove(f'[{index}]')
-        sd_res = self.mutate_in(key, (op,), **kwargs)
-        return OperationResult(sd_res.cas, sd_res.mutation_token())
-
-    @BlockingWrapper._dsop()
-    def list_size(self, key,  # type: str
-                  **kwargs  # type: Dict[str, Any]
-                  ) -> int:
+    def list_size(self, key: str, **kwargs: object) -> int:
         """Returns the number of items in the list.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseList.size`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseList.size`
             instead.
 
         Args:
@@ -1487,13 +1393,20 @@ class Collection(CollectionLogic):
                 on the server.
 
         """
+        op_type = DatastructureOperationType.ListRemoveAt
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.LookupIn
+            with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = count('')
+                req = self._impl.request_builder.build_lookup_in_request(key, (op,), obs_handler, **kwargs)
+                sd_res = self._execute_deprecated_ds_func(self._impl.lookup_in,
+                                                          req,
+                                                          obs_handler,
+                                                          ds_obs_handler.wrapped_span)
+                return sd_res.value[0].get('value', None)
 
-        op = count('')
-        sd_res = self.lookup_in(key, (op,), **kwargs)
-        return sd_res.value[0].get("value", None)
-
-    def couchbase_map(self, key  # type: str
-                      ) -> CouchbaseMap:
+    def couchbase_map(self, key: str) -> CouchbaseMap:
         """Returns a CouchbaseMap permitting simple map storage in a document.
 
         .. seealso::
@@ -1503,20 +1416,19 @@ class Collection(CollectionLogic):
             :class:`~couchbase.datastructures.CouchbaseMap`: A CouchbaseMap instance.
 
         """
-        return CouchbaseMap(key, self)
+        return CouchbaseMap(key, self._impl)
 
-    @BlockingWrapper._dsop(create_type='dict')
     def map_add(self,
-                key,  # type: str
-                mapkey,  # type: str
-                value,  # type: Any
-                create=False,  # type: Optional[bool]
-                **kwargs  # type: Dict[str, Any]
+                key: str,
+                mapkey: str,
+                value: Any,
+                create: Optional[bool] = False,
+                **kwargs: object
                 ) -> OperationResult:
         """Set a value for a key in a map.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseMap.add`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseMap.add`
             instead.
 
         Args:
@@ -1535,20 +1447,27 @@ class Collection(CollectionLogic):
                 on the server.
 
         """
-        op = subdoc_upsert(mapkey, value)
-        sd_res = self.mutate_in(key, (op,), **kwargs)
-        return OperationResult(sd_res.cas, sd_res.mutation_token())
+        op_type = DatastructureOperationType.MapAdd
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = subdoc_upsert(mapkey, value)
+                req = self._impl.request_builder.build_mutate_in_request(key, (op,), obs_handler, **kwargs)
+                sd_res = self._execute_deprecated_ds_func(self._impl.mutate_in,
+                                                          req,
+                                                          obs_handler,
+                                                          ds_obs_handler.wrapped_span,
+                                                          create=create,
+                                                          create_type=dict,
+                                                          path_value=mapkey)
+                return OperationResult(sd_res.cas, sd_res.mutation_token())
 
-    @BlockingWrapper._dsop()
-    def map_get(self,
-                key,  # type: str
-                mapkey,  # type: str
-                **kwargs  # type: Dict[str, Any]
-                ) -> Any:
+    def map_get(self, key: str, mapkey: str, **kwargs: object) -> Any:
         """Retrieve a value from a map.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseMap.get`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseMap.get`
             instead.
 
         Args:
@@ -1565,20 +1484,25 @@ class Collection(CollectionLogic):
                 on the server.
 
         """
-        op = subdoc_get(mapkey)
-        sd_res = self.lookup_in(key, (op,), **kwargs)
-        return sd_res.value[0].get("value", None)
+        op_type = DatastructureOperationType.MapGet
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.LookupIn
+            with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = subdoc_get(mapkey)
+                req = self._impl.request_builder.build_lookup_in_request(key, (op,), obs_handler, **kwargs)
+                sd_res = self._execute_deprecated_ds_func(self._impl.lookup_in,
+                                                          req,
+                                                          obs_handler,
+                                                          ds_obs_handler.wrapped_span,
+                                                          path_value=mapkey)
+                return sd_res.value[0].get('value', None)
 
-    @BlockingWrapper._dsop()
-    def map_remove(self,
-                   key,  # type: str
-                   mapkey,  # type: str
-                   **kwargs  # type: Dict[str, Any]
-                   ) -> OperationResult:
+    def map_remove(self, key: str, mapkey: str, **kwargs: object) -> OperationResult:
         """Remove an item from a map.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseMap.remove`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseMap.remove`
             instead.
 
         Args:
@@ -1595,19 +1519,25 @@ class Collection(CollectionLogic):
                 on the server.
 
         """
-        op = subdoc_remove(mapkey)
-        sd_res = self.mutate_in(key, (op,), **kwargs)
-        return OperationResult(sd_res.cas, sd_res.mutation_token())
+        op_type = DatastructureOperationType.MapRemove
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = subdoc_remove(mapkey)
+                req = self._impl.request_builder.build_mutate_in_request(key, (op,), obs_handler, **kwargs)
+                sd_res = self._execute_deprecated_ds_func(self._impl.mutate_in,
+                                                          req,
+                                                          obs_handler,
+                                                          ds_obs_handler.wrapped_span,
+                                                          path_value=mapkey)
+                return OperationResult(sd_res.cas, sd_res.mutation_token())
 
-    @BlockingWrapper._dsop()
-    def map_size(self,
-                 key,  # type: str
-                 **kwargs  # type: Dict[str, Any]
-                 ) -> int:
+    def map_size(self, key: str, **kwargs: object) -> int:
         """Get the number of items in the map.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseMap.remove`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseMap.remove`
             instead.
 
         Args:
@@ -1623,12 +1553,20 @@ class Collection(CollectionLogic):
                 on the server.
 
         """
-        op = count('')
-        sd_res = self.lookup_in(key, (op,), **kwargs)
-        return sd_res.value[0].get("value", None)
+        op_type = DatastructureOperationType.MapSize
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.LookupIn
+            with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = count('')
+                req = self._impl.request_builder.build_lookup_in_request(key, (op,), obs_handler, **kwargs)
+                sd_res = self._execute_deprecated_ds_func(self._impl.lookup_in,
+                                                          req,
+                                                          obs_handler,
+                                                          ds_obs_handler.wrapped_span)
+                return sd_res.value[0].get('value', None)
 
-    def couchbase_set(self, key  # type: str
-                      ) -> CouchbaseSet:
+    def couchbase_set(self, key: str) -> CouchbaseSet:
         """Returns a CouchbaseSet permitting simple map storage in a document.
 
         .. seealso::
@@ -1638,19 +1576,18 @@ class Collection(CollectionLogic):
             :class:`~couchbase.datastructures.CouchbaseSet`: A CouchbaseSet instance.
 
         """
-        return CouchbaseSet(key, self)
+        return CouchbaseSet(key, self._impl)
 
-    @BlockingWrapper._dsop(create_type='list')
     def set_add(self,
-                key,            # type: str
-                value,          # type: Any
-                create=False,   # type: Optional[bool]
-                **kwargs        # type: Dict[str, Any]
+                key: str,
+                value: Any,
+                create: Optional[bool] = False,
+                **kwargs: object
                 ) -> Optional[OperationResult]:
         """Add an item to a set if the item does not yet exist.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseSet.add`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseSet.add`
             instead.
 
         Args:
@@ -1667,23 +1604,30 @@ class Collection(CollectionLogic):
             :class:`~couchbase.exceptions.DocumentNotFoundException`: If the key provided does not exist
                 on the server.
         """
-        op = array_addunique('', value)
-        try:
-            sd_res = self.mutate_in(key, (op,), **kwargs)
-            return OperationResult(sd_res.cas, sd_res.mutation_token())
-        except PathExistsException:
-            pass
+        op_type = DatastructureOperationType.SetAdd
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as ds_obs_handler:
+            ds_obs_handler.create_kv_span(self._impl._request_builder._collection_dtls.get_details_as_dict())
+            kv_op_type = KeyValueOperationType.MutateIn
+            with ObservableRequestHandler(kv_op_type, self._impl.observability_instruments) as obs_handler:
+                op = array_addunique('', value)
+                try:
+                    req = self._impl.request_builder.build_mutate_in_request(key, (op,), obs_handler, **kwargs)
+                    sd_res = self._execute_deprecated_ds_func(self._impl.mutate_in,
+                                                              req,
+                                                              obs_handler,
+                                                              ds_obs_handler.wrapped_span,
+                                                              create=create,
+                                                              create_type=list,
+                                                              path_value=value)
+                    return OperationResult(sd_res.cas, sd_res.mutation_token())
+                except PathExistsException:
+                    pass
 
-    @BlockingWrapper._dsop()
-    def set_remove(self,
-                   key,        # type: str
-                   value,      # type: Any
-                   **kwargs    # type: Dict[str, Any]
-                   ) -> Optional[OperationResult]:
+    def set_remove(self, key: str, value: Any, **kwargs: object) -> Optional[OperationResult]:
         """Remove an item from a set.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseSet.remove`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseSet.remove`
             instead.
 
         Args:
@@ -1710,14 +1654,11 @@ class Collection(CollectionLogic):
             except ValueError:
                 return
 
-    def set_size(self,
-                 key,        # type: str
-                 **kwargs    # type: Dict[str, Any]
-                 ) -> int:
+    def set_size(self, key: str, **kwargs: object) -> int:
         """Get the length of a set.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseSet.size`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseSet.size`
             instead.
 
         Args:
@@ -1734,15 +1675,11 @@ class Collection(CollectionLogic):
         """
         return self.list_size(key, **kwargs)
 
-    def set_contains(self,
-                     key,        # type: str
-                     value,      # type: Any
-                     **kwargs    # type: Dict[str, Any]
-                     ) -> bool:
+    def set_contains(self, key: str, value: Any, **kwargs: object) -> bool:
         """Determine if an item exists in a set
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseSet.contains`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseSet.contains`
             instead.
 
         Args:
@@ -1761,8 +1698,7 @@ class Collection(CollectionLogic):
         rv = self.get(key, **kwargs)
         return value in rv.value
 
-    def couchbase_queue(self, key  # type: str
-                        ) -> CouchbaseQueue:
+    def couchbase_queue(self, key: str) -> CouchbaseQueue:
         """Returns a CouchbaseQueue permitting simple map storage in a document.
 
         .. seealso::
@@ -1772,19 +1708,18 @@ class Collection(CollectionLogic):
             :class:`~couchbase.datastructures.CouchbaseQueue`: A CouchbaseQueue instance.
 
         """
-        return CouchbaseQueue(key, self)
+        return CouchbaseQueue(key, self._impl)
 
-    @BlockingWrapper._dsop(create_type='list')
     def queue_push(self,
-                   key,            # type: str
-                   value,          # type: Any
-                   create=False,   # type: Optional[bool]
-                   **kwargs        # type: Dict[str, Any]
+                   key: str,
+                   value: Any,
+                   create: Optional[bool] = False,
+                   **kwargs: object
                    ) -> OperationResult:
         """Add an item to the end of a queue.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseQueue.push`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseQueue.push`
             instead.
 
         Args:
@@ -1801,17 +1736,13 @@ class Collection(CollectionLogic):
             :class:`~couchbase.exceptions.DocumentNotFoundException`: If the key provided does not exist
                 on the server.
         """
-        return self.list_prepend(key, value, **kwargs)
+        return self.list_prepend(key, value, create=create, **kwargs)
 
-    @BlockingWrapper._dsop()
-    def queue_pop(self,
-                  key,        # type: str
-                  **kwargs    # type: Dict[str, Any]
-                  ) -> OperationResult:
+    def queue_pop(self, key: str, **kwargs: object) -> OperationResult:
         """Remove and return the first item queue.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseQueue.pop`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseQueue.pop`
             instead.
 
         Args:
@@ -1842,14 +1773,11 @@ class Collection(CollectionLogic):
             except IndexError:
                 raise QueueEmpty
 
-    @BlockingWrapper._dsop()
-    def queue_size(self,
-                   key     # type: str
-                   ) -> int:
+    def queue_size(self, key: str) -> int:
         """Get the length of a queue.
 
         .. warning::
-            This method is deprecated and will be removed in a future version.  Use :meth:`.CouchbaseQueue.size`
+            This method is deprecated and will be removed in the 4.7.0 version.  Use :meth:`.CouchbaseQueue.size`
             instead.
 
         Args:
@@ -1863,79 +1791,6 @@ class Collection(CollectionLogic):
                 on the server.
         """
         return self.list_size(key)
-
-    def _get_multi_mutation_transcoded_op_args(
-        self,
-        keys_and_docs,  # type: Dict[str, JSONType]
-        *opts,  # type: MutationMultiOptions
-        **kwargs,  # type: Any
-    ) -> Tuple[Dict[str, Any], bool]:
-
-        if not isinstance(keys_and_docs, dict):
-            raise InvalidArgumentException(message='Expected keys_and_docs to be a dict.')
-
-        opts_type = kwargs.pop('opts_type', None)
-        if not opts_type:
-            raise InvalidArgumentException(message='Expected options type is missing.')
-
-        final_args = get_valid_multi_args(opts_type, kwargs, *opts)
-        per_key_args = final_args.pop('per_key_options', None)
-        op_transcoder = final_args.pop('transcoder', self.default_transcoder)
-        op_args = {}
-        for key, value in keys_and_docs.items():
-            op_args[key] = copy(final_args)
-            # per key args override global args
-            if per_key_args and key in per_key_args:
-                key_transcoder = per_key_args.pop('transcoder', op_transcoder)
-                op_args[key].update(per_key_args[key])
-                transcoded_value = key_transcoder.encode_value(value)
-            else:
-                transcoded_value = op_transcoder.encode_value(value)
-            op_args[key]['value'] = transcoded_value
-
-        if isinstance(opts_type, ReplaceMultiOptions):
-            for k, v in op_args.items():
-                expiry = v.get('expiry', None)
-                preserve_expiry = v.get('preserve_expiry', False)
-                if expiry and preserve_expiry is True:
-                    raise InvalidArgumentException(
-                        message=("The expiry and preserve_expiry options cannot "
-                                 f"both be set for replace operations.  Multi-op key: {k}.")
-                    )
-
-        return_exceptions = final_args.pop('return_exceptions', True)
-        return op_args, return_exceptions
-
-    def _get_multi_op_args(
-        self,
-        keys,  # type: List[str]
-        *opts,  # type: NoValueMultiOptions
-        **kwargs,  # type: Any
-    ) -> Tuple[Dict[str, Any], bool, Dict[str, Transcoder]]:
-        if not isinstance(keys, list):
-            raise InvalidArgumentException(message='Expected keys to be a list.')
-
-        opts_type = kwargs.pop('opts_type', None)
-        if not opts_type:
-            raise InvalidArgumentException(message='Expected options type is missing.')
-
-        final_args = get_valid_multi_args(opts_type, kwargs, *opts)
-        op_transcoder = final_args.pop('transcoder', self.default_transcoder)
-        per_key_args = final_args.pop('per_key_options', None)
-        op_args = {}
-        key_transcoders = {}
-        for key in keys:
-            op_args[key] = copy(final_args)
-            # per key args override global args
-            if per_key_args and key in per_key_args:
-                key_transcoder = per_key_args.pop('transcoder', op_transcoder)
-                key_transcoders[key] = key_transcoder
-                op_args[key].update(per_key_args[key])
-            else:
-                key_transcoders[key] = op_transcoder
-
-        return_exceptions = final_args.pop('return_exceptions', True)
-        return op_args, return_exceptions, key_transcoders
 
     def get_multi(self,
                   keys,  # type: List[str]
@@ -2000,27 +1855,10 @@ class Collection(CollectionLogic):
 
 
         """
-        op_args, return_exceptions, transcoders = self._get_multi_op_args(keys,
-                                                                          *opts,
-                                                                          opts_type=GetMultiOptions,
-                                                                          **kwargs)
-        op_type = operations.GET.value
-        res = kv_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        for k, v in res.raw_result.items():
-            if k == 'all_okay':
-                continue
-            if isinstance(v, CouchbaseBaseException):
-                continue
-            value = v.raw_result.get('value', None)
-            flags = v.raw_result.get('flags', None)
-            tc = transcoders[k]
-            v.raw_result['value'] = decode_value(tc, value, flags)
-
-        return MultiGetResult(res, return_exceptions)
+        op_type = KeyValueMultiOperationType.GetMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_get_multi_request(keys, obs_handler, *opts, **kwargs)
+            return self._impl.get_multi(req, obs_handler)
 
     def get_any_replica_multi(self,
                               keys,  # type: List[str]
@@ -2094,27 +1932,13 @@ class Collection(CollectionLogic):
                         print(f'Active doc {k} has value: {v.content_as[dict]}')
 
         """
-        op_args, return_exceptions, transcoders = self._get_multi_op_args(keys,
-                                                                          *opts,
-                                                                          opts_type=GetAnyReplicaMultiOptions,
-                                                                          **kwargs)
-        op_type = operations.GET_ANY_REPLICA.value
-        res = kv_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        for k, v in res.raw_result.items():
-            if k == 'all_okay':
-                continue
-            if isinstance(v, CouchbaseBaseException):
-                continue
-            value = v.raw_result.get('value', None)
-            flags = v.raw_result.get('flags', None)
-            tc = transcoders[k]
-            v.raw_result['value'] = decode_value(tc, value, flags)
-
-        return MultiGetReplicaResult(res, return_exceptions)
+        op_type = KeyValueMultiOperationType.GetAnyReplicaMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_get_any_replica_multi_request(keys,
+                                                                                       obs_handler,
+                                                                                       *opts,
+                                                                                       **kwargs)
+            return self._impl.get_any_replica_multi(req, obs_handler)
 
     def get_all_replicas_multi(self,
                                keys,  # type: List[str]
@@ -2191,32 +2015,13 @@ class Collection(CollectionLogic):
                             print(f'Active doc {k} has value: {doc.content_as[dict]}')
 
         """
-        op_args, return_exceptions, transcoders = self._get_multi_op_args(keys,
-                                                                          *opts,
-                                                                          opts_type=GetAllReplicasMultiOptions,
-                                                                          **kwargs)
-        op_type = operations.GET_ALL_REPLICAS.value
-        res = kv_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-
-        # all the successful results will be streamed_results, so lets
-        # pop those off the main result dict and re-add the key back
-        # transformed into a List[GetReplicaResult]
-        result_keys = []
-        for k, v in res.raw_result.items():
-            if k == 'all_okay' or isinstance(v, CouchbaseBaseException):
-                continue
-            result_keys.append(k)
-
-        for k in result_keys:
-            value = res.raw_result.pop(k)
-            tc = transcoders[k]
-            res.raw_result[k] = list(r for r in decode_replicas(tc, value, GetReplicaResult))
-
-        return MultiGetReplicaResult(res, return_exceptions)
+        op_type = KeyValueMultiOperationType.GetAllReplicasMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:  # noqa: E501
+            req = self._impl.multi_request_builder.build_get_all_replicas_multi_request(keys,
+                                                                                        obs_handler,
+                                                                                        *opts,
+                                                                                        **kwargs)
+            return self._impl.get_all_replicas_multi(req, obs_handler)
 
     def lock_multi(self,
                    keys,  # type: List[str]
@@ -2298,28 +2103,14 @@ class Collection(CollectionLogic):
                     print(f'Locked document: key={k}, content={v.content_as[str]}')
 
         """
-        kwargs["lock_time"] = lock_time
-        op_args, return_exceptions, transcoders = self._get_multi_op_args(keys,
-                                                                          *opts,
-                                                                          opts_type=LockMultiOptions,
-                                                                          **kwargs)
-        op_type = operations.GET_AND_LOCK.value
-        res = kv_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        for k, v in res.raw_result.items():
-            if k == 'all_okay':
-                continue
-            if isinstance(v, CouchbaseBaseException):
-                continue
-            value = v.raw_result.get('value', None)
-            flags = v.raw_result.get('flags', None)
-            tc = transcoders[k]
-            v.raw_result['value'] = decode_value(tc, value, flags)
-
-        return MultiGetResult(res, return_exceptions)
+        op_type = KeyValueMultiOperationType.GetAndLockMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_get_and_lock_multi_request(keys,
+                                                                                    lock_time,
+                                                                                    obs_handler,
+                                                                                    *opts,
+                                                                                    **kwargs)
+            return self._impl.get_and_lock_multi(req, obs_handler)
 
     def exists_multi(self,
                      keys,  # type: List[str]
@@ -2376,17 +2167,10 @@ class Collection(CollectionLogic):
                 for k, v in res.results.items():
                     print(f'Doc with key={k} {"exists" if v.exists else "does not exist"}')
         """  # noqa: E501
-        op_args, return_exceptions, _ = self._get_multi_op_args(keys,
-                                                                *opts,
-                                                                opts_type=ExistsMultiOptions,
-                                                                **kwargs)
-        op_type = operations.EXISTS.value
-        res = kv_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        return MultiExistsResult(res, return_exceptions)
+        op_type = KeyValueMultiOperationType.ExistsMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_exists_multi_request(keys, obs_handler, *opts, **kwargs)
+            return self._impl.exists_multi(req, obs_handler)
 
     def insert_multi(self,
                      keys_and_docs,  # type: Dict[str, JSONType]
@@ -2465,17 +2249,13 @@ class Collection(CollectionLogic):
                     print(f'Doc inserted: key={k}, cas={v.cas}')
 
         """  # noqa: E501
-        op_args, return_exceptions = self._get_multi_mutation_transcoded_op_args(keys_and_docs,
-                                                                                 *opts,
-                                                                                 opts_type=InsertMultiOptions,
-                                                                                 **kwargs)
-        op_type = operations.INSERT.value
-        res = kv_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        return MultiMutationResult(res, return_exceptions)
+        op_type = KeyValueMultiOperationType.InsertMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_insert_multi_request(keys_and_docs,
+                                                                              obs_handler,
+                                                                              *opts,
+                                                                              **kwargs)
+            return self._impl.insert_multi(req, obs_handler)
 
     def upsert_multi(self,
                      keys_and_docs,  # type: Dict[str, JSONType]
@@ -2549,17 +2329,13 @@ class Collection(CollectionLogic):
                     print(f'Doc upserted: key={k}, cas={v.cas}')
 
         """  # noqa: E501
-        op_args, return_exceptions = self._get_multi_mutation_transcoded_op_args(keys_and_docs,
-                                                                                 *opts,
-                                                                                 opts_type=UpsertMultiOptions,
-                                                                                 **kwargs)
-        op_type = operations.UPSERT.value
-        res = kv_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        return MultiMutationResult(res, return_exceptions)
+        op_type = KeyValueMultiOperationType.UpsertMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_upsert_multi_request(keys_and_docs,
+                                                                              obs_handler,
+                                                                              *opts,
+                                                                              **kwargs)
+            return self._impl.upsert_multi(req, obs_handler)
 
     def replace_multi(self,
                       keys_and_docs,  # type: Dict[str, JSONType]
@@ -2644,17 +2420,13 @@ class Collection(CollectionLogic):
                     print(f'Doc replaced: key={k}, cas={v.cas}')
 
         """  # noqa: E501
-        op_args, return_exceptions = self._get_multi_mutation_transcoded_op_args(keys_and_docs,
-                                                                                 *opts,
-                                                                                 opts_type=ReplaceMultiOptions,
-                                                                                 **kwargs)
-        op_type = operations.REPLACE.value
-        res = kv_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        return MultiMutationResult(res, return_exceptions)
+        op_type = KeyValueMultiOperationType.ReplaceMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_replace_multi_request(keys_and_docs,
+                                                                               obs_handler,
+                                                                               *opts,
+                                                                               **kwargs)
+            return self._impl.replace_multi(req, obs_handler)
 
     def remove_multi(self,
                      keys,  # type: List[str]
@@ -2712,17 +2484,10 @@ class Collection(CollectionLogic):
                                               RemoveMultiOptions(per_key_options=per_key_opts))
 
         """  # noqa: E501
-        op_args, return_exceptions, _ = self._get_multi_op_args(keys,
-                                                                *opts,
-                                                                opts_type=RemoveMultiOptions,
-                                                                **kwargs)
-        op_type = operations.REMOVE.value
-        res = kv_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        return MultiMutationResult(res, return_exceptions)
+        op_type = KeyValueMultiOperationType.RemoveMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_remove_multi_request(keys, obs_handler, *opts, **kwargs)
+            return self._impl.remove_multi(req, obs_handler)
 
     def touch_multi(self,
                     keys,  # type: List[str]
@@ -2750,24 +2515,20 @@ class Collection(CollectionLogic):
                 match to the key, but is not raised.
 
         """
-        kwargs['expiry'] = expiry
-        op_args, return_exceptions, _ = self._get_multi_op_args(keys,
-                                                                *opts,
-                                                                opts_type=TouchMultiOptions,
-                                                                **kwargs)
-        op_type = operations.TOUCH.value
-        res = kv_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        return MultiMutationResult(res, return_exceptions)
+        op_type = KeyValueMultiOperationType.TouchMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_touch_multi_request(keys,
+                                                                             expiry,
+                                                                             obs_handler,
+                                                                             *opts,
+                                                                             **kwargs)
+            return self._impl.touch_multi(req, obs_handler)
 
     def unlock_multi(self,  # noqa: C901
                      keys,  # type: Union[MultiResultType, Dict[str, int]]
                      *opts,  # type: UnlockMultiOptions
                      **kwargs,  # type: Dict[str, Any]
-                     ) -> Dict[str, Union[None, CouchbaseBaseException]]:
+                     ) -> Dict[str, Union[None, PycbcCoreException]]:
         """For each result in the provided :class:`~couchbase.result.MultiResultType` in the provided list,
         unlocks a previously locked document. This operation fails if the document does not exist.
 
@@ -2791,199 +2552,10 @@ class Collection(CollectionLogic):
                 but is not raised.
 
         """
-        op_keys_cas = {}
-        if isinstance(keys, dict):
-            if not all(map(lambda k: isinstance(k, str), keys.keys())):
-                raise InvalidArgumentException('If providing keys of type dict, all values must be type int.')
-            if not all(map(lambda v: isinstance(v, int), keys.values())):
-                raise InvalidArgumentException('If providing keys of type dict, all values must be type int.')
-            op_keys_cas = copy(keys)
-        elif isinstance(keys, (MultiGetResult, MultiMutationResult)):
-            for k, v in keys.results.items():
-                op_keys_cas[k] = v.cas
-        else:
-            raise InvalidArgumentException(
-                'keys type must be Union[MultiGetResult, MultiMutationResult, Dict[str, int].')
-
-        op_args, return_exceptions, _ = self._get_multi_op_args(list(op_keys_cas.keys()),
-                                                                *opts,
-                                                                opts_type=UnlockMultiOptions,
-                                                                **kwargs)
-
-        for k, v in op_args.items():
-            v['cas'] = op_keys_cas[k]
-
-        op_type = operations.UNLOCK.value
-        res = kv_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        output = {}
-        for k, v in res.raw_result.items():
-            if k == 'all_okay':
-                continue
-            if isinstance(v, CouchbaseBaseException):
-                if not return_exceptions:
-                    raise ErrorMapper.build_exception(v)
-                else:
-                    output[k] = ErrorMapper.build_exception(v)
-            else:
-                output[k] = None
-
-        return output
-
-    def _get_multi_counter_op_args(
-        self,
-        keys,  # type: List[str]
-        *opts,  # type: Union[IncrementMultiOptions, DecrementMultiOptions]
-        **kwargs,  # type: Any
-    ) -> Tuple[Dict[str, Any], bool]:
-        if not isinstance(keys, list):
-            raise InvalidArgumentException(message='Expected keys to be a list.')
-
-        opts_type = kwargs.pop('opts_type', None)
-        if not opts_type:
-            raise InvalidArgumentException(message='Expected options type is missing.')
-
-        final_args = get_valid_multi_args(opts_type, kwargs, *opts)
-
-        global_delta, global_initial = self._get_and_validate_delta_initial(final_args)
-        final_args['delta'] = int(global_delta)
-        final_args['initial'] = int(global_initial)
-
-        per_key_args = final_args.pop('per_key_options', None)
-        op_args = {}
-        for key in keys:
-            op_args[key] = copy(final_args)
-            # per key args override global args
-            if per_key_args and key in per_key_args:
-                # need to validate delta/initial if provided per key
-                delta = per_key_args[key].get('delta', None)
-                initial = per_key_args[key].get('initial', None)
-                self._validate_delta_initial(delta=delta, initial=initial)
-                if delta:
-                    per_key_args[key]['delta'] = int(delta)
-                if initial:
-                    per_key_args[key]['initial'] = int(initial)
-                op_args[key].update(per_key_args[key])
-
-        return_exceptions = final_args.pop('return_exceptions', True)
-        return op_args, return_exceptions
-
-    def _get_multi_binary_mutation_op_args(
-        self,
-        keys_and_docs,  # type: Dict[str, Union[str, bytes, bytearray]]
-        *opts,  # type: Union[AppendMultiOptions, PrependMultiOptions]
-        **kwargs,  # type: Any
-    ) -> Tuple[Dict[str, Any], bool]:
-
-        if not isinstance(keys_and_docs, dict):
-            raise InvalidArgumentException(message='Expected keys_and_docs to be a dict.')
-
-        opts_type = kwargs.pop('opts_type', None)
-        if not opts_type:
-            raise InvalidArgumentException(message='Expected options type is missing.')
-
-        parsed_keys_and_docs = {}
-        for k, v in keys_and_docs.items():
-            if isinstance(v, str):
-                value = v.encode("utf-8")
-            elif isinstance(v, bytearray):
-                value = bytes(v)
-            else:
-                value = v
-
-            if not isinstance(value, bytes):
-                raise ValueError(
-                    "The value provided must of type str, bytes or bytearray.")
-
-            parsed_keys_and_docs[k] = value
-
-        final_args = get_valid_multi_args(opts_type, kwargs, *opts)
-        per_key_args = final_args.pop('per_key_options', None)
-        op_args = {}
-        for key, value in parsed_keys_and_docs.items():
-            op_args[key] = copy(final_args)
-            # per key args override global args
-            if per_key_args and key in per_key_args:
-                op_args[key].update(per_key_args[key])
-            op_args[key]['value'] = value
-
-        return_exceptions = final_args.pop('return_exceptions', True)
-        return op_args, return_exceptions
-
-    def _append_multi(
-        self,
-        keys_and_values,  # type: Dict[str, Union[str,bytes,bytearray]]
-        *opts,  # type: AppendMultiOptions
-        **kwargs,  # type: Dict[str, Any]
-    ) -> MultiMutationResult:
-        op_args, return_exceptions = self._get_multi_binary_mutation_op_args(keys_and_values,
-                                                                             *opts,
-                                                                             opts_type=AppendMultiOptions,
-                                                                             **kwargs)
-        op_type = operations.APPEND.value
-        res = binary_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        return MultiMutationResult(res, return_exceptions)
-
-    def _prepend_multi(
-        self,
-        keys_and_values,  # type: Dict[str, Union[str,bytes,bytearray]]
-        *opts,  # type: PrependMultiOptions
-        **kwargs,  # type: Dict[str, Any]
-    ) -> MultiMutationResult:
-        op_args, return_exceptions = self._get_multi_binary_mutation_op_args(keys_and_values,
-                                                                             *opts,
-                                                                             opts_type=PrependMultiOptions,
-                                                                             **kwargs)
-        op_type = operations.PREPEND.value
-        res = binary_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        return MultiMutationResult(res, return_exceptions)
-
-    def _increment_multi(
-        self,
-        keys,  # type: List[str]
-        *opts,  # type: IncrementMultiOptions
-        **kwargs,  # type: Dict[str, Any]
-    ) -> MultiCounterResult:
-        op_args, return_exceptions = self._get_multi_counter_op_args(keys,
-                                                                     *opts,
-                                                                     opts_type=IncrementMultiOptions,
-                                                                     **kwargs)
-        op_type = operations.INCREMENT.value
-        res = binary_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        return MultiCounterResult(res, return_exceptions)
-
-    def _decrement_multi(
-        self,
-        keys,  # type: List[str]
-        *opts,  # type: DecrementMultiOptions
-        **kwargs,  # type: Dict[str, Any]
-    ) -> MultiCounterResult:
-        op_args, return_exceptions = self._get_multi_counter_op_args(keys,
-                                                                     *opts,
-                                                                     opts_type=DecrementMultiOptions,
-                                                                     **kwargs)
-        op_type = operations.DECREMENT.value
-        res = binary_multi_operation(
-            **self._get_connection_args(),
-            op_type=op_type,
-            op_args=op_args
-        )
-        return MultiCounterResult(res, return_exceptions)
+        op_type = KeyValueMultiOperationType.UnlockMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_unlock_multi_request(keys, obs_handler, *opts, **kwargs)
+            return self._impl.unlock_multi(req, obs_handler)
 
     def query_indexes(self) -> CollectionQueryIndexManager:
         """
@@ -2993,7 +2565,11 @@ class Collection(CollectionLogic):
         Returns:
             :class:`~couchbase.management.queries.CollectionQueryIndexManager`: A :class:`~couchbase.management.queries.CollectionQueryIndexManager` instance.
         """  # noqa: E501
-        return CollectionQueryIndexManager(self.connection, self._scope.bucket_name, self._scope.name, self.name)
+        return CollectionQueryIndexManager(self._impl._client_adapter,
+                                           self._impl.bucket_name,
+                                           self._impl.scope_name,
+                                           self.name,
+                                           self._impl.observability_instruments)
 
     @staticmethod
     def default_name():
@@ -3032,14 +2608,14 @@ from couchbase.logic.options import ReplaceOptionsBase  # nopep8 # isort:skip # 
 from couchbase.logic.options import TouchOptionsBase  # nopep8 # isort:skip # noqa: E402
 from couchbase.logic.options import UnlockOptionsBase  # nopep8 # isort:skip # noqa: E402
 from couchbase.logic.options import UpsertOptionsBase  # nopep8 # isort:skip # noqa: E402
-from couchbase.logic.scope import ScopeLogic  # nopep8 # isort:skip # noqa: E402
+from couchbase.scope import Scope as ScopeBase  # nopep8 # isort:skip # noqa: E402
 
 from couchbase.options import ConstrainedInt  # nopep8 # isort:skip # noqa: E402, F401
 from couchbase.options import SignedInt64  # nopep8 # isort:skip # noqa: E402, F401
 
 
 @Supportability.import_deprecated('couchbase.collection', 'couchbase.scope')
-class Scope(ScopeLogic):
+class Scope(ScopeBase):   # noqa: F811
     pass
 
 

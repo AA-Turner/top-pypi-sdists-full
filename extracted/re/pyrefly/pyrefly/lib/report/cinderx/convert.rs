@@ -275,7 +275,7 @@ pub(crate) fn type_to_structured(
             let inner_idx = type_to_structured(inner, table, pending_class_traits);
             insert_wrapper_other_form("typing.TypeIs", inner_idx, table)
         }
-        Type::Annotated(inner) => {
+        Type::Annotated(inner, _) => {
             // Annotated is transparent for type purposes
             type_to_structured(inner, table, pending_class_traits)
         }
@@ -419,6 +419,7 @@ pub(crate) fn type_to_structured(
         | Type::Unpack(_)
         | Type::ParamSpec(_)
         | Type::TypeVarTuple(_)
+        | Type::TypeForm(_)
         | Type::ElementOfTypeVarTuple(_)
         | Type::Tensor(_)
         | Type::NNModule(_)

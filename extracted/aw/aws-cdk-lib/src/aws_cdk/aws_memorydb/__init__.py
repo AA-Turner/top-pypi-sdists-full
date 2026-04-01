@@ -2525,19 +2525,6 @@ class CfnParameterGroup(
         jsii.set(self, "parameterGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(self) -> typing.Any:
-        '''Returns the detailed parameter list for the parameter group.'''
-        return typing.cast(typing.Any, jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__073902d6d488ba79aa229654bc7ef8389dbcbbfdc460e3df4c719249bbebc807)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''A description of the parameter group.'''
@@ -2549,6 +2536,19 @@ class CfnParameterGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__feaa80d0267309e0293955eef98ea054278b3743ff2e229578818e3f85c41274)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(self) -> typing.Any:
+        '''Returns the detailed parameter list for the parameter group.'''
+        return typing.cast(typing.Any, jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__073902d6d488ba79aa229654bc7ef8389dbcbbfdc460e3df4c719249bbebc807)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -3269,19 +3269,6 @@ class CfnUser(
         return typing.cast("_UserReference_10bdf757", jsii.get(self, "userRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="authenticationMode")
-    def authentication_mode(self) -> typing.Any:
-        '''Denotes whether the user requires a password to authenticate.'''
-        return typing.cast(typing.Any, jsii.get(self, "authenticationMode"))
-
-    @authentication_mode.setter
-    def authentication_mode(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4785cb3838ab67f42c8f81c4a572fab61ddb9b328d731d82b7cd05ae96e1d834)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "authenticationMode", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="userName")
     def user_name(self) -> builtins.str:
         '''The name of the user.'''
@@ -3306,6 +3293,19 @@ class CfnUser(
             type_hints = typing.get_type_hints(_typecheckingstub__5328fc755bfd9d9f30b338838f998fbf324c3bf12aaf33c79a23dedd4cb14f34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "accessString", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="authenticationMode")
+    def authentication_mode(self) -> typing.Any:
+        '''Denotes whether the user requires a password to authenticate.'''
+        return typing.cast(typing.Any, jsii.get(self, "authenticationMode"))
+
+    @authentication_mode.setter
+    def authentication_mode(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4785cb3838ab67f42c8f81c4a572fab61ddb9b328d731d82b7cd05ae96e1d834)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "authenticationMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -4088,14 +4088,14 @@ def _typecheckingstub__a79238fbac363251cbc8f245e05b8ca03c8a64c30125e3c5e45dde648
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__073902d6d488ba79aa229654bc7ef8389dbcbbfdc460e3df4c719249bbebc807(
-    value: typing.Any,
+def _typecheckingstub__feaa80d0267309e0293955eef98ea054278b3743ff2e229578818e3f85c41274(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__feaa80d0267309e0293955eef98ea054278b3743ff2e229578818e3f85c41274(
-    value: typing.Optional[builtins.str],
+def _typecheckingstub__073902d6d488ba79aa229654bc7ef8389dbcbbfdc460e3df4c719249bbebc807(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4255,12 +4255,6 @@ def _typecheckingstub__4b8a18b12b6297a5b86c733efcf9f7c32315d3c27a2246b6428be84b1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4785cb3838ab67f42c8f81c4a572fab61ddb9b328d731d82b7cd05ae96e1d834(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__05f26f858b02f3b8efd6dc74353dbccbfa9f7dd93142545509b690f9bb6283d3(
     value: builtins.str,
 ) -> None:
@@ -4269,6 +4263,12 @@ def _typecheckingstub__05f26f858b02f3b8efd6dc74353dbccbfa9f7dd93142545509b690f9b
 
 def _typecheckingstub__5328fc755bfd9d9f30b338838f998fbf324c3bf12aaf33c79a23dedd4cb14f34(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4785cb3838ab67f42c8f81c4a572fab61ddb9b328d731d82b7cd05ae96e1d834(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

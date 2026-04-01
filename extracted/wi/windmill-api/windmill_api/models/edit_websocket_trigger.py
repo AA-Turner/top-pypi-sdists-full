@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.edit_websocket_trigger_filter_logic import EditWebsocketTriggerFilterLogic
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -33,6 +34,8 @@ class EditWebsocketTrigger:
             matching messages trigger the script)
         can_return_message (bool): If true, the script can return a message to send back through the WebSocket
         can_return_error_result (bool): If true, error results are sent back through the WebSocket
+        filter_logic (Union[Unset, EditWebsocketTriggerFilterLogic]): Logic to apply when evaluating filters. 'and'
+            requires all filters to match, 'or' requires any filter to match. Default: EditWebsocketTriggerFilterLogic.AND.
         initial_messages (Union[Unset, None, List[Union['EditWebsocketTriggerInitialMessagesItemType0',
             'EditWebsocketTriggerInitialMessagesItemType1']]]): Messages to send immediately after connecting (can be raw
             strings or computed by runnables)
@@ -55,6 +58,7 @@ class EditWebsocketTrigger:
     filters: List["EditWebsocketTriggerFiltersItem"]
     can_return_message: bool
     can_return_error_result: bool
+    filter_logic: Union[Unset, EditWebsocketTriggerFilterLogic] = EditWebsocketTriggerFilterLogic.AND
     initial_messages: Union[
         Unset,
         None,
@@ -85,6 +89,10 @@ class EditWebsocketTrigger:
 
         can_return_message = self.can_return_message
         can_return_error_result = self.can_return_error_result
+        filter_logic: Union[Unset, str] = UNSET
+        if not isinstance(self.filter_logic, Unset):
+            filter_logic = self.filter_logic.value
+
         initial_messages: Union[Unset, None, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.initial_messages, Unset):
             if self.initial_messages is None:
@@ -131,6 +139,8 @@ class EditWebsocketTrigger:
                 "can_return_error_result": can_return_error_result,
             }
         )
+        if filter_logic is not UNSET:
+            field_dict["filter_logic"] = filter_logic
         if initial_messages is not UNSET:
             field_dict["initial_messages"] = initial_messages
         if url_runnable_args is not UNSET:
@@ -180,6 +190,13 @@ class EditWebsocketTrigger:
         can_return_message = d.pop("can_return_message")
 
         can_return_error_result = d.pop("can_return_error_result")
+
+        _filter_logic = d.pop("filter_logic", UNSET)
+        filter_logic: Union[Unset, EditWebsocketTriggerFilterLogic]
+        if isinstance(_filter_logic, Unset):
+            filter_logic = UNSET
+        else:
+            filter_logic = EditWebsocketTriggerFilterLogic(_filter_logic)
 
         initial_messages = []
         _initial_messages = d.pop("initial_messages", UNSET)
@@ -243,6 +260,7 @@ class EditWebsocketTrigger:
             filters=filters,
             can_return_message=can_return_message,
             can_return_error_result=can_return_error_result,
+            filter_logic=filter_logic,
             initial_messages=initial_messages,
             url_runnable_args=url_runnable_args,
             error_handler_path=error_handler_path,

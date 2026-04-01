@@ -1,17 +1,16 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: biothings_client
-Version: 0.4.1
+Version: 0.5.0
 Summary: Python Client for BioThings API services.
 Author: Cyrus Afrasiabi, Xinghua Zhou
-Author-email: Everaldo Rodolpho <erodolpho@scripps.edu>, Johnathan Schaff <jschaff@scripps.edu>, Chunlei Wu <cwu@scripps.edu>
+Author-email: Everaldo Rodolpho <erodolpho@scripps.edu>, Johnathan Schaff <jschaff@scripps.edu>, Dylan Welzel <dwelzel@scripps.edu>, Chunlei Wu <cwu@scripps.edu>
 License: BSD-3-Clause
 Project-URL: homepage, https://github.com/biothings/biothings_client.py
 Project-URL: repository, https://github.com/biothings/biothings_client.py
 Project-URL: documentation, https://biothings-clientpy.readthedocs.io
-Keywords: biology,variant,gene,taxon,taxonomy,species,drug,chemical,disease,phenotype,geneset,annotation,web,service,client,api,mygene.info,myvariant.info,mychem.info,mydisease.info,mygeneset.info
+Keywords: biology,variant,gene,taxon,taxonomy,species,drug,chemical,disease,phenotype,geneset,annotation,web,service,client,api,mygene.info,myvariant.info,mychem.info,mydisease.info,mygeneset.info,mytaxon.info
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -19,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: POSIX
@@ -29,21 +29,27 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Utilities
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
-Requires-Python: >=3.6
+Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: httpx>=0.22.0
-Requires-Dist: importlib-metadata; python_version < "3.8"
+Requires-Dist: httpx>=0.25.0; python_version >= "3.8"
+Requires-Dist: httpx>=0.24.0; python_version == "3.7"
+Requires-Dist: importlib-metadata; python_version <= "3.7"
+Requires-Dist: typing-extensions; python_version <= "3.7"
 Provides-Extra: caching
 Requires-Dist: anysqlite; python_version >= "3.8" and extra == "caching"
-Requires-Dist: hishel[sqlite]; python_version >= "3.8" and extra == "caching"
+Requires-Dist: hishel[httpx]==1.1.8; python_version == "3.9" and extra == "caching"
+Requires-Dist: hishel[httpx]>=1.1.9; python_version > "3.9" and extra == "caching"
 Provides-Extra: dataframe
-Requires-Dist: pandas>=1.1.5; extra == "dataframe"
+Requires-Dist: pandas>=1.2.0; extra == "dataframe"
 Provides-Extra: jsonld
 Requires-Dist: PyLD>=0.7.2; extra == "jsonld"
 Provides-Extra: tests
-Requires-Dist: pytest>=7.0.1; extra == "tests"
-Requires-Dist: pytest-asyncio>=0.16.0; extra == "tests"
+Requires-Dist: pytest>=8.3.3; python_version >= "3.8" and extra == "tests"
+Requires-Dist: pytest>=7.4.4; python_version == "3.7" and extra == "tests"
+Requires-Dist: pytest-asyncio>=0.23.8; python_version >= "3.8" and extra == "tests"
+Requires-Dist: pytest-asyncio>=0.21.2; python_version == "3.7" and extra == "tests"
+Dynamic: license-file
 
 .. image:: https://badge.fury.io/py/biothings-client.svg
     :target: https://pypi.python.org/pypi/biothings-client
@@ -87,9 +93,9 @@ Intro
     * chem - The client for MyChem.Info_, which provides access to chemical/drug objects.
     * disease - The client for MyDisease.Info_, which provides access to disease objects.
     * geneset - The client for MyGeneset.Info_, which provides access to geneset/pathway objects.
-    * taxon - The client for t.biothings.io_, which provides access to taxon objects.
+    * taxon - The client for MyTaxon.Info_, which provides access to taxon objects.
 
-.. _t.biothings.io: https://t.biothings.io
+.. _MyTaxon.Info: https://mytaxon.info
 .. _Biothings.api: https://biothings.io
 .. _MyGene.Info: https://mygene.info
 .. _MyVariant.Info: https://myvariant.info
@@ -99,11 +105,26 @@ Intro
 
 Support
 ============
-    python >=3.7
+    Python >=3.7
+
+.. note:: The caching feature is not available for Python 3.7. It requires Python >=3.8.
+
+.. note:: Python 3.6 is no longer supported as of version 0.5.0. The last version supporting Python 3.6 is 0.4.1.
+
+.. note:: Python<=3.5 (including Python 2.7) is no longer supported as of version 0.4.0. The last version supporting Python<=3.5 is 0.3.1.
 
 Optional dependencies
 ======================
-    * `pandas <http://pandas.pydata.org>`_ (install using "pip install pandas") is required for returning a list of variant objects as `DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_.
+    * dataframe support (install using ``pip install biothings_client[dataframe]``)
+
+      `pandas <http://pandas.pydata.org>`_ is required for returning query results as a `DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_.
+
+    * caching support (install using ``pip install biothings_client[caching]``, requires Python >=3.8)
+
+      Allows local caching of client queries to a SQLite database. Requires:
+
+        * `hishel <https://hishel.com/>`_
+        * `anysqlite <https://pypi.org/project/anysqlite/>`_
 
 Installation
 =============

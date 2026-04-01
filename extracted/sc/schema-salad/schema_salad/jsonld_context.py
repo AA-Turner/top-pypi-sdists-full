@@ -1,7 +1,7 @@
 import logging
 import unicodedata
 from collections.abc import Iterable, MutableMapping, MutableSequence
-from typing import Any, Final, Optional, Union, cast
+from typing import Any, Final, cast
 from urllib.parse import urldefrag, urlsplit
 
 import rdflib
@@ -17,26 +17,26 @@ _logger = logging.getLogger("salad")
 
 
 def pred(
-    datatype: MutableMapping[str, Union[dict[str, str], str]],
-    field: Optional[dict[str, Any]],
+    datatype: MutableMapping[str, dict[str, str] | str],
+    field: dict[str, Any] | None,
     name: str,
     context: ContextType,
     defaultBase: str,
     namespaces: dict[str, rdflib.namespace.Namespace],
-) -> Union[dict[str, Optional[str]], str]:
+) -> dict[str, str | None] | str:
     split: Final = urlsplit(name)
 
-    vee: Optional[str] = None
+    vee: str | None = None
 
     if split.scheme != "":
         vee = name
-        (ns, ln) = rdflib.namespace.split_uri(str(vee))
+        ns, ln = rdflib.namespace.split_uri(str(vee))
         name = ln
         if ns[0:-1] in namespaces:
             vee = str(namespaces[ns[0:-1]][ln])
         _logger.debug("name, v %s %s", name, vee)
 
-    v: Optional[Union[dict[str, Optional[str]], str]] = None
+    v: dict[str, str | None] | str | None = None
 
     if field is not None and "jsonldPredicate" in field:
         if isinstance(field["jsonldPredicate"], MutableMapping):
@@ -98,7 +98,7 @@ def process_type(
         predicate = recordname
         if t.get("inVocab", True):
             if split.scheme:
-                (ns, ln) = rdflib.namespace.split_uri(str(recordname))
+                ns, ln = rdflib.namespace.split_uri(str(recordname))
                 predicate = recordname
                 recordname = ln
             else:
@@ -122,7 +122,7 @@ def process_type(
 
             _logger.debug("Processing field %s", i)
 
-            v: Union[dict[Any, Any], str, None] = pred(
+            v: dict[Any, Any] | str | None = pred(
                 t, i, fieldname, context, defaultPrefix, namespaces
             )
 
@@ -133,7 +133,7 @@ def process_type(
 
             if bool(v):
                 try:
-                    (ns, ln) = rdflib.namespace.split_uri(str(v))
+                    ns, ln = rdflib.namespace.split_uri(str(v))
                 except ValueError:
                     # rdflib 5.0.0 compatibility
                     uri = str(v)
@@ -203,7 +203,7 @@ def salad_to_jsonld_context(
     return (context, g)
 
 
-def fix_jsonld_ids(obj: Union[CommentedMap, float, str, CommentedSeq], ids: list[str]) -> None:
+def fix_jsonld_ids(obj: CommentedMap | float | str | CommentedSeq, ids: list[str]) -> None:
     """Add missing identity entries."""
     if isinstance(obj, MutableMapping):
         for i in ids:
@@ -217,10 +217,10 @@ def fix_jsonld_ids(obj: Union[CommentedMap, float, str, CommentedSeq], ids: list
 
 
 def makerdf(
-    workflow: Optional[str],
-    wf: Union[CommentedMap, float, str, CommentedSeq],
+    workflow: str | None,
+    wf: CommentedMap | float | str | CommentedSeq,
     ctx: ContextType,
-    graph: Optional[Graph] = None,
+    graph: Graph | None = None,
 ) -> Graph:
     prefixes: Final = {}
     idfields: Final = []
@@ -255,8 +255,8 @@ def makerdf(
         raise SchemaException(f"{wf} is not a workflow")
 
     # Bug in json-ld loader causes @id fields to be added to the graph
-    for sub, pred, obj in g.triples((None, URIRef("@id"), None)):
-        g.remove((sub, pred, obj))
+    for sub2, pred2, obj2 in g.triples((None, URIRef("@id"), None)):
+        g.remove((sub2, pred2, obj2))
 
     for k2, v2 in prefixes.items():
         g.namespace_manager.bind(k2, v2)

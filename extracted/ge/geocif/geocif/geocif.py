@@ -976,12 +976,17 @@ class Geocif:
     def _select_latest_stage(self, df: pd.DataFrame) -> pd.DataFrame:
         """Select features from the latest stage only."""
         all_cei_columns = self.get_cei_column_names(df)
-        
+
         if not all_cei_columns:
             return df
-        
+
         parts = all_cei_columns[-1].split("_")
-        cei = parts[0] if parts[1].isdigit() else "_".join(parts[:2])
+        skip = 2 if parts[0] == "AEF" else 1
+        first_stage_idx = next(
+            (i for i in range(skip, len(parts)) if parts[i].isdigit()),
+            len(parts),
+        )
+        cei = "_".join(parts[:first_stage_idx])
         
         cei_column = df[df.columns[df.columns.str.contains(cei)]].columns
         max_cei_col = max(cei_column, key=len)
@@ -993,12 +998,17 @@ class Geocif:
     def _create_cumulative_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Create cumulative features for each region."""
         all_cei_columns = self.get_cei_column_names(df)
-        
+
         if not all_cei_columns:
             return df
-        
+
         parts = all_cei_columns[-1].split("_")
-        cei = parts[0] if parts[1].isdigit() else "_".join(parts[:2])
+        skip = 2 if parts[0] == "AEF" else 1
+        first_stage_idx = next(
+            (i for i in range(skip, len(parts)) if parts[i].isdigit()),
+            len(parts),
+        )
+        cei = "_".join(parts[:first_stage_idx])
         
         frames = []
         groups = df.groupby(["Region"])
@@ -1186,11 +1196,13 @@ class Geocif:
             
             for _t in _tmp:
                 parts = _t.split("_")
-                # AEF_N has a numeric band suffix that is part of the CEI name
-                if parts[0] == "AEF":
-                    cei = "_".join(parts[:2])  # AEF_1, AEF_2, ...
-                else:
-                    cei = parts[0] if parts[1].isdigit() else "_".join(parts[:2])
+                # Find where numeric stage numbers begin (AEF_N band is part of name)
+                _skip = 2 if parts[0] == "AEF" else 1
+                _idx = next(
+                    (i for i in range(_skip, len(parts)) if parts[i].isdigit()),
+                    len(parts),
+                )
+                cei = "_".join(parts[:_idx])
                 
                 try:
                     if self.model_name.startswith("cumulative_"):
@@ -2115,7 +2127,7 @@ class TabPFNFitter(BaseFitter):
         self.obj.model.fit(
             X_train,
             np.asarray(self.obj.y_train).ravel(),
-            categorical_feature_indices=cat_feature_indices
+            # categorical_feature_indices=cat_feature_indices
         )
     
     def _get_categorical_indices(self, X_train: pd.DataFrame) -> List[int]:

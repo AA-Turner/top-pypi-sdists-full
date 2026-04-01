@@ -5,14 +5,17 @@ from .balance_accounts_api import BalanceAccountsApi
 from .balances_api import BalancesApi
 from .bank_account_validation_api import BankAccountValidationApi
 from .card_orders_api import CardOrdersApi
+from .direct_debit_mandates_api import DirectDebitMandatesApi
 from .grant_accounts_api import GrantAccountsApi
 from .grant_offers_api import GrantOffersApi
-from .manage_sca_devices_api import ManageSCADevicesApi
 from .manage_card_pin_api import ManageCardPINApi
+from .manage_sca_devices_api import ManageSCADevicesApi
 from .network_tokens_api import NetworkTokensApi
 from .payment_instrument_groups_api import PaymentInstrumentGroupsApi
 from .payment_instruments_api import PaymentInstrumentsApi
 from .platform_api import PlatformApi
+from .sca_association_management_api import SCAAssociationManagementApi
+from .sca_device_management_api import SCADeviceManagementApi
 from .transaction_rules_api import TransactionRulesApi
 from .transfer_limits_balance_account_level_api import TransferLimitsBalanceAccountLevelApi
 from .transfer_limits_balance_platform_level_api import TransferLimitsBalancePlatformLevelApi
@@ -27,13 +30,14 @@ class AdyenBalancePlatformApi(AdyenServiceBase):
     """
 
     def __init__(self, client=None):
-        super(AdyenBalancePlatformApi, self).__init__(client=client)
+        super().__init__(client=client)
         self.account_holders_api = AccountHoldersApi(client=client)
         self.authorized_card_users_api = AuthorizedCardUsersApi(client=client)
         self.balance_accounts_api = BalanceAccountsApi(client=client)
         self.balances_api = BalancesApi(client=client)
         self.bank_account_validation_api = BankAccountValidationApi(client=client)
         self.card_orders_api = CardOrdersApi(client=client)
+        self.direct_debit_mandates_api = DirectDebitMandatesApi(client=client)
         self.grant_accounts_api = GrantAccountsApi(client=client)
         self.grant_offers_api = GrantOffersApi(client=client)
         self.manage_sca_devices_api = ManageSCADevicesApi(client=client)
@@ -42,7 +46,13 @@ class AdyenBalancePlatformApi(AdyenServiceBase):
         self.payment_instrument_groups_api = PaymentInstrumentGroupsApi(client=client)
         self.payment_instruments_api = PaymentInstrumentsApi(client=client)
         self.platform_api = PlatformApi(client=client)
+        self.sca_association_management_api = SCAAssociationManagementApi(client=client)
+        self.sca_device_management_api = SCADeviceManagementApi(client=client)
         self.transaction_rules_api = TransactionRulesApi(client=client)
-        self.transfer_limits_balance_account_level_api = TransferLimitsBalanceAccountLevelApi(client=client)
-        self.transfer_limits_balance_platform_level_api = TransferLimitsBalancePlatformLevelApi(client=client)
+        self.transfer_limits_balance_account_level_api = TransferLimitsBalanceAccountLevelApi(
+            client=client
+        )
+        self.transfer_limits_balance_platform_level_api = TransferLimitsBalancePlatformLevelApi(
+            client=client
+        )
         self.transfer_routes_api = TransferRoutesApi(client=client)

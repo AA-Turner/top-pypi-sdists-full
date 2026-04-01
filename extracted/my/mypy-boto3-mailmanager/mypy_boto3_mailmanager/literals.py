@@ -3,7 +3,7 @@ Type annotations for mailmanager service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mailmanager/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -47,6 +47,7 @@ __all__ = (
     "IngressTlsProtocolAttributeType",
     "IngressTlsProtocolOperatorType",
     "IpTypeType",
+    "LambdaInvocationTypeType",
     "ListAddonInstancesPaginatorName",
     "ListAddonSubscriptionsPaginatorName",
     "ListAddressListImportJobsPaginatorName",
@@ -67,6 +68,7 @@ __all__ = (
     "RuleAddressListEmailAttributeType",
     "RuleBooleanEmailAttributeType",
     "RuleBooleanOperatorType",
+    "RuleClientCertificateAttributeType",
     "RuleDmarcOperatorType",
     "RuleDmarcPolicyType",
     "RuleIpEmailAttributeType",
@@ -82,6 +84,8 @@ __all__ = (
     "ServiceName",
     "SnsNotificationEncodingType",
     "SnsNotificationPayloadTypeType",
+    "TlsPolicyType",
+    "TrustStoreResponseOptionType",
 )
 
 
@@ -106,15 +110,22 @@ IngressIpv4AttributeType = Literal["SENDER_IP"]
 IngressIpv6AttributeType = Literal["SENDER_IPV6"]
 IngressPointStatusToUpdateType = Literal["ACTIVE", "CLOSED"]
 IngressPointStatusType = Literal[
-    "ACTIVE", "CLOSED", "DEPROVISIONING", "FAILED", "PROVISIONING", "UPDATING"
+    "ACTIVE",
+    "ASSOCIATED_VPC_ENDPOINT_DOES_NOT_EXIST",
+    "CLOSED",
+    "DEPROVISIONING",
+    "FAILED",
+    "PROVISIONING",
+    "UPDATING",
 ]
-IngressPointTypeType = Literal["AUTH", "OPEN"]
+IngressPointTypeType = Literal["AUTH", "MTLS", "OPEN"]
 IngressStringEmailAttributeType = Literal["RECIPIENT"]
 IngressStringOperatorType = Literal["CONTAINS", "ENDS_WITH", "EQUALS", "NOT_EQUALS", "STARTS_WITH"]
 IngressTlsAttributeType = Literal["TLS_PROTOCOL"]
 IngressTlsProtocolAttributeType = Literal["TLS1_2", "TLS1_3"]
 IngressTlsProtocolOperatorType = Literal["IS", "MINIMUM_TLS_VERSION"]
 IpTypeType = Literal["DUAL_STACK", "IPV4"]
+LambdaInvocationTypeType = Literal["EVENT", "REQUEST_RESPONSE"]
 ListAddonInstancesPaginatorName = Literal["list_addon_instances"]
 ListAddonSubscriptionsPaginatorName = Literal["list_addon_subscriptions"]
 ListAddressListImportJobsPaginatorName = Literal["list_address_list_import_jobs"]
@@ -149,6 +160,16 @@ RetentionPeriodType = Literal[
 RuleAddressListEmailAttributeType = Literal["CC", "FROM", "MAIL_FROM", "RECIPIENT", "SENDER", "TO"]
 RuleBooleanEmailAttributeType = Literal["READ_RECEIPT_REQUESTED", "TLS", "TLS_WRAPPED"]
 RuleBooleanOperatorType = Literal["IS_FALSE", "IS_TRUE"]
+RuleClientCertificateAttributeType = Literal[
+    "CN",
+    "SAN_DIRECTORY_NAME",
+    "SAN_DNS_NAME",
+    "SAN_IP_ADDRESS",
+    "SAN_REGISTERED_ID",
+    "SAN_RFC822_NAME",
+    "SAN_UNIFORM_RESOURCE_IDENTIFIER",
+    "SERIAL_NUMBER",
+]
 RuleDmarcOperatorType = Literal["EQUALS", "NOT_EQUALS"]
 RuleDmarcPolicyType = Literal["NONE", "QUARANTINE", "REJECT"]
 RuleIpEmailAttributeType = Literal["SOURCE_IP"]
@@ -172,6 +193,8 @@ RuleVerdictType = Literal["FAIL", "GRAY", "PASS", "PROCESSING_FAILED"]
 SearchStateType = Literal["CANCELLED", "COMPLETED", "FAILED", "QUEUED", "RUNNING"]
 SnsNotificationEncodingType = Literal["BASE64", "UTF-8"]
 SnsNotificationPayloadTypeType = Literal["CONTENT", "HEADERS"]
+TlsPolicyType = Literal["FIPS", "OPTIONAL", "REQUIRED"]
+TrustStoreResponseOptionType = Literal["EXCLUDE", "INCLUDE"]
 MailManagerServiceName = Literal["mailmanager"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -275,6 +298,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -290,6 +314,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -314,16 +339,15 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -363,7 +387,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -527,6 +550,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -538,7 +562,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -560,6 +586,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -572,6 +599,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -579,6 +607,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

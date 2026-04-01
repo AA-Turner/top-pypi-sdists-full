@@ -216,7 +216,7 @@ async def send_signal(
         raise MissingParameter(param_type="argument|option", param_hint="'SIG|SIGNAL-NAME'")
 
     async with DvtProvider(service_provider) as dvt, ProcessControl(dvt) as process_control:
-        await process_control.signal(pid, sig)
+        await process_control.signal(pid, sig.value)
 
 
 @cli.command("kill")

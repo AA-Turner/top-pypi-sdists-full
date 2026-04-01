@@ -31,7 +31,7 @@ from typing import (TYPE_CHECKING,
                     Union,
                     overload)
 
-from couchbase._utils import (timedelta_as_microseconds,
+from couchbase._utils import (timedelta_as_milliseconds,
                               timedelta_as_timestamp,
                               validate_int)
 from couchbase.durability import DurabilityParser
@@ -46,7 +46,9 @@ from couchbase.logic.options import get_valid_args  # noqa: F401
 from couchbase.logic.options import get_valid_multi_args  # noqa: F401
 from couchbase.logic.options import (AnalyticsOptionsBase,
                                      AppendOptionsBase,
+                                     ClusterMetricsOptionsBase,
                                      ClusterOptionsBase,
+                                     ClusterOrphanReportingOptionsBase,
                                      ClusterTimeoutOptionsBase,
                                      ClusterTracingOptionsBase,
                                      ConstrainedIntBase,
@@ -83,10 +85,10 @@ from couchbase.logic.options import (AnalyticsOptionsBase,
                                      VectorSearchOptionsBase,
                                      ViewOptionsBase,
                                      WaitUntilReadyOptionsBase)
+from couchbase.logic.pycbc_core import (transaction_config,
+                                        transaction_options,
+                                        transaction_query_options)
 from couchbase.logic.supportability import Supportability
-from couchbase.pycbc_core import (transaction_config,
-                                  transaction_options,
-                                  transaction_query_options)
 from couchbase.serializer import DefaultJsonSerializer
 
 # allows for imports only during type checking and not during runtime -- :)
@@ -96,6 +98,7 @@ if TYPE_CHECKING:
     from couchbase.collection import Collection
     from couchbase.durability import DurabilityType, ServerDurability
     from couchbase.n1ql import QueryScanConsistency
+    from couchbase.observability.tracing import RequestSpan
     from couchbase.replica_reads import ReadPreference
     from couchbase.transactions import (TransactionGetMultiMode,
                                         TransactionGetMultiReplicasFromPreferredServerGroupMode,
@@ -103,29 +106,32 @@ if TYPE_CHECKING:
     from couchbase.transcoder import Transcoder
 
 
-class ClusterTracingOptions(ClusterTracingOptionsBase):
-    """Available tracing options to set when creating a cluster.
+class ClusterMetricsOptions(ClusterMetricsOptionsBase):
+    """Available metrics options to set when creating a cluster.
 
     .. warning::
         Importing options from ``couchbase.cluster`` is deprecated.
         All options should be imported from ``couchbase.options``.
 
-    These will be the default timeouts for operations for the entire cluster
+    Args:
+        enable_metrics (bool, optional): Set to False to disable default logging meter (enables no-op meter).
+            Defaults to True (enabled).
+        emit_interval (timedelta, optional): Interveral to flush metrics operations queue.
+    """
+
+
+class ClusterOrphanReportingOptions(ClusterOrphanReportingOptionsBase):
+    """Available orphan reporting options to set when creating a cluster.
+
+    .. warning::
+        Importing options from ``couchbase.cluster`` is deprecated.
+        All options should be imported from ``couchbase.options``.
 
     Args:
-        tracing_threshold_kv (timedelta, optional): KV operations threshold. Defaults to None.
-        tracing_threshold_view (timedelta, optional): Views operations threshold. Defaults to None.
-        tracing_threshold_query (timedelta, optional): Query operations threshold. Defaults to None.
-        tracing_threshold_search (timedelta, optional): Search operations threshold.. Defaults to None.
-        tracing_threshold_analytics (timedelta, optional): Analytics operations threshold. Defaults to None.
-        tracing_threshold_eventing (timedelta, optional): Eventing operations threshold. Defaults to None.
-        tracing_threshold_management (timedelta, optional): Management operations threshold. Defaults to None.
-        tracing_threshold_queue_size (int, optional): Size of tracing operations queue. Defaults to None.
-        tracing_threshold_queue_flush_interval (timedelta, optional): Interveral to flush tracing operations queue.
-            Defaults to None.
-        tracing_orphaned_queue_size (int, optional): Size of tracing orphaned operations queue. Defaults to None.
-        tracing_orphaned_queue_flush_interval (timedelta, optional): Interveral to flush tracing orphaned operations
-            queue. Defaults to None.
+        enable_reporting (bool, optional): Set to False to disable orphaned response reporting.
+            Defaults to True (enabled).
+        sample_size (int, optional): Size of orphan operations queue.
+        emit_interval (timedelta, optional): Interval to flush orphaned operations queue.
     """
 
 
@@ -155,6 +161,30 @@ class ClusterTimeoutOptions(ClusterTimeoutOptionsBase):
         config_idle_redial_timeout (timedelta, optional): Idle redial timeout. Defaults to None.
         config_total_timeout (timedelta, optional): **DEPRECATED** complete bootstrap timeout. Defaults to None.
     """
+
+
+class ClusterTracingOptions(ClusterTracingOptionsBase):
+    """Available tracing options to set when creating a cluster.
+
+    .. warning::
+        Importing options from ``couchbase.cluster`` is deprecated.
+        All options should be imported from ``couchbase.options``.
+
+    Args:
+        enable_tracing (bool, optional): Set to False to disable default threshold log tracing (enables no-op tracer).
+            Defaults to True (enabled).
+        tracing_threshold_kv (timedelta, optional): KV operations threshold. Defaults to None.
+        tracing_threshold_view (timedelta, optional): Views operations threshold. Defaults to None.
+        tracing_threshold_query (timedelta, optional): Query operations threshold. Defaults to None.
+        tracing_threshold_search (timedelta, optional): Search operations threshold.. Defaults to None.
+        tracing_threshold_analytics (timedelta, optional): Analytics operations threshold. Defaults to None.
+        tracing_threshold_eventing (timedelta, optional): Eventing operations threshold. Defaults to None.
+        tracing_threshold_management (timedelta, optional): Management operations threshold. Defaults to None.
+        tracing_threshold_queue_size (int, optional): Size of tracing operations queue. Defaults to None.
+        tracing_threshold_queue_flush_interval (timedelta, optional): Interval to flush tracing operations queue. Defaults to None.
+        tracing_orphaned_queue_size (int, optional): **DEPRECATED** Use `class:~.ClusterOrphanReportingOptions` instead.
+        tracing_orphaned_queue_flush_interval (timedelta, optional): **DEPRECATED** Use `class:~.ClusterOrphanReportingOptions` instead.
+    """  # noqa: E501
 
 
 class ConfigProfile(ABC):
@@ -312,6 +342,8 @@ class ClusterOptions(ClusterOptionsBase):
             authenticator instance
         timeout_options (:class:`~.ClusterTimeoutOptions`): Timeout options for
             various SDK operations. See :class:`~.options.ClusterTimeoutOptions` for details.
+        orphan_reporting_options (:class:`~.ClusterOrphanReportingOptions`): Options for SDK orphaned response reporting.
+            See :class:`~.ClusterOrphanReportingOptions` for details.
         tracing_options (:class:`~.options.ClusterTimeoutOptions`): Tracing options for SDK tracing bevavior.
             See :class:`~.options.ClusterTracingOptions` for details.  These are ignored if an external tracer
             is specified.
@@ -327,9 +359,11 @@ class ClusterOptions(ClusterOptionsBase):
         enable_clustermap_notification (bool, optional): Set to False to disable cluster map notification.
             Defaults to True (enabled).
         enable_compression (bool, optional): Set to False to disable compression. Defaults to True (enabled).
-        enable_tracing (bool, optional): Set to False to disable tracing (enables no-op tracer).
+        enable_tracing (bool, optional): Set to False to disable default threshold log tracing (enables no-op tracer).
             Defaults to True (enabled).
-        enable_metrics (bool, optional): Set to False to disable metrics (enables no-op meter).
+        enable_metrics (bool, optional): Set to False to disable default logging meter (enables no-op meter).
+            Defaults to True (enabled).
+        enable_orphan_reporting (bool, optional): Set to False to disable orphaned response reporting.
             Defaults to True (enabled).
         network (str, optional): Set network resolution method. Can be set to 'default' (if the client is running on the
             same network as the server) or 'external' (if the client is running on a different network). Defaults to
@@ -348,7 +382,7 @@ class ClusterOptions(ClusterOptionsBase):
         config_poll_floor (timedelta, optional): Config polling floor interval.
             Defaults to None.
         max_http_connections (int, optional): Maximum number of HTTP connections.  Defaults to None.
-        logging_meter_emit_interval (timedelta, optional): Logging meter emit interval.  Defaults to 10 minutes.
+        logging_meter_emit_interval (timedelta, optional): **DEPRECATED** Use `class:~.ClusterMetricsOptions` instead.
         transaction_config (:class:`.TransactionConfig`, optional): Global configuration for transactions.
             Defaults to None.
         log_redaction (bool, optional): Set to True to enable log redaction. Defaults to False (disabled).
@@ -357,7 +391,7 @@ class ClusterOptions(ClusterOptionsBase):
         compression_min_ratio (float, optional): Set compression min size.  Defaults to None.
         lockmode (:class:`~.LockMode`, optional): **DEPRECATED** This option will be removed in a future version of the SDK.
             Set LockMode mode.  Defaults to None.
-        tracer (:class:`~couchbase.tracing.CouchbaseTracer`, optional): Set an external tracer.  Defaults to None,
+        tracer (:class:`~couchbase.logic.observability.TracerProtocol`, optional): Set an external tracer.  Defaults to None,
             enabling the `threshold_logging_tracer`. Note when this is set, all tracing_options
             (see :class:`~.ClusterTracingOptions`) and then `enable_tracing` option are ignored.
         meter (:class:`~couchbase.metrics.CouchbaseMeter`, optional): Set an external meter.  Defaults to None,
@@ -479,9 +513,9 @@ class ExistsOptions(ExistsOptionsBase):
         All options should be imported from ``couchbase.options``.
 
     Args:
-        timeout (timedelta, optional): The timeout for this operation. Defaults to global
-            key-value operation timeout.
-    """
+        timeout (timedelta, optional): The timeout for this operation. Defaults to global key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class GetOptions(GetOptionsBase):
@@ -501,7 +535,8 @@ class GetOptions(GetOptionsBase):
             whole document.
         transcoder (:class:`~.transcoder.Transcoder`, optional): Specifies an explicit transcoder
             to use for this specific operation. Defaults to :class:`~.transcoder.JsonTranscoder`.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class GetAllReplicasOptions(GetAllReplicasOptionsBase):
@@ -518,7 +553,8 @@ class GetAllReplicasOptions(GetAllReplicasOptionsBase):
             to use for this specific operation. Defaults to :class:`~.transcoder.JsonTranscoder`.
         read_preference(:class:`~couchbase.replica_reads.ReadPreference`, optional): Specifies how the replica nodes
             will be selected. Defaults to no preference.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class GetAndLockOptions(GetAndLockOptionsBase):
@@ -533,7 +569,8 @@ class GetAndLockOptions(GetAndLockOptionsBase):
             key-value operation timeout.
         transcoder (:class:`~.transcoder.Transcoder`, optional): Specifies an explicit transcoder
             to use for this specific operation. Defaults to :class:`~.transcoder.JsonTranscoder`.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class GetAndTouchOptions(GetAndTouchOptionsBase):
@@ -548,7 +585,8 @@ class GetAndTouchOptions(GetAndTouchOptionsBase):
             key-value operation timeout.
         transcoder (:class:`~.transcoder.Transcoder`, optional): Specifies an explicit transcoder
             to use for this specific operation. Defaults to :class:`~.transcoder.JsonTranscoder`.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class GetAnyReplicaOptions(GetAnyReplicaOptionsBase):
@@ -565,7 +603,8 @@ class GetAnyReplicaOptions(GetAnyReplicaOptionsBase):
             to use for this specific operation. Defaults to :class:`~.transcoder.JsonTranscoder`.
         read_preference(:class:`~couchbase.replica_reads.ReadPreference`, optional): Specifies how the replica nodes
             will be selected. Defaults to no preference.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class InsertOptions(InsertOptionsBase):
@@ -583,7 +622,8 @@ class InsertOptions(InsertOptionsBase):
             for this operation.
         transcoder (:class:`~couchbase.transcoder.Transcoder`, optional): Specifies an explicit transcoder
             to use for this specific operation. Defaults to :class:`~.transcoder.JsonTranscoder`.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class RemoveOptions(RemoveOptionsBase):
@@ -600,7 +640,8 @@ class RemoveOptions(RemoveOptionsBase):
             key-value operation timeout.
         durability (:class:`~couchbase.durability.DurabilityType`, optional): Specifies the level of durability
             for this operation.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class ReplaceOptions(ReplaceOptionsBase):
@@ -621,7 +662,8 @@ class ReplaceOptions(ReplaceOptionsBase):
         preserve_expiry (bool, optional): Specifies that any existing expiry on the document should be preserved.
         transcoder (:class:`~couchbase.transcoder.Transcoder`, optional): Specifies an explicit transcoder
             to use for this specific operation. Defaults to :class:`~.transcoder.JsonTranscoder`.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class TouchOptions(TouchOptionsBase):
@@ -632,9 +674,9 @@ class TouchOptions(TouchOptionsBase):
         All options should be imported from ``couchbase.options``.
 
     Args:
-        timeout (timedelta, optional): The timeout for this operation. Defaults to global
-            key-value operation timeout.
-    """
+        timeout (timedelta, optional): The timeout for this operation. Defaults to global key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class UnlockOptions(UnlockOptionsBase):
@@ -645,9 +687,9 @@ class UnlockOptions(UnlockOptionsBase):
         All options should be imported from ``couchbase.options``.
 
     Args:
-        timeout (timedelta, optional): The timeout for this operation. Defaults to global
-            key-value operation timeout.
-    """
+        timeout (timedelta, optional): The timeout for this operation. Defaults to global key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class UpsertOptions(UpsertOptionsBase):
@@ -666,7 +708,8 @@ class UpsertOptions(UpsertOptionsBase):
         preserve_expiry (bool, optional): Specifies that any existing expiry on the document should be preserved.
         transcoder (:class:`~couchbase.transcoder.Transcoder`, optional): Specifies an explicit transcoder
             to use for this specific operation. Defaults to :class:`~.transcoder.JsonTranscoder`.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class ScanOptions(ScanOptionsBase):
@@ -704,9 +747,9 @@ class LookupInOptions(LookupInOptionsBase):
         All options should be imported from ``couchbase.options``.
 
     Args:
-        timeout (timedelta, optional): The timeout for this operation. Defaults to global
-            subdocument operation timeout.
-    """
+        timeout (timedelta, optional): The timeout for this operation. Defaults to global subdocument operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class LookupInAnyReplicaOptions(LookupInAnyReplicaOptionsBase):
@@ -719,9 +762,10 @@ class LookupInAnyReplicaOptions(LookupInAnyReplicaOptionsBase):
     Args:
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             subdocument operation timeout.
-        read_preference(:class:`~couchbase.replica_reads.ReadPreference`, optional): Specifies how the replica nodes
+        read_preference (:class:`~couchbase.replica_reads.ReadPreference`, optional): Specifies how the replica nodes
             will be selected. Defaults to no preference.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class LookupInAllReplicasOptions(LookupInAllReplicasOptionsBase):
@@ -734,9 +778,10 @@ class LookupInAllReplicasOptions(LookupInAllReplicasOptionsBase):
     Args:
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             subdocument operation timeout.
-        read_preference(:class:`~couchbase.replica_reads.ReadPreference`, optional): Specifies how the replica nodes
+        read_preference (:class:`~couchbase.replica_reads.ReadPreference`, optional): Specifies how the replica nodes
             will be selected. Defaults to no preference.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class MutateInOptions(MutateInOptionsBase):
@@ -756,7 +801,8 @@ class MutateInOptions(MutateInOptionsBase):
         preserve_expiry (bool, optional): Specifies that any existing expiry on the document should be preserved.
         store_semantics (:class:`~couchbase.subdocument.StoreSemantics`, optional): Specifies the store semantics
             to use for this operation.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 # Binary Operations
 
@@ -775,7 +821,8 @@ class AppendOptions(AppendOptionsBase):
             key-value operation timeout.
         durability (:class:`~couchbase.durability.DurabilityType`, optional): Specifies the level of durability
             for this operation.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class PrependOptions(PrependOptionsBase):
@@ -792,7 +839,8 @@ class PrependOptions(PrependOptionsBase):
             key-value operation timeout.
         durability (:class:`~couchbase.durability.DurabilityType`, optional): Specifies the level of durability
             for this operation.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class IncrementOptions(IncrementOptionsBase):
@@ -811,7 +859,8 @@ class IncrementOptions(IncrementOptionsBase):
         initial (:class:`.SignedInt64`, optional): The initial value to use for the document if it does not already
             exist. Setting it to a negative value means that the document will not be created if it does not exist.
             Defaults to 0.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 class DecrementOptions(DecrementOptionsBase):
@@ -830,7 +879,8 @@ class DecrementOptions(DecrementOptionsBase):
         initial (:class:`.SignedInt64`, optional): The initial value to use for the document if it does not already
             exist. Setting it to a negative value means that the document will not be created if it does not exist.
             Defaults to 0.
-    """
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
+    """  # noqa: E501
 
 
 """
@@ -849,6 +899,7 @@ class GetAllReplicasMultiOptions(dict):
     Args:
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         transcoder (:class:`~couchbase.transcoder.Transcoder`, optional): Specifies an explicit transcoder
             to use for this specific operation. Defaults to :class:`~.transcoder.JsonTranscoder`.
         read_preference(:class:`~couchbase.replica_reads.ReadPreference`, optional): Specifies how the replica nodes
@@ -857,10 +908,12 @@ class GetAllReplicasMultiOptions(dict):
             :class:`.GetAllReplicasOptions` per key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
-    """
+    """  # noqa: E501
     @overload
     def __init__(
         self,
+        timeout=None,           # type: Optional[timedelta]
+        parent_span=None,              # type: Optional[RequestSpan]
         transcoder=None,        # type: Optional[Transcoder]
         read_preference=None,   # type: Optional[ReadPreference]
         per_key_options=None,   # type: Dict[str, GetAllReplicasOptions]
@@ -874,7 +927,7 @@ class GetAllReplicasMultiOptions(dict):
 
     @classmethod
     def get_valid_keys(cls):
-        return ['timeout', 'transcoder', 'read_preference', 'per_key_options', 'return_exceptions']
+        return ['timeout', 'parent_span', 'transcoder', 'read_preference', 'per_key_options', 'return_exceptions']
 
 
 class GetAnyReplicaMultiOptions(dict):
@@ -886,6 +939,7 @@ class GetAnyReplicaMultiOptions(dict):
     Args:
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         transcoder (:class:`~couchbase.transcoder.Transcoder`, optional): Specifies an explicit transcoder
             to use for this specific operation. Defaults to :class:`~.transcoder.JsonTranscoder`.
         read_preference(:class:`~couchbase.replica_reads.ReadPreference`, optional): Specifies how the replica nodes
@@ -894,10 +948,12 @@ class GetAnyReplicaMultiOptions(dict):
             :class:`.GetAnyReplicaOptions` per key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
-    """
+    """  # noqa: E501
     @overload
     def __init__(
         self,
+        timeout=None,           # type: Optional[timedelta]
+        parent_span=None,              # type: Optional[RequestSpan]
         transcoder=None,        # type: Optional[Transcoder]
         read_preference=None,   # type: Optional[ReadPreference]
         per_key_options=None,   # type: Dict[str, GetAnyReplicaOptions]
@@ -911,7 +967,7 @@ class GetAnyReplicaMultiOptions(dict):
 
     @classmethod
     def get_valid_keys(cls):
-        return ['timeout', 'transcoder', 'read_preference', 'per_key_options', 'return_exceptions']
+        return ['timeout', 'parent_span', 'transcoder', 'read_preference', 'per_key_options', 'return_exceptions']
 
 
 class GetMultiOptions(dict):
@@ -923,6 +979,7 @@ class GetMultiOptions(dict):
     Args:
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         with_expiry (bool, optional): Indicates that the expiry of the document should be
             fetched alongside the data itself. Defaults to False.
         project (Iterable[str], optional): Specifies a list of fields within the document which should be fetched.
@@ -933,11 +990,12 @@ class GetMultiOptions(dict):
         per_key_options (Dict[str, :class:`.GetOptions`], optional): Specify :class:`.GetOptions` per key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
-    """
+    """  # noqa: E501
     @overload
     def __init__(
         self,
         timeout=None,  # type: timedelta
+        parent_span=None,  # type: Optional[RequestSpan]
         with_expiry=None,  # type: bool
         project=None,  # type: Iterable[str]
         transcoder=None,  # type: Transcoder
@@ -952,7 +1010,7 @@ class GetMultiOptions(dict):
 
     @classmethod
     def get_valid_keys(cls):
-        return ['timeout', 'with_expiry', 'project', 'transcoder',
+        return ['timeout', 'parent_span', 'with_expiry', 'project', 'transcoder',
                 'per_key_options', 'return_exceptions']
 
 
@@ -965,14 +1023,16 @@ class ExistsMultiOptions(dict):
     Args:
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         per_key_options (Dict[str, :class:`.ExistsOptions`], optional): Specify :class:`.ExistsOptions` per key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
-    """
+    """  # noqa: E501
     @overload
     def __init__(
         self,
         timeout=None,  # type: timedelta
+        parent_span=None,  # type: Optional[RequestSpan]
         per_key_options=None,       # type: Dict[str, ExistsOptions]
         return_exceptions=None      # type: Optional[bool]
     ):
@@ -984,7 +1044,7 @@ class ExistsMultiOptions(dict):
 
     @classmethod
     def get_valid_keys(cls):
-        return ['timeout', 'per_key_options', 'return_exceptions']
+        return ['timeout', 'parent_span', 'per_key_options', 'return_exceptions']
 
 
 class UpsertMultiOptions(dict):
@@ -996,6 +1056,7 @@ class UpsertMultiOptions(dict):
     Args:
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         expiry (timedelta, optional): Specifies the expiry time for this document.
         durability (:class:`~couchbase.durability.DurabilityType`, optional): Specifies the level of durability
             for this operation.
@@ -1005,11 +1066,12 @@ class UpsertMultiOptions(dict):
         per_key_options (Dict[str, :class:`.UpsertOptions`], optional): Specify :class:`.UpsertOptions` per key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
-    """
+    """  # noqa: E501
     @overload
     def __init__(
         self,
         timeout=None,  # type: timedelta
+        parent_span=None,  # type: Optional[RequestSpan]
         expiry=None,  # type: timedelta
         preserve_expiry=False,  # type: bool
         durability=None,  # type: DurabilityType
@@ -1025,7 +1087,7 @@ class UpsertMultiOptions(dict):
 
     @classmethod
     def get_valid_keys(cls):
-        return ['timeout', 'expiry', 'preserve_expiry', 'durability',
+        return ['timeout', 'parent_span', 'expiry', 'preserve_expiry', 'durability',
                 'transcoder', 'per_key_options', 'return_exceptions']
 
 
@@ -1038,6 +1100,7 @@ class InsertMultiOptions(dict):
     Args:
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         expiry (timedelta, optional): Specifies the expiry time for this document.
         durability (:class:`~couchbase.durability.DurabilityType`, optional): Specifies the level of durability
             for this operation.
@@ -1046,11 +1109,12 @@ class InsertMultiOptions(dict):
         per_key_options (Dict[str, :class:`.InsertOptions`], optional): Specify :class:`.InsertOptions` per key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
-    """
+    """  # noqa: E501
     @overload
     def __init__(
         self,
         timeout=None,  # type: timedelta
+        parent_span=None,  # type: Optional[RequestSpan]
         expiry=None,  # type: timedelta
         durability=None,  # type: DurabilityType
         transcoder=None,  # type: Transcoder
@@ -1065,7 +1129,7 @@ class InsertMultiOptions(dict):
 
     @classmethod
     def get_valid_keys(cls):
-        return ['timeout', 'expiry', 'durability', 'transcoder', 'per_key_options', 'return_exceptions']
+        return ['timeout', 'parent_span', 'expiry', 'durability', 'transcoder', 'per_key_options', 'return_exceptions']
 
 
 class ReplaceMultiOptions(dict):
@@ -1079,6 +1143,7 @@ class ReplaceMultiOptions(dict):
             this value, indicating that the document has changed.
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         expiry (timedelta, optional): Specifies the expiry time for this document.
         preserve_expiry (bool, optional): Specifies that any existing expiry on the document should be preserved.
         durability (:class:`~couchbase.durability.DurabilityType`, optional): Specifies the level of durability
@@ -1088,11 +1153,12 @@ class ReplaceMultiOptions(dict):
         per_key_options (Dict[str, :class:`.ReplaceOptions`], optional): Specify :class:`.ReplaceOptions` per key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
-    """
+    """  # noqa: E501
     @overload
     def __init__(
         self,
         timeout=None,  # type: timedelta
+        parent_span=None,  # type: Optional[RequestSpan]
         expiry=None,  # type: timedelta
         cas=0,  # type: int
         preserve_expiry=False,  # type: bool
@@ -1109,7 +1175,7 @@ class ReplaceMultiOptions(dict):
 
     @classmethod
     def get_valid_keys(cls):
-        return ['timeout', 'expiry', 'cas', 'preserve_expiry',
+        return ['timeout', 'parent_span', 'expiry', 'cas', 'preserve_expiry',
                 'durability', 'transcoder', 'per_key_options', 'return_exceptions']
 
 
@@ -1124,6 +1190,7 @@ class RemoveMultiOptions(dict):
             this value, indicating that the document has changed.
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         durability (:class:`~couchbase.durability.DurabilityType`, optional): Specifies the level of durability
             for this operation.
         transcoder (:class:`~couchbase.transcoder.Transcoder`, optional): Specifies an explicit transcoder
@@ -1131,11 +1198,12 @@ class RemoveMultiOptions(dict):
         per_key_options (Dict[str, :class:`.RemoveOptions`], optional): Specify :class:`.RemoveOptions` per key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
-    """
+    """  # noqa: E501
     @overload
     def __init__(
         self,
         timeout=None,  # type: timedelta
+        parent_span=None,  # type: Optional[RequestSpan]
         cas=0,  # type: int
         durability=None,  # type: DurabilityType
         transcoder=None,  # type: Transcoder
@@ -1150,7 +1218,7 @@ class RemoveMultiOptions(dict):
 
     @classmethod
     def get_valid_keys(cls):
-        return ['timeout', 'cas', 'durability', 'transcoder', 'per_key_options', 'return_exceptions']
+        return ['timeout', 'parent_span', 'cas', 'durability', 'transcoder', 'per_key_options', 'return_exceptions']
 
 
 class TouchMultiOptions(dict):
@@ -1162,14 +1230,16 @@ class TouchMultiOptions(dict):
     Args:
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         per_key_options (Dict[str, :class:`.TouchOptions`], optional): Specify :class:`.TouchOptions` per key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
-    """
+    """  # noqa: E501
     @overload
     def __init__(
         self,
         timeout=None,  # type: timedelta
+        parent_span=None,  # type: Optional[RequestSpan]
         per_key_options=None,       # type: Dict[str, TouchOptions]
         return_exceptions=None      # type: Optional[bool]
     ):
@@ -1181,7 +1251,7 @@ class TouchMultiOptions(dict):
 
     @classmethod
     def get_valid_keys(cls):
-        return ['timeout', 'expiry', 'per_key_options', 'return_exceptions']
+        return ['timeout', 'parent_span', 'expiry', 'per_key_options', 'return_exceptions']
 
 
 class GetAndLockMultiOptions(dict):
@@ -1193,15 +1263,17 @@ class GetAndLockMultiOptions(dict):
     Args:
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         per_key_options (Dict[str, :class:`.GetAndLockOptions`], optional): Specify :class:`.GetAndLockOptions` per
             key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
-    """
+    """  # noqa: E501
     @overload
     def __init__(
         self,
         timeout=None,  # type: timedelta
+        parent_span=None,  # type: Optional[RequestSpan]
         transcoder=None,  # type: Transcoder
         per_key_options=None,       # type: Dict[str, GetAndLockOptions]
         return_exceptions=None      # type: Optional[bool]
@@ -1214,7 +1286,7 @@ class GetAndLockMultiOptions(dict):
 
     @classmethod
     def get_valid_keys(cls):
-        return ['timeout', 'transcoder', 'per_key_options', 'return_exceptions']
+        return ['timeout', 'parent_span', 'transcoder', 'per_key_options', 'return_exceptions']
 
 
 LockMultiOptions = GetAndLockMultiOptions
@@ -1229,15 +1301,17 @@ class UnlockMultiOptions(dict):
     Args:
         timeout (timedelta, optional): The timeout for this operation. Defaults to global
             key-value operation timeout.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         per_key_options (Dict[str, :class:`.UnlockOptions`], optional): Specify :class:`.UnlockOptions` per
             key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
-    """
+    """  # noqa: E501
     @overload
     def __init__(
         self,
         timeout=None,  # type: timedelta
+        parent_span=None,  # type: Optional[RequestSpan]
         per_key_options=None,       # type: Dict[str, UnlockOptions]
         return_exceptions=None      # type: Optional[bool]
     ):
@@ -1249,7 +1323,7 @@ class UnlockMultiOptions(dict):
 
     @classmethod
     def get_valid_keys(cls):
-        return ['timeout', 'per_key_options', 'return_exceptions']
+        return ['timeout', 'parent_span', 'per_key_options', 'return_exceptions']
 
 
 class IncrementMultiOptions(dict):
@@ -1266,6 +1340,7 @@ class IncrementMultiOptions(dict):
         delta (:class:`.DeltaValue`, optional): The amount to increment the key. Defaults to 1.
         initial (:class:`.SignedInt64`, optional): The initial value to use for the document if it does not already
             exist. Defaults to 0.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         per_key_options (Dict[str, :class:`.IncrementOptions`], optional): Specify :class:`.IncrementOptions` per
             key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
@@ -1278,7 +1353,7 @@ class IncrementMultiOptions(dict):
         durability=None,   # type: Optional[DurabilityType]
         delta=None,         # type: Optional[DeltaValue]
         initial=None,      # type: Optional[SignedInt64]
-        span=None,         # type: Optional[Any]
+        parent_span=None,         # type: Optional[RequestSpan]
         per_key_options=None,       # type: Optional[Dict[str, IncrementOptions]]
         return_exceptions=None      # type: Optional[bool]
     ):
@@ -1291,7 +1366,7 @@ class IncrementMultiOptions(dict):
     @classmethod
     def get_valid_keys(cls):
         return ['timeout', 'durability', 'delta',
-                'initial', 'span', 'per_key_options', 'return_exceptions']
+                'initial', 'parent_span', 'per_key_options', 'return_exceptions']
 
 
 class DecrementMultiOptions(dict):
@@ -1308,6 +1383,7 @@ class DecrementMultiOptions(dict):
         delta (:class:`.DeltaValue`, optional): The amount to decrement the key. Defaults to 1.
         initial (:class:`.SignedInt64`, optional): The initial value to use for the document if it does not already
             exist. Defaults to 0.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         per_key_options (Dict[str, :class:`.DecrementOptions`], optional): Specify :class:`.DecrementOptions` per
             key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
@@ -1320,7 +1396,7 @@ class DecrementMultiOptions(dict):
         durability=None,   # type: Optional[DurabilityType]
         delta=None,         # type: Optional[DeltaValue]
         initial=None,      # type: Optional[SignedInt64]
-        span=None,         # type: Optional[Any]
+        parent_span=None,         # type: Optional[RequestSpan]
         per_key_options=None,       # type: Optional[Dict[str, DecrementOptions]]
         return_exceptions=None      # type: Optional[bool]
     ):
@@ -1333,7 +1409,7 @@ class DecrementMultiOptions(dict):
     @classmethod
     def get_valid_keys(cls):
         return ['timeout', 'durability', 'delta',
-                'initial', 'span', 'per_key_options', 'return_exceptions']
+                'initial', 'parent_span', 'per_key_options', 'return_exceptions']
 
 
 class AppendMultiOptions(dict):
@@ -1349,6 +1425,7 @@ class AppendMultiOptions(dict):
             key-value operation timeout.
         durability (:class:`~couchbase.durability.DurabilityType`, optional): Specifies the level of durability
             for this operation.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         per_key_options (Dict[str, :class:`.AppendOptions`], optional): Specify :class:`.AppendOptions` per key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
@@ -1359,7 +1436,7 @@ class AppendMultiOptions(dict):
         timeout=None,      # type: Optional[timedelta]
         durability=None,   # type: Optional[DurabilityType]
         cas=None,          # type: Optional[int]
-        span=None,         # type: Optional[Any]
+        parent_span=None,         # type: Optional[RequestSpan]
         per_key_options=None,       # type: Optional[Dict[str, AppendOptions]]
         return_exceptions=None      # type: Optional[bool]
     ):
@@ -1372,7 +1449,7 @@ class AppendMultiOptions(dict):
     @classmethod
     def get_valid_keys(cls):
         return ['timeout', 'durability', 'cas',
-                'span', 'per_key_options', 'return_exceptions']
+                'parent_span', 'per_key_options', 'return_exceptions']
 
 
 class PrependMultiOptions(dict):
@@ -1388,6 +1465,7 @@ class PrependMultiOptions(dict):
             key-value operation timeout.
         durability (:class:`~couchbase.durability.DurabilityType`, optional): Specifies the level of durability
             for this operation.
+        parent_span (:class:`~couchbase.observability.tracing.RequestSpan`, optional): The parent span for this operation.
         per_key_options (Dict[str, :class:`.PrependOptions`], optional): Specify :class:`.PrependOptions` per key.
         return_exceptions(bool, optional): If False, raise an Exception when encountered.  If True return the
             Exception without raising.  Defaults to True.
@@ -1398,7 +1476,7 @@ class PrependMultiOptions(dict):
         timeout=None,      # type: Optional[timedelta]
         durability=None,   # type: Optional[DurabilityType]
         cas=None,          # type: Optional[int]
-        span=None,         # type: Optional[Any]
+        parent_span=None,         # type: Optional[RequestSpan]
         per_key_options=None,       # type: Optional[Dict[str, PrependOptions]]
         return_exceptions=None      # type: Optional[bool]
     ):
@@ -1411,7 +1489,7 @@ class PrependMultiOptions(dict):
     @classmethod
     def get_valid_keys(cls):
         return ['timeout', 'durability', 'cas',
-                'span', 'per_key_options', 'return_exceptions']
+                'parent_span', 'per_key_options', 'return_exceptions']
 
 
 NoValueMultiOptions = Union[GetMultiOptions, ExistsMultiOptions,
@@ -1694,7 +1772,7 @@ class TransactionConfig:
         if durability:
             kwargs["durability_level"] = durability.level.value
         if kwargs.get('cleanup_window', None):
-            kwargs['cleanup_window'] = int(kwargs['cleanup_window'].total_seconds() * 1000000)
+            kwargs['cleanup_window'] = int(kwargs['cleanup_window'].total_seconds() * 1e6)
         coll = kwargs.pop("metadata_collection", None)
         # CXXCBC-391: Adds support for ExtSDKIntegration which changes expiration_time -> timeout
         if 'expiration_time' in kwargs or 'timeout' in kwargs:
@@ -1704,7 +1782,7 @@ class TransactionConfig:
             if 'timeout' in kwargs:
                 timeout = kwargs.get('timeout', None)
             if timeout:
-                kwargs['timeout'] = int(timeout.total_seconds() * 1000000)
+                kwargs['timeout'] = int(timeout.total_seconds() * 1e6)
         if coll:
             kwargs["metadata_bucket"] = coll.bucket
             kwargs["metadata_scope"] = coll.scope
@@ -1766,7 +1844,7 @@ class TransactionOptions:
             if 'timeout' in kwargs:
                 timeout = kwargs.get('timeout', None)
             if timeout:
-                kwargs['timeout'] = int(timeout.total_seconds() * 1000000)
+                kwargs['timeout'] = int(timeout.total_seconds() * 1e6)
         if kwargs.get('scan_consistency', None):
             kwargs['scan_consistency'] = kwargs['scan_consistency'].value
             if kwargs["scan_consistency"] == "at_plus":
@@ -1829,7 +1907,7 @@ class DefaultForwarder(Forwarder):
         return {
             "spec": {"specs": lambda x: x},
             "id": {},
-            "timeout": {"timeout": timedelta_as_microseconds},
+            "timeout": {"timeout": timedelta_as_milliseconds},
             "expiry": {"expiry": timedelta_as_timestamp},
             "lock_time": {"lock_time": lambda x: int(x.total_seconds())},
             "self": {},
@@ -1939,7 +2017,7 @@ class TransactionQueryOptions:
             kwargs["readonly"] = readonly
         profile = kwargs.pop("profile", None)
         if profile:
-            kwargs["profile_mode"] = profile.value
+            kwargs["profile"] = profile.value
         positional = kwargs.pop("positional_parameters", None)
         if positional:
             kwargs["positional_parameters"] = list(

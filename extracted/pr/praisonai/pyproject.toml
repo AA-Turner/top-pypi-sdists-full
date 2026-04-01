@@ -12,7 +12,7 @@ dependencies = [
     "rich>=13.7",
     "markdown>=3.5",
     "pyparsing>=3.0.0",
-    "praisonaiagents>=1.5.87",
+    "praisonaiagents>=1.5.109",
     "python-dotenv>=0.19.0",
     "litellm>=1.81.0,<=1.82.6",
     "PyYAML>=6.0",
@@ -28,10 +28,7 @@ praisonai-call = "praisonai.api.call:main"
 
 [project.optional-dependencies]
 ui = [
-    "chainlit>=2.8.5,<=2.9.4",
-    "sqlalchemy>=2.0.36",
-    "aiosqlite>=0.20.0",
-    "greenlet>=3.0.3"
+    "aiui>=0.3.100",
 ]
 gradio = ["gradio>=4.26.0"]
 api = [
@@ -145,7 +142,7 @@ bot-whatsapp-web = [
 claw = [
     # PraisonAI 🦞 — Full dashboard + bots + memory + knowledge + gateway
     # Install: pip install "praisonai[claw]"
-    "aiui[all]>=0.3.60",
+    "aiui[all]>=0.3.100",
     "praisonaiagents[all]>=1.5.40",
     # UI + persistence
     "chainlit>=2.8.5,<=2.9.4",
@@ -182,6 +179,9 @@ dev = [
 [project.urls]
 Homepage = "https://docs.praison.ai"
 Repository = "https://github.com/mervinpraison/PraisonAI"
+
+[tool.uv.sources]
+praisonaiagents = { path = "../praisonai-agents" }
 
 [tool.uv]
 # Exclude from lock resolution — these cause cross-extra conflicts that

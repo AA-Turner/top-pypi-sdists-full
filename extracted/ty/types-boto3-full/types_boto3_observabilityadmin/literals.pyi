@@ -79,13 +79,18 @@ ListS3TableIntegrationsPaginatorName = Literal["list_s3_table_integrations"]
 ListTelemetryPipelinesPaginatorName = Literal["list_telemetry_pipelines"]
 ListTelemetryRulesForOrganizationPaginatorName = Literal["list_telemetry_rules_for_organization"]
 ListTelemetryRulesPaginatorName = Literal["list_telemetry_rules"]
-LogTypeType = Literal["APPLICATION_LOGS", "USAGE_LOGS"]
+LogTypeType = Literal[
+    "ACCESS_LOGS", "APPLICATION_LOGS", "CONNECTION_LOGS", "SECURITY_FINDING_LOGS", "USAGE_LOGS"
+]
 OutputFormatType = Literal["json", "plain"]
 RecordFormatType = Literal["JSON", "STRING"]
 ResourceTypeType = Literal[
     "AWS::BedrockAgentCore::Browser",
     "AWS::BedrockAgentCore::CodeInterpreter",
+    "AWS::BedrockAgentCore::Gateway",
+    "AWS::BedrockAgentCore::Memory",
     "AWS::BedrockAgentCore::Runtime",
+    "AWS::CloudFront::Distribution",
     "AWS::CloudTrail",
     "AWS::EC2::Instance",
     "AWS::EC2::VPC",
@@ -93,6 +98,7 @@ ResourceTypeType = Literal[
     "AWS::ElasticLoadBalancingV2::LoadBalancer",
     "AWS::Lambda::Function",
     "AWS::Route53Resolver::ResolverEndpoint",
+    "AWS::SecurityHub::Hub",
     "AWS::WAFv2::WebACL",
 ]
 RuleHealthType = Literal["Healthy", "Provisioning", "Unhealthy"]
@@ -471,6 +477,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -506,6 +513,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",

@@ -1,3 +1,4 @@
+import importlib.metadata
 import warnings
 from typing import Optional
 from typing import Union
@@ -6,7 +7,9 @@ from typing import cast
 from pydantic import TypeAdapter
 
 from mailtrap.api.contacts import ContactsBaseApi
+from mailtrap.api.email_logs import EmailLogsBaseApi
 from mailtrap.api.general import GeneralApi
+from mailtrap.api.resources.stats import StatsApi
 from mailtrap.api.sending import SendingApi
 from mailtrap.api.sending_domains import SendingDomainsBaseApi
 from mailtrap.api.suppressions import SuppressionsBaseApi
@@ -34,6 +37,10 @@ class MailtrapClient:
     DEFAULT_PORT = 443
     BULK_HOST = BULK_HOST
     SANDBOX_HOST = SANDBOX_HOST
+    DEFAULT_USER_AGENT = (
+        f"mailtrap-python/{importlib.metadata.version('mailtrap')} "
+        "(https://github.com/mailtrap/mailtrap-python)"
+    )
 
     def __init__(
         self,
@@ -44,6 +51,7 @@ class MailtrapClient:
         sandbox: bool = False,
         account_id: Optional[str] = None,
         inbox_id: Optional[str] = None,
+        user_agent: Optional[str] = None,
     ) -> None:
         self.token = token
         self.api_host = api_host
@@ -52,6 +60,9 @@ class MailtrapClient:
         self.sandbox = sandbox
         self.account_id = account_id
         self.inbox_id = inbox_id
+        self._user_agent = (
+            user_agent if user_agent is not None else self.DEFAULT_USER_AGENT
+        )
 
         self._validate_itself()
 
@@ -72,7 +83,7 @@ class MailtrapClient:
 
     @property
     def email_templates_api(self) -> EmailTemplatesApi:
-        self._validate_account_id()
+        self._validate_account_id("Email Templates API")
         return EmailTemplatesApi(
             account_id=cast(str, self.account_id),
             client=HttpClient(host=GENERAL_HOST, headers=self.headers),
@@ -80,7 +91,7 @@ class MailtrapClient:
 
     @property
     def contacts_api(self) -> ContactsBaseApi:
-        self._validate_account_id()
+        self._validate_account_id("Contacts API")
         return ContactsBaseApi(
             account_id=cast(str, self.account_id),
             client=HttpClient(host=GENERAL_HOST, headers=self.headers),
@@ -88,7 +99,7 @@ class MailtrapClient:
 
     @property
     def suppressions_api(self) -> SuppressionsBaseApi:
-        self._validate_account_id()
+        self._validate_account_id("Suppressions API")
         return SuppressionsBaseApi(
             account_id=cast(str, self.account_id),
             client=HttpClient(host=GENERAL_HOST, headers=self.headers),
@@ -96,8 +107,16 @@ class MailtrapClient:
 
     @property
     def sending_domains_api(self) -> SendingDomainsBaseApi:
-        self._validate_account_id()
+        self._validate_account_id("Sending Domains API")
         return SendingDomainsBaseApi(
+            account_id=cast(str, self.account_id),
+            client=HttpClient(host=GENERAL_HOST, headers=self.headers),
+        )
+
+    @property
+    def email_logs_api(self) -> EmailLogsBaseApi:
+        self._validate_account_id("Email Logs API")
+        return EmailLogsBaseApi(
             account_id=cast(str, self.account_id),
             client=HttpClient(host=GENERAL_HOST, headers=self.headers),
         )
@@ -106,6 +125,12 @@ class MailtrapClient:
     def sending_api(self) -> SendingApi:
         http_client = HttpClient(host=self._sending_api_host, headers=self.headers)
         return SendingApi(client=http_client, inbox_id=self.inbox_id)
+
+    @property
+    def stats_api(self) -> StatsApi:
+        return StatsApi(
+            client=HttpClient(host=GENERAL_HOST, headers=self.headers),
+        )
 
     def send(self, mail: BaseMail) -> SEND_ENDPOINT_RESPONSE:
         sending_response = self.sending_api.send(mail)
@@ -147,9 +172,7 @@ class MailtrapClient:
         return {
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
-            "User-Agent": (
-                "mailtrap-python (https://github.com/railsware/mailtrap-python)"
-            ),
+            "User-Agent": self._user_agent,
         }
 
     @property
@@ -162,9 +185,9 @@ class MailtrapClient:
             return BULK_HOST
         return SENDING_HOST
 
-    def _validate_account_id(self) -> None:
+    def _validate_account_id(self, api_name: str = "Testing API") -> None:
         if not self.account_id:
-            raise ClientConfigurationError("`account_id` is required for Testing API")
+            raise ClientConfigurationError(f"`account_id` is required for {api_name}")
 
     def _validate_itself(self) -> None:
         if self.sandbox and not self.inbox_id:

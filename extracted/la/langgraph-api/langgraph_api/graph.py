@@ -34,6 +34,7 @@ from langgraph_api._factory_utils import (
     is_factory,
     is_for_execution,
 )
+from langgraph_api.asyncio import as_asynccontextmanager
 from langgraph_api.feature_flags import (
     IS_POSTGRES_OR_GRPC_BACKEND,
     USE_RUNTIME_CONTEXT_API,
@@ -169,9 +170,59 @@ def _log_slow_graph_generation(
         )
 
 
+_ddtracer: Any = None
+
+
+def _get_ddtracer() -> Any:
+    """Return the ddtrace tracer singleton, or None if ddtrace is not installed."""
+    global _ddtracer
+    if not hasattr(_get_ddtracer, "_checked"):
+        _get_ddtracer._checked = True
+        try:
+            from ddtrace import tracer  # type: ignore[unresolved-import]  # noqa: PLC0415, I001
+
+            _ddtracer = tracer
+        except ImportError:
+            # ddtrace is an optional dependency; tracing is silently disabled when absent.
+            pass
+    return _ddtracer
+
+
+def _start_graph_load_span(graph_id: str, access_context: str | None) -> Any:
+    """Start a ddtrace span covering graph factory __aenter__ time.
+
+    Starting before __aenter__ means HTTP calls made by the factory appear as
+    children of this span. Returns the span, or None if ddtrace is unavailable.
+    """
+    ddtracer = _get_ddtracer()
+    if ddtracer is None:
+        return None
+    try:
+        span = ddtracer.start_span("langgraph.graph_load")
+        span.set_tag("graph_id", graph_id)
+        if access_context:
+            span.set_tag("access_context", access_context)
+        return span
+    except Exception:
+        return None
+
+
+def _finish_graph_load_span(span: Any, value_type: str) -> None:
+    if span is None:
+        return
+    try:
+        span.set_tag("value_type", value_type)
+        span.finish()
+    except Exception:
+        pass  # Tracing must never interfere with application logic
+
+
 @asynccontextmanager
 async def _generate_graph(
-    value: Any, graph_id: str, run_id: str | None = None
+    value: Any,
+    graph_id: str,
+    run_id: str | None = None,
+    access_context: str | None = None,
 ) -> AsyncIterator[Any]:
     """Yield a graph object regardless of its type.
 
@@ -183,20 +234,15 @@ async def _generate_graph(
     value_type = type(value).__name__
     if isinstance(value, Pregel | BaseRemotePregel):
         yield value
-    elif hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
-        async with value as ctx_value:
+        return
+    span = _start_graph_load_span(graph_id, access_context)
+    try:
+        async with as_asynccontextmanager(value) as ctx_value:
             _log_slow_graph_generation(start, value_type, graph_id, run_id=run_id)
+            _finish_graph_load_span(span, value_type)
             yield ctx_value
-    elif hasattr(value, "__enter__") and hasattr(value, "__exit__"):
-        with value as ctx_value:
-            _log_slow_graph_generation(start, value_type, graph_id, run_id=run_id)
-            yield ctx_value
-    elif asyncio.iscoroutine(value):
-        result = await value
-        _log_slow_graph_generation(start, value_type, graph_id, run_id=run_id)
-        yield result
-    else:
-        yield value
+    finally:
+        _finish_graph_load_span(span, value_type)
 
 
 def is_js_graph(graph_id: str) -> TypeGuard[BaseRemotePregel]:
@@ -246,7 +292,9 @@ async def get_graph(
 
         value = invoke_factory(value, graph_id, config, server_runtime)
     try:
-        async with _generate_graph(value, graph_id, run_id=run_id) as graph_obj:
+        async with _generate_graph(
+            value, graph_id, run_id=run_id, access_context=access_context
+        ) as graph_obj:
             if isinstance(graph_obj, StateGraph):
                 graph_obj = graph_obj.compile()
             if not isinstance(graph_obj, Pregel | BaseRemotePregel):
@@ -480,7 +528,7 @@ async def collect_graphs_from_env(register: bool = False) -> None:
         for task in js_bg_tasks:
             task.add_done_callback(_handle_exception)
 
-        await wait_until_js_ready()
+        await wait_until_js_ready(js_bg_tasks)
 
         for spec in js_specs:
             graph = RemotePregel(graph_id=spec.id)
@@ -524,6 +572,43 @@ def verify_graphs() -> None:
 
 def _metadata_fn(spec: GraphSpec) -> dict[str, Any]:
     return {"graph_id": spec.id, "module": spec.module, "path": spec.path}
+
+
+def patch_packages_distributions() -> None:
+    """Cache importlib.metadata.packages_distributions() to avoid repeated full scans.
+
+    google-api-core >=2.28.0 calls packages_distributions() — an uncached O(N)
+    scan of every installed package's RECORD file — 13+ times at import time
+    (once per google.cloud.* sub-package).  With ddtrace's import hooks each
+    call takes ~13 s in production, totalling ~170 s.
+
+    The installed-package set never changes during a process lifetime, so a
+    single cached result is safe and reduces 13 scans to 1.
+
+    Controlled by LSD_CACHE_PACKAGES_DISTRIBUTIONS (default "false").
+    Set to "true" to enable.
+    """
+    if os.environ.get("LSD_CACHE_PACKAGES_DISTRIBUTIONS", "false").lower() != "true":
+        return
+
+    import importlib.metadata  # noqa: PLC0415
+
+    if getattr(importlib.metadata.packages_distributions, "_cached", False):
+        return
+
+    logger.info("Caching importlib.metadata.packages_distributions()")
+
+    original = importlib.metadata.packages_distributions
+    cache: dict | None = None
+
+    def _cached():
+        nonlocal cache
+        if cache is None:
+            cache = original()
+        return cache
+
+    _cached._cached = True
+    importlib.metadata.packages_distributions = _cached
 
 
 @timing.timer(

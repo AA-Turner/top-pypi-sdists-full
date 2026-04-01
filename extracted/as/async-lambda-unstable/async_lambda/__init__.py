@@ -21,4 +21,4 @@ from .models.events.managed_sqs_event import ManagedSQSEvent as ManagedSQSEvent
 from .models.events.scheduled_event import ScheduledEvent as ScheduledEvent
 from .models.events.unmanaged_sqs_event import UnmanagedSQSEvent as UnmanagedSQSEvent
 
-__version__ = "0.6.11"
+__version__ = "0.6.12"

@@ -12,7 +12,7 @@ Public API of this module is defined by __all__.
 
 from dataclasses import dataclass
 import logging
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, TypeVar
 
 from aiohomematic.const import (
     IGNORE_FOR_UN_IGNORE_PARAMETERS,
@@ -56,6 +56,8 @@ class ScheduleInfo:
 
 _LOGGER: Final = logging.getLogger(__name__)
 
+_T = TypeVar("_T")
+
 
 class DeviceQueryFacade(DeviceQueryFacadeProtocol):
     """
@@ -98,14 +100,6 @@ class DeviceQueryFacade(DeviceQueryFacadeProtocol):
             return device.get_custom_data_point(channel_no=channel_no)
         return None
 
-    def get_data_point_by_custom_id(self, *, custom_id: str) -> CallbackDataPointProtocol | None:
-        """Return Homematic data_point by custom_id."""
-        for device in self._device_registry.devices:
-            for dp in device.get_data_points(registered=True):
-                if dp.custom_id == custom_id:
-                    return dp
-        return None
-
     def get_data_points(
         self,
         *,
@@ -126,6 +120,53 @@ class DeviceQueryFacade(DeviceQueryFacadeProtocol):
         if data_point_type is not None:
             return tuple(dp for dp in all_data_points if dp.data_point_type == data_point_type)
         return tuple(all_data_points)
+
+    def get_data_points_by_type(
+        self,
+        *,
+        data_point_class: type[_T],
+        category: DataPointCategory | None = None,
+        interface: Interface | None = None,
+        exclude_no_create: bool = True,
+        registered: bool | None = None,
+    ) -> tuple[_T, ...]:
+        """
+        Return data points filtered by concrete class, with precise return type.
+
+        This method eliminates the need for ``cast()`` when the caller
+        knows which data point type is expected::
+
+            # Before (requires cast):
+            for dp in query_facade.get_data_points():
+                adapter = cast(GenericDataPointProtocolAny, dp)
+
+            # After (type-safe):
+            for dp in query_facade.get_data_points_by_type(
+                data_point_class=GenericDataPoint,
+            ):
+                adapter = dp  # already typed as GenericDataPoint
+
+        Args:
+            data_point_class: The class to filter by (isinstance check).
+            category: Optional category filter.
+            interface: Optional interface filter.
+            exclude_no_create: Exclude data points with no_create flag.
+            registered: Filter by registration status.
+
+        Returns:
+            Tuple of data points matching the given class.
+
+        """
+        return tuple(
+            dp
+            for dp in self.get_data_points(
+                category=category,
+                interface=interface,
+                exclude_no_create=exclude_no_create,
+                registered=registered,
+            )
+            if isinstance(dp, data_point_class)
+        )
 
     def get_devices(
         self,

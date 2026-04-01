@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.new_kafka_trigger_auto_offset_reset import NewKafkaTriggerAutoOffsetReset
+from ..models.new_kafka_trigger_filter_logic import NewKafkaTriggerFilterLogic
 from ..models.new_kafka_trigger_mode import NewKafkaTriggerMode
 from ..types import UNSET, Unset
 
@@ -27,6 +28,8 @@ class NewKafkaTrigger:
         group_id (str): Kafka consumer group ID for this trigger
         topics (List[str]): Array of Kafka topic names to subscribe to
         filters (List['NewKafkaTriggerFiltersItem']):
+        filter_logic (Union[Unset, NewKafkaTriggerFilterLogic]): Logic to apply when evaluating filters. 'and' requires
+            all filters to match, 'or' requires any filter to match. Default: NewKafkaTriggerFilterLogic.AND.
         auto_offset_reset (Union[Unset, NewKafkaTriggerAutoOffsetReset]): Initial offset behavior when consumer group
             has no committed offset. Default: NewKafkaTriggerAutoOffsetReset.LATEST.
         auto_commit (Union[Unset, bool]): When true (default), offsets are committed automatically after receiving each
@@ -48,6 +51,7 @@ class NewKafkaTrigger:
     group_id: str
     topics: List[str]
     filters: List["NewKafkaTriggerFiltersItem"]
+    filter_logic: Union[Unset, NewKafkaTriggerFilterLogic] = NewKafkaTriggerFilterLogic.AND
     auto_offset_reset: Union[Unset, NewKafkaTriggerAutoOffsetReset] = NewKafkaTriggerAutoOffsetReset.LATEST
     auto_commit: Union[Unset, bool] = True
     mode: Union[Unset, NewKafkaTriggerMode] = UNSET
@@ -71,6 +75,10 @@ class NewKafkaTrigger:
             filters_item = filters_item_data.to_dict()
 
             filters.append(filters_item)
+
+        filter_logic: Union[Unset, str] = UNSET
+        if not isinstance(self.filter_logic, Unset):
+            filter_logic = self.filter_logic.value
 
         auto_offset_reset: Union[Unset, str] = UNSET
         if not isinstance(self.auto_offset_reset, Unset):
@@ -106,6 +114,8 @@ class NewKafkaTrigger:
                 "filters": filters,
             }
         )
+        if filter_logic is not UNSET:
+            field_dict["filter_logic"] = filter_logic
         if auto_offset_reset is not UNSET:
             field_dict["auto_offset_reset"] = auto_offset_reset
         if auto_commit is not UNSET:
@@ -151,6 +161,13 @@ class NewKafkaTrigger:
 
             filters.append(filters_item)
 
+        _filter_logic = d.pop("filter_logic", UNSET)
+        filter_logic: Union[Unset, NewKafkaTriggerFilterLogic]
+        if isinstance(_filter_logic, Unset):
+            filter_logic = UNSET
+        else:
+            filter_logic = NewKafkaTriggerFilterLogic(_filter_logic)
+
         _auto_offset_reset = d.pop("auto_offset_reset", UNSET)
         auto_offset_reset: Union[Unset, NewKafkaTriggerAutoOffsetReset]
         if isinstance(_auto_offset_reset, Unset):
@@ -195,6 +212,7 @@ class NewKafkaTrigger:
             group_id=group_id,
             topics=topics,
             filters=filters,
+            filter_logic=filter_logic,
             auto_offset_reset=auto_offset_reset,
             auto_commit=auto_commit,
             mode=mode,

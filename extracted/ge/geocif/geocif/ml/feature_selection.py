@@ -392,7 +392,8 @@ def select_features(
         sel = RFE(forest, n_features_to_select=min_features_to_select, step=1, verbose=1)
         sel = sel.fit(X_clean, y)
         selected = X_clean.columns[sel.support_].tolist()
-
+    elif method == "SelectKBest":
+        selected = X_clean.columns.tolist()
     else:
         raise ValueError(f"Unknown method: {method}")
     

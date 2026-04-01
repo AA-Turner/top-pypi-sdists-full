@@ -6,10 +6,14 @@ similar-for-display, and ranking logic from the main Keeper class.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 from typing import TYPE_CHECKING, Any, Optional
 
+import yaml
+
+from .analyzers import extract_prompt_section
 from .tracing import get_tracer
 from .types import (
     Item,
@@ -35,6 +39,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 tracer = get_tracer("flow")
+
+_SUPPORTED_MCP_PROMPT_ARGS = ("text", "id", "since", "token_budget")
 
 
 class ContextResolutionMixin:
@@ -348,6 +354,63 @@ class ContextResolutionMixin:
     # Agent prompts
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _coerce_token_budget(token_budget: Any) -> int | None:
+        """Normalize prompt token budgets from CLI/HTTP input."""
+        if token_budget is None or token_budget == "":
+            return None
+        try:
+            return int(token_budget)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"token_budget must be an integer, got {token_budget!r}") from exc
+
+    @staticmethod
+    def _normalize_mcp_prompt_args(raw: Any) -> tuple[str, ...]:
+        """Normalize a prompt doc's ``mcp_prompt`` tag into ordered arg names."""
+        values: list[Any]
+        if raw is None:
+            return ()
+
+        if isinstance(raw, str):
+            text = raw.strip()
+            parsed: Any = None
+            if text.startswith("[") and text.endswith("]"):
+                try:
+                    parsed = json.loads(text)
+                except Exception:
+                    parsed = None
+            if isinstance(parsed, list):
+                values = parsed
+            else:
+                values = [part.strip() for part in text.split(",")]
+        elif isinstance(raw, (list, tuple)):
+            values = list(raw)
+        else:
+            logger.warning("Ignoring invalid mcp_prompt tag value: %r", raw)
+            return ()
+
+        ordered: list[str] = []
+        seen: set[str] = set()
+        invalid: list[str] = []
+        for value in values:
+            arg = str(value).strip()
+            if not arg or arg in seen:
+                continue
+            if arg not in _SUPPORTED_MCP_PROMPT_ARGS:
+                invalid.append(arg)
+                continue
+            seen.add(arg)
+            ordered.append(arg)
+
+        if invalid:
+            logger.warning(
+                "Ignoring unsupported MCP prompt arguments %s; supported: %s",
+                invalid,
+                ", ".join(_SUPPORTED_MCP_PROMPT_ARGS),
+            )
+
+        return tuple(ordered)
+
     def render_prompt(
         self,
         name: str,
@@ -386,8 +449,6 @@ class ContextResolutionMixin:
             PromptResult with prompt template and optional flow bindings,
             or None if the prompt doc doesn't exist.
         """
-        from .analyzers import extract_prompt_section
-
         self._ensure_sysdocs()
         doc_id = f".prompt/agent/{name}"
         doc = self.get(doc_id)
@@ -398,6 +459,8 @@ class ContextResolutionMixin:
         if not prompt_body:
             # Fall back to full content if no ## Prompt section
             prompt_body = doc.summary
+
+        token_budget = self._coerce_token_budget(token_budget)
 
         state_doc = (doc.tags or {}).get("state")
         if state_doc:
@@ -478,7 +541,13 @@ class ContextResolutionMixin:
             budget=10,
             writable=False,
         )
-        if flow_result.status != "done":
+        if flow_result.status == "stopped":
+            reason = str((flow_result.data or {}).get("reason") or "")
+            if reason not in {"ambiguous", "budget"}:
+                raise ValueError(
+                    f"prompt state flow {state_doc!r} failed: {flow_result.status}: {flow_result.data}"
+                )
+        elif flow_result.status != "done":
             raise ValueError(
                 f"prompt state flow {state_doc!r} failed: {flow_result.status}: {flow_result.data}"
             )
@@ -491,7 +560,7 @@ class ContextResolutionMixin:
             since=since,
             until=until,
             token_budget=token_budget,
-            flow_bindings=flow_result.bindings if flow_result.status == "done" else None,
+            flow_bindings=flow_result.bindings,
         )
 
     def list_prompts(self) -> list[PromptInfo]:
@@ -516,7 +585,8 @@ class ContextResolutionMixin:
                 if line and not line.startswith("#"):
                     summary = line
                     break
-            result.append(PromptInfo(name=name, summary=summary))
+            mcp_arguments = self._normalize_mcp_prompt_args((item.tags or {}).get("mcp_prompt"))
+            result.append(PromptInfo(name=name, summary=summary, mcp_arguments=mcp_arguments))
         return result
 
     # ------------------------------------------------------------------
@@ -938,8 +1008,6 @@ class ContextResolutionMixin:
         current_tags = current.tags
 
         # Build a dynamic state doc from the query args
-        import yaml
-
         rules: list[dict[str, Any]] = []
 
         # Prerequisite guards: use has() to handle missing keys safely

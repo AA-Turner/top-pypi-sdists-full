@@ -44,6 +44,7 @@ class CertificatesApi:
         self,
         name: Optional[StrictStr] = None,
         status: Optional[Any] = None,
+        ids: Optional[List[StrictStr]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -64,6 +65,8 @@ class CertificatesApi:
         :type name: str
         :param status:
         :type status: CertificateStatus
+        :param ids:
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -89,6 +92,7 @@ class CertificatesApi:
         _param = self._api_v10_certificates_get_serialize(
             name=name,
             status=status,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -114,6 +118,7 @@ class CertificatesApi:
         self,
         name: Optional[StrictStr] = None,
         status: Optional[Any] = None,
+        ids: Optional[List[StrictStr]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -134,6 +139,8 @@ class CertificatesApi:
         :type name: str
         :param status:
         :type status: CertificateStatus
+        :param ids:
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -159,6 +166,7 @@ class CertificatesApi:
         _param = self._api_v10_certificates_get_serialize(
             name=name,
             status=status,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -184,6 +192,7 @@ class CertificatesApi:
         self,
         name: Optional[StrictStr] = None,
         status: Optional[Any] = None,
+        ids: Optional[List[StrictStr]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -204,6 +213,8 @@ class CertificatesApi:
         :type name: str
         :param status:
         :type status: CertificateStatus
+        :param ids:
+        :type ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -229,6 +240,7 @@ class CertificatesApi:
         _param = self._api_v10_certificates_get_serialize(
             name=name,
             status=status,
+            ids=ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -249,6 +261,7 @@ class CertificatesApi:
         self,
         name,
         status,
+        ids,
         _request_auth,
         _content_type,
         _headers,
@@ -258,6 +271,7 @@ class CertificatesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'ids': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -278,6 +292,10 @@ class CertificatesApi:
         if status is not None:
             
             _query_params.append(('status', status.value))
+            
+        if ids is not None:
+            
+            _query_params.append(('ids', ids))
             
         # process the header parameters
         # process the form parameters

@@ -17,11 +17,11 @@ from aiven.client.speller import suggest
 from argparse import ArgumentParser
 from ast import literal_eval
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from http import HTTPStatus
-from typing import Any, Callable, Final, IO, Optional, Protocol, TypeVar
+from typing import Any, Final, IO, Protocol, TypeVar
 from urllib.parse import urlparse
 
 import errno
@@ -34,7 +34,7 @@ import subprocess
 import sys
 import time
 
-S = TypeVar("S", str, Optional[str])  # Must be exactly str or str | None
+S = TypeVar("S", str, str | None)  # Must be exactly str or str | None
 
 USER_GROUP_COLUMNS = [
     "user_group_name",
@@ -686,107 +686,6 @@ class AivenCLI(argx.CommandLineTool):
                 value = fob.read()
             options[name] = value
         return options
-
-    @arg.json
-    @arg.account_id
-    def account__team__list(self) -> None:
-        """List account teams"""
-        self.print_response(self.client.list_teams(self.args.account_id), json=self.args.json)
-
-    @arg.json
-    @arg.account_id
-    @arg.team_name
-    def account__team__create(self) -> None:
-        """Create a team within an account"""
-        self.client.create_team(self.args.account_id, self.args.team_name)
-
-    @arg.json
-    @arg.account_id
-    @arg.team_id
-    def account__team__delete(self) -> None:
-        """Delete a team"""
-        self.client.delete_team(self.args.account_id, self.args.team_id)
-
-    @arg.json
-    @arg.account_id
-    @arg.team_id
-    def account__team__user_list(self) -> None:
-        """List team members"""
-        self.print_response(
-            self.client.list_team_members(self.args.account_id, self.args.team_id),
-            json=self.args.json,
-        )
-
-    @arg.json
-    @arg.account_id
-    @arg.team_id
-    @arg.email
-    def account__team__user_invite(self) -> None:
-        """Invite user to join a team"""
-        self.client.add_team_member(self.args.account_id, self.args.team_id, self.args.email)
-
-    @arg.json
-    @arg.account_id
-    @arg.team_id
-    def account__team__user_list_pending(self) -> None:
-        """List pending invitations to a team"""
-        self.print_response(
-            self.client.list_team_invites(self.args.account_id, self.args.team_id),
-            json=self.args.json,
-        )
-
-    @arg.json
-    @arg.account_id
-    @arg.team_id
-    @arg.email
-    def account__team__invite_delete(self) -> None:
-        """Delete pending invite from a team"""
-        self.client.delete_team_invite(self.args.account_id, self.args.team_id, self.args.email)
-
-    @arg.json
-    @arg.account_id
-    @arg.team_id
-    @arg.user_id
-    def account__team__user_delete(self) -> None:
-        """Delete user from a team"""
-        self.client.delete_team_member(self.args.account_id, self.args.team_id, self.args.user_id)
-
-    @arg.json
-    @arg.account_id
-    @arg.team_id
-    def account__team__project_list(self) -> None:
-        """List projects associated to a team"""
-        self.print_response(
-            self.client.list_team_projects(self.args.account_id, self.args.team_id),
-            json=self.args.json,
-        )
-
-    @arg.json
-    @arg.account_id
-    @arg.team_id
-    @arg.project
-    @arg(
-        "--team-type",
-        required=True,
-        choices=["admin", "developer", "operator", "read_only"],
-        help="Team type (permission level)",
-    )
-    def account__team__project_attach(self) -> None:
-        """Attach team to a project"""
-        self.client.attach_team_to_project(
-            self.args.account_id,
-            self.args.team_id,
-            self.args.project,
-            self.args.team_type,
-        )
-
-    @arg.json
-    @arg.account_id
-    @arg.team_id
-    @arg.project
-    def account__team__project_detach(self) -> None:
-        """Detach team from a project"""
-        self.client.detach_team_from_project(self.args.account_id, self.args.team_id, self.args.project)
 
     @optional_auth
     @arg.project
@@ -1822,16 +1721,11 @@ class AivenCLI(argx.CommandLineTool):
     def _parse_access_control(self) -> Mapping[str, Any]:
         arg_vars = vars(self.args)
         result = {key: arg_vars[key].split() for key in VALKEY_ACL_ARGS if arg_vars[key] is not None}
-        for key in ["m3_group"]:
-            value = arg_vars[key]
-            if value is not None:
-                result[key] = value
         return result
 
     @arg.project
     @arg.service_name
     @arg("--username", help="Service user username", required=True)
-    @arg("--m3-group", help="Service user group")
     @arg("--valkey-acl-keys", help="ACL rules for keys (Valkey only)")
     @arg("--valkey-acl-commands", help="ACL rules for commands (Valkey only)")
     @arg("--valkey-acl-categories", help="ACL rules for command categories (Valkey only)")
@@ -2071,7 +1965,6 @@ ssl.truststore.type=JKS
     @arg.project
     @arg.service_name
     @arg("--username", help="Service user username", required=True)
-    @arg("--m3-group", help="Service user group")
     @arg("--valkey-acl-keys", help="ACL rules for keys (Valkey only)")
     @arg("--valkey-acl-commands", help="ACL rules for commands (Valkey only)")
     @arg("--valkey-acl-categories", help="ACL rules for command categories (Valkey only)")
@@ -2536,120 +2429,6 @@ ssl.truststore.type=JKS
             service=self.args.service_name,
             index_name=self.args.index_name,
         )
-
-    @arg.project
-    @arg.service_name
-    @arg("--format", help="Format string for output, e.g. '{name} {retention_hours}'")
-    @arg.json
-    def service__m3__namespace__list(self) -> None:
-        """List M3 namespaces"""
-        namespaces = self.client.list_m3_namespaces(project=self.get_project(), service=self.args.service_name)
-        layout = [
-            [
-                "name",
-                "type",
-                "resolution",
-                "retention_period_duration",
-                "blocksize_duration",
-                "block_data_expiry_duration",
-                "buffer_future_duration",
-                "buffer_past_duration",
-                "writes_to_commitlog",
-            ]
-        ]
-        if not self.args.json:
-            # Fix optional fields, flatten for output
-            def _f(ns: dict[str, Any]) -> dict[str, str]:
-                o = ns.get("options", {})
-                ro = o.get("retention_options", {})
-                return {
-                    "name": ns["name"],
-                    "type": ns["type"],
-                    "resolution": ns.get("resolution", ""),
-                    "retention_period_duration": ro.get("retention_period_duration", ""),
-                    "blocksize_duration": ro.get("blocksize_duration", ""),
-                    "block_data_expiry_duration": ro.get("block_data_expiry_duration", ""),
-                    "buffer_future_duration": ro.get("buffer_future_duration", ""),
-                    "buffer_past_duration": ro.get("buffer_past_duration", ""),
-                    "writes_to_commitlog": o.get("writes_to_commitlog", ""),
-                }
-
-            namespaces = [_f(ns) for ns in namespaces]
-        self.print_response(namespaces, format=self.args.format, json=self.args.json, table_layout=layout)
-
-    @arg.project
-    @arg.service_name
-    @arg.ns_name
-    def service__m3__namespace__delete(self) -> None:
-        """Delete M3 namespaces"""
-        try:
-            self.client.delete_m3_namespace(
-                project=self.get_project(), service=self.args.service_name, ns_name=self.args.ns_name
-            )
-        except KeyError as ex:  # namespace does not exist
-            raise argx.UserError(ex)
-
-    @arg.project
-    @arg.service_name
-    @arg.ns_name
-    @arg.ns_type
-    @arg.ns_retention_mandatory
-    @arg.ns_resolution
-    @arg.ns_blocksize_dur
-    @arg.ns_block_data_expiry_dur
-    @arg.ns_buffer_future_dur
-    @arg.ns_buffer_past_dur
-    @arg.ns_writes_to_commitlog
-    def service__m3__namespace__add(self) -> None:
-        """Add M3 namespaces"""
-        try:
-            self.client.add_m3_namespace(
-                project=self.get_project(),
-                service=self.args.service_name,
-                ns_name=self.args.ns_name,
-                ns_type=self.args.ns_type,
-                ns_ret=self.args.ns_retention,
-                ns_res=self.args.ns_resolution,
-                ns_blocksize_dur=self.args.ns_blocksize_dur,
-                ns_block_data_expiry_dur=self.args.ns_block_data_expiry_dur,
-                ns_buffer_future_dur=self.args.ns_buffer_future_dur,
-                ns_buffer_past_dur=self.args.ns_buffer_past_dur,
-                ns_writes_to_commitlog=convert_str_to_value(
-                    schema={"type": ["boolean"]}, value=self.args.ns_writes_to_commitlog
-                ),
-            )
-        except ValueError as ex:  # namespace argument validations
-            raise argx.UserError(ex)
-
-    @arg.project
-    @arg.service_name
-    @arg.ns_name
-    @arg.ns_retention
-    @arg.ns_resolution
-    @arg.ns_blocksize_dur
-    @arg.ns_block_data_expiry_dur
-    @arg.ns_buffer_future_dur
-    @arg.ns_buffer_past_dur
-    @arg.ns_writes_to_commitlog
-    def service__m3__namespace__update(self) -> None:
-        """Add M3 namespaces"""
-        try:
-            self.client.update_m3_namespace(
-                project=self.get_project(),
-                service=self.args.service_name,
-                ns_name=self.args.ns_name,
-                ns_ret=self.args.ns_retention,
-                ns_res=self.args.ns_resolution,
-                ns_blocksize_dur=self.args.ns_blocksize_dur,
-                ns_block_data_expiry_dur=self.args.ns_block_data_expiry_dur,
-                ns_buffer_future_dur=self.args.ns_buffer_future_dur,
-                ns_buffer_past_dur=self.args.ns_buffer_past_dur,
-                ns_writes_to_commitlog=convert_str_to_value(
-                    schema={"type": ["boolean"]}, value=self.args.ns_writes_to_commitlog
-                ),
-            )
-        except (KeyError, ValueError) as ex:  # namespace does not exist, argument validations
-            raise argx.UserError(ex)
 
     @arg.project
     @arg.service_name
@@ -3906,6 +3685,32 @@ ssl.truststore.type=JKS
             print(ex.response.text)
             raise
 
+    @arg.project
+    @arg.json
+    @arg("--project-vpc-id", required=True, help=_project_vpc_id_help)
+    def vpc__peering_connection__refresh(self) -> None:
+        """Trigger an asynchronous refresh of peering connection states for a project VPC"""
+        project_name = self.get_project()
+        try:
+            vpc = self.client.refresh_project_vpc_peering_connections(
+                project=project_name,
+                project_vpc_id=self.args.project_vpc_id,
+            )
+            self.print_response(
+                vpc["peering_connections"],
+                json=self.args.json,
+                table_layout=[
+                    "peer_cloud_account",
+                    "peer_resource_group",
+                    "peer_vpc",
+                    "peer_region",
+                    "state",
+                ],
+            )
+        except client.Error as ex:
+            print(ex.response.text)
+            raise
+
     def _validate_using_cloud_vpc(self) -> None:
         """Raise an error if we might unexpectedly end up using a Project VPC"""
         # If the user was specific about VPC then we don't need to worry
@@ -4155,24 +3960,8 @@ ssl.truststore.type=JKS
         raise argx.UserError(f"{service_type} v{version} is not available")
 
     def _extract_user_config_version(self, service_type: str, user_config: dict) -> str | None:
-        """Extracts version specified in the user config.
-
-        This handles the special case for M3 components which also accept
-        an 'm3_version' entry instead of '{service_type}_version'. If the
-        user supplies an 'm3_version' this method modifies the user_config
-        as the server side would.
-        """
+        """Extracts version specified in the user config."""
         service_version_key = f"{service_type}_version"
-
-        # M3 components have special cases for m3_version as key
-        if service_type in {"m3db", "m3aggregator", "m3coordinator"}:
-            if "m3_version" in user_config:
-                if service_version_key in user_config:
-                    raise argx.UserError(f"'{service_version_key}' and 'm3_version' cannot be specified together")
-
-                # Replace m3_version with service_type specific key
-                user_config[service_version_key] = user_config.pop("m3_version")
-
         return user_config.get(service_version_key)
 
     def _do_version_eol_check(self, service_type: str, requested_version: str, project: str | None = None) -> None:
@@ -4634,8 +4423,7 @@ ssl.truststore.type=JKS
             # keystore/truststore files from default locations, and failing when they do not exist, even if the actual
             # certificates/keys in them would not be used
             with open(os.path.join(self.args.target_directory, "cassandra.yaml"), "w", encoding="utf-8") as fp:
-                fp.write(
-                    """\
+                fp.write("""\
 client_encryption_options:
     enabled: true
     optional: false
@@ -4649,10 +4437,7 @@ server_encryption_options:
     keystore_password: {password}
     truststore: ./sstableloader.truststore.jks
     truststore_password: {password}
-""".format(
-                        password=self.args.password
-                    )
-                )
+""".format(password=self.args.password))
 
             # The Project CA signs the certificate used by the Cassandra native transport, aka the regular client port
             # The internode CA signs the certificate used by SSL storage port, aka the internode port used to stream data
@@ -6046,13 +5831,11 @@ server_encryption_options:
     def organization__create(self) -> None:
         """Create new organization"""
         if not self.args.force:
-            confirmation_result = self.confirm(
-                "Settings like billing details and authentication methods \
+            confirmation_result = self.confirm("Settings like billing details and authentication methods \
     cannot be shared across multiple organizations.\
     \nWhen you create a new organization, you must configure each of these settings manually.\
     \n\nTo use your current settings, create an organizational unit within this organization instead.\
-    \n\nI understand and want to create a new organization (y/N)? "
-            )
+    \n\nI understand and want to create a new organization (y/N)? ")
 
             if not confirmation_result:
                 raise argx.UserError("Aborted")
@@ -6419,6 +6202,28 @@ server_encryption_options:
             [dict(peering_connection, peer_resource_group=peering_connection.get("peer_resource_group"))],
             json=self.args.json,
             table_layout=layout,
+        )
+
+    @arg.json
+    @arg.organization_id
+    @arg("--organization-vpc-id", required=True)
+    def organization__vpc__peering_connection__refresh(self) -> None:
+        """Trigger an asynchronous refresh of peering connection states for an organization VPC"""
+        vpc = self.client.organization_vpc_peering_connections_refresh(
+            organization_id=self.args.organization_id,
+            vpc_id=self.args.organization_vpc_id,
+        )
+        self.print_response(
+            vpc["peering_connections"],
+            json=self.args.json,
+            table_layout=[
+                "peering_connection_id",
+                "peer_cloud_account",
+                "peer_resource_group",
+                "peer_vpc",
+                "peer_region",
+                "state",
+            ],
         )
 
     @arg.json
@@ -6918,6 +6723,135 @@ server_encryption_options:
             project=self.get_project(), service=self.args.service_name, acl_id=self.args.acl_id
         )
         print(response["message"])
+
+    @arg.project
+    @arg.service_name
+    @arg(
+        "--client-id",
+        help="Client ID to apply the quota to. Quotas can be scoped by user, client-id, or both.",
+        required=False,
+        default=None,
+    )
+    @arg(
+        "--user",
+        help="Username to apply the quota to. Quotas can be scoped by user, client-id, or both.",
+        required=False,
+        default=None,
+    )
+    @arg(
+        "--consumer-byte-rate",
+        help="Bandwidth limit in bytes/sec for consumers sharing this quota (0–1073741824).",
+        type=float,
+        required=False,
+        default=None,
+    )
+    @arg(
+        "--producer-byte-rate",
+        help="Bandwidth limit in bytes/sec for producers sharing this quota (0–1073741824).",
+        type=float,
+        required=False,
+        default=None,
+    )
+    @arg(
+        "--request-percentage",
+        help="Maximum CPU percentage for request handler I/O and network threads per broker (0–100).",
+        type=float,
+        required=False,
+        default=None,
+    )
+    def service__quota__create(self) -> None:
+        """Create a Kafka quota"""
+        if self.args.client_id is None and self.args.user is None:
+            raise argx.UserError("At least one of --client-id or --user must be specified")
+        if (
+            self.args.consumer_byte_rate is None
+            and self.args.producer_byte_rate is None
+            and self.args.request_percentage is None
+        ):
+            raise argx.UserError(
+                "At least one of --consumer-byte-rate, --producer-byte-rate or --request-percentage must be specified"
+            )
+        response = self.client.create_service_kafka_quota(
+            project=self.get_project(),
+            service=self.args.service_name,
+            client_id=self.args.client_id,
+            user=self.args.user,
+            consumer_byte_rate=self.args.consumer_byte_rate,
+            producer_byte_rate=self.args.producer_byte_rate,
+            request_percentage=self.args.request_percentage,
+        )
+        print(response["message"])
+
+    @arg.project
+    @arg.service_name
+    @arg(
+        "--client-id",
+        help="Client ID of the quota to delete.",
+        required=False,
+        default=None,
+    )
+    @arg(
+        "--user",
+        help="Username of the quota to delete.",
+        required=False,
+        default=None,
+    )
+    def service__quota__delete(self) -> None:
+        """Delete a Kafka quota"""
+        if self.args.client_id is None and self.args.user is None:
+            raise argx.UserError("At least one of --client-id or --user must be specified")
+        response = self.client.delete_service_kafka_quota(
+            project=self.get_project(),
+            service=self.args.service_name,
+            client_id=self.args.client_id,
+            user=self.args.user,
+        )
+        print(response["message"])
+
+    @arg.project
+    @arg.service_name
+    @arg.json
+    def service__quota__list(self) -> None:
+        """List Kafka quotas"""
+        response = self.client.list_service_kafka_quotas(
+            project=self.get_project(),
+            service=self.args.service_name,
+        )
+        quotas = response.get("quotas", [])
+        layout = ["client-id", "user", "consumer_byte_rate", "producer_byte_rate", "request_percentage"]
+        if quotas or self.args.json:
+            self.print_response(quotas, json=self.args.json, table_layout=layout)
+        else:
+            # Show it is empty by printing only layout headers
+            self.print_response([{k: "" for k in layout}], json=self.args.json, table_layout=layout)
+
+    @arg.project
+    @arg.service_name
+    @arg(
+        "--client-id",
+        help="Client ID of the quota to describe.",
+        required=False,
+        default=None,
+    )
+    @arg(
+        "--user",
+        help="Username of the quota to describe.",
+        required=False,
+        default=None,
+    )
+    @arg.json
+    def service__quota__describe(self) -> None:
+        """Describe a specific Kafka quota"""
+        if self.args.client_id is None and self.args.user is None:
+            raise argx.UserError("At least one of --client-id or --user must be specified")
+        response = self.client.describe_service_kafka_quota(
+            project=self.get_project(),
+            service=self.args.service_name,
+            client_id=self.args.client_id,
+            user=self.args.user,
+        )
+        layout = ["client-id", "user", "consumer_byte_rate", "producer_byte_rate", "request_percentage"]
+        self.print_response(response["quota"], json=self.args.json, table_layout=layout, single_item=True)
 
     @arg.project
     @arg.service_name

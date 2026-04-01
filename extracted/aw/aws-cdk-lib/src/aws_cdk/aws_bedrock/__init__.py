@@ -39764,6 +39764,24 @@ class FoundationModelIdentifier(
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_4_SCOUT_17B_INSTRUCT_V1_0"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="MINIMAX_MINIMAX_M2")
+    def MINIMAX_MINIMAX_M2(cls) -> "FoundationModelIdentifier":
+        '''Base model "minimax.minimax-m2".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MINIMAX_MINIMAX_M2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MINIMAX_MINIMAX_M2_1")
+    def MINIMAX_MINIMAX_M2_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "minimax.minimax-m2.1".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MINIMAX_MINIMAX_M2_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MINIMAX_MINIMAX_M2_5")
+    def MINIMAX_MINIMAX_M2_5(cls) -> "FoundationModelIdentifier":
+        '''Base model "minimax.minimax-m2.5".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MINIMAX_MINIMAX_M2_5"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="MISTRAL_LARGE_2_V0_1")
     def MISTRAL_LARGE_2_V0_1(cls) -> "FoundationModelIdentifier":
         '''Base model "mistral.mistral-large-2407-v1:0".'''
@@ -39944,6 +39962,24 @@ class FoundationModelIdentifier(
     def WRITER_PALMYRA_X5_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "writer.palmyra-x5-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "WRITER_PALMYRA_X5_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ZAI_GLM_4_7")
+    def ZAI_GLM_4_7(cls) -> "FoundationModelIdentifier":
+        '''Base model "zai.glm-4.7".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ZAI_GLM_4_7"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ZAI_GLM_4_7_FLASH")
+    def ZAI_GLM_4_7_FLASH(cls) -> "FoundationModelIdentifier":
+        '''Base model "zai.glm-4.7-flash".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ZAI_GLM_4_7_FLASH"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ZAI_GLM_5")
+    def ZAI_GLM_5(cls) -> "FoundationModelIdentifier":
+        '''Base model "zai.glm-5".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ZAI_GLM_5"))
 
     @builtins.property
     @jsii.member(jsii_name="modelId")

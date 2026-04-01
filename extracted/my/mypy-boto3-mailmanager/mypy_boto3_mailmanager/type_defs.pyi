@@ -3,7 +3,7 @@ Type annotations for mailmanager service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mailmanager/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -39,11 +39,13 @@ from .literals import (
     IngressTlsProtocolAttributeType,
     IngressTlsProtocolOperatorType,
     IpTypeType,
+    LambdaInvocationTypeType,
     MailFromType,
     RetentionPeriodType,
     RuleAddressListEmailAttributeType,
     RuleBooleanEmailAttributeType,
     RuleBooleanOperatorType,
+    RuleClientCertificateAttributeType,
     RuleDmarcOperatorType,
     RuleDmarcPolicyType,
     RuleIpOperatorType,
@@ -56,6 +58,8 @@ from .literals import (
     SearchStateType,
     SnsNotificationEncodingType,
     SnsNotificationPayloadTypeType,
+    TlsPolicyType,
+    TrustStoreResponseOptionType,
 )
 
 if sys.version_info >= (3, 12):
@@ -83,6 +87,7 @@ __all__ = (
     "ArchiveStringExpressionTypeDef",
     "ArchiveStringToEvaluateTypeDef",
     "ArchiveTypeDef",
+    "BounceActionTypeDef",
     "CreateAddonInstanceRequestTypeDef",
     "CreateAddonInstanceResponseTypeDef",
     "CreateAddonSubscriptionRequestTypeDef",
@@ -176,6 +181,7 @@ __all__ = (
     "IngressStringToEvaluateTypeDef",
     "IngressTlsProtocolExpressionTypeDef",
     "IngressTlsProtocolToEvaluateTypeDef",
+    "InvokeLambdaActionTypeDef",
     "ListAddonInstancesRequestPaginateTypeDef",
     "ListAddonInstancesRequestTypeDef",
     "ListAddonInstancesResponseTypeDef",
@@ -291,7 +297,9 @@ __all__ = (
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "TimestampTypeDef",
+    "TlsAuthConfigurationTypeDef",
     "TrafficPolicyTypeDef",
+    "TrustStoreTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateArchiveRequestTypeDef",
     "UpdateIngressPointRequestTypeDef",
@@ -350,6 +358,15 @@ class ArchiveTypeDef(TypedDict):
     ArchiveState: NotRequired[ArchiveStateType]
     LastUpdatedTimestamp: NotRequired[datetime]
 
+class BounceActionTypeDef(TypedDict):
+    RoleArn: str
+    Sender: str
+    StatusCode: str
+    SmtpReplyCode: str
+    DiagnosticMessage: str
+    ActionFailurePolicy: NotRequired[ActionFailurePolicyType]
+    Message: NotRequired[str]
+
 class TagTypeDef(TypedDict):
     Key: str
     Value: str
@@ -363,10 +380,6 @@ class ResponseMetadataTypeDef(TypedDict):
 
 class ImportDataFormatTypeDef(TypedDict):
     ImportDataType: ImportDataTypeType
-
-class IngressPointConfigurationTypeDef(TypedDict):
-    SmtpPassword: NotRequired[str]
-    SecretArn: NotRequired[str]
 
 class DeleteAddonInstanceRequestTypeDef(TypedDict):
     AddonInstanceId: str
@@ -483,6 +496,7 @@ class GetArchiveSearchResultsRequestTypeDef(TypedDict):
 
 class GetIngressPointRequestTypeDef(TypedDict):
     IngressPointId: str
+    IncludeTrustStoreContents: NotRequired[TrustStoreResponseOptionType]
 
 class GetMemberOfAddressListRequestTypeDef(TypedDict):
     AddressListId: str
@@ -537,6 +551,13 @@ IngressPointTypeDef = TypedDict(
 
 class IngressTlsProtocolToEvaluateTypeDef(TypedDict):
     Attribute: NotRequired[Literal["TLS_PROTOCOL"]]
+
+class InvokeLambdaActionTypeDef(TypedDict):
+    FunctionArn: str
+    InvocationType: LambdaInvocationTypeType
+    RoleArn: str
+    ActionFailurePolicy: NotRequired[ActionFailurePolicyType]
+    RetryTimeMinutes: NotRequired[int]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -691,6 +712,11 @@ class StopArchiveExportRequestTypeDef(TypedDict):
 class StopArchiveSearchRequestTypeDef(TypedDict):
     SearchId: str
 
+class TrustStoreTypeDef(TypedDict):
+    CAContent: str
+    CrlContent: NotRequired[str]
+    KmsKeyArn: NotRequired[str]
+
 class UntagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     TagKeys: Sequence[str]
@@ -705,6 +731,7 @@ class RuleStringToEvaluateTypeDef(TypedDict):
     Attribute: NotRequired[RuleStringEmailAttributeType]
     MimeHeaderAttribute: NotRequired[str]
     Analysis: NotRequired[AnalysisTypeDef]
+    ClientCertificateAttribute: NotRequired[RuleClientCertificateAttributeType]
 
 class RuleVerdictToEvaluateTypeDef(TypedDict):
     Attribute: NotRequired[RuleVerdictAttributeType]
@@ -896,14 +923,6 @@ class ImportJobTypeDef(TypedDict):
     CompletedTimestamp: NotRequired[datetime]
     Error: NotRequired[str]
 
-class UpdateIngressPointRequestTypeDef(TypedDict):
-    IngressPointId: str
-    IngressPointName: NotRequired[str]
-    StatusToUpdate: NotRequired[IngressPointStatusToUpdateType]
-    RuleSetId: NotRequired[str]
-    TrafficPolicyId: NotRequired[str]
-    IngressPointConfiguration: NotRequired[IngressPointConfigurationTypeDef]
-
 class RowTypeDef(TypedDict):
     ArchivedMessageId: NotRequired[str]
     ReceivedTimestamp: NotRequired[datetime]
@@ -988,10 +1007,6 @@ class IngressIpv6ExpressionTypeDef(TypedDict):
 IngressIsInAddressListUnionTypeDef = Union[
     IngressIsInAddressListTypeDef, IngressIsInAddressListOutputTypeDef
 ]
-
-class IngressPointAuthConfigurationTypeDef(TypedDict):
-    IngressPointPasswordConfiguration: NotRequired[IngressPointPasswordConfigurationTypeDef]
-    SecretArn: NotRequired[str]
 
 class ListIngressPointsResponseTypeDef(TypedDict):
     IngressPoints: list[IngressPointTypeDef]
@@ -1086,6 +1101,8 @@ class RuleActionOutputTypeDef(TypedDict):
     DeliverToMailbox: NotRequired[DeliverToMailboxActionTypeDef]
     DeliverToQBusiness: NotRequired[DeliverToQBusinessActionTypeDef]
     PublishToSns: NotRequired[SnsActionTypeDef]
+    Bounce: NotRequired[BounceActionTypeDef]
+    InvokeLambda: NotRequired[InvokeLambdaActionTypeDef]
 
 class RuleBooleanToEvaluateOutputTypeDef(TypedDict):
     Attribute: NotRequired[RuleBooleanEmailAttributeType]
@@ -1114,6 +1131,9 @@ class RuleNumberExpressionTypeDef(TypedDict):
     Evaluate: RuleNumberToEvaluateTypeDef
     Operator: RuleNumberOperatorType
     Value: float
+
+class TlsAuthConfigurationTypeDef(TypedDict):
+    TrustStore: NotRequired[TrustStoreTypeDef]
 
 class RuleStringExpressionOutputTypeDef(TypedDict):
     Evaluate: RuleStringToEvaluateTypeDef
@@ -1187,38 +1207,6 @@ class IngressBooleanToEvaluateTypeDef(TypedDict):
     Analysis: NotRequired[IngressAnalysisTypeDef]
     IsInAddressList: NotRequired[IngressIsInAddressListUnionTypeDef]
 
-CreateIngressPointRequestTypeDef = TypedDict(
-    "CreateIngressPointRequestTypeDef",
-    {
-        "IngressPointName": str,
-        "Type": IngressPointTypeType,
-        "RuleSetId": str,
-        "TrafficPolicyId": str,
-        "ClientToken": NotRequired[str],
-        "IngressPointConfiguration": NotRequired[IngressPointConfigurationTypeDef],
-        "NetworkConfiguration": NotRequired[NetworkConfigurationTypeDef],
-        "Tags": NotRequired[Sequence[TagTypeDef]],
-    },
-)
-GetIngressPointResponseTypeDef = TypedDict(
-    "GetIngressPointResponseTypeDef",
-    {
-        "IngressPointId": str,
-        "IngressPointName": str,
-        "IngressPointArn": str,
-        "Status": IngressPointStatusType,
-        "Type": IngressPointTypeType,
-        "ARecord": str,
-        "RuleSetId": str,
-        "TrafficPolicyId": str,
-        "IngressPointAuthConfiguration": IngressPointAuthConfigurationTypeDef,
-        "NetworkConfiguration": NetworkConfigurationTypeDef,
-        "CreatedTimestamp": datetime,
-        "LastUpdatedTimestamp": datetime,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-
 class CreateRelayRequestTypeDef(TypedDict):
     RelayName: str
     ServerName: str
@@ -1245,6 +1233,8 @@ class RuleActionTypeDef(TypedDict):
     DeliverToMailbox: NotRequired[DeliverToMailboxActionTypeDef]
     DeliverToQBusiness: NotRequired[DeliverToQBusinessActionTypeDef]
     PublishToSns: NotRequired[SnsActionTypeDef]
+    Bounce: NotRequired[BounceActionTypeDef]
+    InvokeLambda: NotRequired[InvokeLambdaActionTypeDef]
 
 class RuleBooleanExpressionOutputTypeDef(TypedDict):
     Evaluate: RuleBooleanToEvaluateOutputTypeDef
@@ -1256,6 +1246,16 @@ class RuleBooleanToEvaluateTypeDef(TypedDict):
     Attribute: NotRequired[RuleBooleanEmailAttributeType]
     Analysis: NotRequired[AnalysisTypeDef]
     IsInAddressList: NotRequired[RuleIsInAddressListUnionTypeDef]
+
+class IngressPointAuthConfigurationTypeDef(TypedDict):
+    IngressPointPasswordConfiguration: NotRequired[IngressPointPasswordConfigurationTypeDef]
+    SecretArn: NotRequired[str]
+    TlsAuthConfiguration: NotRequired[TlsAuthConfigurationTypeDef]
+
+class IngressPointConfigurationTypeDef(TypedDict):
+    SmtpPassword: NotRequired[str]
+    SecretArn: NotRequired[str]
+    TlsAuthConfiguration: NotRequired[TlsAuthConfigurationTypeDef]
 
 RuleStringExpressionUnionTypeDef = Union[
     RuleStringExpressionTypeDef, RuleStringExpressionOutputTypeDef
@@ -1299,6 +1299,48 @@ class RuleConditionOutputTypeDef(TypedDict):
 RuleBooleanToEvaluateUnionTypeDef = Union[
     RuleBooleanToEvaluateTypeDef, RuleBooleanToEvaluateOutputTypeDef
 ]
+GetIngressPointResponseTypeDef = TypedDict(
+    "GetIngressPointResponseTypeDef",
+    {
+        "IngressPointId": str,
+        "IngressPointName": str,
+        "IngressPointArn": str,
+        "Status": IngressPointStatusType,
+        "Type": IngressPointTypeType,
+        "ARecord": str,
+        "RuleSetId": str,
+        "TrafficPolicyId": str,
+        "IngressPointAuthConfiguration": IngressPointAuthConfigurationTypeDef,
+        "NetworkConfiguration": NetworkConfigurationTypeDef,
+        "TlsPolicy": TlsPolicyType,
+        "CreatedTimestamp": datetime,
+        "LastUpdatedTimestamp": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+CreateIngressPointRequestTypeDef = TypedDict(
+    "CreateIngressPointRequestTypeDef",
+    {
+        "IngressPointName": str,
+        "Type": IngressPointTypeType,
+        "RuleSetId": str,
+        "TrafficPolicyId": str,
+        "ClientToken": NotRequired[str],
+        "IngressPointConfiguration": NotRequired[IngressPointConfigurationTypeDef],
+        "NetworkConfiguration": NotRequired[NetworkConfigurationTypeDef],
+        "TlsPolicy": NotRequired[TlsPolicyType],
+        "Tags": NotRequired[Sequence[TagTypeDef]],
+    },
+)
+
+class UpdateIngressPointRequestTypeDef(TypedDict):
+    IngressPointId: str
+    IngressPointName: NotRequired[str]
+    StatusToUpdate: NotRequired[IngressPointStatusToUpdateType]
+    RuleSetId: NotRequired[str]
+    TrafficPolicyId: NotRequired[str]
+    IngressPointConfiguration: NotRequired[IngressPointConfigurationTypeDef]
+    TlsPolicy: NotRequired[TlsPolicyType]
 
 class GetArchiveExportResponseTypeDef(TypedDict):
     ArchiveId: str

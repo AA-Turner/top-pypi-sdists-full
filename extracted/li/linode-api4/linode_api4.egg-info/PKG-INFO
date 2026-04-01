@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linode_api4
-Version: 5.41.0
+Version: 5.42.0
 Summary: The official Python SDK for Linode API v4
 Author-email: Linode <devs@linode.com>
 License: BSD-3-Clause
@@ -14,11 +14,12 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: requests

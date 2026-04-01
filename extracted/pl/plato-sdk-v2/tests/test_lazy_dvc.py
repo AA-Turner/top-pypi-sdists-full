@@ -19,7 +19,22 @@ from plato.worlds.lazy_dvc import mount_lazy, unmount_lazy
 SDK_ROOT = Path(__file__).resolve().parents[1]
 PLATO_FUSE_ROOT = SDK_ROOT / "plato-fuse"
 PLATO_FUSE_DEBUG_BINARY = PLATO_FUSE_ROOT / "target" / "debug" / "plato-fuse"
-HAS_LOCAL_FUSE = Path("/dev/fuse").exists() and shutil.which("fusermount3") is not None
+
+
+def _fuse_allow_other_enabled() -> bool:
+    """Check if FUSE allow_other is available (required by plato-fuse)."""
+    try:
+        with open("/etc/fuse.conf") as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped == "user_allow_other":
+                    return True
+    except OSError:
+        pass
+    return False
+
+
+HAS_LOCAL_FUSE = Path("/dev/fuse").exists() and shutil.which("fusermount3") is not None and _fuse_allow_other_enabled()
 DUMMY_AWS_CREDENTIALS = {
     "AWS_DEFAULT_REGION": "us-east-1",
     "AWS_ACCESS_KEY_ID": "test-access-key",
@@ -1009,6 +1024,7 @@ class TestSmartCommitSymlinks:
         assert "runtime/postgres/PG_VERSION" not in relpaths
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(not HAS_LOCAL_FUSE, reason="local FUSE support is unavailable")
 class TestSmartCommitLiveFuseRepros:
     @pytest.mark.asyncio
@@ -1489,7 +1505,8 @@ class TestSmartCommitLiveFuseRepros:
         cause the file to disappear from live smart_commit manifests."""
         _tmp_path, cache_dir, _overlay_dir, mountpoint = local_fuse_mount_dir
         fuse_bin = shutil.which("plato-fuse")
-        assert fuse_bin, "plato-fuse not found on PATH"
+        if not fuse_bin:
+            pytest.skip("plato-fuse not found on PATH")
         monkeypatch.setenv("PLATO_FUSE_BINARY", fuse_bin)
 
         original_data = b'{"tasks": [{"id": "1.1", "is_completed": false}]}\n'
@@ -1560,7 +1577,8 @@ class TestSmartCommitLiveFuseRepros:
         a live smart_commit."""
         _tmp_path, cache_dir, _overlay_dir, mountpoint = local_fuse_mount_dir
         fuse_bin = shutil.which("plato-fuse")
-        assert fuse_bin, "plato-fuse not found on PATH"
+        if not fuse_bin:
+            pytest.skip("plato-fuse not found on PATH")
         monkeypatch.setenv("PLATO_FUSE_BINARY", fuse_bin)
 
         original_data = b'{"tasks": [{"id": "1.1", "is_completed": false}]}\n'
@@ -1635,7 +1653,8 @@ class TestSmartCommitLiveFuseRepros:
         """A file that is unlinked and NOT re-created must stay out of the manifest."""
         _tmp_path, cache_dir, _overlay_dir, mountpoint = local_fuse_mount_dir
         fuse_bin = shutil.which("plato-fuse")
-        assert fuse_bin, "plato-fuse not found on PATH"
+        if not fuse_bin:
+            pytest.skip("plato-fuse not found on PATH")
         monkeypatch.setenv("PLATO_FUSE_BINARY", fuse_bin)
 
         original_data = b"delete me\n"
@@ -1685,6 +1704,7 @@ class TestSmartCommitLiveFuseRepros:
         )
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(not HAS_LOCAL_FUSE, reason="local FUSE support is unavailable")
 class TestFuseVisibleAttrBlocking:
     """Regression tests for visible_attr blocking the single-threaded FUSE loop.

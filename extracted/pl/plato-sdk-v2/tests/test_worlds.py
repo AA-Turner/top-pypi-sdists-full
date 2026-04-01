@@ -3,6 +3,8 @@
 from typing import Annotated
 from unittest.mock import patch
 
+import pytest
+
 
 class TestWorldImports:
     """Test that world module imports work correctly."""
@@ -261,6 +263,66 @@ class TestRunConfig:
         assert annotations["prompt"] is None  # No marker
 
 
+@pytest.mark.asyncio
+async def test_inline_child_agent_images_resolve_from_package(monkeypatch: pytest.MonkeyPatch) -> None:
+    from plato.worlds import Agent, AgentConfig, RunConfig
+    from plato.worlds.base import _resolve_inline_agent_images
+
+    async def fake_get_agent_schema(package_name: str, version: str | None = None) -> dict[str, str]:
+        assert package_name == "claude-code"
+        assert version is None
+        return {"image": "example.registry/plato-agents/claude-code:3.1.4"}
+
+    monkeypatch.setattr("plato.worlds.base.get_agent_schema", fake_get_agent_schema)
+
+    class InlineChildConfig(RunConfig):
+        reviewer_agent: Annotated[AgentConfig, Agent(description="Reviewer")]
+
+    config = InlineChildConfig.model_validate(
+        {
+            "reviewer_agent": {
+                "package": "claude-code:latest",
+                "config": {"max_turns": 120},
+            }
+        }
+    )
+
+    await _resolve_inline_agent_images(config)
+
+    assert config.reviewer_agent.package == "claude-code:latest"
+    assert config.reviewer_agent.image == "example.registry/plato-agents/claude-code:3.1.4"
+
+
+@pytest.mark.asyncio
+async def test_inline_child_launch_config_resolves_env_placeholders(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from plato.worlds.base import _resolve_inline_child_launch_config
+
+    async def fake_resolve_config_env_vars(config: dict[str, str], api_key: str | None = None) -> None:
+        del api_key
+        config["from_analyzer"] = "${ANALYZER_ONLY}"
+
+    monkeypatch.setattr("plato.worlds.base.resolve_config_env_vars", fake_resolve_config_env_vars)
+    monkeypatch.setenv("CLAUDE_OAUTH_CREDENTIALS", '{"access_token":"abc"}')
+    monkeypatch.setenv("ANALYZER_ONLY", "resolved-from-env")
+
+    resolved = await _resolve_inline_child_launch_config(
+        {
+            "reviewer_agent": {
+                "package": "claude-code:latest",
+                "config": {
+                    "claude_oauth_credentials": "${CLAUDE_OAUTH_CREDENTIALS}",
+                },
+            }
+        },
+        api_key="test-key",
+    )
+
+    assert resolved["reviewer_agent"]["config"]["claude_oauth_credentials"] == '{"access_token":"abc"}'
+    assert resolved["from_analyzer"] == "resolved-from-env"
+
+
 class TestBaseWorldHelpers:
     def test_world_llm_uses_world_atif_source(self):
         from plato.worlds import BaseWorld, LLMConfig, Observation, RunConfig, StepResult
@@ -471,6 +533,161 @@ class TestWorldModelsModule:
 
         assert Observation is not None
         assert StepResult is not None
+
+
+class TestFinalizeSkipsCompleteInTestMode:
+    """The world runner must NOT call /complete in dev/test mode.
+
+    The Chronos /complete endpoint closes the Plato session, which kills the
+    VM the world runner is on. In dev/test mode the caller (chronos dev/test
+    runner) handles session completion after collecting artifacts.
+    """
+
+    def test_finalize_skips_complete_in_test_mode(self):
+        """_finalize must not call _complete_chronos_session when PLATO_WORLD_TEST_MODE=1."""
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        from plato.worlds import BaseWorld, Observation, RunConfig, StepResult
+
+        class W(BaseWorld[RunConfig]):
+            name = "skip-complete-test"
+
+            async def reset(self) -> Observation:
+                return Observation()
+
+            async def step(self) -> StepResult:
+                return StepResult(observation=Observation(), done=True)
+
+        world = W()
+        world.session = type("S", (), {"otel_url": "https://x/api/otel", "session_id": "test-id"})()
+        world._complete_chronos_session = AsyncMock()
+
+        with patch.dict("os.environ", {"PLATO_WORLD_TEST_MODE": "1"}):
+            asyncio.get_event_loop().run_until_complete(world._finalize(None))
+
+        world._complete_chronos_session.assert_not_called()
+
+    def test_finalize_skips_complete_in_dev_mode(self):
+        """_finalize must not call _complete_chronos_session when PLATO_WORLD_DEV_MODE=1."""
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        from plato.worlds import BaseWorld, Observation, RunConfig, StepResult
+
+        class W(BaseWorld[RunConfig]):
+            name = "skip-complete-dev"
+
+            async def reset(self) -> Observation:
+                return Observation()
+
+            async def step(self) -> StepResult:
+                return StepResult(observation=Observation(), done=True)
+
+        world = W()
+        world.session = type("S", (), {"otel_url": "https://x/api/otel", "session_id": "test-id"})()
+        world._complete_chronos_session = AsyncMock()
+
+        with patch.dict("os.environ", {"PLATO_WORLD_DEV_MODE": "1"}):
+            asyncio.get_event_loop().run_until_complete(world._finalize(None))
+
+        world._complete_chronos_session.assert_not_called()
+
+    def test_finalize_calls_complete_in_production(self):
+        """_finalize must call _complete_chronos_session in production mode."""
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        from plato.worlds import BaseWorld, Observation, RunConfig, StepResult
+
+        class W(BaseWorld[RunConfig]):
+            name = "call-complete-prod"
+
+            async def reset(self) -> Observation:
+                return Observation()
+
+            async def step(self) -> StepResult:
+                return StepResult(observation=Observation(), done=True)
+
+        world = W()
+        world.session = type("S", (), {"otel_url": "https://x/api/otel", "session_id": "test-id"})()
+        world._complete_chronos_session = AsyncMock()
+
+        with patch.dict("os.environ", {}, clear=True):
+            asyncio.get_event_loop().run_until_complete(world._finalize(None))
+
+        world._complete_chronos_session.assert_called_once_with("completed", exit_code=0, result=None)
+
+    def test_finalize_still_reports_human_annotation_in_test_mode(self):
+        """_finalize must still call /complete for RequiresHumanAnnotation even in test mode."""
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        from plato.worlds import (
+            AnnotationWorkspaceItem,
+            BaseWorld,
+            HumanAnnotationRequest,
+            Observation,
+            RequiresHumanAnnotation,
+            RunConfig,
+            StepResult,
+        )
+
+        class W(BaseWorld[RunConfig]):
+            name = "ha-in-test"
+
+            async def reset(self) -> Observation:
+                return Observation()
+
+            async def step(self) -> StepResult:
+                return StepResult(observation=Observation(), done=True)
+
+        world = W()
+        world.session = type("S", (), {"otel_url": "https://x/api/otel", "session_id": "test-id"})()
+        world._complete_chronos_session = AsyncMock()
+
+        ha_error = RequiresHumanAnnotation(
+            HumanAnnotationRequest(
+                title="Review",
+                instructions="Check it",
+                items=[AnnotationWorkspaceItem(workspace="ws", path="f.json", kind="json")],
+            )
+        )
+
+        with patch.dict("os.environ", {"PLATO_WORLD_TEST_MODE": "1"}):
+            asyncio.get_event_loop().run_until_complete(world._finalize(ha_error))
+
+        world._complete_chronos_session.assert_called_once()
+        call_args = world._complete_chronos_session.call_args
+        assert call_args[0][0] == "needs_human_annotation"
+
+    def test_test_mode_env_cannot_be_overridden_by_config(self):
+        """PLATO_WORLD_TEST_MODE must be set after merging test.env to prevent override."""
+        # This is a code-review test — verify the runner sets the flag after env merge.
+        import ast
+        from pathlib import Path
+
+        runner_path = Path(__file__).parent.parent / "plato" / "cli" / "chronos" / "test" / "runner.py"
+        source = runner_path.read_text()
+        tree = ast.parse(source)
+
+        # Find the _run_phase_command method and check that PLATO_WORLD_TEST_MODE
+        # is assigned AFTER the env_map dict is created (not inside it).
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "_run_phase_command":
+                # Find all assignments in the method body
+                assignments = []
+                for stmt in ast.walk(node):
+                    if isinstance(stmt, ast.Assign):
+                        for target in stmt.targets:
+                            if isinstance(target, ast.Subscript):
+                                if (
+                                    isinstance(target.slice, ast.Constant)
+                                    and target.slice.value == "PLATO_WORLD_TEST_MODE"
+                                ):
+                                    assignments.append(stmt.lineno)
+                assert assignments, "PLATO_WORLD_TEST_MODE must be set as a separate assignment"
+                break
 
 
 class TestWorldMarkersModule:

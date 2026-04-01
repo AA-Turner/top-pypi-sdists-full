@@ -13,6 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from __future__ import annotations
+
 import logging
 from functools import wraps
 from typing import (TYPE_CHECKING,
@@ -27,7 +29,7 @@ from typing import (TYPE_CHECKING,
 from couchbase.exceptions import (CouchbaseException,
                                   ErrorMapper,
                                   TransactionsErrorContext)
-from couchbase.exceptions import exception as BaseCouchbaseException
+from couchbase.logic.pycbc_core import pycbc_exception as PycbcCoreException
 from couchbase.logic.supportability import Supportability
 from couchbase.options import (TransactionGetMultiOptions,
                                TransactionGetMultiReplicasFromPreferredServerGroupOptions,
@@ -47,8 +49,11 @@ from .transactions_get_multi import (TransactionGetMultiReplicasFromPreferredSer
                                      TransactionGetMultiSpec)
 
 if TYPE_CHECKING:
-    from couchbase._utils import JSONType, PyCapsuleType
+    from couchbase._utils import JSONType
     from couchbase.collection import Collection
+    from couchbase.logic.cluster_impl import ClusterImpl
+    from couchbase.logic.pycbc_core import transaction_options
+    from couchbase.logic.pycbc_core.pycbc_core_types import TransactionsCapsuleType
     from couchbase.options import TransactionOptions
     from couchbase.transcoder import Transcoder
 
@@ -67,7 +72,7 @@ class BlockingWrapper:
                     log.debug('%s returned %s', fn.__name__, ret)
                     if isinstance(ret, Exception):
                         raise ret
-                    if isinstance(ret, BaseCouchbaseException):
+                    if isinstance(ret, PycbcCoreException):
                         raise ErrorMapper.build_exception(ret)
                     if return_cls is None:
                         return None
@@ -89,6 +94,11 @@ class BlockingWrapper:
 
 
 class Transactions(TransactionsLogic):
+
+    def __init__(self, cluster: ClusterImpl) -> None:
+        super().__init__(cluster.connection,
+                         cluster.cluster_settings.transaction_config,
+                         cluster.cluster_settings.default_serializer)
 
     def run(self,
             txn_logic,                 # type: Callable[[AttemptContext], None]
@@ -146,9 +156,9 @@ class Transactions(TransactionsLogic):
 class AttemptContext(AttemptContextLogic):
 
     def __init__(self,
-                 txns,        # type: PyCapsuleType
+                 txns,        # type: TransactionsCapsuleType
                  transcoder,  # type: Transcoder
-                 opts         # type: Optional[PyCapsuleType]
+                 opts         # type: Optional[transaction_options]
                  ):
         super().__init__(txns, transcoder, None, opts)
 

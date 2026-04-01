@@ -758,9 +758,19 @@ def test(
         Path | None,
         typer.Option("--artifacts-dir", help="Local output directory for logs and junit"),
     ] = None,
-    keep_vm_on_fail: Annotated[
+    keep_vm: Annotated[
         bool,
-        typer.Option("--keep-vm-on-fail", help="Keep VM alive when tests fail"),
+        typer.Option("--keep-vm", help="Keep VM alive after run and save state for --reuse-vm"),
+    ] = False,
+    reuse_vm: Annotated[
+        bool,
+        typer.Option(
+            "--reuse-vm", help="Reuse a previously kept VM (skip provisioning and editable install, rsync only)"
+        ),
+    ] = False,
+    clean: Annotated[
+        bool,
+        typer.Option("--clean", help="Clean workspace state before running tests (use with --reuse-vm)"),
     ] = False,
     verbose: Annotated[
         bool,
@@ -813,7 +823,9 @@ def test(
             phase_filter=phase_key,
             pytest_args=pytest_args,
             artifacts_dir=artifacts_dir,
-            keep_vm_on_fail=keep_vm_on_fail,
+            keep_vm=keep_vm,
+            reuse_vm=reuse_vm,
+            clean=clean,
             verbose=verbose,
         )
         exit_code = asyncio.run(runner.run())

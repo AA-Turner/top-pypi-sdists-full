@@ -12,20 +12,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 from __future__ import annotations
 
 from abc import ABC
-from typing import TYPE_CHECKING, Optional
+from typing import (TYPE_CHECKING,
+                    Any,
+                    Optional)
 
 from couchbase.exceptions import ErrorMapper, InvalidArgumentException
-from couchbase.exceptions import exception as CouchbaseBaseException
-from couchbase.logic.wrappers import decode_value
-from couchbase.pycbc_core import kv_range_scan_operation
+from couchbase.logic.pycbc_core import pycbc_exception as PycbcCoreException
 from couchbase.result import ScanResult
 
 if TYPE_CHECKING:
+    from couchbase.logic.pycbc_core import pycbc_connection
     from couchbase.transcoder import Transcoder
 
 
@@ -116,13 +116,13 @@ class RangeScanRequestLogic:
     ** INTERNAL **
     """
 
-    def __init__(self,
-                 **kwargs
-                 ):
+    def __init__(self, connection: pycbc_connection, **kwargs: Any) -> None:
+        self._connection = connection
         self._transcoder = kwargs.pop('transcoder', None)
-        self._ids_only = kwargs['op_args'].get('ids_only', False)
+
         if not self._transcoder:
             raise InvalidArgumentException('No transcoder provided.')
+        self._ids_only = kwargs['orchestrator_options'].get('ids_only', False)
         self._scan_args = kwargs
         self._scan_iterator = None
         self._started_streaming = False
@@ -149,19 +149,14 @@ class RangeScanRequestLogic:
             return
 
         self._started_streaming = True
-        self._scan_iterator = kv_range_scan_operation(**self._scan_args)
+        self._scan_iterator = self._connection.pycbc_kv_range_scan(**self._scan_args)
 
     def _get_next_row(self):
         if self.done_streaming is True:
             return
 
         resp = next(self._scan_iterator)
-        if isinstance(resp, CouchbaseBaseException):
+        if isinstance(resp, PycbcCoreException):
             raise ErrorMapper.build_exception(resp)
 
-        value = resp.raw_result.get('value', None)
-        flags = resp.raw_result.get('flags', None)
-        if value:
-            resp.raw_result['value'] = decode_value(self.transcoder, value, flags)
-
-        return ScanResult(resp, self._ids_only)
+        return ScanResult(resp, self._ids_only, self.transcoder)

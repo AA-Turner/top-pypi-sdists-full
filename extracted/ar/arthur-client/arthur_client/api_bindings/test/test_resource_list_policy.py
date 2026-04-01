@@ -69,7 +69,19 @@ class TestResourceListPolicy(unittest.TestCase):
                                 description = '', 
                                 validity_period_days = 56, )
                             ], 
-                        last_updated_by_user_id = '', )
+                        last_updated_by_user = arthur_client.api_bindings.models.user.User(
+                            created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                            updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                            organization_id = '', 
+                            id = '', 
+                            first_name = '', 
+                            last_name = '', 
+                            email = '', 
+                            picture = '', 
+                            user_type = 'user', 
+                            data_plane_id = '', 
+                            client_id = '', 
+                            organization_name = '', ), )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 
@@ -113,7 +125,19 @@ class TestResourceListPolicy(unittest.TestCase):
                                 description = '', 
                                 validity_period_days = 56, )
                             ], 
-                        last_updated_by_user_id = '', )
+                        last_updated_by_user = arthur_client.api_bindings.models.user.User(
+                            created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                            updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                            organization_id = '', 
+                            id = '', 
+                            first_name = '', 
+                            last_name = '', 
+                            email = '', 
+                            picture = '', 
+                            user_type = 'user', 
+                            data_plane_id = '', 
+                            client_id = '', 
+                            organization_name = '', ), )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 

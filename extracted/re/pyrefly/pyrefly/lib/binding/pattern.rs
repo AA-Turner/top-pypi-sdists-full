@@ -293,6 +293,19 @@ impl<'a> BindingsBuilder<'a> {
                     && x.arguments.patterns.len() == 1
                     && x.arguments.keywords.is_empty();
 
+                // Check whether all sub-patterns are irrefutable (e.g. wildcards like `_`).
+                // If so, the class pattern matches all instances, so we don't need a
+                // Placeholder that would block negative narrowing.
+                let all_args_irrefutable = x
+                    .arguments
+                    .patterns
+                    .iter()
+                    .all(|p| p.is_irrefutable() || p.is_wildcard())
+                    && x.arguments
+                        .keywords
+                        .iter()
+                        .all(|kw| kw.pattern.is_irrefutable() || kw.pattern.is_wildcard());
+
                 let mut narrow_ops = if let Some(ref subject) = match_subject {
                     let mut narrow_for_subject = NarrowOps::from_single_narrow_op_for_subject(
                         subject.clone(),
@@ -305,6 +318,7 @@ impl<'a> BindingsBuilder<'a> {
                     // the placeholder. Similarly, single-slot builtins with one positional arg are exhaustive.
                     if (!x.arguments.patterns.is_empty() || !x.arguments.keywords.is_empty())
                         && !is_exhaustive_single_slot
+                        && !all_args_irrefutable
                     {
                         let placeholder = NarrowOps::from_single_narrow_op_for_subject(
                             subject.clone(),
@@ -373,6 +387,16 @@ impl<'a> BindingsBuilder<'a> {
                         narrow_ops.and_all(self.bind_pattern(subject_for_attr, pattern, attr_key))
                     },
                 );
+                // When all sub-patterns are irrefutable, strip Placeholders that `and_all`
+                // added for unmerged names. These Placeholders would incorrectly block
+                // negative narrowing (preventing the class from being narrowed away in
+                // subsequent match cases).
+                if all_args_irrefutable
+                    && let Some(ref subject) = match_subject
+                    && let Some((op, _)) = narrow_ops.0.get_mut(subject.name())
+                {
+                    op.strip_placeholders();
+                }
                 narrow_ops
             }
             Pattern::MatchOr(x) => {
@@ -491,6 +515,17 @@ impl<'a> BindingsBuilder<'a> {
                 );
                 new_narrow_ops.and_all(guard_narrow_ops)
             }
+            // Only accumulate narrows for the match subject. Alias names
+            // from MatchAs were already copied to the subject via
+            // and_for_subject and would create spurious entries if they
+            // shadow outer variables. When there is no narrowing subject
+            // (e.g. `match make_color():`), drop all narrows so that alias
+            // names don't resolve against unrelated outer variables.
+            new_narrow_ops.0.retain(|name, _| {
+                match_narrowing_subject
+                    .as_ref()
+                    .is_some_and(|s| name == s.name())
+            });
             negated_prev_ops.and_all(new_narrow_ops.negate());
             self.stmts(body, parent);
             self.finish_branch();
@@ -498,13 +533,7 @@ impl<'a> BindingsBuilder<'a> {
         if exhaustive {
             self.finish_exhaustive_fork();
         } else {
-            // Build narrow_entries from negated_prev_ops.
-            // For match, all entries use the same subject_idx since there's one subject.
-            let narrow_entries: Vec<_> = negated_prev_ops
-                .0
-                .iter()
-                .map(|(_name, (op, range))| (subject_idx, Box::new(op.clone()), *range))
-                .collect();
+            let narrow_entries = self.build_narrow_entries(&negated_prev_ops);
             // Create BindingExpect only if we have a narrowing subject (for exhaustiveness warnings)
             if let Some(narrowing_subject) = &match_narrowing_subject
                 && let Some((op, range)) = negated_prev_ops.0.get(narrowing_subject.name())

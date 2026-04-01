@@ -4,7 +4,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Any, Callable, Dict, List, Optional, Union
 import asyncio
 import logging
-
+from praisonaiagents._logging import get_logger
 
 @dataclass
 class RealtimeConfig:
@@ -32,7 +32,6 @@ class RealtimeConfig:
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""
         return {k: v for k, v in asdict(self).items() if v is not None}
-
 
 class RealtimeAgent:
     """Agent for real-time voice conversations using OpenAI Realtime API.
@@ -107,7 +106,7 @@ class RealtimeAgent:
         self._connected = False
         
         # Configure logging
-        self._logger = logging.getLogger(f"RealtimeAgent.{name}")
+        self._logger = get_logger(f"RealtimeAgent.{name}")
         if not verbose:
             self._logger.setLevel(logging.WARNING)
     
@@ -138,16 +137,20 @@ class RealtimeAgent:
             True if connected successfully
         """
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If already in async context, can't use run_until_complete
-                self._log("Use aconnect() in async context", "yellow")
-                return False
-            return loop.run_until_complete(self.aconnect(**kwargs))
+            # Try to get the running loop - if this succeeds, we're in async context
+            loop = asyncio.get_running_loop()
+            # If already in async context, can't use run_until_complete
+            self._log("Use aconnect() in async context", "yellow")
+            return False
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop.run_until_complete(self.aconnect(**kwargs))
+            # No running loop, safe to create/get one and run
+            try:
+                loop = asyncio.get_event_loop()
+                return loop.run_until_complete(self.aconnect(**kwargs))
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                return loop.run_until_complete(self.aconnect(**kwargs))
     
     async def aconnect(self, **kwargs) -> bool:
         """Connect to the Realtime API asynchronously.
@@ -209,15 +212,19 @@ class RealtimeAgent:
             True if disconnected successfully
         """
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                self._log("Use adisconnect() in async context", "yellow")
-                return False
-            return loop.run_until_complete(self.adisconnect())
+            # Try to get the running loop - if this succeeds, we're in async context
+            loop = asyncio.get_running_loop()
+            self._log("Use adisconnect() in async context", "yellow")
+            return False
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop.run_until_complete(self.adisconnect())
+            # No running loop, safe to create/get one and run
+            try:
+                loop = asyncio.get_event_loop()
+                return loop.run_until_complete(self.adisconnect())
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                return loop.run_until_complete(self.adisconnect())
     
     async def adisconnect(self) -> bool:
         """Disconnect from the Realtime API asynchronously.
@@ -273,15 +280,19 @@ class RealtimeAgent:
             True if sent successfully
         """
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                self._log("Use async send in async context", "yellow")
-                return False
-            return loop.run_until_complete(self.asend_text(text))
+            # Try to get the running loop - if this succeeds, we're in async context
+            loop = asyncio.get_running_loop()
+            self._log("Use async send in async context", "yellow")
+            return False
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop.run_until_complete(self.asend_text(text))
+            # No running loop, safe to create/get one and run
+            try:
+                loop = asyncio.get_event_loop()
+                return loop.run_until_complete(self.asend_text(text))
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                return loop.run_until_complete(self.asend_text(text))
     
     async def asend_text(self, text: str) -> bool:
         """Send text message asynchronously.
@@ -315,14 +326,18 @@ class RealtimeAgent:
             True if sent successfully
         """
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                return False
-            return loop.run_until_complete(self.asend_audio(audio_data))
+            # Try to get the running loop - if this succeeds, we're in async context
+            loop = asyncio.get_running_loop()
+            return False
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop.run_until_complete(self.asend_audio(audio_data))
+            # No running loop, safe to create/get one and run
+            try:
+                loop = asyncio.get_event_loop()
+                return loop.run_until_complete(self.asend_audio(audio_data))
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                return loop.run_until_complete(self.asend_audio(audio_data))
     
     async def asend_audio(self, audio_data: bytes) -> bool:
         """Send audio data asynchronously.

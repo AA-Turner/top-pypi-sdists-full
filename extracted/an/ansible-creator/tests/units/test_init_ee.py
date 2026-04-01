@@ -18,7 +18,7 @@ from ansible_creator.exceptions import CreatorError
 from ansible_creator.output import Output
 from ansible_creator.schema import _extract_action_info, for_command
 from ansible_creator.subcommands.init import Init
-from ansible_creator.types import EECollection, EEConfig
+from ansible_creator.types import EECollection, EEConfig, GalaxyServer, ScmServer
 from ansible_creator.utils import TermFeatures
 from tests.defaults import FIXTURES_DIR
 
@@ -43,6 +43,8 @@ class ConfigDict(TypedDict, total=False):
         ee_python_deps: List of Python dependencies for execution environment.
         ee_system_packages: List of system packages for execution environment.
         ee_name: Name/tag for the execution environment image.
+        ee_file_name: Name of the EE definition file.
+        registry_tls_verify: Whether to verify TLS for container registries.
     """
 
     creator_version: str
@@ -61,6 +63,8 @@ class ConfigDict(TypedDict, total=False):
     ee_python_deps: list[str]
     ee_system_packages: list[str]
     ee_name: str
+    ee_file_name: str
+    registry_tls_verify: bool | None
 
 
 @pytest.fixture(name="output")
@@ -174,6 +178,7 @@ def test_run_success_ee_project_with_params(
     cli_args["ee_python_deps"] = ["requests", "boto3"]
     cli_args["ee_system_packages"] = ["git", "openssh-clients"]
     cli_args["ee_name"] = "my-custom-ee"
+    cli_args["ee_file_name"] = "my-ee.yml"
 
     init = Init(Config(**cli_args))
     init.run()
@@ -181,8 +186,9 @@ def test_run_success_ee_project_with_params(
 
     assert r"Note: execution_env project created" in result
 
-    ee_file = tmp_path / "custom_ee_project" / "execution-environment.yml"
+    ee_file = tmp_path / "custom_ee_project" / "my-ee.yml"
     assert ee_file.exists()
+    assert not (tmp_path / "custom_ee_project" / "execution-environment.yml").exists()
 
     ee_content = ee_file.read_text()
 
@@ -681,7 +687,6 @@ def test_ee_project_official_image_microdnf(
 
     Official EE images already have ansible-core and ansible-runner pre-installed,
     so we should not include them in the EE definition to avoid conflicts.
-    They also get ansible.cfg with Portal anchors for Automation Hub configuration.
 
     Args:
         capsys: Pytest fixture to capture stdout and stderr.
@@ -714,37 +719,134 @@ def test_ee_project_official_image_microdnf(
 
     # Should have python_interpreter with python3.11 for official EE images
     assert "python_interpreter:" in ee_content
-    assert "python_path: /usr/bin/python3.11" in ee_content
-
-    # Official EE images should have additional_build_files for ansible.cfg
-    assert "additional_build_files:" in ee_content
-    assert "src: ansible.cfg" in ee_content
-    assert "dest: configs" in ee_content
-
-    # Official EE images should have prepend_galaxy step for ANSIBLE_CONFIG
-    assert "prepend_galaxy:" in ee_content
-    assert "ENV ANSIBLE_CONFIG=/etc/ansible/ansible.cfg" in ee_content
-    assert "COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg" in ee_content
+    assert "python_path: /usr/bin/python3.12" in ee_content
 
     # Official EE images should NOT have pip upgrade or the default sample tag
     assert "RUN $PYCMD -m pip install -U pip" not in ee_content
     assert "ansible_sample_ee" not in ee_content
 
-    # ansible.cfg file should be generated with Portal anchors
+    # Without galaxy_servers and no custom build steps, additional_build_steps
+    # should be omitted entirely for official images
+    assert "additional_build_steps:" not in ee_content
+
+    # Without galaxy_servers, no ansible.cfg or prepend_galaxy should be generated
+    assert "prepend_galaxy:" not in ee_content
     ansible_cfg_file = tmp_path / "ee_official_image" / "ansible.cfg"
-    assert ansible_cfg_file.exists()
-    ansible_cfg_content = ansible_cfg_file.read_text()
-    assert "[galaxy]" in ansible_cfg_content
-    assert "<!--start PAH content-->" in ansible_cfg_content
-    assert "<!--end PAH content-->" in ansible_cfg_content
+    assert not ansible_cfg_file.exists()
 
 
-def test_ee_project_official_image_no_overwrite_ansible_cfg(
+def test_ee_project_with_galaxy_servers(
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
     cli_args: ConfigDict,
 ) -> None:
-    """Test that --no-overwrite skips existing ansible.cfg for official EE images.
+    """Test scaffolding with galaxy_servers generates ansible.cfg and token plumbing.
+
+    Args:
+        capsys: Pytest fixture to capture stdout and stderr.
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Init class object.
+    """
+    galaxy_config = {
+        "base_image": "registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel8:latest",
+        "galaxy_servers": [
+            {
+                "id": "automation_hub",
+                "url": "https://console.redhat.com/api/automation-hub/content/published/",
+                "auth_url": "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token",
+                "token_required": True,
+            },
+            {
+                "id": "private_hub",
+                "url": "https://pah.corp.example.com/api/galaxy/content/published/",
+                "token_required": True,
+            },
+            {
+                "id": "galaxy",
+                "url": "https://galaxy.ansible.com/",
+            },
+        ],
+    }
+
+    cli_args["project"] = "execution_env"
+    cli_args["init_path"] = str(tmp_path / "ee_galaxy")
+    cli_args["ee_config"] = json.dumps(galaxy_config)
+
+    Init(Config(**cli_args)).run()
+    capsys.readouterr()
+
+    # ansible.cfg should be generated from galaxy_servers
+    ansible_cfg_file = tmp_path / "ee_galaxy" / "ansible.cfg"
+    assert ansible_cfg_file.exists()
+    cfg = ansible_cfg_file.read_text()
+
+    assert "server_list = automation_hub, private_hub, galaxy" in cfg
+    assert "[galaxy_server.automation_hub]" in cfg
+    assert "console.redhat.com/api/automation-hub" in cfg
+    assert "auth_url = https://sso.redhat.com/" in cfg
+    assert "[galaxy_server.private_hub]" in cfg
+    assert "pah.corp.example.com" in cfg
+    assert "[galaxy_server.galaxy]" in cfg
+    assert "galaxy.ansible.com" in cfg
+    # Token comments for servers with token_required
+    assert "# Token: set ANSIBLE_GALAXY_SERVER_AUTOMATION_HUB_TOKEN" in cfg
+    assert "# Token: set ANSIBLE_GALAXY_SERVER_PRIVATE_HUB_TOKEN" in cfg
+    # No token values should appear in ansible.cfg
+    assert "token =" not in cfg
+    assert "token=" not in cfg
+
+    # EE definition should have ARG directives for token servers
+    ee_file = tmp_path / "ee_galaxy" / "execution-environment.yml"
+    ee_content = ee_file.read_text()
+    assert "prepend_galaxy:" in ee_content
+    assert "ARG ANSIBLE_GALAXY_SERVER_AUTOMATION_HUB_TOKEN" in ee_content
+    assert "ARG ANSIBLE_GALAXY_SERVER_PRIVATE_HUB_TOKEN" in ee_content
+    # Galaxy server (no token) should NOT have an ARG
+    assert "ARG ANSIBLE_GALAXY_SERVER_GALAXY_TOKEN" not in ee_content
+
+    # Workflow should reference the token env vars
+    wf_file = tmp_path / "ee_galaxy" / ".github" / "workflows" / "ee-build.yml"
+    wf_content = wf_file.read_text()
+    assert "ANSIBLE_GALAXY_SERVER_AUTOMATION_HUB_TOKEN" in wf_content
+    assert "ANSIBLE_GALAXY_SERVER_PRIVATE_HUB_TOKEN" in wf_content
+
+
+def test_ee_project_no_galaxy_servers_no_ansible_cfg(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    cli_args: ConfigDict,
+) -> None:
+    """Test that no ansible.cfg is generated when galaxy_servers is empty.
+
+    This applies even when the base image is an official Red Hat EE image.
+
+    Args:
+        capsys: Pytest fixture to capture stdout and stderr.
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Init class object.
+    """
+    cli_args["project"] = "execution_env"
+    cli_args["init_path"] = str(tmp_path / "ee_no_servers")
+    cli_args["base_image"] = (
+        "registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel8:latest"
+    )
+
+    Init(Config(**cli_args)).run()
+    capsys.readouterr()
+
+    ansible_cfg_file = tmp_path / "ee_no_servers" / "ansible.cfg"
+    assert not ansible_cfg_file.exists()
+
+    ee_content = (tmp_path / "ee_no_servers" / "execution-environment.yml").read_text()
+    assert "prepend_galaxy:" not in ee_content
+
+
+def test_ee_project_no_overwrite_ansible_cfg(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    cli_args: ConfigDict,
+) -> None:
+    """Test that --no-overwrite skips existing ansible.cfg when galaxy_servers are set.
 
     Pre-plant only ``ansible.cfg`` (not the template files) so the copier
     ``has_conflicts()`` check passes, letting ``_write_optional_files()``
@@ -760,12 +862,16 @@ def test_ee_project_official_image_no_overwrite_ansible_cfg(
     custom = "# custom ansible.cfg\n"
     (project_dir / "ansible.cfg").write_text(custom, encoding="utf-8")
 
+    galaxy_config = {
+        "galaxy_servers": [
+            {"id": "galaxy", "url": "https://galaxy.ansible.com/"},
+        ],
+    }
+
     cli_args["project"] = "execution_env"
     cli_args["init_path"] = str(project_dir)
     cli_args["no_overwrite"] = True
-    cli_args["base_image"] = (
-        "registry.redhat.io/ansible-automation-platform-25/ee-minimal-rhel9:latest"
-    )
+    cli_args["ee_config"] = json.dumps(galaxy_config)
 
     Init(Config(**cli_args)).run()
     capsys.readouterr()
@@ -840,6 +946,135 @@ def test_ee_project_official_image_fallback_python(
     assert "package_manager_path: /usr/bin/microdnf" in ee_content
 
 
+def test_ee_project_custom_registry(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    cli_args: ConfigDict,
+) -> None:
+    """Test that registry and image_name are templated into the CI workflow.
+
+    Args:
+        capsys: Pytest fixture to capture stdout and stderr.
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Init class object.
+    """
+    cli_args["project"] = "execution_env"
+    cli_args["init_path"] = str(tmp_path / "ee_custom_registry")
+    cli_args["ee_config"] = json.dumps(
+        {
+            "registry": "quay.io",
+            "image_name": "my-org/my-ee",
+        }
+    )
+
+    init = Init(Config(**cli_args))
+    init.run()
+    result = capsys.readouterr().out
+
+    assert r"Note: execution_env project created" in result
+
+    workflow_file = tmp_path / "ee_custom_registry" / ".github" / "workflows" / "ee-build.yml"
+    workflow_content = workflow_file.read_text()
+
+    assert "vars.EE_REGISTRY || 'quay.io'" in workflow_content
+    assert "vars.EE_IMAGE_NAME || github.repository" in workflow_content
+
+
+def test_ee_project_registry_tls_verify_disabled(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    cli_args: ConfigDict,
+) -> None:
+    """Test that --no-registry-tls-verify produces 'false' in the CI workflow.
+
+    Args:
+        capsys: Pytest fixture to capture stdout and stderr.
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Init class object.
+    """
+    cli_args["project"] = "execution_env"
+    cli_args["init_path"] = str(tmp_path / "ee_tls_verify")
+    cli_args["registry_tls_verify"] = False
+
+    init = Init(Config(**cli_args))
+    init.run()
+    result = capsys.readouterr().out
+
+    assert r"Note: execution_env project created" in result
+
+    workflow_file = tmp_path / "ee_tls_verify" / ".github" / "workflows" / "ee-build.yml"
+    workflow_content = workflow_file.read_text()
+
+    assert "EE_REGISTRY_TLS_VERIFY || 'false'" in workflow_content
+    assert 'default: "false"' in workflow_content
+    assert "--tls-verify=${{ env.EE_REGISTRY_TLS_VERIFY }}" in workflow_content
+
+
+def test_ee_project_registry_tls_verify_explicit_true_overrides_config(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    cli_args: ConfigDict,
+) -> None:
+    """Test --registry-tls-verify overrides an EE config that sets it to false.
+
+    When the EE config file sets registry_tls_verify: false but the user
+    explicitly passes --registry-tls-verify, the CLI flag must win.
+
+    Args:
+        capsys: Pytest fixture to capture stdout and stderr.
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Init class object.
+    """
+    cli_args["project"] = "execution_env"
+    cli_args["init_path"] = str(tmp_path / "ee_tls_override")
+    cli_args["ee_config"] = json.dumps({"registry_tls_verify": False})
+    cli_args["registry_tls_verify"] = True
+
+    init = Init(Config(**cli_args))
+    init.run()
+    result = capsys.readouterr().out
+
+    assert r"Note: execution_env project created" in result
+
+    workflow_file = tmp_path / "ee_tls_override" / ".github" / "workflows" / "ee-build.yml"
+    workflow_content = workflow_file.read_text()
+
+    assert "EE_REGISTRY_TLS_VERIFY || 'true'" in workflow_content
+    assert 'default: "true"' in workflow_content
+
+
+def test_ee_project_registry_tls_verify_none_preserves_config(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    cli_args: ConfigDict,
+) -> None:
+    """Test that omitting the CLI flag preserves the EE config file value.
+
+    When the user does not pass --registry-tls-verify or --no-registry-tls-verify,
+    config.registry_tls_verify is None and the EE config file value is kept.
+
+    Args:
+        capsys: Pytest fixture to capture stdout and stderr.
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Init class object.
+    """
+    cli_args["project"] = "execution_env"
+    cli_args["init_path"] = str(tmp_path / "ee_tls_none")
+    cli_args["ee_config"] = json.dumps({"registry_tls_verify": False})
+
+    init = Init(Config(**cli_args))
+    init.run()
+    result = capsys.readouterr().out
+
+    assert r"Note: execution_env project created" in result
+
+    workflow_file = tmp_path / "ee_tls_none" / ".github" / "workflows" / "ee-build.yml"
+    workflow_content = workflow_file.read_text()
+
+    assert "EE_REGISTRY_TLS_VERIFY || 'false'" in workflow_content
+    assert 'default: "false"' in workflow_content
+
+
 def test_ee_project_non_official_image_no_microdnf(
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
@@ -879,11 +1114,10 @@ def test_ee_project_non_official_image_no_microdnf(
     # Non-official images should use generic python3 path
     assert "python_path: /usr/bin/python3" in ee_content
 
-    # Non-official images should NOT have additional_build_files for ansible.cfg
+    # Without galaxy_servers, no ansible.cfg or prepend_galaxy
     assert "src: ansible.cfg" not in ee_content
     assert "prepend_galaxy:" not in ee_content
 
-    # ansible.cfg file should NOT be generated for non-official images
     ansible_cfg_file = tmp_path / "ee_fedora_image" / "ansible.cfg"
     assert not ansible_cfg_file.exists()
 
@@ -1055,7 +1289,7 @@ def test_ee_project_git_url_edge_cases(
 def test_ee_config_from_dict_full() -> None:
     """Test EEConfig.from_dict with all supported fields."""
     data = {
-        "name": "my-ee",
+        "ee_name": "my-ee",
         "base_image": "quay.io/custom:latest",
         "collections": [{"name": "ansible.posix", "version": ">=1.0"}],
         "python_deps": ["jmespath"],
@@ -1067,7 +1301,7 @@ def test_ee_config_from_dict_full() -> None:
     }
     cfg = EEConfig.from_dict(data)
 
-    assert cfg.name == "my-ee"
+    assert cfg.ee_name == "my-ee"
     assert cfg.base_image == "quay.io/custom:latest"
     assert len(cfg.collections) == 1
     assert cfg.collections[0].name == "ansible.posix"
@@ -1078,16 +1312,105 @@ def test_ee_config_from_dict_full() -> None:
     assert cfg.additional_build_steps == {"prepend_base": ["RUN echo hi"]}
     assert cfg.options == {"package_manager_path": "/usr/bin/dnf"}
     assert "server_list" in cfg.ansible_cfg
+    assert not cfg.galaxy_servers
+
+
+def test_ee_config_from_dict_galaxy_servers() -> None:
+    """Test EEConfig.from_dict with galaxy_servers list."""
+    data = {
+        "galaxy_servers": [
+            {
+                "id": "automation_hub",
+                "url": "https://console.redhat.com/api/automation-hub/content/published/",
+                "auth_url": "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token",
+                "token_required": True,
+            },
+            {
+                "id": "private_hub",
+                "url": "https://pah.corp.example.com/api/galaxy/content/published/",
+                "token_required": True,
+            },
+            {
+                "id": "galaxy",
+                "url": "https://galaxy.ansible.com/",
+            },
+        ],
+    }
+    cfg = EEConfig.from_dict(data)
+
+    assert len(cfg.galaxy_servers) == 3  # noqa: PLR2004
+    assert cfg.galaxy_servers[0].id == "automation_hub"
+    assert "console.redhat.com" in cfg.galaxy_servers[0].url
+    assert "sso.redhat.com" in cfg.galaxy_servers[0].auth_url
+    assert cfg.galaxy_servers[0].token_required is True
+    assert cfg.galaxy_servers[1].id == "private_hub"
+    assert cfg.galaxy_servers[1].token_required is True
+    assert cfg.galaxy_servers[2].id == "galaxy"
+    assert cfg.galaxy_servers[2].token_required is False
+
+
+def test_ee_config_from_dict_registry_and_image_name() -> None:
+    """Test EEConfig.from_dict with registry and image_name."""
+    cfg = EEConfig.from_dict({"registry": "quay.io", "image_name": "my-org/my-ee"})
+    assert cfg.registry == "quay.io"
+    assert cfg.image_name == "my-org/my-ee"
+
+    cfg_default = EEConfig.from_dict({})
+    assert cfg_default.registry == "ghcr.io"
+    assert cfg_default.image_name == ""
+
+
+def test_ee_config_from_dict_registry_rejects_url() -> None:
+    """Test EEConfig.from_dict rejects registry with URL scheme."""
+    with pytest.raises(CreatorError, match="Invalid registry"):
+        EEConfig.from_dict({"registry": "https://ghcr.io"})
+
+    with pytest.raises(CreatorError, match="Invalid registry"):
+        EEConfig.from_dict({"registry": "http://quay.io"})
+
+
+def test_ee_config_from_dict_ee_file_name() -> None:
+    """Test EEConfig.from_dict with custom ee_file_name."""
+    cfg = EEConfig.from_dict({"ee_file_name": "my-ee.yml"})
+    assert cfg.ee_file_name == "my-ee.yml"
+
+    cfg_yaml = EEConfig.from_dict({"ee_file_name": "custom.yaml"})
+    assert cfg_yaml.ee_file_name == "custom.yaml"
+
+    cfg_default = EEConfig.from_dict({})
+    assert cfg_default.ee_file_name == "execution-environment.yml"
+
+
+def test_ee_config_ee_file_name_validation() -> None:
+    """Test that ee_file_name rejects paths and non-YAML extensions."""
+    with pytest.raises(ValueError, match="plain filename"):
+        EEConfig.from_dict({"ee_file_name": "../etc/evil.yml"})
+
+    with pytest.raises(ValueError, match="plain filename"):
+        EEConfig.from_dict({"ee_file_name": "sub/dir/ee.yml"})
+
+    with pytest.raises(ValueError, match="plain filename"):
+        EEConfig.from_dict({"ee_file_name": "sub\\dir\\ee.yml"})
+
+    with pytest.raises(ValueError, match=r"\.yml or \.yaml"):
+        EEConfig.from_dict({"ee_file_name": "ee-def.json"})
+
+    with pytest.raises(ValueError, match=r"\.yml or \.yaml"):
+        EEConfig.from_dict({"ee_file_name": "ee-def.txt"})
 
 
 def test_ee_config_from_dict_defaults() -> None:
     """Test EEConfig.from_dict with empty dict uses defaults."""
     cfg = EEConfig.from_dict({})
 
-    assert cfg.name == "ansible_sample_ee"
+    assert cfg.ee_name == "ansible_sample_ee"
     assert cfg.base_image == "quay.io/fedora/fedora:41"
+    assert cfg.registry == "ghcr.io"
+    assert cfg.image_name == ""
     assert not cfg.collections
     assert not cfg.python_deps
+    assert not cfg.galaxy_servers
+    assert not cfg.scm_servers
 
 
 def test_ee_collection_from_dict_invalid_name() -> None:
@@ -1106,13 +1429,34 @@ def test_ee_collection_as_dict_sparse() -> None:
     assert result == {"name": "ansible.posix", "version": "1.0", "type": "galaxy"}
 
 
+def test_ee_config_from_dict_rejects_unknown_keys() -> None:
+    """Test EEConfig.from_dict rejects unknown keys."""
+    with pytest.raises(CreatorError, match=r"Unknown key.*EE config.*bogus"):
+        EEConfig.from_dict({"bogus": "value"})
+
+    with pytest.raises(CreatorError, match=r"Unknown key.*EE config.*collection_list"):
+        EEConfig.from_dict({"base_image": "quay.io/test:1", "collection_list": []})
+
+    with pytest.raises(CreatorError, match=r"Unknown key.*EE config.*base_images"):
+        EEConfig.from_dict({"base_images": "quay.io/test:1"})
+
+
+def test_ee_collection_from_dict_rejects_unknown_keys() -> None:
+    """Test EECollection.from_dict rejects unknown keys."""
+    with pytest.raises(CreatorError, match=r"Unknown key.*collection.*src"):
+        EECollection.from_dict({"name": "ansible.posix", "src": "foo"})
+
+    with pytest.raises(CreatorError, match=r"Unknown key.*collection.*extra"):
+        EECollection.from_dict({"name": "ansible.posix", "extra": "bar"})
+
+
 def test_ee_config_to_schema_shape() -> None:
     """Test EEConfig.to_schema returns expected structure."""
     schema = EEConfig.to_schema()
 
     assert schema["type"] == "object"
     props = schema["properties"]
-    assert "name" in props
+    assert "ee_name" in props
     assert "base_image" in props
     assert "collections" in props
     assert props["collections"]["type"] == "array"
@@ -1121,6 +1465,13 @@ def test_ee_config_to_schema_shape() -> None:
     assert "python_deps" in props
     assert "system_packages" in props
     assert "ansible_cfg" in props
+    assert "registry" in props
+    assert "image_name" in props
+    assert "galaxy_servers" in props
+    assert props["galaxy_servers"]["type"] == "array"
+    assert "scm_servers" in props
+    assert props["scm_servers"]["type"] == "array"
+    assert "ee_file_name" in props
 
 
 def test_ee_config_schema_in_cli_schema() -> None:
@@ -1130,7 +1481,7 @@ def test_ee_config_schema_in_cli_schema() -> None:
 
     assert ee_config_schema["type"] == "object"
     assert "properties" in ee_config_schema
-    assert "name" in ee_config_schema["properties"]
+    assert "ee_name" in ee_config_schema["properties"]
     assert "base_image" in ee_config_schema["properties"]
     assert "collections" in ee_config_schema["properties"]
 
@@ -1202,8 +1553,293 @@ def test_ee_config_both_sources_rejected(
         subcommand="init",
         project="execution_env",
         init_path=str(tmp_path / "test-ee"),
-        ee_config='{"name": "test"}',
+        ee_config='{"ee_name": "test"}',
         ee_config_file="/some/file.yml",
     )
     with pytest.raises(CreatorError, match="Cannot specify both"):
         Init(config=config)
+
+
+# ---------------------------------------------------------------------------
+# GalaxyServer dataclass tests
+# ---------------------------------------------------------------------------
+
+
+def test_galaxy_server_from_dict_full() -> None:
+    """Test GalaxyServer.from_dict with all fields."""
+    data = {
+        "id": "automation_hub",
+        "url": "https://console.redhat.com/api/automation-hub/content/published/",
+        "auth_url": "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token",
+        "token_required": True,
+    }
+    server = GalaxyServer.from_dict(data)
+
+    assert server.id == "automation_hub"
+    assert "console.redhat.com" in server.url
+    assert "sso.redhat.com" in server.auth_url
+    assert server.token_required is True
+
+
+def test_galaxy_server_from_dict_minimal() -> None:
+    """Test GalaxyServer.from_dict with only required fields."""
+    server = GalaxyServer.from_dict({"id": "galaxy", "url": "https://galaxy.ansible.com/"})
+
+    assert server.id == "galaxy"
+    assert server.url == "https://galaxy.ansible.com/"
+    assert server.auth_url == ""
+    assert server.token_required is False
+
+
+def test_galaxy_server_from_dict_missing_id() -> None:
+    """Test GalaxyServer.from_dict rejects missing id."""
+    with pytest.raises(CreatorError, match="must have an 'id' field"):
+        GalaxyServer.from_dict({"url": "https://galaxy.ansible.com/"})
+
+
+def test_galaxy_server_from_dict_missing_url() -> None:
+    """Test GalaxyServer.from_dict rejects missing url."""
+    with pytest.raises(CreatorError, match="must have a 'url' field"):
+        GalaxyServer.from_dict({"id": "galaxy"})
+
+
+def test_galaxy_server_from_dict_invalid_id() -> None:
+    """Test GalaxyServer.from_dict rejects invalid server IDs."""
+    with pytest.raises(CreatorError, match="Invalid galaxy server id"):
+        GalaxyServer.from_dict({"id": "Bad-Id", "url": "https://example.com/"})
+
+    with pytest.raises(CreatorError, match="Invalid galaxy server id"):
+        GalaxyServer.from_dict({"id": "has.dot", "url": "https://example.com/"})
+
+
+def test_galaxy_server_as_dict() -> None:
+    """Test GalaxyServer.as_dict includes derived token_env_var."""
+    server = GalaxyServer(
+        id="automation_hub",
+        url="https://example.com/",
+        auth_url="https://sso.example.com/token",
+        token_required=True,
+    )
+    result = server.as_dict()
+
+    assert result["id"] == "automation_hub"
+    assert result["url"] == "https://example.com/"
+    assert result["auth_url"] == "https://sso.example.com/token"
+    assert result["token_required"] is True
+    expected_var = "ANSIBLE_GALAXY_SERVER_AUTOMATION_HUB_TOKEN"
+    assert result["token_env_var"] == expected_var
+
+
+def test_galaxy_server_as_dict_no_auth_url() -> None:
+    """Test GalaxyServer.as_dict omits auth_url when empty."""
+    server = GalaxyServer(id="galaxy", url="https://galaxy.ansible.com/")
+    result = server.as_dict()
+
+    assert "auth_url" not in result
+    expected_var = "ANSIBLE_GALAXY_SERVER_GALAXY_TOKEN"
+    assert result["token_env_var"] == expected_var
+
+
+def test_galaxy_server_to_schema() -> None:
+    """Test GalaxyServer.to_schema returns expected structure."""
+    schema = GalaxyServer.to_schema()
+
+    assert schema["type"] == "object"
+    assert "id" in schema["required"]
+    assert "url" in schema["required"]
+    props = schema["properties"]
+    assert "id" in props
+    assert "url" in props
+    assert "auth_url" in props
+    assert "token_required" in props
+
+
+# ---------------------------------------------------------------------------
+# ScmServer dataclass tests
+# ---------------------------------------------------------------------------
+
+
+def test_scm_server_from_dict_full() -> None:
+    """Test ScmServer.from_dict with all fields."""
+    data = {
+        "id": "github_org1",
+        "hostname": "github.com",
+        "token_env_var": "GITHUB_ORG1_TOKEN",
+    }
+    server = ScmServer.from_dict(data)
+
+    assert server.id == "github_org1"
+    assert server.hostname == "github.com"
+    assert server.token_env_var == "GITHUB_ORG1_TOKEN"  # noqa: S105
+
+
+def test_scm_server_from_dict_missing_id() -> None:
+    """Test ScmServer.from_dict rejects missing id."""
+    with pytest.raises(CreatorError, match="must have an 'id' field"):
+        ScmServer.from_dict({"hostname": "github.com", "token_env_var": "TOKEN"})
+
+
+def test_scm_server_from_dict_missing_hostname() -> None:
+    """Test ScmServer.from_dict rejects missing hostname."""
+    with pytest.raises(CreatorError, match="must have a 'hostname' field"):
+        ScmServer.from_dict({"id": "github", "token_env_var": "TOKEN"})
+
+
+def test_scm_server_from_dict_missing_token_env_var() -> None:
+    """Test ScmServer.from_dict rejects missing token_env_var."""
+    with pytest.raises(CreatorError, match="must have a 'token_env_var' field"):
+        ScmServer.from_dict({"id": "github", "hostname": "github.com"})
+
+
+def test_scm_server_from_dict_invalid_id() -> None:
+    """Test ScmServer.from_dict rejects invalid server IDs."""
+    with pytest.raises(CreatorError, match="Invalid SCM server id"):
+        ScmServer.from_dict(
+            {
+                "id": "Bad-Id",
+                "hostname": "github.com",
+                "token_env_var": "TOKEN",
+            }
+        )
+
+
+def test_scm_server_from_dict_invalid_token_env_var() -> None:
+    """Test ScmServer.from_dict rejects invalid environment variable names."""
+    with pytest.raises(CreatorError, match="Invalid token_env_var"):
+        ScmServer.from_dict(
+            {
+                "id": "github",
+                "hostname": "github.com",
+                "token_env_var": "lowercase_bad",
+            }
+        )
+
+    with pytest.raises(CreatorError, match="Invalid token_env_var"):
+        ScmServer.from_dict(
+            {
+                "id": "github",
+                "hostname": "github.com",
+                "token_env_var": "HAS-DASHES",
+            }
+        )
+
+    with pytest.raises(CreatorError, match="Invalid token_env_var"):
+        ScmServer.from_dict(
+            {
+                "id": "github",
+                "hostname": "github.com",
+                "token_env_var": "123_STARTS_WITH_DIGIT",
+            }
+        )
+
+
+def test_scm_server_as_dict() -> None:
+    """Test ScmServer.as_dict returns all fields."""
+    server = ScmServer(
+        id="internal_gitlab",
+        hostname="gitlab.corp.com",
+        token_env_var="INTERNAL_GITLAB_TOKEN",  # noqa: S106
+    )
+    result = server.as_dict()
+
+    assert result["id"] == "internal_gitlab"
+    assert result["hostname"] == "gitlab.corp.com"
+    expected_var = "INTERNAL_GITLAB_TOKEN"
+    assert result["token_env_var"] == expected_var
+
+
+def test_scm_server_to_schema() -> None:
+    """Test ScmServer.to_schema returns expected structure."""
+    schema = ScmServer.to_schema()
+
+    assert schema["type"] == "object"
+    assert "id" in schema["required"]
+    assert "hostname" in schema["required"]
+    assert "token_env_var" in schema["required"]
+    props = schema["properties"]
+    assert "id" in props
+    assert "hostname" in props
+    assert "token_env_var" in props
+
+
+def test_ee_config_from_dict_scm_servers() -> None:
+    """Test EEConfig.from_dict parses scm_servers list."""
+    data = {
+        "scm_servers": [
+            {
+                "id": "github_org1",
+                "hostname": "github.com",
+                "token_env_var": "GITHUB_ORG1_TOKEN",
+            },
+            {
+                "id": "internal_gitlab",
+                "hostname": "gitlab.corp.com",
+                "token_env_var": "INTERNAL_GITLAB_TOKEN",
+            },
+        ],
+    }
+    cfg = EEConfig.from_dict(data)
+
+    assert len(cfg.scm_servers) == 2  # noqa: PLR2004
+    assert cfg.scm_servers[0].id == "github_org1"
+    assert cfg.scm_servers[0].hostname == "github.com"
+    assert cfg.scm_servers[0].token_env_var == "GITHUB_ORG1_TOKEN"  # noqa: S105
+    assert cfg.scm_servers[1].id == "internal_gitlab"
+
+
+def test_ee_project_with_scm_servers(
+    output: Output,
+    tmp_path: Path,
+) -> None:
+    """Test EE project scaffolding with scm_servers generates correct workflow.
+
+    Args:
+        output: Output instance for logging.
+        tmp_path: Temporary directory path.
+    """
+    dest = tmp_path / "scm-ee"
+    config = Config(
+        creator_version="0.0.1",
+        output=output,
+        subcommand="init",
+        project="execution_env",
+        init_path=str(dest),
+        ee_config=json.dumps(
+            {
+                "collections": [
+                    {
+                        "name": "https://${GITHUB_ORG1_TOKEN}@github.com/org1/my-collection",
+                        "type": "git",
+                    },
+                    {"name": "cisco.ios"},
+                ],
+                "scm_servers": [
+                    {
+                        "id": "github_org1",
+                        "hostname": "github.com",
+                        "token_env_var": "GITHUB_ORG1_TOKEN",
+                    },
+                ],
+            }
+        ),
+    )
+    init = Init(config=config)
+    init.run()
+
+    wf_path = dest / ".github" / "workflows" / "ee-build.yml"
+    wf_content = wf_path.read_text()
+
+    assert "GITHUB_ORG1_TOKEN" in wf_content
+    assert "envsubst" in wf_content
+    assert "command -v envsubst" in wf_content
+    assert "context/_build/requirements.yml" in wf_content
+    assert "gettext-base" in wf_content
+    assert "git-credentials" not in wf_content.lower()
+    assert "AAP_EE_BUILDER_GITHUB_TOKEN" not in wf_content
+    assert "AAP_EE_BUILDER_GITLAB_TOKEN" not in wf_content
+
+    next_steps = dest / "NEXT_STEPS.md"
+    assert next_steps.exists()
+    ns_content = next_steps.read_text()
+    assert "GITHUB_ORG1_TOKEN" in ns_content
+    assert "github.com" in ns_content

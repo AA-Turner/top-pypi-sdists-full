@@ -1,5 +1,6 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
+from chalk._gen.chalk.streaming.v1 import simple_streaming_service_pb2 as _simple_streaming_service_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -8,12 +9,19 @@ from typing import ClassVar as _ClassVar, Mapping as _Mapping, Optional as _Opti
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class EnableDebugModeRequest(_message.Message):
-    __slots__ = ("resolver_fqn", "deployment_id")
+    __slots__ = ("resolver_fqn", "deployment_id", "logger_config")
     RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    LOGGER_CONFIG_FIELD_NUMBER: _ClassVar[int]
     resolver_fqn: str
     deployment_id: str
-    def __init__(self, resolver_fqn: _Optional[str] = ..., deployment_id: _Optional[str] = ...) -> None: ...
+    logger_config: _simple_streaming_service_pb2.StreamingLoggerConfig
+    def __init__(
+        self,
+        resolver_fqn: _Optional[str] = ...,
+        deployment_id: _Optional[str] = ...,
+        logger_config: _Optional[_Union[_simple_streaming_service_pb2.StreamingLoggerConfig, _Mapping]] = ...,
+    ) -> None: ...
 
 class EnableDebugModeResponse(_message.Message):
     __slots__ = ("enabled", "enabled_at")
@@ -44,21 +52,24 @@ class GetDebugModeStatusRequest(_message.Message):
     def __init__(self, resolver_fqn: _Optional[str] = ...) -> None: ...
 
 class GetDebugModeStatusResponse(_message.Message):
-    __slots__ = ("enabled", "enabled_at", "storage_bucket", "deployment_id")
+    __slots__ = ("enabled", "enabled_at", "storage_bucket", "deployment_id", "logger_config")
     ENABLED_FIELD_NUMBER: _ClassVar[int]
     ENABLED_AT_FIELD_NUMBER: _ClassVar[int]
     STORAGE_BUCKET_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    LOGGER_CONFIG_FIELD_NUMBER: _ClassVar[int]
     enabled: bool
     enabled_at: _timestamp_pb2.Timestamp
     storage_bucket: str
     deployment_id: str
+    logger_config: _simple_streaming_service_pb2.StreamingLoggerConfig
     def __init__(
         self,
         enabled: bool = ...,
         enabled_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         storage_bucket: _Optional[str] = ...,
         deployment_id: _Optional[str] = ...,
+        logger_config: _Optional[_Union[_simple_streaming_service_pb2.StreamingLoggerConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class GetDebugMessagesRequest(_message.Message):
@@ -142,4 +153,48 @@ class PushTopicResponse(_message.Message):
         topic: _Optional[str] = ...,
         integration: _Optional[str] = ...,
         error: _Optional[_Union[_chalk_error_pb2.ChalkError, _Mapping]] = ...,
+    ) -> None: ...
+
+class SetStreamingDebugConfigRequest(_message.Message):
+    __slots__ = ("resolver_fqn", "deployment_id", "logger_config")
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    LOGGER_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    deployment_id: str
+    logger_config: _simple_streaming_service_pb2.StreamingLoggerConfig
+    def __init__(
+        self,
+        resolver_fqn: _Optional[str] = ...,
+        deployment_id: _Optional[str] = ...,
+        logger_config: _Optional[_Union[_simple_streaming_service_pb2.StreamingLoggerConfig, _Mapping]] = ...,
+    ) -> None: ...
+
+class SetStreamingDebugConfigResponse(_message.Message):
+    __slots__ = ("logger_config",)
+    LOGGER_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    logger_config: _simple_streaming_service_pb2.StreamingLoggerConfig
+    def __init__(
+        self, logger_config: _Optional[_Union[_simple_streaming_service_pb2.StreamingLoggerConfig, _Mapping]] = ...
+    ) -> None: ...
+
+class GetStreamingDebugConfigRequest(_message.Message):
+    __slots__ = ("resolver_fqn",)
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    def __init__(self, resolver_fqn: _Optional[str] = ...) -> None: ...
+
+class GetStreamingDebugConfigResponse(_message.Message):
+    __slots__ = ("logger_config", "deployment_id", "storage_uri")
+    LOGGER_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_URI_FIELD_NUMBER: _ClassVar[int]
+    logger_config: _simple_streaming_service_pb2.StreamingLoggerConfig
+    deployment_id: str
+    storage_uri: str
+    def __init__(
+        self,
+        logger_config: _Optional[_Union[_simple_streaming_service_pb2.StreamingLoggerConfig, _Mapping]] = ...,
+        deployment_id: _Optional[str] = ...,
+        storage_uri: _Optional[str] = ...,
     ) -> None: ...

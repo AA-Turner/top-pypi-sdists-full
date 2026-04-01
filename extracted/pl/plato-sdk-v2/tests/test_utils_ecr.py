@@ -20,6 +20,10 @@ def _mock_successful_publish(monkeypatch):
     return calls
 
 
+def _buildx_build_call(calls: list[list[str]]) -> list[str]:
+    return next(cmd for cmd in calls if cmd[:3] == ["docker", "buildx", "build"])
+
+
 def test_publish_docker_image_disables_provenance_by_default(tmp_path, monkeypatch):
     (tmp_path / "Dockerfile").write_text("FROM scratch\n")
     calls = _mock_successful_publish(monkeypatch)
@@ -32,8 +36,8 @@ def test_publish_docker_image_disables_provenance_by_default(tmp_path, monkeypat
     )
 
     assert result.success is True
-    build_cmd = calls[0]
-    assert build_cmd[:2] == ["docker", "build"]
+    build_cmd = _buildx_build_call(calls)
+    assert build_cmd[:3] == ["docker", "buildx", "build"]
     assert "--provenance=false" in build_cmd
     assert build_cmd[-1] == str(tmp_path)
 
@@ -75,9 +79,9 @@ def test_publish_docker_image_keeps_target_and_build_args(tmp_path, monkeypatch)
     )
 
     assert result.success is True
-    build_cmd = calls[0]
+    build_cmd = _buildx_build_call(calls)
     assert "--provenance=false" in build_cmd
     assert "--target" in build_cmd
     assert build_cmd[build_cmd.index("--target") + 1] == "prod"
     assert "--build-arg" in build_cmd
-    assert build_cmd[build_cmd.index("--build-arg") + 1] == "FOO=bar"
+    assert "FOO=bar" in build_cmd

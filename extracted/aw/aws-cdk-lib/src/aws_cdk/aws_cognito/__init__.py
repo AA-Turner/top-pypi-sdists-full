@@ -827,7 +827,7 @@ about the [OAuth 2.0 authorization framework](https://tools.ietf.org/html/rfc674
 implementation of
 OAuth2.0](https://aws.amazon.com/blogs/mobile/understanding-amazon-cognito-user-pool-oauth-2-0-grants/).
 
-The following code configures an app client with the authorization code grant flow and registers the the app's welcome
+The following code configures an app client with the authorization code grant flow and registers the app's welcome
 page as a callback (or redirect) URL. It also configures the access token scope to 'openid'. All of these concepts can
 be found in the [OAuth 2.0 RFC](https://tools.ietf.org/html/rfc6749).
 
@@ -2478,32 +2478,6 @@ class CfnIdentityPool(
         jsii.set(self, "allowUnauthenticatedIdentities", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="cognitoEvents")
-    def cognito_events(self) -> typing.Any:
-        '''The events to configure.'''
-        return typing.cast(typing.Any, jsii.get(self, "cognitoEvents"))
-
-    @cognito_events.setter
-    def cognito_events(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__360f21073c65bd16eeda7bcf34ec57609826f7d58ba6dc4fc009286320ef72de)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cognitoEvents", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="supportedLoginProviders")
-    def supported_login_providers(self) -> typing.Any:
-        '''Key-value pairs that map provider names to provider app IDs.'''
-        return typing.cast(typing.Any, jsii.get(self, "supportedLoginProviders"))
-
-    @supported_login_providers.setter
-    def supported_login_providers(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__905e78c8fb6056ab2fc4961e4c0d8d7817993690aff93e2be1384e79b1effe9a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "supportedLoginProviders", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="allowClassicFlow")
     def allow_classic_flow(
         self,
@@ -2520,6 +2494,19 @@ class CfnIdentityPool(
             type_hints = typing.get_type_hints(_typecheckingstub__c5b513e4bd7ec3f84408bf9a2b747fb0b06357d05747f6825c473e9274958606)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allowClassicFlow", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="cognitoEvents")
+    def cognito_events(self) -> typing.Any:
+        '''The events to configure.'''
+        return typing.cast(typing.Any, jsii.get(self, "cognitoEvents"))
+
+    @cognito_events.setter
+    def cognito_events(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__360f21073c65bd16eeda7bcf34ec57609826f7d58ba6dc4fc009286320ef72de)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cognitoEvents", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="cognitoIdentityProviders")
@@ -2650,6 +2637,19 @@ class CfnIdentityPool(
             type_hints = typing.get_type_hints(_typecheckingstub__d2aad48eb5d6c1e553867325f44b35ef0b577c7971cf240ed4b646c07303a760)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "samlProviderArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="supportedLoginProviders")
+    def supported_login_providers(self) -> typing.Any:
+        '''Key-value pairs that map provider names to provider app IDs.'''
+        return typing.cast(typing.Any, jsii.get(self, "supportedLoginProviders"))
+
+    @supported_login_providers.setter
+    def supported_login_providers(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__905e78c8fb6056ab2fc4961e4c0d8d7817993690aff93e2be1384e79b1effe9a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "supportedLoginProviders", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnIdentityPool.CognitoIdentityProviderProperty",
@@ -3609,19 +3609,6 @@ class CfnIdentityPoolRoleAttachment(
         jsii.set(self, "identityPoolId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="roles")
-    def roles(self) -> typing.Any:
-        '''The map of the roles associated with this pool.'''
-        return typing.cast(typing.Any, jsii.get(self, "roles"))
-
-    @roles.setter
-    def roles(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__987142230d77cd554d510e7265f08bb6c8a2ff277afb6532b8166d2315b9510c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="roleMappings")
     def role_mappings(
         self,
@@ -3638,6 +3625,19 @@ class CfnIdentityPoolRoleAttachment(
             type_hints = typing.get_type_hints(_typecheckingstub__260d54d4ee9e4e92869ee257cefc54f19659c465c953f833a73ba65eac311091)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleMappings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roles")
+    def roles(self) -> typing.Any:
+        '''The map of the roles associated with this pool.'''
+        return typing.cast(typing.Any, jsii.get(self, "roles"))
+
+    @roles.setter
+    def roles(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__987142230d77cd554d510e7265f08bb6c8a2ff277afb6532b8166d2315b9510c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnIdentityPoolRoleAttachment.MappingRuleProperty",
@@ -4768,19 +4768,6 @@ class CfnManagedLoginBranding(
         return typing.cast("_ManagedLoginBrandingReference_f305ff72", jsii.get(self, "managedLoginBrandingRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="settings")
-    def settings(self) -> typing.Any:
-        '''A JSON file, encoded as a ``Document`` type, with the the settings that you want to apply to your style.'''
-        return typing.cast(typing.Any, jsii.get(self, "settings"))
-
-    @settings.setter
-    def settings(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f22fe695e1f64d8a038409355220b2e920e04882727bafb532a5728f1ffe677c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "settings", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="userPoolId")
     def user_pool_id(self) -> builtins.str:
         '''The user pool where the branding style is assigned.'''
@@ -4841,6 +4828,19 @@ class CfnManagedLoginBranding(
             type_hints = typing.get_type_hints(_typecheckingstub__ea8e49ce2efc2678bcbf1fdf919c5bbeac64755b39b20ef47a3f76532c424dfc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "returnMergedResources", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="settings")
+    def settings(self) -> typing.Any:
+        '''A JSON file, encoded as a ``Document`` type, with the the settings that you want to apply to your style.'''
+        return typing.cast(typing.Any, jsii.get(self, "settings"))
+
+    @settings.setter
+    def settings(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f22fe695e1f64d8a038409355220b2e920e04882727bafb532a5728f1ffe677c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "settings", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="useCognitoProvidedValues")
@@ -5954,19 +5954,6 @@ class CfnUserPool(
         return typing.cast("_UserPoolReference_0ef20aae", jsii.get(self, "userPoolRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="userPoolTagsRaw")
-    def user_pool_tags_raw(self) -> typing.Any:
-        '''The tag keys and values to assign to the user pool.'''
-        return typing.cast(typing.Any, jsii.get(self, "userPoolTagsRaw"))
-
-    @user_pool_tags_raw.setter
-    def user_pool_tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0ac7e31445bc4b1c75709a8cde084565899b188ecd5ed75a434afb3fecf7e3f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolTagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="accountRecoverySetting")
     def account_recovery_setting(
         self,
@@ -6345,6 +6332,19 @@ class CfnUserPool(
             type_hints = typing.get_type_hints(_typecheckingstub__a877e7ca735a6cf85b712d1b09de98f59adcdbef66ffacb8f24d5687caa6a37a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="userPoolTagsRaw")
+    def user_pool_tags_raw(self) -> typing.Any:
+        '''The tag keys and values to assign to the user pool.'''
+        return typing.cast(typing.Any, jsii.get(self, "userPoolTagsRaw"))
+
+    @user_pool_tags_raw.setter
+    def user_pool_tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c0ac7e31445bc4b1c75709a8cde084565899b188ecd5ed75a434afb3fecf7e3f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userPoolTagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="userPoolTier")
@@ -11036,19 +11036,6 @@ class CfnUserPoolIdentityProvider(
         return typing.cast("_UserPoolIdentityProviderReference_a5d59f88", jsii.get(self, "userPoolIdentityProviderRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="attributeMapping")
-    def attribute_mapping(self) -> typing.Any:
-        '''A mapping of IdP attributes to standard and custom user pool attributes.'''
-        return typing.cast(typing.Any, jsii.get(self, "attributeMapping"))
-
-    @attribute_mapping.setter
-    def attribute_mapping(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb44cf93ad9714e2bf7765a12f95e3a12d5a4b89bee8d2de779a247dbd587039)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributeMapping", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="providerDetails")
     def provider_details(self) -> typing.Any:
         '''The scopes, URLs, and identifiers for your external identity provider.'''
@@ -11099,6 +11086,19 @@ class CfnUserPoolIdentityProvider(
             type_hints = typing.get_type_hints(_typecheckingstub__8f109ed40a77a3077cbab955821323c4293e2697420abd221b2032bb4abc2edb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="attributeMapping")
+    def attribute_mapping(self) -> typing.Any:
+        '''A mapping of IdP attributes to standard and custom user pool attributes.'''
+        return typing.cast(typing.Any, jsii.get(self, "attributeMapping"))
+
+    @attribute_mapping.setter
+    def attribute_mapping(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb44cf93ad9714e2bf7765a12f95e3a12d5a4b89bee8d2de779a247dbd587039)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attributeMapping", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="idpIdentifiers")
@@ -25169,20 +25169,14 @@ def _typecheckingstub__db6ea31d27c717c9763b6408e0f3923cd9b6dc2e5d79b1a66ce864122
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__360f21073c65bd16eeda7bcf34ec57609826f7d58ba6dc4fc009286320ef72de(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__905e78c8fb6056ab2fc4961e4c0d8d7817993690aff93e2be1384e79b1effe9a(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c5b513e4bd7ec3f84408bf9a2b747fb0b06357d05747f6825c473e9274958606(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__360f21073c65bd16eeda7bcf34ec57609826f7d58ba6dc4fc009286320ef72de(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25231,6 +25225,12 @@ def _typecheckingstub__37451572b0d939f18081b9fd4743a223e16c702244d56835c0e577ed2
 
 def _typecheckingstub__d2aad48eb5d6c1e553867325f44b35ef0b577c7971cf240ed4b646c07303a760(
     value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__905e78c8fb6056ab2fc4961e4c0d8d7817993690aff93e2be1384e79b1effe9a(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25378,14 +25378,14 @@ def _typecheckingstub__c00bf0f77c984f55d1c0f4d659a057ac347b7a1e253f7f07e04e7cb58
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__987142230d77cd554d510e7265f08bb6c8a2ff277afb6532b8166d2315b9510c(
-    value: typing.Any,
+def _typecheckingstub__260d54d4ee9e4e92869ee257cefc54f19659c465c953f833a73ba65eac311091(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnIdentityPoolRoleAttachment.RoleMappingProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__260d54d4ee9e4e92869ee257cefc54f19659c465c953f833a73ba65eac311091(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnIdentityPoolRoleAttachment.RoleMappingProperty]]]],
+def _typecheckingstub__987142230d77cd554d510e7265f08bb6c8a2ff277afb6532b8166d2315b9510c(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25538,12 +25538,6 @@ def _typecheckingstub__1112e058064e524fbe515ff8791467e6949341c6ddd8deb9c33af3658
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f22fe695e1f64d8a038409355220b2e920e04882727bafb532a5728f1ffe677c(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__73b2532ea6e2300654d7fcc90b2b1fd38f772128b765556475cff8c1be577731(
     value: builtins.str,
 ) -> None:
@@ -25564,6 +25558,12 @@ def _typecheckingstub__a668420e0b3cbceec0ade65febad3505a8186912fb1310c4ecdfbbcd6
 
 def _typecheckingstub__ea8e49ce2efc2678bcbf1fdf919c5bbeac64755b39b20ef47a3f76532c424dfc(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f22fe695e1f64d8a038409355220b2e920e04882727bafb532a5728f1ffe677c(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -25754,12 +25754,6 @@ def _typecheckingstub__f0f2e990078e39ddda95cb24d40eda32e024a9c8840bebebbe6ed0ffb
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c0ac7e31445bc4b1c75709a8cde084565899b188ecd5ed75a434afb3fecf7e3f(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__da99efaebeb66459045576f8f7065b4ef07804424df0623f038bbd64d754aacc(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPool.AccountRecoverySettingProperty]],
 ) -> None:
@@ -25900,6 +25894,12 @@ def _typecheckingstub__9387d4cd9039881cdf533356e5c6db2db0d1781598e0bee842b7485ec
 
 def _typecheckingstub__a877e7ca735a6cf85b712d1b09de98f59adcdbef66ffacb8f24d5687caa6a37a(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0ac7e31445bc4b1c75709a8cde084565899b188ecd5ed75a434afb3fecf7e3f(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26559,12 +26559,6 @@ def _typecheckingstub__7ff11acc316d5d73192edfeab5a5d7fb2aa7891c069fce7ccaa876300
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__bb44cf93ad9714e2bf7765a12f95e3a12d5a4b89bee8d2de779a247dbd587039(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__dd9b80463fd736be9b8b32bf8d2368b0c44578e3b056d45e068ca1e5fdfdb299(
     value: typing.Any,
 ) -> None:
@@ -26585,6 +26579,12 @@ def _typecheckingstub__1ee8fc97c7ce3a7223eabd6be18090c6fec027c8b81ecf420c175e278
 
 def _typecheckingstub__8f109ed40a77a3077cbab955821323c4293e2697420abd221b2032bb4abc2edb(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb44cf93ad9714e2bf7765a12f95e3a12d5a4b89bee8d2de779a247dbd587039(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

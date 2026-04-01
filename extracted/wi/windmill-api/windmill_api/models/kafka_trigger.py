@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.kafka_trigger_auto_offset_reset import KafkaTriggerAutoOffsetReset
+from ..models.kafka_trigger_filter_logic import KafkaTriggerFilterLogic
 from ..models.kafka_trigger_mode import KafkaTriggerMode
 from ..types import UNSET, Unset
 
@@ -36,6 +37,8 @@ class KafkaTrigger:
         edited_at (datetime.datetime): Timestamp of the last edit
         is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (KafkaTriggerMode): job trigger mode
+        filter_logic (Union[Unset, KafkaTriggerFilterLogic]): Logic to apply when evaluating filters. 'and' requires all
+            filters to match, 'or' requires any filter to match. Default: KafkaTriggerFilterLogic.AND.
         auto_offset_reset (Union[Unset, KafkaTriggerAutoOffsetReset]): Initial offset behavior when consumer group has
             no committed offset. 'latest' starts from new messages only, 'earliest' starts from the beginning. Default:
             KafkaTriggerAutoOffsetReset.LATEST.
@@ -62,6 +65,7 @@ class KafkaTrigger:
     edited_at: datetime.datetime
     is_flow: bool
     mode: KafkaTriggerMode
+    filter_logic: Union[Unset, KafkaTriggerFilterLogic] = KafkaTriggerFilterLogic.AND
     auto_offset_reset: Union[Unset, KafkaTriggerAutoOffsetReset] = KafkaTriggerAutoOffsetReset.LATEST
     auto_commit: Union[Unset, bool] = True
     server_id: Union[Unset, str] = UNSET
@@ -94,6 +98,10 @@ class KafkaTrigger:
 
         is_flow = self.is_flow
         mode = self.mode.value
+
+        filter_logic: Union[Unset, str] = UNSET
+        if not isinstance(self.filter_logic, Unset):
+            filter_logic = self.filter_logic.value
 
         auto_offset_reset: Union[Unset, str] = UNSET
         if not isinstance(self.auto_offset_reset, Unset):
@@ -134,6 +142,8 @@ class KafkaTrigger:
                 "mode": mode,
             }
         )
+        if filter_logic is not UNSET:
+            field_dict["filter_logic"] = filter_logic
         if auto_offset_reset is not UNSET:
             field_dict["auto_offset_reset"] = auto_offset_reset
         if auto_commit is not UNSET:
@@ -192,6 +202,13 @@ class KafkaTrigger:
 
         mode = KafkaTriggerMode(d.pop("mode"))
 
+        _filter_logic = d.pop("filter_logic", UNSET)
+        filter_logic: Union[Unset, KafkaTriggerFilterLogic]
+        if isinstance(_filter_logic, Unset):
+            filter_logic = UNSET
+        else:
+            filter_logic = KafkaTriggerFilterLogic(_filter_logic)
+
         _auto_offset_reset = d.pop("auto_offset_reset", UNSET)
         auto_offset_reset: Union[Unset, KafkaTriggerAutoOffsetReset]
         if isinstance(_auto_offset_reset, Unset):
@@ -242,6 +259,7 @@ class KafkaTrigger:
             edited_at=edited_at,
             is_flow=is_flow,
             mode=mode,
+            filter_logic=filter_logic,
             auto_offset_reset=auto_offset_reset,
             auto_commit=auto_commit,
             server_id=server_id,

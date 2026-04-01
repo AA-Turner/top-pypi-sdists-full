@@ -10471,7 +10471,7 @@ class CfnTag:
         :param key: 
         :param value: 
 
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -10497,7 +10497,7 @@ class CfnTag:
     @builtins.property
     def key(self) -> builtins.str:
         '''
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html#cfn-resource-tags-key
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html#cfn-resource-tags-key
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -10506,7 +10506,7 @@ class CfnTag:
     @builtins.property
     def value(self) -> builtins.str:
         '''
-        :link: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html#cfn-resource-tags-value
+        :link: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html#cfn-resource-tags-value
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -14576,7 +14576,7 @@ class Duration(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Duration"):
     def to_string(self) -> builtins.str:
         '''Returns a string representation of this ``Duration``.
 
-        This is is never the right function to use when you want to use the ``Duration``
+        This is never the right function to use when you want to use the ``Duration``
         object in a template. Use ``toSeconds()``, ``toMinutes()``, ``toDays()``, etc. instead.
         '''
         return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
@@ -15807,7 +15807,7 @@ class FingerprintOptions(CopyOptions):
 class Fn(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Fn"):
     '''CloudFormation intrinsic functions.
 
-    http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference.html
+    https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference.html
 
     :exampleMetadata: infused
 
@@ -16053,7 +16053,7 @@ class Fn(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Fn"):
     ) -> builtins.str:
         '''The intrinsic function ``Fn::FindInMap`` returns the value corresponding to keys in a two-level map that is declared in the Mappings section.
 
-        Warning: do not use with lazy mappings as this function will not guarentee a lazy mapping to render in the template.
+        Warning: do not use with lazy mappings as this function will not guarantee a lazy mapping to render in the template.
         Prefer to use ``CfnMapping.findInMap`` in general.
 
         :param map_name: -
@@ -24023,7 +24023,7 @@ class Stack(
     @builtins.property
     @jsii.member(jsii_name="nested")
     def nested(self) -> builtins.bool:
-        '''Indicates if this is a nested stack, in which case ``parentStack`` will include a reference to it's parent.'''
+        '''Indicates if this is a nested stack, in which case ``parentStack`` will include a reference to its parent.'''
         return typing.cast(builtins.bool, jsii.get(self, "nested"))
 
     @builtins.property
@@ -25024,7 +25024,7 @@ class Stage(
     application.
 
     You can then instantiate your subclass multiple times to model multiple
-    copies of your application which should be be deployed to different
+    copies of your application which should be deployed to different
     environments.
 
     :exampleMetadata: infused
@@ -35785,19 +35785,6 @@ class CfnStackSet(
         return typing.cast("TagManager", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="managedExecution")
-    def managed_execution(self) -> typing.Any:
-        '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.'''
-        return typing.cast(typing.Any, jsii.get(self, "managedExecution"))
-
-    @managed_execution.setter
-    def managed_execution(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedExecution", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="permissionModel")
     def permission_model(self) -> builtins.str:
         '''Describes how the IAM roles required for StackSet operations are created.'''
@@ -35905,6 +35892,19 @@ class CfnStackSet(
             type_hints = typing.get_type_hints(_typecheckingstub__69b51712ff6404ccdc84f33ee3ab1d6f9badd506eff63172a852cf116891ff6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "executionRoleName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="managedExecution")
+    def managed_execution(self) -> typing.Any:
+        '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.'''
+        return typing.cast(typing.Any, jsii.get(self, "managedExecution"))
+
+    @managed_execution.setter
+    def managed_execution(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "managedExecution", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="operationPreferences")
@@ -45156,12 +45156,6 @@ def _typecheckingstub__57648a38a59fb6d75dd552ca0fe250aa51e2511c9dbd779f211f36d05
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__bb21580072a82cabb449c57b07732ff0c209ae85a5b9cdc23fd652093bc2278b(
     value: builtins.str,
 ) -> None:
@@ -45206,6 +45200,12 @@ def _typecheckingstub__2e922a74f7a0e62a3b43f5ffc866664dabe0e0f9e9b9fb9bd5591af73
 
 def _typecheckingstub__69b51712ff6404ccdc84f33ee3ab1d6f9badd506eff63172a852cf116891ff6b(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

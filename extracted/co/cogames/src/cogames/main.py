@@ -591,13 +591,13 @@ def play_cmd(
         min=1,
         rich_help_panel="Simulation",
     ),
-    render: Literal["auto", "gui", "vibescope", "unicode", "log", "none"] = typer.Option(  # noqa: B008
+    render: Literal["auto", "gui", "unicode", "log", "none"] = typer.Option(  # noqa: B008
         "auto",
         "--render",
         "-r",
         help=(
             "[bold]auto[/bold]=gui when display is available, otherwise unicode; "
-            "[bold]gui[/bold]=MettaScope, [bold]vibescope[/bold]=VibeScope, "
+            "[bold]gui[/bold]=MettaScope, "
             "[bold]unicode[/bold]=terminal, [bold]log[/bold]=metrics only."
         ),
         rich_help_panel="Simulation",
@@ -670,7 +670,7 @@ def play_cmd(
     display_available = has_display()
     if render == "auto":
         render = "gui" if display_available else "unicode"
-    if render in {"gui", "vibescope"} and not display_available:
+    if render == "gui" and not display_available:
         console.print("[red]Error: This render mode requires a GUI display.[/red]")
         raise typer.Exit(1)
 
@@ -1965,6 +1965,12 @@ def upload_cmd(
         help="Secret environment variable for policy execution (can be repeated). Stored in AWS Secrets Manager.",
         rich_help_panel="Secrets",
     ),
+    use_bedrock: bool = typer.Option(
+        False,
+        "--use-bedrock",
+        help="Enable AWS Bedrock access for this policy. Sets USE_BEDROCK=true in policy environment.",
+        rich_help_panel="Secrets",
+    ),
     # --- Tournament ---
     season: Optional[str] = typer.Option(
         None,
@@ -2041,6 +2047,8 @@ def upload_cmd(
 
     submitting = not no_submit
     parsed_secret_env: dict[str, str] = {}
+    if use_bedrock:
+        parsed_secret_env["USE_BEDROCK"] = "true"
     if secret_env:
         for kv in secret_env:
             key, val = _parse_secret_env(kv)

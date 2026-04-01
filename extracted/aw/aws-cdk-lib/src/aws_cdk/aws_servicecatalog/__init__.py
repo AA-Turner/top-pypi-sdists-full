@@ -7752,7 +7752,7 @@ class IPortfolio(
         :param admin_role: IAM role used to administer the StackSets configuration.
         :param execution_role_name: IAM role used to provision the products in the Stacks.
         :param regions: List of regions to deploy stacks to.
-        :param allow_stack_set_instance_operations: Wether to allow end users to create, update, and delete stacks. Default: false
+        :param allow_stack_set_instance_operations: Whether to allow end users to create, update, and delete stacks. Default: false
         :param description: The description of the constraint. Default: - No description provided
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
@@ -8003,7 +8003,7 @@ class _IPortfolioProxy(
         :param admin_role: IAM role used to administer the StackSets configuration.
         :param execution_role_name: IAM role used to provision the products in the Stacks.
         :param regions: List of regions to deploy stacks to.
-        :param allow_stack_set_instance_operations: Wether to allow end users to create, update, and delete stacks. Default: false
+        :param allow_stack_set_instance_operations: Whether to allow end users to create, update, and delete stacks. Default: false
         :param description: The description of the constraint. Default: - No description provided
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
@@ -8497,7 +8497,7 @@ class Portfolio(
         :param admin_role: IAM role used to administer the StackSets configuration.
         :param execution_role_name: IAM role used to provision the products in the Stacks.
         :param regions: List of regions to deploy stacks to.
-        :param allow_stack_set_instance_operations: Wether to allow end users to create, update, and delete stacks. Default: false
+        :param allow_stack_set_instance_operations: Whether to allow end users to create, update, and delete stacks. Default: false
         :param description: The description of the constraint. Default: - No description provided
         :param message_language: The language code. Configures the language for error messages from service catalog. Default: - English
         '''
@@ -9564,7 +9564,7 @@ class StackSetsConstraintOptions(CommonConstraintOptions):
         :param admin_role: IAM role used to administer the StackSets configuration.
         :param execution_role_name: IAM role used to provision the products in the Stacks.
         :param regions: List of regions to deploy stacks to.
-        :param allow_stack_set_instance_operations: Wether to allow end users to create, update, and delete stacks. Default: false
+        :param allow_stack_set_instance_operations: Whether to allow end users to create, update, and delete stacks. Default: false
 
         :exampleMetadata: infused
 
@@ -9658,7 +9658,7 @@ class StackSetsConstraintOptions(CommonConstraintOptions):
 
     @builtins.property
     def allow_stack_set_instance_operations(self) -> typing.Optional[builtins.bool]:
-        '''Wether to allow end users to create, update, and delete stacks.
+        '''Whether to allow end users to create, update, and delete stacks.
 
         :default: false
         '''

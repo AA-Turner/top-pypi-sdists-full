@@ -4099,19 +4099,6 @@ class CfnBackupVault(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
-    @jsii.member(jsii_name="accessPolicy")
-    def access_policy(self) -> typing.Any:
-        '''A resource-based policy that is used to manage access permissions on the target backup vault.'''
-        return typing.cast(typing.Any, jsii.get(self, "accessPolicy"))
-
-    @access_policy.setter
-    def access_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2658b3b3b3e44ef30d5a8cb2081ad397d0fcb37c7f096da80902213d302577e6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accessPolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="backupVaultName")
     def backup_vault_name(self) -> builtins.str:
         '''The name of a logical container where backups are stored.'''
@@ -4123,6 +4110,19 @@ class CfnBackupVault(
             type_hints = typing.get_type_hints(_typecheckingstub__efe38ab6a95c28a99f2a827659f4327017e61fc72434108ce384f3b817de14be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupVaultName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPolicy")
+    def access_policy(self) -> typing.Any:
+        '''A resource-based policy that is used to manage access permissions on the target backup vault.'''
+        return typing.cast(typing.Any, jsii.get(self, "accessPolicy"))
+
+    @access_policy.setter
+    def access_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2658b3b3b3e44ef30d5a8cb2081ad397d0fcb37c7f096da80902213d302577e6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accessPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="backupVaultTags")
@@ -5433,19 +5433,6 @@ class CfnLogicallyAirGappedBackupVault(
         return typing.cast("_LogicallyAirGappedBackupVaultReference_53a7ab81", jsii.get(self, "logicallyAirGappedBackupVaultRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="accessPolicy")
-    def access_policy(self) -> typing.Any:
-        '''The backup vault access policy document in JSON format.'''
-        return typing.cast(typing.Any, jsii.get(self, "accessPolicy"))
-
-    @access_policy.setter
-    def access_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__564f3be2b50608a32bfb4fa605889a2fb38d151207c69e4cc5f6ed3bffc34318)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accessPolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="backupVaultName")
     def backup_vault_name(self) -> builtins.str:
         '''The name of a logical container where backups are stored.'''
@@ -5483,6 +5470,19 @@ class CfnLogicallyAirGappedBackupVault(
             type_hints = typing.get_type_hints(_typecheckingstub__dd401ed590d402cdef7b7788713d25bd57d71a2ac64920c48582cd8343c69379)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "minRetentionDays", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="accessPolicy")
+    def access_policy(self) -> typing.Any:
+        '''The backup vault access policy document in JSON format.'''
+        return typing.cast(typing.Any, jsii.get(self, "accessPolicy"))
+
+    @access_policy.setter
+    def access_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__564f3be2b50608a32bfb4fa605889a2fb38d151207c69e4cc5f6ed3bffc34318)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accessPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="backupVaultTags")
@@ -9265,14 +9265,14 @@ def _typecheckingstub__29e9aaac48a3b884ecef6959c7ece545318b968f28907af6d6f9ef8a7
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2658b3b3b3e44ef30d5a8cb2081ad397d0fcb37c7f096da80902213d302577e6(
-    value: typing.Any,
+def _typecheckingstub__efe38ab6a95c28a99f2a827659f4327017e61fc72434108ce384f3b817de14be(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__efe38ab6a95c28a99f2a827659f4327017e61fc72434108ce384f3b817de14be(
-    value: builtins.str,
+def _typecheckingstub__2658b3b3b3e44ef30d5a8cb2081ad397d0fcb37c7f096da80902213d302577e6(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9474,12 +9474,6 @@ def _typecheckingstub__90997f260b8fa85f8252a0ea2359e9f8366602c792a5b68ecfc147eaa
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__564f3be2b50608a32bfb4fa605889a2fb38d151207c69e4cc5f6ed3bffc34318(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__f39d44e1798aa90edd21caa75b2aedd9a4b35eaeadf66ac9f0915dfc43fc3b75(
     value: builtins.str,
 ) -> None:
@@ -9494,6 +9488,12 @@ def _typecheckingstub__e59d02ebdb1e7c422e3f7f25e255cc0887eb06386383f296e54811f75
 
 def _typecheckingstub__dd401ed590d402cdef7b7788713d25bd57d71a2ac64920c48582cd8343c69379(
     value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__564f3be2b50608a32bfb4fa605889a2fb38d151207c69e4cc5f6ed3bffc34318(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

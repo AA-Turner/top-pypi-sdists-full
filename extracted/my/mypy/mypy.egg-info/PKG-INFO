@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: mypy
-Version: 1.19.1
+Version: 1.20.0
 Summary: Optional static typing for Python
 Author-email: Jukka Lehtosalo <jukka.lehtosalo@iki.fi>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://www.mypy-lang.org/
 Project-URL: Documentation, https://mypy.readthedocs.io/en/stable/index.html
 Project-URL: Repository, https://github.com/python/mypy
@@ -12,9 +12,7 @@ Project-URL: Issues, https://github.com/python/mypy/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -22,14 +20,15 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+License-File: mypy/typeshed/LICENSE
 Requires-Dist: typing_extensions>=4.6.0
 Requires-Dist: mypy_extensions>=1.0.0
-Requires-Dist: pathspec>=0.9.0
+Requires-Dist: pathspec>=1.0.0
 Requires-Dist: tomli>=1.1.0; python_version < "3.11"
-Requires-Dist: librt>=0.6.2; platform_python_implementation != "PyPy"
+Requires-Dist: librt>=0.8.0; platform_python_implementation != "PyPy"
 Provides-Extra: dmypy
 Requires-Dist: psutil>=4.0; extra == "dmypy"
 Provides-Extra: mypyc
@@ -41,6 +40,8 @@ Provides-Extra: install-types
 Requires-Dist: pip; extra == "install-types"
 Provides-Extra: faster-cache
 Requires-Dist: orjson; extra == "faster-cache"
+Provides-Extra: native-parser
+Requires-Dist: ast-serialize<1.0.0,>=0.1.1; extra == "native-parser"
 Dynamic: license-file
 
 Mypy -- Optional Static Typing for Python

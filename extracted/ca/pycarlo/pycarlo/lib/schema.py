@@ -40144,6 +40144,7 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
+                ("is_draft", sgqlc.types.Arg(Boolean, graphql_name="isDraft", default=True)),
                 (
                     "yaml_string",
                     sgqlc.types.Arg(
@@ -40159,6 +40160,8 @@ class Mutation(sgqlc.types.Type):
 
     * `dry_run` (`Boolean`): If true, validate the YAML without
       creating the monitor (default: `false`)
+    * `is_draft` (`Boolean`): If true (default), create as a draft. If
+      false, create as a production monitor. (default: `true`)
     * `yaml_string` (`String!`): YAML string containing monitor
       configuration
     """

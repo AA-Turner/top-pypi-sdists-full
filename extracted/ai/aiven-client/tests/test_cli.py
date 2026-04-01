@@ -2287,6 +2287,166 @@ def test_service__kafka_acl_delete() -> None:
     )
 
 
+def test_service__quota__create() -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_client.create_service_kafka_quota.return_value = {"message": "created"}
+    args = [
+        "service",
+        "quota",
+        "create",
+        "kafka-1",
+        "--project=project1",
+        "--client-id=my-client",
+        "--user=alice",
+        "--consumer-byte-rate=1048576",
+        "--producer-byte-rate=1048576",
+        "--request-percentage=25",
+    ]
+    build_aiven_cli(aiven_client).run(args=args)
+    aiven_client.create_service_kafka_quota.assert_called_once_with(
+        project="project1",
+        service="kafka-1",
+        client_id="my-client",
+        user="alice",
+        consumer_byte_rate=1048576.0,
+        producer_byte_rate=1048576.0,
+        request_percentage=25.0,
+    )
+
+
+def test_service__quota__create_minimal() -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_client.create_service_kafka_quota.return_value = {"message": "created"}
+    args = [
+        "service",
+        "quota",
+        "create",
+        "kafka-1",
+        "--project=project1",
+        "--user=alice",
+        "--consumer-byte-rate=1048576",
+    ]
+    build_aiven_cli(aiven_client).run(args=args)
+    aiven_client.create_service_kafka_quota.assert_called_once_with(
+        project="project1",
+        service="kafka-1",
+        client_id=None,
+        user="alice",
+        consumer_byte_rate=1048576.0,
+        producer_byte_rate=None,
+        request_percentage=None,
+    )
+
+
+def test_service__quota__create_requires_client_id_or_user() -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_cli = build_aiven_cli(aiven_client)
+    aiven_cli.parse_args(["service", "quota", "create", "kafka-1", "--project=project1", "--consumer-byte-rate=1048576"])
+    with pytest.raises(argx.UserError, match="At least one of --client-id or --user must be specified"):
+        aiven_cli.service__quota__create()
+
+
+def test_service__quota__create_requires_quota_param() -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_cli = build_aiven_cli(aiven_client)
+    aiven_cli.parse_args(["service", "quota", "create", "kafka-1", "--project=project1", "--user=alice"])
+    with pytest.raises(argx.UserError, match="At least one of --consumer-byte-rate"):
+        aiven_cli.service__quota__create()
+
+
+def test_service__quota__delete() -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_client.delete_service_kafka_quota.return_value = {"message": "deleted"}
+    args = [
+        "service",
+        "quota",
+        "delete",
+        "kafka-1",
+        "--project=project1",
+        "--client-id=my-client",
+        "--user=alice",
+    ]
+    build_aiven_cli(aiven_client).run(args=args)
+    aiven_client.delete_service_kafka_quota.assert_called_once_with(
+        project="project1",
+        service="kafka-1",
+        client_id="my-client",
+        user="alice",
+    )
+
+
+def test_service__quota__delete_requires_client_id_or_user() -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_cli = build_aiven_cli(aiven_client)
+    aiven_cli.parse_args(["service", "quota", "delete", "kafka-1", "--project=project1"])
+    with pytest.raises(argx.UserError, match="At least one of --client-id or --user must be specified"):
+        aiven_cli.service__quota__delete()
+
+
+def test_service__quota__list() -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_client.list_service_kafka_quotas.return_value = {
+        "quotas": [
+            {
+                "client-id": "my-client",
+                "user": "alice",
+                "consumer_byte_rate": 1048576,
+                "producer_byte_rate": 1048576,
+                "request_percentage": 25,
+            }
+        ]
+    }
+    args = [
+        "service",
+        "quota",
+        "list",
+        "kafka-1",
+        "--project=project1",
+    ]
+    build_aiven_cli(aiven_client).run(args=args)
+    aiven_client.list_service_kafka_quotas.assert_called_once_with(
+        project="project1",
+        service="kafka-1",
+    )
+
+
+def test_service__quota__describe() -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_client.describe_service_kafka_quota.return_value = {
+        "quota": {
+            "client-id": "my-client",
+            "user": "alice",
+            "consumer_byte_rate": 1048576,
+            "producer_byte_rate": 1048576,
+            "request_percentage": 25,
+        }
+    }
+    args = [
+        "service",
+        "quota",
+        "describe",
+        "kafka-1",
+        "--project=project1",
+        "--client-id=my-client",
+        "--user=alice",
+    ]
+    build_aiven_cli(aiven_client).run(args=args)
+    aiven_client.describe_service_kafka_quota.assert_called_once_with(
+        project="project1",
+        service="kafka-1",
+        client_id="my-client",
+        user="alice",
+    )
+
+
+def test_service__quota__describe_requires_client_id_or_user() -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_cli = build_aiven_cli(aiven_client)
+    aiven_cli.parse_args(["service", "quota", "describe", "kafka-1", "--project=project1"])
+    with pytest.raises(argx.UserError, match="At least one of --client-id or --user must be specified"):
+        aiven_cli.service__quota__describe()
+
+
 def test_service__privatelink__aws__refresh() -> None:
     aiven_client = mock.Mock(spec_set=AivenClient)
     aiven_client.refresh_service_privatelink_aws.return_value = {"message": "refreshed"}
@@ -2457,6 +2617,61 @@ def test_organization_vpc_peering_connection_delete() -> None:
         organization_id="org4f9ed964ba9",
         vpc_id="58e00a73-61c7-470d-b140-ace64c21a417",
         peering_connection_id="peering-connection-id",
+    )
+
+
+def test_organization_vpc_peering_connection_refresh() -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_client.organization_vpc_peering_connections_refresh.return_value = {
+        **ORGANIZATION_VPC,
+        "peering_connections": [ORGANIZATION_VPC_PEERING_CONNECTION],
+        "pending_build_only_peering_connections": "2025-03-13T13:00:00Z",
+    }
+    args = [
+        "organization",
+        "vpc",
+        "peering-connection",
+        "refresh",
+        "--organization-id",
+        "org4f9ed964ba9",
+        "--organization-vpc-id",
+        "58e00a73-61c7-470d-b140-ace64c21a417",
+    ]
+    build_aiven_cli(aiven_client).run(args=args)
+    aiven_client.organization_vpc_peering_connections_refresh.assert_called_once_with(
+        organization_id="org4f9ed964ba9",
+        vpc_id="58e00a73-61c7-470d-b140-ace64c21a417",
+    )
+
+
+def test_project_vpc_peering_connection_refresh() -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_client.refresh_project_vpc_peering_connections.return_value = {
+        "peering_connections": [
+            {
+                "peer_cloud_account": "peer-account",
+                "peer_resource_group": None,
+                "peer_vpc": "peer-vpc",
+                "peer_region": None,
+                "state": "PENDING_PEER",
+            }
+        ],
+        "pending_build_only_peering_connections": "2025-03-13T13:00:00Z",
+        "state": "ACTIVE",
+    }
+    args = [
+        "vpc",
+        "peering-connection",
+        "refresh",
+        "--project",
+        "testproject",
+        "--project-vpc-id",
+        "58e00a73-61c7-470d-b140-ace64c21a417",
+    ]
+    build_aiven_cli(aiven_client).run(args=args)
+    aiven_client.refresh_project_vpc_peering_connections.assert_called_once_with(
+        project="testproject",
+        project_vpc_id="58e00a73-61c7-470d-b140-ace64c21a417",
     )
 
 

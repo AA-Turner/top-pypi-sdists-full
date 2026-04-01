@@ -1,9 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pynautobot
-Version: 3.0.0
+Version: 3.1.0
 Summary: Nautobot API client library
-Home-page: https://nautobot.com
 License: Apache-2.0
+License-File: LICENSE
+License-File: NOTICE
 Keywords: Nautobot
 Author: Network to Code, LLC
 Author-email: opensource@networktocode.com
@@ -16,10 +17,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: packaging (>=23.2)
 Requires-Dist: requests (>=2.30.0,<3.0.0)
 Requires-Dist: urllib3 (>=1.21.1,<3)
-Project-URL: Documentation, https://pynautobot.readthedocs.io
+Project-URL: Documentation, https://docs.nautobot.com/projects/pynautobot/
+Project-URL: Homepage, https://nautobot.com
 Project-URL: Repository, https://github.com/nautobot/pynautobot
 Description-Content-Type: text/markdown
 
@@ -27,7 +30,7 @@ Description-Content-Type: text/markdown
   <img src="https://raw.githubusercontent.com/nautobot/pynautobot/develop/docs/nautobot_logo.png" class="logo" height="200px">
   <br>
   <a href="https://github.com/nautobot/pynautobot/actions"><img src="https://github.com/nautobot/pynautobot/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-  <a href="https://pynautobot.readthedocs.io/en/latest"><img src="https://readthedocs.org/projects/pynautobot/badge/"></a>
+  <a href="https://docs.nautobot.com/projects/pynautobot"><img src="https://readthedocs.org/projects/pynautobot/badge/"></a>
   <a href="https://pypi.org/project/pynautobot/"><img src="https://img.shields.io/pypi/v/pynautobot"></a>
   <a href="https://pypi.org/project/pynautobot/"><img src="https://img.shields.io/pypi/dm/pynautobot"></a>
   <br>
@@ -40,7 +43,7 @@ Python API client library for [Nautobot](https://github.com/nautobot/nautobot).
 > pynautobot was initially developed as a fork of [pynetbox](https://github.com/digitalocean/pynetbox/).
 > pynetbox was originally developed by Zach Moody at DigitalOcean and the NetBox Community.
 
-The complete documentation for pynautobot can be found at [Read the Docs](https://pynautobot.readthedocs.io/en/stable/).
+The complete documentation for pynautobot can be found on our [docs page](https://docs.nautobot.com/projects/pynautobot/).
 
 Questions? Comments? Join us in the **#nautobot** Slack channel on [Network to Code](https://networktocode.slack.com)!
 
@@ -70,7 +73,7 @@ $ poetry install
 
 ## Quick Start
 
-A short introduction is provided here; the full documention for pynautobot is at [Read the Docs](http://pynautobot.readthedocs.io/).
+A short introduction is provided here; the full documentation for pynautobot is on our [docs page](https://docs.nautobot.com/projects/pynautobot/).
 
 To begin, import pynautobot and instantiate an `Api` object, passing the `url` and `token`.
 

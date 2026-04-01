@@ -355,6 +355,7 @@ __all__ = [
     'OrganizationSecurityPolicyRuleMatch',
     'OrganizationSecurityPolicyRuleMatchConfig',
     'OrganizationSecurityPolicyRuleMatchConfigLayer4Config',
+    'OrganizationSecurityPolicyRuleMatchExpr',
     'PacketMirroringCollectorIlb',
     'PacketMirroringFilter',
     'PacketMirroringMirroredResources',
@@ -1019,6 +1020,7 @@ __all__ = [
     'GetMachineTypesMachineTypeBundledLocalSsdResult',
     'GetMachineTypesMachineTypeDeprecatedResult',
     'GetNetworkAttachmentConnectionEndpointResult',
+    'GetNetworkEndpointGroupsNetworkEndpointGroupResult',
     'GetRegionBackendServiceBackendResult',
     'GetRegionBackendServiceBackendCustomMetricResult',
     'GetRegionBackendServiceCdnPolicyResult',
@@ -26883,26 +26885,32 @@ class OrganizationSecurityPolicyRuleMatch(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 config: 'outputs.OrganizationSecurityPolicyRuleMatchConfig',
+                 config: Optional['outputs.OrganizationSecurityPolicyRuleMatchConfig'] = None,
                  description: Optional[_builtins.str] = None,
+                 expr: Optional['outputs.OrganizationSecurityPolicyRuleMatchExpr'] = None,
                  versioned_expr: Optional[_builtins.str] = None):
         """
         :param 'OrganizationSecurityPolicyRuleMatchConfigArgs' config: The configuration options for matching the rule.
                Structure is documented below.
         :param _builtins.str description: A description of the rule.
+        :param 'OrganizationSecurityPolicyRuleMatchExprArgs' expr: User defined CEVAL expression. A CEVAL expression is used to specify match criteria such as origin.ip, source.region_code and contents in the request header.
+               Structure is documented below.
         :param _builtins.str versioned_expr: Preconfigured versioned expression. For organization security policy rules,
                the only supported type is "SRC_IPS_V1".
                **NOTE** : 'FIREWALL' type is deprecated. Please use 'google_compute_firewall_policy_rule' resource instead.
         """
-        pulumi.set(__self__, "config", config)
+        if config is not None:
+            pulumi.set(__self__, "config", config)
         if description is not None:
             pulumi.set(__self__, "description", description)
+        if expr is not None:
+            pulumi.set(__self__, "expr", expr)
         if versioned_expr is not None:
             pulumi.set(__self__, "versioned_expr", versioned_expr)
 
     @_builtins.property
     @pulumi.getter
-    def config(self) -> 'outputs.OrganizationSecurityPolicyRuleMatchConfig':
+    def config(self) -> Optional['outputs.OrganizationSecurityPolicyRuleMatchConfig']:
         """
         The configuration options for matching the rule.
         Structure is documented below.
@@ -26916,6 +26924,15 @@ class OrganizationSecurityPolicyRuleMatch(dict):
         A description of the rule.
         """
         return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter
+    def expr(self) -> Optional['outputs.OrganizationSecurityPolicyRuleMatchExpr']:
+        """
+        User defined CEVAL expression. A CEVAL expression is used to specify match criteria such as origin.ip, source.region_code and contents in the request header.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "expr")
 
     @_builtins.property
     @pulumi.getter(name="versionedExpr")
@@ -27075,6 +27092,24 @@ class OrganizationSecurityPolicyRuleMatchConfigLayer4Config(dict):
         ["12345-12349"].
         """
         return pulumi.get(self, "ports")
+
+
+@pulumi.output_type
+class OrganizationSecurityPolicyRuleMatchExpr(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str):
+        """
+        :param _builtins.str expression: Textual representation of an expression in Common Expression Language syntax. The application context of the containing message determines which well-known feature set of CEL is supported.
+        """
+        pulumi.set(__self__, "expression", expression)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        """
+        Textual representation of an expression in Common Expression Language syntax. The application context of the containing message determines which well-known feature set of CEL is supported.
+        """
+        return pulumi.get(self, "expression")
 
 
 @pulumi.output_type
@@ -74506,6 +74541,166 @@ class GetNetworkAttachmentConnectionEndpointResult(dict):
         The subnetwork used to assign the IP to the producer instance network interface.
         """
         return pulumi.get(self, "subnetwork")
+
+
+@pulumi.output_type
+class GetNetworkEndpointGroupsNetworkEndpointGroupResult(dict):
+    def __init__(__self__, *,
+                 default_port: _builtins.int,
+                 description: _builtins.str,
+                 generated_id: _builtins.int,
+                 name: _builtins.str,
+                 network: _builtins.str,
+                 network_endpoint_type: _builtins.str,
+                 project: _builtins.str,
+                 self_link: _builtins.str,
+                 size: _builtins.int,
+                 subnetwork: _builtins.str,
+                 zone: _builtins.str):
+        """
+        :param _builtins.int default_port: The default port used if the port number is not specified in the
+               network endpoint.
+        :param _builtins.str description: An optional description of this resource. Provide this property when
+               you create the resource.
+        :param _builtins.int generated_id: The uniquely generated identifier for the resource. This identifier is defined by the server.
+        :param _builtins.str name: Name of the resource; provided by the client when the resource is
+               created. The name must be 1-63 characters long, and comply with
+               RFC1035. Specifically, the name must be 1-63 characters long and match
+               the regular expression 'a-z?' which means the
+               first character must be a lowercase letter, and all following
+               characters must be a dash, lowercase letter, or digit, except the last
+               character, which cannot be a dash.
+        :param _builtins.str network: The network to which all network endpoints in the NEG belong.
+               Uses "default" project network if unspecified.
+        :param _builtins.str network_endpoint_type: Type of network endpoints in this network endpoint group.
+               NON_GCP_PRIVATE_IP_PORT is used for hybrid connectivity network
+               endpoint groups (see https://cloud.google.com/load-balancing/docs/hybrid).
+               Note that NON_GCP_PRIVATE_IP_PORT can only be used with Backend Services
+               that 1) have the following load balancing schemes: EXTERNAL, EXTERNAL_MANAGED,
+               INTERNAL_MANAGED, and INTERNAL_SELF_MANAGED and 2) support the RATE or
+               CONNECTION balancing modes.
+               
+               Possible values include: GCE_VM_IP, GCE_VM_IP_PORT, NON_GCP_PRIVATE_IP_PORT, INTERNET_IP_PORT, INTERNET_FQDN_PORT, SERVERLESS, and PRIVATE_SERVICE_CONNECT. Default value: "GCE_VM_IP_PORT" Possible values: ["GCE_VM_IP", "GCE_VM_IP_PORT", "NON_GCP_PRIVATE_IP_PORT", "INTERNET_IP_PORT", "INTERNET_FQDN_PORT", "SERVERLESS", "PRIVATE_SERVICE_CONNECT"]
+        :param _builtins.str project: The ID of the project to list Network Endpoint Groups in. If it is not provided, the provider project is used.
+        :param _builtins.int size: Number of network endpoints in the network endpoint group.
+        :param _builtins.str subnetwork: Optional subnetwork to which all network endpoints in the NEG belong.
+        :param _builtins.str zone: The zone to list Network Endpoint Groups for. If `zone` is not specified, the provider-level zone must be set and is used
+               instead.
+        """
+        pulumi.set(__self__, "default_port", default_port)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "generated_id", generated_id)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "network", network)
+        pulumi.set(__self__, "network_endpoint_type", network_endpoint_type)
+        pulumi.set(__self__, "project", project)
+        pulumi.set(__self__, "self_link", self_link)
+        pulumi.set(__self__, "size", size)
+        pulumi.set(__self__, "subnetwork", subnetwork)
+        pulumi.set(__self__, "zone", zone)
+
+    @_builtins.property
+    @pulumi.getter(name="defaultPort")
+    def default_port(self) -> _builtins.int:
+        """
+        The default port used if the port number is not specified in the
+        network endpoint.
+        """
+        return pulumi.get(self, "default_port")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        An optional description of this resource. Provide this property when
+        you create the resource.
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="generatedId")
+    def generated_id(self) -> _builtins.int:
+        """
+        The uniquely generated identifier for the resource. This identifier is defined by the server.
+        """
+        return pulumi.get(self, "generated_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name of the resource; provided by the client when the resource is
+        created. The name must be 1-63 characters long, and comply with
+        RFC1035. Specifically, the name must be 1-63 characters long and match
+        the regular expression 'a-z?' which means the
+        first character must be a lowercase letter, and all following
+        characters must be a dash, lowercase letter, or digit, except the last
+        character, which cannot be a dash.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def network(self) -> _builtins.str:
+        """
+        The network to which all network endpoints in the NEG belong.
+        Uses "default" project network if unspecified.
+        """
+        return pulumi.get(self, "network")
+
+    @_builtins.property
+    @pulumi.getter(name="networkEndpointType")
+    def network_endpoint_type(self) -> _builtins.str:
+        """
+        Type of network endpoints in this network endpoint group.
+        NON_GCP_PRIVATE_IP_PORT is used for hybrid connectivity network
+        endpoint groups (see https://cloud.google.com/load-balancing/docs/hybrid).
+        Note that NON_GCP_PRIVATE_IP_PORT can only be used with Backend Services
+        that 1) have the following load balancing schemes: EXTERNAL, EXTERNAL_MANAGED,
+        INTERNAL_MANAGED, and INTERNAL_SELF_MANAGED and 2) support the RATE or
+        CONNECTION balancing modes.
+
+        Possible values include: GCE_VM_IP, GCE_VM_IP_PORT, NON_GCP_PRIVATE_IP_PORT, INTERNET_IP_PORT, INTERNET_FQDN_PORT, SERVERLESS, and PRIVATE_SERVICE_CONNECT. Default value: "GCE_VM_IP_PORT" Possible values: ["GCE_VM_IP", "GCE_VM_IP_PORT", "NON_GCP_PRIVATE_IP_PORT", "INTERNET_IP_PORT", "INTERNET_FQDN_PORT", "SERVERLESS", "PRIVATE_SERVICE_CONNECT"]
+        """
+        return pulumi.get(self, "network_endpoint_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def project(self) -> _builtins.str:
+        """
+        The ID of the project to list Network Endpoint Groups in. If it is not provided, the provider project is used.
+        """
+        return pulumi.get(self, "project")
+
+    @_builtins.property
+    @pulumi.getter(name="selfLink")
+    def self_link(self) -> _builtins.str:
+        return pulumi.get(self, "self_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def size(self) -> _builtins.int:
+        """
+        Number of network endpoints in the network endpoint group.
+        """
+        return pulumi.get(self, "size")
+
+    @_builtins.property
+    @pulumi.getter
+    def subnetwork(self) -> _builtins.str:
+        """
+        Optional subnetwork to which all network endpoints in the NEG belong.
+        """
+        return pulumi.get(self, "subnetwork")
+
+    @_builtins.property
+    @pulumi.getter
+    def zone(self) -> _builtins.str:
+        """
+        The zone to list Network Endpoint Groups for. If `zone` is not specified, the provider-level zone must be set and is used
+        instead.
+        """
+        return pulumi.get(self, "zone")
 
 
 @pulumi.output_type

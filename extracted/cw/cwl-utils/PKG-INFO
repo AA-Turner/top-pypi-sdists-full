@@ -1,24 +1,24 @@
 Metadata-Version: 2.4
 Name: cwl-utils
-Version: 0.40
-Author-email: Common Workflow Language project contributors <common-workflow-language@googlegroups.com>
-License: Apache 2.0
+Version: 0.41
 Project-URL: Documentation, https://cwl-utils.readthedocs.io/
 Project-URL: Homepage, https://www.commonwl.org
 Project-URL: Repository, https://github.com/common-workflow-language/cwl-utils
 Project-URL: Issues, https://github.com/common-workflow-language/cwl-utils/issues
 Project-URL: Changelog, https://github.com/common-workflow-language/cwl-utils/releases
 Project-URL: Related Tools, https://www.commonwl.org/tools/
-Keywords: cwl,commonwl,common-workflow-language,sciworkflows
+Author-email: Common Workflow Language project contributors <common-workflow-language@googlegroups.com>
+License: Apache 2.0
+License-File: LICENSE
+Keywords: common-workflow-language,commonwl,cwl,sciworkflows
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -30,22 +30,26 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Typing :: Typed
-Requires-Python: <3.15,>=3.9
-Description-Content-Type: text/x-rst
-License-File: LICENSE
+Requires-Python: <3.15,>=3.10
 Requires-Dist: cwl-upgrader>=1.2.3
 Requires-Dist: packaging
 Requires-Dist: rdflib
 Requires-Dist: requests
+Requires-Dist: ruamel-yaml<0.20,>=0.17.6
 Requires-Dist: schema-salad<9,>=8.8.20250205075315
-Requires-Dist: ruamel.yaml<0.19,>=0.17.6
-Requires-Dist: typing_extensions; python_version < "3.10"
+Requires-Dist: typing-extensions>=4.10.0
 Provides-Extra: pretty
-Requires-Dist: cwlformat; extra == "pretty"
+Requires-Dist: cwlformat; extra == 'pretty'
 Provides-Extra: testing
-Requires-Dist: pytest<9; extra == "testing"
-Requires-Dist: pytest-mock; extra == "testing"
-Dynamic: license-file
+Requires-Dist: cwlformat; extra == 'testing'
+Requires-Dist: cwltool; extra == 'testing'
+Requires-Dist: jsonschema>=4.21.1; extra == 'testing'
+Requires-Dist: pytest-cov; extra == 'testing'
+Requires-Dist: pytest-mock>=1.10.0; extra == 'testing'
+Requires-Dist: pytest-xdist[psutil]; extra == 'testing'
+Requires-Dist: pytest<10; extra == 'testing'
+Requires-Dist: udocker; extra == 'testing'
+Description-Content-Type: text/x-rst
 
 |Linux Build Status| |Code coverage| |Documentation Status|
 

@@ -69,6 +69,8 @@ __all__ = [
     "AgentRunner",
     "ParallelAgentOrchestrator",
     "ParallelAgentResult",
+    "WarmPool",
+    "PooledVM",
     # Artifacts
     "zip_directory",
     "upload_artifacts",
@@ -98,6 +100,7 @@ from plato.agents.base import (
 from plato.agents.config import AgentConfig
 from plato.agents.parallel import ParallelAgentOrchestrator, ParallelAgentResult
 from plato.agents.runner import AgentRunner, run_agent
+from plato.agents.runtime import PooledVM, WarmPool
 from plato.markers import Secret
 from plato.otel import (
     get_tracer,

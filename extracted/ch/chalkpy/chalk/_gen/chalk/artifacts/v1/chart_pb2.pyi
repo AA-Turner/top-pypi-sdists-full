@@ -153,6 +153,7 @@ class MetricFormulaKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_FORMULA_KIND_KS_TEST: _ClassVar[MetricFormulaKind]
     METRIC_FORMULA_KIND_KS_THRESHOLD: _ClassVar[MetricFormulaKind]
     METRIC_FORMULA_KIND_TIME_OFFSET: _ClassVar[MetricFormulaKind]
+    METRIC_FORMULA_KIND_SUB: _ClassVar[MetricFormulaKind]
 
 class AlertSeverityKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -305,6 +306,7 @@ METRIC_FORMULA_KIND_KS_STAT: MetricFormulaKind
 METRIC_FORMULA_KIND_KS_TEST: MetricFormulaKind
 METRIC_FORMULA_KIND_KS_THRESHOLD: MetricFormulaKind
 METRIC_FORMULA_KIND_TIME_OFFSET: MetricFormulaKind
+METRIC_FORMULA_KIND_SUB: MetricFormulaKind
 ALERT_SEVERITY_KIND_UNSPECIFIED: AlertSeverityKind
 ALERT_SEVERITY_KIND_CRITICAL: AlertSeverityKind
 ALERT_SEVERITY_KIND_ERROR: AlertSeverityKind

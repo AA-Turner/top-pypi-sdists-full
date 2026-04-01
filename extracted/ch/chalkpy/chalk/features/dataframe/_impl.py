@@ -449,10 +449,97 @@ class DataFrame(metaclass=DataFrameMeta):
                         )
                     if convert_dtypes:
                         try:
-                            pa_array = feature.converter.from_rich_to_pyarrow(
-                                v,
-                                missing_value_strategy=missing_value_strategy,
+                            # Check if we need to build the PA array directly to preserve nested
+                            # has-many columns. This is needed when any row value is a DataFrame,
+                            # a non-empty list of Feature instances, or a list of dicts containing
+                            # nested list values (i.e. nested has-many data already in primitive form).
+                            # feature.converter.from_rich_to_pyarrow goes through from_rich_to_primitive
+                            # which uses the unsubscripted DataFrame schema (column_features excludes
+                            # has-many) and silently drops nested has-many fields.
+                            def _item_needs_nested_hm_path(item: object) -> bool:
+                                if isinstance(item, DataFrame):
+                                    return True
+                                if isinstance(item, (list, tuple)) and len(item) > 0:
+                                    first = item[0]
+                                    if not isinstance(first, dict):
+                                        return True  # Feature instances
+                                    # Primitive dicts: check if any value is a list (nested HM data)
+                                    return any(isinstance(val, list) for row in item for val in row.values())
+                                return False
+
+                            _needs_nested_hm_path = feature.is_has_many and any(
+                                _item_needs_nested_hm_path(item) for item in v
                             )
+                            if _needs_nested_hm_path:
+                                pa_struct_type = None
+                                all_rows: list[list | None] = []
+                                for item in v:
+                                    if item is None or item is ...:
+                                        all_rows.append(None)
+                                    elif isinstance(item, DataFrame):
+                                        pa_tbl = item.to_pyarrow()
+                                        if pa_struct_type is None:
+                                            pa_struct_type = pa.struct(
+                                                [pa.field(n, pa_tbl.schema.field(n).type) for n in pa_tbl.schema.names]
+                                            )
+                                        all_rows.append(pa_tbl.to_pylist())
+                                    elif isinstance(item, (list, tuple)) and len(item) == 0:
+                                        # Empty has-many list for this row — preserve as [] not None
+                                        all_rows.append([])
+                                    elif (
+                                        isinstance(item, (list, tuple)) and len(item) > 0 and isinstance(item[0], dict)
+                                    ):
+                                        # Primitive list of row dicts (possibly with nested HM columns).
+                                        # Build via DataFrame(col_dict) to preserve nested structure.
+                                        # Validate that all dicts have the same key-set (no jagged rows).
+                                        first_keys = item[0].keys()
+                                        for _i, _row in enumerate(item):
+                                            if _row.keys() != first_keys:
+                                                raise ValueError(
+                                                    f"Feature '{feature.fqn}': row {_i} has keys {set(_row.keys())} but row 0 has keys {set(first_keys)}. All rows in a has-many list must have the same fields."
+                                                )
+                                        col_dict = {k: [row[k] for row in item] for k in first_keys}
+                                        tmp_df = DataFrame(col_dict)
+                                        pa_tbl = tmp_df.to_pyarrow()
+                                        if pa_struct_type is None:
+                                            pa_struct_type = pa.struct(
+                                                [pa.field(n, pa_tbl.schema.field(n).type) for n in pa_tbl.schema.names]
+                                            )
+                                        all_rows.append(pa_tbl.to_pylist())
+                                    elif isinstance(item, (list, tuple)):
+                                        # Non-empty list of Feature instances
+                                        tmp_df = DataFrame(item)
+                                        pa_tbl = tmp_df.to_pyarrow()
+                                        # Drop has-one columns (e.g. topping) — only scalar and
+                                        # has-many columns are preserved, matching the original
+                                        # from_rich_to_pyarrow behavior for DataFrame[FeatureClass].
+                                        has_one_cols = {
+                                            n for n in pa_tbl.schema.names if Feature.from_root_fqn(n).is_has_one
+                                        }
+                                        if has_one_cols:
+                                            pa_tbl = pa_tbl.select(
+                                                [n for n in pa_tbl.schema.names if n not in has_one_cols]
+                                            )
+                                        if pa_struct_type is None:
+                                            pa_struct_type = pa.struct(
+                                                [pa.field(n, pa_tbl.schema.field(n).type) for n in pa_tbl.schema.names]
+                                            )
+                                        all_rows.append(pa_tbl.to_pylist())
+                                    else:
+                                        all_rows.append(None)
+                                if pa_struct_type is None:
+                                    # All rows were empty/None — use the feature's known dtype
+                                    _feat_dtype = feature.converter.pyarrow_dtype
+                                    if _feat_dtype is not None and pa.types.is_large_list(_feat_dtype):
+                                        pa_struct_type = _feat_dtype.value_type
+                                    else:
+                                        pa_struct_type = pa.struct([])
+                                pa_array = pa.array(all_rows, type=pa.large_list(pa_struct_type))
+                            else:
+                                pa_array = feature.converter.from_rich_to_pyarrow(
+                                    v,
+                                    missing_value_strategy=missing_value_strategy,
+                                )
                         except (TypeError, ValueError) as e:
                             if len(v) > 0:
                                 type_error = f" The first value that could not be loaded has type '{type(v[0])}'."
@@ -2117,11 +2204,22 @@ class DataFrame(metaclass=DataFrameMeta):
                     new_names.append(output_col_name)
 
                 if f.is_has_many:
-                    # Special case for DataFrames -- restrict the struct type to only the fields that are present
+                    # Special case for DataFrames -- restrict the struct type to only the fields that are present.
+                    # For nested has-many fields (e.g. course.sections inside college.courses), full_dtype.value_type
+                    # won't contain them (DataFrameMeta.columns excludes has-many), so fall back to the actual field
+                    # type from the PA table rather than raising a KeyError.
                     full_dtype = f.converter.pyarrow_dtype
                     assert full_dtype is not None
-                    present_field_names = [field.name for field in pa_table.schema.field(col_fqn).type.value_type]
-                    new_fields = [full_dtype.value_type.field(name) for name in present_field_names]
+                    actual_value_type = pa_table.schema.field(col_fqn).type.value_type
+                    new_fields: list[pa.Field] = []
+                    for field in actual_value_type:
+                        if (
+                            pa.types.is_struct(full_dtype.value_type)
+                            and full_dtype.value_type.get_field_index(field.name) >= 0
+                        ):
+                            new_fields.append(full_dtype.value_type.field(field.name))
+                        else:
+                            new_fields.append(field)
                     pa_type = pa.large_list(pa.struct(new_fields))
                 else:
                     pa_type = f.converter.pyarrow_dtype
@@ -2232,6 +2330,19 @@ class DataFrame(metaclass=DataFrameMeta):
                         v = recursive_convert_map_primitive(v, feature.converter.pyarrow_dtype)
                     if values_are_lists:
                         sub_kwargs[feature.attribute_name] = [feature.converter.from_primitive_to_rich(vv) for vv in v]
+                    elif feature.is_has_many and isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict):
+                        # Bypass from_primitive_to_rich for has-many columns with primitive row-dict data.
+                        # from_primitive_to_rich uses the unsubscripted type's schema (_build_nested_pa_dtype)
+                        # which drops nested has-many columns (e.g. course.sections inside college.courses).
+                        # Build a DataFrame directly from the column-major transposition to preserve all fields.
+                        first_keys = v[0].keys()
+                        for _i, _row in enumerate(v):
+                            if _row.keys() != first_keys:
+                                raise ValueError(
+                                    f"Feature '{feature.fqn}': row {_i} has keys {set(_row.keys())} but row 0 has keys {set(first_keys)}. All rows in a has-many list must have the same fields."
+                                )
+                        col_dict: Dict[str, List[Any]] = {k: [row[k] for row in v] for k in first_keys}
+                        sub_kwargs[feature.attribute_name] = DataFrame(col_dict)
                     else:
                         sub_kwargs[feature.attribute_name] = feature.converter.from_primitive_to_rich(v)
                 if rooted_prefix == self.namespace:

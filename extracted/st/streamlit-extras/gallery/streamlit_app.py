@@ -1,6 +1,5 @@
 import inspect
 import pkgutil
-import textwrap
 from importlib import import_module
 from typing import TypedDict
 
@@ -76,7 +75,6 @@ extras_unsuited_to_demos = {
     "bottom_container",  # Out of context
     "concurrency_limiter",  # Nothing visual
     "floating_button",  # Out of context
-    "great_tables",  # Requires extra package
     "jupyterlite",  # Doesn't look great
     "customize_running",  # Content overlaps
 }
@@ -108,32 +106,60 @@ with right:
 
     # Show metadata
     with st.expander(
-        f"**{info['title']}** demo by :material/person: {info['author']}", expanded=True, icon=info["icon"]
+        f"**{info['title']}** demo by :material/person: {info['author']}",
+        expanded=True,
+        icon=info["icon"],
     ):
         if info["desc"]:
-            st.markdown(info["desc"])
+            st.markdown(info["desc"], width="content")
+
+        container = st.container(
+            horizontal=True,
+            horizontal_alignment="distribute",
+            vertical_alignment="bottom",
+        )
 
         # Run examples
         examples = getattr(mod, "__examples__", [])
         if examples:
             if len(examples) > 1:
-                example_func = st.selectbox("Choose example", examples, format_func=lambda f: f.__name__)
+                example_func = container.selectbox(
+                    "Demo",
+                    examples,
+                    format_func=lambda f: f.__name__,
+                )
             else:
                 example_func = next(iter(examples))
+
+            docs_link = f"https://arnaudmiribel.github.io/streamlit-extras/extras/{selected_extra}"
+            container.link_button(
+                "Open extra docs",
+                docs_link,
+                width="content",
+                icon=":material/book_2:",
+                type="secondary",
+            )
+
             try:
-                with st.expander("Example code"):
+                with st.expander("Code"):
                     function_code = inspect.getsource(example_func)
 
-                    # Drop function wrapper in function code
-                    function_code = textwrap.dedent("\n".join(function_code.splitlines()[1:]))
+                    lines = function_code.splitlines()[1:]
+                    indent = 0
+                    for line in lines:
+                        stripped = line.lstrip()
+                        if stripped:
+                            indent = len(line) - len(stripped)
+                            break
+                    function_code = "\n".join(line[indent:] if not line[:indent].strip() else line for line in lines)
                     code = f"from streamlit_extras.{selected_extra} import *\n\n{function_code}"
                     st.code(code, language="python")
                 if selected_extra in extras_unsuited_to_demos:
                     st.info(
-                        "Live output preview is not available for this extra. Please refer to the example code above."
+                        f"Live output preview is not available for this extra. Please refer to the example code above and visit [the docs]({docs_link})!"
                     )
                 else:
-                    with st.expander("Example output", expanded=True):
+                    with st.expander("Output", expanded=True):
                         example_func()
             except Exception as e:
                 st.error(f"Error running example: {e}")

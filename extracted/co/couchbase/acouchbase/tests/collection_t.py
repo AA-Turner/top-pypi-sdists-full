@@ -30,7 +30,6 @@ from couchbase.exceptions import (CasMismatchException,
                                   DocumentNotLockedException,
                                   DocumentUnretrievableException,
                                   InvalidArgumentException,
-                                  PathNotFoundException,
                                   TemporaryFailException)
 from couchbase.options import (GetAllReplicasOptions,
                                GetAnyReplicaOptions,
@@ -139,7 +138,7 @@ class CollectionTests:
 
     @pytest.fixture(scope="class")
     def num_nodes(self, cb_env):
-        return len(cb_env.cluster._cluster_info.nodes)
+        return len(cb_env.cluster._impl.cluster_info.nodes)
 
     @pytest.fixture(scope="class")
     def check_multi_node(self, num_nodes):
@@ -245,10 +244,13 @@ class CollectionTests:
 
     @pytest.mark.asyncio
     async def test_project_bad_path(self, cb_env, default_kvp):
-        cb = cb_env.collection
         key = default_kvp.key
-        with pytest.raises(PathNotFoundException):
-            await cb.get(key, GetOptions(project=["some", "qzx"]))
+        # CXXCBC-295 - b8bb98c31d377100934dd4b33998f0a118df41e8, bad path no longer raises PathNotFoundException
+        result = await cb_env.collection.get(key, GetOptions(project=['qzx']))
+        assert result.cas is not None
+        res_dict = result.content_as[dict]
+        assert res_dict == {}
+        assert 'qzx' not in res_dict
 
     @pytest.mark.asyncio
     async def test_project_project_not_list(self, cb_env, default_kvp):

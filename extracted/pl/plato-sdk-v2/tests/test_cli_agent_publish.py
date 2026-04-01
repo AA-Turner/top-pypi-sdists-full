@@ -39,9 +39,11 @@ def _apply_patches(extra_patches: list | None = None):
     return patches
 
 
+@patch("plato.cli.agent.wait_for_pypi_version")
 @patch("plato.cli.agent._publish_agent_image")
 def test_no_cache_passed_to_publish_agent_image(
     mock_publish_image: MagicMock,
+    mock_wait_pypi: MagicMock,
     agent_dir: Path,
 ) -> None:
     """--no-cache should forward no_cache=True to _publish_agent_image."""
@@ -55,9 +57,11 @@ def test_no_cache_passed_to_publish_agent_image(
     assert mock_publish_image.call_args.kwargs.get("no_cache") is True
 
 
+@patch("plato.cli.agent.wait_for_pypi_version")
 @patch("plato.cli.agent._publish_agent_image")
 def test_no_cache_default_is_false(
     mock_publish_image: MagicMock,
+    mock_wait_pypi: MagicMock,
     agent_dir: Path,
 ) -> None:
     """By default no_cache should be False."""

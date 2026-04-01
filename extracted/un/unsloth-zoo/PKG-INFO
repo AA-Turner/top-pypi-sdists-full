@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth_zoo
-Version: 2026.3.6
+Version: 2026.3.7
 Summary: Utils for Unsloth
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -15,7 +15,7 @@ Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
-Requires-Dist: torch>=2.4.0
+Requires-Dist: torch<2.11.0,>=2.4.0
 Requires-Dist: torchao>=0.13.0
 Requires-Dist: triton>=3.0.0; "linux" in sys_platform
 Requires-Dist: packaging>=24.1

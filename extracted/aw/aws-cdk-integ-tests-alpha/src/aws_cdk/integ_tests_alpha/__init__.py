@@ -2467,7 +2467,7 @@ class IApiCall(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
         '''(experimental) access the AssertionsProvider.
 
         This can be used to add additional IAM policies
-        the the provider role policy
+        the provider role policy
 
         :stability: experimental
 
@@ -2642,7 +2642,7 @@ class _IApiCallProxy(
         '''(experimental) access the AssertionsProvider.
 
         This can be used to add additional IAM policies
-        the the provider role policy
+        the provider role policy
 
         :stability: experimental
 
@@ -5500,7 +5500,7 @@ class ApiCallBase(
         '''(experimental) access the AssertionsProvider.
 
         This can be used to add additional IAM policies
-        the the provider role policy
+        the provider role policy
 
         :stability: experimental
         '''
@@ -5633,7 +5633,7 @@ class _ApiCallBaseProxy(ApiCallBase):
         '''(experimental) access the AssertionsProvider.
 
         This can be used to add additional IAM policies
-        the the provider role policy
+        the provider role policy
 
         :stability: experimental
         '''
@@ -5864,7 +5864,7 @@ class AwsApiCall(
         '''(experimental) access the AssertionsProvider.
 
         This can be used to add additional IAM policies
-        the the provider role policy
+        the provider role policy
 
         :stability: experimental
         '''
@@ -5876,7 +5876,7 @@ class AwsApiCall(
         '''(experimental) access the AssertionsProvider for the waiter state machine.
 
         This can be used to add additional IAM policies
-        the the provider role policy
+        the provider role policy
 
         :stability: experimental
 
@@ -6009,7 +6009,7 @@ class HttpApiCall(
         '''(experimental) access the AssertionsProvider.
 
         This can be used to add additional IAM policies
-        the the provider role policy
+        the provider role policy
 
         :stability: experimental
         '''

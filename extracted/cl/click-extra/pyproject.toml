@@ -5,33 +5,32 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "click-extra"
-version = "7.8.0"
+version = "7.9.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
   "ansi-colors",
-  "cli",
+  "ansi-escape-codes",
+  "cli-framework",
+  "click",
+  "click-extension",
+  "click-plugin",
   "cloup",
   "colorization",
-  "configuration",
-  "console",
+  "config-file",
+  "configuration-file",
   "hjson",
   "ini",
-  "json",
   "json5",
-  "jsonc",
-  "logging",
-  "multiplatform",
   "pygments",
-  "pytest",
-  "python",
+  "pytest-plugin",
+  "python-cli",
   "python-tabulate",
-  "sphinx",
-  "terminal",
-  "toml",
-  "xml",
-  "yaml",
+  "sphinx-extension",
+  "tabulate",
+  "toml-parser",
 ]
+license = "GPL-2.0-or-later"
 license-files = [ "license" ]
 authors = [ { name = "Kevin Deldycke", email = "kevin@deldycke.com" } ]
 # Python versions and their status: https://devguide.python.org/versions/
@@ -46,7 +45,6 @@ classifiers = [
   "Framework :: Sphinx :: Extension",
   "Framework :: Sphinx :: Theme",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
   "Operating System :: MacOS :: MacOS X",
   "Operating System :: Microsoft :: Windows",
   "Operating System :: POSIX :: BSD :: FreeBSD",
@@ -185,7 +183,7 @@ click-extra-demo = "click_extra.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/kdeldycke/click-extra"
-"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.8.0"
+"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.9.0"
 "Changelog" = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 "Issues" = "https://github.com/kdeldycke/click-extra/issues"
 "Repository" = "https://github.com/kdeldycke/click-extra"
@@ -220,7 +218,6 @@ docs = [
   "sphinx-issues>=5",
   "sphinxcontrib-mermaid>=1.2.3",
   "sphinxext-opengraph>=0.13",
-  "tomli>=2.3; python_version<'3.11'",
 ]
 typing = [
   "types-boltons>=25.0.0.20250919",
@@ -265,12 +262,16 @@ format.docstring-code-format = true
 #   Tests intentionally call root logger methods to verify capture behavior.
 #   Utility functions also use root logger as a convenience.
 lint.ignore = [ "B008", "D400", "ERA001", "LOG015" ]
+lint.isort.combine-as-imports = true
 # Allow rules to add `from __future__ import annotations` in cases where
 # this would simplify a fix or enable a new diagnostic.
 # https://docs.astral.sh/ruff/settings/#lint_future-annotations
 lint.future-annotations = true
 
 [tool.typos]
+default.extend-identifiers = { Github = "GitHub", IOS = "iOS", Javascript = "JavaScript", MacOS = "macOS", PyPi = "PyPI", Typescript = "TypeScript" }
+# Skip content between <!-- typos:off --> and <!-- typos:on --> markers.
+default.extend-ignore-re = [ "(?s)<!-- typos:off -->.*?<!-- typos:on -->" ]
 default.extend-ignore-identifiers-re = [
   # error: `valu` should be `value`
   #     ╭▸ ./tests/test_types.py:127:11
@@ -325,11 +326,6 @@ addopts = [
   "--durations=10",
   "--cov",
   "--cov-report=term",
-  "--cov-report=xml",
-  # Codecov.io's test analytics requires a JUnit XML file:
-  # https://docs.codecov.com/docs/test-analytics#1-output-a-junit-xml-file-in-your-ci
-  "--junitxml=junit.xml",
-  "--override-ini=junit_family=legacy",
 ]
 # Make sure tests that are expected to fail do not resurect and start working all of a sudden.
 xfail_strict = true
@@ -341,7 +337,7 @@ run.source = [ "click_extra" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "7.8.0"
+current_version = "7.9.0"
 allow_dirty = true
 ignore_missing_files = true
 # Parse versions with an optional .devN suffix (PEP 440).
@@ -392,6 +388,28 @@ regex = true
 search = "date-released: \\d{{4}}-\\d{{2}}-\\d{{2}}"
 replace = "date-released: {utcnow:%Y-%m-%d}"
 
+# Pin image URLs from main to the release tag.
+[[tool.bumpversion.files]]
+filename = "./readme.md"
+search = "raw.githubusercontent.com/kdeldycke/click-extra/main/"
+replace = "raw.githubusercontent.com/kdeldycke/click-extra/v{new_version}/"
+
+[[tool.bumpversion.files]]
+filename = "./docs/tutorial.md"
+search = "raw.githubusercontent.com/kdeldycke/click-extra/main/"
+replace = "raw.githubusercontent.com/kdeldycke/click-extra/v{new_version}/"
+
+# Restore image URLs from the previous release tag back to main.
+[[tool.bumpversion.files]]
+filename = "./readme.md"
+search = "raw.githubusercontent.com/kdeldycke/click-extra/v{current_version}/"
+replace = "raw.githubusercontent.com/kdeldycke/click-extra/main/"
+
+[[tool.bumpversion.files]]
+filename = "./docs/tutorial.md"
+search = "raw.githubusercontent.com/kdeldycke/click-extra/v{current_version}/"
+replace = "raw.githubusercontent.com/kdeldycke/click-extra/main/"
+
 [tool.mypy]
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -407,9 +425,20 @@ overrides = [
   { ignore_missing_imports = true, module = [ "sphinx.*" ], follow_imports = "skip" },
 ]
 
-[tool.repomatic]
+[tool.lychee]
+# https://lychee.cli.rs/configuration/
+# Upstream pyproject.toml support tracked at:
+# https://github.com/lycheeverse/lychee/issues/1930
+exclude = [
+  # GitHub issue comment fragments are dynamically loaded and can't be verified.
+  "^https://github.com/.+/issues/[0-9]+#issuecomment-.*$",
+  # Release binary download URLs redirect to the GitHub CDN (objects.githubusercontent.com).
+  "^https://github.com/.+/releases/.+/download/.*$",
+  # Allow redirects of generic DOI URLs to their specific Zenodo release page.
+  "^https://doi.org/.+/zenodo.*$",
+]
 
-[tool.gha-utils]
-workflow-sync-exclude = [ "debug.yaml" ]
-dependency-graph-all-groups = false
-dependency-graph-all-extras = true
+[tool.repomatic]
+dependency-graph.all-extras = true
+dependency-graph.all-groups = false
+exclude = [ "workflows/debug.yaml" ]

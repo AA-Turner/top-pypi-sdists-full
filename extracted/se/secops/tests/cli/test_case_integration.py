@@ -22,11 +22,20 @@ def test_cli_list_and_get_cases_workflow(cli_env, common_args):
         list_cmd, env=cli_env, capture_output=True, text=True
     )
 
-    # Check for 401/Unauthorized in stderr or stdout
+    # Check for 401/Unauthorized or auth errors in stderr or stdout
     if list_result.returncode != 0:
         error_output = list_result.stderr + list_result.stdout
-        if "401" in error_output or "Unauthorized" in error_output:
-            pytest.skip(f"Skipping due to SOAR IAM issue (401): {error_output}")
+        auth_errors = [
+            "401",
+            "Unauthorized",
+            "AuthenticationError",
+            "Failed to get credentials",
+            "DefaultCredentialsError",
+        ]
+        if any(err in error_output for err in auth_errors):
+            pytest.skip(
+                f"Skipping due to SOAR IAM/auth issue: {error_output[:200]}"
+            )
 
     assert list_result.returncode == 0
 
@@ -115,8 +124,17 @@ def test_cli_case_update(cli_env, common_args):
 
     if get_result.returncode != 0:
         error_output = get_result.stderr + get_result.stdout
-        if "401" in error_output or "Unauthorized" in error_output:
-            pytest.skip(f"Skipping due to SOAR IAM issue (401): {error_output}")
+        auth_errors = [
+            "401",
+            "Unauthorized",
+            "AuthenticationError",
+            "Failed to get credentials",
+            "DefaultCredentialsError",
+        ]
+        if any(err in error_output for err in auth_errors):
+            pytest.skip(
+                f"Skipping due to SOAR IAM/auth issue: {error_output[:200]}"
+            )
         pytest.skip("Unable to get test case")
 
     try:
@@ -150,12 +168,20 @@ def test_cli_case_update(cli_env, common_args):
             update_cmd, env=cli_env, capture_output=True, text=True
         )
 
-        # Check for 401/Unauthorized
+        # Check for 401/Unauthorized or auth errors
         if update_result.returncode != 0:
             error_output = update_result.stderr + update_result.stdout
-            if "401" in error_output or "Unauthorized" in error_output:
+            auth_errors = [
+                "401",
+                "Unauthorized",
+                "AuthenticationError",
+                "Failed to get credentials",
+                "DefaultCredentialsError",
+            ]
+            if any(err in error_output for err in auth_errors):
                 pytest.skip(
-                    f"Skipping due to SOAR IAM issue (401): {error_output}"
+                    f"Skipping due to SOAR IAM/auth issue: "
+                    f"{error_output[:200]}"
                 )
 
         assert update_result.returncode == 0
@@ -211,11 +237,20 @@ def test_cli_case_bulk_add_tag(cli_env, common_args):
         bulk_cmd, env=cli_env, capture_output=True, text=True
     )
 
-    # Check for 401/Unauthorized
+    # Check for 401/Unauthorized or auth errors
     if bulk_result.returncode != 0:
         error_output = bulk_result.stderr + bulk_result.stdout
-        if "401" in error_output or "Unauthorized" in error_output:
-            pytest.skip(f"Skipping due to SOAR IAM issue (401): {error_output}")
+        auth_errors = [
+            "401",
+            "Unauthorized",
+            "AuthenticationError",
+            "Failed to get credentials",
+            "DefaultCredentialsError",
+        ]
+        if any(err in error_output for err in auth_errors):
+            pytest.skip(
+                f"Skipping due to SOAR IAM/auth issue: " f"{error_output[:200]}"
+            )
 
     assert bulk_result.returncode == 0
 
@@ -246,14 +281,24 @@ def test_cli_case_bulk_assign(cli_env, common_args):
         bulk_cmd, env=cli_env, capture_output=True, text=True
     )
 
-    # Skip if API returns 401/Unauthorized or INTERNAL/500 error
+    # Skip if API returns auth or INTERNAL/500 error
     if bulk_result.returncode != 0:
         error_output = bulk_result.stderr + bulk_result.stdout
-        if "401" in error_output or "Unauthorized" in error_output:
-            pytest.skip(f"Skipping due to SOAR IAM issue (401): {error_output}")
+        auth_errors = [
+            "401",
+            "Unauthorized",
+            "AuthenticationError",
+            "Failed to get credentials",
+            "DefaultCredentialsError",
+        ]
+        if any(err in error_output for err in auth_errors):
+            pytest.skip(
+                f"Skipping due to SOAR IAM/auth issue: " f"{error_output[:200]}"
+            )
         if "INTERNAL" in error_output or "500" in error_output:
             pytest.skip(
-                f"Bulk assign API returned INTERNAL error: {error_output}"
+                f"Bulk assign API returned INTERNAL error: "
+                f"{error_output[:200]}"
             )
 
     assert bulk_result.returncode == 0
@@ -285,11 +330,20 @@ def test_cli_case_bulk_change_priority(cli_env, common_args):
         bulk_cmd, env=cli_env, capture_output=True, text=True
     )
 
-    # Check for 401/Unauthorized
+    # Check for 401/Unauthorized or auth errors
     if bulk_result.returncode != 0:
         error_output = bulk_result.stderr + bulk_result.stdout
-        if "401" in error_output or "Unauthorized" in error_output:
-            pytest.skip(f"Skipping due to SOAR IAM issue (401): {error_output}")
+        auth_errors = [
+            "401",
+            "Unauthorized",
+            "AuthenticationError",
+            "Failed to get credentials",
+            "DefaultCredentialsError",
+        ]
+        if any(err in error_output for err in auth_errors):
+            pytest.skip(
+                f"Skipping due to SOAR IAM/auth issue: " f"{error_output[:200]}"
+            )
 
     assert bulk_result.returncode == 0
 
@@ -320,11 +374,20 @@ def test_cli_case_bulk_change_stage(cli_env, common_args):
         bulk_cmd, env=cli_env, capture_output=True, text=True
     )
 
-    # Check for 401/Unauthorized
+    # Check for 401/Unauthorized or auth errors
     if bulk_result.returncode != 0:
         error_output = bulk_result.stderr + bulk_result.stdout
-        if "401" in error_output or "Unauthorized" in error_output:
-            pytest.skip(f"Skipping due to SOAR IAM issue (401): {error_output}")
+        auth_errors = [
+            "401",
+            "Unauthorized",
+            "AuthenticationError",
+            "Failed to get credentials",
+            "DefaultCredentialsError",
+        ]
+        if any(err in error_output for err in auth_errors):
+            pytest.skip(
+                f"Skipping due to SOAR IAM/auth issue: " f"{error_output[:200]}"
+            )
 
     assert bulk_result.returncode == 0
 
@@ -337,6 +400,13 @@ def test_cli_case_bulk_close_reopen_workflow(cli_env, common_args):
     """
     # Use dedicated test case ID
     case_ids = ["7418669"]
+    auth_errors = [
+        "401",
+        "Unauthorized",
+        "AuthenticationError",
+        "Failed to get credentials",
+        "DefaultCredentialsError",
+    ]
 
     try:
         # Test bulk close
@@ -359,12 +429,14 @@ def test_cli_case_bulk_close_reopen_workflow(cli_env, common_args):
             close_cmd, env=cli_env, capture_output=True, text=True
         )
 
-        # Check for 401/Unauthorized
+        # Check for 401/Unauthorized or auth errors
         if close_result.returncode != 0:
             error_output = close_result.stderr + close_result.stdout
-            if "401" in error_output or "Unauthorized" in error_output:
+
+            if any(err in error_output for err in auth_errors):
                 pytest.skip(
-                    f"Skipping due to SOAR IAM issue (401): {error_output}"
+                    f"Skipping due to SOAR IAM/auth issue: "
+                    f"{error_output[:200]}"
                 )
 
         assert close_result.returncode == 0
@@ -387,5 +459,14 @@ def test_cli_case_bulk_close_reopen_workflow(cli_env, common_args):
         reopen_result = subprocess.run(
             reopen_cmd, env=cli_env, capture_output=True, text=True
         )
+        # Check for 401/Unauthorized or auth errors
+        if reopen_result.returncode != 0:
+            reopen_error_output = reopen_result.stderr + reopen_result.stdout
+
+            if any(err in reopen_error_output for err in auth_errors):
+                pytest.skip(
+                    f"Skipping due to SOAR IAM/auth issue: "
+                    f"{reopen_error_output[:200]}"
+                )
 
         assert reopen_result.returncode == 0

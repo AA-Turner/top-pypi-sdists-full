@@ -25,21 +25,24 @@ SECRET_SOURCE_MANAGED: SecretSource
 SECRET_SOURCE_EXTERNAL: SecretSource
 
 class Secret(_message.Message):
-    __slots__ = ("id", "name", "updated_at", "integration_id")
+    __slots__ = ("id", "name", "updated_at", "integration_id", "source")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     INTEGRATION_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     updated_at: _timestamp_pb2.Timestamp
     integration_id: str
+    source: SecretSource
     def __init__(
         self,
         id: _Optional[str] = ...,
         name: _Optional[str] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         integration_id: _Optional[str] = ...,
+        source: _Optional[_Union[SecretSource, str]] = ...,
     ) -> None: ...
 
 class SecretValue(_message.Message):
@@ -56,6 +59,14 @@ class SecretValue(_message.Message):
         value: _Optional[str] = ...,
         source: _Optional[_Union[SecretSource, str]] = ...,
     ) -> None: ...
+
+class SecretConfigValue(_message.Message):
+    __slots__ = ("literal", "secret_id")
+    LITERAL_FIELD_NUMBER: _ClassVar[int]
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    literal: str
+    secret_id: str
+    def __init__(self, literal: _Optional[str] = ..., secret_id: _Optional[str] = ...) -> None: ...
 
 class SecretWithValue(_message.Message):
     __slots__ = ("id", "updated_at", "name", "full_name", "value", "source")
@@ -104,12 +115,19 @@ class GetSecretValueResponse(_message.Message):
     def __init__(self, secret_value: _Optional[_Union[SecretValue, _Mapping]] = ...) -> None: ...
 
 class UpsertSecretRequest(_message.Message):
-    __slots__ = ("name", "value")
+    __slots__ = ("name", "value", "config")
     NAME_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
     name: str
     value: str
-    def __init__(self, name: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    config: SecretConfigValue
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        value: _Optional[str] = ...,
+        config: _Optional[_Union[SecretConfigValue, _Mapping]] = ...,
+    ) -> None: ...
 
 class UpsertSecretResponse(_message.Message):
     __slots__ = ("secrets",)

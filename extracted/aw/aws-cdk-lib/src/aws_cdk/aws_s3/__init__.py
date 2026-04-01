@@ -2043,7 +2043,7 @@ class BucketGrants(
         identity: "_IGrantable_71c4f5de",
         objects_key_pattern: typing.Any = None,
     ) -> "_Grant_a7ae64f8":
-        '''Grant read permissions for this bucket and it's contents to an IAM principal (Role/Group/User).
+        '''Grant read permissions for this bucket and its contents to an IAM principal (Role/Group/User).
 
         If encryption is used, permission to use the key to decrypt the contents
         of the bucket will also be granted to the same principal.
@@ -2063,7 +2063,7 @@ class BucketGrants(
         identity: "_IGrantable_71c4f5de",
         objects_key_pattern: typing.Any = None,
     ) -> "_Grant_a7ae64f8":
-        '''Grant read and write permissions for this bucket and it's contents to an IAM principal (Role/Group/User).
+        '''Grant read and write permissions for this bucket and its contents to an IAM principal (Role/Group/User).
 
         If encryption is used, permission to use the key to decrypt the contents
         of the bucket will also be granted to the same principal.
@@ -2110,7 +2110,7 @@ class BucketGrants(
         objects_key_pattern: typing.Any = None,
         allowed_action_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> "_Grant_a7ae64f8":
-        '''Grant write permissions for this bucket and it's contents to an IAM principal (Role/Group/User).
+        '''Grant write permissions for this bucket and its contents to an IAM principal (Role/Group/User).
 
         If encryption is used, permission to use the key to decrypt the contents
         of the bucket will also be granted to the same principal.
@@ -4679,19 +4679,6 @@ class CfnAccessPoint(
         jsii.set(self, "bucket", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="policy")
-    def policy(self) -> typing.Any:
-        '''The access point policy associated with this access point.'''
-        return typing.cast(typing.Any, jsii.get(self, "policy"))
-
-    @policy.setter
-    def policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e424ad18d868eff85114332893fcf1ce3e590b1265b2bf01673d07c7eae67193)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="bucketAccountId")
     def bucket_account_id(self) -> typing.Optional[builtins.str]:
         '''The AWS account ID associated with the S3 bucket associated with this access point.'''
@@ -4716,6 +4703,19 @@ class CfnAccessPoint(
             type_hints = typing.get_type_hints(_typecheckingstub__3a857c1b168134cdd7d76a3c9a3359cc7cf23990068b2761f01adf573b2cb2d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> typing.Any:
+        '''The access point policy associated with this access point.'''
+        return typing.cast(typing.Any, jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e424ad18d868eff85114332893fcf1ce3e590b1265b2bf01673d07c7eae67193)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="publicAccessBlockConfiguration")
@@ -18857,7 +18857,7 @@ class IBucket(_IResource_c80c4260, _IBucketRef_3debe44e, typing_extensions.Proto
         identity: "_IGrantable_71c4f5de",
         objects_key_pattern: typing.Any = None,
     ) -> "_Grant_a7ae64f8":
-        '''Grant read permissions for this bucket and it's contents to an IAM principal (Role/Group/User).
+        '''Grant read permissions for this bucket and its contents to an IAM principal (Role/Group/User).
 
         If encryption is used, permission to use the key to decrypt the contents
         of the bucket will also be granted to the same principal.
@@ -18873,7 +18873,7 @@ class IBucket(_IResource_c80c4260, _IBucketRef_3debe44e, typing_extensions.Proto
         identity: "_IGrantable_71c4f5de",
         objects_key_pattern: typing.Any = None,
     ) -> "_Grant_a7ae64f8":
-        '''Grants read/write permissions for this bucket and it's contents to an IAM principal (Role/Group/User).
+        '''Grants read/write permissions for this bucket and its contents to an IAM principal (Role/Group/User).
 
         If an encryption key is used, permission to use the key for
         encrypt/decrypt will also be granted.
@@ -19467,7 +19467,7 @@ class _IBucketProxy(
         identity: "_IGrantable_71c4f5de",
         objects_key_pattern: typing.Any = None,
     ) -> "_Grant_a7ae64f8":
-        '''Grant read permissions for this bucket and it's contents to an IAM principal (Role/Group/User).
+        '''Grant read permissions for this bucket and its contents to an IAM principal (Role/Group/User).
 
         If encryption is used, permission to use the key to decrypt the contents
         of the bucket will also be granted to the same principal.
@@ -19487,7 +19487,7 @@ class _IBucketProxy(
         identity: "_IGrantable_71c4f5de",
         objects_key_pattern: typing.Any = None,
     ) -> "_Grant_a7ae64f8":
-        '''Grants read/write permissions for this bucket and it's contents to an IAM principal (Role/Group/User).
+        '''Grants read/write permissions for this bucket and its contents to an IAM principal (Role/Group/User).
 
         If an encryption key is used, permission to use the key for
         encrypt/decrypt will also be granted.
@@ -22803,7 +22803,7 @@ class BucketBase(
         identity: "_IGrantable_71c4f5de",
         objects_key_pattern: typing.Any = None,
     ) -> "_Grant_a7ae64f8":
-        '''Grant read permissions for this bucket and it's contents to an IAM principal (Role/Group/User).
+        '''Grant read permissions for this bucket and its contents to an IAM principal (Role/Group/User).
 
         If encryption is used, permission to use the key to decrypt the contents
         of the bucket will also be granted to the same principal.
@@ -24539,12 +24539,6 @@ def _typecheckingstub__f05d02ed64de76ec07ffab71aa952c3861b4de33221b338dcc4ff6eda
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e424ad18d868eff85114332893fcf1ce3e590b1265b2bf01673d07c7eae67193(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a20900e59a68c51259a69f8b59e898cf7f2b7da3295de514614bf9738b61566c(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -24553,6 +24547,12 @@ def _typecheckingstub__a20900e59a68c51259a69f8b59e898cf7f2b7da3295de514614bf9738
 
 def _typecheckingstub__3a857c1b168134cdd7d76a3c9a3359cc7cf23990068b2761f01adf573b2cb2d6(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e424ad18d868eff85114332893fcf1ce3e590b1265b2bf01673d07c7eae67193(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

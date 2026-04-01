@@ -15,31 +15,33 @@
 
 from __future__ import annotations
 
-from typing import (Any,
+from typing import (TYPE_CHECKING,
+                    Any,
                     Dict,
                     List)
 
-from couchbase.management.logic.eventing_logic import EventingFunctionBucketAccess  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionBucketBinding  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionConstantBinding  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionDcpBoundary  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionDeploymentStatus  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionKeyspace  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionLanguageCompatibility  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionLogLevel  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionProcessingStatus  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionSettings  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionState  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionStatus  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionUrlAuthBasic  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionUrlAuthBearer  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionUrlAuthDigest  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionUrlBinding  # noqa: F401
-from couchbase.management.logic.eventing_logic import EventingFunctionUrlNoAuth  # noqa: F401
-from couchbase.management.logic.eventing_logic import (EventingFunction,
-                                                       EventingFunctionManagerLogic,
-                                                       EventingFunctionsStatus)
-from couchbase.management.logic.wrappers import BlockingMgmtWrapper, ManagementType
+from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import EventingFunctionMgmtOperationType
+from couchbase.management.logic.eventing_function_mgmt_impl import EventingFunctionMgmtImpl
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionBucketAccess  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionBucketBinding  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionConstantBinding  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionDcpBoundary  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionDeploymentStatus  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionKeyspace  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionLanguageCompatibility  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionLogLevel  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionProcessingStatus  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionSettings  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionState  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionUrlAuthBasic  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionUrlAuthBearer  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionUrlAuthDigest  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionUrlBinding  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import EventingFunctionUrlNoAuth  # noqa: F401
+from couchbase.management.logic.eventing_function_mgmt_types import (EventingFunction,
+                                                                     EventingFunctionsStatus,
+                                                                     EventingFunctionStatus)
 
 # @TODO:  lets deprecate import of options from couchbase.management.eventing
 from couchbase.management.options import (DeployFunctionOptions,
@@ -52,98 +54,118 @@ from couchbase.management.options import (DeployFunctionOptions,
                                           UndeployFunctionOptions,
                                           UpsertFunctionOptions)
 
+if TYPE_CHECKING:
+    from couchbase.logic.client_adapter import ClientAdapter
+    from couchbase.logic.observability import ObservabilityInstruments
 
-class EventingFunctionManager(EventingFunctionManagerLogic):
-    def __init__(self, connection):
-        super().__init__(connection)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.EventingFunctionMgmt, EventingFunctionManagerLogic._ERROR_MAPPING)
-    def upsert_function(
-        self,
-        function,  # type: EventingFunction
-        *options,  # type: UpsertFunctionOptions
-        **kwargs  # type: Dict[str, Any]
-    ) -> None:
-        return super().upsert_function(function, *options, **kwargs)
+class EventingFunctionManager:
 
-    @BlockingMgmtWrapper.block(None, ManagementType.EventingFunctionMgmt, EventingFunctionManagerLogic._ERROR_MAPPING)
-    def drop_function(
-        self,
-        name,  # type: str
-        *options,  # type: DropFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        return super().drop_function(name, *options, **kwargs)
+    def __init__(self, client_adapter: ClientAdapter, observability_instruments: ObservabilityInstruments) -> None:
+        self._impl = EventingFunctionMgmtImpl(client_adapter, observability_instruments)
+        self._scope_context = None
 
-    @BlockingMgmtWrapper.block(None, ManagementType.EventingFunctionMgmt, EventingFunctionManagerLogic._ERROR_MAPPING)
-    def deploy_function(
-        self,
-        name,  # type: str
-        *options,  # type: DeployFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        return super().deploy_function(name, *options, **kwargs)
+    def upsert_function(self,
+                        function,  # type: EventingFunction
+                        *options,  # type: UpsertFunctionOptions
+                        **kwargs  # type: Any
+                        ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingUpsertFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_upsert_function_request(function,
+                                                                           self._scope_context,
+                                                                           obs_handler,
+                                                                           *options,
+                                                                           **kwargs)
+            self._impl.upsert_function(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(EventingFunction, ManagementType.EventingFunctionMgmt,
-                               EventingFunctionManagerLogic._ERROR_MAPPING)
-    def get_all_functions(
-        self,
-        *options,  # type: GetAllFunctionOptions
-        **kwargs  # type: Any
-    ) -> List[EventingFunction]:
-        return super().get_all_functions(*options, **kwargs)
+    def drop_function(self,
+                      name,  # type: str
+                      *options,  # type: DropFunctionOptions
+                      **kwargs  # type: Any
+                      ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingDropFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_drop_function_request(
+                name, self._scope_context, obs_handler, *options, **kwargs)
+            self._impl.drop_function(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(EventingFunction, ManagementType.EventingFunctionMgmt,
-                               EventingFunctionManagerLogic._ERROR_MAPPING)
-    def get_function(
-        self,
-        name,  # type: str
-        *options,  # type: GetFunctionOptions
-        **kwargs  # type: Any
-    ) -> EventingFunction:
-        return super().get_function(name, *options, **kwargs)
+    def deploy_function(self,
+                        name,  # type: str
+                        *options,  # type: DeployFunctionOptions
+                        **kwargs  # type: Any
+                        ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingDeployFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_deploy_function_request(
+                name, self._scope_context, obs_handler, *options, **kwargs)
+            self._impl.deploy_function(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.EventingFunctionMgmt, EventingFunctionManagerLogic._ERROR_MAPPING)
-    def pause_function(
-        self,
-        name,  # type: str
-        *options,  # type: PauseFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        return super().pause_function(name, *options, **kwargs)
+    def get_all_functions(self,
+                          *options,  # type: GetAllFunctionOptions
+                          **kwargs  # type: Any
+                          ) -> List[EventingFunction]:
+        op_type = EventingFunctionMgmtOperationType.EventingGetAllFunctions
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_functions_request(
+                self._scope_context, obs_handler, *options, **kwargs)
+            return self._impl.get_all_functions(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.EventingFunctionMgmt, EventingFunctionManagerLogic._ERROR_MAPPING)
-    def resume_function(
-        self,
-        name,  # type: str
-        *options,  # type: ResumeFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        return super().resume_function(name, *options, **kwargs)
+    def get_function(self,
+                     name,  # type: str
+                     *options,  # type: GetFunctionOptions
+                     **kwargs  # type: Any
+                     ) -> EventingFunction:
+        op_type = EventingFunctionMgmtOperationType.EventingGetFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_function_request(
+                name, self._scope_context, obs_handler, *options, **kwargs)
+            return self._impl.get_function(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.EventingFunctionMgmt, EventingFunctionManagerLogic._ERROR_MAPPING)
-    def undeploy_function(
-        self,
-        name,  # type: str
-        *options,  # type: UndeployFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        return super().undeploy_function(name, *options, **kwargs)
+    def pause_function(self,
+                       name,  # type: str
+                       *options,  # type: PauseFunctionOptions
+                       **kwargs  # type: Any
+                       ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingPauseFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_pause_function_request(
+                name, self._scope_context, obs_handler, *options, **kwargs)
+            self._impl.pause_function(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(EventingFunctionsStatus, ManagementType.EventingFunctionMgmt,
-                               EventingFunctionManagerLogic._ERROR_MAPPING)
-    def functions_status(
-        self,
-        *options,  # type: FunctionsStatusOptions
-        **kwargs  # type: Any
-    ) -> EventingFunctionsStatus:
-        return super().functions_status(*options, **kwargs)
+    def resume_function(self,
+                        name,  # type: str
+                        *options,  # type: ResumeFunctionOptions
+                        **kwargs  # type: Any
+                        ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingResumeFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_resume_function_request(
+                name, self._scope_context, obs_handler, *options, **kwargs)
+            self._impl.resume_function(req, obs_handler)
 
-    def _get_status(
-        self,
-        name,  # type: str
-    ) -> EventingFunctionStatus:
+    def undeploy_function(self,
+                          name,  # type: str
+                          *options,  # type: UndeployFunctionOptions
+                          **kwargs  # type: Any
+                          ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingUndeployFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_undeploy_function_request(
+                name, self._scope_context, obs_handler, *options, **kwargs)
+            self._impl.undeploy_function(req, obs_handler)
 
+    def functions_status(self,
+                         *options,  # type: FunctionsStatusOptions
+                         **kwargs  # type: Any
+                         ) -> EventingFunctionsStatus:
+        op_type = EventingFunctionMgmtOperationType.EventingGetStatus
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_functions_status_request(
+                self._scope_context, obs_handler, *options, **kwargs)
+            return self._impl.get_functions_status(req, obs_handler)
+
+    def _get_status(self, name: str) -> EventingFunctionStatus:
         statuses = self.functions_status()
 
         if statuses.functions:
@@ -152,101 +174,135 @@ class EventingFunctionManager(EventingFunctionManagerLogic):
         return None
 
 
-class ScopeEventingFunctionManager(EventingFunctionManagerLogic):
-    def __init__(self,
-                 connection,
-                 bucket_name,  # type: str
-                 scope_name,  # type: str
-                 ):
-        super().__init__(connection, bucket_name=bucket_name, scope_name=scope_name)
+class ScopeEventingFunctionManager:
 
-    @BlockingMgmtWrapper.block(None, ManagementType.EventingFunctionMgmt, EventingFunctionManagerLogic._ERROR_MAPPING)
-    def upsert_function(
-        self,
-        function,  # type: EventingFunction
-        *options,  # type: UpsertFunctionOptions
-        **kwargs  # type: Dict[str, Any]
-    ) -> None:
-        return super().upsert_function(function, *options, **kwargs)
+    def __init__(self, client_adapter: ClientAdapter, bucket_name: str, scope_name: str, observability_instruments: ObservabilityInstruments) -> None:  # noqa: E501
+        self._impl = EventingFunctionMgmtImpl(client_adapter, observability_instruments)
+        self._scope_context = bucket_name, scope_name
 
-    @BlockingMgmtWrapper.block(None, ManagementType.EventingFunctionMgmt, EventingFunctionManagerLogic._ERROR_MAPPING)
-    def drop_function(
-        self,
-        name,  # type: str
-        *options,  # type: DropFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        return super().drop_function(name, *options, **kwargs)
+    def upsert_function(self,
+                        function,  # type: EventingFunction
+                        *options,  # type: UpsertFunctionOptions
+                        **kwargs  # type: Dict[str, Any]
+                        ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingUpsertFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_upsert_function_request(function,
+                                                                           self._scope_context,
+                                                                           obs_handler,
+                                                                           *options,
+                                                                           **kwargs)
+            self._impl.upsert_function(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.EventingFunctionMgmt, EventingFunctionManagerLogic._ERROR_MAPPING)
-    def deploy_function(
-        self,
-        name,  # type: str
-        *options,  # type: DeployFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        return super().deploy_function(name, *options, **kwargs)
+    def drop_function(self,
+                      name,  # type: str
+                      *options,  # type: DropFunctionOptions
+                      **kwargs  # type: Any
+                      ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingDropFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_drop_function_request(name,
+                                                                         self._scope_context,
+                                                                         obs_handler,
+                                                                         *options,
+                                                                         **kwargs)
+            self._impl.drop_function(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(EventingFunction, ManagementType.EventingFunctionMgmt,
-                               EventingFunctionManagerLogic._ERROR_MAPPING)
-    def get_all_functions(
-        self,
-        *options,  # type: GetAllFunctionOptions
-        **kwargs  # type: Any
-    ) -> List[EventingFunction]:
-        return super().get_all_functions(*options, **kwargs)
+    def deploy_function(self,
+                        name,  # type: str
+                        *options,  # type: DeployFunctionOptions
+                        **kwargs  # type: Any
+                        ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingDeployFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_deploy_function_request(name,
+                                                                           self._scope_context,
+                                                                           obs_handler,
+                                                                           *options,
+                                                                           **kwargs)
+            self._impl.deploy_function(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(EventingFunction, ManagementType.EventingFunctionMgmt,
-                               EventingFunctionManagerLogic._ERROR_MAPPING)
-    def get_function(
-        self,
-        name,  # type: str
-        *options,  # type: GetFunctionOptions
-        **kwargs  # type: Any
-    ) -> EventingFunction:
-        return super().get_function(name, *options, **kwargs)
+    def get_all_functions(self,
+                          *options,  # type: GetAllFunctionOptions
+                          **kwargs  # type: Any
+                          ) -> List[EventingFunction]:
+        op_type = EventingFunctionMgmtOperationType.EventingGetAllFunctions
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_functions_request(self._scope_context,
+                                                                             obs_handler,
+                                                                             *options,
+                                                                             **kwargs)
+            return self._impl.get_all_functions(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.EventingFunctionMgmt, EventingFunctionManagerLogic._ERROR_MAPPING)
-    def pause_function(
-        self,
-        name,  # type: str
-        *options,  # type: PauseFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        return super().pause_function(name, *options, **kwargs)
+    def get_function(self,
+                     name,  # type: str
+                     *options,  # type: GetFunctionOptions
+                     **kwargs  # type: Any
+                     ) -> EventingFunction:
+        op_type = EventingFunctionMgmtOperationType.EventingGetFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_function_request(name,
+                                                                        self._scope_context,
+                                                                        obs_handler,
+                                                                        *options,
+                                                                        **kwargs)
+            return self._impl.get_function(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.EventingFunctionMgmt, EventingFunctionManagerLogic._ERROR_MAPPING)
-    def resume_function(
-        self,
-        name,  # type: str
-        *options,  # type: ResumeFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        return super().resume_function(name, *options, **kwargs)
+    def pause_function(self,
+                       name,  # type: str
+                       *options,  # type: PauseFunctionOptions
+                       **kwargs  # type: Any
+                       ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingPauseFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_pause_function_request(name,
+                                                                          self._scope_context,
+                                                                          obs_handler,
+                                                                          *options,
+                                                                          **kwargs)
+            self._impl.pause_function(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(None, ManagementType.EventingFunctionMgmt, EventingFunctionManagerLogic._ERROR_MAPPING)
-    def undeploy_function(
-        self,
-        name,  # type: str
-        *options,  # type: UndeployFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        return super().undeploy_function(name, *options, **kwargs)
+    def resume_function(self,
+                        name,  # type: str
+                        *options,  # type: ResumeFunctionOptions
+                        **kwargs  # type: Any
+                        ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingResumeFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_resume_function_request(name,
+                                                                           self._scope_context,
+                                                                           obs_handler,
+                                                                           *options,
+                                                                           **kwargs)
+            self._impl.resume_function(req, obs_handler)
 
-    @BlockingMgmtWrapper.block(EventingFunctionsStatus, ManagementType.EventingFunctionMgmt,
-                               EventingFunctionManagerLogic._ERROR_MAPPING)
-    def functions_status(
-        self,
-        *options,  # type: FunctionsStatusOptions
-        **kwargs  # type: Any
-    ) -> EventingFunctionsStatus:
-        return super().functions_status(*options, **kwargs)
+    def undeploy_function(self,
+                          name,  # type: str
+                          *options,  # type: UndeployFunctionOptions
+                          **kwargs  # type: Any
+                          ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingUndeployFunction
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_undeploy_function_request(name,
+                                                                             self._scope_context,
+                                                                             obs_handler,
+                                                                             *options,
+                                                                             **kwargs)
+            self._impl.undeploy_function(req, obs_handler)
 
-    def _get_status(
-        self,
-        name,  # type: str
-    ) -> EventingFunctionStatus:
+    def functions_status(self,
+                         *options,  # type: FunctionsStatusOptions
+                         **kwargs  # type: Any
+                         ) -> EventingFunctionsStatus:
+        op_type = EventingFunctionMgmtOperationType.EventingGetStatus
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_functions_status_request(self._scope_context,
+                                                                                obs_handler,
+                                                                                *options,
+                                                                                **kwargs)
+            return self._impl.get_functions_status(req, obs_handler)
 
+    def _get_status(self, name: str) -> EventingFunctionStatus:
         statuses = self.functions_status()
 
         if statuses.functions:

@@ -20207,19 +20207,6 @@ class CfnTaskTemplate(
         return typing.cast("_TaskTemplateReference_4cba3964", jsii.get(self, "taskTemplateRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="constraints")
-    def constraints(self) -> typing.Any:
-        '''Constraints that are applicable to the fields listed.'''
-        return typing.cast(typing.Any, jsii.get(self, "constraints"))
-
-    @constraints.setter
-    def constraints(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a898069ebffaab98fcbaee0053da25444060ad49ffcbfe6f0368eff95f5b200)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "constraints", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="instanceArn")
     def instance_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the Amazon Connect instance.'''
@@ -20244,6 +20231,19 @@ class CfnTaskTemplate(
             type_hints = typing.get_type_hints(_typecheckingstub__2bbd2064bc52aa0f530521bac3bae9c5f12656b7d845175af66583e2c4478aff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "clientToken", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="constraints")
+    def constraints(self) -> typing.Any:
+        '''Constraints that are applicable to the fields listed.'''
+        return typing.cast(typing.Any, jsii.get(self, "constraints"))
+
+    @constraints.setter
+    def constraints(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a898069ebffaab98fcbaee0053da25444060ad49ffcbfe6f0368eff95f5b200)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "constraints", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="contactFlowArn")
@@ -30048,12 +30048,6 @@ def _typecheckingstub__a527f307b10d7d5baa2def0fbd31d398ac1b585ebbd7f3a9ba7d38d25
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4a898069ebffaab98fcbaee0053da25444060ad49ffcbfe6f0368eff95f5b200(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__9540278151bed9f69d9f399c73f9a40e63e164ba823222a94733e2f75af92d07(
     value: builtins.str,
 ) -> None:
@@ -30062,6 +30056,12 @@ def _typecheckingstub__9540278151bed9f69d9f399c73f9a40e63e164ba823222a94733e2f75
 
 def _typecheckingstub__2bbd2064bc52aa0f530521bac3bae9c5f12656b7d845175af66583e2c4478aff(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a898069ebffaab98fcbaee0053da25444060ad49ffcbfe6f0368eff95f5b200(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

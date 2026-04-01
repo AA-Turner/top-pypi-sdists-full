@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mbake
-Version: 1.4.5
+Version: 1.4.6
 Summary: A Python-based Makefile formatter and linter
 Project-URL: Homepage, https://github.com/EbodShojaei/bake
 Project-URL: Documentation, https://github.com/EbodShojaei/bake#readme

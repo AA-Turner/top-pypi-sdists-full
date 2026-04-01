@@ -910,19 +910,6 @@ class CfnDataLakeSettings(
         return typing.cast("_DataLakeSettingsReference_5b5097ba", jsii.get(self, "dataLakeSettingsRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(self) -> typing.Any:
-        '''A key-value map that provides an additional configuration on your data lake.'''
-        return typing.cast(typing.Any, jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d1151418341)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="admins")
     def admins(
         self,
@@ -1060,6 +1047,19 @@ class CfnDataLakeSettings(
             type_hints = typing.get_type_hints(_typecheckingstub__1a7d231d96d63616ca09fb105108729ac0d77e1aff98a33073fafd84d08ef4c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "mutationType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(self) -> typing.Any:
+        '''A key-value map that provides an additional configuration on your data lake.'''
+        return typing.cast(typing.Any, jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d1151418341)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="readOnlyAdmins")
@@ -5966,12 +5966,6 @@ def _typecheckingstub__638c6babf62b74da5a2cf7141e8d1f010dd75138406d16700684bff77
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d1151418341(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__df68ab1ab5b6831a2e0f48c47e111909fcae53ceb431cf9876b2a6b3ee4895a8(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDataLakeSettings.DataLakePrincipalProperty]]]],
 ) -> None:
@@ -6016,6 +6010,12 @@ def _typecheckingstub__eeb2f0e282d2dada4492c1a03ccdd85cb8e0865b8f5fc9d4efeee9227
 
 def _typecheckingstub__1a7d231d96d63616ca09fb105108729ac0d77e1aff98a33073fafd84d08ef4c4(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52aab4b55f0c39756a432c91d3eeabd5eb70c011e8f466df712c0d1151418341(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

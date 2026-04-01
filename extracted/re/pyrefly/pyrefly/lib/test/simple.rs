@@ -2271,3 +2271,43 @@ def f(x: float):
     reveal_type(max(0, x))  # E: revealed type: float
     "#,
 );
+
+testcase!(
+    test_open_return_type,
+    r#"
+from io import BufferedReader, TextIOWrapper
+from typing import Any, assert_type, BinaryIO, IO
+def f(fi: Any, buffering1: int, buffering2: Any):
+    with open(fi, "r") as f:
+        assert_type(f, TextIOWrapper)
+    with open(fi, "rb") as f:
+        assert_type(f, BufferedReader)
+    with open(fi, "rb", 1) as f:
+        assert_type(f, BufferedReader)
+    with open(fi, "rb", buffering1) as f:
+        assert_type(f, BinaryIO)
+    with open(fi, "rb", buffering2) as f:
+        assert_type(f, IO[Any])
+    "#,
+);
+
+testcase!(
+    test_index_into_sequence_of_str,
+    r#"
+from typing import assert_type, Sequence
+def f(x: Sequence[str], idx):
+    # idx may be a slice
+    assert_type(x[idx], Sequence[str])
+    "#,
+);
+
+testcase!(
+    test_bool_and_unknown,
+    r#"
+from typing import Any, assert_type
+def f(x):
+    y = True
+    y &= x
+    assert_type(y, Any)
+    "#,
+);

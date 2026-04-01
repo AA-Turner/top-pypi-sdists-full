@@ -19,7 +19,7 @@ from chalk.client.models import (
     OnlineQueryResultFeather,
 )
 from chalk.client.serialization.constants import GRPC_RESULT_METADATA_COL_PREFIX
-from chalk.features._encoding.converter import PrimitiveFeatureConverter
+from chalk.features._encoding.converter import make_primitive_converter
 from chalk.features._encoding.json import FeatureEncodingOptions
 from chalk.parsed._proto.utils import (
     datetime_to_proto_timestamp,
@@ -485,7 +485,7 @@ class OnlineQueryConverter:
                     continue
 
                 col_field = batch.schema.field(col_name)
-                converter = PrimitiveFeatureConverter(
+                converter = make_primitive_converter(
                     name=col_name,
                     is_nullable=col_field.nullable,
                     pyarrow_dtype=col_field.type,
@@ -541,7 +541,7 @@ class OnlineQueryConverter:
                     break
 
             for col_name in batch.schema.names:
-                converter = PrimitiveFeatureConverter(
+                converter = make_primitive_converter(
                     name=col_name,
                     is_nullable=batch.schema.field(col_name).nullable,
                     pyarrow_dtype=batch.schema.field(col_name).type,

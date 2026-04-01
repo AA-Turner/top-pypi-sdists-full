@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import shlex
+import time as _time
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -462,7 +463,8 @@ class NFSTransport(Transport):
             )
 
         combined_cmd = " && ".join(parts)
-        logger.info("Mounting NFS on agent VM %s: %s -> %s", hostname, nfs_src, remote)
+        t0 = _time.monotonic()
+        logger.info("NFSTransport.setup_agent: mounting %s -> %s on %s", nfs_src, remote, hostname)
         exit_code, stdout, stderr = await run_ssh(
             self.ssh_key_path,
             hostname,
@@ -471,6 +473,7 @@ class NFSTransport(Transport):
         )
         if exit_code != 0:
             raise RuntimeError(f"Failed to mount NFS on agent VM: {stderr}")
+        logger.info("NFSTransport.setup_agent: mounted in %.1fs on %s", _time.monotonic() - t0, hostname)
 
         # Extract mount info from output
         for line in stdout.splitlines():
@@ -791,7 +794,10 @@ class GitTransport(Transport):
         self._bare_repo_path = f"{path}/.git-bare"
         self._raise_on_conflict = raise_on_conflict
         self._publish_ref_prefix = publish_ref_prefix
+        self._publish_ref_exact = False
         self._published_ref: GitPublishedRef | None = None
+        self._checkout_base_ref: str | None = None
+        self._checkout_branch_name: str | None = None
 
         # Lazy import to avoid circular dependency at module level
         from plato.worlds.config import GitTransportConfig as _GTC
@@ -833,14 +839,31 @@ class GitTransport(Transport):
         """Last hidden ref published by this transport instance."""
         return self._published_ref
 
+    @property
+    def checkout_base_ref(self) -> str | None:
+        """Pinned ref or SHA to check out after cloning on the agent VM."""
+        return self._checkout_base_ref
+
     def set_raise_on_conflict(self, enabled: bool) -> None:
         """Enable or disable conflict reporting mode for orchestrated runs."""
         self._raise_on_conflict = enabled
 
-    def set_publish_ref_prefix(self, prefix: str | None) -> None:
-        """Enable publish-only sync mode for this transport instance."""
+    def set_publish_ref_prefix(self, prefix: str | None, *, exact: bool = False) -> None:
+        """Enable publish-only sync mode for this transport instance.
+
+        Args:
+            prefix: Ref prefix (e.g. ``refs/plato/tasks/slug`` or ``refs/heads/pr/slug``).
+            exact: When True, publish to exactly *prefix* instead of appending
+                ``/{sha}``.  Use this to create named branches (e.g. ``pr/slug``).
+        """
         self._publish_ref_prefix = prefix
+        self._publish_ref_exact = exact
         self._published_ref = None
+
+    def set_checkout_base_ref(self, ref: str | None, *, branch_name: str | None = None) -> None:
+        """Pin agent clones to a specific base ref/SHA after cloning."""
+        self._checkout_base_ref = ref
+        self._checkout_branch_name = branch_name
 
     def set_merge_resolver(
         self,
@@ -1090,15 +1113,20 @@ class GitTransport(Transport):
 
     async def setup_agent(self, agent_env: Environment, hostname: str) -> None:
         """Clone the workspace repo onto the agent VM."""
+        t0 = _time.monotonic()
         # Install git on agent VM
+        logger.info("GitTransport.setup_agent: installing git on %s", hostname)
         await run_ssh(
             self.ssh_key_path,
             hostname,
             "which git > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq git)",
             timeout=180,
         )
+        logger.info("GitTransport.setup_agent: git installed on %s (%.1fs)", hostname, _time.monotonic() - t0)
 
         # Copy SSH key and configure SSH for git-over-SSH back to world VM
+        t1 = _time.monotonic()
+        logger.info("GitTransport.setup_agent: copying SSH key to %s", hostname)
         agent_key_path = await self._copy_ssh_key_to_agent(hostname)
         ssh_config = (
             f"Host world-git\n"
@@ -1115,9 +1143,17 @@ class GitTransport(Transport):
             f"cat > /root/.ssh/config << 'SSHCFG'\n{ssh_config}SSHCFG",
             timeout=10,
         )
+        logger.info("GitTransport.setup_agent: SSH key configured on %s (%.1fs)", hostname, _time.monotonic() - t1)
 
         # Clone bare repo to agent mount path
         remote = self.agent_mount_path
+        t2 = _time.monotonic()
+        logger.info(
+            "GitTransport.setup_agent: cloning %s -> %s on %s",
+            self._bare_repo_path,
+            remote,
+            hostname,
+        )
         exit_code, _, stderr = await run_ssh(
             self.ssh_key_path,
             hostname,
@@ -1126,13 +1162,27 @@ class GitTransport(Transport):
             f"git clone world-git:{self._bare_repo_path} {remote} && "
             f"cd {remote} && "
             f"git config user.email agent@plato.dev && "
-            f"git config user.name 'Plato Agent'",
+            f"git config user.name 'Plato Agent'"
+            + (
+                " && "
+                f"git checkout -B {shlex.quote(self._checkout_branch_name or 'plato-task')} "
+                f"{shlex.quote(self._checkout_base_ref)}"
+                if self._checkout_base_ref is not None
+                else ""
+            ),
             timeout=120,
         )
         if exit_code != 0:
             raise RuntimeError(f"Failed to clone git repo on agent VM: {stderr}")
 
-        logger.info("Git repo cloned on agent %s: %s -> %s", hostname, self._bare_repo_path, remote)
+        logger.info(
+            "GitTransport.setup_agent: done on %s (clone=%.1fs, total=%.1fs): %s -> %s",
+            hostname,
+            _time.monotonic() - t2,
+            _time.monotonic() - t0,
+            self._bare_repo_path,
+            remote,
+        )
 
     async def sync_back(self, agent_env: Environment, hostname: str) -> None:
         """Commit and push agent changes back to the world's bare repo.
@@ -1231,27 +1281,29 @@ class GitTransport(Transport):
             await self._auto_commit_changes(remote, hostname, cfg.auto_commit_message)
 
         head_sha = await self._git_rev_parse(remote, hostname, "HEAD")
-        origin_main_sha = await self._git_rev_parse(remote, hostname, "origin/main")
+        compare_ref = self._checkout_base_ref or "origin/main"
+        compare_sha = await self._git_rev_parse(remote, hostname, compare_ref)
         status = await self._git_output(remote, hostname, "git status --short", timeout=10)
         ahead_behind = await self._git_output(
             remote,
             hostname,
-            "git rev-list --left-right --count origin/main...HEAD",
+            f"git rev-list --left-right --count {shlex.quote(compare_ref)}...HEAD",
             timeout=10,
         )
         logger.info(
-            "GitTransport publish state hostname=%s head=%s origin_main=%s status=%s ahead_behind=%s",
+            "GitTransport publish state hostname=%s head=%s compare_ref=%s compare_sha=%s status=%s ahead_behind=%s",
             hostname,
             head_sha,
-            origin_main_sha,
+            compare_ref,
+            compare_sha,
             status or "<clean>",
             ahead_behind,
         )
 
-        if head_sha == origin_main_sha:
+        if head_sha == compare_sha:
             if status:
                 raise RuntimeError(
-                    f"Agent {hostname} has uncommitted changes after sync but HEAD still matches origin/main: {status}"
+                    f"Agent {hostname} has uncommitted changes after sync but HEAD still matches {compare_ref}: {status}"
                 )
             logger.info("No committed changes to publish from agent %s", hostname)
             return
@@ -1259,7 +1311,9 @@ class GitTransport(Transport):
         if not self._publish_ref_prefix:
             raise RuntimeError("publish_ref_prefix must be set for publish-only sync mode")
 
-        published_ref = f"{self._publish_ref_prefix}/{head_sha}"
+        published_ref = (
+            self._publish_ref_prefix if self._publish_ref_exact else f"{self._publish_ref_prefix}/{head_sha}"
+        )
         logger.info("Publishing agent %s commit %s to hidden ref %s", hostname, head_sha, published_ref)
 
         retries = max(1, cfg.merge_agent.max_retries)
@@ -1447,6 +1501,8 @@ class GitTransport(Transport):
         transport._merge_resolver = self._merge_resolver
         transport._sync_lock = self._sync_lock
         transport._published_ref = None
+        transport._checkout_base_ref = self._checkout_base_ref
+        transport._checkout_branch_name = self._checkout_branch_name
         transport.configure_workspace(
             name=self.workspace_name,
             repo_root=self.workspace_repo_root,

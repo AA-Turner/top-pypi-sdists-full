@@ -46,6 +46,7 @@ use pyrefly_util::forgetter::Forgetter;
 use pyrefly_util::fs_anyhow;
 use pyrefly_util::includes::Includes;
 use pyrefly_util::memory::MemoryUsageTrace;
+use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::watcher::Watcher;
 use ruff_text_size::Ranged;
 use starlark_map::small_map::SmallMap;
@@ -65,6 +66,7 @@ use crate::error::legacy::LegacyErrors;
 use crate::error::legacy::severity_to_str;
 use crate::error::summarize::print_error_summary;
 use crate::error::suppress;
+use crate::error::suppress::CommentLocation;
 use crate::error::suppress::SerializedError;
 use crate::module::typeshed::stdlib_search_path;
 use crate::report;
@@ -122,10 +124,18 @@ impl FullCheckArgs {
     pub async fn run(
         self,
         wrapper: Option<ConfigConfigurerWrapper>,
+        thread_count: ThreadCount,
     ) -> anyhow::Result<(CommandExitStatus, Option<CheckResult>)> {
         self.config_override.validate()?;
         let (files_to_check, config_finder) = self.files.resolve(self.config_override, wrapper)?;
-        run_check(self.args, self.watch, files_to_check, config_finder).await
+        run_check(
+            self.args,
+            self.watch,
+            files_to_check,
+            config_finder,
+            thread_count,
+        )
+        .await
     }
 }
 
@@ -142,6 +152,7 @@ async fn run_check(
     watch: bool,
     files_to_check: Box<dyn Includes>,
     config_finder: ConfigFinder,
+    thread_count: ThreadCount,
 ) -> anyhow::Result<(CommandExitStatus, Option<CheckResult>)> {
     if watch {
         let roots = files_to_check.roots();
@@ -150,11 +161,12 @@ async fn run_check(
             display::intersperse_iter(";", || roots.iter().map(|p| p.display()))
         );
         let watcher = Watcher::notify(&roots)?;
-        args.run_watch(watcher, files_to_check, config_finder)
+        args.run_watch(watcher, files_to_check, config_finder, thread_count)
             .await?;
         Ok((CommandExitStatus::Success, None))
     } else {
-        let (status, _, check_result) = args.run_once(files_to_check, config_finder)?;
+        let (status, _, check_result) =
+            args.run_once(files_to_check, config_finder, thread_count)?;
         Ok((status, Some(check_result)))
     }
 }
@@ -197,6 +209,7 @@ impl SnippetCheckArgs {
     pub async fn run(
         self,
         wrapper: Option<ConfigConfigurerWrapper>,
+        thread_count: ThreadCount,
     ) -> anyhow::Result<(CommandExitStatus, Option<CheckResult>)> {
         let (_, config_finder) =
             FilesArgs::get(vec![], self.config, self.config_override, wrapper)?;
@@ -209,7 +222,8 @@ impl SnippetCheckArgs {
                 remove_unused_ignores: false,
             },
         };
-        let (status, check_result) = check_args.run_once_with_snippet(self.code, config_finder)?;
+        let (status, check_result) =
+            check_args.run_once_with_snippet(self.code, config_finder, thread_count)?;
         Ok((status, Some(check_result)))
     }
 }
@@ -253,6 +267,10 @@ struct OutputArgs {
     /// cross-referencing the JSON. Intended for debugging; mirrors view_types.py output.
     #[arg(long, hide = true)]
     cinderx_include_readable: bool,
+    /// Include all transitively-imported dependency modules in the CinderX report,
+    /// not just the explicitly type-checked project files.
+    #[arg(long, hide = true)]
+    cinderx_include_deps: bool,
     /// Count the number of each error kind. Prints the top N [default=5] errors, sorted by count, or all errors if N is 0.
     #[arg(
         long,
@@ -679,6 +697,7 @@ impl CheckArgs {
         mut self,
         files_to_check: Box<dyn Includes>,
         config_finder: ConfigFinder,
+        thread_count: ThreadCount,
     ) -> anyhow::Result<(CommandExitStatus, Vec<Error>, CheckResult)> {
         let mut timings = Timings::new();
         let list_files_start = Instant::now();
@@ -700,7 +719,7 @@ impl CheckArgs {
             ));
         }
 
-        let holder = Forgetter::new(State::new(config_finder), true);
+        let holder = Forgetter::new(State::new(config_finder, thread_count), true);
         let handles = Handles::new(expanded_file_list);
         let require_levels = self.get_required_levels();
         let mut transaction = Forgetter::new(
@@ -741,13 +760,14 @@ impl CheckArgs {
         mut self,
         code: String,
         config_finder: ConfigFinder,
+        thread_count: ThreadCount,
     ) -> anyhow::Result<(CommandExitStatus, CheckResult)> {
         // Create a virtual module path for the snippet
         let path = PathBuf::from_str("snippet")?;
         let module_path = ModulePath::memory(path);
         let module_name = ModuleName::from_str("__main__");
 
-        let holder = Forgetter::new(State::new(config_finder), true);
+        let holder = Forgetter::new(State::new(config_finder, thread_count), true);
 
         // Create a single handle for the virtual module
         let config = holder
@@ -795,13 +815,14 @@ impl CheckArgs {
         mut watcher: Watcher,
         files_to_check: Box<dyn Includes>,
         config_finder: ConfigFinder,
+        thread_count: ThreadCount,
     ) -> anyhow::Result<()> {
         // TODO: We currently make 1 unrealistic assumptions, which should be fixed in the future:
         // - Config search is stable across incremental runs.
         let expanded_file_list = config_finder.checkpoint(files_to_check.files())?;
         let require_levels = self.get_required_levels();
         let mut handles = Handles::new(expanded_file_list);
-        let state = State::new(config_finder);
+        let state = State::new(config_finder, thread_count);
 
         // Track which output settings were explicitly set on the CLI.
         let cli_provided_baseline = self.output.baseline.is_some();
@@ -868,8 +889,7 @@ impl CheckArgs {
         let retain = self.output.report_binding_memory.is_some()
             || self.output.debug_info.is_some()
             || self.output.report_trace.is_some()
-            || self.output.report_glean.is_some()
-            || self.output.report_cinderx.is_some();
+            || self.output.report_glean.is_some();
         RequireLevels {
             specified: if retain {
                 Require::Everything
@@ -881,6 +901,7 @@ impl CheckArgs {
             } else if self.behavior.check_all
                 || stdlib_search_path().is_some()
                 || self.output.report_pysa.is_some()
+                || self.output.report_cinderx.is_some()
             {
                 Require::Errors
             } else {
@@ -902,6 +923,22 @@ impl CheckArgs {
         if let Some(pysa_directory) = &self.output.report_pysa {
             let reporter = report::pysa::PysaReporter::new(pysa_directory, handles)?;
             transaction.set_pysa_reporter(Some(reporter));
+        }
+        if let Some(cinderx_directory) = &self.output.report_cinderx {
+            let cinderx_reporter = if self.output.cinderx_include_deps {
+                report::cinderx::CinderxReporter::new(
+                    cinderx_directory,
+                    None,
+                    self.output.cinderx_include_readable,
+                )?
+            } else {
+                report::cinderx::CinderxReporter::new(
+                    cinderx_directory,
+                    Some(handles),
+                    self.output.cinderx_include_readable,
+                )?
+            };
+            transaction.set_cinderx_reporter(Some(cinderx_reporter));
         }
 
         let type_check_start = Instant::now();
@@ -982,16 +1019,16 @@ impl CheckArgs {
         // Suppress operates on ordinary diagnostics only — directives are
         // structurally excluded since they live in `directives`, not `ordinary_errors`.
         if self.behavior.suppress_errors {
-            // TODO: Move this into separate command
+            // TODO: Deprecate this in favor of `pyrefly suppress`
             let serialized_errors: Vec<SerializedError> = ordinary_errors
                 .iter()
                 .filter_map(SerializedError::from_error)
                 .filter(|e| !e.is_unused_ignore())
                 .collect();
-            suppress::suppress_errors(serialized_errors);
+            suppress::suppress_errors(serialized_errors, CommentLocation::LineBefore);
         }
         if self.behavior.remove_unused_ignores {
-            // TODO: Move this into separate command
+            // TODO: Deprecate this in favor of `pyrefly suppress`
             let collected = loads.collect_errors();
             let unused_errors = loads.collect_unused_ignore_errors(&collected);
             suppress::remove_unused_ignores(unused_errors);
@@ -1120,12 +1157,8 @@ impl CheckArgs {
         if let Some(pysa_reporter) = transaction.take_pysa_reporter() {
             report::pysa::write_project_file(&pysa_reporter, transaction, handles, &output_errors)?;
         }
-        if let Some(cinderx_directory) = &self.output.report_cinderx {
-            report::cinderx::write_results(
-                cinderx_directory,
-                transaction,
-                self.output.cinderx_include_readable,
-            )?;
+        if let Some(cinderx_reporter) = transaction.take_cinderx_reporter() {
+            cinderx_reporter.write_project_files(transaction)?;
         }
         if let Some(path) = &self.output.report_binding_memory {
             fs_anyhow::write(path, report::binding_memory::binding_memory(transaction))?;

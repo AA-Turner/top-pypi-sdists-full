@@ -928,19 +928,16 @@ def _handle_partition_columns(
             if is_complex_target and is_castable_source:
                 # Use TRY_CAST with PERMISSIVE to gracefully handle schema
                 # differences: extra fields in the data are dropped, missing
-                # fields become NULL (matching Spark's behavior).  Snowpark's
-                # Column.try_cast() doesn't support PERMISSIVE, so we build
-                # raw SQL via sql_expr().
+                # fields become NULL (matching Spark's behavior).
                 cast_type = _normalize_complex_type_for_cast(target_type)
-                type_sig = _snowflake_type_sql(cast_type)
                 src_expr = (
-                    f"PARSE_JSON({actual_col_name})"
+                    snowpark_fn.parse_json(col_expr)
                     if isinstance(source_type, StringType)
-                    else actual_col_name
+                    else col_expr
                 )
-                col_expr = snowpark_fn.sql_expr(
-                    f"TRY_CAST({src_expr} AS {type_sig} PERMISSIVE)"
-                ).alias(user_name)
+                col_expr = src_expr.try_cast(cast_type, permissive=True).alias(
+                    user_name
+                )
                 # Report the normalized type so Arrow field names match the
                 # unquoted keys returned by Snowflake's JSON output.
                 reported_type = cast_type

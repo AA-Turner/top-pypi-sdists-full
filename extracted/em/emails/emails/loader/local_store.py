@@ -1,5 +1,3 @@
-# encoding: utf-8
-from __future__ import unicode_literals
 from email.utils import parseaddr
 import logging
 import mimetypes
@@ -10,11 +8,9 @@ import errno
 from zipfile import ZipFile
 import email
 
-from ..compat import to_unicode, string_types, to_native, formataddr as compat_formataddr
-
+from ..utils import formataddr, decode_header
 from ..loader.helpers import decode_text
 from ..message import Message
-from ..utils import decode_header
 
 class FileNotFound(Exception):
     pass
@@ -128,7 +124,7 @@ class FileSystemLoader(BaseLoader):
     """
 
     def __init__(self, searchpath, encoding='utf-8', base_path=None):
-        if isinstance(searchpath, string_types):
+        if isinstance(searchpath, str):
             searchpath = [searchpath]
         self.searchpath = list(searchpath)
         self.encoding = encoding
@@ -187,7 +183,7 @@ class ZipLoader(BaseLoader):
     def _decode_filename(self, name):
         for enc in self.common_filename_charsets:
             try:
-                return to_unicode(name, enc)
+                return name.decode(enc) if isinstance(name, bytes) else name
             except UnicodeDecodeError:
                 pass
         return name
@@ -205,9 +201,6 @@ class ZipLoader(BaseLoader):
         name = path.join(*split_template_path(name))
 
         self._unpack()
-
-        if isinstance(name, str):
-            name = to_unicode(name, 'utf-8')
 
         if name not in self._original_filenames:
             name = self._decoded_filenames.get(name)
@@ -230,10 +223,10 @@ class MsgLoader(BaseLoader):
     common_charsets = ['ascii', 'utf-8', 'utf-16', 'windows-1252', 'cp850', 'windows-1251']
 
     def __init__(self, msg, base_path=None):
-        if isinstance(msg, string_types):
+        if isinstance(msg, str):
             self.msg = email.message_from_string(msg)
         elif isinstance(msg, bytes):
-            self.msg = email.message_from_string(to_native(msg))
+            self.msg = email.message_from_string(msg.decode())
         else:
             self.msg = msg
         self.base_path = base_path
@@ -367,7 +360,7 @@ class MsgLoader(BaseLoader):
                 if not skip_invalid:
                     r.append(decode_header(email))
             else:
-                r.append(compat_formataddr([decode_header(name), email]))
+                r.append(formataddr([decode_header(name), email]))
 
         return r
 
@@ -389,6 +382,16 @@ class MsgLoader(BaseLoader):
             r = self.decode_address_header_value(value)
             if r:
                 message.mail_to = r
+
+        elif name == 'cc':
+            r = self.decode_address_header_value(value)
+            if r:
+                message.cc = r
+
+        elif name == 'bcc':
+            r = self.decode_address_header_value(value)
+            if r:
+                message.bcc = r
 
         elif name == 'from':
             r = self.decode_address_header_value(value)

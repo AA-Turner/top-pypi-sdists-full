@@ -313,6 +313,8 @@ async def _handle_model_execution(
             parent_span=cycle_span,
             model_id=model_id,
             custom_trace_attributes=agent.trace_attributes,
+            system_prompt=agent.system_prompt,
+            system_prompt_content=agent._system_prompt_content,
         )
         with trace_api.use_span(model_invoke_span, end_on_exit=True):
             await agent.hooks.invoke_callbacks_async(
@@ -336,6 +338,7 @@ async def _handle_model_execution(
                     system_prompt_content=agent._system_prompt_content,
                     tool_choice=structured_output_context.tool_choice,
                     invocation_state=invocation_state,
+                    model_state=agent._model_state,
                     cancel_signal=agent._cancel_signal,
                 ):
                     yield event

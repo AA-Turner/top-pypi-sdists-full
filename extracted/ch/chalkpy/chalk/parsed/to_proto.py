@@ -41,7 +41,7 @@ from chalk.features import (
     ensure_feature,
     unwrap_feature,
 )
-from chalk.features._encoding.converter import PrimitiveFeatureConverter
+from chalk.features._encoding.converter import PrimitiveFeatureConverter, make_primitive_converter
 from chalk.features._encoding.protobuf import (
     convert_proto_message_type_to_pyarrow_type,
     serialize_message_file_descriptor,
@@ -545,7 +545,7 @@ class ToProtoConverter:
 
             def _package_scalar(value: Any):
                 pa_dtype = pa.scalar(value).type
-                converter = PrimitiveFeatureConverter(
+                converter = make_primitive_converter(
                     name="convert_enum",
                     is_nullable=False,
                     pyarrow_dtype=pa_dtype,

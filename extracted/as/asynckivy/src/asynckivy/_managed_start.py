@@ -1,40 +1,57 @@
-__all__ = ("managed_start", )
-
-import asyncgui
-from kivy.clock import Clock
-
-
-async def _setup():
-    global _global_nursery
-    async with asyncgui.open_nursery() as nursery:
-        _global_nursery = nursery
-        await asyncgui.sleep_forever()
+import asyncgui as ag
+from asyncgui import Task, start
+from kivy.base import EventLoop
 
 
-_global_nursery = None
-_root_task = asyncgui.start(_setup())
-managed_start = _global_nursery.start
-
-__managed_start_doc__ = '''
-A task started with this function will be automatically cancelled when an ``App.on_stop``
-event fires, if it is still running. This prevents the task from being cancelled by the garbage
-collector, ensuring more reliable cleanup. You should always use this function instead of calling
-``asynckivy.start`` directly, except when writing unit tests.
-
-.. code-block::
-
-    task = managed_start(async_func(...))
-
-.. versionadded:: 0.7.1
-'''
+_managed_tasks = []
+_n_until_gc = _GC_IN_EVERY = 1000
 
 
-def _schedule_teardown(dt):
-    from kivy.app import App
-    app = App.get_running_app()
-    if app is None:
-        return
-    app.fbind("on_stop", lambda __: _root_task.cancel())
+def _collect_garbage(STARTED=ag.TaskState.STARTED):
+    global _managed_tasks
+    _managed_tasks = [task for task in _managed_tasks if task.state is STARTED]
 
 
-Clock.schedule_once(_schedule_teardown)
+def managed_start(aw: ag.Aw_or_Task, /) -> Task:
+    '''
+    A task started with this function will be automatically cancelled when an ``EventLoop.on_stop``
+    event fires, if it is still running. This prevents the task from being cancelled by the garbage
+    collector, ensuring more reliable cleanup. You should always use this function instead of calling
+    ``asynckivy.start`` directly, except when writing unit tests.
+
+    .. code-block::
+
+        task = managed_start(async_func(...))
+
+    .. versionadded:: 0.7.1
+    .. versionchanged:: 0.10.0
+        Uses ``EventLoop.on_stop`` instead of ``App.on_stop``.
+    '''
+    global _n_until_gc
+    task = start(aw)
+    _managed_tasks.append(task)
+    _n_until_gc -= 1
+    if _n_until_gc <= 0:
+        _n_until_gc = _GC_IN_EVERY
+        _collect_garbage()
+    return task
+
+
+def cancel_managed_tasks(*__):
+    '''
+    Cancels all tasks started with :func:`managed_start`.
+
+    Usually, you do not need to call this function directly, as it is automatically called when an
+    ``EventLoop.on_stop`` event fires. However, you might need to call it manually in unit tests because
+    the ``EventLoop.on_stop`` event wouldn't be triggered in each test case.
+
+    .. versionadded:: 0.10.0
+    '''
+    global _managed_tasks
+    tasks = _managed_tasks
+    _managed_tasks = []
+    for t in tasks:
+        t.cancel()
+
+
+EventLoop.fbind("on_stop", cancel_managed_tasks)

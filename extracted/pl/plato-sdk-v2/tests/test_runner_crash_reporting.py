@@ -46,7 +46,6 @@ class TestReportCrashToChronos:
         ):
             _report_crash_to_chronos(
                 config_file,
-                exit_code=1,
                 error_message="ImportError: cannot import name 'Foo'",
             )
 
@@ -65,7 +64,7 @@ class TestReportCrashToChronos:
             patch(CHRONOS_PATCH, return_value=mock_client) as mock_cls,
             patch.dict("os.environ", {"PLATO_API_KEY": "pk_test_key"}),
         ):
-            _report_crash_to_chronos(config_file, exit_code=1, error_message="crash")
+            _report_crash_to_chronos(config_file, error_message="crash")
 
         mock_cls.assert_called_once_with(base_url="https://chronos.example.com", api_key="pk_test_key")
 
@@ -74,7 +73,7 @@ class TestReportCrashToChronos:
         mock_client = MagicMock()
 
         with patch(CHRONOS_PATCH, return_value=mock_client):
-            _report_crash_to_chronos(config_file, exit_code=1, error_message="x" * 10000)
+            _report_crash_to_chronos(config_file, error_message="x" * 10000)
 
         call_kwargs = mock_client.complete.call_args[1]
         assert len(call_kwargs["error_message"]) <= 8000
@@ -82,13 +81,13 @@ class TestReportCrashToChronos:
     def test_no_op_when_config_missing(self, tmp_path: Path):
         """Should silently return if config file doesn't exist."""
         with patch(CHRONOS_PATCH) as mock_cls:
-            _report_crash_to_chronos(tmp_path / "nonexistent.json", exit_code=1, error_message="crash")
+            _report_crash_to_chronos(tmp_path / "nonexistent.json", error_message="crash")
         mock_cls.assert_not_called()
 
     def test_no_op_when_session_config_missing(self, config_file_no_session: Path):
         """Should silently return if session block is missing from config."""
         with patch(CHRONOS_PATCH) as mock_cls:
-            _report_crash_to_chronos(config_file_no_session, exit_code=1, error_message="crash")
+            _report_crash_to_chronos(config_file_no_session, error_message="crash")
         mock_cls.assert_not_called()
 
     def test_no_op_when_chronos_url_missing(self, tmp_path: Path):
@@ -98,7 +97,7 @@ class TestReportCrashToChronos:
         p.write_text(json.dumps(config))
 
         with patch(CHRONOS_PATCH) as mock_cls:
-            _report_crash_to_chronos(p, exit_code=1, error_message="crash")
+            _report_crash_to_chronos(p, error_message="crash")
         mock_cls.assert_not_called()
 
     def test_swallows_sdk_errors(self, config_file: Path):
@@ -108,4 +107,4 @@ class TestReportCrashToChronos:
 
         with patch(CHRONOS_PATCH, return_value=mock_client):
             # Should not raise
-            _report_crash_to_chronos(config_file, exit_code=1, error_message="crash")
+            _report_crash_to_chronos(config_file, error_message="crash")

@@ -158,28 +158,48 @@ class BigQueryOfflineStoreConnectionConfig(_message.Message):
     dataset_id: str
     def __init__(self, project_id: _Optional[str] = ..., dataset_id: _Optional[str] = ...) -> None: ...
 
+class IcebergGlueS3CatalogConfig(_message.Message):
+    __slots__ = ("s3_bucket", "glue_database_name")
+    S3_BUCKET_FIELD_NUMBER: _ClassVar[int]
+    GLUE_DATABASE_NAME_FIELD_NUMBER: _ClassVar[int]
+    s3_bucket: str
+    glue_database_name: str
+    def __init__(self, s3_bucket: _Optional[str] = ..., glue_database_name: _Optional[str] = ...) -> None: ...
+
+class IcebergOfflineStoreConnectionConfig(_message.Message):
+    __slots__ = ("glue_s3",)
+    GLUE_S3_FIELD_NUMBER: _ClassVar[int]
+    glue_s3: IcebergGlueS3CatalogConfig
+    def __init__(self, glue_s3: _Optional[_Union[IcebergGlueS3CatalogConfig, _Mapping]] = ...) -> None: ...
+
 class OfflineStoreConnectionConfigInput(_message.Message):
-    __slots__ = ("snowflake", "bigquery")
+    __slots__ = ("snowflake", "bigquery", "iceberg")
     SNOWFLAKE_FIELD_NUMBER: _ClassVar[int]
     BIGQUERY_FIELD_NUMBER: _ClassVar[int]
+    ICEBERG_FIELD_NUMBER: _ClassVar[int]
     snowflake: SnowflakeOfflineStoreConnectionConfigInput
     bigquery: BigQueryOfflineStoreConnectionConfig
+    iceberg: IcebergOfflineStoreConnectionConfig
     def __init__(
         self,
         snowflake: _Optional[_Union[SnowflakeOfflineStoreConnectionConfigInput, _Mapping]] = ...,
         bigquery: _Optional[_Union[BigQueryOfflineStoreConnectionConfig, _Mapping]] = ...,
+        iceberg: _Optional[_Union[IcebergOfflineStoreConnectionConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class OfflineStoreConnectionConfigStored(_message.Message):
-    __slots__ = ("snowflake", "bigquery")
+    __slots__ = ("snowflake", "bigquery", "iceberg")
     SNOWFLAKE_FIELD_NUMBER: _ClassVar[int]
     BIGQUERY_FIELD_NUMBER: _ClassVar[int]
+    ICEBERG_FIELD_NUMBER: _ClassVar[int]
     snowflake: SnowflakeOfflineStoreConnectionConfigStored
     bigquery: BigQueryOfflineStoreConnectionConfig
+    iceberg: IcebergOfflineStoreConnectionConfig
     def __init__(
         self,
         snowflake: _Optional[_Union[SnowflakeOfflineStoreConnectionConfigStored, _Mapping]] = ...,
         bigquery: _Optional[_Union[BigQueryOfflineStoreConnectionConfig, _Mapping]] = ...,
+        iceberg: _Optional[_Union[IcebergOfflineStoreConnectionConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class OfflineStoreConnectionInput(_message.Message):

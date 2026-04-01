@@ -47,5 +47,20 @@ class ToolDefinition(BaseModel):
 
     name: str
     description: str
+    input_schema: dict[str, Any] | None = None
     input_model: type[BaseModel] | None = None
     handler: Callable[..., Any]
+
+
+def get_tool_input_schema(tool: ToolDefinition) -> dict[str, Any]:
+    """Return the JSON schema exposed for a tool.
+
+    Prefer ``input_model`` when present so the schema stays in sync with the
+    typed runtime contract. Fall back to legacy ``input_schema`` support for
+    pickled tool definitions used by the local stdio MCP bridge.
+    """
+    if tool.input_model is not None:
+        return tool.input_model.model_json_schema()
+    if tool.input_schema is not None:
+        return tool.input_schema
+    raise ValueError(f"Tool {tool.name!r} has neither input_model nor input_schema set")

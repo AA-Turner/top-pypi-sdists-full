@@ -13519,19 +13519,6 @@ class CfnBotAlias(
         jsii.set(self, "botId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="sentimentAnalysisSettings")
-    def sentiment_analysis_settings(self) -> typing.Any:
-        '''Determines whether Amazon Lex will use Amazon Comprehend to detect the sentiment of user utterances.'''
-        return typing.cast(typing.Any, jsii.get(self, "sentimentAnalysisSettings"))
-
-    @sentiment_analysis_settings.setter
-    def sentiment_analysis_settings(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8cbd98c4bdfe82bcb165ec91638c6ad68086348b28345eeda6f375cb1a7fcd1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sentimentAnalysisSettings", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="botAliasLocaleSettings")
     def bot_alias_locale_settings(
         self,
@@ -13608,6 +13595,19 @@ class CfnBotAlias(
             type_hints = typing.get_type_hints(_typecheckingstub__bf77d628ea97246a31f89b41559277e6cfb829aa4bde51a21dce2c884995deb9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sentimentAnalysisSettings")
+    def sentiment_analysis_settings(self) -> typing.Any:
+        '''Determines whether Amazon Lex will use Amazon Comprehend to detect the sentiment of user utterances.'''
+        return typing.cast(typing.Any, jsii.get(self, "sentimentAnalysisSettings"))
+
+    @sentiment_analysis_settings.setter
+    def sentiment_analysis_settings(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e8cbd98c4bdfe82bcb165ec91638c6ad68086348b28345eeda6f375cb1a7fcd1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sentimentAnalysisSettings", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lex.CfnBotAlias.AudioLogDestinationProperty",
@@ -16847,12 +16847,6 @@ def _typecheckingstub__43cce0d64f81ea520d08b83a4aa6aece3a2341b6dde0b7fcd65a8f847
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e8cbd98c4bdfe82bcb165ec91638c6ad68086348b28345eeda6f375cb1a7fcd1(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__917790158810f6fc38fb5d4372a10a9584fb6d4764bb1d87be8244cc727936e5(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBotAlias.BotAliasLocaleSettingsItemProperty]]]],
 ) -> None:
@@ -16879,6 +16873,12 @@ def _typecheckingstub__26855f93261461e56c873baf08145fa32c74a011917251399c4d61392
 
 def _typecheckingstub__bf77d628ea97246a31f89b41559277e6cfb829aa4bde51a21dce2c884995deb9(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8cbd98c4bdfe82bcb165ec91638c6ad68086348b28345eeda6f375cb1a7fcd1(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

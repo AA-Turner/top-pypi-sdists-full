@@ -62,7 +62,6 @@ async def test_set_date_env_level():
         target_dt = datetime(2023, 12, 25, 10, 0, 0)
         logger.info(f"[2/4] Setting date to: {target_dt}")
 
-        breakpoint()
         result = await spree_env.set_date(target_dt)
         logger.info(f"Set date result: success={result.success}, stdout={result.stdout}")
 
@@ -85,7 +84,6 @@ async def test_set_date_env_level():
         raise
 
     finally:
-        breakpoint()
         if session:
             await session.close()
         await plato.close()

@@ -20,6 +20,7 @@ from cogames.games.cogs_vs_clips.game.roles.miner import MinerVariant
 from cogames.games.cogs_vs_clips.game.roles.scout import ScoutVariant
 from cogames.games.cogs_vs_clips.game.roles.scrambler import ScramblerVariant
 from cogames.games.cogs_vs_clips.game.solar import SolarVariant
+from cogames.games.cogs_vs_clips.game.talk import TalkVariant
 from cogames.games.cogs_vs_clips.game.teams import TeamConfig, TeamVariant
 from cogames.games.cogs_vs_clips.game.teams.gear_stations import TeamGearStationsVariant
 from cogames.games.cogs_vs_clips.game.teams.hub import TeamHubVariant
@@ -123,7 +124,7 @@ class TestGearVariant:
         for agent in env.game.agents:
             assert "gear" in agent.inventory.limits
             gear = agent.inventory.limits["gear"]
-            assert gear.min == 1
+            assert gear.base == 1
             assert set(gear.resources) == set(GEAR)
 
     def test_adds_gear_stations(self):
@@ -182,7 +183,7 @@ class TestHeartVariant:
         for agent in env.game.agents:
             assert "heart" in agent.inventory.limits
             heart = agent.inventory.limits["heart"]
-            assert heart.min == 10
+            assert heart.base == 10
 
     def test_adds_heart_handlers_to_hub(self):
         env = _make_mission([TeamHubVariant(), HeartVariant(cost={"oxygen": 7})]).make_env()
@@ -282,6 +283,15 @@ class TestVibesVariant:
         assert env.game.actions.change_vibe.enabled is True
 
 
+class TestTalkVariant:
+    def test_replaces_change_vibe_with_talk(self):
+        env = _make_mission([TalkVariant()]).make_env()
+        assert env.game.actions.change_vibe.enabled is False
+        assert env.game.talk.enabled is True
+        assert env.game.talk.max_length == 140
+        assert env.game.talk.cooldown_steps == 50
+
+
 class TestTeamVariant:
     def test_sets_team_sizes(self):
         env = _make_mission([TeamVariant(team_sizes={"cogs": 3})], num_cogs=4).make_env()
@@ -325,8 +335,8 @@ class TestMachina1Variant:
         for agent in env.game.agents:
             assert "hp" in agent.inventory.limits
             assert "energy" in agent.inventory.limits
-            assert agent.inventory.limits["gear"].min == 1
-            assert agent.inventory.limits["heart"].min == 10
+            assert agent.inventory.limits["gear"].base == 1
+            assert agent.inventory.limits["heart"].base == 10
 
     def test_junction_deposit_forwards_resources_to_team_hub(self):
         mission = CvCMission(

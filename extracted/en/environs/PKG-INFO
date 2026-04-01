@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: environs
-Version: 14.6.0
+Version: 15.0.0
 Summary: simplified environment variable parsing
 Author-email: Steven Loria <oss@stevenloria.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-Expression: MIT
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
@@ -16,24 +16,15 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Requires-Dist: python-dotenv
-Requires-Dist: marshmallow>=3.26.2
+Requires-Dist: marshmallow>=4.0.0
 Requires-Dist: typing-extensions; python_version < '3.11'
-Requires-Dist: environs[tests] ; extra == "dev"
-Requires-Dist: tox ; extra == "dev"
-Requires-Dist: pre-commit>=4.0,<5.0 ; extra == "dev"
 Requires-Dist: dj-database-url ; extra == "django"
 Requires-Dist: dj-email-url ; extra == "django"
 Requires-Dist: django-cache-url ; extra == "django"
-Requires-Dist: environs[django] ; extra == "tests"
-Requires-Dist: pytest ; extra == "tests"
-Requires-Dist: packaging ; extra == "tests"
-Requires-Dist: backports.strenum ; extra == "tests" and ( python_version < '3.11')
 Project-URL: Changelog, https://github.com/sloria/environs/blob/master/CHANGELOG.md
 Project-URL: Issues, https://github.com/sloria/environs/issues
 Project-URL: Source, https://github.com/sloria/environs
-Provides-Extra: dev
 Provides-Extra: django
-Provides-Extra: tests
 
 # environs: simplified environment variable parsing
 
@@ -65,7 +56,7 @@ It allows you to store configuration separate from your code, as per
 - [Defining custom parser behavior](#defining-custom-parser-behavior)
 - [Usage with Flask](#usage-with-flask)
 - [Usage with Django](#usage-with-django)
-- [Why\...?](#why%5C)
+- [Why\...?](#why)
   - [Why envvars?](#why-envvars)
   - [Why not `os.environ`?](#why-not-osenviron)
   - [Why another library?](#why-another-library)
@@ -76,7 +67,7 @@ It allows you to store configuration separate from your code, as per
 ## Features
 
 - Type-casting
-- Read `.env` files into `os.environ` (useful for local development)
+- Read `.env` files without mutating `os.environ`
 - Validation
 - Define custom parser behavior
 - Framework-agnostic, but integrates well with [Flask](#usage-with-flask) and [Django](#usage-with-django)
@@ -198,12 +189,14 @@ Call `Env.read_env` before parsing variables.
 ```python
 from environs import env
 
-# Read .env into os.environ
 env.read_env()
 
 env.bool("DEBUG")  # => True
 env.int("PORT")  # => 4567
 ```
+> [!NOTE]
+> `read_env` loads values into the `Env` instance without modifying `os.environ`.
+
 
 ### Reading a specific file
 

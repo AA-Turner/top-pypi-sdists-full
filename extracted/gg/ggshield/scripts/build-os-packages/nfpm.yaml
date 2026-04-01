@@ -1,0 +1,50 @@
+name: ggshield
+section: utils
+vendor: GitGuardian
+maintainer: GitGuardian <dev@gitguardian.com>
+license: MIT
+homepage: https://github.com/GitGuardian/ggshield
+description: |-
+  Detect leaked secrets and other potential security vulnerabilities
+  ggshield runs in your local environment or in a CI environment to help you
+  detect leaked secrets, as well as other potential security vulnerabilities.
+
+arch: amd64
+platform: linux
+version: ${VERSION}
+version_schema: semver
+release: 1
+
+# Make sure files are not group-writable. lintian does not like that.
+umask: 0o022
+
+contents:
+  - src: ../libexec/ggshield/ggshield
+    dst: /usr/bin/ggshield
+    type: symlink
+
+  - src: ${PYINSTALLER_OUTPUT_DIR}
+    dst: /usr/libexec/ggshield
+    expand: true
+
+    # Required because our bundled Python binary still uses libcrypt.so.1, but
+    # some distributions ship with libcrypt.so.2 nowadays (see #1036).
+    # We copy libcrypt.so.1.1.0 and not libcrypt.so.1 because the later is a
+    # symlink to the former.
+  - src: /usr/lib64/libcrypt.so.1.1.0
+    dst: /usr/libexec/ggshield/_internal/libcrypt.so.1
+
+  - src: README.md
+    dst: /usr/share/doc/ggshield/README.md
+
+  - src: LICENSE
+    dst: /usr/share/doc/ggshield/LICENSE
+
+overrides:
+  rpm:
+    depends:
+      - git-core
+  deb:
+    depends:
+      - libc6
+      - git

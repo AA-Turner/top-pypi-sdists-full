@@ -71,7 +71,6 @@ __all__ = (
     "AzureConfigurationTypeDef",
     "AzureDevOpsConfigurationTypeDef",
     "ChatExecutionTypeDef",
-    "ChatParticipantConnectionTypeDef",
     "CreateAgentSpaceInputTypeDef",
     "CreateAgentSpaceOutputTypeDef",
     "CreateBacklogTaskRequestTypeDef",
@@ -88,8 +87,6 @@ __all__ = (
     "DeregisterServiceInputTypeDef",
     "DescribePrivateConnectionInputTypeDef",
     "DescribePrivateConnectionOutputTypeDef",
-    "DescribeSupportLevelRequestTypeDef",
-    "DescribeSupportLevelResponseTypeDef",
     "DisableOperatorAppInputTypeDef",
     "DisassociateServiceInputTypeDef",
     "DynatraceConfigurationOutputTypeDef",
@@ -100,8 +97,6 @@ __all__ = (
     "EmptyResponseMetadataTypeDef",
     "EnableOperatorAppInputTypeDef",
     "EnableOperatorAppOutputTypeDef",
-    "EndChatForCaseRequestTypeDef",
-    "EndChatForCaseResponseTypeDef",
     "EventChannelDetailsTypeDef",
     "ExecutionTypeDef",
     "GenericWebhookTypeDef",
@@ -129,8 +124,6 @@ __all__ = (
     "IamAuthConfigurationTypeDef",
     "IdcAuthConfigurationTypeDef",
     "IdpAuthConfigurationTypeDef",
-    "InitiateChatForCaseRequestTypeDef",
-    "InitiateChatForCaseResponseTypeDef",
     "JournalRecordTypeDef",
     "ListAgentSpacesInputPaginateTypeDef",
     "ListAgentSpacesInputTypeDef",
@@ -174,11 +167,6 @@ __all__ = (
     "MCPServerNewRelicConfigurationTypeDef",
     "MCPServerOAuth3LOConfigTypeDef",
     "MCPServerOAuthClientCredentialsConfigTypeDef",
-    "MCPServerSigV4AuthorizationConfigTypeDef",
-    "MCPServerSigV4ServiceDetailsTypeDef",
-    "MSTeamsChannelTypeDef",
-    "MSTeamsConfigurationTypeDef",
-    "MSTeamsTransmissionTargetTypeDef",
     "MessageTypeDef",
     "NewRelicApiKeyConfigTypeDef",
     "NewRelicServiceAuthorizationConfigTypeDef",
@@ -207,7 +195,6 @@ __all__ = (
     "RegisteredGithubServiceDetailsTypeDef",
     "RegisteredGrafanaServerDetailsTypeDef",
     "RegisteredMCPServerDetailsTypeDef",
-    "RegisteredMCPServerSigV4DetailsTypeDef",
     "RegisteredNewRelicDetailsTypeDef",
     "RegisteredPagerDutyDetailsTypeDef",
     "RegisteredServiceNowDetailsTypeDef",
@@ -245,7 +232,6 @@ __all__ = (
     "SlackConfigurationTypeDef",
     "SlackTransmissionTargetTypeDef",
     "SourceAwsConfigurationTypeDef",
-    "SupportLevelTypeDef",
     "TagResourceRequestTypeDef",
     "TaskFilterTypeDef",
     "TaskTypeDef",
@@ -313,15 +299,6 @@ class RegisteredMCPServerDetailsTypeDef(TypedDict):
     authorizationMethod: MCPServerAuthorizationMethodType
     description: NotRequired[str]
     apiKeyHeader: NotRequired[str]
-
-
-class RegisteredMCPServerSigV4DetailsTypeDef(TypedDict):
-    name: str
-    endpoint: str
-    region: str
-    service: str
-    roleArn: str
-    description: NotRequired[str]
 
 
 class RegisteredNewRelicDetailsTypeDef(TypedDict):
@@ -401,12 +378,6 @@ class ChatExecutionTypeDef(TypedDict):
     summary: NotRequired[str]
 
 
-class ChatParticipantConnectionTypeDef(TypedDict):
-    initialContactId: str
-    participantId: str
-    participantToken: str
-
-
 class CreateAgentSpaceInputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
@@ -447,16 +418,6 @@ class DeregisterServiceInputTypeDef(TypedDict):
 
 
 class DescribePrivateConnectionInputTypeDef(TypedDict):
-    name: str
-
-
-class DescribeSupportLevelRequestTypeDef(TypedDict):
-    agentSpaceId: str
-    taskId: str
-
-
-class SupportLevelTypeDef(TypedDict):
-    code: str
     name: str
 
 
@@ -519,14 +480,6 @@ class IdpAuthConfigurationTypeDef(TypedDict):
     provider: str
     createdAt: datetime
     updatedAt: NotRequired[datetime]
-
-
-class EndChatForCaseRequestTypeDef(TypedDict):
-    agentSpaceId: str
-    taskId: str
-    reason: NotRequired[str]
-    requester: NotRequired[str]
-    clientToken: NotRequired[str]
 
 
 EventChannelDetailsTypeDef = TypedDict(
@@ -615,12 +568,6 @@ class GoalScheduleInputTypeDef(TypedDict):
 class GoalScheduleTypeDef(TypedDict):
     state: SchedulerStateType
     expression: NotRequired[str]
-
-
-class InitiateChatForCaseRequestTypeDef(TypedDict):
-    agentSpaceId: str
-    taskId: str
-    clientToken: NotRequired[str]
 
 
 class UserReferenceTypeDef(TypedDict):
@@ -776,17 +723,6 @@ class MCPServerGrafanaConfigurationTypeDef(TypedDict):
 class MCPServerNewRelicConfigurationTypeDef(TypedDict):
     accountId: str
     endpoint: str
-
-
-class MCPServerSigV4AuthorizationConfigTypeDef(TypedDict):
-    region: str
-    service: str
-    roleArn: str
-
-
-class MSTeamsChannelTypeDef(TypedDict):
-    channelName: str
-    channelId: str
 
 
 class UserMessageBlockTypeDef(TypedDict):
@@ -1011,7 +947,6 @@ class AdditionalServiceDetailsTypeDef(TypedDict):
     azureidentity: NotRequired[RegisteredAzureIdentityDetailsOutputTypeDef]
     mcpservergrafana: NotRequired[RegisteredGrafanaServerDetailsTypeDef]
     pagerduty: NotRequired[RegisteredPagerDutyDetailsTypeDef]
-    mcpserversigv4: NotRequired[RegisteredMCPServerSigV4DetailsTypeDef]
 
 
 class AdditionalServiceRegistrationStepTypeDef(TypedDict):
@@ -1079,13 +1014,6 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class EndChatForCaseResponseTypeDef(TypedDict):
-    isDisconnected: bool
-    executionId: str
-    errorMessage: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class GetAgentSpaceOutputTypeDef(TypedDict):
     agentSpace: AgentSpaceTypeDef
     tags: dict[str, str]
@@ -1130,11 +1058,6 @@ class ListChatsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class InitiateChatForCaseResponseTypeDef(TypedDict):
-    chatParticipantConnection: ChatParticipantConnectionTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class CreateBacklogTaskRequestTypeDef(TypedDict):
     agentSpaceId: str
     taskType: TaskTypeType
@@ -1147,13 +1070,6 @@ class CreateBacklogTaskRequestTypeDef(TypedDict):
 
 class DatadogAuthorizationConfigTypeDef(TypedDict):
     authorizationDiscovery: NotRequired[MCPServerAuthorizationDiscoveryConfigTypeDef]
-
-
-class DescribeSupportLevelResponseTypeDef(TypedDict):
-    supportLevel: SupportLevelTypeDef
-    mosaicSupportLevel: SupportLevelTypeDef
-    activeSubscription: bool
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DynatraceServiceAuthorizationConfigTypeDef(TypedDict):
@@ -1191,6 +1107,7 @@ class GetAccountUsageOutputTypeDef(TypedDict):
     monthlyAccountInvestigationHours: UsageMetricTypeDef
     monthlyAccountEvaluationHours: UsageMetricTypeDef
     monthlyAccountSystemLearningHours: UsageMetricTypeDef
+    monthlyAccountOnDemandHours: UsageMetricTypeDef
     usagePeriodStartTime: datetime
     usagePeriodEndTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1281,18 +1198,6 @@ class MCPServerAuthorizationConfigTypeDef(TypedDict):
     apiKey: NotRequired[MCPServerAPIKeyConfigTypeDef]
     bearerToken: NotRequired[MCPServerBearerTokenConfigTypeDef]
     authorizationDiscovery: NotRequired[MCPServerAuthorizationDiscoveryConfigTypeDef]
-
-
-class MCPServerSigV4ServiceDetailsTypeDef(TypedDict):
-    name: str
-    endpoint: str
-    authorizationConfig: MCPServerSigV4AuthorizationConfigTypeDef
-    description: NotRequired[str]
-
-
-class MSTeamsTransmissionTargetTypeDef(TypedDict):
-    opsOncallTarget: NotRequired[MSTeamsChannelTypeDef]
-    opsSRETarget: NotRequired[MSTeamsChannelTypeDef]
 
 
 class MessageTypeDef(TypedDict):
@@ -1452,12 +1357,6 @@ class MCPServerDetailsTypeDef(TypedDict):
     description: NotRequired[str]
 
 
-class MSTeamsConfigurationTypeDef(TypedDict):
-    teamId: str
-    teamName: str
-    transmissionTarget: MSTeamsTransmissionTargetTypeDef
-
-
 class PendingMessageTypeDef(TypedDict):
     messageId: str
     message: MessageTypeDef
@@ -1599,7 +1498,6 @@ class ServiceDetailsTypeDef(TypedDict):
     mcpservergrafana: NotRequired[GrafanaServiceDetailsTypeDef]
     pagerduty: NotRequired[PagerDutyDetailsTypeDef]
     azureidentity: NotRequired[RegisteredAzureIdentityDetailsUnionTypeDef]
-    mcpserversigv4: NotRequired[MCPServerSigV4ServiceDetailsTypeDef]
 
 
 class ServiceConfigurationOutputTypeDef(TypedDict):
@@ -1616,7 +1514,6 @@ class ServiceConfigurationOutputTypeDef(TypedDict):
     azuredevops: NotRequired[AzureDevOpsConfigurationTypeDef]
     mcpservergrafana: NotRequired[MCPServerGrafanaConfigurationOutputTypeDef]
     pagerduty: NotRequired[PagerDutyConfigurationOutputTypeDef]
-    msteams: NotRequired[MSTeamsConfigurationTypeDef]
 
 
 class ServiceConfigurationTypeDef(TypedDict):
@@ -1633,7 +1530,6 @@ class ServiceConfigurationTypeDef(TypedDict):
     azuredevops: NotRequired[AzureDevOpsConfigurationTypeDef]
     mcpservergrafana: NotRequired[MCPServerGrafanaConfigurationTypeDef]
     pagerduty: NotRequired[PagerDutyConfigurationTypeDef]
-    msteams: NotRequired[MSTeamsConfigurationTypeDef]
 
 
 class SendMessageResponseTypeDef(TypedDict):

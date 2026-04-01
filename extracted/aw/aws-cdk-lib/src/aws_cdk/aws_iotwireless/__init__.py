@@ -2717,19 +2717,6 @@ class CfnNetworkAnalyzerConfiguration(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="traceContent")
-    def trace_content(self) -> typing.Any:
-        '''Trace content for your wireless gateway and wireless device resources.'''
-        return typing.cast(typing.Any, jsii.get(self, "traceContent"))
-
-    @trace_content.setter
-    def trace_content(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec63757a5145f99a0f5ef3d5b25bbe5becfee81e77d099ee2f39369f195858f6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "traceContent", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the resource.'''
@@ -2754,6 +2741,19 @@ class CfnNetworkAnalyzerConfiguration(
             type_hints = typing.get_type_hints(_typecheckingstub__6b46f409840f000384f5933335a3a3f6ca1fc64ffa82bf977e2ecf1eab8bb21e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="traceContent")
+    def trace_content(self) -> typing.Any:
+        '''Trace content for your wireless gateway and wireless device resources.'''
+        return typing.cast(typing.Any, jsii.get(self, "traceContent"))
+
+    @trace_content.setter
+    def trace_content(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec63757a5145f99a0f5ef3d5b25bbe5becfee81e77d099ee2f39369f195858f6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "traceContent", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="wirelessDevices")
@@ -8511,12 +8511,6 @@ def _typecheckingstub__8c86a3d802557338c300cca0ece6752eb71025ac87c6ef07829166d2f
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ec63757a5145f99a0f5ef3d5b25bbe5becfee81e77d099ee2f39369f195858f6(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__93e1a9911115880ebf27f7267ad38fa5bce7c66abe33ebbe75b2bf22eabf9156(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -8525,6 +8519,12 @@ def _typecheckingstub__93e1a9911115880ebf27f7267ad38fa5bce7c66abe33ebbe75b2bf22e
 
 def _typecheckingstub__6b46f409840f000384f5933335a3a3f6ca1fc64ffa82bf977e2ecf1eab8bb21e(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec63757a5145f99a0f5ef3d5b25bbe5becfee81e77d099ee2f39369f195858f6(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

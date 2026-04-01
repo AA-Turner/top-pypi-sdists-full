@@ -1,4 +1,5 @@
 import logging
+from praisonaiagents._logging import get_logger
 import asyncio
 import inspect
 from typing import List, Optional, Dict, Any, Type, Callable, Union, Coroutine, Literal, Tuple, get_args, get_origin
@@ -10,7 +11,7 @@ import os
 import time
 
 # Set up logger
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class Task:
     """
@@ -167,12 +168,13 @@ class Task:
         self.output_pydantic = output_pydantic
         # Handle callback/on_task_complete: on_task_complete is canonical, callback is deprecated
         if callback is not None and on_task_complete is None:
-            import warnings
-            warnings.warn(
-                "Parameter 'callback' is deprecated, use 'on_task_complete' instead. "
-                "Example: Task(on_task_complete=my_fn) instead of Task(callback=my_fn)",
-                DeprecationWarning,
-                stacklevel=2
+            from ..utils.deprecation import warn_deprecated_param
+            warn_deprecated_param(
+                "callback",
+                since="1.0.0",
+                removal="2.0.0",
+                alternative="use 'on_task_complete' instead. Example: Task(on_task_complete=my_fn)",
+                stacklevel=3
             )
             self.callback = callback
         elif callback is not None and on_task_complete is not None:
@@ -198,12 +200,13 @@ class Task:
         self.retain_full_context = retain_full_context
         # Handle guardrail/guardrails: guardrails (plural) is canonical, guardrail (singular) is deprecated
         if guardrail is not None and guardrails is None:
-            import warnings
-            warnings.warn(
-                "Parameter 'guardrail' is deprecated, use 'guardrails' instead. "
-                "Example: Task(guardrails=my_fn) instead of Task(guardrail=my_fn)",
-                DeprecationWarning,
-                stacklevel=2
+            from ..utils.deprecation import warn_deprecated_param
+            warn_deprecated_param(
+                "guardrail",
+                since="1.0.0", 
+                removal="2.0.0",
+                alternative="use 'guardrails' instead. Example: Task(guardrails=my_fn)",
+                stacklevel=3
             )
         # guardrails takes precedence over guardrail
         self.guardrail = guardrails if guardrails is not None else guardrail
@@ -334,15 +337,16 @@ class Task:
         # Set logger level based on config verbose level
         verbose = self.config.get("verbose", 0)
         if verbose >= 5:
-            logger.setLevel(logging.INFO)
+            logger.setLevel(10)  # DEBUG
         else:
-            logger.setLevel(logging.WARNING)
+            logger.setLevel(30)  # WARNING
 
         # Also set third-party loggers to WARNING
-        logging.getLogger('chromadb').setLevel(logging.WARNING)
-        logging.getLogger('openai').setLevel(logging.WARNING)
-        logging.getLogger('httpx').setLevel(logging.WARNING)
-        logging.getLogger('httpcore').setLevel(logging.WARNING)
+        import logging as _logging
+        get_logger('chromadb').setLevel(_logging.WARNING)
+        get_logger('openai').setLevel(_logging.WARNING)
+        get_logger('httpx').setLevel(_logging.WARNING)
+        get_logger('httpcore').setLevel(_logging.WARNING)
 
         if self.output_json and self.output_pydantic:
             raise ValueError("Only one output type can be defined")

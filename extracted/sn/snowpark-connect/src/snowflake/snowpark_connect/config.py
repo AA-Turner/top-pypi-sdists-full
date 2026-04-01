@@ -219,6 +219,10 @@ class GlobalConfig:
         "spark.app.name": lambda session, name: setattr(
             session, "query_tag", f"Spark-Connect-App-Name={name}"
         ),
+        # TODO SNOW-2896871: Remove with version 1.10.0
+        "snowpark.connect.udf.imports": lambda session, imports: parse_imports(
+            session, imports, "python"
+        ),
         "snowpark.connect.udf.python.imports": lambda session, imports: parse_imports(
             session, imports, "python"
         ),

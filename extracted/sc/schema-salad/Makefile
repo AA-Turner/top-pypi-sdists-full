@@ -109,11 +109,11 @@ format-check:
 	black --diff --check --force-exclude metaschema.py --exclude _version.py schema_salad setup.py mypy-stubs
 
 ## pylint                 : run static code analysis on Python code
-pylint: FORCE
+pylint: $(PYSOURCES)
 	pylint --msg-template="{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}" \
                 $^ -j0|| true
 
-pylint_report.txt: FORCE
+pylint_report.txt: $(PYSOURCES)
 	pylint --msg-template="{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}" \
 		$^ -j0> $@ || true
 
@@ -205,7 +205,7 @@ bandit:
 	bandit --recursive --exclude schema_salad/tests/ schema_salad
 
 pyupgrade: $(filter-out schema_salad/metaschema.py,$(PYSOURCES))
-	pyupgrade --exit-zero-even-if-changed --py39-plus $^
+	pyupgrade --exit-zero-even-if-changed --py310-plus $^
 	auto-walrus $^
 
 release-test: FORCE

@@ -152,6 +152,7 @@ def agent(model, system_prompt, messages, tool_registry, thread_pool, hook_regis
     mock.tool_executor = tool_executor
     mock._interrupt_state = _InterruptState()
     mock._cancel_signal = threading.Event()
+    mock._model_state = {}
     mock.trace_attributes = {}
     mock.retry_strategy = ModelRetryStrategy()
 
@@ -391,6 +392,7 @@ async def test_event_loop_cycle_tool_result(
         tool_choice=None,
         system_prompt_content=unittest.mock.ANY,
         invocation_state=unittest.mock.ANY,
+        model_state=unittest.mock.ANY,
     )
 
 
@@ -547,6 +549,9 @@ async def test_event_loop_cycle_creates_spans(
     mock_get_tracer.assert_called_once()
     mock_tracer.start_event_loop_cycle_span.assert_called_once()
     mock_tracer.start_model_invoke_span.assert_called_once()
+    call_kwargs = mock_tracer.start_model_invoke_span.call_args[1]
+    assert call_kwargs["system_prompt"] == agent.system_prompt
+    assert call_kwargs["system_prompt_content"] == agent._system_prompt_content
     mock_tracer.end_model_invoke_span.assert_called_once()
     mock_tracer.end_event_loop_cycle_span.assert_called_once()
 

@@ -20,7 +20,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from arthur_client.api_bindings.models.compliance_status import ComplianceStatus
+from arthur_client.api_bindings.models.compliance_status_detail import ComplianceStatusDetail
 from arthur_client.api_bindings.models.model_summary import ModelSummary
 from arthur_client.api_bindings.models.policy import Policy
 from typing import Optional, Set
@@ -38,7 +38,7 @@ class PolicyAssignmentDetail(BaseModel):
     applied_at: datetime = Field(description="When the policy was applied to the model.")
     applied_by_user_id: Optional[StrictStr] = None
     enforcement_starts_at: datetime = Field(description="When enforcement starts.")
-    compliance_status: ComplianceStatus = Field(description="Current compliance status.")
+    compliance_status: ComplianceStatusDetail = Field(description="Current compliance status.")
     compliance_job_id: Optional[StrictStr] = None
     __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "policy", "model", "applied_at", "applied_by_user_id", "enforcement_starts_at", "compliance_status", "compliance_job_id"]
 
@@ -87,6 +87,9 @@ class PolicyAssignmentDetail(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of model
         if self.model:
             _dict['model'] = self.model.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of compliance_status
+        if self.compliance_status:
+            _dict['compliance_status'] = self.compliance_status.to_dict()
         # set to None if applied_by_user_id (nullable) is None
         # and model_fields_set contains the field
         if self.applied_by_user_id is None and "applied_by_user_id" in self.model_fields_set:
@@ -117,7 +120,7 @@ class PolicyAssignmentDetail(BaseModel):
             "applied_at": obj.get("applied_at"),
             "applied_by_user_id": obj.get("applied_by_user_id"),
             "enforcement_starts_at": obj.get("enforcement_starts_at"),
-            "compliance_status": obj.get("compliance_status"),
+            "compliance_status": ComplianceStatusDetail.from_dict(obj["compliance_status"]) if obj.get("compliance_status") is not None else None,
             "compliance_job_id": obj.get("compliance_job_id")
         })
         return _obj

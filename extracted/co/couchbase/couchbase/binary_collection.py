@@ -14,18 +14,23 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from __future__ import annotations
+
 from typing import (TYPE_CHECKING,
                     Any,
                     Dict,
                     List,
                     Union)
 
+from couchbase.logic.observability.handler import ObservableRequestHandler
+from couchbase.logic.operation_types import KeyValueMultiOperationType, KeyValueOperationType
 from couchbase.result import (CounterResult,
                               MultiCounterResult,
                               MultiMutationResult,
                               MutationResult)
 
 if TYPE_CHECKING:
+    from couchbase.logic.collection_impl import CollectionImpl
     from couchbase.options import (AppendMultiOptions,
                                    AppendOptions,
                                    DecrementMultiOptions,
@@ -38,8 +43,8 @@ if TYPE_CHECKING:
 
 class BinaryCollection:
 
-    def __init__(self, collection):
-        self._collection = collection
+    def __init__(self, collection_impl: CollectionImpl) -> None:
+        self._impl = collection_impl
 
     def increment(
         self,
@@ -86,7 +91,10 @@ class BinaryCollection:
                 print(f'Counter value: {res.content}')
 
         """
-        return self._collection._increment(key, *opts, **kwargs)
+        op_type = KeyValueOperationType.Increment
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_increment_request(key, obs_handler, *opts, **kwargs)
+            return self._impl.increment(req, obs_handler)
 
     def decrement(
         self,
@@ -133,7 +141,10 @@ class BinaryCollection:
                 print(f'Counter value: {res.content}')
 
         """
-        return self._collection._decrement(key, *opts, **kwargs)
+        op_type = KeyValueOperationType.Decrement
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_decrement_request(key, obs_handler, *opts, **kwargs)
+            return self._impl.decrement(req, obs_handler)
 
     def append(
         self,
@@ -188,7 +199,10 @@ class BinaryCollection:
                                                 AppendOptions(timeout=timedelta(seconds=2)))
 
         """
-        return self._collection._append(key, value, *opts, **kwargs)
+        op_type = KeyValueOperationType.Append
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_append_request(key, value, obs_handler, *opts, **kwargs)
+            return self._impl.append(req, obs_handler)
 
     def prepend(
         self,
@@ -243,7 +257,10 @@ class BinaryCollection:
                                                 PrependOptions(timeout=timedelta(seconds=2)))
 
         """
-        return self._collection._prepend(key, value, *opts, **kwargs)
+        op_type = KeyValueOperationType.Prepend
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_prepend_request(key, value, obs_handler, *opts, **kwargs)
+            return self._impl.prepend(req, obs_handler)
 
     def append_multi(
         self,
@@ -339,7 +356,11 @@ class BinaryCollection:
 
 
         """
-        return self._collection._append_multi(keys_and_values, *opts, **kwargs)
+        op_type = KeyValueMultiOperationType.AppendMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_append_multi_request(
+                keys_and_values, obs_handler, *opts, **kwargs)
+            return self._impl.append_multi(req, obs_handler)
 
     def prepend_multi(
         self,
@@ -436,7 +457,11 @@ class BinaryCollection:
 
 
         """
-        return self._collection._prepend_multi(keys_and_values, *opts, **kwargs)
+        op_type = KeyValueMultiOperationType.PrependMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_prepend_multi_request(
+                keys_and_values, obs_handler, *opts, **kwargs)
+            return self._impl.prepend_multi(req, obs_handler)
 
     def increment_multi(
         self,
@@ -521,7 +546,10 @@ class BinaryCollection:
 
 
         """
-        return self._collection._increment_multi(keys, *opts, **kwargs)
+        op_type = KeyValueMultiOperationType.IncrementMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_increment_multi_request(keys, obs_handler, *opts, **kwargs)
+            return self._impl.increment_multi(req, obs_handler)
 
     def decrement_multi(
         self,
@@ -606,4 +634,7 @@ class BinaryCollection:
 
 
         """
-        return self._collection._decrement_multi(keys, *opts, **kwargs)
+        op_type = KeyValueMultiOperationType.DecrementMulti
+        with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.multi_request_builder.build_decrement_multi_request(keys, obs_handler, *opts, **kwargs)
+            return self._impl.decrement_multi(req, obs_handler)

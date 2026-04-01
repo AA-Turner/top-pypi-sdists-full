@@ -70,7 +70,7 @@ class TestLaunch:
                 tags=["my-tag"],
             )
         assert resp.session_id == "sess-1"
-        assert resp.status == "pending"
+        assert resp.status.value == "pending"
 
     def test_launch_tag_normalization(self):
         def handler(request: httpx.Request):
@@ -80,6 +80,30 @@ class TestLaunch:
 
         with _make_client(handler) as c:
             c.launch(package="pkg:1.0", tags=["foo-bar:baz qux"])
+
+    def test_launch_includes_child_worlds(self):
+        def handler(request: httpx.Request):
+            body = json.loads(request.content)
+            assert body["child_worlds"] == {
+                "webclone-code-review": {
+                    "mode": "inline",
+                    "world_name": "webclone-code-review",
+                    "config": {"reviewer_agent": {"package": "claude-code:latest"}},
+                }
+            }
+            return _json_response({"session_id": "s1", "plato_session_id": "p1", "status": "pending"})
+
+        with _make_client(handler) as c:
+            c.launch(
+                package="pkg:1.0",
+                child_worlds={
+                    "webclone-code-review": {
+                        "mode": "inline",
+                        "world_name": "webclone-code-review",
+                        "config": {"reviewer_agent": {"package": "claude-code:latest"}},
+                    }
+                },
+            )
 
 
 class TestGetSession:
@@ -97,7 +121,7 @@ class TestGetSession:
         with _make_client(handler) as c:
             resp = c.get_session("sess-1")
         assert resp.public_id == "sess-1"
-        assert resp.status == "running"
+        assert resp.status.value == "running"
 
 
 class TestListSessions:
@@ -131,7 +155,7 @@ class TestGetStatus:
 
         with _make_client(handler) as c:
             resp = c.get_status("sess-1")
-        assert resp.status == "running"
+        assert resp.status.value == "running"
 
 
 class TestWaitForCompletion:
@@ -149,7 +173,7 @@ class TestWaitForCompletion:
 
         with _make_client(handler) as c:
             resp = c.wait_for_completion("sess-1", poll_interval=0)
-        assert resp.status == "completed"
+        assert resp.status.value == "completed"
         assert call_count == 3
 
     def test_wait_for_completion_timeout(self):
@@ -164,14 +188,14 @@ class TestWaitForCompletion:
 class TestStop:
     def test_stop(self):
         def handler(request: httpx.Request):
-            assert request.url.path == "/api/sessions/sess-1/complete"
-            body = json.loads(request.content)
-            assert body["status"] == "cancelled"
+            if request.url.path == "/api/sessions/sess-1/close":
+                return _json_response({"success": True, "message": "closed"})
+            assert request.url.path == "/api/sessions/sess-1"
             return _json_response({"public_id": "sess-1", "status": "cancelled", "created_at": "2025-01-01T00:00:00Z"})
 
         with _make_client(handler) as c:
             resp = c.stop("sess-1")
-        assert resp.status == "cancelled"
+        assert resp.status.value == "cancelled"
 
 
 class TestGetTraces:
@@ -284,7 +308,7 @@ class TestSessionResult:
 
         assert captured_body["status"] == "completed"
         assert captured_body["result"] == {"artifact_ids": {"espocrm": "abc-123"}, "status": "completed"}
-        assert resp.status == "completed"
+        assert resp.status.value == "completed"
 
     def test_complete_without_result(self):
         """CompleteSessionRequest should omit result when not provided."""
@@ -324,11 +348,14 @@ class TestSessionResult:
         with _make_client(handler) as c:
             resp = c.get_session("sess-1")
 
-        assert resp.status == "completed"
+        assert resp.status.value == "completed"
         # result comes through via extra="allow" on the model
         result = getattr(resp, "result", None)
         if result is not None:
-            assert result["artifact_ids"]["crm"] == "id-1"
+            artifact_ids = result["artifact_ids"]
+            if hasattr(artifact_ids, "root"):
+                artifact_ids = artifact_ids.root
+            assert artifact_ids["crm"] == "id-1"
 
 
 class TestDownloadWorkspaceFiles:

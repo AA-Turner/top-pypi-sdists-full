@@ -12,56 +12,72 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import cast
+from typing import cast, TypeVar
 
 import pandas
 import pandas.api.extensions
 
 import bigframes.core.global_session as bf_session
+from bigframes.core.logging import log_adapter
+import bigframes.dataframe
+from bigframes.extensions.core.dataframe_accessor import (
+    AIAccessor,
+    BigQueryDataFrameAccessor,
+)
 import bigframes.pandas as bpd
+
+T = TypeVar("T", bound="pandas.DataFrame")
+S = TypeVar("S", bound="pandas.Series")
+
+
+@log_adapter.class_logger
+class PandasAIAccessor(AIAccessor[T, S]):
+    """
+    Pandas DataFrame accessor for BigQuery AI functions.
+    """
+
+    def __init__(self, pandas_obj: T):
+        super().__init__(pandas_obj)
+
+    def _bf_from_dataframe(
+        self, session: bigframes.session.Session | None
+    ) -> bigframes.dataframe.DataFrame:
+        if session is None:
+            session = bf_session.get_global_session()
+
+        return cast(bpd.DataFrame, session.read_pandas(self._obj))
+
+    def _to_dataframe(self, bf_df: bigframes.dataframe.DataFrame) -> T:
+        return cast(T, bf_df.to_pandas(ordered=True))
+
+    def _to_series(self, bf_series: bigframes.series.Series) -> S:
+        return cast(S, bf_series.to_pandas(ordered=True))
 
 
 @pandas.api.extensions.register_dataframe_accessor("bigquery")
-class BigQueryDataFrameAccessor:
+@log_adapter.class_logger
+class PandasBigQueryDataFrameAccessor(BigQueryDataFrameAccessor[T, S]):
     """
     Pandas DataFrame accessor for BigQuery DataFrames functionality.
 
     This accessor is registered under the ``bigquery`` namespace on pandas DataFrame objects.
     """
 
-    def __init__(self, pandas_obj: pandas.DataFrame):
-        self._obj = pandas_obj
+    def __init__(self, pandas_obj: T):
+        super().__init__(pandas_obj)
 
-    def sql_scalar(self, sql_template: str, *, output_dtype=None, session=None):
-        """
-        Compute a new pandas Series by applying a SQL scalar function to the DataFrame.
+    @property
+    def ai(self) -> PandasAIAccessor:
+        return PandasAIAccessor(self._obj)
 
-        The DataFrame is converted to BigFrames by calling ``read_pandas``, then the SQL
-        template is applied using ``bigframes.bigquery.sql_scalar``, and the result is
-        converted back to a pandas Series using ``to_pandas``.
-
-        Args:
-            sql_template (str):
-                A SQL format string with Python-style {0}, {1}, etc. placeholders for each of
-                the columns in the DataFrame (in the order they appear in ``df.columns``).
-            output_dtype (a BigQuery DataFrames compatible dtype, optional):
-                If provided, BigQuery DataFrames uses this to determine the output
-                of the returned Series. This avoids a dry run query.
-            session (bigframes.session.Session, optional):
-                The BigFrames session to use. If not provided, the default global session is used.
-
-        Returns:
-            pandas.Series:
-                The result of the SQL scalar function as a pandas Series.
-        """
-        # Import bigframes.bigquery here to avoid circular imports
-        import bigframes.bigquery
-
+    def _bf_from_dataframe(self, session) -> bigframes.dataframe.DataFrame:
         if session is None:
             session = bf_session.get_global_session()
 
-        bf_df = cast(bpd.DataFrame, session.read_pandas(self._obj))
-        result = bigframes.bigquery.sql_scalar(
-            sql_template, bf_df, output_dtype=output_dtype
-        )
-        return result.to_pandas(ordered=True)
+        return cast(bpd.DataFrame, session.read_pandas(self._obj))
+
+    def _to_dataframe(self, bf_df: bigframes.dataframe.DataFrame) -> T:
+        return cast(T, bf_df.to_pandas(ordered=True))
+
+    def _to_series(self, bf_series: bigframes.series.Series) -> S:
+        return cast(S, bf_series.to_pandas(ordered=True))

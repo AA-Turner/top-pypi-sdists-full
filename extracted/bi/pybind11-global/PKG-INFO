@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pybind11-global
-Version: 3.0.2
+Version: 3.0.3
 Summary: Seamless operability between C++11 and Python
 Keywords: C++11,Python bindings
 Author-Email: Wenzel Jakob <wenzel.jakob@epfl.ch>

@@ -19,24 +19,41 @@ from __future__ import annotations
 import sys
 from collections.abc import Sequence
 from datetime import datetime
+from typing import Union
 
 from .literals import (
+    AgreementCancellationRequestReasonCodeType,
+    AgreementCancellationRequestStatusType,
     AgreementStatusType,
+    BillingAdjustmentErrorCodeType,
+    BillingAdjustmentReasonCodeType,
+    BillingAdjustmentStatusType,
+    InvoiceTypeType,
     PaymentRequestApprovalStrategyType,
     PaymentRequestStatusType,
     SortOrderType,
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "AcceptedTermTypeDef",
     "AcceptorTypeDef",
+    "AgreementCancellationRequestSummaryTypeDef",
+    "AgreementInvoiceLineItemGroupSummaryTypeDef",
     "AgreementViewSummaryTypeDef",
+    "BatchCreateBillingAdjustmentErrorTypeDef",
+    "BatchCreateBillingAdjustmentItemTypeDef",
+    "BatchCreateBillingAdjustmentRequestEntryTypeDef",
+    "BatchCreateBillingAdjustmentRequestInputTypeDef",
+    "BatchCreateBillingAdjustmentRequestOutputTypeDef",
+    "BillingAdjustmentSummaryTypeDef",
     "ByolPricingTermTypeDef",
+    "CancelAgreementCancellationRequestInputTypeDef",
+    "CancelAgreementCancellationRequestOutputTypeDef",
     "CancelAgreementPaymentRequestInputTypeDef",
     "CancelAgreementPaymentRequestOutputTypeDef",
     "ConfigurableUpfrontPricingTermConfigurationTypeDef",
@@ -51,18 +68,34 @@ __all__ = (
     "FilterTypeDef",
     "FixedUpfrontPricingTermTypeDef",
     "FreeTrialPricingTermTypeDef",
+    "GetAgreementCancellationRequestInputTypeDef",
+    "GetAgreementCancellationRequestOutputTypeDef",
     "GetAgreementPaymentRequestInputTypeDef",
     "GetAgreementPaymentRequestOutputTypeDef",
     "GetAgreementTermsInputTypeDef",
     "GetAgreementTermsOutputTypeDef",
+    "GetBillingAdjustmentRequestInputTypeDef",
+    "GetBillingAdjustmentRequestOutputTypeDef",
     "GrantItemTypeDef",
+    "InvoiceBillingPeriodTypeDef",
+    "InvoicingEntityTypeDef",
     "LegalTermTypeDef",
+    "ListAgreementCancellationRequestsInputPaginateTypeDef",
+    "ListAgreementCancellationRequestsInputTypeDef",
+    "ListAgreementCancellationRequestsOutputTypeDef",
+    "ListAgreementInvoiceLineItemsInputPaginateTypeDef",
+    "ListAgreementInvoiceLineItemsInputTypeDef",
+    "ListAgreementInvoiceLineItemsOutputTypeDef",
     "ListAgreementPaymentRequestsInputPaginateTypeDef",
     "ListAgreementPaymentRequestsInputTypeDef",
     "ListAgreementPaymentRequestsOutputTypeDef",
+    "ListBillingAdjustmentRequestsInputPaginateTypeDef",
+    "ListBillingAdjustmentRequestsInputTypeDef",
+    "ListBillingAdjustmentRequestsOutputTypeDef",
     "PaginatorConfigTypeDef",
     "PaymentRequestSummaryTypeDef",
     "PaymentScheduleTermTypeDef",
+    "PricingCurrencyAmountTypeDef",
     "ProposalSummaryTypeDef",
     "ProposerTypeDef",
     "RateCardItemTypeDef",
@@ -75,10 +108,13 @@ __all__ = (
     "SearchAgreementsInputTypeDef",
     "SearchAgreementsOutputTypeDef",
     "SelectorTypeDef",
+    "SendAgreementCancellationRequestInputTypeDef",
+    "SendAgreementCancellationRequestOutputTypeDef",
     "SendAgreementPaymentRequestInputTypeDef",
     "SendAgreementPaymentRequestOutputTypeDef",
     "SortTypeDef",
     "SupportTermTypeDef",
+    "TimestampTypeDef",
     "UsageBasedPricingTermTypeDef",
     "UsageBasedRateCardItemTypeDef",
     "ValidityTermTypeDef",
@@ -121,12 +157,49 @@ ValidityTermTypeDef = TypedDict(
 class AcceptorTypeDef(TypedDict):
     accountId: NotRequired[str]
 
+class AgreementCancellationRequestSummaryTypeDef(TypedDict):
+    agreementCancellationRequestId: NotRequired[str]
+    agreementId: NotRequired[str]
+    status: NotRequired[AgreementCancellationRequestStatusType]
+    reasonCode: NotRequired[AgreementCancellationRequestReasonCodeType]
+    agreementType: NotRequired[str]
+    catalog: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+class InvoiceBillingPeriodTypeDef(TypedDict):
+    month: int
+    year: int
+
+class InvoicingEntityTypeDef(TypedDict):
+    legalName: NotRequired[str]
+    branchName: NotRequired[str]
+
+class PricingCurrencyAmountTypeDef(TypedDict):
+    amount: NotRequired[str]
+    maxAdjustmentAmount: NotRequired[str]
+    currencyCode: NotRequired[str]
+
 class ProposerTypeDef(TypedDict):
     accountId: NotRequired[str]
 
-class CancelAgreementPaymentRequestInputTypeDef(TypedDict):
-    paymentRequestId: str
+class BatchCreateBillingAdjustmentErrorTypeDef(TypedDict):
+    code: BillingAdjustmentErrorCodeType
+    message: str
+    clientToken: str
+
+class BatchCreateBillingAdjustmentItemTypeDef(TypedDict):
+    billingAdjustmentRequestId: str
+    clientToken: str
+
+class BatchCreateBillingAdjustmentRequestEntryTypeDef(TypedDict):
     agreementId: str
+    originalInvoiceId: str
+    adjustmentAmount: str
+    currencyCode: str
+    adjustmentReasonCode: BillingAdjustmentReasonCodeType
+    clientToken: str
+    description: NotRequired[str]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -134,6 +207,27 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class BillingAdjustmentSummaryTypeDef(TypedDict):
+    billingAdjustmentRequestId: str
+    originalInvoiceId: str
+    adjustmentAmount: str
+    currencyCode: str
+    status: BillingAdjustmentStatusType
+    agreementId: str
+    createdAt: datetime
+    updatedAt: datetime
+    agreementType: str
+    catalog: str
+
+class CancelAgreementCancellationRequestInputTypeDef(TypedDict):
+    agreementId: str
+    agreementCancellationRequestId: str
+    cancellationReason: str
+
+class CancelAgreementPaymentRequestInputTypeDef(TypedDict):
+    paymentRequestId: str
+    agreementId: str
 
 class DimensionTypeDef(TypedDict):
     dimensionKey: str
@@ -179,6 +273,10 @@ class GrantItemTypeDef(TypedDict):
     dimensionKey: NotRequired[str]
     maxQuantity: NotRequired[int]
 
+class GetAgreementCancellationRequestInputTypeDef(TypedDict):
+    agreementCancellationRequestId: str
+    agreementId: str
+
 class GetAgreementPaymentRequestInputTypeDef(TypedDict):
     paymentRequestId: str
     agreementId: str
@@ -188,10 +286,25 @@ class GetAgreementTermsInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
+class GetBillingAdjustmentRequestInputTypeDef(TypedDict):
+    agreementId: str
+    billingAdjustmentRequestId: str
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+class ListAgreementCancellationRequestsInputTypeDef(TypedDict):
+    partyType: str
+    agreementId: NotRequired[str]
+    status: NotRequired[AgreementCancellationRequestStatusType]
+    agreementType: NotRequired[str]
+    catalog: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+TimestampTypeDef = Union[datetime, str]
 
 class ListAgreementPaymentRequestsInputTypeDef(TypedDict):
     partyType: str
@@ -232,6 +345,12 @@ class SortTypeDef(TypedDict):
     sortBy: NotRequired[str]
     sortOrder: NotRequired[SortOrderType]
 
+class SendAgreementCancellationRequestInputTypeDef(TypedDict):
+    agreementId: str
+    reasonCode: AgreementCancellationRequestReasonCodeType
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+
 class SendAgreementPaymentRequestInputTypeDef(TypedDict):
     agreementId: str
     termId: str
@@ -244,6 +363,34 @@ class VariablePaymentTermConfigurationTypeDef(TypedDict):
     paymentRequestApprovalStrategy: PaymentRequestApprovalStrategyType
     expirationDuration: NotRequired[str]
 
+class AgreementInvoiceLineItemGroupSummaryTypeDef(TypedDict):
+    agreementId: NotRequired[str]
+    invoiceId: NotRequired[str]
+    pricingCurrencyAmount: NotRequired[PricingCurrencyAmountTypeDef]
+    invoiceBillingPeriod: NotRequired[InvoiceBillingPeriodTypeDef]
+    issuedTime: NotRequired[datetime]
+    invoiceType: NotRequired[InvoiceTypeType]
+    invoicingEntity: NotRequired[InvoicingEntityTypeDef]
+
+class BatchCreateBillingAdjustmentRequestInputTypeDef(TypedDict):
+    billingAdjustmentRequestEntries: Sequence[BatchCreateBillingAdjustmentRequestEntryTypeDef]
+
+class BatchCreateBillingAdjustmentRequestOutputTypeDef(TypedDict):
+    items: list[BatchCreateBillingAdjustmentItemTypeDef]
+    errors: list[BatchCreateBillingAdjustmentErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CancelAgreementCancellationRequestOutputTypeDef(TypedDict):
+    agreementCancellationRequestId: str
+    agreementId: str
+    reasonCode: AgreementCancellationRequestReasonCodeType
+    description: str
+    status: AgreementCancellationRequestStatusType
+    statusMessage: str
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CancelAgreementPaymentRequestOutputTypeDef(TypedDict):
     paymentRequestId: str
     agreementId: str
@@ -252,6 +399,17 @@ class CancelAgreementPaymentRequestOutputTypeDef(TypedDict):
     description: str
     chargeAmount: str
     currencyCode: str
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAgreementCancellationRequestOutputTypeDef(TypedDict):
+    agreementCancellationRequestId: str
+    agreementId: str
+    reasonCode: AgreementCancellationRequestReasonCodeType
+    description: str
+    status: AgreementCancellationRequestStatusType
+    statusMessage: str
     createdAt: datetime
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -270,6 +428,35 @@ class GetAgreementPaymentRequestOutputTypeDef(TypedDict):
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetBillingAdjustmentRequestOutputTypeDef(TypedDict):
+    billingAdjustmentRequestId: str
+    agreementId: str
+    adjustmentReasonCode: BillingAdjustmentReasonCodeType
+    description: str
+    originalInvoiceId: str
+    adjustmentAmount: str
+    currencyCode: str
+    status: BillingAdjustmentStatusType
+    statusMessage: str
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListAgreementCancellationRequestsOutputTypeDef(TypedDict):
+    items: list[AgreementCancellationRequestSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class SendAgreementCancellationRequestOutputTypeDef(TypedDict):
+    agreementId: str
+    agreementCancellationRequestId: str
+    status: AgreementCancellationRequestStatusType
+    reasonCode: AgreementCancellationRequestReasonCodeType
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class SendAgreementPaymentRequestOutputTypeDef(TypedDict):
     paymentRequestId: str
     agreementId: str
@@ -280,6 +467,11 @@ class SendAgreementPaymentRequestOutputTypeDef(TypedDict):
     currencyCode: str
     createdAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ListBillingAdjustmentRequestsOutputTypeDef(TypedDict):
+    items: list[BillingAdjustmentSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ConfigurableUpfrontPricingTermConfigurationTypeDef(TypedDict):
     selectorValue: str
@@ -319,6 +511,14 @@ FreeTrialPricingTermTypeDef = TypedDict(
     },
 )
 
+class ListAgreementCancellationRequestsInputPaginateTypeDef(TypedDict):
+    partyType: str
+    agreementId: NotRequired[str]
+    status: NotRequired[AgreementCancellationRequestStatusType]
+    agreementType: NotRequired[str]
+    catalog: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListAgreementPaymentRequestsInputPaginateTypeDef(TypedDict):
     partyType: str
     agreementType: NotRequired[str]
@@ -326,6 +526,46 @@ class ListAgreementPaymentRequestsInputPaginateTypeDef(TypedDict):
     agreementId: NotRequired[str]
     status: NotRequired[PaymentRequestStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAgreementInvoiceLineItemsInputPaginateTypeDef(TypedDict):
+    agreementId: str
+    groupBy: Literal["INVOICE_ID"]
+    invoiceId: NotRequired[str]
+    invoiceType: NotRequired[InvoiceTypeType]
+    invoiceBillingPeriod: NotRequired[InvoiceBillingPeriodTypeDef]
+    beforeIssuedTime: NotRequired[TimestampTypeDef]
+    afterIssuedTime: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAgreementInvoiceLineItemsInputTypeDef(TypedDict):
+    agreementId: str
+    groupBy: Literal["INVOICE_ID"]
+    invoiceId: NotRequired[str]
+    invoiceType: NotRequired[InvoiceTypeType]
+    invoiceBillingPeriod: NotRequired[InvoiceBillingPeriodTypeDef]
+    beforeIssuedTime: NotRequired[TimestampTypeDef]
+    afterIssuedTime: NotRequired[TimestampTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListBillingAdjustmentRequestsInputPaginateTypeDef(TypedDict):
+    agreementId: NotRequired[str]
+    status: NotRequired[BillingAdjustmentStatusType]
+    createdAfter: NotRequired[TimestampTypeDef]
+    createdBefore: NotRequired[TimestampTypeDef]
+    catalog: NotRequired[str]
+    agreementType: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListBillingAdjustmentRequestsInputTypeDef(TypedDict):
+    agreementId: NotRequired[str]
+    status: NotRequired[BillingAdjustmentStatusType]
+    createdAfter: NotRequired[TimestampTypeDef]
+    createdBefore: NotRequired[TimestampTypeDef]
+    maxResults: NotRequired[int]
+    catalog: NotRequired[str]
+    agreementType: NotRequired[str]
+    nextToken: NotRequired[str]
 
 class ListAgreementPaymentRequestsOutputTypeDef(TypedDict):
     items: list[PaymentRequestSummaryTypeDef]
@@ -370,6 +610,12 @@ VariablePaymentTermTypeDef = TypedDict(
         "configuration": NotRequired[VariablePaymentTermConfigurationTypeDef],
     },
 )
+
+class ListAgreementInvoiceLineItemsOutputTypeDef(TypedDict):
+    agreementInvoiceLineItemGroupSummaries: list[AgreementInvoiceLineItemGroupSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 UsageBasedPricingTermTypeDef = TypedDict(
     "UsageBasedPricingTermTypeDef",
     {

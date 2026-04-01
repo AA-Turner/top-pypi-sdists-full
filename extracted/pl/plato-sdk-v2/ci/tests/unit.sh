@@ -10,4 +10,4 @@ if echo "$CHANGED_FILES" | grep -qE "python-sdk/plato-fuse/"; then
   cargo test --manifest-path plato-fuse/Cargo.toml
 fi
 
-uv run --frozen pytest tests/test_agents.py tests/test_worlds.py tests/test_v2_imports.py tests/test_transport_modes.py -v --tb=short --ignore-glob="**/test_chronos*" -k "not ChronosCallback"
+uv run --frozen pytest tests -v --tb=short -m "not integration" --ignore=tests/integration --ignore=tests/test_tools_openhands_integration.py -n 8 --dist=loadfile

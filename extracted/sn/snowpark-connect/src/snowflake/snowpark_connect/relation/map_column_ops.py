@@ -808,19 +808,47 @@ def map_with_columns_renamed(
     """
     input_container = map_relation(rel.with_columns_renamed.input)
     input_df = input_container.dataframe
+    # Map of old column names -> new column names for the current rename operation
     rename_columns_map = dict(rel.with_columns_renamed.rename_columns_map)
 
+    # Save original case for initial entries before normalizing
+    # We need to store both old and new names separately to avoid overwriting
     if not global_config.spark_sql_caseSensitive:
-        # store it as lower case to avoid case sensitivity issues.
-        rename_columns_map_original = {}
+        initial_original_case_old = (
+            {}
+        )  # Maps lowercase old name -> original case old name
+        initial_original_case_new = (
+            {}
+        )  # Maps lowercase new name -> original case new name
         for k, v in rename_columns_map.items():
-            rename_columns_map_original[k.lower()] = k
-            rename_columns_map_original[v.lower()] = v
+            initial_original_case_old[k.lower()] = k
+            initial_original_case_new[v.lower()] = v
+        # Normalize to lowercase (to match rename_chains format)
         rename_columns_map = {
             k.lower(): v.lower() for k, v in rename_columns_map.items()
         }
 
     column_map = input_container.column_map
+
+    # Save original case for entries from rename chains before we modify them
+    # This is needed to preserve case when entries from rename chains are added to rename_columns_map
+    if (
+        not global_config.spark_sql_caseSensitive
+        and input_container.column_map.rename_chains
+    ):
+        # Get the original case from the input container's column map
+        existing_columns_before = input_container.column_map.get_spark_columns()
+        for col in existing_columns_before:
+            col_lower = col.lower()
+            if col_lower not in initial_original_case_old:
+                initial_original_case_old[col_lower] = col
+            # Also check if this column appears as a value in rename_chains
+            for _, value in input_container.column_map.rename_chains.items():
+                if (
+                    value.lower() == col_lower
+                    and col_lower not in initial_original_case_new
+                ):
+                    initial_original_case_new[col_lower] = col
 
     # re-construct the rename chains based on the input dataframe.
     if input_container.column_map.rename_chains:
@@ -841,6 +869,22 @@ def map_with_columns_renamed(
             else:
                 # This just copies the renames from previous computed dataframe
                 rename_columns_map[key] = value
+                # Preserve original case for entries from rename chains
+                if not global_config.spark_sql_caseSensitive:
+                    if key.lower() not in initial_original_case_old:
+                        initial_original_case_old[key.lower()] = key
+                    if value.lower() not in initial_original_case_new:
+                        initial_original_case_new[value.lower()] = value
+
+    # Build rename_columns_map_original from final map (after all entries are added)
+    # Maps lowercase values -> original case values, used to restore casing when building final column names
+    if not global_config.spark_sql_caseSensitive:
+        rename_columns_map_original = {}
+        for k, v in rename_columns_map.items():
+            # For keys: use original case of old name if available, otherwise use lowercase (for entries from rename_chains)
+            rename_columns_map_original[k] = initial_original_case_old.get(k, k)
+            # For values: use original case of new name if available, otherwise use lowercase (for entries from rename_chains)
+            rename_columns_map_original[v] = initial_original_case_new.get(v, v)
 
     def _column_exists_error(name: str) -> AnalysisException:
         return AnalysisException(
@@ -853,24 +897,27 @@ def map_with_columns_renamed(
     seen = set()
     for new_name in new_names_list:
         # Check if this new name conflicts with existing columns
-        # But allow renaming a column to a different case version of itself
-        is_case_insensitive_self_rename = False
-        if not global_config.spark_sql_caseSensitive:
-            # Find the source column(s) that map to this new name
+        # But allow renaming a column to itself (self-rename)
+        is_self_rename = False
+        if global_config.spark_sql_caseSensitive:
+            # In case-sensitive mode, check for exact match
+            is_self_rename = any(
+                old_name == new_name
+                for old_name, new_name_candidate in rename_map.items()
+                if new_name_candidate == new_name
+            )
+        else:
+            # In case-insensitive mode, check for case-insensitive match
             source_columns = [
                 old_name
                 for old_name, new_name_candidate in rename_map.items()
                 if new_name_candidate == new_name
             ]
-            # Check if any source column is the same as new name when case-insensitive
-            is_case_insensitive_self_rename = any(
+            is_self_rename = any(
                 source_col.lower() == new_name.lower() for source_col in source_columns
             )
 
-        if (
-            column_map.has_spark_column(new_name)
-            and not is_case_insensitive_self_rename
-        ):
+        if column_map.has_spark_column(new_name) and not is_self_rename:
             # Spark doesn't allow reusing existing names, even if the result df will not contain duplicate columns
             raise _column_exists_error(new_name)
         if (global_config.spark_sql_caseSensitive and new_name in seen) or (
@@ -892,7 +939,7 @@ def map_with_columns_renamed(
                 rename_columns_map.get(spark_name.lower())
             )
 
-        if new_spark_name:
+        if new_spark_name is not None:
             new_spark_names.append(new_spark_name)
             equivalent_snowpark_names.append(set())
         else:
@@ -902,11 +949,12 @@ def map_with_columns_renamed(
     # Creating a new df to avoid updating the state of cached dataframe.
     new_df = input_df.select("*")
     column_is_hidden = [c.is_hidden for c in input_container.column_map.columns]
+    all_columns = input_container.column_map.columns
     result_container = DataFrameContainer.create_with_column_mapping(
         dataframe=new_df,
         spark_column_names=new_spark_names,
-        snowpark_column_names=input_container.column_map.get_snowpark_columns(),
-        column_qualifiers=input_container.column_map.get_qualifiers(),
+        snowpark_column_names=[c.snowpark_name for c in all_columns],
+        column_qualifiers=[c.qualifiers for c in all_columns],
         parent_column_name_map=input_container.column_map.get_parent_column_name_map(),
         table_name=input_container.table_name,
         alias=input_container.alias,

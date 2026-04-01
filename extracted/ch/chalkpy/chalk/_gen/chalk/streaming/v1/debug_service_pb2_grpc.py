@@ -8,7 +8,7 @@ from chalk._gen.chalk.streaming.v1 import debug_service_pb2 as chalk_dot_streami
 
 class StreamingDebugServiceStub(object):
     """Streaming Debug Service
-    Provides APIs for managing and querying streaming resolver debug mode
+    Provides APIs for managing and querying streaming resolver debug configuration
     """
 
     def __init__(self, channel):
@@ -17,6 +17,16 @@ class StreamingDebugServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.SetStreamingDebugConfig = channel.unary_unary(
+            "/chalk.streaming.v1.StreamingDebugService/SetStreamingDebugConfig",
+            request_serializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.SetStreamingDebugConfigRequest.SerializeToString,
+            response_deserializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.SetStreamingDebugConfigResponse.FromString,
+        )
+        self.GetStreamingDebugConfig = channel.unary_unary(
+            "/chalk.streaming.v1.StreamingDebugService/GetStreamingDebugConfig",
+            request_serializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.GetStreamingDebugConfigRequest.SerializeToString,
+            response_deserializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.GetStreamingDebugConfigResponse.FromString,
+        )
         self.EnableDebugMode = channel.unary_unary(
             "/chalk.streaming.v1.StreamingDebugService/EnableDebugMode",
             request_serializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.EnableDebugModeRequest.SerializeToString,
@@ -51,23 +61,35 @@ class StreamingDebugServiceStub(object):
 
 class StreamingDebugServiceServicer(object):
     """Streaming Debug Service
-    Provides APIs for managing and querying streaming resolver debug mode
+    Provides APIs for managing and querying streaming resolver debug configuration
     """
 
+    def SetStreamingDebugConfig(self, request, context):
+        """Set streaming debug configuration (sample rates) for a resolver"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetStreamingDebugConfig(self, request, context):
+        """Get current streaming debug configuration for a resolver"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def EnableDebugMode(self, request, context):
-        """Enable debug mode for a streaming resolver"""
+        """Deprecated: use SetStreamingDebugConfig instead"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def DisableDebugMode(self, request, context):
-        """Disable debug mode for a streaming resolver"""
+        """Deprecated: use SetStreamingDebugConfig with logger_config=null instead"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def GetDebugModeStatus(self, request, context):
-        """Get the current debug mode status for a resolver"""
+        """Deprecated: use GetStreamingDebugConfig instead"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -93,6 +115,16 @@ class StreamingDebugServiceServicer(object):
 
 def add_StreamingDebugServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "SetStreamingDebugConfig": grpc.unary_unary_rpc_method_handler(
+            servicer.SetStreamingDebugConfig,
+            request_deserializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.SetStreamingDebugConfigRequest.FromString,
+            response_serializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.SetStreamingDebugConfigResponse.SerializeToString,
+        ),
+        "GetStreamingDebugConfig": grpc.unary_unary_rpc_method_handler(
+            servicer.GetStreamingDebugConfig,
+            request_deserializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.GetStreamingDebugConfigRequest.FromString,
+            response_serializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.GetStreamingDebugConfigResponse.SerializeToString,
+        ),
         "EnableDebugMode": grpc.unary_unary_rpc_method_handler(
             servicer.EnableDebugMode,
             request_deserializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.EnableDebugModeRequest.FromString,
@@ -133,8 +165,66 @@ def add_StreamingDebugServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class StreamingDebugService(object):
     """Streaming Debug Service
-    Provides APIs for managing and querying streaming resolver debug mode
+    Provides APIs for managing and querying streaming resolver debug configuration
     """
+
+    @staticmethod
+    def SetStreamingDebugConfig(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.streaming.v1.StreamingDebugService/SetStreamingDebugConfig",
+            chalk_dot_streaming_dot_v1_dot_debug__service__pb2.SetStreamingDebugConfigRequest.SerializeToString,
+            chalk_dot_streaming_dot_v1_dot_debug__service__pb2.SetStreamingDebugConfigResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetStreamingDebugConfig(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.streaming.v1.StreamingDebugService/GetStreamingDebugConfig",
+            chalk_dot_streaming_dot_v1_dot_debug__service__pb2.GetStreamingDebugConfigRequest.SerializeToString,
+            chalk_dot_streaming_dot_v1_dot_debug__service__pb2.GetStreamingDebugConfigResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def EnableDebugMode(

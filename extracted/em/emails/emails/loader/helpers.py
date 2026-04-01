@@ -1,9 +1,8 @@
-# encoding: utf-8
-from __future__ import unicode_literals
 __all__ = ['guess_charset', 'fix_content_type']
+from email.message import Message
+
 
 import re
-import cgi
 import warnings
 
 try:
@@ -13,7 +12,6 @@ try:
 except ImportError:
     import chardet
 
-from ..compat import to_native, to_unicode
 
 # HTML page charset stuff
 
@@ -21,7 +19,7 @@ class ReRules:
     re_meta = b"(?i)(?<=<meta).*?(?=>)"
     re_is_http_equiv = b"http-equiv=\"?'?content-type\"?'?"
     re_parse_http_equiv = b"content=\"?'?([^\"'>]+)"
-    re_charset = b"charset=\"?'?([\w-]+)\"?'?"
+    re_charset = b"charset=\"?'?([\\w-]+)\"?'?"
 
     def __init__(self, conv=None):
         if conv is None:
@@ -30,24 +28,25 @@ class ReRules:
             if k.startswith('re_'):
                 setattr(self, k, re.compile(conv(getattr(self, k)), re.I + re.S + re.M))
 
-RULES_U = ReRules(conv=to_unicode)
+RULES_U = ReRules(conv=lambda x: x.decode())
 RULES_B = ReRules()
 
 
 def guess_text_charset(text, is_html=False):
     if is_html:
-        rules = isinstance(text, bytes) and RULES_B or RULES_U
+        is_bytes = isinstance(text, bytes)
+        rules = RULES_B if is_bytes else RULES_U
         for meta in rules.re_meta.findall(text):
             if rules.re_is_http_equiv.findall(meta):
                 for content in rules.re_parse_http_equiv.findall(meta):
                     for charset in rules.re_charset.findall(content):
-                        return to_native(charset)
+                        return charset.decode() if is_bytes else charset
             else:
                 for charset in rules.re_charset.findall(meta):
-                    return to_native(charset)
+                    return charset.decode() if is_bytes else charset
     # guess by chardet
     if isinstance(text, bytes):
-        return to_native(chardet.detect(text)['encoding'])
+        return chardet.detect(text)['encoding']
 
 
 def guess_html_charset(html):
@@ -60,15 +59,16 @@ def guess_charset(headers, html):
     if headers:
         content_type = headers['content-type']
         if content_type:
-            _, params = cgi.parse_header(content_type)
-            r = params.get('charset', None)
+            msg = Message()
+            msg.add_header('content-type', content_type)
+            r = msg.get_param('charset')
             if r:
                 return r
 
     # guess by html content
     charset = guess_html_charset(html)
     if charset:
-        return to_unicode(charset)
+        return charset
 
 COMMON_CHARSETS = ('ascii', 'utf-8', 'utf-16', 'windows-1251', 'windows-1252', 'cp850')
 
@@ -100,7 +100,7 @@ def decode_text(text,
     _last_exc = None
     for enc in _charsets:
         try:
-            return to_unicode(text, charset=enc), enc
+            return text.decode(enc), enc
         except UnicodeDecodeError as exc:
             _last_exc = exc
 

@@ -11,6 +11,9 @@ authors.workspace = true
 license.workspace = true
 readme = "README.md"
 
+[lib]
+doctest = false
+
 [dependencies]
 ruff_db = { workspace = true, features = ["os", "testing"] }
 ruff_diagnostics = { workspace = true }

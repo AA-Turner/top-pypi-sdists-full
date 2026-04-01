@@ -71,7 +71,7 @@ class TestLoadTemplate:
         t = _load_template("env-fix-launch.json")
         assert t["world"]["package"] == "plato-world-structured-execution"
         steps = t["world"]["config"]["steps"]
-        assert [s["name"] for s in steps] == ["fix", "audit_verify", "snapshot", "submit"]
+        assert [s["name"] for s in steps] == ["fix", "audit_verify", "mutation_test", "snapshot", "submit"]
 
     def test_loads_datagen(self):
         t = _load_template("datagen-launch.json")
@@ -87,10 +87,10 @@ class TestLoadTemplate:
             t = _load_template(name)
             assert t["world"]["package"] != "{world_package}"
 
-    def test_env_create_has_10_steps(self):
+    def test_env_create_has_11_steps(self):
         t = _load_template("env-create-launch.json")
         steps = t["world"]["config"]["steps"]
-        assert len(steps) == 10
+        assert len(steps) == 11
         assert steps[0]["name"] == "research"
         assert steps[-1]["name"] == "submit"
 
@@ -219,12 +219,12 @@ class TestFetchExperimentConfig:
 class TestExperimentNames:
     def test_all_three_mappings_exist(self):
         assert ("env", "base") in _EXPERIMENT_NAMES
-        assert ("env", "resume") in _EXPERIMENT_NAMES
+        assert ("env", "fix") in _EXPERIMENT_NAMES
         assert ("data", "base") in _EXPERIMENT_NAMES
 
     def test_correct_names(self):
         assert _EXPERIMENT_NAMES[("env", "base")] == "env-create-launch"
-        assert _EXPERIMENT_NAMES[("env", "resume")] == "env-fix-launch"
+        assert _EXPERIMENT_NAMES[("env", "fix")] == "env-fix-launch"
         assert _EXPERIMENT_NAMES[("data", "base")] == "datagen-launch"
 
 

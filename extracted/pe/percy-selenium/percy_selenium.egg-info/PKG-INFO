@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: percy-selenium
-Version: 2.1.2
+Version: 2.1.4
 Summary: Python client for visual testing with Percy
 Home-page: https://github.com/percy/percy-selenium-python
 Author: Perceptual Inc.

@@ -11,4 +11,4 @@ if ! echo "$CHANGED_FILES" | grep -qE "python-sdk/(plato/(worlds/(base|workspace
 fi
 
 echo "Running workspace VM integration tests..."
-uv run --frozen pytest tests/integration/test_workspace_vm.py -q -ra
+uv run --frozen pytest tests/integration/test_workspace_vm.py -q -ra --timeout=600

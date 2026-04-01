@@ -2420,19 +2420,6 @@ class CfnService(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="serviceAttributes")
-    def service_attributes(self) -> typing.Any:
-        '''A complex type that contains information about attributes associated with a specific service.'''
-        return typing.cast(typing.Any, jsii.get(self, "serviceAttributes"))
-
-    @service_attributes.setter
-    def service_attributes(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__beed9ddfb5044557f1d91d44e5b2c14ae013234eaf80e61e0ced35d0ff47f80a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceAttributes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the service.'''
@@ -2524,6 +2511,19 @@ class CfnService(
             type_hints = typing.get_type_hints(_typecheckingstub__145cf7d4d3570fc466251439b01ef2a07289bc8087a24ccb542c1442a58bafcd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "namespaceId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceAttributes")
+    def service_attributes(self) -> typing.Any:
+        '''A complex type that contains information about attributes associated with a specific service.'''
+        return typing.cast(typing.Any, jsii.get(self, "serviceAttributes"))
+
+    @service_attributes.setter
+    def service_attributes(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__beed9ddfb5044557f1d91d44e5b2c14ae013234eaf80e61e0ced35d0ff47f80a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceAttributes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -7577,12 +7577,6 @@ def _typecheckingstub__73b55e9673e357b372381c81fae4ccc7fca0bc85d18a8ec1d45fa5aa8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__beed9ddfb5044557f1d91d44e5b2c14ae013234eaf80e61e0ced35d0ff47f80a(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__d72714f1b3a582c94f216c9033a2aa3883c999cd7f9154c6a2108e1afeb460b3(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -7615,6 +7609,12 @@ def _typecheckingstub__3a656f8cac1553476b396c1277481952cedf4d4311f43819f29ffb9d0
 
 def _typecheckingstub__145cf7d4d3570fc466251439b01ef2a07289bc8087a24ccb542c1442a58bafcd(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__beed9ddfb5044557f1d91d44e5b2c14ae013234eaf80e61e0ced35d0ff47f80a(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

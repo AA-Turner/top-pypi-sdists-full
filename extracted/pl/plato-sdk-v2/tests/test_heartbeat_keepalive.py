@@ -39,6 +39,7 @@ HEALTH_CHECK_INTERVAL = 60  # Check every minute
 SPREE_ARTIFACT_ID = "03638b02-7697-4f23-ba36-a68deaca48e5"
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_heartbeat_keeps_vm_alive():
     """Test that heartbeat keeps a VM alive for 10 minutes.
@@ -154,6 +155,7 @@ async def test_heartbeat_keeps_vm_alive():
         logger.info("Cleanup complete.")
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_heartbeat_short():
     """Quick 2-minute heartbeat test for CI.

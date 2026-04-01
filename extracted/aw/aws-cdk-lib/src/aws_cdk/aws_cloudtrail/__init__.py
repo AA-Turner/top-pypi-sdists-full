@@ -5033,7 +5033,7 @@ class Trail(
         '''
         :param scope: -
         :param id: -
-        :param bucket: The Amazon S3 bucket. Default: - if not supplied a bucket will be created with all the correct permisions
+        :param bucket: The Amazon S3 bucket. Default: - if not supplied a bucket will be created with all the correct permissions
         :param cloud_watch_log_group: Log Group to which CloudTrail to push logs to. Ignored if sendToCloudWatchLogs is set to false. Default: - a new log group is created and used.
         :param cloud_watch_logs_retention: How long to retain logs in CloudWatchLogs. Ignored if sendToCloudWatchLogs is false or if cloudWatchLogGroup is set. Default: logs.RetentionDays.ONE_YEAR
         :param enable_file_validation: To determine whether a log file was modified, deleted, or unchanged after CloudTrail delivered it, you can use CloudTrail log file integrity validation. This feature is built using industry standard algorithms: SHA-256 for hashing and SHA-256 with RSA for digital signing. This makes it computationally infeasible to modify, delete or forge CloudTrail log files without detection. You can use the AWS CLI to validate the files in the location where CloudTrail delivered them. Default: true
@@ -5349,7 +5349,7 @@ class TrailProps:
     ) -> None:
         '''Properties for an AWS CloudTrail trail.
 
-        :param bucket: The Amazon S3 bucket. Default: - if not supplied a bucket will be created with all the correct permisions
+        :param bucket: The Amazon S3 bucket. Default: - if not supplied a bucket will be created with all the correct permissions
         :param cloud_watch_log_group: Log Group to which CloudTrail to push logs to. Ignored if sendToCloudWatchLogs is set to false. Default: - a new log group is created and used.
         :param cloud_watch_logs_retention: How long to retain logs in CloudWatchLogs. Ignored if sendToCloudWatchLogs is false or if cloudWatchLogGroup is set. Default: logs.RetentionDays.ONE_YEAR
         :param enable_file_validation: To determine whether a log file was modified, deleted, or unchanged after CloudTrail delivered it, you can use CloudTrail log file integrity validation. This feature is built using industry standard algorithms: SHA-256 for hashing and SHA-256 with RSA for digital signing. This makes it computationally infeasible to modify, delete or forge CloudTrail log files without detection. You can use the AWS CLI to validate the files in the location where CloudTrail delivered them. Default: true
@@ -5427,7 +5427,7 @@ class TrailProps:
     def bucket(self) -> typing.Optional["_IBucket_42e086fd"]:
         '''The Amazon S3 bucket.
 
-        :default: - if not supplied a bucket will be created with all the correct permisions
+        :default: - if not supplied a bucket will be created with all the correct permissions
         '''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional["_IBucket_42e086fd"], result)

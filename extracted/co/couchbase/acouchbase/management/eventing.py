@@ -17,17 +17,18 @@ from __future__ import annotations
 
 from typing import (TYPE_CHECKING,
                     Any,
-                    Dict,
                     List)
 
-from acouchbase.management.logic.wrappers import AsyncMgmtWrapper
-from couchbase.management.logic import ManagementType
-from couchbase.management.logic.eventing_logic import (EventingFunction,
-                                                       EventingFunctionManagerLogic,
-                                                       EventingFunctionsStatus,
-                                                       EventingFunctionStatus)
+from acouchbase.management.logic.eventing_function_mgmt_impl import AsyncEventingFunctionMgmtImpl
+from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import EventingFunctionMgmtOperationType
+from couchbase.management.logic.eventing_function_mgmt_types import (EventingFunction,
+                                                                     EventingFunctionsStatus,
+                                                                     EventingFunctionStatus)
 
 if TYPE_CHECKING:
+    from acouchbase.logic.client_adapter import AsyncClientAdapter
+    from couchbase.logic.observability import ObservabilityInstruments
     from couchbase.management.options import (DeployFunctionOptions,
                                               DropFunctionOptions,
                                               FunctionsStatusOptions,
@@ -39,112 +40,113 @@ if TYPE_CHECKING:
                                               UpsertFunctionOptions)
 
 
-class EventingFunctionManager(EventingFunctionManagerLogic):
+class EventingFunctionManager:
 
-    def __init__(self, connection, loop):
-        super().__init__(connection)
-        self._loop = loop
+    def __init__(self, client_adapter: AsyncClientAdapter, observability_instruments: ObservabilityInstruments) -> None:
+        self._impl = AsyncEventingFunctionMgmtImpl(client_adapter, observability_instruments)
+        self._scope_context = None
 
-    @property
-    def loop(self):
-        """
-        **INTERNAL**
-        """
-        return self._loop
+    async def upsert_function(self,
+                              function,  # type: EventingFunction
+                              *options,  # type: UpsertFunctionOptions
+                              **kwargs  # type: Any
+                              ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingUpsertFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_upsert_function_request(function,
+                                                                           self._scope_context,
+                                                                           obs_handler,
+                                                                           *options,
+                                                                           **kwargs)
+            await self._impl.upsert_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def upsert_function(
-        self,
-        function,  # type: EventingFunction
-        *options,  # type: UpsertFunctionOptions
-        **kwargs  # type: Dict[str, Any]
-    ) -> None:
-        super().upsert_function(function, *options, **kwargs)
+    async def drop_function(self,
+                            name,  # type: str
+                            *options,  # type: DropFunctionOptions
+                            **kwargs  # type: Any
+                            ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingDropFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_drop_function_request(
+                name, self._scope_context, obs_handler, *options, **kwargs)
+            await self._impl.drop_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def drop_function(
-        self,
-        name,  # type: str
-        *options,  # type: DropFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        super().drop_function(name, *options, **kwargs)
+    async def deploy_function(self,
+                              name,  # type: str
+                              *options,  # type: DeployFunctionOptions
+                              **kwargs  # type: Any
+                              ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingDeployFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_deploy_function_request(
+                name, self._scope_context, obs_handler, *options, **kwargs)
+            await self._impl.deploy_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def deploy_function(
-        self,
-        name,  # type: str
-        *options,  # type: DeployFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        super().deploy_function(name, *options, **kwargs)
+    async def get_all_functions(self,
+                                *options,  # type: GetAllFunctionOptions
+                                **kwargs  # type: Any
+                                ) -> List[EventingFunction]:
+        op_type = EventingFunctionMgmtOperationType.EventingGetAllFunctions
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_functions_request(
+                self._scope_context, obs_handler, *options, **kwargs)
+            return await self._impl.get_all_functions(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(EventingFunction, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def get_all_functions(
-        self,
-        *options,  # type: GetAllFunctionOptions
-        **kwargs  # type: Any
-    ) -> List[EventingFunction]:
-        super().get_all_functions(*options, **kwargs)
+    async def get_function(self,
+                           name,  # type: str
+                           *options,  # type: GetFunctionOptions
+                           **kwargs  # type: Any
+                           ) -> EventingFunction:
+        op_type = EventingFunctionMgmtOperationType.EventingGetFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_function_request(
+                name, self._scope_context, obs_handler, *options, **kwargs)
+            return await self._impl.get_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(EventingFunction, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def get_function(
-        self,
-        name,  # type: str
-        *options,  # type: GetFunctionOptions
-        **kwargs  # type: Any
-    ) -> EventingFunction:
-        super().get_function(name, *options, **kwargs)
+    async def pause_function(self,
+                             name,  # type: str
+                             *options,  # type: PauseFunctionOptions
+                             **kwargs  # type: Any
+                             ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingPauseFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_pause_function_request(
+                name, self._scope_context, obs_handler, *options, **kwargs)
+            await self._impl.pause_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def pause_function(
-        self,
-        name,  # type: str
-        *options,  # type: PauseFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        super().pause_function(name, *options, **kwargs)
+    async def resume_function(self,
+                              name,  # type: str
+                              *options,  # type: ResumeFunctionOptions
+                              **kwargs  # type: Any
+                              ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingResumeFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_resume_function_request(
+                name, self._scope_context, obs_handler, *options, **kwargs)
+            await self._impl.resume_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def resume_function(
-        self,
-        name,  # type: str
-        *options,  # type: ResumeFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        super().resume_function(name, *options, **kwargs)
+    async def undeploy_function(self,
+                                name,  # type: str
+                                *options,  # type: UndeployFunctionOptions
+                                **kwargs  # type: Any
+                                ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingUndeployFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_undeploy_function_request(
+                name, self._scope_context, obs_handler, *options, **kwargs)
+            await self._impl.undeploy_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def undeploy_function(
-        self,
-        name,  # type: str
-        *options,  # type: UndeployFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        super().undeploy_function(name, *options, **kwargs)
+    async def functions_status(self,
+                               *options,  # type: FunctionsStatusOptions
+                               **kwargs  # type: Any
+                               ) -> EventingFunctionsStatus:
+        op_type = EventingFunctionMgmtOperationType.EventingGetStatus
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_functions_status_request(
+                self._scope_context, obs_handler, *options, **kwargs)
+            return await self._impl.get_functions_status(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(EventingFunctionsStatus, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def functions_status(
-        self,
-        *options,  # type: FunctionsStatusOptions
-        **kwargs  # type: Any
-    ) -> EventingFunctionsStatus:
-        super().functions_status(*options, **kwargs)
-
-    async def _get_status(
-        self,
-        name,  # type: str
-    ) -> EventingFunctionStatus:
-
+    async def _get_status(self, name: str) -> EventingFunctionStatus:
         statuses = await self.functions_status()
 
         if statuses.functions:
@@ -153,117 +155,139 @@ class EventingFunctionManager(EventingFunctionManagerLogic):
         return None
 
 
-class ScopeEventingFunctionManager(EventingFunctionManagerLogic):
+class ScopeEventingFunctionManager:
 
     def __init__(self,
-                 connection,
-                 loop,
-                 bucket_name,  # type: str
-                 scope_name,  # type: str
-                 ):
-        super().__init__(connection, bucket_name=bucket_name, scope_name=scope_name)
-        self._loop = loop
+                 client_adapter: AsyncClientAdapter,
+                 bucket_name: str,
+                 scope_name: str,
+                 observability_instruments: ObservabilityInstruments) -> None:
+        self._impl = AsyncEventingFunctionMgmtImpl(client_adapter, observability_instruments)
+        self._scope_context = bucket_name, scope_name
 
-    @property
-    def loop(self):
-        """
-        **INTERNAL**
-        """
-        return self._loop
+    async def upsert_function(self,
+                              function,  # type: EventingFunction
+                              *options,  # type: UpsertFunctionOptions
+                              **kwargs  # type:  Any
+                              ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingUpsertFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_upsert_function_request(function,
+                                                                           self._scope_context,
+                                                                           obs_handler,
+                                                                           *options,
+                                                                           **kwargs)
+            await self._impl.upsert_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def upsert_function(
-        self,
-        function,  # type: EventingFunction
-        *options,  # type: UpsertFunctionOptions
-        **kwargs  # type: Dict[str, Any]
-    ) -> None:
-        super().upsert_function(function, *options, **kwargs)
+    async def drop_function(self,
+                            name,  # type: str
+                            *options,  # type: DropFunctionOptions
+                            **kwargs  # type: Any
+                            ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingDropFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_drop_function_request(name,
+                                                                         self._scope_context,
+                                                                         obs_handler,
+                                                                         *options,
+                                                                         **kwargs)
+            await self._impl.drop_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def drop_function(
-        self,
-        name,  # type: str
-        *options,  # type: DropFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        super().drop_function(name, *options, **kwargs)
+    async def deploy_function(self,
+                              name,  # type: str
+                              *options,  # type: DeployFunctionOptions
+                              **kwargs  # type: Any
+                              ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingDeployFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_deploy_function_request(name,
+                                                                           self._scope_context,
+                                                                           obs_handler,
+                                                                           *options,
+                                                                           **kwargs)
+            await self._impl.deploy_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def deploy_function(
-        self,
-        name,  # type: str
-        *options,  # type: DeployFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        super().deploy_function(name, *options, **kwargs)
+    async def get_all_functions(self,
+                                *options,  # type: GetAllFunctionOptions
+                                **kwargs  # type: Any
+                                ) -> List[EventingFunction]:
+        op_type = EventingFunctionMgmtOperationType.EventingGetAllFunctions
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_functions_request(self._scope_context,
+                                                                             obs_handler,
+                                                                             *options,
+                                                                             **kwargs)
+            return await self._impl.get_all_functions(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(EventingFunction, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def get_all_functions(
-        self,
-        *options,  # type: GetAllFunctionOptions
-        **kwargs  # type: Any
-    ) -> List[EventingFunction]:
-        super().get_all_functions(*options, **kwargs)
+    async def get_function(self,
+                           name,  # type: str
+                           *options,  # type: GetFunctionOptions
+                           **kwargs  # type: Any
+                           ) -> EventingFunction:
+        op_type = EventingFunctionMgmtOperationType.EventingGetFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_function_request(name,
+                                                                        self._scope_context,
+                                                                        obs_handler,
+                                                                        *options,
+                                                                        **kwargs)
+            return await self._impl.get_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(EventingFunction, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def get_function(
-        self,
-        name,  # type: str
-        *options,  # type: GetFunctionOptions
-        **kwargs  # type: Any
-    ) -> EventingFunction:
-        super().get_function(name, *options, **kwargs)
+    async def pause_function(self,
+                             name,  # type: str
+                             *options,  # type: PauseFunctionOptions
+                             **kwargs  # type: Any
+                             ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingPauseFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_pause_function_request(name,
+                                                                          self._scope_context,
+                                                                          obs_handler,
+                                                                          *options,
+                                                                          **kwargs)
+            await self._impl.pause_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def pause_function(
-        self,
-        name,  # type: str
-        *options,  # type: PauseFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        super().pause_function(name, *options, **kwargs)
+    async def resume_function(self,
+                              name,  # type: str
+                              *options,  # type: ResumeFunctionOptions
+                              **kwargs  # type: Any
+                              ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingResumeFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_resume_function_request(name,
+                                                                           self._scope_context,
+                                                                           obs_handler,
+                                                                           *options,
+                                                                           **kwargs)
+            await self._impl.resume_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def resume_function(
-        self,
-        name,  # type: str
-        *options,  # type: ResumeFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        super().resume_function(name, *options, **kwargs)
+    async def undeploy_function(self,
+                                name,  # type: str
+                                *options,  # type: UndeployFunctionOptions
+                                **kwargs  # type: Any
+                                ) -> None:
+        op_type = EventingFunctionMgmtOperationType.EventingUndeployFunction
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_undeploy_function_request(name,
+                                                                             self._scope_context,
+                                                                             obs_handler,
+                                                                             *options,
+                                                                             **kwargs)
+            await self._impl.undeploy_function(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def undeploy_function(
-        self,
-        name,  # type: str
-        *options,  # type: UndeployFunctionOptions
-        **kwargs  # type: Any
-    ) -> None:
-        super().undeploy_function(name, *options, **kwargs)
+    async def functions_status(self,
+                               *options,  # type: FunctionsStatusOptions
+                               **kwargs  # type: Any
+                               ) -> EventingFunctionsStatus:
+        op_type = EventingFunctionMgmtOperationType.EventingGetStatus
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_functions_status_request(self._scope_context,
+                                                                                obs_handler,
+                                                                                *options,
+                                                                                **kwargs)
+            return await self._impl.get_functions_status(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(EventingFunctionsStatus, ManagementType.EventingFunctionMgmt,
-                                       EventingFunctionManagerLogic._ERROR_MAPPING)
-    def functions_status(
-        self,
-        *options,  # type: FunctionsStatusOptions
-        **kwargs  # type: Any
-    ) -> EventingFunctionsStatus:
-        super().functions_status(*options, **kwargs)
-
-    async def _get_status(
-        self,
-        name,  # type: str
-    ) -> EventingFunctionStatus:
-
+    async def _get_status(self, name: str) -> EventingFunctionStatus:
         statuses = await self.functions_status()
 
         if statuses.functions:

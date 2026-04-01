@@ -18,12 +18,65 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, final
 
 from pyspark.sql import functions as F
 from pyspark.storagelevel import StorageLevel
 from pyspark.version import __version__
-from typing_extensions import override
+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
+
+
+class AggregateNeighbors:
+    """Helper class for referencing attributes in AggregateNeighbors expressions.
+
+    Use these static methods in accumulator update expressions, stopping conditions,
+    and target conditions to reference vertex and edge attributes.
+
+    **Example:**
+
+    >>> result = g.aggregate_neighbors(
+    ...     starting_vertices=F.col("id") == 1,
+    ...     max_hops=5,
+    ...     accumulator_names=["sum_values"],
+    ...     accumulator_inits=[F.lit(0)],
+    ...     accumulator_updates=[
+    ...         F.col("sum_values") + AggregateNeighbors.dst_attr("value")
+    ...     ],
+    ...     target_condition=AggregateNeighbors.dst_attr("id") == 10
+    ... )
+    """
+
+    @staticmethod
+    def src_attr(colName: str) -> Column:
+        """Reference a source vertex attribute.
+
+        :param colName: Name of the source vertex attribute
+        :return: Column expression referencing the attribute
+        """
+        return F.col("src_attributes").getField(colName)
+
+    @staticmethod
+    def dst_attr(colName: str) -> Column:
+        """Reference a destination vertex attribute.
+
+        :param colName: Name of the destination vertex attribute
+        :return: Column expression referencing the attribute
+        """
+        return F.col("dst_attributes").getField(colName)
+
+    @staticmethod
+    def edge_attr(colName: str) -> Column:
+        """Reference an edge attribute.
+
+        :param colName: Name of the edge attribute
+        :return: Column expression referencing the attribute
+        """
+        return F.col("edge_attributes").getField(colName)
+
 
 if __version__[:3] >= "3.4":
     from pyspark.sql.utils import is_remote
@@ -34,6 +87,10 @@ else:
 
 
 from graphframes.classic.graphframe import GraphFrame as GraphFrameClassic
+from graphframes.internal.utils import (
+    _HASH2VEC_DECAY_FUNCTIONS,
+    _RandomWalksEmbeddingsParameters,
+)
 from graphframes.lib import Pregel
 
 if TYPE_CHECKING:
@@ -52,6 +109,9 @@ DST = "dst"
 
 """Constant for the edge column name."""
 EDGE = "edge"
+
+"""Constant for the weight column name."""
+WEIGHT = "weight"
 
 
 class GraphFrame:
@@ -76,6 +136,7 @@ class GraphFrame:
     SRC: str = SRC
     DST: str = DST
     EDGE: str = EDGE
+    WEIGHT: str = WEIGHT
 
     @staticmethod
     def _from_impl(impl: "GraphFrameClassic | GraphFrameConnect") -> "GraphFrame":
@@ -225,9 +286,7 @@ class GraphFrame:
             .agg(F.count("*").alias("degree"))
         )
 
-    def type_out_degree(
-        self, edge_type_col: str, edge_types: Optional[List[Any]] = None
-    ) -> DataFrame:
+    def type_out_degree(self, edge_type_col: str, edge_types: list[Any] | None = None) -> DataFrame:
         """
         The out-degree of each vertex per edge type, returned as a DataFrame with two columns:
          - "id": the ID of the vertex
@@ -256,9 +315,7 @@ class GraphFrame:
 
         return count_df.select(F.col(self.ID), F.struct(*struct_cols).alias("outDegrees"))
 
-    def type_in_degree(
-        self, edge_type_col: str, edge_types: Optional[List[Any]] = None
-    ) -> DataFrame:
+    def type_in_degree(self, edge_type_col: str, edge_types: list[Any] | None = None) -> DataFrame:
         """
         The in-degree of each vertex per edge type, returned as a DataFrame with two columns:
          - "id": the ID of the vertex
@@ -286,7 +343,7 @@ class GraphFrame:
         ]
         return count_df.select(F.col(self.ID), F.struct(*struct_cols).alias("inDegrees"))
 
-    def type_degree(self, edge_type_col: str, edge_types: Optional[List[Any]] = None) -> DataFrame:
+    def type_degree(self, edge_type_col: str, edge_types: list[Any] | None = None) -> DataFrame:
         """
         The total degree of each vertex per edge type (both in and out), returned as a DataFrame
         with two columns:
@@ -391,7 +448,7 @@ class GraphFrame:
         An implementation of the Rocha–Thatte cycle detection algorithm.
         Rocha, Rodrigo Caetano, and Bhalchandra D. Thatte. "Distributed cycle detection in
         large-scale sparse graphs." Proceedings of Simpósio Brasileiro de Pesquisa Operacional
-        (SBPO’15) (2015): 1-11.
+        (SBPO'15) (2015): 1-11.
 
         Returns a DataFrame with unique cycles.
 
@@ -516,7 +573,8 @@ class GraphFrame:
         See Scala documentation for more details.
 
         :param algorithm: connected components algorithm to use (default: "graphframes")
-                          Supported algorithms are "graphframes" and "graphx".
+                          Supported algorithms are "two_phase", "randomized_contraction",
+                          "graphframes" (deprecated alias for "two_phase") and "graphx".
         :param checkpointInterval: checkpoint interval in terms of number of iterations (default: 2)
         :param broadcastThreshold: broadcast threshold in propagating component assignments
                                    (default: 1000000). Passing -1 disable manual broadcasting and
@@ -762,13 +820,51 @@ class GraphFrame:
         gamma6: float = 0.005,
         gamma7: float = 0.015,
     ) -> tuple[DataFrame, float]:
-        """
-        Runs the SVD++ algorithm.
+        """Runs the SVD++ algorithm for Collaborative Filtering.
 
-        See Scala documentation for more details.
+        Based on the paper "Factorization Meets the Neighborhood: a Multifaceted Collaborative
+        Filtering Model" by Yehuda Koren (2008).
 
-        :return: Tuple of DataFrame with new vertex columns storing learned model, and loss value
-        """
+        **Algorithm Description**
+        SVD++ improves upon standard Matrix Factorization by incorporating implicit feedback
+        (the history of items a user has interacted with) alongside explicit ratings.
+        The prediction rule is:
+        ``r_ui = µ + b_u + b_i + q_i^T * (p_u + |N(u)|^-0.5 * sum(y_j for j in N(u)))``
+
+        **Input Requirements**
+        The input graph must be a **Directed Bipartite Graph**:
+        - **Vertices**: A mix of Users and Items.
+        - **Edges**: Directed strictly from **User (src) -> Item (dst)**.
+        - **Edge Attribute**: Represents the rating (weight).
+
+        :param rank: The number of latent factors (embedding size).
+        :param maxIter: The maximum number of iterations.
+        :param minValue: The minimum possible rating value (used for clipping predictions).
+        :param maxValue: The maximum possible rating value (used for clipping predictions).
+        :param gamma1: Learning rate for bias parameters (`b_u`, `b_i`).
+        :param gamma2: Learning rate for factor parameters (`p_u`, `q_i`, `y_j`).
+        :param gamma6: Regularization coefficient for bias parameters.
+        :param gamma7: Regularization coefficient for factor parameters.
+        :return: A tuple ``(v, loss)`` where:
+            - ``v`` is a DataFrame of vertices containing the trained model parameters (embeddings).
+            - ``loss`` is the final training loss (double).
+
+        **Output DataFrame Columns**
+        The returned DataFrame ``v`` contains the following new columns containing the model parameters:
+
+        - **column1** (Array[Double]): Primary Latent Factors (Explicit Embedding).
+            - For Users: Preferences vector (`p_u`).
+            - For Items: Characteristics vector (`q_i`).
+        - **column2** (Array[Double]): Implicit Factors (Implicit Embedding).
+            - For Items: Influence vector (`y_i`).
+            - For Users: Unused/Zero (users aggregate `y` from neighbors).
+        - **column3** (Double): Bias term.
+            - For Users: User bias (`b_u`).
+            - For Items: Item bias (`b_i`).
+        - **column4** (Double): Implicit Normalization term.
+            - For Users: Precomputed ``|N(u)|^-0.5``.
+            - For Items: Unused.
+        """  # noqa: E501
         return self._impl.svdPlusPlus(
             rank=rank,
             maxIter=maxIter,
@@ -780,21 +876,34 @@ class GraphFrame:
             gamma7=gamma7,
         )
 
-    def triangleCount(self, storage_level: StorageLevel) -> DataFrame:
+    def triangleCount(
+        self, storage_level: StorageLevel, algorithm: str = "exact", lg_nom_entries: int = 12
+    ) -> DataFrame:
         """
-        Counts the number of triangles passing through each vertex in this graph.
-        This impementation is based on the computing the intersection of
-        vertices neighborhoods. It requires to collect the whole neighborhood of
-        each vertex. It may fail because of memory errors on graphs with power law
-        degrees distribution (graphs with a few very high-degree vertices). Consider
-        edges sampling for that case to get an approximate count of trangles.
+        Computes the number of triangles passing through each vertex.
+        This algorithm identifies sets of three vertices where each pair is connected by an edge.
 
-        :param storage_level: storage level that is used for both
-                              intermediate and final dataframes.
+        The implementation provides two algorithms:
+        - "exact": Computes the exact triangle count using set intersection of neighbor lists.
+          Note: This method can fail or encounter OOM errors on power-law graphs or graphs with
+          very high-degree nodes, as it requires collecting and intersecting the full neighbor
+          lists for the source and destination vertices of every edge.
+        - "approx": Uses DataSketches (Theta sketches) to estimate the triangle count. This
+          trades off perfect accuracy for significantly improved performance and lower memory
+          overhead, making it suitable for large-scale or dense graphs.
 
-        :return:  DataFrame with new vertex column "count"
-        """
-        return self._impl.triangleCount(storage_level=storage_level)
+        :param storage_level: Storage level for caching intermediate DataFrames.
+        :param algorithm: The triangle counting algorithm to use, "exact" or "approx" (default: "exact").
+        :param lg_nom_entries: The log2 of the nominal entries for the Theta sketch (only used
+                               if algorithm="approx"). Higher values increase accuracy at the
+                               cost of memory. (default: 12).
+        :return: A DataFrame containing the vertex "id" and the triangle "count".
+        """  # noqa: E501
+        if (__version__[:3] < "4.1") and (algorithm == "approx"):
+            raise ValueError("approximate algorithm requires Spark 4.1+")
+        return self._impl.triangleCount(
+            storage_level=storage_level, algorithm=algorithm, log_nom_entries=lg_nom_entries
+        )
 
     def powerIterationClustering(
         self, k: int, maxIter: int, weightCol: str | None = None
@@ -902,3 +1011,218 @@ class GraphFrame:
         new_edges = new_edges.select(*selected_columns)
 
         return GraphFrame(self.vertices, new_edges)
+
+    def aggregate_neighbors(
+        self,
+        starting_vertices: Column | str,
+        accumulator_names: list[str],
+        accumulator_inits: list[Column | str],
+        accumulator_updates: list[Column | str],
+        max_hops: int = 3,
+        stopping_condition: Column | str | None = None,
+        target_condition: Column | str | None = None,
+        required_vertex_attributes: list[str] | None = None,
+        required_edge_attributes: list[str] | None = None,
+        edge_filter: Column | str | None = None,
+        remove_loops: bool = False,
+        checkpoint_interval: int = 2,
+        use_local_checkpoints: bool = False,
+        storage_level: StorageLevel = StorageLevel.MEMORY_AND_DISK_DESER,
+    ) -> DataFrame:
+        """Multi-hop neighbor aggregation with customizable accumulators.
+
+        AggregateNeighbors allows you to explore the graph up to a specified number of hops,
+        accumulating values along paths using customizable accumulator expressions. It supports
+        both stopping conditions (when to stop exploring) and target conditions (when to
+        collect a result).
+
+        **Basic Example:**
+
+        >>> from pyspark.sql import functions as F
+        >>> g = GraphFrame(vertices, edges)
+        >>> result = g.aggregate_neighbors(
+        ...     starting_vertices=F.col("id") == 1,
+        ...     max_hops=3,
+        ...     accumulator_names=["path_length"],
+        ...     accumulator_inits=[F.lit(0)],
+        ...     accumulator_updates=[F.col("path_length") + 1],
+        ...     target_condition=AggregateNeighbors.dst_attr("id") == 4
+        ... )
+
+        **Using Accumulators:**
+
+        Accumulators track values as the algorithm traverses the graph. Each accumulator has:
+        - A name (becomes a column in the result)
+        - An initial value expression (evaluated on starting vertices)
+        - An update expression (evaluated when traversing each edge)
+
+        In update expressions, you can reference:
+        - Source vertex attributes via ``src_attr("attrName")``
+        - Destination vertex attributes via ``dst_attr("attrName")``
+        - Edge attributes via ``edge_attr("attrName")``
+
+        **Example with Multiple Accumulators:**
+
+        >>> result = g.aggregate_neighbors(
+        ...     starting_vertices=F.col("id") == 1,
+        ...     max_hops=5,
+        ...     accumulator_names=["sum_values", "product_weights"],
+        ...     accumulator_inits=[F.lit(0), F.lit(1.0)],
+        ...     accumulator_updates=[
+        ...         F.col("sum_values") + AggregateNeighbors.dst_attr("value"),
+        ...         F.col("product_weights") * AggregateNeighbors.edge_attr("weight")
+        ...     ],
+        ...     target_condition=F.col("dst.id") == 10
+        ... )
+
+        **Stopping vs Target Conditions:**
+
+        - ``stopping_condition``: Stops traversal along a path when true. Useful for avoiding
+          cycles or limiting search depth based on custom criteria.
+        - ``target_condition``: Marks vertices as results when true. Only accumulators reaching
+          target vertices are returned.
+        - If both are provided, only accumulators that reach ``target_condition`` are saved.
+        - At least one must be provided.
+
+        **Performance Considerations:**
+
+        - Use ``required_vertex_attributes`` and ``required_edge_attributes`` to limit the
+          columns carried through traversal, reducing memory usage.
+        - Use ``edge_filter`` to limit traversable edges.
+        - Set ``remove_loops=True`` to exclude self-loop edges.
+        - Use ``checkpoint_interval`` to prevent logical plan growth on deep traversals.
+        - Be cautious with high ``max_hops`` on dense graphs (risk of OOM).
+
+        **Warning:** The result is a persisted DataFrame. Call ``.unpersist()`` when done
+        to release memory.
+
+        :param starting_vertices: Column expression selecting seed vertices (e.g., ``F.col("id") == 1``)
+        :param max_hops: Maximum number of hops to explore (positive integer)
+        :param accumulator_names: List of names for accumulators (become result columns)
+        :param accumulator_inits: List of initial value expressions for accumulators
+        :param accumulator_updates: List of update expressions for accumulators
+        :param stopping_condition: Optional condition to stop traversal along a path
+        :param target_condition: Optional condition to mark vertices as results
+        :param required_vertex_attributes: Vertex columns to carry (None = all columns)
+        :param required_edge_attributes: Edge columns to carry (None = all columns)
+        :param edge_filter: Optional condition to filter traversable edges
+        :param remove_loops: If True, exclude self-loop edges (default: False)
+        :param checkpoint_interval: Checkpoint every N iterations, 0 = disabled (default: 0)
+        :param use_local_checkpoints: Use local checkpoints (faster but less reliable)
+        :param storage_level: Storage level for intermediate results
+        :return: DataFrame with columns: ``id`` (target vertex), ``hop`` (path length), and
+                 one column per accumulator with its final value
+        """  # noqa: E501
+        return self._impl.aggregate_neighbors(
+            starting_vertices=starting_vertices,
+            max_hops=max_hops,
+            accumulator_names=accumulator_names,
+            accumulator_inits=accumulator_inits,
+            accumulator_updates=accumulator_updates,
+            stopping_condition=stopping_condition,
+            target_condition=target_condition,
+            required_vertex_attributes=required_vertex_attributes,
+            required_edge_attributes=required_edge_attributes,
+            edge_filter=edge_filter,
+            remove_loops=remove_loops,
+            checkpoint_interval=checkpoint_interval,
+            use_local_checkpoints=use_local_checkpoints,
+            storage_level=storage_level,
+        )
+
+
+@final
+class RandomWalkEmbeddings:
+    def __init__(self, graph: GraphFrame) -> None:
+        self._graph: GraphFrame = graph
+        self._params: _RandomWalksEmbeddingsParameters = _RandomWalksEmbeddingsParameters()
+
+    def use_cached_random_walks(self, cached_walks_path: str) -> None:
+        if cached_walks_path == "":
+            raise ValueError("cached walks path cannot be empty")
+        self._params.rw_cached_walks = cached_walks_path
+
+    def set_rw_model(
+        self,
+        temporary_prefix: str,
+        use_edge_direction: bool = False,
+        max_neighbors_per_vertex: int = 50,
+        num_walks_per_node: int = 5,
+        num_batches: int = 5,
+        walks_per_batch: int = 10,
+        restart_probability: float = 0.1,
+        seed: int = 42,
+    ) -> None:
+        self._params.rw_model = "rw_with_restart"
+        self._params.rw_temporary_prefix = temporary_prefix
+        self._params.use_edge_direction = use_edge_direction
+        self._params.rw_max_nbrs = max_neighbors_per_vertex
+        self._params.rw_num_walks_per_node = num_walks_per_node
+        self._params.rw_num_batches = num_batches
+        self._params.rw_batch_size = walks_per_batch
+        self._params.rw_restart_probability = restart_probability
+        self._params.rw_seed = seed
+
+    def set_hash2vec(
+        self,
+        context_size: int = 5,
+        num_partitions: int = 5,
+        embeddings_dim: int = 512,
+        decay_function: str = "gaussian",
+        gaussian_sigma: float = 1.0,
+        hashing_seed: int = 42,
+        sign_seed: int = 18,
+        l2_norm: bool = True,
+        save_norm: bool = True,
+    ) -> None:
+        if decay_function not in _HASH2VEC_DECAY_FUNCTIONS:
+            raise ValueError(f"supported decay functions are {str(_HASH2VEC_DECAY_FUNCTIONS)}")
+
+        self._params.sequence_model = "hash2vec"
+        self._params.hash2vec_context_size = context_size
+        self._params.hash2vec_num_partitions = num_partitions
+        self._params.hash2vec_embeddings_dim = embeddings_dim
+        self._params.hash2vec_decay_function = decay_function
+        self._params.hash2vec_gaussian_sigma = gaussian_sigma
+        self._params.hash2vec_hashing_seed = hashing_seed
+        self._params.hash2vec_sign_seed = sign_seed
+        self._params.hash2vec_do_l2_norm = l2_norm
+        self._params.hash2vec_safe_l2 = save_norm
+
+    def set_word2vec(
+        self,
+        max_iter: int = 1,
+        embeddings_dim: int = 100,
+        window_size: int = 5,
+        num_partitions: int = 1,
+        min_count: int = 5,
+        max_sentence_length: int = 1000,
+        seed: int = 42,
+        step_size: float = 0.025,
+    ) -> None:
+        self._params.sequence_model = "word2vec"
+        self._params.word2vec_max_iter = max_iter
+        self._params.word2vec_embeddings_dim = embeddings_dim
+        self._params.word2vec_window_size = window_size
+        self._params.word2vec_num_partitions = num_partitions
+        self._params.word2vec_min_count = min_count
+        self._params.word2vec_max_sentence_length = max_sentence_length
+        self._params.word2vec_seed = seed
+        self._params.word2vec_step_size = step_size
+
+    def unset_neighbors_aggregation(self) -> None:
+        self._params.aggregate_neighbors = False
+
+    def set_neighbors_aggregation(self, max_neighbors: int = 50, seed: int = 42) -> None:
+        self._params.aggregate_neighbors = True
+        self._params.aggregate_neighbors_max_nbrs = max_neighbors
+        self._params.aggregate_neighbors_seed = seed
+
+    def set_clean_up_after_run(self, clean_up: bool = True) -> None:
+        self._params.clean_up_after_run = clean_up
+
+    def run(self) -> DataFrame:
+        if self._params.rw_temporary_prefix == "":
+            if self._params.rw_cached_walks == "":
+                raise ValueError("TMP path or cached walks path should be provided!")
+        return self._graph._impl.rw_embeddings(self._params)

@@ -564,6 +564,14 @@ pub struct ConfigFile {
     /// may speed up LSP operations on large projects.
     #[serde(default, skip_serializing_if = "crate::util::skip_default_false")]
     pub skip_lsp_config_indexing: bool,
+
+    /// Additional file extensions to treat as Python source files.
+    /// Used for Python dialects that use non-standard extensions.
+    /// Unlike standard Python extensions, these extensions become part
+    /// of the module name — for example, a file `foo.cinc` has module
+    /// name `foo.cinc`, not `foo`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_file_extensions: Vec<String>,
 }
 
 impl Default for ConfigFile {
@@ -596,6 +604,7 @@ impl Default for ConfigFile {
             min_severity: None,
             output_format: None,
             skip_lsp_config_indexing: false,
+            extra_file_extensions: Vec::new(),
         }
     }
 }
@@ -715,6 +724,11 @@ impl ConfigFile {
         // we can use unwrap here, because the value in the root config must
         // be set in `ConfigFile::configure()`.
         self.python_environment.python_platform.as_ref().unwrap()
+    }
+
+    /// Returns true if extra file extensions are configured.
+    pub fn has_extra_file_extensions(&self) -> bool {
+        !self.extra_file_extensions.is_empty()
     }
 
     pub fn search_path(&self) -> impl Iterator<Item = &PathBuf> + Clone {
@@ -874,6 +888,14 @@ impl ConfigFile {
                  self.root.strict_callable_subtyping.unwrap())
     }
 
+    pub fn spec_compliant_overloads(&self, path: &Path) -> bool {
+        self.get_from_sub_configs(ConfigBase::get_spec_compliant_overloads, path)
+            .unwrap_or_else(||
+                 // we can use unwrap here, because the value in the root config must
+                 // be set in `ConfigFile::configure()`.
+                 self.root.spec_compliant_overloads.unwrap())
+    }
+
     pub fn enabled_ignores(&self, path: &Path) -> &SmallSet<Tool> {
         self.get_from_sub_configs(ConfigBase::get_enabled_ignores, path)
             .unwrap_or_else(||
@@ -973,7 +995,13 @@ impl ConfigFile {
             config
                 .search_path()
                 .chain(config.site_package_path())
-                .cartesian_product(PYTHON_EXTENSIONS.iter().chain(COMPILED_FILE_SUFFIXES))
+                .cartesian_product(
+                    PYTHON_EXTENSIONS
+                        .iter()
+                        .chain(COMPILED_FILE_SUFFIXES)
+                        .copied()
+                        .chain(config.extra_file_extensions.iter().map(|s| s.as_str())),
+                )
                 .for_each(|(s, suffix)| {
                     result.insert(WatchPattern::root(
                         InternedPath::from_path(s),
@@ -1149,6 +1177,10 @@ impl ConfigFile {
 
         if self.root.strict_callable_subtyping.is_none() {
             self.root.strict_callable_subtyping = Some(false);
+        }
+
+        if self.root.spec_compliant_overloads.is_none() {
+            self.root.spec_compliant_overloads = Some(false);
         }
 
         let tools_from_permissive_ignores = match self.root.permissive_ignores {
@@ -1523,6 +1555,7 @@ mod tests {
                     enabled_ignores: None,
                     recursion_depth_limit: None,
                     recursion_overflow_handler: None,
+                    spec_compliant_overloads: None,
                 },
                 source_db: Default::default(),
                 sub_configs: vec![SubConfig {
@@ -1547,12 +1580,14 @@ mod tests {
                         enabled_ignores: None,
                         recursion_depth_limit: None,
                         recursion_overflow_handler: None,
+                        spec_compliant_overloads: None,
                     }
                 }],
                 typeshed_path: None,
                 baseline: None,
                 min_severity: None,
                 skip_lsp_config_indexing: false,
+                extra_file_extensions: Vec::new(),
             }
         );
     }
@@ -1795,6 +1830,7 @@ mod tests {
             baseline: Some(PathBuf::from("baseline.json")),
             min_severity: None,
             skip_lsp_config_indexing: false,
+            extra_file_extensions: Vec::new(),
         };
 
         let current_dir = std::env::current_dir().unwrap();
@@ -1856,6 +1892,7 @@ mod tests {
             baseline: Some(test_path.join("baseline.json")),
             min_severity: None,
             skip_lsp_config_indexing: false,
+            extra_file_extensions: Vec::new(),
         };
         assert_eq!(config, expected_config);
     }
@@ -1956,6 +1993,7 @@ output-format = "omit-errors"
                 enabled_ignores: None,
                 recursion_depth_limit: None,
                 recursion_overflow_handler: None,
+                spec_compliant_overloads: None,
             },
             sub_configs: vec![
                 SubConfig {
@@ -2269,6 +2307,7 @@ output-format = "omit-errors"
                 enabled_ignores: None,
                 recursion_depth_limit: None,
                 recursion_overflow_handler: None,
+                spec_compliant_overloads: None,
             },
             sub_configs: vec![],
             ..Default::default()
@@ -2307,6 +2346,7 @@ output-format = "omit-errors"
                 enabled_ignores: None,
                 recursion_depth_limit: None,
                 recursion_overflow_handler: None,
+                spec_compliant_overloads: None,
             },
             sub_configs: vec![],
             ..Default::default()

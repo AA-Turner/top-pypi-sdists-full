@@ -182,6 +182,9 @@ set(COUCHBASE_CXX_CLIENT_BUILD_TESTS
 set(COUCHBASE_CXX_CLIENT_BUILD_TOOLS
     OFF
     CACHE BOOL "" FORCE)
+set(COUCHBASE_CXX_CLIENT_BUILD_OPENTELEMETRY
+    OFF
+    CACHE BOOL "" FORCE)
 
 # cmake-format: off
 # PYCBC-1374 + PYCBC-1495: Move to dynamically link against static stdlib to avoid issues with:
@@ -246,9 +249,10 @@ file(
   GLOB
   SOURCE_FILES
   "src/*.cxx"
-  "src/management/*.cxx"
   "src/transactions/*.cxx")
 add_library(pycbc_core SHARED ${SOURCE_FILES})
+
+target_compile_definitions(pycbc_core PRIVATE COUCHBASE_CXX_CLIENT_IGNORE_CORE_DEPRECATIONS)
 
 target_include_directories(
   pycbc_core PRIVATE SYSTEM
@@ -267,7 +271,8 @@ if(WIN32)
     asio
     Microsoft.GSL::GSL
     taocpp::json
-    spdlog::spdlog)
+    spdlog::spdlog
+    hdr_histogram_static)
 else()
   target_link_libraries(
     pycbc_core PRIVATE
@@ -275,7 +280,8 @@ else()
     asio
     Microsoft.GSL::GSL
     taocpp::json
-    spdlog::spdlog)
+    spdlog::spdlog
+    hdr_histogram_static)
   if(APPLE)
     target_link_options(
       pycbc_core
@@ -296,5 +302,5 @@ endif()
 set_target_properties(
   pycbc_core
   PROPERTIES PREFIX ""
-             OUTPUT_NAME pycbc_core
+             OUTPUT_NAME _core
              SUFFIX ${PYCBC_C_MOD_SUFFIX})

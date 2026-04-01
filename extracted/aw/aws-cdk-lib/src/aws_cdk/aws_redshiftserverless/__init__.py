@@ -388,19 +388,6 @@ class CfnNamespace(
         jsii.set(self, "namespaceName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="namespaceResourcePolicy")
-    def namespace_resource_policy(self) -> typing.Any:
-        '''The resource policy that will be attached to the namespace.'''
-        return typing.cast(typing.Any, jsii.get(self, "namespaceResourcePolicy"))
-
-    @namespace_resource_policy.setter
-    def namespace_resource_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43a289d7dca3804ca980a93314a4c0b2949e95448b9e91aef20d960cd1facef7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "namespaceResourcePolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="adminPasswordSecretKmsKeyId")
     def admin_password_secret_kms_key_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the AWS Key Management Service (KMS) key used to encrypt and store the namespace's admin credentials secret.'''
@@ -553,6 +540,19 @@ class CfnNamespace(
             type_hints = typing.get_type_hints(_typecheckingstub__fee9e13028e66f79f12c6ed7063cc442fd9b8a5aa18d9a39ced55fd585d8f0d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "manageAdminPassword", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="namespaceResourcePolicy")
+    def namespace_resource_policy(self) -> typing.Any:
+        '''The resource policy that will be attached to the namespace.'''
+        return typing.cast(typing.Any, jsii.get(self, "namespaceResourcePolicy"))
+
+    @namespace_resource_policy.setter
+    def namespace_resource_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43a289d7dca3804ca980a93314a4c0b2949e95448b9e91aef20d960cd1facef7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "namespaceResourcePolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="redshiftIdcApplicationArn")
@@ -3780,12 +3780,6 @@ def _typecheckingstub__2fe15d8ff16345a3e36d8c090d48eea89c8cd559ac4218facdfd95b67
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__43a289d7dca3804ca980a93314a4c0b2949e95448b9e91aef20d960cd1facef7(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__3ad26fc5262e682a19af3392d1855021d70d396b74b82cb73cc9022919f97e63(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -3848,6 +3842,12 @@ def _typecheckingstub__1526e0cedff0515a6bb96570f366670e82fb4d0cc597e2d7a8b0a091f
 
 def _typecheckingstub__fee9e13028e66f79f12c6ed7063cc442fd9b8a5aa18d9a39ced55fd585d8f0d4(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43a289d7dca3804ca980a93314a4c0b2949e95448b9e91aef20d960cd1facef7(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

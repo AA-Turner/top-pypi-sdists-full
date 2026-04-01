@@ -69,12 +69,10 @@ from wcmatch import fnmatch, glob
 from . import (
     UNPROCESSED,
     ParameterSource,
+    Path as ClickPath,
     echo,
     get_app_dir,
     get_current_context,
-)
-from . import (
-    Path as ClickPath,
 )
 from .parameters import ExtraOption, ParamStructure, search_params
 
@@ -401,6 +399,37 @@ def normalize_config_keys(conf: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def flatten_config_keys(
+    conf: dict[str, Any],
+    sep: str = "_",
+) -> dict[str, Any]:
+    """Flatten nested dicts into a single level by joining keys with a separator.
+
+    Useful for mapping nested configuration structures (e.g. TOML sub-tables) to
+    flat Python dataclass fields.  After normalization with
+    `normalize_config_keys`, the flattened keys match dataclass field names
+    directly::
+
+        >>> from click_extra.config import flatten_config_keys, normalize_config_keys
+        >>> raw = {"dependency-graph": {"all-groups": True, "output": "deps.mmd"}}
+        >>> flatten_config_keys(normalize_config_keys(raw))
+        {'dependency_graph_all_groups': True, 'dependency_graph_output': 'deps.mmd'}
+
+    :param conf: Nested dictionary to flatten.
+    :param sep: Separator used to join parent and child keys.  Defaults to
+        ``"_"`` which produces valid Python identifiers when combined with
+        `normalize_config_keys`.
+    """
+    items: dict[str, Any] = {}
+    for key, value in conf.items():
+        if isinstance(value, dict):
+            for sub_key, sub_value in flatten_config_keys(value, sep).items():
+                items[f"{key}{sep}{sub_key}"] = sub_value
+        else:
+            items[key] = value
+    return items
+
+
 def get_tool_config(ctx: click.Context | None = None) -> Any:
     """Retrieve the typed tool configuration from the context.
 
@@ -477,6 +506,7 @@ class ConfigOption(ExtraOption, ParamStructure):
         included_params: Iterable[str] | None = None,
         strict: bool = False,
         config_schema: type | Callable[[dict[str, Any]], Any] | None = None,
+        schema_strict: bool = False,
         fallback_sections: Sequence[str] = (),
         **kwargs,
     ) -> None:
@@ -647,20 +677,40 @@ class ConfigOption(ExtraOption, ParamStructure):
         """Optional schema for structured access to configuration values.
 
         When set, the app's configuration section is extracted from the parsed
-        config file, normalized (hyphens replaced with underscores), and passed
-        to this callable to produce a typed configuration object.
+        config file, normalized (hyphens replaced with underscores), flattened
+        (nested dicts joined with ``_``), and passed to this callable to produce
+        a typed configuration object.
 
         Supports:
 
-        - **Dataclass types** — detected via ``__dataclass_fields__`` and
-          instantiated with normalized keys filtered to known fields.
-        - **Any callable** ``dict → T`` — called directly with the normalized
+        - **Dataclass types** — detected via ``__dataclass_fields__``.  Keys
+          are normalized, nested dicts are flattened, and the result is filtered
+          to known fields before instantiation.  This allows nested config
+          sections (e.g. ``[tool.myapp.sub-section]``) to map directly to flat
+          dataclass fields (e.g. ``sub_section_key``).
+        - **Any callable** ``dict → T`` — called directly with the raw
           dict.  Works with Pydantic's ``Model.model_validate``, attrs, or
-          custom factory functions.
+          custom factory functions.  The caller is responsible for key
+          normalization and flattening.
 
         The resulting object is stored in
         ``ctx.meta["click_extra.tool_config"]`` and can be retrieved via
         `get_tool_config`.
+        """
+
+        self.schema_strict = schema_strict
+        """Strictness for schema validation (separate from ``strict``).
+
+        - If ``True``, raise ``ValueError`` when the config section contains keys
+          that do not match any dataclass field (after normalization and
+          flattening).  Only applies when ``config_schema`` is a dataclass.
+        - If ``False``, silently ignore unrecognized keys.
+
+        .. note::
+            This is distinct from ``strict``, which controls whether
+            ``merge_default_map`` rejects config keys not matching CLI
+            parameters.  ``schema_strict`` validates against dataclass fields
+            instead.
         """
 
         self.fallback_sections: Sequence[str] = tuple(fallback_sections)
@@ -672,7 +722,10 @@ class ConfigOption(ExtraOption, ParamStructure):
         Works with all configuration formats.
         """
 
-        self._config_schema_callable = self._make_schema_callable(config_schema)
+        self._config_schema_callable = self._make_schema_callable(
+            config_schema,
+            strict=schema_strict,
+        )
 
         kwargs.setdefault("callback", self.load_conf)
 
@@ -1099,6 +1152,48 @@ class ConfigOption(ExtraOption, ParamStructure):
             logger.debug(f"{fmt} parsing successful, got {conf!r}.")
             yield conf
 
+    def _search_pyproject_cwd(
+        self,
+    ) -> tuple[Path, dict[str, Any]] | tuple[None, None]:
+        """Search for ``pyproject.toml`` from CWD upward to the VCS root.
+
+        Mimics the discovery behavior of uv, ruff, and mypy: start in the
+        current working directory and walk up until a ``pyproject.toml`` is
+        found or the VCS root (or filesystem root) is reached.
+
+        Only runs when ``ConfigFormat.PYPROJECT_TOML`` is in
+        ``file_format_patterns``.  Returns ``(path, parsed_tool_section)`` on
+        success, or ``(None, None)`` if no valid ``pyproject.toml`` was found.
+        """
+        logger = logging.getLogger("click_extra")
+        cwd = Path.cwd()
+        stop_at = self._resolve_stop_at(cwd)
+
+        for directory in (cwd, *cwd.parents):
+            if self._should_stop_walking(directory, stop_at):
+                logger.debug(f"pyproject.toml CWD search stopped at {directory}.")
+                break
+
+            candidate = directory / "pyproject.toml"
+            if not candidate.is_file():
+                continue
+
+            logger.debug(f"Found {candidate}, parsing as pyproject.toml.")
+            try:
+                content = candidate.read_text(encoding="UTF-8")
+            except OSError as ex:
+                logger.debug(f"Cannot read {candidate}: {ex}")
+                continue
+
+            for conf in self.parse_conf(
+                content, formats=(ConfigFormat.PYPROJECT_TOML,)
+            ):
+                if conf:
+                    return candidate, conf
+            logger.debug(f"{candidate} parsed but empty [tool] section.")
+
+        return None, None
+
     def read_and_parse_conf(
         self,
         pattern: str,
@@ -1244,15 +1339,22 @@ class ConfigOption(ExtraOption, ParamStructure):
     @staticmethod
     def _make_schema_callable(
         schema: type | Callable[[dict[str, Any]], Any] | None,
+        *,
+        strict: bool = False,
     ) -> Callable[[dict[str, Any]], Any] | None:
         """Wrap a schema type into a callable that accepts a raw config dict.
 
         - **Dataclass types** (detected via ``__dataclass_fields__``) are
-          auto-wrapped: keys are normalized (hyphens → underscores) and filtered
-          to known fields before instantiation.
+          auto-wrapped: keys are normalized (hyphens → underscores), nested
+          dicts are flattened, and the result is filtered to known fields
+          before instantiation.
         - **Any other callable** is returned as-is.  The caller is responsible
           for key normalization if needed.
         - ``None`` returns ``None``.
+
+        :param strict: If ``True``, raise ``ValueError`` when the config
+            contains keys that do not match any dataclass field (after
+            normalization and flattening).
         """
         if schema is None:
             return None
@@ -1262,8 +1364,20 @@ class ConfigOption(ExtraOption, ParamStructure):
 
             def _from_dataclass(raw: dict[str, Any]) -> Any:
                 normalized = normalize_config_keys(raw)
+                flattened = flatten_config_keys(normalized)
                 known = {f.name for f in dc_fields(schema)}  # type: ignore[arg-type]
-                return schema(**{k: v for k, v in normalized.items() if k in known})  # type: ignore[call-arg]
+                if strict:
+                    unknown = sorted(set(flattened) - known)
+                    if unknown:
+                        msg = (
+                            f"Unknown configuration option(s): "
+                            f"{', '.join(unknown)}. "
+                            f"Valid options: {', '.join(sorted(known))}"
+                        )
+                        raise ValueError(msg)
+                return schema(  # type: ignore[call-arg]
+                    **{k: v for k, v in flattened.items() if k in known}
+                )
 
             return _from_dataclass
 
@@ -1423,42 +1537,59 @@ class ConfigOption(ExtraOption, ParamStructure):
         else:
             logger.debug(message)
 
-        # Read configuration file.
-        conf_path, user_conf = None, None
-        try:
-            conf_path, user_conf = self.read_and_parse_conf(path_pattern)
-        # Exit the CLI if no user-provided config file was found. Else, it means we
-        # were just trying to automaticcaly discover a config file with the default
-        # pattern, so we can just log it and continue.
-        except FileNotFoundError:
-            message = "No configuration file found."
-            if explicit_conf:
-                logger.critical(message)
-                ctx.exit(2)
-            else:
-                logger.debug(message)
+        # Search for pyproject.toml from CWD upward before the standard
+        # app-dir search.  This matches the discovery behavior of uv, ruff,
+        # and mypy.  Only runs on auto-discovery (not explicit --config).
+        conf_path: Path | URL | None = None
+        user_conf = None
+        if (
+            not explicit_conf
+            and ConfigFormat.PYPROJECT_TOML in self.file_format_patterns
+        ):
+            conf_path, user_conf = self._search_pyproject_cwd()
+            if conf_path is not None:
+                logger.debug(f"Using {conf_path} from CWD search.")
 
-        # Exit the CLI if a user-provided config file was found but could not be
-        # parsed. Else, it means we automaticcaly discovered a config file, but it
-        # couldn't be parsed, so we can just log it and continue.
-        else:
-            if user_conf is None:
-                formats = list(map(str, self.file_format_patterns))
-                message = (
-                    f"Error parsing file as {', '.join(formats[:-1])} or {formats[-1]}."
-                )
+        # Fall back to the standard app-dir search if CWD search found nothing.
+        if user_conf is None:
+            try:
+                conf_path, user_conf = self.read_and_parse_conf(path_pattern)
+            # Exit the CLI if no user-provided config file was found. Else, it
+            # means we were just trying to automatically discover a config file
+            # with the default pattern, so we can just log it and continue.
+            except FileNotFoundError:
+                message = "No configuration file found."
                 if explicit_conf:
                     logger.critical(message)
                     ctx.exit(2)
                 else:
                     logger.debug(message)
             else:
-                logger.debug(f"Parsed user configuration: {user_conf}")
-                logger.debug(f"Initial defaults: {ctx.default_map}")
-                self.merge_default_map(ctx, user_conf)
-                logger.debug(f"New defaults: {ctx.default_map}")
-                # Build typed config object if a schema was provided.
-                self._apply_config_schema(ctx, user_conf)
+                if user_conf is None:
+                    formats = list(map(str, self.file_format_patterns))
+                    message = (
+                        f"Error parsing file as "
+                        f"{', '.join(formats[:-1])} or {formats[-1]}."
+                    )
+                    if explicit_conf:
+                        logger.critical(message)
+                        ctx.exit(2)
+                    else:
+                        logger.debug(message)
+
+        # Apply the loaded configuration (from CWD or app-dir search).
+        if user_conf is not None:
+            logger.debug(f"Parsed user configuration: {user_conf}")
+            logger.debug(f"Initial defaults: {ctx.default_map}")
+            self.merge_default_map(ctx, user_conf)
+            logger.debug(f"New defaults: {ctx.default_map}")
+            self._apply_config_schema(ctx, user_conf)
+
+        # When a schema is configured but no config file was found, still
+        # produce the default instance so get_tool_config() never returns None.
+        elif self._config_schema_callable is not None:
+            logger.debug("No config file found; instantiating schema defaults.")
+            self._apply_config_schema(ctx, {})
 
         # Expose the resolved config file path and its full parsed content via
         # ctx.meta, so downstream CLI code can inspect what was loaded and from where.

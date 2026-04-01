@@ -35,12 +35,12 @@ Example:
 
 import os
 import logging
+from praisonaiagents._logging import get_logger
 import time
 import asyncio
 from typing import List, Optional, Any, Dict, Literal
 from dataclasses import dataclass, field
 from enum import Enum
-
 
 # Data classes for Deep Research response types
 @dataclass
@@ -54,7 +54,6 @@ class Citation:
     def __repr__(self):
         return f"Citation(title='{self.title}', url='{self.url}')"
 
-
 @dataclass
 class ReasoningStep:
     """Represents a reasoning step in the research process."""
@@ -63,7 +62,6 @@ class ReasoningStep:
     
     def __repr__(self):
         return f"ReasoningStep(text='{self.text[:50]}...')" if len(self.text) > 50 else f"ReasoningStep(text='{self.text}')"
-
 
 @dataclass
 class WebSearchCall:
@@ -74,7 +72,6 @@ class WebSearchCall:
     def __repr__(self):
         return f"WebSearchCall(query='{self.query}', status='{self.status}')"
 
-
 @dataclass
 class CodeExecutionStep:
     """Represents a code execution step during research."""
@@ -83,7 +80,6 @@ class CodeExecutionStep:
     
     def __repr__(self):
         return f"CodeExecutionStep(input='{self.input_code[:50]}...')" if len(self.input_code) > 50 else f"CodeExecutionStep(input='{self.input_code}')"
-
 
 @dataclass
 class MCPCall:
@@ -95,7 +91,6 @@ class MCPCall:
     def __repr__(self):
         return f"MCPCall(name='{self.name}', server='{self.server_label}')"
 
-
 @dataclass
 class FileSearchCall:
     """Represents a file search call (Gemini-specific)."""
@@ -103,7 +98,6 @@ class FileSearchCall:
     
     def __repr__(self):
         return f"FileSearchCall(stores={self.store_names})"
-
 
 @dataclass
 class DeepResearchResponse:
@@ -149,13 +143,11 @@ class DeepResearchResponse:
                 sources.append({"title": c.title, "url": c.url})
         return sources
 
-
 class Provider(Enum):
     """Supported Deep Research providers."""
     OPENAI = "openai"
     GEMINI = "gemini"
     LITELLM = "litellm"
-
 
 class DeepResearchAgent:
     """
@@ -295,7 +287,7 @@ You are a professional research analyst. When conducting research:
         self._gemini_client = None
         
         # Configure logging
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
         if self.verbose:
             self.logger.debug(f"DeepResearchAgent initialized: provider={self.provider.value}, model={self.model}")
@@ -868,6 +860,78 @@ You are a professional research analyst. When conducting research:
         
         return self._parse_gemini_response(interaction)
     
+    async def _research_gemini_async(
+        self,
+        query: str,
+        instructions: Optional[str] = None,
+        model: Optional[str] = None,
+        file_search: bool = False,
+        file_search_stores: Optional[List[Dict[str, Any]]] = None,
+        grounding_file_prompt: Optional[str] = None,
+    ) -> DeepResearchResponse:
+        """
+        Async version of _research_gemini with non-blocking polling.
+        Uses asyncio.sleep() to prevent blocking the event loop.
+        """
+        import asyncio
+        import time
+        
+        if self.provider != Provider.GEMINI:
+            raise ValueError("This method requires GEMINI provider")
+        
+        if not self.gemini_client:
+            raise RuntimeError("Gemini client is required for Deep Research")
+        
+        create_params = {
+            "query": query,
+            "file_search": file_search,
+        }
+        
+        if instructions:
+            create_params["instructions"] = instructions
+        
+        if model:
+            create_params["model"] = model
+        
+        if file_search_stores:
+            create_params["file_search_stores"] = file_search_stores
+        
+        if grounding_file_prompt:
+            create_params["grounding_file_prompt"] = grounding_file_prompt
+        
+        interaction = self.gemini_client.interactions.create(**create_params)
+        
+        if self.verbose:
+            self.logger.debug(f"Gemini research started (async): {interaction.id}")
+        
+        start_time = time.time()
+        while True:
+            interaction = self.gemini_client.interactions.get(interaction.id)
+            
+            if interaction.status == "completed":
+                if self.verbose:
+                    self.logger.debug("Gemini research completed (async)")
+                break
+            elif interaction.status == "failed":
+                error = getattr(interaction, 'error', 'Unknown error')
+                raise RuntimeError(f"Gemini Deep Research failed: {error}")
+            elif interaction.status == "cancelled":
+                raise RuntimeError("Gemini Deep Research was cancelled")
+            
+            elapsed = time.time() - start_time
+            if elapsed > self.max_wait_time:
+                raise TimeoutError(
+                    f"Gemini Deep Research timed out after {self.max_wait_time}s"
+                )
+            
+            if self.verbose:
+                self.logger.debug(f"Research in progress (async)... ({elapsed:.0f}s)")
+            
+            # Use async sleep to avoid blocking event loop
+            await asyncio.sleep(self.poll_interval)
+        
+        return self._parse_gemini_response(interaction)
+    
     def _research_gemini_streaming(
         self,
         create_params: Dict[str, Any],
@@ -1183,17 +1247,13 @@ You are a professional research analyst. When conducting research:
         
         try:
             if self.provider == Provider.GEMINI:
-                # Gemini async - run sync in executor
-                loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(
-                    None,
-                    lambda: self._research_gemini(
-                        query=query,
-                        instructions=instructions,
-                        model=model,
-                        file_search=file_search if file_search is not None else self.enable_file_search,
-                        file_search_stores=file_search_stores or self.file_search_stores,
-                    )
+                # Use async Gemini method for non-blocking polling
+                result = await self._research_gemini_async(
+                    query=query,
+                    instructions=instructions,
+                    model=model,
+                    file_search=file_search if file_search is not None else self.enable_file_search,
+                    file_search_stores=file_search_stores or self.file_search_stores,
                 )
             elif self.provider == Provider.LITELLM:
                 # LiteLLM async

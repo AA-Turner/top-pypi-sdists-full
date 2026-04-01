@@ -13,17 +13,21 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from __future__ import annotations
+
 from typing import (TYPE_CHECKING,
                     Any,
-                    Awaitable,
                     Dict,
                     Iterable)
 
-from acouchbase.management.logic.wrappers import AsyncMgmtWrapper
-from couchbase.management.logic import ManagementType
-from couchbase.management.logic.search_index_logic import SearchIndex, SearchIndexManagerLogic
+from acouchbase.management.logic.search_index_mgmt_impl import AsyncSearchIndexMgmtImpl
+from couchbase.logic.observability import ObservableRequestHandler
+from couchbase.logic.operation_types import SearchIndexMgmtOperationType
+from couchbase.management.logic.search_index_mgmt_types import SearchIndex
 
 if TYPE_CHECKING:
+    from acouchbase.logic.client_adapter import AsyncClientAdapter
+    from couchbase.logic.observability import ObservabilityInstruments
     from couchbase.management.options import (AllowQueryingSearchIndexOptions,
                                               AnalyzeDocumentSearchIndexOptions,
                                               DisallowQueryingSearchIndexOptions,
@@ -40,268 +44,396 @@ if TYPE_CHECKING:
                                               UpsertSearchIndexOptions)
 
 
-class SearchIndexManager(SearchIndexManagerLogic):
-    def __init__(self,
-                 connection,
-                 loop
-                 ):
-        super().__init__(connection)
-        self._loop = loop
+class SearchIndexManager:
 
-    @property
-    def loop(self):
-        """
-        **INTERNAL**
-        """
-        return self._loop
+    def __init__(self, client_adapter: AsyncClientAdapter, observability_instruments: ObservabilityInstruments) -> None:
+        self._impl = AsyncSearchIndexMgmtImpl(client_adapter, observability_instruments)
+        self._scope_context = None
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def upsert_index(self,
-                     index,     # type: SearchIndex
-                     *options,  # type: UpsertSearchIndexOptions
-                     **kwargs   # type: Dict[str, Any]
-                     ) -> Awaitable[None]:
+    async def upsert_index(self,
+                           index,     # type: SearchIndex
+                           *options,  # type: UpsertSearchIndexOptions
+                           **kwargs   # type: Dict[str, Any]
+                           ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexUpsert
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_upsert_index_request(
+                index, self._scope_context, obs_handler, *options, **kwargs)
+            await self._impl.upsert_index(req, obs_handler)
 
-        super().upsert_index(index, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def drop_index(self,
-                   index_name,  # type: str
-                   *options,   # type: DropSearchIndexOptions
-                   **kwargs    # type: Dict[str, Any]
-                   ) -> Awaitable[None]:
-
-        super().drop_index(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(SearchIndex, ManagementType.SearchIndexMgmt,
-                                       SearchIndexManagerLogic._ERROR_MAPPING)
-    def get_index(self,
-                  index_name,  # type: str
-                  *options,   # type: GetSearchIndexOptions
-                  **kwargs    # type: Dict[str, Any]
-                  ) -> Awaitable[SearchIndex]:
-
-        super().get_index(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(SearchIndex, ManagementType.SearchIndexMgmt,
-                                       SearchIndexManagerLogic._ERROR_MAPPING)
-    def get_all_indexes(self,
-                        *options,  # type: GetAllSearchIndexesOptions
-                        **kwargs  # type: Dict[str, Any]
-                        ) -> Awaitable[Iterable[SearchIndex]]:
-        super().get_all_indexes(*options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(int, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def get_indexed_documents_count(self,
-                                    index_name,  # type: str
-                                    *options,   # type: GetSearchIndexedDocumentsCountOptions
-                                    **kwargs    # type: Dict[str, Any]
-                                    ) -> Awaitable[int]:
-        super().get_indexed_documents_count(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def pause_ingest(self,
-                     index_name,  # type: str
-                     *options,  # type: PauseIngestSearchIndexOptions
-                     **kwargs  # type: Dict[str, Any]
-                     ) -> Awaitable[None]:
-        super().pause_ingest(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def resume_ingest(self,
-                      index_name,  # type: str
-                      *options,  # type: ResumeIngestSearchIndexOptions
-                      **kwargs  # type: Dict[str, Any]
-                      ) -> Awaitable[None]:
-        super().resume_ingest(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def allow_querying(self,
-                       index_name,  # type: str
-                       *options,  # type: AllowQueryingSearchIndexOptions
-                       **kwargs  # type: Dict[str, Any]
-                       ) -> Awaitable[None]:
-        super().allow_querying(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def disallow_querying(self,
-                          index_name,  # type: str
-                          *options,  # type: DisallowQueryingSearchIndexOptions
-                          **kwargs  # type: Dict[str, Any]
-                          ) -> Awaitable[None]:
-        super().disallow_querying(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def freeze_plan(self,
-                    index_name,  # type: str
-                    *options,  # type: FreezePlanSearchIndexOptions
-                    **kwargs  # type: Dict[str, Any]
-                    ) -> Awaitable[None]:
-        super().freeze_plan(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def unfreeze_plan(self,
-                      index_name,  # type: str
-                      *options,  # type: UnfreezePlanSearchIndexOptions
-                      **kwargs  # type: Dict[str, Any]
-                      ) -> Awaitable[None]:
-        super().unfreeze_plan(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(dict, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def analyze_document(self,
+    async def drop_index(self,
                          index_name,  # type: str
-                         document,  # type: Any
-                         *options,  # type: AnalyzeDocumentSearchIndexOptions
-                         **kwargs  # type: Dict[str, Any]
-                         ) -> Awaitable[Dict[str, Any]]:
-        super().analyze_document(index_name, document, *options, **kwargs)
+                         *options,   # type: DropSearchIndexOptions
+                         **kwargs    # type: Dict[str, Any]
+                         ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexDrop
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_drop_index_request(
+                index_name, self._scope_context, obs_handler, *options, **kwargs)
+            await self._impl.drop_index(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(dict, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def get_index_stats(self,
+    async def get_index(self,
                         index_name,  # type: str
-                        *options,  # type: GetSearchIndexStatsOptions
-                        **kwargs  # type: Dict[str, Any]
-                        ) -> Awaitable[Dict[str, Any]]:
-        super().get_index_stats(index_name, *options, **kwargs)
+                        *options,   # type: GetSearchIndexOptions
+                        **kwargs    # type: Dict[str, Any]
+                        ) -> SearchIndex:
+        op_type = SearchIndexMgmtOperationType.SearchIndexGet
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_index_request(
+                index_name, self._scope_context, obs_handler, *options, **kwargs)
+            return await self._impl.get_index(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(dict, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def get_all_index_stats(self,
-                            *options,  # type: GetAllSearchIndexStatsOptions
+    async def get_all_indexes(self,
+                              *options,  # type: GetAllSearchIndexesOptions
+                              **kwargs  # type: Dict[str, Any]
+                              ) -> Iterable[SearchIndex]:
+        op_type = SearchIndexMgmtOperationType.SearchIndexGetAll
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_indexes_request(
+                self._scope_context, obs_handler, *options, **kwargs)
+            return await self._impl.get_all_indexes(req, obs_handler)
+
+    async def get_indexed_documents_count(self,
+                                          index_name,  # type: str
+                                          *options,   # type: GetSearchIndexedDocumentsCountOptions
+                                          **kwargs    # type: Dict[str, Any]
+                                          ) -> int:
+        op_type = SearchIndexMgmtOperationType.SearchIndexGetDocumentsCount
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_indexed_documents_count_request(index_name,
+                                                                                       self._scope_context,
+                                                                                       obs_handler,
+                                                                                       *options,
+                                                                                       **kwargs)
+            return await self._impl.get_indexed_documents_count(req, obs_handler)
+
+    async def pause_ingest(self,
+                           index_name,  # type: str
+                           *options,  # type: PauseIngestSearchIndexOptions
+                           **kwargs  # type: Dict[str, Any]
+                           ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexControlIngest
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments,
+                                            op_type_toggle=True) as obs_handler:
+            req = self._impl.request_builder.build_pause_ingest_request(
+                index_name, self._scope_context, obs_handler, *options, **kwargs)
+            await self._impl.pause_ingest(req, obs_handler)
+
+    async def resume_ingest(self,
+                            index_name,  # type: str
+                            *options,  # type: ResumeIngestSearchIndexOptions
                             **kwargs  # type: Dict[str, Any]
-                            ) -> Awaitable[Dict[str, Any]]:
-        super().get_all_index_stats(*options, **kwargs)
+                            ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexControlIngest
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments,
+                                            op_type_toggle=False) as obs_handler:
+            req = self._impl.request_builder.build_resume_ingest_request(index_name,
+                                                                         self._scope_context,
+                                                                         obs_handler,
+                                                                         *options,
+                                                                         **kwargs)
+            await self._impl.resume_ingest(req, obs_handler)
+
+    async def allow_querying(self,
+                             index_name,  # type: str
+                             *options,  # type: AllowQueryingSearchIndexOptions
+                             **kwargs  # type: Dict[str, Any]
+                             ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexControlQuery
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments,
+                                            op_type_toggle=True) as obs_handler:
+            req = self._impl.request_builder.build_allow_querying_request(index_name,
+                                                                          self._scope_context,
+                                                                          obs_handler,
+                                                                          *options,
+                                                                          **kwargs)
+            await self._impl.allow_querying(req, obs_handler)
+
+    async def disallow_querying(self,
+                                index_name,  # type: str
+                                *options,  # type: DisallowQueryingSearchIndexOptions
+                                **kwargs  # type: Dict[str, Any]
+                                ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexControlQuery
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments,
+                                            op_type_toggle=False) as obs_handler:
+            req = self._impl.request_builder.build_disallow_querying_request(index_name,
+                                                                             self._scope_context,
+                                                                             obs_handler,
+                                                                             *options,
+                                                                             **kwargs)
+            await self._impl.disallow_querying(req, obs_handler)
+
+    async def freeze_plan(self,
+                          index_name,  # type: str
+                          *options,  # type: FreezePlanSearchIndexOptions
+                          **kwargs  # type: Dict[str, Any]
+                          ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexControlPlanFreeze
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments,
+                                            op_type_toggle=True) as obs_handler:
+            req = self._impl.request_builder.build_freeze_plan_request(
+                index_name, self._scope_context, obs_handler, *options, **kwargs)
+            await self._impl.freeze_plan(req, obs_handler)
+
+    async def unfreeze_plan(self,
+                            index_name,  # type: str
+                            *options,  # type: UnfreezePlanSearchIndexOptions
+                            **kwargs  # type: Dict[str, Any]
+                            ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexControlPlanFreeze
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments,
+                                            op_type_toggle=False) as obs_handler:
+            req = self._impl.request_builder.build_unfreeze_plan_request(index_name,
+                                                                         self._scope_context,
+                                                                         obs_handler,
+                                                                         *options,
+                                                                         **kwargs)
+            await self._impl.unfreeze_plan(req, obs_handler)
+
+    async def analyze_document(self,
+                               index_name,  # type: str
+                               document,  # type: Any
+                               *options,  # type: AnalyzeDocumentSearchIndexOptions
+                               **kwargs  # type: Dict[str, Any]
+                               ) -> Dict[str, Any]:
+        op_type = SearchIndexMgmtOperationType.SearchIndexAnalyzeDocument
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_analyze_document_request(index_name,
+                                                                            document,
+                                                                            self._scope_context,
+                                                                            obs_handler,
+                                                                            *options,
+                                                                            **kwargs)
+            return await self._impl.analyze_document(req, obs_handler)
+
+    async def get_index_stats(self,
+                              index_name,  # type: str
+                              *options,  # type: GetSearchIndexStatsOptions
+                              **kwargs  # type: Dict[str, Any]
+                              ) -> Dict[str, Any]:
+        op_type = SearchIndexMgmtOperationType.SearchIndexGetStats
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_index_stats_request(index_name,
+                                                                           self._scope_context,
+                                                                           obs_handler,
+                                                                           *options,
+                                                                           **kwargs)
+            return await self._impl.get_index_stats(req, obs_handler)
+
+    async def get_all_index_stats(self,
+                                  *options,  # type: GetAllSearchIndexStatsOptions
+                                  **kwargs  # type: Dict[str, Any]
+                                  ) -> Dict[str, Any]:
+        op_type = SearchIndexMgmtOperationType.SearchGetStats
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_index_stats_request(obs_handler, *options, **kwargs)
+            return await self._impl.get_all_index_stats(req, obs_handler)
 
 
-class ScopeSearchIndexManager(SearchIndexManagerLogic):
+class ScopeSearchIndexManager:
 
     def __init__(self,
-                 connection,
-                 loop,
-                 bucket_name,  # type: str
-                 scope_name  # type: str
-                 ):
-        super().__init__(connection, bucket_name=bucket_name, scope_name=scope_name)
-        self._loop = loop
+                 client_adapter: AsyncClientAdapter,
+                 bucket_name: str,
+                 scope_name: str,
+                 observability_instruments: ObservabilityInstruments) -> None:
+        self._impl = AsyncSearchIndexMgmtImpl(client_adapter, observability_instruments)
+        self._scope_context = bucket_name, scope_name
 
-    @property
-    def loop(self):
-        """
-        **INTERNAL**
-        """
-        return self._loop
+    async def upsert_index(self,
+                           index,     # type: SearchIndex
+                           *options,  # type: UpsertSearchIndexOptions
+                           **kwargs   # type: Dict[str, Any]
+                           ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexUpsert
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_upsert_index_request(index,
+                                                                        self._scope_context,
+                                                                        obs_handler,
+                                                                        *options,
+                                                                        **kwargs)
+            await self._impl.upsert_index(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def upsert_index(self,
-                     index,     # type: SearchIndex
-                     *options,  # type: UpsertSearchIndexOptions
-                     **kwargs   # type: Dict[str, Any]
-                     ) -> Awaitable[None]:
-
-        super().upsert_index(index, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def drop_index(self,
-                   index_name,  # type: str
-                   *options,   # type: DropSearchIndexOptions
-                   **kwargs    # type: Dict[str, Any]
-                   ) -> Awaitable[None]:
-
-        super().drop_index(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(SearchIndex, ManagementType.SearchIndexMgmt,
-                                       SearchIndexManagerLogic._ERROR_MAPPING)
-    def get_index(self,
-                  index_name,  # type: str
-                  *options,   # type: GetSearchIndexOptions
-                  **kwargs    # type: Dict[str, Any]
-                  ) -> Awaitable[SearchIndex]:
-
-        super().get_index(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(SearchIndex, ManagementType.SearchIndexMgmt,
-                                       SearchIndexManagerLogic._ERROR_MAPPING)
-    def get_all_indexes(self,
-                        *options,  # type: GetAllSearchIndexesOptions
-                        **kwargs  # type: Dict[str, Any]
-                        ) -> Awaitable[Iterable[SearchIndex]]:
-        super().get_all_indexes(*options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(int, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def get_indexed_documents_count(self,
-                                    index_name,  # type: str
-                                    *options,   # type: GetSearchIndexedDocumentsCountOptions
-                                    **kwargs    # type: Dict[str, Any]
-                                    ) -> Awaitable[int]:
-        super().get_indexed_documents_count(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def pause_ingest(self,
-                     index_name,  # type: str
-                     *options,  # type: PauseIngestSearchIndexOptions
-                     **kwargs  # type: Dict[str, Any]
-                     ) -> Awaitable[None]:
-        super().pause_ingest(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def resume_ingest(self,
-                      index_name,  # type: str
-                      *options,  # type: ResumeIngestSearchIndexOptions
-                      **kwargs  # type: Dict[str, Any]
-                      ) -> Awaitable[None]:
-        super().resume_ingest(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def allow_querying(self,
-                       index_name,  # type: str
-                       *options,  # type: AllowQueryingSearchIndexOptions
-                       **kwargs  # type: Dict[str, Any]
-                       ) -> Awaitable[None]:
-        super().allow_querying(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def disallow_querying(self,
-                          index_name,  # type: str
-                          *options,  # type: DisallowQueryingSearchIndexOptions
-                          **kwargs  # type: Dict[str, Any]
-                          ) -> Awaitable[None]:
-        super().disallow_querying(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def freeze_plan(self,
-                    index_name,  # type: str
-                    *options,  # type: FreezePlanSearchIndexOptions
-                    **kwargs  # type: Dict[str, Any]
-                    ) -> Awaitable[None]:
-        super().freeze_plan(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(None, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def unfreeze_plan(self,
-                      index_name,  # type: str
-                      *options,  # type: UnfreezePlanSearchIndexOptions
-                      **kwargs  # type: Dict[str, Any]
-                      ) -> Awaitable[None]:
-        super().unfreeze_plan(index_name, *options, **kwargs)
-
-    @AsyncMgmtWrapper.inject_callbacks(dict, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def analyze_document(self,
+    async def drop_index(self,
                          index_name,  # type: str
-                         document,  # type: Any
-                         *options,  # type: AnalyzeDocumentSearchIndexOptions
-                         **kwargs  # type: Dict[str, Any]
-                         ) -> Awaitable[Dict[str, Any]]:
-        super().analyze_document(index_name, document, *options, **kwargs)
+                         *options,   # type: DropSearchIndexOptions
+                         **kwargs    # type: Dict[str, Any]
+                         ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexDrop
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_drop_index_request(index_name,
+                                                                      self._scope_context,
+                                                                      obs_handler,
+                                                                      *options,
+                                                                      **kwargs)
+            await self._impl.drop_index(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(dict, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def get_index_stats(self,
+    async def get_index(self,
                         index_name,  # type: str
-                        *options,  # type: GetSearchIndexStatsOptions
-                        **kwargs  # type: Dict[str, Any]
-                        ) -> Awaitable[Dict[str, Any]]:
-        super().get_index_stats(index_name, *options, **kwargs)
+                        *options,   # type: GetSearchIndexOptions
+                        **kwargs    # type: Dict[str, Any]
+                        ) -> SearchIndex:
+        op_type = SearchIndexMgmtOperationType.SearchIndexGet
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_index_request(index_name,
+                                                                     self._scope_context,
+                                                                     obs_handler,
+                                                                     *options,
+                                                                     **kwargs)
+            return await self._impl.get_index(req, obs_handler)
 
-    @AsyncMgmtWrapper.inject_callbacks(dict, ManagementType.SearchIndexMgmt, SearchIndexManagerLogic._ERROR_MAPPING)
-    def get_all_index_stats(self,
-                            *options,  # type: GetAllSearchIndexStatsOptions
+    async def get_all_indexes(self,
+                              *options,  # type: GetAllSearchIndexesOptions
+                              **kwargs  # type: Dict[str, Any]
+                              ) -> Iterable[SearchIndex]:
+        op_type = SearchIndexMgmtOperationType.SearchIndexGetAll
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_indexes_request(self._scope_context,
+                                                                           obs_handler,
+                                                                           *options,
+                                                                           **kwargs)
+            return await self._impl.get_all_indexes(req, obs_handler)
+
+    async def get_indexed_documents_count(self,
+                                          index_name,  # type: str
+                                          *options,   # type: GetSearchIndexedDocumentsCountOptions
+                                          **kwargs    # type: Dict[str, Any]
+                                          ) -> int:
+        op_type = SearchIndexMgmtOperationType.SearchIndexGetDocumentsCount
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_indexed_documents_count_request(index_name,
+                                                                                       self._scope_context,
+                                                                                       obs_handler,
+                                                                                       *options,
+                                                                                       **kwargs)
+            return await self._impl.get_indexed_documents_count(req, obs_handler)
+
+    async def pause_ingest(self,
+                           index_name,  # type: str
+                           *options,  # type: PauseIngestSearchIndexOptions
+                           **kwargs  # type: Dict[str, Any]
+                           ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexControlIngest
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments,
+                                            op_type_toggle=True) as obs_handler:
+            req = self._impl.request_builder.build_pause_ingest_request(index_name,
+                                                                        self._scope_context,
+                                                                        obs_handler,
+                                                                        *options,
+                                                                        **kwargs)
+            await self._impl.pause_ingest(req, obs_handler)
+
+    async def resume_ingest(self,
+                            index_name,  # type: str
+                            *options,  # type: ResumeIngestSearchIndexOptions
                             **kwargs  # type: Dict[str, Any]
-                            ) -> Awaitable[Dict[str, Any]]:
-        super().get_all_index_stats(*options, **kwargs)
+                            ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexControlIngest
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments,
+                                            op_type_toggle=False) as obs_handler:
+            req = self._impl.request_builder.build_resume_ingest_request(index_name,
+                                                                         self._scope_context,
+                                                                         obs_handler,
+                                                                         *options,
+                                                                         **kwargs)
+            await self._impl.resume_ingest(req, obs_handler)
+
+    async def allow_querying(self,
+                             index_name,  # type: str
+                             *options,  # type: AllowQueryingSearchIndexOptions
+                             **kwargs  # type: Dict[str, Any]
+                             ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexControlQuery
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments,
+                                            op_type_toggle=True) as obs_handler:
+            req = self._impl.request_builder.build_allow_querying_request(index_name,
+                                                                          self._scope_context,
+                                                                          obs_handler,
+                                                                          *options,
+                                                                          **kwargs)
+            await self._impl.allow_querying(req, obs_handler)
+
+    async def disallow_querying(self,
+                                index_name,  # type: str
+                                *options,  # type: DisallowQueryingSearchIndexOptions
+                                **kwargs  # type: Dict[str, Any]
+                                ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexControlQuery
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments,
+                                            op_type_toggle=False) as obs_handler:
+            req = self._impl.request_builder.build_disallow_querying_request(index_name,
+                                                                             self._scope_context,
+                                                                             obs_handler,
+                                                                             *options,
+                                                                             **kwargs)
+            await self._impl.disallow_querying(req, obs_handler)
+
+    async def freeze_plan(self,
+                          index_name,  # type: str
+                          *options,  # type: FreezePlanSearchIndexOptions
+                          **kwargs  # type: Dict[str, Any]
+                          ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexControlPlanFreeze
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments,
+                                            op_type_toggle=True) as obs_handler:
+            req = self._impl.request_builder.build_freeze_plan_request(index_name,
+                                                                       self._scope_context,
+                                                                       obs_handler,
+                                                                       *options,
+                                                                       **kwargs)
+            await self._impl.freeze_plan(req, obs_handler)
+
+    async def unfreeze_plan(self,
+                            index_name,  # type: str
+                            *options,  # type: UnfreezePlanSearchIndexOptions
+                            **kwargs  # type: Dict[str, Any]
+                            ) -> None:
+        op_type = SearchIndexMgmtOperationType.SearchIndexControlPlanFreeze
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments,
+                                            op_type_toggle=False) as obs_handler:
+            req = self._impl.request_builder.build_unfreeze_plan_request(index_name,
+                                                                         self._scope_context,
+                                                                         obs_handler,
+                                                                         *options,
+                                                                         **kwargs)
+            await self._impl.unfreeze_plan(req, obs_handler)
+
+    async def analyze_document(self,
+                               index_name,  # type: str
+                               document,  # type: Any
+                               *options,  # type: AnalyzeDocumentSearchIndexOptions
+                               **kwargs  # type: Dict[str, Any]
+                               ) -> Dict[str, Any]:
+        op_type = SearchIndexMgmtOperationType.SearchIndexAnalyzeDocument
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_analyze_document_request(index_name,
+                                                                            document,
+                                                                            self._scope_context,
+                                                                            obs_handler,
+                                                                            *options,
+                                                                            **kwargs)
+            return await self._impl.analyze_document(req, obs_handler)
+
+    async def get_index_stats(self,
+                              index_name,  # type: str
+                              *options,  # type: GetSearchIndexStatsOptions
+                              **kwargs  # type: Dict[str, Any]
+                              ) -> Dict[str, Any]:
+        op_type = SearchIndexMgmtOperationType.SearchIndexGetStats
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_index_stats_request(index_name,
+                                                                           self._scope_context,
+                                                                           obs_handler,
+                                                                           *options,
+                                                                           **kwargs)
+            return await self._impl.get_index_stats(req, obs_handler)
+
+    async def get_all_index_stats(self,
+                                  *options,  # type: GetAllSearchIndexStatsOptions
+                                  **kwargs  # type: Dict[str, Any]
+                                  ) -> Dict[str, Any]:
+        op_type = SearchIndexMgmtOperationType.SearchGetStats
+        async with ObservableRequestHandler(op_type, self._impl.observability_instruments) as obs_handler:
+            req = self._impl.request_builder.build_get_all_index_stats_request(obs_handler, *options, **kwargs)
+            return await self._impl.get_all_index_stats(req, obs_handler)

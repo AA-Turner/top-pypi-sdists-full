@@ -16877,7 +16877,7 @@ class EventRecordFormat(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lambda.EventRecordFormat",
 ):
-    '''The format target function should recieve record in.
+    '''The format target function should receive record in.
 
     :exampleMetadata: infused
 
@@ -16930,13 +16930,13 @@ class EventRecordFormat(
     @jsii.python.classproperty
     @jsii.member(jsii_name="JSON")
     def JSON(cls) -> "EventRecordFormat":
-        '''The target function will recieve records as json objects.'''
+        '''The target function will receive records as json objects.'''
         return typing.cast("EventRecordFormat", jsii.sget(cls, "JSON"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SOURCE")
     def SOURCE(cls) -> "EventRecordFormat":
-        '''The target function will recieve records in same format as the schema source.'''
+        '''The target function will receive records in same format as the schema source.'''
         return typing.cast("EventRecordFormat", jsii.sget(cls, "SOURCE"))
 
     @builtins.property

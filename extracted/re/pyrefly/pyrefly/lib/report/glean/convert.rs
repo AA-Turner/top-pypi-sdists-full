@@ -43,6 +43,7 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use starlark_map::small_set::SmallSet;
+use vec1::Vec1;
 
 use crate::module::module_info::ModuleInfo;
 use crate::report::glean::facts::*;
@@ -231,7 +232,15 @@ struct GleanState<'a> {
     facts: Facts,
     names: HashSet<Arc<String>>,
     locations_fqnames: HashMap<TextSize, Arc<String>>,
-    import_names: HashMap<Arc<String>, (Arc<String>, Option<Arc<String>>)>,
+    import_names: HashMap<
+        Arc<String>,
+        (
+            Arc<String>,
+            Option<Arc<String>>,
+            Option<src::File>,
+            Option<src::File>,
+        ),
+    >,
 }
 
 struct AssignInfo<'a> {
@@ -452,17 +461,27 @@ impl GleanState<'_> {
         python::Name::new(name)
     }
 
-    fn record_name_for_import(&mut self, as_name: String, resolved_name: &str, from_name: &str) {
+    fn record_name_for_import(
+        &mut self,
+        as_name: String,
+        resolved: DefinitionLocation,
+        from: DefinitionLocation,
+    ) {
         let arc_name = self.record_name(as_name);
-        let arc_resolved_name = self.record_name(resolved_name.to_owned());
-        let arc_from_name = if from_name != resolved_name {
-            Some(self.record_name(from_name.to_owned()))
+        let arc_resolved_name = self.record_name(resolved.name.clone());
+        let (arc_from_name, from_file) = if from.name != resolved.name {
+            (Some(self.record_name(from.name.clone())), from.file)
         } else {
-            None
+            (None, None)
         };
         self.import_names.insert(
             arc_name.dupe(),
-            (arc_resolved_name.dupe(), arc_from_name.dupe()),
+            (
+                arc_resolved_name.dupe(),
+                arc_from_name.dupe(),
+                resolved.file,
+                from_file,
+            ),
         );
     }
 
@@ -573,15 +592,17 @@ impl GleanState<'_> {
         let as_name = join_names(self.module_name.as_str(), self.module.code_at(range));
 
         let mut definitions = vec![];
-        if let Some((resolved_name, from_name)) = self.import_names.get(&as_name) {
+        if let Some((resolved_name, from_name, resolved_file, from_file)) =
+            self.import_names.get(&as_name)
+        {
             definitions.push(DefinitionLocation {
                 name: resolved_name.to_string(),
-                file: None,
+                file: resolved_file.clone(),
             });
             if !only_resolved_name && let Some(name) = from_name.as_ref() {
                 definitions.push(DefinitionLocation {
                     name: name.to_string(),
-                    file: None,
+                    file: from_file.clone(),
                 });
             }
         }
@@ -599,11 +620,10 @@ impl GleanState<'_> {
         identifier: Identifier,
         only_resolved_name: bool,
     ) -> Vec<DefinitionLocation> {
-        let definition = self.transaction.find_definition_for_name_use(
-            self.handle,
-            &identifier,
-            find_preference_glean(),
-        );
+        let definition = self
+            .transaction
+            .find_definition_for_name_use(self.handle, &identifier, find_preference_glean())
+            .unwrap_or(None);
 
         let additional_definitions =
             self.get_additional_definitions(identifier.range(), only_resolved_name);
@@ -622,11 +642,10 @@ impl GleanState<'_> {
         let name = self.module.code_at(range);
         let fqname = join_names(self.module_name.as_str(), name);
         let identifier = Identifier::new(name, range);
-        let definition = self.transaction.find_definition_for_name_use(
-            self.handle,
-            &identifier,
-            find_preference_glean(),
-        );
+        let definition = self
+            .transaction
+            .find_definition_for_name_use(self.handle, &identifier, find_preference_glean())
+            .unwrap_or(None);
         let additional_definitions = if definition.is_some() || self.names.contains(&fqname) {
             self.get_additional_definitions(range, false)
         } else {
@@ -1148,9 +1167,11 @@ impl GleanState<'_> {
     }
 
     fn find_definition(&self, position: TextSize) -> Vec<DefinitionLocation> {
-        let definitions =
-            self.transaction
-                .find_definition(self.handle, position, find_preference_glean());
+        let definitions = self
+            .transaction
+            .find_definition(self.handle, position, find_preference_glean())
+            .map(Vec1::into_vec)
+            .unwrap_or_default();
 
         definitions
             .into_iter()
@@ -1161,11 +1182,10 @@ impl GleanState<'_> {
     }
 
     fn find_definition_for_imported_module(&self, module: ModuleName) -> DefinitionLocation {
-        let definition = self.transaction.find_definition_for_imported_module(
-            self.handle,
-            module,
-            find_preference_glean(),
-        );
+        let definition = self
+            .transaction
+            .find_definition_for_imported_module(self.handle, module, find_preference_glean())
+            .unwrap_or(None);
 
         let name = module.to_string();
         let file = definition.map(|def| file_fact(&def.module));
@@ -1177,18 +1197,19 @@ impl GleanState<'_> {
         &mut self,
         from_name: &Identifier,
         as_name: &Identifier,
-        resolved_name: Option<&str>,
+        resolved: DefinitionLocation,
+        from_file: Option<src::File>,
         top_level_declaration: &python::Declaration,
     ) -> DeclarationInfo {
         let as_name_fqname = join_names(self.module_name.as_str(), as_name);
         let from_name_fact = python::Name::new(from_name.id().to_string());
         let as_name_fact = python::Name::new(as_name_fqname.clone());
 
-        self.record_name_for_import(
-            as_name_fqname,
-            resolved_name.unwrap_or(from_name),
-            from_name,
-        );
+        let from = DefinitionLocation {
+            name: from_name.id().to_string(),
+            file: from_file,
+        };
+        self.record_name_for_import(as_name_fqname, resolved, from);
         let import_fact = python::ImportStatement::new(from_name_fact, as_name_fact);
 
         DeclarationInfo {
@@ -1227,13 +1248,28 @@ impl GleanState<'_> {
                 self.add_xrefs_for_module(module_name, position, "");
 
                 if let Some(as_name) = &import.asname {
-                    vec![self.make_import_fact(from_name, as_name, None, top_level_declaration)]
+                    let def = self.find_definition_for_imported_module(module_name);
+                    vec![self.make_import_fact(
+                        from_name,
+                        as_name,
+                        def,
+                        None,
+                        top_level_declaration,
+                    )]
                 } else {
                     all_modules_with_range(module_name, position)
                         .map(|(module, range)| {
                             let mod_range = TextRange::new(position, range.end());
-                            let mod_id = Identifier::new(Name::new(module), mod_range);
-                            self.make_import_fact(&mod_id, &mod_id, None, top_level_declaration)
+                            let mod_id = Identifier::new(Name::new(module.clone()), mod_range);
+                            let def = self
+                                .find_definition_for_imported_module(ModuleName::from_str(&module));
+                            self.make_import_fact(
+                                &mod_id,
+                                &mod_id,
+                                def,
+                                None,
+                                top_level_declaration,
+                            )
                         })
                         .collect()
                 }
@@ -1337,7 +1373,8 @@ impl GleanState<'_> {
                 decl_infos.push(self.make_import_fact(
                     &from_name_id,
                     as_name,
-                    Some(&definition.name),
+                    definition.clone(),
+                    from_module_file.clone(),
                     top_level_declaration,
                 ));
 

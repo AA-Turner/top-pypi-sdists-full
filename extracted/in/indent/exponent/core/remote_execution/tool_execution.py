@@ -17,6 +17,7 @@ from exponent.core.config import get_chat_artifacts_dir
 from exponent.core.file_layout import bash_result_path, generate_bash_id
 from exponent.core.remote_execution import files
 from exponent.core.remote_execution.cli_rpc_types import (
+    DEFAULT_MAX_FILE_SIZE_BYTES,
     NO_CHARACTER_LIMIT,
     NO_LINE_LIMIT,
     ApplyPatchToolInput,
@@ -122,6 +123,29 @@ def is_image_file(file_path: str) -> tuple[bool, str | None]:
     return (False, None)
 
 
+async def _validate_file_access(file: AsyncPath, file_path: str, max_file_size_bytes: int) -> ErrorToolResult | None:
+    try:
+        stat = await file.stat()
+    except FileNotFoundError:
+        return ErrorToolResult(error_message="File not found")
+    except PermissionError:
+        return ErrorToolResult(error_message=f"Permission denied: cannot read {file_path}")
+    except OSError as e:
+        return ErrorToolResult(error_message=f"Cannot access file: {e!s}")
+
+    if stat.st_size > max_file_size_bytes:
+        size_mb = stat.st_size / (1024 * 1024)
+        limit_mb = max_file_size_bytes / (1024 * 1024)
+        return ErrorToolResult(
+            error_message=f"File is too large to read ({size_mb:.1f} MB). Maximum supported file size is {limit_mb:.0f} MB."
+        )
+
+    if await file.is_dir():
+        return ErrorToolResult(error_message=f"{await file.absolute()} is a directory")
+
+    return None
+
+
 async def execute_read_file(
     tool_input: ReadToolInput,
     working_directory: str,
@@ -142,6 +166,13 @@ async def execute_read_file(
         return ErrorToolResult(error_message=f"Limit must be positive, got: {limit}")
 
     file = AsyncPath(working_directory, tool_input.file_path)
+    max_file_size = (
+        tool_input.max_file_size_bytes if tool_input.max_file_size_bytes is not None else DEFAULT_MAX_FILE_SIZE_BYTES
+    )
+
+    access_error = await _validate_file_access(file, tool_input.file_path, max_file_size)
+    if access_error is not None:
+        return access_error
 
     # Check if this is an image file
     is_image, media_type = is_image_file(tool_input.file_path)
@@ -282,34 +313,10 @@ async def _read_text_file(
     file_path: str,
     working_directory: str,
 ) -> tuple[str, FileMetadata | None] | ErrorToolResult:
-    validation_error = _validate_absolute_file_path(file_path)
-    if validation_error is not None:
-        return validation_error
-
     file = AsyncPath(working_directory, file_path)
 
     try:
-        exists = await file.exists()
-    except (OSError, PermissionError) as e:
-        return ErrorToolResult(error_message=f"Cannot access file: {e!s}")
-
-    if not exists:
-        return ErrorToolResult(
-            error_message="File not found",
-        )
-
-    try:
-        if await file.is_dir():
-            return ErrorToolResult(
-                error_message=f"{await file.absolute()} is a directory",
-            )
-    except (OSError, PermissionError) as e:
-        return ErrorToolResult(error_message=f"Cannot check file type: {e!s}")
-
-    try:
         content = await safe_read_file(file)
-    except PermissionError:
-        return ErrorToolResult(error_message=f"Permission denied: cannot read {file_path}")
     except UnicodeDecodeError:
         return ErrorToolResult(error_message="File appears to be binary or has invalid text encoding")
     except Exception as e:
@@ -319,11 +326,23 @@ async def _read_text_file(
     return content, metadata
 
 
-async def execute_write_file(tool_input: WriteToolInput, working_directory: str) -> WriteToolResult:
+async def execute_write_file(tool_input: WriteToolInput, working_directory: str) -> WriteToolResult | ErrorToolResult:
     file_path = tool_input.file_path
-    path = Path(working_directory, file_path)
-    result = await execute_full_file_rewrite(path, tool_input.content, working_directory)
-    return WriteToolResult(message=result)
+    path = AsyncPath(working_directory, file_path)
+
+    if await path.exists() and tool_input.last_known_modified_timestamp is None:
+        return ErrorToolResult(
+            error_message=f"File already exists at {file_path}. You must read it with the Read tool before overwriting it."
+        )
+
+    if tool_input.last_known_modified_timestamp is not None:
+        metadata = await safe_get_file_metadata(path)
+        if metadata is not None and metadata.modified_timestamp > tool_input.last_known_modified_timestamp:
+            return ErrorToolResult(error_message="File has been modified since last read/write")
+
+    result = await execute_full_file_rewrite(Path(working_directory, file_path), tool_input.content, working_directory)
+    metadata = await safe_get_file_metadata(path)
+    return WriteToolResult(message=result, metadata=metadata)
 
 
 async def execute_edit_file(  # noqa: PLR0911

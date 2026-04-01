@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs
-Version: 1.42.79
-Summary: Type annotations for boto3 1.42.79 generated with mypy-boto3-builder 8.12.0
+Version: 1.42.80
+Summary: Type annotations for boto3 1.42.80 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: boto3-stubs-full<1.43.0,>=1.42.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.42.79; extra == "boto3"
+Requires-Dist: boto3==1.42.80; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: mypy-boto3-accessanalyzer<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-account<1.43.0,>=1.42.0; extra == "all"
@@ -389,6 +389,7 @@ Requires-Dist: mypy-boto3-schemas<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-sdb<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-secretsmanager<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-security-ir<1.43.0,>=1.42.0; extra == "all"
+Requires-Dist: mypy-boto3-securityagent<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-securityhub<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-securitylake<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-serverlessrepo<1.43.0,>=1.42.0; extra == "all"
@@ -424,6 +425,7 @@ Requires-Dist: mypy-boto3-sts<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-supplychain<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-support<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-support-app<1.43.0,>=1.42.0; extra == "all"
+Requires-Dist: mypy-boto3-sustainability<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-swf<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-synthetics<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-taxsettings<1.43.0,>=1.42.0; extra == "all"
@@ -1168,6 +1170,8 @@ Provides-Extra: secretsmanager
 Requires-Dist: mypy-boto3-secretsmanager<1.43.0,>=1.42.0; extra == "secretsmanager"
 Provides-Extra: security-ir
 Requires-Dist: mypy-boto3-security-ir<1.43.0,>=1.42.0; extra == "security-ir"
+Provides-Extra: securityagent
+Requires-Dist: mypy-boto3-securityagent<1.43.0,>=1.42.0; extra == "securityagent"
 Provides-Extra: securityhub
 Requires-Dist: mypy-boto3-securityhub<1.43.0,>=1.42.0; extra == "securityhub"
 Provides-Extra: securitylake
@@ -1238,6 +1242,8 @@ Provides-Extra: support
 Requires-Dist: mypy-boto3-support<1.43.0,>=1.42.0; extra == "support"
 Provides-Extra: support-app
 Requires-Dist: mypy-boto3-support-app<1.43.0,>=1.42.0; extra == "support-app"
+Provides-Extra: sustainability
+Requires-Dist: mypy-boto3-sustainability<1.43.0,>=1.42.0; extra == "sustainability"
 Provides-Extra: swf
 Requires-Dist: mypy-boto3-swf<1.43.0,>=1.42.0; extra == "swf"
 Provides-Extra: synthetics
@@ -1311,7 +1317,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.42.79](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.42.80](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1370,7 +1376,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.79' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.80' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1722,9 +1728,9 @@ repository.
 
 ## Submodules
 
-- `boto3-stubs[full]` - Type annotations for all 418 services in one package
+- `boto3-stubs[full]` - Type annotations for all 420 services in one package
   (recommended).
-- `boto3-stubs[all]` - Type annotations for all 418 services in separate
+- `boto3-stubs[all]` - Type annotations for all 420 services in separate
   packages.
 - `boto3-stubs[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/),
@@ -2765,6 +2771,9 @@ repository.
 - `boto3-stubs[security-ir]` - Type annotations for
   [SecurityIncidentResponse](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_security_ir/)
   service.
+- `boto3-stubs[securityagent]` - Type annotations for
+  [SecurityAgent](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/)
+  service.
 - `boto3-stubs[securityhub]` - Type annotations for
   [SecurityHub](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/)
   service.
@@ -2863,6 +2872,9 @@ repository.
   service.
 - `boto3-stubs[support-app]` - Type annotations for
   [SupportApp](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_support_app/)
+  service.
+- `boto3-stubs[sustainability]` - Type annotations for
+  [Sustainability](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sustainability/)
   service.
 - `boto3-stubs[swf]` - Type annotations for
   [SWF](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_swf/) service.

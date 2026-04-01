@@ -7234,19 +7234,6 @@ class CfnPortal(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="alarms")
-    def alarms(self) -> typing.Any:
-        '''Contains the configuration information of an alarm created in an AWS IoT SiteWise Monitor portal.'''
-        return typing.cast(typing.Any, jsii.get(self, "alarms"))
-
-    @alarms.setter
-    def alarms(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a07bf890e264d76055c18252e2d1882abb53a19982220ec6c89215096dedb5a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarms", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="portalContactEmail")
     def portal_contact_email(self) -> builtins.str:
         '''The AWS administrator's contact email address.'''
@@ -7284,6 +7271,19 @@ class CfnPortal(
             type_hints = typing.get_type_hints(_typecheckingstub__801da38b8b0799f806382f6db4934f5cde8b7b5856a63457bf47a3c3d721e0ed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="alarms")
+    def alarms(self) -> typing.Any:
+        '''Contains the configuration information of an alarm created in an AWS IoT SiteWise Monitor portal.'''
+        return typing.cast(typing.Any, jsii.get(self, "alarms"))
+
+    @alarms.setter
+    def alarms(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a07bf890e264d76055c18252e2d1882abb53a19982220ec6c89215096dedb5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alarms", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="notificationSenderEmail")
@@ -9207,12 +9207,6 @@ def _typecheckingstub__5c7d41561b5ff568159d53d88d8901853afd0b84ccc6b789aee97627a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__5a07bf890e264d76055c18252e2d1882abb53a19982220ec6c89215096dedb5a(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__76cc7d18d9cdc2c0262648281c53cc8a8880f76962fd416b38bc00d5e2e4d807(
     value: builtins.str,
 ) -> None:
@@ -9227,6 +9221,12 @@ def _typecheckingstub__e09665f12ada311bc3e92f26c950c3b352054729e545455c7ab822ebd
 
 def _typecheckingstub__801da38b8b0799f806382f6db4934f5cde8b7b5856a63457bf47a3c3d721e0ed(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a07bf890e264d76055c18252e2d1882abb53a19982220ec6c89215096dedb5a(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

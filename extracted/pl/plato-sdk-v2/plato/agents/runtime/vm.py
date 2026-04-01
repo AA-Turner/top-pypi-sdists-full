@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import re
+import shlex
 import time as _time
 import uuid
 from pathlib import Path
@@ -23,6 +24,7 @@ from plato.v2 import Env
 from plato.v2.types import SimConfigCompute
 
 if TYPE_CHECKING:
+    from plato.agents.runtime.warmpool import PooledVM, WarmPool
     from plato.v2.async_.environment import Environment
     from plato.v2.async_.session import Session
 
@@ -53,6 +55,58 @@ def _retry_agent_alias(base_alias: str, retry_attempt: int) -> str:
 
 def _is_duplicate_alias_error(exc: BaseException) -> bool:
     return "Duplicate alias" in str(exc)
+
+
+async def resolve_runner_path(ssh_key_path: Path | None, hostname: str) -> str:
+    """Resolve the absolute path for plato-agent-runner on a remote VM."""
+    if not ssh_key_path:
+        raise RuntimeError("ssh_key_path required to resolve runner path")
+    exit_code, stdout, stderr = await run_ssh(
+        ssh_key_path,
+        hostname,
+        'export PATH="/root/.local/bin:/usr/local/bin:$PATH"; '
+        'runner_path="$(command -v plato-agent-runner || true)"; '
+        'if [ -n "$runner_path" ] && [ -x "$runner_path" ]; then printf "%s\\n" "$runner_path"; '
+        'else echo "plato-agent-runner not found" >&2; exit 1; fi',
+        user="root",
+        timeout=30,
+        extra_opts=_VM_SSH_EXTRA_OPTS,
+    )
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to resolve plato-agent-runner on {hostname}: {stderr.strip() or stdout.strip()}")
+    runner_path = stdout.strip()
+    if not runner_path.startswith("/"):
+        raise RuntimeError(f"Resolved plato-agent-runner path is not absolute on {hostname}: {runner_path}")
+    return runner_path
+
+
+def parse_image_url(image: str) -> tuple[str, str]:
+    """Extract package name and version from a Docker image URL."""
+    last_part = image.split("/")[-1]
+    if ":" in last_part:
+        name, version = last_part.rsplit(":", 1)
+        return name, version
+    return last_part, "latest"
+
+
+async def install_agent_code_on_vm(
+    ssh_key_path: Path,
+    hostname: str,
+    ctx: AgentContext,
+) -> None:
+    """Install agent code on a VM (dev sync or production install)."""
+    package_name, version = parse_image_url(ctx.image)
+    if Path("/sdk").exists() and _find_agent_code(ctx.agent_code_path, package_name) is not None:
+        synced_agent_code = await sync_dev_code(ssh_key_path, hostname, ctx.agent_code_path, package_name)
+        if not synced_agent_code:
+            logger.info(
+                "Falling back to production agent install for %s==%s",
+                package_name,
+                version,
+            )
+            await install_production_agent(ssh_key_path, hostname, package_name, version)
+        return
+    await install_production_agent(ssh_key_path, hostname, package_name, version)
 
 
 class VMConfig(BaseModel):
@@ -87,13 +141,17 @@ class PlatoVMRuntime(Runtime):
         vm_config: VMConfig | None = None,
         workspace: Transport | None = None,
         workspaces: list[Transport] | None = None,
+        warm_pool: WarmPool | None = None,
     ):
         self.session = session
         self.ssh_key_path = ssh_key_path
         self.vm_config = vm_config or VMConfig()
         self.workspace = workspace  # backward compat — single workspace
         self.workspaces: list[Transport] = workspaces or []
+        self.warm_pool = warm_pool
         self._agent_envs: dict[str, Environment] = {}
+        self._pooled_vms: dict[str, PooledVM] = {}
+        self._runner_paths: dict[str, str] = {}
         self.last_execution_span_id: str = ""  # hex span ID of latest agent.execution.output span
 
     def _all_workspaces(self) -> list[Transport]:
@@ -128,8 +186,39 @@ class PlatoVMRuntime(Runtime):
         and network-joined. No client-side lock or explicit connect_network
         call is needed.
         """
+        if self.warm_pool is not None:
+            return await self._prepare_from_pool(ctx)
+        return await self._prepare_cold(ctx)
+
+    async def _prepare_from_pool(self, ctx: AgentContext) -> PreparedAgent:
+        """Acquire a pre-provisioned VM from the warm pool."""
         tracer = trace.get_tracer(__name__)
-        last_exc: Exception | None = None
+        t_total = _time.monotonic()
+
+        assert self.warm_pool is not None
+        with tracer.start_as_current_span("agent.prepare.acquire_vm") as span:
+            pooled_vm = await self.warm_pool.acquire(ctx)
+            agent_alias = pooled_vm.alias
+            span.set_attribute("agent.alias", agent_alias)
+            self._pooled_vms[agent_alias] = pooled_vm
+            self._agent_envs[agent_alias] = pooled_vm.agent_env
+            self._runner_paths[agent_alias] = pooled_vm.runner_path
+
+        try:
+            # Env setup writes /etc/environment and /etc/hosts — must complete before
+            # workspace setup which may depend on that state (matching cold path order).
+            await self._prepare_env_setup(tracer, pooled_vm.mesh_ip)
+            await self._prepare_workspace_setup(tracer, pooled_vm.agent_env, pooled_vm.mesh_ip, agent_alias)
+        except Exception:
+            await self.cleanup(agent_alias, error=True)
+            raise
+
+        logger.info("Agent VM %s ready (from pool): %.1fs total", agent_alias, _time.monotonic() - t_total)
+        return PreparedAgent(agent_id=agent_alias, hostname=pooled_vm.mesh_ip, runtime=self)
+
+    async def _prepare_cold(self, ctx: AgentContext) -> PreparedAgent:
+        """Provision a fresh VM with alias-collision retry."""
+        tracer = trace.get_tracer(__name__)
         base_alias = _make_agent_alias(ctx.display_name)
 
         for alias_attempt in range(3):
@@ -154,11 +243,15 @@ class PlatoVMRuntime(Runtime):
                         pub_key = Path(str(self.ssh_key_path) + ".pub").read_text().strip()
                         await agent_env.add_ssh_key(pub_key)
 
-                # sync_code and env_setup run concurrently (both need SSH key ready)
+                # Code sync and env setup are independent SSH operations — run concurrently.
                 await asyncio.gather(
                     self._prepare_sync_code(tracer, ctx, agent_env, mesh_ip, agent_alias),
                     self._prepare_env_setup(tracer, mesh_ip),
                 )
+                # Runner path resolution needs agent code installed (from sync above).
+                self._runner_paths[agent_alias] = await resolve_runner_path(self.ssh_key_path, mesh_ip)
+                # Workspace setup (NFS mount / git clone) runs after code + env are ready.
+                await self._prepare_workspace_setup(tracer, agent_env, mesh_ip, agent_alias)
 
                 logger.info(
                     "Agent VM %s ready: %.1fs total",
@@ -166,7 +259,6 @@ class PlatoVMRuntime(Runtime):
                     _time.monotonic() - t_total,
                 )
             except Exception as exc:
-                last_exc = exc
                 await self.cleanup(agent_alias, error=True)
                 if _is_duplicate_alias_error(exc) and alias_attempt < 2:
                     logger.warning(
@@ -183,8 +275,8 @@ class PlatoVMRuntime(Runtime):
                 runtime=self,
             )
 
-        assert last_exc is not None
-        raise last_exc
+        # Unreachable: the loop always returns on success or raises on non-retryable failure.
+        raise RuntimeError("Failed to prepare agent VM after all retry attempts")
 
     async def _prepare_sync_code(
         self, tracer: trace.Tracer, ctx: AgentContext, agent_env: Environment, mesh_ip: str, alias: str
@@ -192,6 +284,13 @@ class PlatoVMRuntime(Runtime):
         with tracer.start_as_current_span("agent.prepare.sync_code"):
             logger.info("Syncing code to %s", alias)
             await self._sync_code(ctx, agent_env, mesh_ip)
+
+    async def _prepare_workspace_setup(
+        self, tracer: trace.Tracer, agent_env: Environment, mesh_ip: str, alias: str
+    ) -> None:
+        with tracer.start_as_current_span("agent.prepare.workspace_setup"):
+            logger.info("Setting up workspaces on %s", alias)
+            await self._setup_workspaces(agent_env, mesh_ip)
 
     async def _prepare_env_setup(self, tracer: trace.Tracer, mesh_ip: str) -> None:
         with tracer.start_as_current_span("agent.prepare.env_setup"):
@@ -220,9 +319,12 @@ class PlatoVMRuntime(Runtime):
         agent_env = self._agent_envs.get(prepared.agent_id)
         if not agent_env:
             raise RuntimeError(f"No VM found for agent {prepared.agent_id}")
+        runner_path = self._runner_paths.get(prepared.agent_id)
+        if not runner_path:
+            raise RuntimeError(f"No runner path recorded for agent {prepared.agent_id}")
 
         logger.info(f"Executing agent on {prepared.hostname} (job={agent_env.job_id})")
-        await self._execute_agent(ctx, agent_env, prepared.hostname)
+        await self._execute_agent(ctx, agent_env, prepared.hostname, runner_path)
         logger.info(f"Agent finished on {prepared.hostname}, syncing workspaces back")
 
         for ws in self._all_workspaces():
@@ -232,11 +334,26 @@ class PlatoVMRuntime(Runtime):
 
     async def cleanup(self, agent_id: str, error: bool = False) -> None:
         """Clean up an agent VM."""
+        pooled_vm = self._pooled_vms.pop(agent_id, None)
+        if pooled_vm is not None:
+            self._agent_envs.pop(agent_id, None)
+            self._runner_paths.pop(agent_id, None)
+            if self.warm_pool is None:
+                raise RuntimeError("Pooled VM cleanup requested without a warm pool")
+            await self.warm_pool.release(
+                pooled_vm,
+                workspace_paths=[ws.agent_mount_path for ws in self._all_workspaces()],
+                destroy=error,
+            )
+            return
+
         agent_env = self._agent_envs.pop(agent_id, None)
+        self._runner_paths.pop(agent_id, None)
         if not agent_env:
             for alias, env in list(self._agent_envs.items()):
                 if env.job_id == agent_id:
                     agent_env = self._agent_envs.pop(alias)
+                    self._runner_paths.pop(alias, None)
                     break
 
         if agent_env:
@@ -281,42 +398,36 @@ class PlatoVMRuntime(Runtime):
         logger.info("Agent VM ready: %s (took %.1fs)", agent_env.job_id, _time.monotonic() - t0)
         return agent_env
 
-    def _parse_image_url(self, image: str) -> tuple[str, str]:
-        """Extract package name and version from image URL."""
-        last_part = image.split("/")[-1]
-        if ":" in last_part:
-            name, version = last_part.rsplit(":", 1)
-            return name, version
-        return last_part, "latest"
-
     async def _sync_code(self, ctx: AgentContext, agent_env: Environment, hostname: str) -> None:
         """Sync workspaces and install agent code on VM."""
-        import time
-
-        t0 = time.monotonic()
-        for ws in self._all_workspaces():
-            ws_t0 = time.monotonic()
-            await ws.setup_agent(agent_env, hostname)
-            logger.info("Workspace '%s' setup_agent took %.1fs", ws.path, time.monotonic() - ws_t0)
-        logger.info("All workspace setup_agent took %.1fs", time.monotonic() - t0)
-
         if not self.ssh_key_path:
             raise RuntimeError("ssh_key_path required for code sync")
 
-        t1 = time.monotonic()
-        package_name, version = self._parse_image_url(ctx.image)
-        if Path("/sdk").exists() and _find_agent_code(ctx.agent_code_path, package_name) is not None:
-            synced_agent_code = await sync_dev_code(self.ssh_key_path, hostname, ctx.agent_code_path, package_name)
-            if not synced_agent_code:
-                logger.info(
-                    "Falling back to production agent install for %s==%s (no synced dev agent code found).",
-                    package_name,
-                    version,
-                )
-                await install_production_agent(self.ssh_key_path, hostname, package_name, version)
-        else:
-            await install_production_agent(self.ssh_key_path, hostname, package_name, version)
-        logger.info("Agent code sync/install took %.1fs", time.monotonic() - t1)
+        t1 = _time.monotonic()
+        await install_agent_code_on_vm(self.ssh_key_path, hostname, ctx)
+        logger.info("Agent code sync/install took %.1fs", _time.monotonic() - t1)
+
+    async def _setup_workspaces(self, agent_env: Environment, hostname: str) -> None:
+        t0 = _time.monotonic()
+        all_ws = list(self._all_workspaces())
+        logger.info(
+            "Setting up %d workspaces on %s: %s",
+            len(all_ws),
+            hostname,
+            [(type(ws).__name__, ws.path, ws.mount_path) for ws in all_ws],
+        )
+        for ws in all_ws:
+            ws_t0 = _time.monotonic()
+            logger.info(
+                "Starting setup_agent for workspace '%s' (transport=%s, mount=%s) on %s",
+                ws.path,
+                type(ws).__name__,
+                ws.mount_path,
+                hostname,
+            )
+            await ws.setup_agent(agent_env, hostname)
+            logger.info("Workspace '%s' setup_agent took %.1fs on %s", ws.path, _time.monotonic() - ws_t0, hostname)
+        logger.info("All workspace setup_agent took %.1fs on %s", _time.monotonic() - t0, hostname)
 
     async def _run_ssh(
         self,
@@ -341,7 +452,17 @@ class PlatoVMRuntime(Runtime):
         assert self.ssh_key_path is not None
         return await run_ssh_streaming(self.ssh_key_path, hostname, command, user=user, extra_opts=_VM_SSH_EXTRA_OPTS)
 
-    async def _execute_agent(self, ctx: AgentContext, agent_env: Environment, hostname: str) -> None:
+    async def _resolve_runner_path(self, hostname: str) -> str:
+        """Resolve the executable path for plato-agent-runner on an agent VM."""
+        return await resolve_runner_path(self.ssh_key_path, hostname)
+
+    async def _execute_agent(
+        self,
+        ctx: AgentContext,
+        agent_env: Environment,
+        hostname: str,
+        runner_path: str,
+    ) -> None:
         """Execute the agent on the VM."""
         assert self.ssh_key_path is not None
 
@@ -442,7 +563,7 @@ class PlatoVMRuntime(Runtime):
 
         agent_cmd = (
             f'{env_exports} export PATH="/root/.local/bin:$PATH"; '
-            f'cd {workdir} && plato-agent-runner run --instruction-b64 "$(cat {instruction_file})"'
+            f'cd {workdir} && {shlex.quote(runner_path)} run --instruction-b64 "$(cat {instruction_file})"'
         )
 
         # Long-lived span for tracking SSH execution duration — not the

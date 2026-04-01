@@ -46,7 +46,6 @@ def _run_audit_test(config_path: Path) -> tuple[int, str]:
         phase_filter="all",
         pytest_args=None,
         artifacts_dir=None,
-        keep_vm_on_fail=False,
         verbose=True,
     )
     exit_code = asyncio.run(runner.run())

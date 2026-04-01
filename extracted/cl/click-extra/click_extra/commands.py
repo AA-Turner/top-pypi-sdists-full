@@ -171,7 +171,9 @@ class ExtraCommand(ExtraHelpColorsMixin, cloup.Command):  # type: ignore[misc]
         *args,
         version_fields: dict[str, Any] | None = None,
         config_schema: type | Callable[[dict[str, Any]], Any] | None = None,
+        schema_strict: bool = False,
         fallback_sections: Sequence[str] = (),
+        included_params: Sequence[str] | None = None,
         extra_option_at_end: bool = True,
         populate_auto_envvars: bool = True,
         **kwargs: Any,
@@ -329,14 +331,24 @@ class ExtraCommand(ExtraHelpColorsMixin, cloup.Command):  # type: ignore[misc]
                             raise TypeError(msg)
                         setattr(param, field_id, field_value)
 
-        # Forward config schema and fallback sections to the config option.
-        if config_schema is not None or fallback_sections:
+        # Forward config option parameters to the ConfigOption instance.
+        if (
+            config_schema is not None
+            or schema_strict
+            or fallback_sections
+            or included_params is not None
+        ):
             for param in self.params:
                 if isinstance(param, ConfigOption):
+                    if included_params is not None:
+                        param.included_params = frozenset(included_params)
+                    if schema_strict:
+                        param.schema_strict = schema_strict
                     if config_schema is not None:
                         param.config_schema = config_schema
                         param._config_schema_callable = param._make_schema_callable(
-                            config_schema
+                            config_schema,
+                            strict=param.schema_strict,
                         )
                     if fallback_sections:
                         param.fallback_sections = tuple(fallback_sections)

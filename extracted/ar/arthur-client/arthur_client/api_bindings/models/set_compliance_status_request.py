@@ -19,7 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List
-from arthur_client.api_bindings.models.compliance_status import ComplianceStatus
+from arthur_client.api_bindings.models.compliance_status_detail import ComplianceStatusDetail
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,7 +27,7 @@ class SetComplianceStatusRequest(BaseModel):
     """
     SetComplianceStatusRequest
     """ # noqa: E501
-    compliance_status: ComplianceStatus = Field(description="The new compliance status.")
+    compliance_status: ComplianceStatusDetail = Field(description="The new compliance status with detailed rule results.")
     __properties: ClassVar[List[str]] = ["compliance_status"]
 
     model_config = ConfigDict(
@@ -69,6 +69,9 @@ class SetComplianceStatusRequest(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of compliance_status
+        if self.compliance_status:
+            _dict['compliance_status'] = self.compliance_status.to_dict()
         return _dict
 
     @classmethod
@@ -81,7 +84,7 @@ class SetComplianceStatusRequest(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "compliance_status": obj.get("compliance_status")
+            "compliance_status": ComplianceStatusDetail.from_dict(obj["compliance_status"]) if obj.get("compliance_status") is not None else None
         })
         return _obj
 

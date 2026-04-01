@@ -36,7 +36,7 @@ dependencies = [
     # please keep these in sync with the minimum versions in testing/constraints-3.10.txt
     "cloudpickle >= 2.0.0",
     "fsspec >=2023.3.0",
-    "gcsfs >=2023.3.0, !=2025.5.0, !=2026.2.0",
+    "gcsfs >=2023.3.0, !=2025.5.0, !=2026.2.0, !=2026.3.0",
     "geopandas >=0.12.2",
     "google-auth >=2.15.0,<3.0",
     "google-cloud-bigquery[bqstorage,pandas] >=3.36.0",
@@ -46,6 +46,7 @@ dependencies = [
     "google-cloud-bigquery-connection >=1.12.0",
     "google-cloud-resource-manager >=1.10.3",
     "google-cloud-storage >=2.0.0",
+    "google-crc32c >=1.0.0,<2.0.0",
     "grpc-google-iam-v1 >= 0.14.2",
     "numpy >=1.24.0",
     "pandas >=1.5.3",

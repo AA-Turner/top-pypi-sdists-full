@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plux
-Version: 1.15.0
+Version: 1.16.0
 Summary: A dynamic code loading framework for building pluggable Python distributions
 Project-URL: Repository, https://github.com/localstack/plux
 Author-email: Thomas Rausch <info@localstack.cloud>
@@ -18,10 +18,15 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Provides-Extra: dev
 Requires-Dist: build; extra == 'dev'
+Requires-Dist: hatchling; extra == 'dev'
 Requires-Dist: mypy; extra == 'dev'
 Requires-Dist: pytest==8.4.1; extra == 'dev'
 Requires-Dist: ruff==0.9.1; extra == 'dev'
 Requires-Dist: setuptools; extra == 'dev'
+Provides-Extra: hatchling
+Requires-Dist: hatchling; extra == 'hatchling'
+Provides-Extra: setuptools
+Requires-Dist: setuptools; extra == 'setuptools'
 Description-Content-Type: text/markdown
 
 Plux

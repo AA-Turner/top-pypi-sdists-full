@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfyui_workflow_templates
-Version: 0.9.39
+Version: 0.9.41
 Summary: ComfyUI workflow templates package
 Author: Comfy-Org
 License: MIT
@@ -9,24 +9,24 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: comfyui-workflow-templates-core==0.3.188
+Requires-Dist: comfyui-workflow-templates-core==0.3.190
 Requires-Dist: comfyui-workflow-templates-media-api==0.3.68
-Requires-Dist: comfyui-workflow-templates-media-video==0.3.68
-Requires-Dist: comfyui-workflow-templates-media-image==0.3.114
-Requires-Dist: comfyui-workflow-templates-media-other==0.3.161
+Requires-Dist: comfyui-workflow-templates-media-video==0.3.69
+Requires-Dist: comfyui-workflow-templates-media-image==0.3.115
+Requires-Dist: comfyui-workflow-templates-media-other==0.3.163
 Provides-Extra: api
 Requires-Dist: comfyui-workflow-templates-media-api==0.3.68; extra == "api"
 Provides-Extra: video
-Requires-Dist: comfyui-workflow-templates-media-video==0.3.68; extra == "video"
+Requires-Dist: comfyui-workflow-templates-media-video==0.3.69; extra == "video"
 Provides-Extra: image
-Requires-Dist: comfyui-workflow-templates-media-image==0.3.114; extra == "image"
+Requires-Dist: comfyui-workflow-templates-media-image==0.3.115; extra == "image"
 Provides-Extra: other
-Requires-Dist: comfyui-workflow-templates-media-other==0.3.161; extra == "other"
+Requires-Dist: comfyui-workflow-templates-media-other==0.3.163; extra == "other"
 Provides-Extra: all
 Requires-Dist: comfyui-workflow-templates-media-api==0.3.68; extra == "all"
-Requires-Dist: comfyui-workflow-templates-media-video==0.3.68; extra == "all"
-Requires-Dist: comfyui-workflow-templates-media-image==0.3.114; extra == "all"
-Requires-Dist: comfyui-workflow-templates-media-other==0.3.161; extra == "all"
+Requires-Dist: comfyui-workflow-templates-media-video==0.3.69; extra == "all"
+Requires-Dist: comfyui-workflow-templates-media-image==0.3.115; extra == "all"
+Requires-Dist: comfyui-workflow-templates-media-other==0.3.163; extra == "all"
 Dynamic: license-file
 
 # workflow_templates
@@ -58,6 +58,36 @@ pnpm install
 pnpm run dev       # Start dev server at localhost:4321
 pnpm run build     # Production build (runs prebuild pipeline automatically)
 ```
+
+### Deployment Environments
+
+The template site is deployed to four environments via GitHub Actions:
+
+```
+main merge (version bump)
+  └─ PyPI publish ─► deploy-site.yml ─► Production (approved only)
+
+Every 15 minutes
+  ├─ cron-rebuild-site.yml         ─► Production         (prod API, approved only)
+  └─ preview-cron.yml
+       ├─ main (prod API)          ─► Preview Prod        (prod API, all workflows)
+       └─ main (test API)          ─► Preview Test        (test API, all workflows)
+
+PR opened/updated
+  ├─ preview-site.yml              ─► PR Preview (one-off)
+  └─ preview-cron.yml (label)      ─► PR Preview (15-min, requires "preview-cron" label)
+```
+
+| Environment | Workflow | API | Status Filter | Vercel Flag | Alias Secret | Trigger |
+|-------------|----------|-----|---------------|-------------|--------------|---------|
+| **Production** | `deploy-site.yml` | Production | `approved` only | `--prod` | — | PyPI publish / manual |
+| **Production** | `cron-rebuild-site.yml` | Production | `approved` only | `--prod` | — | Every 15 min |
+| **Preview Prod** | `preview-cron.yml` (main, prod) | Production | None (all) | preview | `VERCEL_PREVIEW_ALIAS` | Every 15 min |
+| **Preview Test** | `preview-cron.yml` (main, test) | Test | None (all) | preview | `VERCEL_PREVIEW_TEST_ALIAS` | Every 15 min |
+| **PR Preview** | `preview-site.yml` | Configurable | None (all) | preview | — | PR changes |
+| **PR Preview** | `preview-cron.yml` (PR) | Test | None (all) | preview | — | Every 15 min |
+
+**Status filtering** is controlled by the `PUBLIC_APPROVED_ONLY` environment variable at build time. When set to `'true'`, only workflows with `status: 'approved'` from the hub API index endpoint are included in the build. Preview environments omit this flag to show all workflows (pending, approved, rejected, deprecated) for internal review.
 
 ## Quick Start
 

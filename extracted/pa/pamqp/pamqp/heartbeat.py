@@ -1,22 +1,26 @@
-# -*- encoding: utf-8 -*-
 """
 AMQP Heartbeat Frame, used to create new Heartbeat frames for sending to a peer
 
 """
+
 import struct
+import typing
 
 from pamqp import constants
 
 
-class Heartbeat(object):
+class Heartbeat:
     """Heartbeat frame object mapping class. AMQP Heartbeat frames are mapped
     on to this class for a common access structure to the attributes/data
     values.
 
     """
-    name: str = 'Heartbeat'
-    value = struct.pack('>BHI', constants.FRAME_HEARTBEAT, 0, 0) + \
-        constants.FRAME_END_CHAR
+
+    name: typing.ClassVar[str] = 'Heartbeat'
+    value: typing.ClassVar[bytes] = (
+        struct.pack('>BHI', constants.FRAME_HEARTBEAT, 0, 0)
+        + constants.FRAME_END_CHAR
+    )
 
     @classmethod
     def marshal(cls) -> bytes:

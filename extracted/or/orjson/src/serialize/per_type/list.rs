@@ -2,15 +2,16 @@
 // Copyright ijl (2018-2026)
 
 use crate::ffi::{
-    PyBoolRef, PyDictRef, PyFloatRef, PyFragmentRef, PyIntRef, PyListRef, PyStrRef,
-    PyStrSubclassRef, PyUuidRef,
+    PyBoolRef, PyDateRef, PyDateTimeRef, PyDictRef, PyFloatRef, PyFragmentRef, PyIntRef, PyListRef,
+    PyStrRef, PyStrSubclassRef, PyTimeRef, PyUuidRef,
 };
 use crate::serialize::error::SerializeError;
+use crate::serialize::numpy::NumpyScalar;
 use crate::serialize::obtype::{ObType, pyobject_to_obtype};
 use crate::serialize::per_type::{
     BoolSerializer, DataclassGenericSerializer, Date, DateTime, DefaultSerializer,
     DictGenericSerializer, EnumSerializer, FloatSerializer, FragmentSerializer, IntSerializer,
-    NoneSerializer, NumpyScalar, NumpySerializer, StrSerializer, StrSubclassSerializer, Time, UUID,
+    NoneSerializer, NumpySerializer, StrSerializer, StrSubclassSerializer, Time, UUID,
 };
 use crate::serialize::serializer::PyObjectSerializer;
 use crate::serialize::state::SerializerState;
@@ -65,8 +66,11 @@ impl ListTupleSerializer {
         default: Option<NonNull<crate::ffi::PyObject>>,
     ) -> Self {
         debug_assert!(
-            is_type!(ob_type!(ptr), TUPLE_TYPE)
-                || is_subclass_by_flag!(tp_flags!(ob_type!(ptr)), Py_TPFLAGS_TUPLE_SUBCLASS)
+            is_type!(crate::ffi::PyObject_Type(ptr), TUPLE_TYPE)
+                || is_subclass_by_flag!(
+                    crate::ffi::PyType_GetFlags(crate::ffi::PyObject_Type(ptr)),
+                    Py_TPFLAGS_TUPLE_SUBCLASS
+                )
         );
         let data_ptr = unsafe { (*ptr.cast::<crate::ffi::PyTupleObject>()).ob_item.as_ptr() };
         let len = isize_to_usize(ffi!(Py_SIZE(ptr)));
@@ -125,13 +129,21 @@ impl Serialize for ListTupleSerializer {
                     .unwrap();
                 }
                 ObType::Datetime => {
-                    seq.serialize_element(&DateTime::new(value, self.state.opts()))?;
+                    seq.serialize_element(&DateTime::new(
+                        unsafe { PyDateTimeRef::from_ptr_unchecked(value) },
+                        self.state.opts(),
+                    ))?;
                 }
                 ObType::Date => {
-                    seq.serialize_element(&Date::new(value))?;
+                    seq.serialize_element(&Date::new(unsafe {
+                        PyDateRef::from_ptr_unchecked(value)
+                    }))?;
                 }
                 ObType::Time => {
-                    seq.serialize_element(&Time::new(value, self.state.opts()))?;
+                    seq.serialize_element(&Time::new(
+                        unsafe { PyTimeRef::from_ptr_unchecked(value) },
+                        self.state.opts(),
+                    ))?;
                 }
                 ObType::Uuid => {
                     seq.serialize_element(&UUID::new(unsafe {

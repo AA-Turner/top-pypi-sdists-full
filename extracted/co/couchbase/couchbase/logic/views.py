@@ -28,13 +28,12 @@ from typing import (TYPE_CHECKING,
 
 from couchbase._utils import to_microseconds
 from couchbase.exceptions import ErrorMapper, InvalidArgumentException
-from couchbase.exceptions import exception as CouchbaseBaseException
+from couchbase.logic.observability import ObservableRequestHandler, SpanProtocol
 from couchbase.logic.options import ViewOptionsBase
+from couchbase.logic.pycbc_core import pycbc_exception as PycbcCoreException
 from couchbase.management.views import DesignDocumentNamespace
 from couchbase.options import UnsignedInt64, ViewOptions
-from couchbase.pycbc_core import view_query
 from couchbase.serializer import DefaultJsonSerializer, Serializer
-from couchbase.tracing import CouchbaseSpan
 
 if TYPE_CHECKING:
     from couchbase._utils import JSONType
@@ -45,22 +44,64 @@ class ViewScanConsistency(Enum):
     REQUEST_PLUS = 'false'
     UPDATE_AFTER = 'update_after'
 
+    def to_str(self) -> str:
+        if self.value == 'false':
+            return 'request_plus'
+        elif self.value == 'ok':
+            return 'not_bounded'
+        else:
+            return self.value
+
+    @classmethod
+    def from_str(cls, value: str) -> ViewScanConsistency:
+        if value in ['false', 'request_plus']:
+            return cls.REQUEST_PLUS
+        elif value in ['ok', 'not_bounded']:
+            return cls.NOT_BOUNDED
+        elif value == 'update_after':
+            return cls.UPDATE_AFTER
+
 
 class ViewOrdering(Enum):
     DESCENDING = 'true'
     ASCENDING = 'false'
+
+    def to_str(self) -> str:
+        if self.value == 'false':
+            return 'ascending'
+        else:
+            return 'descending'
+
+    @classmethod
+    def from_str(cls, value: str) -> ViewOrdering:
+        if value == 'descending':
+            return cls.DESCENDING
+        else:
+            return cls.ASCENDING
 
 
 class ViewErrorMode(Enum):
     CONTINUE = 'continue'
     STOP = 'stop'
 
+    def to_str(self) -> str:
+        return 'resume' if self.value == 'continue' else self.value
+
+    @classmethod
+    def from_str(cls, value: str) -> ViewErrorMode:
+        if value == 'resume':
+            return cls.CONTINUE
+        elif value == 'continue':
+            return cls.CONTINUE
+        else:
+            return cls.STOP
+
 
 class ViewMetaData:
     def __init__(self, raw  # type: Dict[str, Any]
                  ) -> None:
         if raw is not None:
-            self._raw = raw.get('metadata', None)
+            self._raw = raw
         else:
             self._raw = None
 
@@ -119,6 +160,7 @@ class ViewQuery:
         "query_string": {"query_string": lambda x: x},
         "serializer": {"serializer": lambda x: x},
         "span": {"span": lambda x: x},
+        "parent_span": {"parent_span": lambda x: x},
         "full_set": {"full_set": lambda x: x}
     }
 
@@ -194,20 +236,15 @@ class ViewQuery:
         if value is None:
             return ViewScanConsistency.NOT_BOUNDED
         if isinstance(value, str):
-            if value == 'ok':
-                return ViewScanConsistency.NOT_BOUNDED
-            elif value == 'false':
-                return ViewScanConsistency.REQUEST_PLUS
-            else:
-                return ViewScanConsistency.UPDATE_AFTER
+            return ViewScanConsistency.from_str(value)
 
     @consistency.setter
     def consistency(self, value  # type: Union[ViewScanConsistency, str]
                     ) -> None:
         if isinstance(value, ViewScanConsistency):
-            self.set_option('scan_consistency', value.value)
+            self.set_option('scan_consistency', value.to_str())
         elif isinstance(value, str) and value in [sc.value for sc in ViewScanConsistency]:
-            self.set_option('scan_consistency', value)
+            self.set_option('scan_consistency', ViewScanConsistency(value).to_str())
         else:
             raise InvalidArgumentException(message=("Excepted consistency to be either of type "
                                                     "ViewScanConsistency or str representation "
@@ -314,18 +351,15 @@ class ViewQuery:
         if value is None:
             return ViewOrdering.DESCENDING
         if isinstance(value, str):
-            if value == 'false':
-                return ViewOrdering.ASCENDING
-            else:
-                return ViewOrdering.DESCENDING
+            return ViewOrdering.from_str(value)
 
     @order.setter
     def order(self, value  # type: Union[ViewOrdering, str]
               ) -> None:
         if isinstance(value, ViewOrdering):
-            self.set_option('order', value.value)
+            self.set_option('order', value.to_str())
         elif isinstance(value, str) and value in [sc.value for sc in ViewOrdering]:
-            self.set_option('order', value)
+            self.set_option('order', ViewOrdering(value).to_str())
         else:
             raise InvalidArgumentException(message=("Excepted order to be either of type "
                                                     "ViewOrdering or str representation "
@@ -339,18 +373,15 @@ class ViewQuery:
         if value is None:
             return ViewErrorMode.STOP
         if isinstance(value, str):
-            if value == 'continue':
-                return ViewErrorMode.CONTINUE
-            else:
-                return ViewErrorMode.STOP
+            return ViewErrorMode.from_str(value)
 
     @on_error.setter
     def on_error(self, value  # type: Union[ViewErrorMode, str]
                  ) -> None:
         if isinstance(value, ViewErrorMode):
-            self.set_option('on_error', value.value)
+            self.set_option('on_error', value.to_str())
         elif isinstance(value, str) and value in [sc.value for sc in ViewErrorMode]:
-            self.set_option('on_error', value)
+            self.set_option('on_error', ViewErrorMode(value).to_str())
         else:
             raise InvalidArgumentException(message=("Excepted on_error to be either of type "
                                                     "ViewErrorMode or str representation "
@@ -359,16 +390,13 @@ class ViewQuery:
     @property
     def namespace(self) -> DesignDocumentNamespace:
         value = self._params.get(
-            'namespace', None
+            'ns', None
         )
         if value is None:
             return DesignDocumentNamespace.DEVELOPMENT
 
         if isinstance(value, str):
-            if value == 'production':
-                return DesignDocumentNamespace.PRODUCTION
-            else:
-                return DesignDocumentNamespace.DEVELOPMENT
+            return DesignDocumentNamespace.from_str(value)
         if isinstance(value, bool):
             if not value:
                 return DesignDocumentNamespace.PRODUCTION
@@ -379,9 +407,9 @@ class ViewQuery:
     def namespace(self, value  # type: Union[DesignDocumentNamespace, str]
                   ) -> None:
         if isinstance(value, DesignDocumentNamespace):
-            self.set_option('namespace', value.value)
+            self.set_option('ns', value.to_str())
         elif isinstance(value, str) and value in [sc.value for sc in DesignDocumentNamespace]:
-            self.set_option('namespace', value)
+            self.set_option('ns', DesignDocumentNamespace(value).to_str())
         else:
             raise InvalidArgumentException(message=("Excepted namespace to be either of type "
                                                     "DesignDocumentNamespace or str representation "
@@ -437,15 +465,20 @@ class ViewQuery:
         self.set_option('serializer', value)
 
     @property
-    def span(self) -> Optional[CouchbaseSpan]:
+    def span(self) -> Optional[SpanProtocol]:
         return self._params.get('span', None)
 
     @span.setter
-    def span(self, value  # type: CouchbaseSpan
-             ):
-        if not issubclass(value.__class__, CouchbaseSpan):
-            raise InvalidArgumentException(message='Span should implement CouchbaseSpan interface')
+    def span(self, value: SpanProtocol) -> None:
         self.set_option('span', value)
+
+    @property
+    def parent_span(self) -> Optional[SpanProtocol]:
+        return self._params.get('parent_span', None)
+
+    @parent_span.setter
+    def parent_span(self, value: SpanProtocol) -> None:
+        self.set_option('parent_span', value)
 
     @property
     def full_set(self) -> Optional[bool]:
@@ -503,6 +536,8 @@ class ViewRequestLogic:
         self._streaming_timeout = kwargs.pop('streaming_timeout', None)
         self._done_streaming = False
         self._metadata = None
+        self._obs_handler: Optional[ObservableRequestHandler] = kwargs.pop('obs_handler', None)
+        self._processed_core_span = False
 
     @property
     def encoded_query(self) -> Dict[str, Any]:
@@ -532,26 +567,45 @@ class ViewRequestLogic:
         # @TODO:  raise if query isn't complete?
         return self._metadata
 
+    def _process_core_span(self, exc_val: Optional[BaseException] = None) -> None:
+        if self._processed_core_span:
+            return
+        self._processed_core_span = True
+        if self._obs_handler and self._streaming_result:
+            self._obs_handler.process_meter_end(exc_val=exc_val)
+            # TODO(PYCBC-1746): Update once legacy tracing logic is removed
+            if self._obs_handler.is_legacy_tracer:
+                # the handler knows how to handle this legacy situation (essentially just ends the span)
+                self._obs_handler.process_core_span(None)
+            elif hasattr(self._streaming_result, 'core_span'):
+                self._obs_handler.process_core_span(self._streaming_result.core_span,
+                                                    with_error=(exc_val is not None))
+
     def _set_metadata(self, views_response):
-        if isinstance(views_response, CouchbaseBaseException):
+        if isinstance(views_response, PycbcCoreException):
             raise ErrorMapper.build_exception(views_response)
 
-        self._metadata = ViewMetaData(views_response.raw_result.get('value', None))
+        self._metadata = ViewMetaData(views_response.raw_result.get('metadata', None))
 
     def _submit_query(self, **kwargs):
         if self.done_streaming:
             return
 
         self._started_streaming = True
-        span = self.encoded_query.pop('span', None)
-        view_kwargs = {
-            'conn': self._connection,
-            'op_args': self.encoded_query
-        }
-        if span:
-            view_kwargs['span'] = span
+        view_kwargs = {}
+        view_kwargs.update(self.encoded_query)
 
-        streaming_timeout = self.encoded_query.get('timeout', self._streaming_timeout)
+        # we don't need the spans in the kwargs, tracing is handled by the ObservableRequestHandler
+        span = view_kwargs.pop('span', None)
+        parent_span = view_kwargs.pop('parent_span', None)
+        if self._obs_handler:
+            # since the view query is lazy executed, we wait until we submit the query to create the span
+            parent_span = ObservableRequestHandler.maybe_get_parent_span(span=span, parent_span=parent_span)
+            self._obs_handler.create_http_span(parent_span=parent_span,
+                                               bucket_name=view_kwargs['bucket_name'],
+                                               use_now_as_start_time=True)
+
+        streaming_timeout = view_kwargs.get('timeout', self._streaming_timeout)
         if streaming_timeout:
             view_kwargs['streaming_timeout'] = streaming_timeout
 
@@ -564,7 +618,16 @@ class ViewRequestLogic:
         if errback:
             view_kwargs['errback'] = errback
 
-        self._streaming_result = view_query(**view_kwargs)
+        if self._obs_handler:
+            # TODO(PYCBC-1746): Update once legacy tracing logic is removed
+            if self._obs_handler.is_legacy_tracer:
+                legacy_request_span = self._obs_handler.legacy_request_span
+                if legacy_request_span:
+                    view_kwargs['parent_span'] = legacy_request_span
+            else:
+                view_kwargs['wrapper_span_name'] = self._obs_handler.wrapper_span_name
+
+        self._streaming_result = self._connection.pycbc_view_query(**view_kwargs)
 
     def __iter__(self):
         raise NotImplementedError(

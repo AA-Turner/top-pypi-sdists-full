@@ -983,7 +983,7 @@ You can add a widget after object instantiation with the method
 ### Interval duration for dashboard
 
 Interval duration for metrics in dashboard. You can specify `defaultInterval` with
-the relative time(eg. 7 days) as `Duration.days(7)`.
+the relative time (e.g. 7 days) as `Duration.days(7)`.
 
 ```python
 import aws_cdk.aws_cloudwatch as cw
@@ -8672,7 +8672,7 @@ class Dashboard(
         :param scope: -
         :param id: -
         :param dashboard_name: Name of the dashboard. If set, must only contain alphanumerics, dash (-) and underscore (_) Default: - automatically generated name
-        :param default_interval: Interval duration for metrics. You can specify defaultInterval with the relative time(eg. cdk.Duration.days(7)). Both properties ``defaultInterval`` and ``start`` cannot be set at once. Default: When the dashboard loads, the defaultInterval time will be the default time range.
+        :param default_interval: Interval duration for metrics. You can specify defaultInterval with the relative time (e.g. cdk.Duration.days(7)). Both properties ``defaultInterval`` and ``start`` cannot be set at once. Default: When the dashboard loads, the defaultInterval time will be the default time range.
         :param end: The end of the time range to use for each widget on the dashboard when the dashboard loads. If you specify a value for end, you must also specify a value for start. Specify an absolute time in the ISO 8601 format. For example, 2018-12-17T06:00:00.000Z. Default: When the dashboard loads, the end date will be the current time.
         :param period_override: Use this field to specify the period for the graphs when the dashboard loads. Specifying ``Auto`` causes the period of all graphs on the dashboard to automatically adapt to the time range of the dashboard. Specifying ``Inherit`` ensures that the period set for each graph is always obeyed. Default: Auto
         :param start: The start of the time range to use for each widget on the dashboard. You can specify start without specifying end to specify a relative time range that ends with the current time. In this case, the value of start must begin with -P, and you can use M, H, D, W and M as abbreviations for minutes, hours, days, weeks and months. For example, -PT8H shows the last 8 hours and -P3M shows the last three months. You can also use start along with an end field, to specify an absolute time range. When specifying an absolute time range, use the ISO 8601 format. For example, 2018-12-17T06:00:00.000Z. Both properties ``defaultInterval`` and ``start`` cannot be set at once. Default: When the dashboard loads, the start time will be the default time range.
@@ -8778,7 +8778,7 @@ class DashboardProps:
         '''Properties for defining a CloudWatch Dashboard.
 
         :param dashboard_name: Name of the dashboard. If set, must only contain alphanumerics, dash (-) and underscore (_) Default: - automatically generated name
-        :param default_interval: Interval duration for metrics. You can specify defaultInterval with the relative time(eg. cdk.Duration.days(7)). Both properties ``defaultInterval`` and ``start`` cannot be set at once. Default: When the dashboard loads, the defaultInterval time will be the default time range.
+        :param default_interval: Interval duration for metrics. You can specify defaultInterval with the relative time (e.g. cdk.Duration.days(7)). Both properties ``defaultInterval`` and ``start`` cannot be set at once. Default: When the dashboard loads, the defaultInterval time will be the default time range.
         :param end: The end of the time range to use for each widget on the dashboard when the dashboard loads. If you specify a value for end, you must also specify a value for start. Specify an absolute time in the ISO 8601 format. For example, 2018-12-17T06:00:00.000Z. Default: When the dashboard loads, the end date will be the current time.
         :param period_override: Use this field to specify the period for the graphs when the dashboard loads. Specifying ``Auto`` causes the period of all graphs on the dashboard to automatically adapt to the time range of the dashboard. Specifying ``Inherit`` ensures that the period set for each graph is always obeyed. Default: Auto
         :param start: The start of the time range to use for each widget on the dashboard. You can specify start without specifying end to specify a relative time range that ends with the current time. In this case, the value of start must begin with -P, and you can use M, H, D, W and M as abbreviations for minutes, hours, days, weeks and months. For example, -PT8H shows the last 8 hours and -P3M shows the last three months. You can also use start along with an end field, to specify an absolute time range. When specifying an absolute time range, use the ISO 8601 format. For example, 2018-12-17T06:00:00.000Z. Both properties ``defaultInterval`` and ``start`` cannot be set at once. Default: When the dashboard loads, the start time will be the default time range.
@@ -8843,7 +8843,7 @@ class DashboardProps:
 
     @builtins.property
     def default_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
-        '''Interval duration for metrics. You can specify defaultInterval with the relative time(eg. cdk.Duration.days(7)).
+        '''Interval duration for metrics. You can specify defaultInterval with the relative time (e.g. cdk.Duration.days(7)).
 
         Both properties ``defaultInterval`` and ``start`` cannot be set at once.
 

@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import httpx
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -23,8 +24,14 @@ from rich.text import Text
 from plato.chronos.api.registry import (
     get_agent_schema_api_registry_agents__agent_name__schema_get as get_agent_schema_api,
 )
-from plato.chronos.api.sessions import complete_session, create_session
-from plato.chronos.models import CompleteSessionRequest, CreateSessionRequest, CreateSessionResponse, Status1
+from plato.chronos.api.sessions import complete_session, create_session, link_plato_session
+from plato.chronos.models import (
+    CompleteSessionRequest,
+    CreateSessionRequest,
+    CreateSessionResponse,
+    LinkPlatoSessionRequest,
+    Status1,
+)
 from plato.cli.chronos.config import Config
 from plato.cli.chronos.dev.ecr import ensure_image_exists
 from plato.cli.chronos.dev.paths import get_sdk_root
@@ -278,6 +285,7 @@ class DevRunner:
                             raise RuntimeError("Failed to create session")
                         status.update("  Starting heartbeat...")
                         await self.session.start_heartbeat()
+                        await self._link_plato_session(self.session.session_id)
                 _step(f"Session [bold]{self.session.session_id}[/bold]")
 
                 # 4. Provision: connect network → SSH → gateway probe
@@ -482,6 +490,27 @@ class DevRunner:
             timeout=30.0,
         ) as client:
             return await create_session.asyncio(client, body=body, x_api_key=self.api_key)
+
+    async def _link_plato_session(self, plato_session_id: str) -> None:
+        """Link the Plato session to the Chronos session so envs tab is populated."""
+        chronos_session_id = self.config.session.session_id
+        if not chronos_session_id:
+            return
+
+        body = LinkPlatoSessionRequest(plato_session_id=plato_session_id)
+        try:
+            async with httpx.AsyncClient(
+                base_url=settings.chronos_url.rstrip("/"),
+                timeout=30.0,
+            ) as client:
+                await link_plato_session.asyncio(
+                    client,
+                    public_id=chronos_session_id,
+                    body=body,
+                    x_api_key=self.api_key,
+                )
+        except Exception:  # noqa: BLE001
+            logger.warning("Failed to link Plato session to Chronos", exc_info=True)
 
     async def _complete_chronos_session(
         self,

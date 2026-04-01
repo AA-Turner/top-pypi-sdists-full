@@ -247,6 +247,14 @@ class DatadogMetricsReporter:
                         Histogram: AggregationTemporality.DELTA,
                     },
                 )
+                # Burn after reading: remove DD keys from env so user code
+                # and child processes cannot access them.
+                for key in (
+                    "LSD_DD_API_KEY",
+                    "LSD_DD_ENDPOINT",
+                ):
+                    os.environ.pop(key, None)
+
                 reader = PeriodicExportingMetricReader(
                     _FilteringExporter(base_exporter),
                     export_interval_millis=10_000,

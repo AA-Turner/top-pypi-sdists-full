@@ -22,6 +22,7 @@ from langgraph.pregel import Pregel
 from langgraph_grpc_common.checkpointer import GrpcCheckpointer
 
 from langgraph_api import config, timing
+from langgraph_api.asyncio import as_asynccontextmanager
 from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.timing import profiled_import
 from langgraph_api.utils.config import run_in_executor
@@ -375,15 +376,9 @@ async def collect_checkpointer_from_env() -> None:
 async def _yield_checkpointer(value: Any):
     if isinstance(value, BaseCheckpointSaver):
         yield value
-    # Async context manager
-    elif hasattr(value, "__aenter__") and hasattr(value, "__aexit__"):
-        async with value as ctx_value:
+    elif hasattr(value, "__aenter__") or hasattr(value, "__enter__"):
+        async with as_asynccontextmanager(value) as ctx_value:
             yield ctx_value
-    # Sync context manager
-    elif hasattr(value, "__enter__") and hasattr(value, "__exit__"):
-        with value as ctx_value:
-            yield ctx_value
-    # async factory
     elif asyncio.iscoroutine(value):
         result = await value
         if not isinstance(result, BaseCheckpointSaver):
@@ -391,7 +386,6 @@ async def _yield_checkpointer(value: Any):
                 "Custom checkpointer must resolve to a BaseCheckpointSaver instance."
             )
         yield result
-    # factory
     elif callable(value):
         async with _yield_checkpointer(value()) as ctx_value:
             yield ctx_value
